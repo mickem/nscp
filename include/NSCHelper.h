@@ -5,6 +5,7 @@
 #include <NSCAPI.h>
 #include <iostream>
 #include <charEx.h>
+#include <arrayBuffer.h>
 
 namespace NSCHelper
 {
@@ -14,14 +15,6 @@ namespace NSCHelper
 #else
 	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode);
 #endif
-
-	std::list<std::string> arrayBuffer2list(const unsigned int argLen, char **argument);
-	char ** list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen);
-	char ** split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen);
-	std::string arrayBuffer2string(char **argument, const unsigned int argLen, std::string join);
-	char ** createEmptyArrayBuffer(unsigned int &argLen);
-	void destroyArrayBuffer(char **argument, const unsigned int argLen);
-
 	std::string translateMessageType(NSCAPI::messageTypes msgType);
 	std::string translateReturn(NSCAPI::nagiosReturn returnCode);
 
@@ -101,6 +94,7 @@ namespace NSCModuleHelper
 	NSCAPI::nagiosReturn InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
 	NSCAPI::nagiosReturn InjectCommand(const char* command, const unsigned int argLen, char **argument, std::string & message, std::string & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const char* command, char* buffer, char splitChar, std::string & message, std::string & perf);
+	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::string command, const std::string buffer, char splitChar, std::string & message, std::string & perf);
 	void StopService(void);
 	std::string getBasePath();
 };

@@ -67,6 +67,11 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME " Version: " SZVERSION);
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
+#ifdef _DEBUG
+			strEx::run_test_getToken();
+			charEx::run_test_getToken();
+			arrayBuffer::run_testArrayBuffer();
+#endif
 			g_bConsoleLog = true;
 			mainClient.InitiateService();
 			LOG_MESSAGE("Enter command to inject or exit to terminate...");
