@@ -259,7 +259,7 @@ std::string NSClientT::execute(std::string password, std::string cmd, std::list<
 			} else if (c == NSCAPI::invalidBufferLen) {	// Buffer is to small
 				LOG_ERROR("Return buffer to small, need to increase it in the ini file.");
 			} else {									// Something else went wrong...
-				LOG_ERROR("Unknown error from handleCommand");
+				LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
 			}
 		} catch(const NSPluginException& e) {
 			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);

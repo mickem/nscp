@@ -81,7 +81,7 @@ std::string NSCommands::procState(std::list<std::string> args) {
 			if (state == ok)
 				state = error;
 			if (!ret.empty()) ret += " - ";
-			ret += exe + " : Stopped";
+			ret += exe + " : not running";
 		} else if (showAll) {
 			if (!ret.empty()) ret += " - ";
 			ret += exe + " : Running";

@@ -42,7 +42,6 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 	{
 	case WM_INITDIALOG:
 		addIcon(hwndDlg);
-//		return TRUE;
 		break;
 
 	case WM_ICON_NOTIFY:

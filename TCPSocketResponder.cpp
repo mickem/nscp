@@ -103,7 +103,6 @@ DWORD TCPSocketResponder::threadProc(LPVOID lpParameter)
 	while(isRunning()) {
 		client=accept(server, (struct sockaddr*)&from,&fromlen);
 		if (client != INVALID_SOCKET) {
-			LOG_ERROR_STD("Accept returned: " + strEx::itos((DWORD)client));
 			char *buff = new char[RECV_BUFFER_LEN+1];
 			int n=recv(client,buff,RECV_BUFFER_LEN,0);
 			if ((n!=SOCKET_ERROR )&&(n > 0)&&(n < RECV_BUFFER_LEN)) {
