@@ -2,8 +2,8 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="7.10"
-	Name="NSClientCompat"
-	ProjectGUID="{79F1F571-78A6-4B20-8BD5-0F65CD60012C}"
+	Name="CheckDisk"
+	ProjectGUID="{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}"
 	Keyword="Win32Proj">
 	<Platforms>
 		<Platform
@@ -19,8 +19,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../include;../../include"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_STATIC_LIB;_STLP_USE_MALLOC"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;CHECKDISK_EXPORTS"
 				MinimalRebuild="TRUE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -32,14 +31,12 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="../../Debug/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)/CheckDisk.dll"
 				LinkIncremental="2"
-				ModuleDefinitionFile="NSClientCompat.def"
 				GenerateDebugInformation="TRUE"
-				ProgramDatabaseFile="$(OutDir)/NSClientCompat.pdb"
+				ProgramDatabaseFile="$(OutDir)/CheckDisk.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/NSClientCompat.lib"
+				ImportLibrary="$(OutDir)/CheckDisk.lib"
 				TargetMachine="1"/>
 			<Tool
 				Name="VCMIDLTool"/>
@@ -81,15 +78,14 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="NSClientCompat.def"
+				ModuleDefinitionFile="CheckDisk.def"
 				GenerateDebugInformation="TRUE"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/NSClientCompat.lib"
+				ImportLibrary="$(OutDir)/CheckDisk.lib"
 				TargetMachine="1"/>
 			<Tool
 				Name="VCMIDLTool"/>
@@ -121,22 +117,10 @@
 			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
 			<File
-				RelativePath="..\..\include\EnumNtSrv.cpp">
+				RelativePath=".\CheckDisk.cpp">
 			</File>
 			<File
 				RelativePath="..\..\include\NSCHelper.cpp">
-			</File>
-			<File
-				RelativePath=".\NSClientCompat.cpp">
-			</File>
-			<File
-				RelativePath=".\NSClientCompat.def">
-			</File>
-			<File
-				RelativePath=".\NSCommands.cpp">
-			</File>
-			<File
-				RelativePath=".\PDHCollector.cpp">
 			</File>
 			<File
 				RelativePath=".\stdafx.cpp">
@@ -159,31 +143,13 @@
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
 			<File
-				RelativePath="..\..\include\EnumNtSrv.h">
+				RelativePath=".\CheckDisk.h">
 			</File>
 			<File
 				RelativePath="..\..\include\NSCHelper.h">
 			</File>
 			<File
-				RelativePath=".\NSClientCompat.h">
-			</File>
-			<File
-				RelativePath=".\NSCommands.h">
-			</File>
-			<File
-				RelativePath=".\PDHCollector.h">
-			</File>
-			<File
-				RelativePath="..\..\include\PDHCollectors.h">
-			</File>
-			<File
 				RelativePath=".\stdafx.h">
-			</File>
-			<File
-				RelativePath="..\..\include\strEx.h">
-			</File>
-			<File
-				RelativePath="..\..\include\thread.h">
 			</File>
 		</Filter>
 		<Filter

@@ -34,8 +34,8 @@ private:
 	PDHCollectors::RoundINTPDHBufferListener cpu;
 
 public:
-	PDHCollector() : cpu(BACK_INTERVAL*60/CHECK_INTERVAL), running_(true) {
-	}
+	PDHCollector();
+	virtual ~PDHCollector();
 	DWORD threadProc(LPVOID lpParameter);
 	void exitThread(void);
 
