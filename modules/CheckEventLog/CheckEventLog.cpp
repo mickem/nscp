@@ -224,9 +224,7 @@ void addToQueryItem(searchQuery::searchQueryBundle::searchQueryItem &item, std::
 	else if (p.first == "eventSourceRegexp") {
 		try {
 			std::string s = p.second;
-			NSC_DEBUG_MSG_STD("Attempting to make regexp from: " + s);
 			item.eventSourceRegExp_ = s;
-			NSC_DEBUG_MSG_STD("success...");
 		} catch (const boost::bad_expression e) {
 			item.eventSourceRegExp_ = "";
 			throw (std::string)"Invalid syntax in regular expression:" + p.second;
@@ -249,6 +247,7 @@ void addToQueryItem(searchQuery::searchQueryBundle::searchQueryItem &item, std::
 		}
 	} else
 		throw (std::string)"Invalid argument: " + p.first;
+	
 }
 void addToQueryBundle(searchQuery::searchQueryBundle &bundle, std::string arg) {
 	std::pair<std::string,std::string> p = strEx::split(arg, ".");
@@ -300,7 +299,7 @@ std::string CheckEventLog::handleCommand(const std::string command, const unsign
 	if (command != "CheckEventLog")
 		return "";
 	NSCAPI::returnCodes rCode = NSCAPI::returnOK;
-	std::list<std::string> args = NSCHelper::makelist(argLen, char_args);
+	std::list<std::string> args = NSCHelper::arrayBuffer2list(argLen, char_args);
 	if (args.size() < 2)
 		return "Missing argument";
 	std::string ret;

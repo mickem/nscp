@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <NSCHelper.h>
+#include <assert.h>
 
 #define BUFF_LEN 4096
 
@@ -14,7 +15,7 @@
  * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
  */
 int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode /* = NSCAPI::success */) {
-	if (str.length() > bufLen)
+	if (str.length() >= bufLen)
 		return NSCAPI::invalidBufferLen;
 	strncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
@@ -25,7 +26,7 @@ int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string s
  * @param *argument[] Argument array
  * @return Argument wrapped as a list
  */
-std::list<std::string> NSCHelper::makelist(const unsigned int argLen, char *argument[]) {
+std::list<std::string> NSCHelper::arrayBuffer2list(const unsigned int argLen, char *argument[]) {
 	std::list<std::string> ret;
 	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
@@ -34,6 +35,43 @@ std::list<std::string> NSCHelper::makelist(const unsigned int argLen, char *argu
 	}
 	return ret;
 }
+/**
+ * Create an arrayBuffer from a list.
+ * This is the reverse of arrayBuffer2list.
+ * <b>Notice</b> it is up to the caller to free the memory allocated in the returned buffer.
+ *
+ * @param lst A list to convert.
+ * @param &argLen Write the length to this argument.
+ * @return A pointer that is managed by the caller.
+ */
+char ** NSCHelper::list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen) {
+	std::string ret;
+	argLen = static_cast<unsigned int>(lst.size());
+	char **arrayBuffer = new char*[argLen];
+	std::list<std::string>::const_iterator it = lst.begin();
+	for (int i=0;it!=lst.end();++it,i++) {
+		std::string::size_type alen = (*it).size();
+		arrayBuffer[i] = new char[alen+2];
+		strncpy(arrayBuffer[i], (*it).c_str(), alen+1);
+	}
+	assert(i == argLen);
+	return arrayBuffer;
+}
+/**
+ * Destroy an arrayBuffer.
+ * The buffer should have been created with list2arrayBuffer.
+ *
+ * @param **argument 
+ * @param argLen 
+ */
+void NSCHelper::destroyArrayBuffer(char **argument, const unsigned int argLen) {
+	for (unsigned int i=0;i<argLen;i++) {
+		delete [] argument[i];
+	}
+	delete [] argument;
+}
+
+
 /**
  * Translate a message type into a human readable string.
  *
@@ -90,24 +128,33 @@ namespace NSCModuleHelper {
  * @param file File where message was generated (__FILE__)
  * @param line Line where message was generated (__LINE__)
  * @param message Message in human readable format
+ * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
 void NSCModuleHelper::Message(int msgType, std::string file, int line, std::string message) {
 	if (!fNSAPIMessage)
-		throw "NSCore has not been initiated...";
+		throw NSCMHExcpetion("NSCore has not been initiated...");
 	return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
 }
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
  * @param command Command to inject (password should not be included.
  * @return The result (if any) of the command.
+ * @throws NSCMHExcpetion When core pointer set is unavailable or an unknown inject error occures.
  */
 std::string NSCModuleHelper::InjectCommand(std::string command) {
 	if (!fNSAPIInject)
-		return "NSCore has not been initiated...";
+		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
-	if (fNSAPIInject(command.c_str(), buffer, BUFF_LEN) != NSCAPI::success)
-		throw "Application name could not be retrieved";
-	std::string ret = buffer;
+	std::string ret;
+	int err;
+	if ((err = fNSAPIInject(command.c_str(), buffer, BUFF_LEN)) != NSCAPI::success) {
+		if (err == NSCAPI::invalidBufferLen)
+			NSC_LOG_ERROR("Inject command resulted in an invalid buffer size.");
+		else
+			throw NSCMHExcpetion("Unknown inject error.");
+	} else {
+		ret = buffer;
+	}
 	delete [] buffer;
 	return ret;
 }
@@ -127,12 +174,16 @@ void NSCModuleHelper::StopService(void) {
  * @param key The key to retrieve 
  * @param defaultValue A default value (if no value is set in the settings file)
  * @return the current value or defaultValue if no value is set.
+ * @throws NSCMHExcpetion When core pointer set is unavailable or an error occurs.
  */
 std::string NSCModuleHelper::getSettingsString(std::string section, std::string key, std::string defaultValue) {
 	if (!fNSAPIGetSettingsString)
-		throw "NSCore has not been initiated...";
+		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
-	int x = fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, BUFF_LEN);
+	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, BUFF_LEN) != NSCAPI::success) {
+		delete [] buffer;
+		throw NSCMHExcpetion("Settings could not be retrieved.");
+	}
 	std::string ret = buffer;
 	delete [] buffer;
 	return ret;
@@ -145,22 +196,26 @@ std::string NSCModuleHelper::getSettingsString(std::string section, std::string 
  * @param key The key to retrieve 
  * @param defaultValue A default value (if no value is set in the settings file)
  * @return the current value or defaultValue if no value is set.
+ * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
 int NSCModuleHelper::getSettingsInt(std::string section, std::string key, int defaultValue) {
 	if (!fNSAPIGetSettingsInt)
-		throw "NSCore has not been initiated...";
+		throw NSCMHExcpetion("NSCore has not been initiated...");
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
 /**
-* Retrieve the application name (in human readable format) from the core.
-* @return A string representing the application name.
-*/
+ * Retrieve the application name (in human readable format) from the core.
+ * @return A string representing the application name.
+ * @throws NSCMHExcpetion When core pointer set is unavailable or an unexpected error occurs.
+ */
 std::string NSCModuleHelper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
-		return "NSCore has not been initiated...";
+		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
-	if (fNSAPIGetApplicationName(buffer, BUFF_LEN) != NSCAPI::success)
-		throw "Application name could not be retrieved";
+	if (fNSAPIGetApplicationName(buffer, BUFF_LEN) != NSCAPI::success) {
+		delete [] buffer;
+		throw NSCMHExcpetion("Application name could not be retrieved");
+	}
 	std::string ret = buffer;
 	delete [] buffer;
 	return ret;
@@ -168,13 +223,16 @@ std::string NSCModuleHelper::getApplicationName() {
 /**
  * Retrieve the directory root of the application from the core.
  * @return A string representing the base path.
+ * @throws NSCMHExcpetion When core pointer set is unavailable or an unexpected error occurs.
  */
 std::string NSCModuleHelper::getBasePath() {
 	if (!fNSAPIGetBasePath)
-		return "NSCore has not been initiated...";
+		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
-	if (fNSAPIGetBasePath(buffer, BUFF_LEN) != NSCAPI::success)
-		throw "Base path could not be retrieved";
+	if (fNSAPIGetBasePath(buffer, BUFF_LEN) != NSCAPI::success) {
+		delete [] buffer;
+		throw NSCMHExcpetion("Base path could not be retrieved");
+	}
 	std::string ret = buffer;
 	delete [] buffer;
 	return ret;
@@ -182,10 +240,11 @@ std::string NSCModuleHelper::getBasePath() {
 /**
  * Retrieve the application version as a string (in human readable format) from the core.
  * @return A string representing the application version.
+ * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
 std::string NSCModuleHelper::getApplicationVersionString() {
 	if (!fNSAPIGetApplicationVersionStr)
-		return "NSCore has not been initiated...";
+		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
 	int x = fNSAPIGetApplicationVersionStr(buffer, BUFF_LEN);
 	std::string ret = buffer;

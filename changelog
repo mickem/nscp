@@ -1,2 +1,17 @@
+2005-03-01 MickeM
+ * Improved thread safety in Core
+ + Added exception handling and logging in PDH code
+ * Various fixes all over the place
+ + New module for check size of files/directories
+ * Changed build to Dynamic link
+ * Added regular expression support for EventLog checker
+
+2005-02-22 MickeM
+ + Added documentation
+
+2005-02-17 MickeM
+ * NSClient issues fixed
+ * Systray issues fixed
+
 2005-02-14 MickeM
- * Initial sourceforge relase
+ * Initial sourceforge release

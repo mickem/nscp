@@ -7,7 +7,11 @@
 namespace NSCHelper
 {
 	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode = NSCAPI::success);
-	std::list<std::string> makelist(const unsigned int argLen, char **argument);
+
+	std::list<std::string> arrayBuffer2list(const unsigned int argLen, char **argument);
+	char ** list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen);
+	void destroyArrayBuffer(char **argument, const unsigned int argLen);
+
 	std::string translateMessageType(NSCAPI::messageTypes msgType);
 	std::string translateReturn(NSCAPI::returnCodes returnCode);
 	inline std::string returnNSCP(NSCAPI::returnCodes returnCode, std::string str) {
@@ -65,6 +69,11 @@ namespace NSCHelper
 
 namespace NSCModuleHelper
 {
+	class NSCMHExcpetion {
+	public:
+		std::string msg_;
+		NSCMHExcpetion(std::string msg) : msg_(msg) {}
+	};
 	// Types for the Callbacks into the main program
 	typedef int (*lpNSAPIGetBasePath)(char*,unsigned int);
 	typedef int (*lpNSAPIGetApplicationName)(char*,unsigned int);
