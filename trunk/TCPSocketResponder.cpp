@@ -3,6 +3,7 @@
 #include "NSParser.h"
 #include "NSClient++.h"
 #include "TCPSocketResponder.h"
+#include "Settings.h"
 
 extern NSClient mainClient;
 
@@ -78,7 +79,7 @@ DWORD TCPSocketResponder::threadProc(LPVOID lpParameter)
 
 	local.sin_family=AF_INET;
 	local.sin_addr.s_addr=INADDR_ANY;
-	local.sin_port=htons((u_short)1234);
+	local.sin_port=htons(static_cast<u_short>(Settings::getInstance()->getInt("generic", "port", DEFAULT_TCP_PORT)));
 	server=socket(AF_INET,SOCK_STREAM,0);
 	if(server==INVALID_SOCKET) {
 		LOG_ERROR_STD("Could not create listening socket: " + strEx::itos(GetLastError()));
@@ -101,22 +102,25 @@ DWORD TCPSocketResponder::threadProc(LPVOID lpParameter)
 
 	while(isRunning()) {
 		client=accept(server, (struct sockaddr*)&from,&fromlen);
-		char *buff = new char[RECV_BUFFER_LEN+1];
-		int n=recv(client,buff,RECV_BUFFER_LEN,0);
-		if ((n!=SOCKET_ERROR )&&(n > 0)&&(n < RECV_BUFFER_LEN)) {
-			buff[n] = '\0';
-			LOG_DEBUG("Incoming data: ");
-			LOG_DEBUG(buff);
-			std::string ret = parseCommand(buff);
-			LOG_DEBUG("Outgoing data: ");
-			LOG_DEBUG(ret.c_str());
-			send(client, ret.c_str(), ret.length(), 0);
-		} else {
-			std::string str = "ERROR: Unknown socket error";
-			send(client,str.c_str(),str.length(),0);
+		if (client != INVALID_SOCKET) {
+			LOG_ERROR_STD("Accept returned: " + strEx::itos((DWORD)client));
+			char *buff = new char[RECV_BUFFER_LEN+1];
+			int n=recv(client,buff,RECV_BUFFER_LEN,0);
+			if ((n!=SOCKET_ERROR )&&(n > 0)&&(n < RECV_BUFFER_LEN)) {
+				buff[n] = '\0';
+				LOG_DEBUG("Incoming data: ");
+				LOG_DEBUG(buff);
+				std::string ret = parseCommand(buff);
+				LOG_DEBUG("Outgoing data: ");
+				LOG_DEBUG(ret.c_str());
+				send(client, ret.c_str(), ret.length(), 0);
+			} else {
+				std::string str = "ERROR: Unknown socket error";
+				send(client,str.c_str(),str.length(),0);
+			}
+			delete [] buff;
+			closesocket(client);
 		}
-		delete [] buff;
-		closesocket(client);
 	}
 	closesocket(server);
 	WSACleanup();
