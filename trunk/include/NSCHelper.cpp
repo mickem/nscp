@@ -13,11 +13,11 @@
  * @param str Th string to copy
  * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
  */
-int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str) {
+int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode /* = NSCAPI::success */) {
 	if (str.length() > bufLen)
 		return NSCAPI::invalidBufferLen;
 	strncpy(buffer, str.c_str(), bufLen);
-	return NSCAPI::success;
+	return defaultReturnCode;
 }
 /**
  * Make a list out of a array of char arrays (arguments type)
@@ -287,7 +287,7 @@ int NSCModuleWrapper::wrapHasMessageHandler(bool has) {
 int NSCModuleWrapper::wrapHandleCommand(const std::string retStr, char *returnBuffer, unsigned int returnBufferLen) {
 	if (retStr.empty())
 		return NSCAPI::isfalse;
-	return NSCHelper::wrapReturnString(returnBuffer, returnBufferLen, retStr);
+	return NSCHelper::wrapReturnString(returnBuffer, returnBufferLen, retStr, NSCAPI::handled);
 }
 /**
  * Wrap the NSLoadModule call

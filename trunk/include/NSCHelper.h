@@ -6,7 +6,7 @@
 
 namespace NSCHelper
 {
-	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str);
+	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode = NSCAPI::success);
 	std::list<std::string> makelist(const unsigned int argLen, char **argument);
 	std::string translateMessageType(NSCAPI::messageTypes msgType);
 };
