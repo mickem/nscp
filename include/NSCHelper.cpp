@@ -14,15 +14,7 @@
 * @param str Th string to copy
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-/*
-int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode ) {
-	// @todo deprecate this
-	if (str.length() >= bufLen)
-		return -1;
-	strncpy(buffer, str.c_str(), bufLen);
-	return defaultReturnCode;
-}
-*/
+#ifdef DEBUG
 NSCAPI::nagiosReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::nagiosReturn defaultReturnCode /* = NSCAPI::success */) {
 	if (str.length() >= bufLen)
 		return NSCAPI::returnInvalidBufferLen;
@@ -35,6 +27,15 @@ NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLe
 	strncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
+#else
+int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode ) {
+	// @todo deprecate this
+	if (str.length() >= bufLen)
+		return -1;
+	strncpy(buffer, str.c_str(), bufLen);
+	return defaultReturnCode;
+}
+#endif
 /**
  * Make a list out of a array of char arrays (arguments type)
  * @param argLen Length of argument array
@@ -118,7 +119,7 @@ char ** NSCHelper::split2arrayBuffer(const char* buffer, char splitChar, unsigne
 	p = buffer;
 	for (unsigned int i=0;i<argLen;i++) {
 		char *q = strchr(p, (i<argLen-1)?splitChar:0);
-		unsigned int len = q-p;
+		unsigned int len = static_cast<int>(q-p);
 		arrayBuffer[i] = new char[len+1];
 		strncpy(arrayBuffer[i], p, len);
 		arrayBuffer[i][len] = 0;
@@ -211,20 +212,22 @@ void NSCModuleHelper::Message(int msgType, std::string file, int line, std::stri
  * @return The result (if any) of the command.
  * @throws NSCMHExcpetion When core pointer set is unavailable or an unknown inject error occurs.
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
-	return fNSAPIInject(command, argLen, argument, returnBuffer, returnBufferLen);
+	return fNSAPIInject(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
 NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const unsigned int argLen, char **argument, std::string & message, std::string & perf) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
-	char *buffer = new char[BUFF_LEN+1];
-	buffer[0] = 0;
+	char *msgBuffer = new char[BUFF_LEN+1];
+	char *perfBuffer = new char[BUFF_LEN+1];
+	msgBuffer[0] = 0;
+	perfBuffer[0] = 0;
 	// @todo message here !
-	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, buffer, BUFF_LEN);
+	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, msgBuffer, BUFF_LEN, perfBuffer, BUFF_LEN);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
 			NSC_LOG_MESSAGE("No handler for this message.");
@@ -236,13 +239,14 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const u
 		case NSCAPI::returnCRIT:
 		case NSCAPI::returnWARN:
 		case NSCAPI::returnUNKNOWN:
-			message = buffer;
-			// @todo perf data 
+			message = msgBuffer;
+			perf = perfBuffer;
 			break;
 		default:
 			throw NSCMHExcpetion("Unknown inject error.");
 	}
-	delete [] buffer;
+	delete [] msgBuffer;
+	delete [] perfBuffer;
 	return retC;
 }
 /**
