@@ -5,7 +5,7 @@
 /**
  * Default c-tor
  */
-NSClientSocket::NSClientSocket() : SimpleSocketListsner(DEFAULT_TCP_PORT) {
+NSClientSocket::NSClientSocket() {
 }
 
 NSClientSocket::~NSClientSocket() {
@@ -47,17 +47,16 @@ std::string NSClientSocket::parseRequest(std::string buffer)  {
 	}
 }
 
-void NSClientSocket::onAccept(SOCKET client) {
-
-	readAllDataBlock rdb = readAll(client);
-	if (rdb.second > 0) {
-		NSC_DEBUG_MSG_STD("Incoming data length: " + strEx::itos((int)rdb.second));
-		std::string incoming((char*)rdb.first, (unsigned int)rdb.second);
+void NSClientSocket::onAccept(simpleSocket::Socket client) {
+	simpleSocket::DataBuffer db;
+	client.readAll(db);
+	if (db.getLength() > 0) {
+		NSC_DEBUG_MSG_STD("Incoming data length: " + strEx::itos(db.getLength()));
+		std::string incoming(db.getBuffer(), db.getLength());
 		NSC_DEBUG_MSG_STD("Incoming data: " + incoming);
 		std::string response = parseRequest(incoming);
 		NSC_DEBUG_MSG("Outgoing data: " + response);
-		send(client, response.c_str(), static_cast<int>(response.length()), 0);
+		client.send(response.c_str(), static_cast<int>(response.length()), 0);
 	}
-	delete [] rdb.first;
-	closesocket(client);
+	client.close();
 }

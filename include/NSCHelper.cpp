@@ -76,6 +76,7 @@ namespace NSCModuleHelper {
 	lpNSAPIGetBasePath fNSAPIGetBasePath = NULL;
 	lpNSAPIGetApplicationName fNSAPIGetApplicationName = NULL;
 	lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr = NULL;
+	lpNSAPIGetSettingsSection fNSAPIGetSettingsSection = NULL;
 	lpNSAPIGetSettingsString fNSAPIGetSettingsString = NULL;
 	lpNSAPIGetSettingsInt fNSAPIGetSettingsInt = NULL;
 	lpNSAPIMessage fNSAPIMessage = NULL;
@@ -211,6 +212,18 @@ std::string NSCModuleHelper::getSettingsString(std::string section, std::string 
 	delete [] buffer;
 	return ret;
 }
+std::list<std::string> NSCModuleHelper::getSettingsSection(std::string section) {
+	if (!fNSAPIGetSettingsSection)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	char ** aBuffer = NULL;
+	unsigned int argLen = 0;
+	if (fNSAPIGetSettingsSection(section.c_str(), &aBuffer, &argLen) != NSCAPI::isSuccess) {
+		throw NSCMHExcpetion("Settings could not be retrieved.");
+	}
+	std::list<std::string> ret = arrayBuffer::arrayBuffer2list(argLen, aBuffer);
+	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
+	return ret;
+}
 /**
  * Retrieve an int from the settings subsystem (INI-file)
  * Might possibly be located in the registry in the future.
@@ -226,6 +239,35 @@ int NSCModuleHelper::getSettingsInt(std::string section, std::string key, int de
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
+
+
+/***************************************************************************
+* max_state(STATE_x, STATE_y)
+* compares STATE_x to  STATE_y and returns result based on the following
+* STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
+*
+* Note that numerically the above does not hold
+****************************************************************************/
+NSCAPI::nagiosReturn NSCHelper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b)
+{
+	if (a == NSCAPI::returnCRIT || b == NSCAPI::returnCRIT)
+		return NSCAPI::returnCRIT;
+	else if (a == NSCAPI::returnWARN || b == NSCAPI::returnWARN)
+		return NSCAPI::returnWARN;
+	else if (a == NSCAPI::returnOK || b == NSCAPI::returnOK)
+		return NSCAPI::returnOK;
+	else if (a == NSCAPI::returnUNKNOWN || b == NSCAPI::returnUNKNOWN)
+		return NSCAPI::returnUNKNOWN;
+	/*
+	else if (a == STATE_DEPENDENT || b == STATE_DEPENDENT)
+	return STATE_DEPENDENT;
+	*/
+	//		else
+	throw "undefined state";
+	//			return max (a, b);
+}
+
+
 /**
  * Retrieve the application name (in human readable format) from the core.
  * @return A string representing the application name.
@@ -320,6 +362,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIGetApplicationVersionStr = (NSCModuleHelper::lpNSAPIGetApplicationVersionStr)f("NSAPIGetApplicationVersionStr");
 	NSCModuleHelper::fNSAPIGetSettingsInt = (NSCModuleHelper::lpNSAPIGetSettingsInt)f("NSAPIGetSettingsInt");
 	NSCModuleHelper::fNSAPIGetSettingsString = (NSCModuleHelper::lpNSAPIGetSettingsString)f("NSAPIGetSettingsString");
+	NSCModuleHelper::fNSAPIGetSettingsSection = (NSCModuleHelper::lpNSAPIGetSettingsSection)f("NSAPIGetSettingsSection");
 	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f("NSAPIMessage");
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f("NSAPIStopServer");
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f("NSAPIInject");

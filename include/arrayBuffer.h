@@ -3,9 +3,10 @@
 
 namespace arrayBuffer {
 
+	typedef std::list<std::string> arrayList;
 
-	std::list<std::string> arrayBuffer2list(const unsigned int argLen, char **argument);
-	char ** list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen);
+	arrayList arrayBuffer2list(const unsigned int argLen, char **argument);
+	char ** list2arrayBuffer(const arrayList lst, unsigned int &argLen);
 	char ** split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen);
 	char ** split2arrayBuffer(const std::string buffer, char splitChar, unsigned int &argLen);
 	std::string arrayBuffer2string(char **argument, const unsigned int argLen, std::string join);

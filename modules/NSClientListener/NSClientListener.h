@@ -4,7 +4,7 @@ NSC_WRAPPERS_MAIN();
 
 class NSClientListener {
 private:
-	NSClientSocketThread socketThreadManager;
+	NSClientSocket socket;
 
 public:
 	NSClientListener();

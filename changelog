@@ -1,3 +1,8 @@
+2005-03-26 MickeM
+ + NRPE Support (very basic, no encryption, and nothing fancy)
+ * Socket classes rewritten
+ + Added NSCModuleHelper::getSettingsSection to the API
+
 2005-03-22 MickeM
  * Fixed NSClientListener return codes for basic commands
  * Extracted arrayBuffer code into new files under /include
@@ -7,7 +12,7 @@
 2005-03-21 MickeM
  * Fixed BUG in inject command (now things should "work" again, but far from stable)
  + Added NRPE return code
- * Fixed some return states to NSClientListener (not verified yet, but soon they wil lbe back in order :)
+ * Fixed some return states to NSClientListener (not verified yet, but soon they will be back in order :)
 
 2005-03-20 MickeM
  * Fundamental API changes (due to NRPE compatibility)

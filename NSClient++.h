@@ -90,7 +90,7 @@ int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue);
 void NSAPIMessage(int msgType, const char* file, const int line, const char* message);
 void NSAPIStopServer(void);
 NSCAPI::nagiosReturn NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
-
+NSCAPI::errorReturn NSAPIGetSettingsSection(const char*, char***, unsigned int *);
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging
 // Generally names are of the form LOG_<severity>[_STD] 

@@ -19,13 +19,14 @@ NSClientListener::NSClientListener() {
 NSClientListener::~NSClientListener() {
 }
 
+#define DEFAULT_TCP_PORT 12489
 
 bool NSClientListener::loadModule() {
-	socketThreadManager.createThread(NULL);
+	socket.StartListen(NSCModuleHelper::getSettingsInt("NSClient", "port", DEFAULT_TCP_PORT));
 	return true;
 }
 bool NSClientListener::unloadModule() {
-	socketThreadManager.exitThread();
+	socket.close();
 	return true;
 }
 
