@@ -163,7 +163,6 @@ public:
 		if (!pObject_)
 			throw "Could not terminate thread, has not been started yet...";
 		pObject_->exitThread();
-		std::cout << "Waiting for socket to close..." << std::endl;
 		DWORD dwWaitResult = endMutext.wait(5000L);
 		switch (dwWaitResult) {
 			// The thread got mutex ownership.

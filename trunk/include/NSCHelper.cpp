@@ -58,6 +58,7 @@ std::string NSCHelper::translateMessageType(NSCAPI::messageTypes msgType) {
 
 
 namespace NSCModuleHelper {
+	lpNSAPIGetBasePath fNSAPIGetBasePath = NULL;
 	lpNSAPIGetApplicationName fNSAPIGetApplicationName = NULL;
 	lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr = NULL;
 	lpNSAPIGetSettingsString fNSAPIGetSettingsString = NULL;
@@ -140,15 +141,29 @@ int NSCModuleHelper::getSettingsInt(std::string section, std::string key, int de
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
 /**
- * Retrieve the application name (in human readable format) from the core.
- * @return A string representing the application name.
- */
+* Retrieve the application name (in human readable format) from the core.
+* @return A string representing the application name.
+*/
 std::string NSCModuleHelper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
 		return "NSCore has not been initiated...";
 	char *buffer = new char[BUFF_LEN+1];
 	if (fNSAPIGetApplicationName(buffer, BUFF_LEN) != NSCAPI::success)
 		throw "Application name could not be retrieved";
+	std::string ret = buffer;
+	delete [] buffer;
+	return ret;
+}
+/**
+ * Retrieve the directory root of the application from the core.
+ * @return A string representing the base path.
+ */
+std::string NSCModuleHelper::getBasePath() {
+	if (!fNSAPIGetBasePath)
+		return "NSCore has not been initiated...";
+	char *buffer = new char[BUFF_LEN+1];
+	if (fNSAPIGetBasePath(buffer, BUFF_LEN) != NSCAPI::success)
+		throw "Base path could not be retrieved";
 	std::string ret = buffer;
 	delete [] buffer;
 	return ret;
@@ -215,15 +230,16 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f("NSAPIMessage");
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f("NSAPIStopServer");
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f("NSAPIInject");
+	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f("NSAPIGetBasePath");
 	return NSCAPI::success;
 }
 /**
- * Wrap the GetModuleName function call
- * @param buf Buffer to store the module name
- * @param bufLen Length of buffer
- * @param str String to store inside the buffer
- * @return buffer copy status
- */
+* Wrap the GetModuleName function call
+* @param buf Buffer to store the module name
+* @param bufLen Length of buffer
+* @param str String to store inside the buffer
+* @return buffer copy status
+*/
 int NSCModuleWrapper::wrapGetModuleName(char* buf, unsigned int bufLen, std::string str) {
 	return NSCHelper::wrapReturnString(buf, bufLen, str);
 }
