@@ -43,6 +43,7 @@ private:
 	pluginList messageHandlers_;
 	TCPSocketResponderThread socketThread;
 	std::string basePath;
+	MutexHandler pluginMutex;
 	MutexHandler messageMutex;
 
 public:
@@ -59,12 +60,12 @@ public:
 	// Member functions
 	static std::string getPassword(void);
 	std::string getBasePath(void);
-	std::string inject(std::string buffer);
+	std::string inject(const std::string buffer);
 	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
 	void reportMessage(int msgType, const char* file, const int line, std::string message);
 
-	void loadPlugins(std::list<std::string> plugins);
-	void loadPlugin(std::string plugin);
+	void loadPlugins(const std::list<std::string> plugins);
+	void loadPlugin(const std::string plugin);
 	void loadPlugins(void);
 	void unloadPlugins(void);
 
@@ -105,12 +106,6 @@ int NSAPIInject(const char* command, char* buffer, unsigned int bufLen);
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::string)msg).c_str())
 #define LOG_MESSAGE(msg) \
 	NSAPIMessage(NSCAPI::log, __FILE__, __LINE__, msg)
-#ifdef _DEBUG
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::string)msg).c_str())
 #define LOG_DEBUG(msg) \
 	NSAPIMessage(NSCAPI::debug, __FILE__, __LINE__, msg)
-#else
-#define LOG_DEBUG_STD(msg)
-#define LOG_DEBUG(msg)
-#endif
-

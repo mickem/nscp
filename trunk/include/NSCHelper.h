@@ -9,6 +9,58 @@ namespace NSCHelper
 	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode = NSCAPI::success);
 	std::list<std::string> makelist(const unsigned int argLen, char **argument);
 	std::string translateMessageType(NSCAPI::messageTypes msgType);
+	std::string translateReturn(NSCAPI::returnCodes returnCode);
+	inline std::string returnNSCP(NSCAPI::returnCodes returnCode, std::string str) {
+		return translateReturn(returnCode) + "&" + str;
+	}
+
+	/*
+	/ * **************************************************************************
+	* max_state(STATE_x, STATE_y)
+	* compares STATE_x to  STATE_y and returns result based on the following
+	* STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
+	*
+	* Note that numerically the above does not hold
+	**************************************************************************** /
+
+	int
+		max_state (int a, int b)
+	{
+		if (a == STATE_CRITICAL || b == STATE_CRITICAL)
+			return STATE_CRITICAL;
+		else if (a == STATE_WARNING || b == STATE_WARNING)
+			return STATE_WARNING;
+		else if (a == STATE_OK || b == STATE_OK)
+			return STATE_OK;
+		else if (a == STATE_UNKNOWN || b == STATE_UNKNOWN)
+			return STATE_UNKNOWN;
+		else if (a == STATE_DEPENDENT || b == STATE_DEPENDENT)
+			return STATE_DEPENDENT;
+		else
+			return max (a, b);
+	}
+	@bug Use this sceme instead!!
+*/
+
+
+	inline void escalteReturnCode(NSCAPI::returnCodes &currentReturnCode, NSCAPI::returnCodes newReturnCode) {
+		if (newReturnCode == NSCAPI::returnCRIT)
+			currentReturnCode = NSCAPI::returnCRIT;
+		else if ((newReturnCode == NSCAPI::returnWARN) && (currentReturnCode != NSCAPI::returnCRIT) )
+			currentReturnCode = NSCAPI::returnWARN;
+		else if ((newReturnCode == NSCAPI::returnUNKNOWN) 
+			&& (currentReturnCode != NSCAPI::returnCRIT) 
+			&& (currentReturnCode != NSCAPI::returnWARN) )
+			currentReturnCode = NSCAPI::returnUNKNOWN;
+	}
+	inline void escalteReturnCodeToCRIT(NSCAPI::returnCodes &currentReturnCode) {
+		currentReturnCode = NSCAPI::returnCRIT;
+	}
+	inline void escalteReturnCodeToWARN(NSCAPI::returnCodes &currentReturnCode) {
+		if (currentReturnCode != NSCAPI::returnCRIT)
+			currentReturnCode = NSCAPI::returnWARN;
+	}
+
 };
 
 namespace NSCModuleHelper
@@ -82,14 +134,9 @@ namespace NSCModuleWrapper {
 #define NSC_LOG_MESSAGE(msg) \
 	NSCModuleHelper::Message(NSCAPI::log, __FILE__, __LINE__, msg)
 
-#ifdef _DEBUG
 #define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG(((std::string)msg).c_str())
 #define NSC_DEBUG_MSG(msg) \
 	NSCModuleHelper::Message(NSCAPI::debug, __FILE__, __LINE__, msg)
-#else
-#define NSC_DEBUG_MSG_STD(msg)
-#define NSC_DEBUG_MSG(msg)
-#endif
 
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point

@@ -8,7 +8,7 @@
 
 namespace PDH {
 	class PDHException {
-	private:
+	public:
 		std::string str_;
 		int errCode_;
 	public:

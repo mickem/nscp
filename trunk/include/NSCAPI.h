@@ -2,6 +2,13 @@
 
 namespace NSCAPI {
 
+	// Various Nagios codes
+	const int returnCRIT = 2;
+	const int returnOK = 0;
+	const int returnWARN = 1;
+	const int returnUNKNOWN = 4;
+	typedef int returnCodes;
+
 	// Various Return codes
 	const int success = 1;			// Everything went fine
 	const int failed = 0;			// EVerything went to hell :)
@@ -15,7 +22,7 @@ namespace NSCAPI {
 	const int error = -1;			// Error (non critical)
 	const int critical = -10;		// Critical error
 	const int warning = 1;			// Warning
-	const int debug = 666;			// Debaug message
+	const int debug = 666;			// Debug message
 
 	typedef int messageTypes;		// Message type
 };

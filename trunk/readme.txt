@@ -1,36 +1,87 @@
-** ROUGH DRAFT **
-** Spelling missate etc... :) **
-
-
 NSClient++ is a windows service that allows performance metrics to be gathered by Nagios 
 (and possibly other monitoring tools). It is an attempt to create a NSClient compatible 
 but yet extendable performance service for windows.
 
 
+This is an initial NSClient++ test release.
+
+This version has many of the features from NSClient.
+The following commands (from check_nt) are supported.
+ * CLIENTVERSION
+ * CPULOAD
+ * UPTIME
+ * USEDDISKSPACE
+ * MEMUSE
+ * SERVICESTATE
+ * PROCSTATE
+
 Installation:
-NSClient++ -install
-Will install the NT service
+To install simply copy all files to directory on the server and run 
+the following command: "NSClient++ /install" to uninstall run: 
+"NSClient++ /uninstall".
 
-NSClient++ -uninstall
-Will uninstall the service
+The NSClient++ has the following command syntax:
+NSClient++ -<command>
+  <command>
+    install	- Install the service
+    start	- Start the service
+    stop	- Stop the service
+    about	- Show some info (version et.al.)
+    version	- Show some info
+    test	- Run interactively (hint: enable ConsoleLogger for 
+		  this to make sense). Useful for debugging purposes.
 
-NSClient++ -start
-Will start the service
+The directory structure:
+  <install root>
+    - NSClient++.exe	- The executable (and service)
+    - NSC.ini		- The INI file (settings)
+    <modules>
+      -	Various NSClient++ modules available to this instance.
 
-NSClient++ -stop
-Will stop the service
+The default modules:
+CheckEventLog.dll
+  An eventlog checker (has yet to get a Unix client)
+ConsoleLogger.dll
+  Log messages to console. (Usefull when run with -test)
+FileLogger.dll
+  Log messages to file (Usefull when run as service)
+NSClientCompat.dll
+  NSCLient compatibility module. Provides NSClient commands.
+SysTray.dll
+  Shows a sytray when the service (exe) is started and allows you to 
+  view the logfile and inject commands.
 
-NSClient++ -test
-Will start in interactive mode:
-enter exit<return> to exit. ANything else will be interpreted as a command ie: foo&bar<enter> will be interpreted as a command name foo with argument bar.
-It also listens to the port in this mode so it can be used to run the client standalone.
-Notice output is *NOT* piped t othe stdard output unless you enable the console logger module.
+Settings:
+The following things can be changed ion the NSC.ini file.
+
+[generic]
+password=secret-password
+# The password to use.
+
+port=1234
+# The port to bind to
+
+[main]
+bufferSize=4096
+# Maximum buffer size for commands to return
+
+[log]
+file=nsclient.log
+# The file to log to.
+
+[nsclient compat]
+version=modern
+# The version string to return to the client.
+# Modern returns the nsclient++ version string in a new syntax:
+# <application> <version> <date>
+# Notice this is not automated as of yet (as in date/version is not updated).
+
+[systray]
+defaultCommand=
+# The default command to show in the inject command dialog.
 
 
-
-
-
-The API is quite simple:
+Using the API:
 The following functions are available for a module to "export": (think DLL)
 
 NSLoadModule

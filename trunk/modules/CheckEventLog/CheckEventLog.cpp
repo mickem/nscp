@@ -28,7 +28,7 @@ bool CheckEventLog::unloadModule() {
 }
 
 std::string CheckEventLog::getModuleName() {
-	return "NSClient compatibility Module.";
+	return "Event log Checker.";
 }
 NSCModuleWrapper::module_version CheckEventLog::getModuleVersion() {
 	NSCModuleWrapper::module_version version = {0, 0, 1 };
@@ -103,17 +103,39 @@ struct searchQuery {
 		struct searchQueryItem {
 			DWORD eventType_;
 			std::string eventSource_;
+			boost::regex eventSourceRegExp_;
 			bool notSetValue_;
 			DWORD writtenBeforeDelta_ ;
 			DWORD writtenAfterDelta_ ;
 			DWORD generatedBeforeDelta_;
 			DWORD generatedAfterDelta_;
+			boost::regex regexp_;
 
 			searchQueryItem(bool notSetValue) 
 				: eventType_(0), notSetValue_(notSetValue), 
 				writtenBeforeDelta_(0), writtenAfterDelta_(0) ,
 				generatedBeforeDelta_(0), generatedAfterDelta_(0) 
 			{}
+			searchQueryItem& operator=(const searchQueryItem &other) {
+				eventType_ = other.eventType_;
+				eventSource_ = other.eventSource_;
+				notSetValue_ = other.notSetValue_;
+				writtenBeforeDelta_ = other.writtenBeforeDelta_;
+				writtenAfterDelta_ = other.writtenAfterDelta_;
+				generatedBeforeDelta_ = other.generatedBeforeDelta_;
+				generatedAfterDelta_ = other.generatedAfterDelta_;
+				try {
+					regexp_ = other.regexp_;
+				} catch (const boost::bad_expression e) {
+					throw (std::string)"Invalid syntax in regular expression:" + other.toString();
+				}
+				try {
+					eventSourceRegExp_ = other.eventSourceRegExp_;
+				} catch (const boost::bad_expression e) {
+					throw (std::string)"Invalid syntax in event source regular expression:" + other.toString();
+				}
+				return *this;
+			}
 
 			inline bool matchDateWritten(DWORD now, DWORD written) const {
 				if ((writtenAfterDelta_ == 0)&&(writtenBeforeDelta_ == 0))
@@ -149,14 +171,25 @@ struct searchQuery {
 				return eventType_ & eventType;
 			}
 			inline bool matchSource(std::string eventSource) const {
-				if (eventSource_.empty())
+				if ((eventSource_.empty())&&eventSourceRegExp_.empty())
 					return notSetValue_;
-				return eventSource_ == eventSource;
+				else if (eventSource_.empty())
+					return boost::regex_match(eventSource, eventSourceRegExp_);
+				else if (eventSourceRegExp_.empty())
+					return eventSource_ == eventSource;
+				return boost::regex_match(eventSource, eventSourceRegExp_) && (eventSource_ == eventSource);
+			}
+			inline bool matchRegexp(std::string msg) const {
+				if (regexp_.empty())
+					return notSetValue_;
+				return boost::regex_match(msg, regexp_);
 			}
 			std::string toString() const {
 				std::stringstream ss;
+				ss << "    Regexp: " << regexp_ << std::endl;
 				ss << "    Event type: " << eventType_ << std::endl;
 				ss << "    Event source: " << eventSource_ << std::endl;
+				ss << "    Event source Regexp: " << eventSourceRegExp_ << std::endl;
 				ss << "    Written delta: " << writtenAfterDelta_ << " > " << writtenBeforeDelta_ << std::endl;
 				ss << "    Generated delta: " << generatedAfterDelta_ << " > " << generatedBeforeDelta_ << std::endl;
 				return ss.str();
@@ -166,7 +199,7 @@ struct searchQuery {
 		struct searchQueryItem exclude;
 		searchQueryBundle() : require(true), exclude(false) {}
 		std::string toString() {
-			return "  Required:\n" + require.toString()  + "\n  Exlude:\n" + exclude.toString();
+			return "  Required:\n" + require.toString()  + "\n  Exclude:\n" + exclude.toString();
 		}
 	};
 
@@ -188,6 +221,34 @@ void addToQueryItem(searchQuery::searchQueryBundle::searchQueryItem &item, std::
 		item.eventType_ = EventLogRecord::appendType(item.eventType_, p.second);
 	else if (p.first == "eventSource")
 		item.eventSource_ = p.second;
+	else if (p.first == "eventSourceRegexp") {
+		try {
+			std::string s = p.second;
+			NSC_DEBUG_MSG_STD("Attempting to make regexp from: " + s);
+			item.eventSourceRegExp_ = s;
+			NSC_DEBUG_MSG_STD("success...");
+		} catch (const boost::bad_expression e) {
+			item.eventSourceRegExp_ = "";
+			throw (std::string)"Invalid syntax in regular expression:" + p.second;
+		}
+	}
+	else if (p.first == "generatedBeforeDelta")
+		item.generatedBeforeDelta_ = strEx::stoi(p.second);
+	else if (p.first == "generatedAfterDelta")
+		item.generatedAfterDelta_ = strEx::stoi(p.second);
+	else if (p.first == "writtenBeforeDelta")
+		item.writtenBeforeDelta_ = strEx::stoi(p.second);
+	else if (p.first == "writtenAfterDelta")
+		item.writtenAfterDelta_ = strEx::stoi(p.second);
+	else if (p.first == "regexp") {
+		try {
+			item.regexp_ = p.second;
+		} catch (const boost::bad_expression e) {
+			item.regexp_ = "";
+			throw (std::string)"Invalid syntax in regular expression:" + p.second;
+		}
+	} else
+		throw (std::string)"Invalid argument: " + p.first;
 }
 void addToQueryBundle(searchQuery::searchQueryBundle &bundle, std::string arg) {
 	std::pair<std::string,std::string> p = strEx::split(arg, ".");
@@ -195,6 +256,8 @@ void addToQueryBundle(searchQuery::searchQueryBundle &bundle, std::string arg) {
 		addToQueryItem(bundle.require, p.second);
 	else if (p.first == "exclude")
 		addToQueryItem(bundle.exclude, p.second);
+	else
+		throw (std::string)"Invalid require/exclude: " + p.first;
 }
 void addToQuery(searchQuery &q, std::string arg) {
 	std::pair<std::string,std::string> p = strEx::split(arg, ".");
@@ -211,39 +274,49 @@ void addToQuery(searchQuery &q, std::string arg) {
 			q.truncate = strEx::stoi(p.second);
 		else if (p.first == "descriptions")
 			q.descriptions = true;
+		else
+			throw (std::string)"Invalid argument: " + arg;
 	}
 }
 
-searchQuery buildQury(std::list<std::string> args) {
-	searchQuery ret;
+void buildQury(searchQuery &query, std::list<std::string> args) {
 	for (std::list<std::string>::const_iterator it = args.begin(); it!=args.end(); it++) {
-		addToQuery(ret, *it);
+		NSC_DEBUG_MSG_STD("Adding: " + *it);
+		addToQuery(query, *it);
 	}
-	return ret;
 }
-// huffa&CheckEventLog&Application&1&<type>&<query>&huffa...
+// CheckEventLog
 // request: CheckEventLog&<logfile>&<Query strings>
 // Return: <return state>&<log entry 1> - <log entry 2>...
 // <return state>	0 - No errors
 //					1 - Unknown
 //					2 - Errors
+// Examples:
+// CheckEventLog&Application&1&<type>&<query>&huffa...
+// CheckEventLog&Application&warn.require.eventType=warning&critical.require.eventType=error&truncate=1024&descriptions&all.exclude.eventSourceRegexp=^(Win|Msi|NSClient\+\+|Userenv|ASP\.NET|LoadPerf|Outlook|Application E|NSClient).*
 #define BUFFER_SIZE 1024*64
 
 std::string CheckEventLog::handleCommand(const std::string command, const unsigned int argLen, char **char_args) {
 	if (command != "CheckEventLog")
 		return "";
+	NSCAPI::returnCodes rCode = NSCAPI::returnOK;
 	std::list<std::string> args = NSCHelper::makelist(argLen, char_args);
 	if (args.size() < 2)
 		return "Missing argument";
 	std::string ret;
 	bool critical = false;
+	searchQuery query;
 	std::string logFile = args.front(); args.pop_front();
-	searchQuery query = buildQury(args);
+	try {
+		buildQury(query, args);
+	} catch (std::string s) {
+		return NSCHelper::returnNSCP(NSCAPI::returnUNKNOWN, s);
+	}
 	NSC_DEBUG_MSG_STD("Base query: " + query.toString());
 
 	HANDLE hLog = OpenEventLog(NULL, logFile.c_str());
 	if (hLog == NULL) 
-		return "Could not open the Application event log.";
+		return NSCHelper::returnNSCP(NSCAPI::returnUNKNOWN, "Could not open the Application event log.");
 
 	DWORD dwThisRecord, dwRead, dwNeeded;
 	EVENTLOGRECORD *pevlr;
@@ -270,15 +343,17 @@ std::string CheckEventLog::handleCommand(const std::string command, const unsign
 			if ( query.critical.require.matchType(record.eventType()) &&
 				query.critical.require.matchSource(record.eventSource()) &&
 				query.critical.require.matchDateGenerated(currentTime, record.timeGenerated()) &&
-				query.critical.require.matchDateWritten(currentTime, record.timeWritten())
+				query.critical.require.matchDateWritten(currentTime, record.timeWritten()) &&
+				query.critical.require.matchRegexp(record.enumStrings())
 				) {
 					match = true;
 					c = true;
 				}
 			if ( query.critical.exclude.matchType(record.eventType()) ||
 				query.critical.exclude.matchSource(record.eventSource()) ||
-				query.critical.require.matchDateGenerated(currentTime, record.timeGenerated()) ||
-				query.critical.require.matchDateWritten(currentTime, record.timeWritten())
+				query.critical.exclude.matchDateGenerated(currentTime, record.timeGenerated()) ||
+				query.critical.exclude.matchDateWritten(currentTime, record.timeWritten()) ||
+				query.critical.exclude.matchRegexp(record.enumStrings())
 				) {
 					match = false;
 					c = false;
@@ -286,14 +361,16 @@ std::string CheckEventLog::handleCommand(const std::string command, const unsign
 
 			if ( query.warn.require.matchType(record.eventType()) &&
 				query.warn.require.matchSource(record.eventSource()) &&
-				query.critical.require.matchDateGenerated(currentTime, record.timeGenerated()) &&
-				query.critical.require.matchDateWritten(currentTime, record.timeWritten())
+				query.warn.require.matchDateGenerated(currentTime, record.timeGenerated()) &&
+				query.warn.require.matchDateWritten(currentTime, record.timeWritten()) &&
+				query.warn.require.matchRegexp(record.enumStrings())
 				)
 				match = true;
 			if ( query.warn.exclude.matchType(record.eventType()) ||
 				query.warn.exclude.matchSource(record.eventSource()) ||
-				query.critical.require.matchDateGenerated(currentTime, record.timeGenerated()) ||
-				query.critical.require.matchDateWritten(currentTime, record.timeWritten())
+				query.warn.exclude.matchDateGenerated(currentTime, record.timeGenerated()) ||
+				query.warn.exclude.matchDateWritten(currentTime, record.timeWritten()) ||
+				query.warn.exclude.matchRegexp(record.enumStrings())
 				)
 				match = false;
 			
@@ -323,10 +400,10 @@ std::string CheckEventLog::handleCommand(const std::string command, const unsign
 	else if (!ret.empty())
 		ret = "WARNING: " + ret;
 	else 
-		ret = "OK: No errors/warnings in eventlog.";
+		ret = "OK: No errors/warnings in event log.";
 	if (query.truncate != 0)
 		ret = ret.substr(0, query.truncate);
-	return ret;
+	return NSCHelper::returnNSCP(rCode, ret);
 }
 
 

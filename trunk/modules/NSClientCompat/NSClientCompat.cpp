@@ -46,7 +46,7 @@ bool NSClientCompat::loadModule() {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool NSClientCompat::unloadModule() {
-	if (!pdhThread.exitThread())
+	if (!pdhThread.exitThread(20000))
 		NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
 	return true;
 }

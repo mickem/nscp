@@ -84,7 +84,12 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 	pdh.addCounter("\\\\.\\System\\System Up Time", &upTime);
 	pdh.addCounter("\\\\.\\Processor(_total)\\% Processor Time", &cpu);
 
-	pdh.open();
+	try {
+		pdh.open();
+	} catch (const PDH::PDHException &e) {
+		NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.str_);
+		return 0;
+	}
 
 	startRunning();
 	while(isRunning()) {
@@ -92,13 +97,22 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			MutexLock mutex(mutexHandler);
 			if (!mutex.hasMutex()) 
 				NSC_LOG_ERROR("Failed to get Mutex!");
-			else
-				pdh.collect();
+			else {
+				try {
+					pdh.collect();
+				} catch (const PDH::PDHException &e) {
+					NSC_LOG_ERROR_STD("Failed to query performance counters: " + e.str_);
+				}
+			}
 		}
 		Sleep(CHECK_INTERVAL*1000);
 	}
 
-	pdh.close();
+	try {
+		pdh.close();
+	} catch (const PDH::PDHException &e) {
+		NSC_LOG_ERROR_STD("Failed to close performance counters: " + e.str_);
+	}
 	NSC_DEBUG_MSG("PDHCollector - shutdown!");
 	return 0;
 }
@@ -152,7 +166,7 @@ long long PDHCollector::getMemCommitLimit() {
 }
 /**
  *
- * Memory commited bytes (your guess is as good as mine to what this is :)
+ * Memory committed bytes (your guess is as good as mine to what this is :)
  * @return Some form of memory check
  */
 long long PDHCollector::getMemCommit() {

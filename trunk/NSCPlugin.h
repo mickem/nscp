@@ -106,7 +106,7 @@ private:
 	lpUnLoadModule fUnLoadModule;
 
 public:
-	NSCPlugin(std::string file);
+	NSCPlugin(const std::string file);
 	virtual ~NSCPlugin(void);
 
 	std::string getName(void);

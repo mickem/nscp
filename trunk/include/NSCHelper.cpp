@@ -55,6 +55,17 @@ std::string NSCHelper::translateMessageType(NSCAPI::messageTypes msgType) {
 	}
 	return "unknown";
 }
+std::string NSCHelper::translateReturn(NSCAPI::returnCodes returnCode) {
+	if (returnCode == NSCAPI::returnOK)
+		return "OK";
+	else if (returnCode == NSCAPI::returnCRIT)
+		return "CRITICAL";
+	else if (returnCode == NSCAPI::returnWARN)
+		return "WARNING";
+	else
+		return "UNKNOWN";
+}
+
 
 
 namespace NSCModuleHelper {
