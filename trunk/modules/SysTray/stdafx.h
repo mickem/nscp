@@ -13,5 +13,8 @@
 
 #include <tchar.h>
 #include <string>
+//#include <iostream>
+
 #include <NSCHelper.h>
 
+#include <assert.h>
