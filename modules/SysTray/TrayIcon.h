@@ -5,11 +5,11 @@
 
 namespace TrayIcon
 {
-	BOOL CALLBACK DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
+	INT_PTR CALLBACK DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 	BOOL CALLBACK InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 	void createDialog(void);
 	void destroyDialog(void);
 	void removeIcon(void);
-	void addIcon(void);
+	void addIcon(HWND hWnd);
 	bool waitForTermination(DWORD timeout = 5000L);
 }

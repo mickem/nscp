@@ -33,7 +33,6 @@ SysTray::~SysTray() {
 		CloseHandle(hThread_);
 	}
 }
-
 bool SysTray::loadModule() {
 	hThread_ = ::CreateThread(NULL, NULL, threadProc, this, NULL, &dwThreadID_);
 	if (!hThread_)
