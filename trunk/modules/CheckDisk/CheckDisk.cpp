@@ -108,7 +108,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 	// WIN: 1G (2110962363B)|WIN:2110962363:1073741824:4294967296
 	NSC_DEBUG_MSG("CheckFileSize");
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::string> args = NSCHelper::arrayBuffer2list(argLen, char_args);
+	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.empty()) {
 		message = "Missing argument(s).";
 		return NSCAPI::returnCRIT;

@@ -299,10 +299,15 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::string command, con
 	if (command != "CheckEventLog")
 		return NSCAPI::returnIgnored;
 	NSCAPI::nagiosReturn rCode = NSCAPI::returnOK;
-	std::list<std::string> args = NSCHelper::arrayBuffer2list(argLen, char_args);
+	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.size() < 2) {
 		message = "Missing argument";
 		return NSCAPI::returnCRIT;
+	}
+
+	std::list<std::string>::iterator it = args.begin();
+	for (;it != args.end();it++) {
+		NSC_DEBUG_MSG_STD("Arguments: " + (*it));
 	}
 	std::string ret;
 	bool critical = false;
@@ -399,11 +404,14 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::string command, con
 	} 
 
 	CloseEventLog(hLog);
-	if (critical)
+	if (critical) {
 		ret = "CRITICAL: " + ret;
-	else if (!ret.empty())
+		rCode = NSCAPI::returnCRIT;
+	}
+	else if (!ret.empty()) {
 		ret = "WARNING: " + ret;
-	else 
+		rCode = NSCAPI::returnWARN;
+	} else 
 		ret = "OK: No errors/warnings in event log.";
 	if (query.truncate != 0)
 		ret = ret.substr(0, query.truncate);

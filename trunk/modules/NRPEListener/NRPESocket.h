@@ -4,6 +4,7 @@
 #include <Mutex.h>
 #include <WinSock2.h>
 #include <Socket.h>
+#include <string.h>
 /**
  * @ingroup NSClient++
  * Socket responder class.
@@ -29,10 +30,10 @@
  *
  */
 
-#define DEFAULT_NRPE_PORT 5666
 
+#define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
 
-class NRPESocket : public SimpleSocketListsner {
+class NRPESocket : public simpleSocket::Listener {
 private:
 
 public:
@@ -40,10 +41,9 @@ public:
 	virtual ~NRPESocket();
 
 private:
-	virtual void onAccept(SOCKET client);
+	virtual void onAccept(simpleSocket::Socket client);
 };
 
 
-typedef Thread<NRPESocket> NRPESocketThread; // Thread manager
 
 

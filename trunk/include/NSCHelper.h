@@ -17,36 +17,41 @@ namespace NSCHelper
 #endif
 	std::string translateMessageType(NSCAPI::messageTypes msgType);
 	std::string translateReturn(NSCAPI::nagiosReturn returnCode);
+	NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b);
 
-	/*
-	/ * **************************************************************************
-	* max_state(STATE_x, STATE_y)
-	* compares STATE_x to  STATE_y and returns result based on the following
-	* STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
-	*
-	* Note that numerically the above does not hold
-	**************************************************************************** /
-
-	int
-		max_state (int a, int b)
-	{
-		if (a == STATE_CRITICAL || b == STATE_CRITICAL)
-			return STATE_CRITICAL;
-		else if (a == STATE_WARNING || b == STATE_WARNING)
-			return STATE_WARNING;
-		else if (a == STATE_OK || b == STATE_OK)
-			return STATE_OK;
-		else if (a == STATE_UNKNOWN || b == STATE_UNKNOWN)
-			return STATE_UNKNOWN;
-		else if (a == STATE_DEPENDENT || b == STATE_DEPENDENT)
-			return STATE_DEPENDENT;
-		else
-			return max (a, b);
+#ifdef DEBUG
+	inline NSCAPI::nagiosReturn int2nagios(int code) {
+		if (code == 0)
+			return NSCAPI::returnOK;
+		if (code == 1)
+			return NSCAPI::returnWARN;
+		if (code == 2)
+			return NSCAPI::returnCRIT;
+		if (code == 4)
+			return NSCAPI::returnUNKNOWN;
+		throw "@fixme bad code";
 	}
-	@bug Use this scheme instead!!
-*/
+	inline int nagios2int(NSCAPI::nagiosReturn code) {
+		if (code == NSCAPI::returnOK)
+			return 0;
+		if (code == NSCAPI::returnWARN)
+			return 1;
+		if (code == NSCAPI::returnCRIT)
+			return 2;
+		if (code == NSCAPI::returnUNKNOWN)
+			return 4;
+		throw "@fixme bad code";
+	}
+#else
+	inline NSCAPI::nagiosReturn int2nagios(int code) {
+		return code;
+	}
+	inline int nagios2int(NSCAPI::nagiosReturn code) {
+		return code;
+	}
+#endif
 
-
+/*
 	inline void escalteReturnCode(NSCAPI::nagiosReturn &currentReturnCode, NSCAPI::nagiosReturn newReturnCode) {
 		if (newReturnCode == NSCAPI::returnCRIT)
 			currentReturnCode = NSCAPI::returnCRIT;
@@ -57,6 +62,7 @@ namespace NSCHelper
 			&& (currentReturnCode != NSCAPI::returnWARN) )
 			currentReturnCode = NSCAPI::returnUNKNOWN;
 	}
+	*/
 	inline void escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode) {
 		currentReturnCode = NSCAPI::returnCRIT;
 	}
@@ -64,7 +70,6 @@ namespace NSCHelper
 		if (currentReturnCode != NSCAPI::returnCRIT)
 			currentReturnCode = NSCAPI::returnWARN;
 	}
-
 };
 
 namespace NSCModuleHelper
@@ -80,6 +85,7 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(char*,unsigned int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const char*,const char*,const char*,char*,unsigned int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const char*, const char*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const char*, char***, unsigned int *);
 	typedef void (*lpNSAPIMessage)(int, const char*, const int, const char*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int, char *, unsigned int);
@@ -88,6 +94,7 @@ namespace NSCModuleHelper
 	// Helper functions for calling into the core
 	std::string getApplicationName(void);
 	std::string getApplicationVersionString(void);
+	std::list<std::string> getSettingsSection(std::string section);
 	std::string getSettingsString(std::string section, std::string key, std::string defaultValue);
 	int getSettingsInt(std::string section, std::string key, int defaultValue);
 	void Message(int msgType, std::string file, int line, std::string message);

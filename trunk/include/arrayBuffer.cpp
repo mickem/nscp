@@ -8,8 +8,8 @@
 * @param *argument[] Argument array
 * @return Argument wrapped as a list
 */
-std::list<std::string> arrayBuffer::arrayBuffer2list(const unsigned int argLen, char *argument[]) {
-	std::list<std::string> ret;
+arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, char *argument[]) {
+	arrayList ret;
 	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
 		std::string s = argument[i];
@@ -26,10 +26,10 @@ std::list<std::string> arrayBuffer::arrayBuffer2list(const unsigned int argLen, 
 * @param &argLen Write the length to this argument.
 * @return A pointer that is managed by the caller.
 */
-char ** arrayBuffer::list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen) {
+char ** arrayBuffer::list2arrayBuffer(const arrayList lst, unsigned int &argLen) {
 	argLen = static_cast<unsigned int>(lst.size());
 	char **arrayBuffer = new char*[argLen];
-	std::list<std::string>::const_iterator it = lst.begin();
+	arrayList::const_iterator it = lst.begin();
 	for (int i=0;it!=lst.end();++it,i++) {
 		std::string::size_type alen = (*it).size();
 		arrayBuffer[i] = new char[alen+2];
@@ -120,6 +120,7 @@ char ** arrayBuffer::split2arrayBuffer(const std::string inBuf, char splitChar, 
 		arrayBuffer[i] = new char[len+1];
 		strncpy(arrayBuffer[i], inBuf.substr(l,p).c_str(), len);
 		arrayBuffer[i][len] = 0;
+		l = ++p;
 		p = inBuf.find(splitChar, p);
 	}
 	return arrayBuffer;

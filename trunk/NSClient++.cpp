@@ -69,9 +69,11 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
 #ifdef _DEBUG
 			strEx::run_test_getToken();
+			strEx::run_test_replace();
 			charEx::run_test_getToken();
 			arrayBuffer::run_testArrayBuffer();
 #endif
+
 			g_bConsoleLog = true;
 			mainClient.InitiateService();
 			LOG_MESSAGE("Enter command to inject or exit to terminate...");
@@ -405,12 +407,21 @@ void NSAPIStopServer(void) {
 NSCAPI::nagiosReturn NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
+NSCAPI::errorReturn NSAPIGetSettingsSection(const char* section, char*** aBuffer, unsigned int * bufLen) {
+	unsigned int len = 0;
+	*aBuffer = arrayBuffer::list2arrayBuffer(Settings::getInstance()->getSection(section), len);
+	*bufLen = len;
+	return NSCAPI::isSuccess;
+}
+
 
 LPVOID NSAPILoader(char*buffer) {
 	if (stricmp(buffer, "NSAPIGetApplicationName") == 0)
 		return &NSAPIGetApplicationName;
 	if (stricmp(buffer, "NSAPIGetApplicationVersionStr") == 0)
 		return &NSAPIGetApplicationVersionStr;
+	if (stricmp(buffer, "NSAPIGetSettingsSection") == 0)
+		return &NSAPIGetSettingsSection;
 	if (stricmp(buffer, "NSAPIGetSettingsString") == 0)
 		return &NSAPIGetSettingsString;
 	if (stricmp(buffer, "NSAPIGetSettingsInt") == 0)

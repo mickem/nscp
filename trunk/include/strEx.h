@@ -6,6 +6,19 @@
 
 namespace strEx {
 
+	inline void replace(std::string &string, std::string replace, std::string with) {
+		std::string::size_type pos = string.find(replace);
+		std::string::size_type len = replace.length();
+		while (pos != std::string::npos) {
+			string = string.substr(0,pos)+with+string.substr(pos+len);
+			pos = string.find(replace, pos+1);
+		}
+	}
+	inline std::string itos(unsigned int i) {
+		std::stringstream ss;
+		ss << i;
+		return ss.str();
+	}
 	inline std::string itos(int i) {
 		std::stringstream ss;
 		ss << i;
@@ -81,5 +94,22 @@ namespace strEx {
 		test_getToken("foo&bar", '&', "foo", "bar");
 		test_getToken("foo&bar&test", '&', "foo", "bar&test");
 	}
+
+	inline void test_replace(std::string source, std::string replace, std::string with, std::string out) {
+		std::cout << "strEx::test_replace(" << source << ", " << replace << ", " << with << ") : ";
+		std::string s = source;
+		strEx::replace(s, replace, with);
+		if (s == out)
+			std::cout << "Succeeded" << std::endl;
+		else
+			std::cout << "Failed [" << s << "=" << out << "]" << std::endl;
+	}
+	inline void run_test_replace() {
+		test_replace("", "", "", "");
+		test_replace("foo", "", "", "foo");
+		test_replace("foobar", "foo", "", "bar");
+		test_replace("foobar", "foo", "bar", "barbar");
+	}
+
 #endif
 }
