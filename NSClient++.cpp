@@ -143,7 +143,12 @@ void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
  * Load a list of plug-ins
  * @param plugins A list with plug-ins (DLL files) to load
  */
-void NSClientT::loadPlugins(std::list<std::string> plugins) {
+void NSClientT::loadPlugins(const std::list<std::string> plugins) {
+	MutexLock lock(pluginMutex);
+	if (!lock.hasMutex()) {
+		LOG_ERROR("FATAL ERROR: Could not get mutex.");
+		return;
+	}
 	std::list<std::string>::const_iterator it;
 	for (it = plugins.begin(); it != plugins.end(); ++it) {
 		loadPlugin(*it);
@@ -153,6 +158,11 @@ void NSClientT::loadPlugins(std::list<std::string> plugins) {
  * Unload all plug-ins (in reversed order)
  */
 void NSClientT::unloadPlugins() {
+	MutexLock lock(pluginMutex);
+	if (!lock.hasMutex()) {
+		LOG_ERROR("FATAL ERROR: Could not get mutex.");
+		return;
+	}
 	pluginList::reverse_iterator it;
 	for (it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
 #ifdef _DEBUG
@@ -174,7 +184,7 @@ void NSClientT::unloadPlugins() {
  * Load a single plug-in using a DLL filename
  * @param file The DLL file
  */
-void NSClientT::loadPlugin(std::string file) {
+void NSClientT::loadPlugin(const std::string file) {
 	addPlugin(new NSCPlugin(file));
 }
 /**
@@ -182,6 +192,11 @@ void NSClientT::loadPlugin(std::string file) {
  * @param *plugin The plug-ininstance to load. The pointer is managed by the 
  */
 void NSClientT::addPlugin(plugin_type plugin) {
+	MutexLock lock(pluginMutex);
+	if (!lock.hasMutex()) {
+		LOG_ERROR("FATAL ERROR: Could not get mutex.");
+		return;
+	}
 	plugin->load();
 	LOG_DEBUG_STD("Loading: " + plugin->getName());
 	// @todo Catch here and unload if we fail perhaps ?
@@ -197,11 +212,8 @@ void NSClientT::addPlugin(plugin_type plugin) {
  * @param buffer A command string to inject. This should be a unparsed command string such as command&arg1&arg2&arg...
  * @return The result, empty string if no result
  */
-std::string NSClientT::inject(std::string buffer) {
+std::string NSClientT::inject(const std::string buffer) {
 	std::list<std::string> args = charEx::split(buffer.c_str(), '&');
-	if (args.size() < 2) {
-		LOG_MESSAGE("Insufficient arguments!");
-	}
 	std::string command = args.front(); args.pop_front();
 	LOG_MESSAGE_STD("Injecting: " + command);
 	std::string ret = execute(NSClientT::getPassword(), command, args);
@@ -229,6 +241,11 @@ std::string NSClientT::getPassword() {
  * ie. pair<int,string>
  */
 std::string NSClientT::execute(std::string password, std::string cmd, std::list<std::string> args) {
+	MutexLock lock(pluginMutex);
+	if (!lock.hasMutex()) {
+		LOG_ERROR("FATAL ERROR: Could not get mutex.");
+		return "FATAL ERROR";
+	}
 	static unsigned int bufferSize = 0;
 	if (bufferSize == 0)
 		bufferSize = static_cast<unsigned int>(Settings::getInstance()->getInt("main", "bufferSize", 4096));
@@ -256,6 +273,7 @@ std::string NSClientT::execute(std::string password, std::string cmd, std::list<
 				ret = returnbuffer;
 				break;
 			} else if (c == NSCAPI::isfalse) {			// Module ignored the message
+				LOG_DEBUG("A module ignored this message");
 			} else if (c == NSCAPI::invalidBufferLen) {	// Buffer is to small
 				LOG_ERROR("Return buffer to small, need to increase it in the ini file.");
 			} else {									// Something else went wrong...
@@ -278,22 +296,43 @@ std::string NSClientT::execute(std::string password, std::string cmd, std::list<
  *
  * @param msgType Message type 
  * @param file Filename generally __FILE__
- * @param line  Line number, generaly __LINE__
+ * @param line  Line number, generally __LINE__
  * @param message The message as a human readable string.
  */
 void NSClientT::reportMessage(int msgType, const char* file, const int line, std::string message) {
 	MutexLock lock(messageMutex);
+	if (!lock.hasMutex()) {
+		LOG_ERROR("FATAL ERROR: Could not get mutex.");
+		return;
+	}
+	if (msgType == NSCAPI::debug) {
+		typedef enum status {unknown, debug, nodebug };
+		static status d = unknown;
+		if (d == unknown) {
+			if (Settings::getInstance()->getInt("log", "debug", 0) == 1)
+				d = debug;
+			else
+				d = nodebug;
+		}
+		if (d == nodebug)
+			return;
+	}
 	pluginList::const_iterator plit;
 	for (plit = messageHandlers_.begin(); plit != messageHandlers_.end(); ++plit) {
 		try {
 			(*plit)->handleMessage(msgType, file, line, message.c_str());
 		} catch(const NSPluginException& e) {
 			// Here we are pretty much fucked! (as logging this might cause a loop :)
-			throw "This shouldn't have happened...";
+			std::cout << "This is *really really* bad, now the world is about to end..." << std::endl;
 		}
 	}
 }
 std::string NSClientT::getBasePath(void) {
+	MutexLock lock(pluginMutex);
+	if (!lock.hasMutex()) {
+		LOG_ERROR("FATAL ERROR: Could not get mutex.");
+		return "FATAL ERROR";
+	}
 	if (!basePath.empty())
 		return basePath;
 	char* buffer = new char[1024];
@@ -313,8 +352,6 @@ int NSAPIGetSettingsString(const char* section, const char* key, const char* def
 int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue) {
 	return Settings::getInstance()->getInt(section, key, defaultValue);
 }
-
-
 int NSAPIGetBasePath(char*buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath());
 }

@@ -7,7 +7,7 @@
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-NSCPlugin::NSCPlugin(std::string file)
+NSCPlugin::NSCPlugin(const std::string file)
 	: file_(file)
 	,fLoadModule(NULL)
 	,fGetName(NULL)
@@ -129,7 +129,7 @@ int NSCPlugin::handleCommand(const char *command, const unsigned int argLen, cha
  * @throws 
  */
 void NSCPlugin::handleMessage(int msgType, const char* file, const int line, const char *message) {
-	if (!isLoaded())
+	if (!fHandleMessage)
 		throw NSPluginException(file_, "Library is not loaded");
 	fHandleMessage(msgType, file, line, message);
 }

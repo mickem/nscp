@@ -157,13 +157,14 @@ public:
 	}
 	/**
 	 * Ask the thread to terminate (within 5 seconds) if not return false.
+	 * @param delay The time to wait for the thread
 	 * @return true if the thread has terminated
 	 */
-	bool exitThread() {
+	bool exitThread(const unsigned int delay = 5000L) {
 		if (!pObject_)
 			throw "Could not terminate thread, has not been started yet...";
 		pObject_->exitThread();
-		DWORD dwWaitResult = endMutext.wait(5000L);
+		DWORD dwWaitResult = endMutext.wait(delay);
 		switch (dwWaitResult) {
 			// The thread got mutex ownership.
 			case WAIT_OBJECT_0:

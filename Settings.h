@@ -57,7 +57,7 @@ public:
 	 * @param defaultValue Default value to return if key is not found
 	 * @return The value or defaultValue if the key is not found
 	 */
-	std::string getString(std::string section, std::string key, std::string defaultValue = "") {
+	std::string getString(std::string section, std::string key, std::string defaultValue = "") const {
 		char* buffer = new char[1024];
 		GetPrivateProfileString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, 1023, file_.c_str());
 		std::string ret = buffer;

@@ -1,4 +1,4 @@
-LIBRARY	ConsoleLogger
+LIBRARY	CheckEventLog
 
 EXPORTS
 	NSModuleHelperInit

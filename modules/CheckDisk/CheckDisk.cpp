@@ -49,7 +49,6 @@ struct GetSize : public baseClass
 	result_type operator()(argument_type wfd) {
 		if (!(wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)) {
 			size += (wfd.nFileSizeHigh * ((long long)MAXDWORD+1)) + (long long)wfd.nFileSizeLow;
-			NSC_LOG_ERROR_STD(wfd.cFileName + ": " + strEx::itos((wfd.nFileSizeHigh * ((long long)MAXDWORD+1)) + (long long)wfd.nFileSizeLow) + " --- " + strEx::itos(size));
 		}
 		return true;
 	}
@@ -82,37 +81,123 @@ void RecursiveScanDirectory(std::string dir, GetSize & f) {
 	FindClose(hFind);
 }
 
+std::string CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args) {
+	// CheckFileSize
+	// request: CheckFileSize&<option>&<option>...
+	// <option>			MaxWarn=<size gmkb>
+	//					MaxCrit=<size gmkb>
+	//					MinWarn=<size gmkb>
+	//					MinCrit=<size gmkb>
+	//					ShowAll
+	//					File=<path>
+	//					File:<shortname>=<path>
+	//
+	// Return: <return state>&<return string>...
+	// <return state>	0 - No errors
+	//					1 - Unknown
+	//					2 - Errors
+	// <size gmkb> is a size with a possible modifier letter (such as G for gigabyte, M for Megabyte, K for kilobyte etc)
+	// Examples:
+	// <return string>	<directory> <size gmkb> ... |<shortname>=<size>:<warn>:<crit>
+	// test: CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*
+	//       CheckFileSize
+	//
+	// check_nscp -H <ip> -p <port> -s <passwd> -c <commandstring>
+	//
+	// ./check_nscp -H 192.168.0.167 -p 1234 -s pwd -c 'CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*'
+	// WIN: 1G (2110962363B)|WIN:2110962363:1073741824:4294967296
+	NSC_DEBUG_MSG("CheckFileSize");
+	std::string perfData;
+	std::string ret;
+	NSCAPI::returnCodes returnCode = NSCAPI::returnOK;
+	std::list<std::string> args = NSCHelper::makelist(argLen, char_args);
+	if (args.empty())
+		return "Missing argument(s).";
+	long long maxWarn = 0;
+	long long maxCrit = 0;
+	long long minWarn = 0;
+	long long minCrit = 0;
+	bool bShowAll = false;
+	std::list<std::pair<std::string,std::string> > paths;
 
-// CheckDirectorySize&<Directory>&<Directory>...
-// request: CheckDirectorySize&<warning>&<max>&<Directory>&<Directory>...
-// Return: <return state>&<return string>...
-// <return state>	0 - No errors
-//					1 - Unknown
-//					2 - Errors
-// <return string>	<directory> <size mb> ...
-// test: CheckDirectorySize&1024M&4096M&c:\WINDOWS\*.*
-//       CheckDirectorySize
+	std::list<std::string>::const_iterator cit;
+	for (cit=args.begin();cit!=args.end();++cit) {
+		std::string arg = *cit;
+		std::pair<std::string,std::string> p = strEx::split(arg,"=");
+		if (p.first == "File") {
+			paths.push_back(std::pair<std::string,std::string>("",p.second));
+		} else if (p.first == "MaxWarn") {
+			maxWarn = strEx::stoi64_as_BKMG(p.second);
+		} else if (p.first == "MinWarn") {
+			minWarn = strEx::stoi64_as_BKMG(p.second);
+		} else if (p.first == "MaxCrit") {
+			maxCrit = strEx::stoi64_as_BKMG(p.second);
+		} else if (p.first == "MinCrit") {
+			minCrit = strEx::stoi64_as_BKMG(p.second);
+		} else if (p.first == "ShowAll") {
+			bShowAll = true;
+		} else if (p.first.find(":") != std::string::npos) {
+			std::pair<std::string,std::string> p2 = strEx::split(p.first,":");
+			if (p2.first == "File") {
+				paths.push_back(std::pair<std::string,std::string>(p2.second,p.second));
+			} else {
+				return "Unknown command: " + p.first;
+			}
+		} else {
+			return "Unknown command: " + p.first;
+		}
+	}
+	NSC_DEBUG_MSG_STD("Bounds: critical " + strEx::itos(minCrit) + " > siez > " + strEx::itos(maxCrit));
+	NSC_DEBUG_MSG_STD("Bounds: warning " + strEx::itos(minWarn) + " > size > " + strEx::itos(maxWarn));
+	NSC_DEBUG_MSG_STD("Showall: " + ((bShowAll)?"yeap":"noop"));
+
+	std::list<std::pair<std::string,std::string> >::const_iterator pit;
+	for (pit = paths.begin(); pit != paths.end(); ++pit) {
+		std::string tstr;
+		GetSize sizeFinder;
+		std::string sName = (*pit).first;
+		if (sName.empty())
+			sName = (*pit).second;
+		RecursiveScanDirectory((*pit).second, sizeFinder);
+
+		if ((maxCrit!=0) && (sizeFinder.getSize() > maxCrit)) {
+			tstr = sName + ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+			returnCode = NSCAPI::returnCRIT;
+		} else if (sizeFinder.getSize() < minCrit) {
+			tstr = sName + ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+			NSCHelper::escalteReturnCodeToCRIT(returnCode);
+		} else if ((maxWarn!=0)&&(sizeFinder.getSize() > maxWarn)) {
+			tstr = sName +  ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+			NSCHelper::escalteReturnCodeToWARN(returnCode);
+		} else if (sizeFinder.getSize() < minWarn) {
+			tstr = sName +  ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+			NSCHelper::escalteReturnCodeToWARN(returnCode);
+		} else if (bShowAll) {
+			tstr = sName +  ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+		}
+		if (!(*pit).first.empty())
+			perfData += (*pit).first + "=" + strEx::itos(sizeFinder.getSize()) + ";" + strEx::itos(maxWarn) + ";" + strEx::itos(maxCrit) + " ";
+		if (!ret.empty() && !tstr.empty())
+			ret += ", ";
+		if (!tstr.empty())
+			ret += tstr;
+	}
+	if (ret.empty())
+		ret = "OK all file sizes are within bounds.";
+	if (!perfData.empty())
+		ret += "|" + perfData;
+	return NSCHelper::returnNSCP(returnCode, ret);
+}
+
+
 #define BUFFER_SIZE 1024*64
 
 std::string CheckDisk::handleCommand(const std::string command, const unsigned int argLen, char **char_args) {
-	std::string ret;
-	if (command == "CheckDirectorySize") {
-		std::list<std::string> args = NSCHelper::makelist(argLen, char_args);
-		if (args.size() < 3)
-			return "Missing argument(s)." + strEx::itos((int)args.size());
-		int iWarn = strEx::stoi64_as_BKMG(args.front()); args.pop_front();
-		int iMax = strEx::stoi64_as_BKMG(args.front()); args.pop_front();
-
-		std::list<std::string>::const_iterator cit;
-		for (cit=args.begin();cit!=args.end();++cit) {
-			GetSize size;
-			RecursiveScanDirectory(*cit, size);
-			if (!ret.empty())
-				ret += ", ";
-			ret += (*cit) + ": " + strEx::itos_as_BKMG(size.getSize());
-		}
-	}
-	return ret;
+	if (command == "CheckFileSize") {
+		return CheckFileSize(argLen, char_args);
+//	} else if (command == "CheckFileDate") {
+	}	
+	return "";
 }
 
 

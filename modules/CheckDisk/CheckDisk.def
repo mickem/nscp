@@ -1,4 +1,4 @@
-LIBRARY	NSClientCompat
+LIBRARY	CheckDisk
 
 EXPORTS
 	NSModuleHelperInit
