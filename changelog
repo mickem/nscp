@@ -1,5 +1,7 @@
 2005-03-21 MickeM
  * Fixed BUG in inject command (now things should "work" again, but far from stable)
+ + Added NRPE return code
+ * Fixed some return states to NSClientListener (not verified yet, but soon they wil lbe back in order :)
 
 2005-03-20 MickeM
  * Fundamental API changes (due to NRPE compatibility)
@@ -7,16 +9,16 @@
    - Inject has changed
    - Most API calls have new "return codes" (typedef:ed INT to allow for return code compiler checks)
    - A lot of the old return codes have changed
- * Preliminary NRPE support (can parse and execute incoming requests, cant return data yet, and no encryption)
- * New SimpleSocket in include/ will be used as base class for Listeners
+ + Preliminary NRPE support (can parse and execute incoming requests, cant return data yet, and no encryption)
+ + New SimpleSocket in include/ will be used as base class for Listeners
  * A lot of rewrite to the NSC API
 
 2005-03-19 MickeM
  * Refactored out NSCLient Listener as a separate module
- * Added initial NRPE listener module (not yet implemented only a shell)
+ + Added initial NRPE listener module (not yet implemented only a shell)
  * Changed Module API (Inject function has new syntax)
- * Added some tokenizer function to charEx
- * Added new wrapper function to inject Command
+ + Added some tokenizer function to charEx
+ + Added new wrapper function to inject Command
  * Minor changes in relation to refactor work
 
 2005-03-01 MickeM

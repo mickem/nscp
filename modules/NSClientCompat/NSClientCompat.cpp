@@ -98,8 +98,8 @@ bool NSClientCompat::hasMessageHandler() {
  #define REQ_PROCSTATE		6	// Works fine!
  #define REQ_MEMUSE			7	// Works fine!
  //#define REQ_COUNTER		8	// ! - not implemented Have to look at this, if anyone has a sample let me know...
- //#define REQ_FILEAGE		9	// ! - not implemented Dont know how to use
- //#define REQ_INSTANCES	10	// ! - not implemented Dont know how to use
+ //#define REQ_FILEAGE		9	// ! - not implemented Don't know how to use
+ //#define REQ_INSTANCES	10	// ! - not implemented Don't know how to use
  *
  * @param command 
  * @param argLen 
@@ -108,6 +108,7 @@ bool NSClientCompat::hasMessageHandler() {
  */
 NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	std::list<std::string> stl_args;
+	NSClientCompat::returnBundle rb;
 	int id = atoi(command.c_str());
 	if (id == 0)
 		return NSCAPI::returnIgnored;
@@ -142,20 +143,29 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 				}
 				return NSCAPI::returnOK;
 			}
-			/*
 		case REQ_SERVICESTATE:
-			return NSCommands::serviceState(NSCHelper::arrayBuffer2list(argLen, args));
+			rb = NSCommands::serviceState(NSCHelper::arrayBuffer2list(argLen, char_args));
+			msg = rb.msg_;
+			perf = rb.perf_;
+			return rb.code_;
+
 
 		case REQ_PROCSTATE:
-			return NSCommands::procState(NSCHelper::arrayBuffer2list(argLen, args));
+			rb = NSCommands::procState(NSCHelper::arrayBuffer2list(argLen, char_args));
+			msg = rb.msg_;
+			perf = rb.perf_;
+			return rb.code_;
 
 		case REQ_MEMUSE:
-			return strEx::itos(pdhCollector->getMemCommitLimit()) + "&" + 
+			msg = strEx::itos(pdhCollector->getMemCommitLimit()) + "&" + 
 				strEx::itos(pdhCollector->getMemCommit());
+			return NSCAPI::returnOK;
 
 		case REQ_USEDDISKSPACE:
-			return NSCommands::usedDiskSpace(NSCHelper::arrayBuffer2list(argLen, args));
-			*/
+			rb = NSCommands::usedDiskSpace(NSCHelper::arrayBuffer2list(argLen, char_args));
+			msg = rb.msg_;
+			perf = rb.perf_;
+			return rb.code_;
 	}
 	return NSCAPI::returnIgnored;
 }

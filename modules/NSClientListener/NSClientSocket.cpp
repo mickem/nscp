@@ -84,7 +84,19 @@ std::string NSClientSocket::parseRequest(char *buffer)  {
 	NSC_DEBUG_MSG("Command: " + cmd.first);
 	std::string message, perf;
 	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first.c_str(), cmd.second, '&', message, perf);
-	return NSCHelper::translateReturn(ret) + "&" + message + "|" + perf;
+	int c = atoi(cmd.first.c_str());
+	switch (c) {
+		case REQ_CLIENTVERSION:
+		case REQ_UPTIME:
+		case REQ_CPULOAD:
+		case REQ_USEDDISKSPACE:
+			return message;
+		case REQ_SERVICESTATE:
+		case REQ_PROCSTATE:
+			return NSCHelper::translateReturn(ret) + "&" + message;
+		default:
+			return NSCHelper::translateReturn(ret) + "&" + message + "|" + perf;
+	}
 }
 
 void NSClientSocket::onAccept(SOCKET client) {
