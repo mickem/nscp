@@ -1,3 +1,6 @@
+2005-03-21 MickeM
+ * Fixed BUG in inject command (now things should "work" again, but far from stable)
+
 2005-03-20 MickeM
  * Fundamental API changes (due to NRPE compatibility)
    - HandleCommand has changed

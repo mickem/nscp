@@ -8,9 +8,12 @@
 
 namespace NSCHelper
 {
-//	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode);
+#ifdef DEBUG
 	NSCAPI::nagiosReturn wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::nagiosReturn defaultReturnCode);
 	NSCAPI::errorReturn wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::errorReturn defaultReturnCode);
+#else
+	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode);
+#endif
 
 	std::list<std::string> arrayBuffer2list(const unsigned int argLen, char **argument);
 	char ** list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen);
@@ -86,7 +89,7 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const char*, const char*, int);
 	typedef void (*lpNSAPIMessage)(int, const char*, const int, const char*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
-	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int );
+	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int, char *, unsigned int);
 	typedef LPVOID (*lpNSAPILoader)(char*);
 
 	// Helper functions for calling into the core
@@ -95,7 +98,7 @@ namespace NSCModuleHelper
 	std::string getSettingsString(std::string section, std::string key, std::string defaultValue);
 	int getSettingsInt(std::string section, std::string key, int defaultValue);
 	void Message(int msgType, std::string file, int line, std::string message);
-	NSCAPI::nagiosReturn InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
+	NSCAPI::nagiosReturn InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
 	NSCAPI::nagiosReturn InjectCommand(const char* command, const unsigned int argLen, char **argument, std::string & message, std::string & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const char* command, char* buffer, char splitChar, std::string & message, std::string & perf);
 	void StopService(void);

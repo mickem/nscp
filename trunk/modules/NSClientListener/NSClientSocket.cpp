@@ -84,8 +84,7 @@ std::string NSClientSocket::parseRequest(char *buffer)  {
 	NSC_DEBUG_MSG("Command: " + cmd.first);
 	std::string message, perf;
 	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first.c_str(), cmd.second, '&', message, perf);
-	// @todo fix some way to interpret return code
-	return message;
+	return NSCHelper::translateReturn(ret) + "&" + message + "|" + perf;
 }
 
 void NSClientSocket::onAccept(SOCKET client) {
@@ -97,10 +96,10 @@ void NSClientSocket::onAccept(SOCKET client) {
 		NSC_DEBUG_MSG(buff);
 		std::string response = parseRequest(buff);	
 		NSC_DEBUG_MSG("Outgoing data: " + response);
-		send(client, response.c_str(), response.length(), 0);
+		send(client, response.c_str(), static_cast<int>(response.length()), 0);
 	} else {
 		std::string str = "ERROR: Unknown socket error";
-		send(client,str.c_str(),str.length(),0);
+		send(client,str.c_str(),static_cast<int>(str.length()),0);
 	}
 	delete [] buff;
 	closesocket(client);
