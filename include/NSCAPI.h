@@ -14,8 +14,9 @@ namespace NSCAPI {
 	const int failed = 0;			// EVerything went to hell :)
 	const int istrue = 1;			// Should be interpreted as "true"
 	const int isfalse = 0;			// Should be interpreted as "false"
+	const int isError = -1;			// Should be interpreted as "ERROR"
 	const int handled = 2;			// The command was handled by this module
-	const int invalidBufferLen = -1;// The return buffer was to small (might wanna call again with a larger one)
+	const int invalidBufferLen = -2;// The return buffer was to small (might wanna call again with a larger one)
 
 	// Various message Types
 	const int log = 0;				// Log message

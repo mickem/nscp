@@ -1,0 +1,13 @@
+LIBRARY	NSClientListener
+
+EXPORTS
+	NSModuleHelperInit
+	NSLoadModule
+	NSGetModuleName
+	NSGetModuleVersion
+	NSHasCommandHandler
+	NSHasMessageHandler
+	NSHandleMessage
+	NSHandleCommand
+	NSUnloadModule
+

@@ -3,6 +3,8 @@
 #include <string>
 #include <list>
 #include <NSCAPI.h>
+#include <iostream>
+#include <charEx.h>
 
 namespace NSCHelper
 {
@@ -10,6 +12,9 @@ namespace NSCHelper
 
 	std::list<std::string> arrayBuffer2list(const unsigned int argLen, char **argument);
 	char ** list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen);
+	char ** split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen);
+	std::string arrayBuffer2string(char **argument, const unsigned int argLen, std::string join);
+	char ** createEmptyArrayBuffer(unsigned int &argLen);
 	void destroyArrayBuffer(char **argument, const unsigned int argLen);
 
 	std::string translateMessageType(NSCAPI::messageTypes msgType);
@@ -43,7 +48,7 @@ namespace NSCHelper
 		else
 			return max (a, b);
 	}
-	@bug Use this sceme instead!!
+	@bug Use this scheme instead!!
 */
 
 
@@ -82,7 +87,7 @@ namespace NSCModuleHelper
 	typedef int (*lpNSAPIGetSettingsInt)(const char*, const char*, int);
 	typedef void (*lpNSAPIMessage)(int, const char*, const int, const char*);
 	typedef int (*lpNSAPIStopServer)(void);
-	typedef int (*lpNSAPIInject)(const char*,char*,unsigned int);
+	typedef int (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int );
 	typedef LPVOID (*lpNSAPILoader)(char*);
 
 	// Helper functions for calling into the core
@@ -91,7 +96,9 @@ namespace NSCModuleHelper
 	std::string getSettingsString(std::string section, std::string key, std::string defaultValue);
 	int getSettingsInt(std::string section, std::string key, int defaultValue);
 	void Message(int msgType, std::string file, int line, std::string message);
-	std::string InjectCommand(std::string command);
+	int InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
+	std::string InjectCommand(const char* command, const unsigned int argLen, char **argument);
+	std::string InjectSplitAndCommand(const char* command, char* buffer, char splitChar = '&');
 	void StopService(void);
 	std::string getBasePath();
 };
@@ -152,40 +159,39 @@ namespace NSCModuleWrapper {
 
 #define NSC_WRAPPERS_MAIN_DEF(toObject) \
 	extern int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) { \
-	return NSCModuleWrapper::wrapModuleHelperInit(f); \
+		return NSCModuleWrapper::wrapModuleHelperInit(f); \
 	} \
 	extern int NSLoadModule() { \
-	return NSCModuleWrapper::wrapLoadModule(toObject.loadModule()); \
+		return NSCModuleWrapper::wrapLoadModule(toObject.loadModule()); \
 	} \
 	extern int NSGetModuleName(char* buf, int buflen) { \
-	return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
+		return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
 	} \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { \
-	return NSCModuleWrapper::wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
-	} \
-	extern int NSHasCommandHandler() { \
-	return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
-	} \
-	extern int NSHasMessageHandler() { \
-	return NSCModuleWrapper::wrapHasMessageHandler(toObject.hasMessageHandler()); \
+		return NSCModuleWrapper::wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
 	} \
 	extern int NSUnloadModule() { \
-	return NSCModuleWrapper::wrapUnloadModule(toObject.unloadModule()); \
+		return NSCModuleWrapper::wrapUnloadModule(toObject.unloadModule()); \
 	}
 #define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
 	extern void NSHandleMessage(int msgType, char* file, int line, char* message) { \
-	toObject.handleMessage(msgType, file, line, message); \
+		toObject.handleMessage(msgType, file, line, message); \
+	} \
+	extern int NSHasMessageHandler() { \
+		return NSCModuleWrapper::wrapHasMessageHandler(toObject.hasMessageHandler()); \
 	}
 #define NSC_WRAPPERS_IGNORE_MSG_DEF() \
-	extern void NSHandleMessage(int msgType, char* file, int line, char* message) { \
-	}
+	extern void NSHandleMessage(int msgType, char* file, int line, char* message) {} \
+	extern int NSHasMessageHandler() { return NSCAPI::isfalse; }
 #define NSC_WRAPPERS_HANDLE_CMD_DEF(toObject) \
 	extern int NSHandleCommand(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) { \
 		return NSCModuleWrapper::wrapHandleCommand(toObject.handleCommand(command, argLen, argument), returnBuffer, returnBufferLen); \
+	} \
+	extern int NSHasCommandHandler() { \
+		return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
 	}
 #define NSC_WRAPPERS_IGNORE_CMD_DEF() \
 	extern int NSHandleCommand(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) { \
-	return NSCAPI::failed; \
-	}
-#define NSC_LOG_DEBUG(str) \
-	NSCHelper::DebugMessage(__FILE__, __LINE__, str);
+		return NSCAPI::failed; \
+	} \
+	extern int NSHasCommandHandler() { return NSCAPI::isfalse; }

@@ -4,7 +4,6 @@
 #include <ServiceCmd.h>
 #include <NTService.h>
 #include "NSCPlugin.h"
-#include "TCPSocketResponder.h"
 #include <Mutex.h>
 #include <NSCAPI.h>
 
@@ -41,7 +40,6 @@ private:
 	pluginList plugins_;
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
-	TCPSocketResponderThread socketThread;
 	std::string basePath;
 	MutexHandler pluginMutex;
 	MutexHandler messageMutex;
@@ -60,7 +58,8 @@ public:
 	// Member functions
 	static std::string getPassword(void);
 	std::string getBasePath(void);
-	std::string inject(const std::string buffer);
+	int injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
+//	std::string inject(const std::string buffer);
 	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
 	void reportMessage(int msgType, const char* file, const int line, std::string message);
 
@@ -90,7 +89,7 @@ int NSAPIGetSettingsString(const char* section, const char* key, const char* def
 int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue);
 void NSAPIMessage(int msgType, const char* file, const int line, const char* message);
 void NSAPIStopServer(void);
-int NSAPIInject(const char* command, char* buffer, unsigned int bufLen);
+int NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
 
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging

@@ -20,4 +20,3 @@
 // Buffer size of incoming data (noteice this is the maximum request length!)
 #define RECV_BUFFER_LEN		1024
 
-#define DEFAULT_TCP_PORT 12489
