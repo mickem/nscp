@@ -1,5 +1,5 @@
 #pragma once
-
+#include <assert.h>
 
 namespace charEx {
 	/**
@@ -20,5 +20,15 @@ namespace charEx {
 		}
 		ret.push_back(std::string(start));
 		return ret;
+	}
+	typedef std::pair<std::string,char*> token;
+	inline token getToken(char *buffer, char split) {
+		assert(buffer != NULL);
+		char *p = strchr(buffer, split);
+		if (!p) {
+			return token(buffer, NULL);
+		}
+		p++;
+		return token(std::string(buffer, p-buffer-1), p);
 	}
 };

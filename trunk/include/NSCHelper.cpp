@@ -45,7 +45,6 @@ std::list<std::string> NSCHelper::arrayBuffer2list(const unsigned int argLen, ch
  * @return A pointer that is managed by the caller.
  */
 char ** NSCHelper::list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen) {
-	std::string ret;
 	argLen = static_cast<unsigned int>(lst.size());
 	char **arrayBuffer = new char*[argLen];
 	std::list<std::string>::const_iterator it = lst.begin();
@@ -57,6 +56,62 @@ char ** NSCHelper::list2arrayBuffer(const std::list<std::string> lst, unsigned i
 	assert(i == argLen);
 	return arrayBuffer;
 }
+/**
+ * Creates an empty arrayBuffer (only used to allow consistency)
+ * @param &argLen [OUT] The length (items) of the arrayBuffer
+ * @return The arrayBuffer
+ */
+char ** NSCHelper::createEmptyArrayBuffer(unsigned int &argLen) {
+	argLen = 0;
+	char **arrayBuffer = new char*[0];
+	return arrayBuffer;
+}
+/**
+ * Joins an arrayBuffer back into a string
+ * @param **argument The ArrayBuffer
+ * @param argLen The length of the ArrayBuffer
+ * @param join The char to use as separators when joining
+ * @return The joined arrayBuffer
+ */
+std::string NSCHelper::arrayBuffer2string(char **argument, const unsigned int argLen, std::string join) {
+	std::string ret;
+	for (unsigned int i=0;i<argLen;i++) {
+		ret += argument[i];
+		if (i != argLen-1)
+			ret += join;
+	}
+	return ret;
+}
+/**
+ * Split a string into elements as an arrayBuffer
+ * @param buffer The CharArray to split along
+ * @param splitChar The char to use as splitter
+ * @param &argLen [OUT] The length of the Array
+ * @return The arrayBuffer
+ */
+char ** NSCHelper::split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen) {
+	assert(buffer);
+	argLen = 0;
+	const char *p = buffer;
+	while (*p) {
+		if (*p == splitChar)
+			argLen++;
+		p++;
+	}
+	argLen++;
+	char **arrayBuffer = new char*[argLen];
+	p = buffer;
+	for (unsigned int i=0;i<argLen;i++) {
+		char *q = strchr(p, (i<argLen-1)?splitChar:0);
+		unsigned int len = q-p;
+		arrayBuffer[i] = new char[len+1];
+		strncpy(arrayBuffer[i], p, len);
+		arrayBuffer[i][len] = 0;
+		p = ++q;
+	}
+	return arrayBuffer;
+}
+
 /**
  * Destroy an arrayBuffer.
  * The buffer should have been created with list2arrayBuffer.
@@ -139,17 +194,27 @@ void NSCModuleHelper::Message(int msgType, std::string file, int line, std::stri
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
  * @param command Command to inject (password should not be included.
  * @return The result (if any) of the command.
- * @throws NSCMHExcpetion When core pointer set is unavailable or an unknown inject error occures.
+ * @throws NSCMHExcpetion When core pointer set is unavailable or an unknown inject error occurs.
  */
-std::string NSCModuleHelper::InjectCommand(std::string command) {
+int NSCModuleHelper::InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) 
+{
+	if (!fNSAPIInject)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	return fNSAPIInject(command, argLen, argument, returnBuffer, returnBufferLen);
+}
+std::string NSCModuleHelper::InjectCommand(const char* command, const unsigned int argLen, char **argument) 
+{
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
+	buffer[0] = 0;
 	std::string ret;
 	int err;
-	if ((err = fNSAPIInject(command.c_str(), buffer, BUFF_LEN)) != NSCAPI::success) {
+	if ((err = InjectCommandRAW(command, argLen, argument, buffer, BUFF_LEN)) != NSCAPI::handled) {
 		if (err == NSCAPI::invalidBufferLen)
 			NSC_LOG_ERROR("Inject command resulted in an invalid buffer size.");
+		else if (err == NSCAPI::isfalse)
+			NSC_LOG_MESSAGE("No handler for this message.");
 		else
 			throw NSCMHExcpetion("Unknown inject error.");
 	} else {
@@ -157,6 +222,29 @@ std::string NSCModuleHelper::InjectCommand(std::string command) {
 	}
 	delete [] buffer;
 	return ret;
+}
+/**
+ * A wrapper around the InjetCommand that is simpler to use.
+ * Parses a string by splitting and makes the array and also manages return buffers and such.
+ * @param command The command to execute
+ * @param buffer The buffer to splitwww.ikea.se
+
+ * @param splitChar The char to use as splitter
+ * @return The result of the command
+ */
+std::string NSCModuleHelper::InjectSplitAndCommand(const char* command, char* buffer, char splitChar)
+{
+	if (!fNSAPIInject)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	unsigned int argLen = 0;
+	char ** aBuffer;
+	if (buffer)
+		aBuffer= NSCHelper::split2arrayBuffer(buffer, splitChar, argLen);
+	else
+		aBuffer= NSCHelper::createEmptyArrayBuffer(argLen);
+	std::string s = InjectCommand(command, argLen, aBuffer);
+	NSCHelper::destroyArrayBuffer(aBuffer, argLen);
+	return s;
 }
 /**
  * Ask the core to shutdown (only works when run as a service, o/w does nothing ?

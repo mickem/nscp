@@ -2,8 +2,8 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="7.10"
-	Name="NSClientCompat"
-	ProjectGUID="{79F1F571-78A6-4B20-8BD5-0F65CD60012C}"
+	Name="NSClientListener"
+	ProjectGUID="{08D6246D-1B4A-47A3-965D-296DCC54A4E8}"
 	Keyword="Win32Proj">
 	<Platforms>
 		<Platform
@@ -11,33 +11,35 @@
 	</Platforms>
 	<Configurations>
 		<Configuration
-			Name="Release|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
 			ConfigurationType="2"
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
+				Optimization="0"
 				AdditionalIncludeDirectories="../include;../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
-				RuntimeLibrary="2"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1"
+				MinimalRebuild="TRUE"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
 				UsePrecompiledHeader="3"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="TRUE"
-				DebugInformationFormat="3"/>
+				DebugInformationFormat="4"/>
 			<Tool
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="../../Release/modules/$(ProjectName).dll"
-				LinkIncremental="1"
-				ModuleDefinitionFile="NSClientCompat.def"
+				AdditionalDependencies="ws2_32.lib"
+				OutputFile="../../Debug/modules/$(ProjectName).dll"
+				LinkIncremental="2"
+				ModuleDefinitionFile="NSClientListener.def"
 				GenerateDebugInformation="TRUE"
+				ProgramDatabaseFile="$(OutDir)/NSClientListener.pdb"
 				SubSystem="2"
-				OptimizeReferences="2"
-				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/NSClientCompat.lib"
+				ImportLibrary="$(OutDir)/NSClientListener.lib"
 				TargetMachine="1"/>
 			<Tool
 				Name="VCMIDLTool"/>
@@ -61,35 +63,33 @@
 				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
-			Name="Debug|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
 			ConfigurationType="2"
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
 				AdditionalIncludeDirectories="../include;../../include"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1"
-				MinimalRebuild="TRUE"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;NSCLIENTLISTENER_EXPORTS"
+				RuntimeLibrary="2"
 				UsePrecompiledHeader="3"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="TRUE"
-				DebugInformationFormat="4"/>
+				DebugInformationFormat="3"/>
 			<Tool
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="../../Debug/modules/$(ProjectName).dll"
-				LinkIncremental="2"
-				ModuleDefinitionFile="NSClientCompat.def"
+				AdditionalDependencies="ws2_32.lib"
+				OutputFile="../../Release/modules/$(ProjectName).dll"
+				LinkIncremental="1"
+				ModuleDefinitionFile="NSClientListener.def"
 				GenerateDebugInformation="TRUE"
-				ProgramDatabaseFile="$(OutDir)/NSClientCompat.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/NSClientCompat.lib"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				ImportLibrary="$(OutDir)/NSClientListener.lib"
 				TargetMachine="1"/>
 			<Tool
 				Name="VCMIDLTool"/>
@@ -121,33 +121,24 @@
 			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
 			<File
-				RelativePath="..\..\include\EnumNtSrv.cpp">
-			</File>
-			<File
 				RelativePath="..\..\include\NSCHelper.cpp">
 			</File>
 			<File
-				RelativePath=".\NSClientCompat.cpp">
+				RelativePath=".\NSClientListener.cpp">
 			</File>
 			<File
-				RelativePath=".\NSClientCompat.def">
-			</File>
-			<File
-				RelativePath=".\NSCommands.cpp">
-			</File>
-			<File
-				RelativePath=".\PDHCollector.cpp">
+				RelativePath=".\NSClientSocket.cpp">
 			</File>
 			<File
 				RelativePath=".\stdafx.cpp">
 				<FileConfiguration
-					Name="Release|Win32">
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|Win32">
+					Name="Release|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="1"/>
@@ -159,31 +150,16 @@
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
 			<File
-				RelativePath="..\..\include\EnumNtSrv.h">
+				RelativePath="..\..\include\charEx.h">
 			</File>
 			<File
-				RelativePath="..\..\include\NSCHelper.h">
+				RelativePath=".\NSClientListener.h">
 			</File>
 			<File
-				RelativePath=".\NSClientCompat.h">
-			</File>
-			<File
-				RelativePath=".\NSCommands.h">
-			</File>
-			<File
-				RelativePath=".\PDHCollector.h">
-			</File>
-			<File
-				RelativePath="..\..\include\PDHCollectors.h">
+				RelativePath=".\NSClientSocket.h">
 			</File>
 			<File
 				RelativePath=".\stdafx.h">
-			</File>
-			<File
-				RelativePath="..\..\include\strEx.h">
-			</File>
-			<File
-				RelativePath="..\..\include\thread.h">
 			</File>
 		</Filter>
 		<Filter

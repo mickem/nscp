@@ -19,7 +19,7 @@
 #include <charEx.h>
 
 NSClient mainClient;	// Global core instance.
-
+bool g_bConsoleLog = false;
 //////////////////////////////////////////////////////////////////////////
 // Startup code
 
@@ -37,6 +37,7 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if ( _stricmp( "install", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			try {
 				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
 			} catch (const serviceControll::SCException& e) {
@@ -45,6 +46,7 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			}
 			LOG_MESSAGE("Service installed!");
 		} else if ( _stricmp( "uninstall", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			try {
 				serviceControll::Uninstall(SZSERVICENAME);
 			} catch (const serviceControll::SCException& e) {
@@ -52,25 +54,31 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 				return -1;
 			}
 		} else if ( _stricmp( "start", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			serviceControll::Start(SZSERVICENAME);
 		} else if ( _stricmp( "stop", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			serviceControll::Stop(SZSERVICENAME);
 		} else if ( _stricmp( "about", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME " (C) Michael Medin");
 			LOG_MESSAGE("Version " SZVERSION);
 		} else if ( _stricmp( "version", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME " Version: " SZVERSION);
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			mainClient.InitiateService();
 			LOG_MESSAGE("Enter command to inject or exit to terminate...");
 			std::string s = "";
 			std::cin >> s;
 			while (s != "exit") {
-				mainClient.inject(s);
+//				mainClient.inject(s);
 				std::cin >> s;
 			}
 			mainClient.TerminateService();
 			LOG_MESSAGE("DONE!");
+
 			return 0;
 		} else {
 			LOG_MESSAGE("Usage: -version, -about, -install, -uninstall, -start, -stop");
@@ -100,15 +108,12 @@ void NSClientT::InitiateService(void) {
 			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
 		}
 	}
-	socketThread.createThread();
 }
 /**
  * Service control handler termination point.
  * When the program is stopped as a service this will be the "exit point".
  */
 void NSClientT::TerminateService(void) {
-	if (!socketThread.exitThread())
-		LOG_ERROR("Could not exit socket listener thread");
 	try {
 		LOG_DEBUG("Socket closed, unloading plugins...");
 		mainClient.unloadPlugins();
@@ -165,13 +170,8 @@ void NSClientT::unloadPlugins() {
 	}
 	pluginList::reverse_iterator it;
 	for (it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
-#ifdef _DEBUG
-		std::cout << "Unloading plugin: " << (*it)->getName() << "...";
-#endif
-			(*it)->unload();
-#ifdef _DEBUG
-		std::cout << "OK" << std::endl;
-#endif
+		LOG_DEBUG_STD("Unloading plugin: " + (*it)->getName() + "...");
+		(*it)->unload();
 	}
 	{
 		MutexLock lock2(messageMutex,20000);
@@ -219,16 +219,37 @@ void NSClientT::addPlugin(plugin_type plugin) {
  * @param buffer A command string to inject. This should be a unparsed command string such as command&arg1&arg2&arg...
  * @return The result, empty string if no result
  */
-std::string NSClientT::inject(const std::string buffer) {
-	std::list<std::string> args = charEx::split(buffer.c_str(), '&');
-	if (args.empty())
-		return "";
-	std::string command = args.front(); args.pop_front();
-	LOG_MESSAGE_STD("Injecting: " + command);
-	std::string ret = execute(NSClientT::getPassword(), command, args);
-	LOG_MESSAGE_STD("Injected Result: " + ret);
-	return ret;
+int NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) {
+	MutexLock lock(pluginMutex);
 
+	LOG_MESSAGE_STD("Injecting: " + command);
+
+	pluginList::const_iterator plit;
+	for (plit = commandHandlers_.begin(); plit != commandHandlers_.end(); ++plit) {
+		try {
+			int c = (*plit)->handleCommand(command, argLen, argument, returnBuffer, returnBufferLen);
+			if (c == NSCAPI::handled) {					// module handled the message "we are done..."
+				LOG_DEBUG_STD("Injected Result: " +(std::string) returnBuffer);
+				return c;
+			} else if (c == NSCAPI::isfalse) {			// Module ignored the message
+				LOG_DEBUG("A module ignored this message");
+			} else if (c == NSCAPI::invalidBufferLen) {	// Buffer is to small
+				LOG_ERROR("Return buffer to small to handle this command.");
+				return c;
+			} else if (c == NSCAPI::isError) {			// Error
+				LOG_ERROR("An error occured while handling this command.");
+				return c;
+			} else {									// Something else went wrong...
+				LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
+				return c;
+			}
+		} catch(const NSPluginException& e) {
+			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
+			return NSCAPI::isError;
+		}
+	}
+	LOG_MESSAGE_STD("No handler for command: " + command);
+	return NSCAPI::isfalse;
 }
 /**
  * Helper function to return the current password (perhaps this should be static ?)
@@ -305,6 +326,9 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 		std::cout << message << std::endl;
 		return;
 	}
+	if (g_bConsoleLog) {
+		std::cout << NSCHelper::translateMessageType(msgType) << " " << file << "(" << line << ") " << message << std::endl;
+	}
 	if (msgType == NSCAPI::debug) {
 		typedef enum status {unknown, debug, nodebug };
 		static status d = unknown;
@@ -368,8 +392,8 @@ void NSAPIMessage(int msgType, const char* file, const int line, const char* mes
 void NSAPIStopServer(void) {
 	serviceControll::Stop(SZSERVICENAME);
 }
-int NSAPIInject(const char* command, char* buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.inject(command));
+int NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) {
+	return mainClient.injectRAW(command, argLen, argument, returnBuffer, returnBufferLen);
 }
 
 LPVOID NSAPILoader(char*buffer) {

@@ -37,7 +37,6 @@ BOOL CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LP
 
 INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
-	DWORD tmp = 0;
 	switch (uMsg) 
 	{
 	case WM_INITDIALOG:
@@ -62,12 +61,17 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 				if (TrayIcon::defaultCommand.empty())
 					TrayIcon::defaultCommand = NSCModuleHelper::getSettingsString("systray", "defaultCommand", "");
 				if (DialogBox(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_INJECTDIALOG),NULL,InjectDialogProc) == IDOK) {
-					NSCModuleHelper::InjectCommand(TrayIcon::defaultCommand);
+					// @todo NSCModuleHelper::InjectCommand(TrayIcon::defaultCommand);
 				}
 				break;
 			case ID_POPUP_SHOWLOG:
-				if ((tmp = (INT)ShellExecute(ghDlgWnd, "open", (NSCModuleHelper::getBasePath() + NSCModuleHelper::getSettingsString("log", "file", "")).c_str(), NULL, NULL, SW_SHOWNORMAL))<=32) {
-					NSC_LOG_ERROR("ShellExecute failed : " + strEx::itos((INT)tmp));
+				{
+					long long err = reinterpret_cast<long long>(ShellExecute(ghDlgWnd, "open", 
+						(NSCModuleHelper::getBasePath() + NSCModuleHelper::getSettingsString("log", "file", "")).c_str(), 
+						NULL, NULL, SW_SHOWNORMAL));
+					if (err <=32) {
+							NSC_LOG_ERROR("ShellExecute failed : " + strEx::itos(err));
+						}
 				}
 			}
 			return TRUE;

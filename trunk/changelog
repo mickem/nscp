@@ -1,3 +1,11 @@
+2005-03-19 MickeM
+ * Refactored out NSCLient Listener as a separate module
+ * Added initial NRPE listener module (not yet implemented only a shell)
+ * Changed Module API (Inject function has new syntax)
+ * Added some tokenizer function to charEx
+ * Added new wrapper function to inject Command
+ * Minor changes in relation to refactor work
+
 2005-03-01 MickeM
  * Improved thread safety in Core
  + Added exception handling and logging in PDH code
@@ -11,7 +19,7 @@
 
 2005-02-17 MickeM
  * NSClient issues fixed
- * Systray issues fixed
+ * System Tray issues fixed
 
 2005-02-14 MickeM
- * Initial sourceforge release
+ * Initial SourceForge release
