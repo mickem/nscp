@@ -54,4 +54,32 @@ namespace strEx {
 			return std::pair<std::string,std::string>(str, "");
 		return std::pair<std::string,std::string>(str.substr(0, pos), str.substr(pos+key.length()));
 	}
+	typedef std::pair<std::string,std::string> token;
+	inline token getToken(std::string buffer, char split) {
+		std::string::size_type pos = buffer.find(split);
+		if (pos == std::string::npos)
+			return token(buffer, "");
+		if (pos == buffer.length()-1)
+			return token(buffer.substr(0, pos), "");
+		return token(buffer.substr(0, pos-1), buffer.substr(++pos));
+	}
+#ifdef _DEBUG
+	inline void test_getToken(std::string in1, char in2, std::string out1, std::string out2) {
+		token t = getToken(in1, in2);
+		std::cout << "strEx::test_getToken(" << in1 << ", " << in2 << ") : ";
+		if ((t.first == out1) && (t.second == out2))
+			std::cout << "Succeeded" << std::endl;
+		else
+			std::cout << "Failed [" << out1 << "=" << t.first << ", " << out2 << "=" << t.second << "]" << std::endl;
+	}
+	inline void run_test_getToken() {
+		test_getToken("", '&', "", "");
+		test_getToken("&", '&', "", "");
+		test_getToken("&&", '&', "", "&");
+		test_getToken("foo", '&', "foo", "");
+		test_getToken("foo&", '&', "foo", "");
+		test_getToken("foo&bar", '&', "foo", "bar");
+		test_getToken("foo&bar&test", '&', "foo", "bar&test");
+	}
+#endif
 }

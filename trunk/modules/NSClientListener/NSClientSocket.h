@@ -5,6 +5,7 @@
 #include <WinSock2.h>
 #include <strEx.h>
 #include <charEx.h>
+#include <Socket.h>
 /**
  * @ingroup NSClient++
  * Socket responder class.
@@ -29,27 +30,16 @@
  * @bug 
  *
  */
-class NSClientSocket {
+class NSClientSocket : public SimpleSocketListsner {
 private:
-	MutexHandler mutexHandler;
-	SOCKET server;
-	HANDLE hStopEvent;
 
 public:
 	NSClientSocket();
 	virtual ~NSClientSocket();
-	DWORD threadProc(LPVOID lpParameter);
-	void exitThread(void);
 
 private:
-	bool isRunning(void);
-	void stopRunning(void);
-	void startRunning(void);
-	std::list<std::string> split(char* buffer);
-	std::string parseCommand(char* request);
-
-	void onAccept(SOCKET client);
-	std::string parseRequest(char *buffer);
+	virtual void onAccept(SOCKET client);
+	std::string parseRequest(std::string buffer);
 };
 
 #define DEFAULT_TCP_PORT 12489

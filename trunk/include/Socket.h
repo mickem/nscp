@@ -42,14 +42,14 @@ public:
 #define RECV_BUFFER_LEN 1024
 	typedef std::pair<char*,unsigned int> readAllDataBlock;
 	static readAllDataBlock readAll(SOCKET socket) {
-		// @todo Is this even working ?
+		// @bug Is this even working ?
 		// @todo Nedds *alot* more work...
 		unsigned int buffLen = RECV_BUFFER_LEN;
 		char *retBuf = NULL;
 		char *buff = new char[buffLen];
 		int n=recv(socket,buff,RECV_BUFFER_LEN,0);
-		while ((n==SOCKET_ERROR )||(n==0)) {
-			if (n == buffLen) {
+		while ((n!=SOCKET_ERROR )||(n!=0)) {
+			if (n == RECV_BUFFER_LEN) {
 				char* newBuf = new char[buffLen+RECV_BUFFER_LEN];
 				memcpy(newBuf, buff, buffLen);
 				n = recv(socket, buff, RECV_BUFFER_LEN, 0);

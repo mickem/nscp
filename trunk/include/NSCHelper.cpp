@@ -36,111 +36,6 @@ int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string s
 	return defaultReturnCode;
 }
 #endif
-/**
- * Make a list out of a array of char arrays (arguments type)
- * @param argLen Length of argument array
- * @param *argument[] Argument array
- * @return Argument wrapped as a list
- */
-std::list<std::string> NSCHelper::arrayBuffer2list(const unsigned int argLen, char *argument[]) {
-	std::list<std::string> ret;
-	int i=0;
-	for (unsigned int i=0;i<argLen;i++) {
-		std::string s = argument[i];
-		ret.push_back(s);
-	}
-	return ret;
-}
-/**
- * Create an arrayBuffer from a list.
- * This is the reverse of arrayBuffer2list.
- * <b>Notice</b> it is up to the caller to free the memory allocated in the returned buffer.
- *
- * @param lst A list to convert.
- * @param &argLen Write the length to this argument.
- * @return A pointer that is managed by the caller.
- */
-char ** NSCHelper::list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen) {
-	argLen = static_cast<unsigned int>(lst.size());
-	char **arrayBuffer = new char*[argLen];
-	std::list<std::string>::const_iterator it = lst.begin();
-	for (int i=0;it!=lst.end();++it,i++) {
-		std::string::size_type alen = (*it).size();
-		arrayBuffer[i] = new char[alen+2];
-		strncpy(arrayBuffer[i], (*it).c_str(), alen+1);
-	}
-	assert(i == argLen);
-	return arrayBuffer;
-}
-/**
- * Creates an empty arrayBuffer (only used to allow consistency)
- * @param &argLen [OUT] The length (items) of the arrayBuffer
- * @return The arrayBuffer
- */
-char ** NSCHelper::createEmptyArrayBuffer(unsigned int &argLen) {
-	argLen = 0;
-	char **arrayBuffer = new char*[0];
-	return arrayBuffer;
-}
-/**
- * Joins an arrayBuffer back into a string
- * @param **argument The ArrayBuffer
- * @param argLen The length of the ArrayBuffer
- * @param join The char to use as separators when joining
- * @return The joined arrayBuffer
- */
-std::string NSCHelper::arrayBuffer2string(char **argument, const unsigned int argLen, std::string join) {
-	std::string ret;
-	for (unsigned int i=0;i<argLen;i++) {
-		ret += argument[i];
-		if (i != argLen-1)
-			ret += join;
-	}
-	return ret;
-}
-/**
- * Split a string into elements as an arrayBuffer
- * @param buffer The CharArray to split along
- * @param splitChar The char to use as splitter
- * @param &argLen [OUT] The length of the Array
- * @return The arrayBuffer
- */
-char ** NSCHelper::split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen) {
-	assert(buffer);
-	argLen = 0;
-	const char *p = buffer;
-	while (*p) {
-		if (*p == splitChar)
-			argLen++;
-		p++;
-	}
-	argLen++;
-	char **arrayBuffer = new char*[argLen];
-	p = buffer;
-	for (unsigned int i=0;i<argLen;i++) {
-		char *q = strchr(p, (i<argLen-1)?splitChar:0);
-		unsigned int len = static_cast<int>(q-p);
-		arrayBuffer[i] = new char[len+1];
-		strncpy(arrayBuffer[i], p, len);
-		arrayBuffer[i][len] = 0;
-		p = ++q;
-	}
-	return arrayBuffer;
-}
-
-/**
- * Destroy an arrayBuffer.
- * The buffer should have been created with list2arrayBuffer.
- *
- * @param **argument 
- * @param argLen 
- */
-void NSCHelper::destroyArrayBuffer(char **argument, const unsigned int argLen) {
-	for (unsigned int i=0;i<argLen;i++) {
-		delete [] argument[i];
-	}
-	delete [] argument;
-}
 
 
 /**
@@ -265,11 +160,25 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const char* command,
 	unsigned int argLen = 0;
 	char ** aBuffer;
 	if (buffer)
-		aBuffer= NSCHelper::split2arrayBuffer(buffer, splitChar, argLen);
+		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen);
 	else
-		aBuffer= NSCHelper::createEmptyArrayBuffer(argLen);
+		aBuffer= arrayBuffer::createEmptyArrayBuffer(argLen);
 	NSCAPI::nagiosReturn ret = InjectCommand(command, argLen, aBuffer, message, perf);
-	NSCHelper::destroyArrayBuffer(aBuffer, argLen);
+	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
+	return ret;
+}
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::string command, const std::string buffer, char splitChar, std::string & message, std::string & perf)
+{
+	if (!fNSAPIInject)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	unsigned int argLen = 0;
+	char ** aBuffer;
+	if (buffer.empty())
+		aBuffer= arrayBuffer::createEmptyArrayBuffer(argLen);
+	else
+		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen);
+	NSCAPI::nagiosReturn ret = InjectCommand(command.c_str(), argLen, aBuffer, message, perf);
+	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
 	return ret;
 }
 /**

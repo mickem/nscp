@@ -109,13 +109,14 @@ bool NSClientCompat::hasMessageHandler() {
 NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	std::list<std::string> stl_args;
 	NSClientCompat::returnBundle rb;
+
 	int id = atoi(command.c_str());
 	if (id == 0)
 		return NSCAPI::returnIgnored;
 	switch (id) {
 		case REQ_CLIENTVERSION:
 			{
-				std::string msg = NSCModuleHelper::getSettingsString("nsclient compat", "version", "modern");
+				msg = NSCModuleHelper::getSettingsString("nsclient compat", "version", "modern");
 				if (msg == "modern")
 					msg = NSCModuleHelper::getApplicationName() + " " + NSCModuleHelper::getApplicationVersionString();
 				return NSCAPI::returnOK;
@@ -126,7 +127,7 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 
 		case REQ_CPULOAD:
 			{
-				stl_args = NSCHelper::arrayBuffer2list(argLen, char_args);
+				stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 				if (stl_args.empty()) {
 					msg = "ERROR: Missing argument exception.";
 					return NSCAPI::returnCRIT;
@@ -135,7 +136,8 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 					std::string s = stl_args.front(); stl_args.pop_front();
 					int v = pdhCollector->getCPUAvrage(strEx::stoi(s)*(60/CHECK_INTERVAL));
 					if (v == -1) {
-						return NSCAPI::returnOK;
+						msg = "ERROR: We don't collect data that far back.";
+						return NSCAPI::returnCRIT;
 					}
 					if (!msg.empty())
 						msg += "&";
@@ -144,14 +146,14 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 				return NSCAPI::returnOK;
 			}
 		case REQ_SERVICESTATE:
-			rb = NSCommands::serviceState(NSCHelper::arrayBuffer2list(argLen, char_args));
+			rb = NSCommands::serviceState(arrayBuffer::arrayBuffer2list(argLen, char_args));
 			msg = rb.msg_;
 			perf = rb.perf_;
 			return rb.code_;
 
 
 		case REQ_PROCSTATE:
-			rb = NSCommands::procState(NSCHelper::arrayBuffer2list(argLen, char_args));
+			rb = NSCommands::procState(arrayBuffer::arrayBuffer2list(argLen, char_args));
 			msg = rb.msg_;
 			perf = rb.perf_;
 			return rb.code_;
@@ -162,7 +164,7 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 			return NSCAPI::returnOK;
 
 		case REQ_USEDDISKSPACE:
-			rb = NSCommands::usedDiskSpace(NSCHelper::arrayBuffer2list(argLen, char_args));
+			rb = NSCommands::usedDiskSpace(arrayBuffer::arrayBuffer2list(argLen, char_args));
 			msg = rb.msg_;
 			perf = rb.perf_;
 			return rb.code_;
