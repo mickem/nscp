@@ -58,7 +58,7 @@ public:
 	// Member functions
 	static std::string getPassword(void);
 	std::string getBasePath(void);
-	int injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
+	NSCAPI::nagiosReturn injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
 //	std::string inject(const std::string buffer);
 	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
 	void reportMessage(int msgType, const char* file, const int line, std::string message);
@@ -82,14 +82,14 @@ typedef NTService<NSClientT> NSClient;
 //
 
 LPVOID NSAPILoader(char*buffer);
-int NSAPIGetApplicationName(char*buffer, unsigned int bufLen);
-int NSAPIGetBasePath(char*buffer, unsigned int bufLen);
-int NSAPIGetApplicationVersionStr(char*buffer, unsigned int bufLen);
-int NSAPIGetSettingsString(const char* section, const char* key, const char* defaultValue, char* buffer, unsigned int bufLen);
+NSCAPI::errorReturn NSAPIGetApplicationName(char*buffer, unsigned int bufLen);
+NSCAPI::errorReturn NSAPIGetBasePath(char*buffer, unsigned int bufLen);
+NSCAPI::errorReturn NSAPIGetApplicationVersionStr(char*buffer, unsigned int bufLen);
+NSCAPI::errorReturn NSAPIGetSettingsString(const char* section, const char* key, const char* defaultValue, char* buffer, unsigned int bufLen);
 int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue);
 void NSAPIMessage(int msgType, const char* file, const int line, const char* message);
 void NSAPIStopServer(void);
-int NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
+NSCAPI::nagiosReturn NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
 
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging

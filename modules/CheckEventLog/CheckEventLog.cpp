@@ -295,13 +295,15 @@ void buildQury(searchQuery &query, std::list<std::string> args) {
 // CheckEventLog&Application&warn.require.eventType=warning&critical.require.eventType=error&truncate=1024&descriptions&all.exclude.eventSourceRegexp=^(Win|Msi|NSClient\+\+|Userenv|ASP\.NET|LoadPerf|Outlook|Application E|NSClient).*
 #define BUFFER_SIZE 1024*64
 
-std::string CheckEventLog::handleCommand(const std::string command, const unsigned int argLen, char **char_args) {
+NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	if (command != "CheckEventLog")
-		return "";
-	NSCAPI::returnCodes rCode = NSCAPI::returnOK;
+		return NSCAPI::returnIgnored;
+	NSCAPI::nagiosReturn rCode = NSCAPI::returnOK;
 	std::list<std::string> args = NSCHelper::arrayBuffer2list(argLen, char_args);
-	if (args.size() < 2)
-		return "Missing argument";
+	if (args.size() < 2) {
+		message = "Missing argument";
+		return NSCAPI::returnCRIT;
+	}
 	std::string ret;
 	bool critical = false;
 	searchQuery query;
@@ -309,13 +311,16 @@ std::string CheckEventLog::handleCommand(const std::string command, const unsign
 	try {
 		buildQury(query, args);
 	} catch (std::string s) {
-		return NSCHelper::returnNSCP(NSCAPI::returnUNKNOWN, s);
+		message = s;
+		return NSCAPI::returnCRIT;
 	}
 	NSC_DEBUG_MSG_STD("Base query: " + query.toString());
 
 	HANDLE hLog = OpenEventLog(NULL, logFile.c_str());
-	if (hLog == NULL) 
-		return NSCHelper::returnNSCP(NSCAPI::returnUNKNOWN, "Could not open the Application event log.");
+	if (hLog == NULL) {
+		message = "Could not open the Application event log.";
+		return NSCAPI::returnUNKNOWN;
+	}
 
 	DWORD dwThisRecord, dwRead, dwNeeded;
 	EVENTLOGRECORD *pevlr;
@@ -402,7 +407,8 @@ std::string CheckEventLog::handleCommand(const std::string command, const unsign
 		ret = "OK: No errors/warnings in event log.";
 	if (query.truncate != 0)
 		ret = ret.substr(0, query.truncate);
-	return NSCHelper::returnNSCP(rCode, ret);
+	message = ret;
+	return rCode;
 }
 
 

@@ -113,10 +113,10 @@ bool NSCPlugin::hasMessageHandler() {
  *
  * @todo Implement return status as an enum to make it simpler for clients to see potential return stats?
  */
-int NSCPlugin::handleCommand(const char *command, const unsigned int argLen, char **arguments, char* returnBuffer, unsigned int returnBufferLen) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char *command, const unsigned int argLen, char **arguments, char* returnMessageBuffer, unsigned int returnMessageBufferLen, char* returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	if (!isLoaded())
 		throw NSPluginException(file_, "Library is not loaded");
-	return fHandleCommand(command, argLen, arguments, returnBuffer, returnBufferLen);
+	return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
 /**
  * Handle a message from the core (or any other (or even potentially self) plug in).

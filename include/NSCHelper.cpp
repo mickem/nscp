@@ -6,17 +6,32 @@
 
 
 /**
- * Wrap a return string.
- * This function copies a string to a char buffer making sure the buffer has the correct length.
- *
- * @param *buffer Buffer to copy the string to.
- * @param bufLen Length of the buffer
- * @param str Th string to copy
- * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
- */
-int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode /* = NSCAPI::success */) {
+* Wrap a return string.
+* This function copies a string to a char buffer making sure the buffer has the correct length.
+*
+* @param *buffer Buffer to copy the string to.
+* @param bufLen Length of the buffer
+* @param str Th string to copy
+* @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
+*/
+/*
+int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode ) {
+	// @todo deprecate this
 	if (str.length() >= bufLen)
-		return NSCAPI::invalidBufferLen;
+		return -1;
+	strncpy(buffer, str.c_str(), bufLen);
+	return defaultReturnCode;
+}
+*/
+NSCAPI::nagiosReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::nagiosReturn defaultReturnCode /* = NSCAPI::success */) {
+	if (str.length() >= bufLen)
+		return NSCAPI::returnInvalidBufferLen;
+	strncpy(buffer, str.c_str(), bufLen);
+	return defaultReturnCode;
+}
+NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::errorReturn defaultReturnCode /* = NSCAPI::success */) {
+	if (str.length() >= bufLen)
+		return NSCAPI::isInvalidBufferLen;
 	strncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
@@ -148,7 +163,7 @@ std::string NSCHelper::translateMessageType(NSCAPI::messageTypes msgType) {
 	}
 	return "unknown";
 }
-std::string NSCHelper::translateReturn(NSCAPI::returnCodes returnCode) {
+std::string NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 	if (returnCode == NSCAPI::returnOK)
 		return "OK";
 	else if (returnCode == NSCAPI::returnCRIT)
@@ -196,32 +211,39 @@ void NSCModuleHelper::Message(int msgType, std::string file, int line, std::stri
  * @return The result (if any) of the command.
  * @throws NSCMHExcpetion When core pointer set is unavailable or an unknown inject error occurs.
  */
-int NSCModuleHelper::InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	return fNSAPIInject(command, argLen, argument, returnBuffer, returnBufferLen);
 }
-std::string NSCModuleHelper::InjectCommand(const char* command, const unsigned int argLen, char **argument) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const unsigned int argLen, char **argument, std::string & message, std::string & perf) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
 	buffer[0] = 0;
-	std::string ret;
-	int err;
-	if ((err = InjectCommandRAW(command, argLen, argument, buffer, BUFF_LEN)) != NSCAPI::handled) {
-		if (err == NSCAPI::invalidBufferLen)
-			NSC_LOG_ERROR("Inject command resulted in an invalid buffer size.");
-		else if (err == NSCAPI::isfalse)
+	// @todo message here !
+	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, buffer, BUFF_LEN);
+	switch (retC) {
+		case NSCAPI::returnIgnored:
 			NSC_LOG_MESSAGE("No handler for this message.");
-		else
+			break;
+		case NSCAPI::returnInvalidBufferLen:
+			NSC_LOG_ERROR("Inject command resulted in an invalid buffer size.");
+			break;
+		case NSCAPI::returnOK:
+		case NSCAPI::returnCRIT:
+		case NSCAPI::returnWARN:
+		case NSCAPI::returnUNKNOWN:
+			message = buffer;
+			// @todo perf data 
+			break;
+		default:
 			throw NSCMHExcpetion("Unknown inject error.");
-	} else {
-		ret = buffer;
 	}
 	delete [] buffer;
-	return ret;
+	return retC;
 }
 /**
  * A wrapper around the InjetCommand that is simpler to use.
@@ -232,7 +254,7 @@ std::string NSCModuleHelper::InjectCommand(const char* command, const unsigned i
  * @param splitChar The char to use as splitter
  * @return The result of the command
  */
-std::string NSCModuleHelper::InjectSplitAndCommand(const char* command, char* buffer, char splitChar)
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const char* command, char* buffer, char splitChar, std::string & message, std::string & perf)
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
@@ -242,9 +264,9 @@ std::string NSCModuleHelper::InjectSplitAndCommand(const char* command, char* bu
 		aBuffer= NSCHelper::split2arrayBuffer(buffer, splitChar, argLen);
 	else
 		aBuffer= NSCHelper::createEmptyArrayBuffer(argLen);
-	std::string s = InjectCommand(command, argLen, aBuffer);
+	NSCAPI::nagiosReturn ret = InjectCommand(command, argLen, aBuffer, message, perf);
 	NSCHelper::destroyArrayBuffer(aBuffer, argLen);
-	return s;
+	return ret;
 }
 /**
  * Ask the core to shutdown (only works when run as a service, o/w does nothing ?
@@ -268,7 +290,7 @@ std::string NSCModuleHelper::getSettingsString(std::string section, std::string 
 	if (!fNSAPIGetSettingsString)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
-	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, BUFF_LEN) != NSCAPI::success) {
+	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, BUFF_LEN) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion("Settings could not be retrieved.");
 	}
@@ -300,7 +322,7 @@ std::string NSCModuleHelper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
-	if (fNSAPIGetApplicationName(buffer, BUFF_LEN) != NSCAPI::success) {
+	if (fNSAPIGetApplicationName(buffer, BUFF_LEN) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion("Application name could not be retrieved");
 	}
@@ -317,7 +339,7 @@ std::string NSCModuleHelper::getBasePath() {
 	if (!fNSAPIGetBasePath)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	char *buffer = new char[BUFF_LEN+1];
-	if (fNSAPIGetBasePath(buffer, BUFF_LEN) != NSCAPI::success) {
+	if (fNSAPIGetBasePath(buffer, BUFF_LEN) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion("Base path could not be retrieved");
 	}
@@ -389,7 +411,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f("NSAPIStopServer");
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f("NSAPIInject");
 	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f("NSAPIGetBasePath");
-	return NSCAPI::success;
+	return NSCAPI::isSuccess;
 }
 /**
 * Wrap the GetModuleName function call
@@ -398,8 +420,8 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 * @param str String to store inside the buffer
 * @return buffer copy status
 */
-int NSCModuleWrapper::wrapGetModuleName(char* buf, unsigned int bufLen, std::string str) {
-	return NSCHelper::wrapReturnString(buf, bufLen, str);
+NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleName(char* buf, unsigned int bufLen, std::string str) {
+	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);
 }
 /**
  * Wrap the GetModuleVersion function call
@@ -409,18 +431,18 @@ int NSCModuleWrapper::wrapGetModuleName(char* buf, unsigned int bufLen, std::str
  * @param version version as a module_version
  * @return NSCAPI::success
  */
-int NSCModuleWrapper::wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version) {
+NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version) {
 	*major = version.major;
 	*minor = version.minor;
 	*revision = version.revision;
-	return NSCAPI::success;
+	return NSCAPI::isSuccess;
 }
 /**
  * Wrap the HasCommandHandler function call
  * @param has true if this module has a command handler
  * @return NSCAPI::istrue or NSCAPI::isfalse
  */
-int NSCModuleWrapper::wrapHasCommandHandler(bool has) {
+NSCAPI::boolReturn NSCModuleWrapper::wrapHasCommandHandler(bool has) {
 	if (has)
 		return NSCAPI::istrue;
 	return NSCAPI::isfalse;
@@ -430,7 +452,7 @@ int NSCModuleWrapper::wrapHasCommandHandler(bool has) {
  * @param has true if this module has a message handler
  * @return NSCAPI::istrue or NSCAPI::isfalse
  */
-int NSCModuleWrapper::wrapHasMessageHandler(bool has) {
+NSCAPI::boolReturn NSCModuleWrapper::wrapHasMessageHandler(bool has) {
 	if (has)
 		return NSCAPI::istrue;
 	return NSCAPI::isfalse;
@@ -442,10 +464,11 @@ int NSCModuleWrapper::wrapHasMessageHandler(bool has) {
  * @param returnBufferLen length of returnBuffer
  * @return copy status or NSCAPI::isfalse if retStr is empty
  */
-int NSCModuleWrapper::wrapHandleCommand(const std::string retStr, char *returnBuffer, unsigned int returnBufferLen) {
-	if (retStr.empty())
-		return NSCAPI::isfalse;
-	return NSCHelper::wrapReturnString(returnBuffer, returnBufferLen, retStr, NSCAPI::handled);
+NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string retMessage, const std::string retPerformance, char *returnBufferMessage, unsigned int returnBufferMessageLen, char *returnBufferPerf, unsigned int returnBufferPerfLen) {
+	if (retMessage.empty())
+		return NSCAPI::returnIgnored;
+	NSCAPI::nagiosReturn ret = NSCHelper::wrapReturnString(returnBufferMessage, returnBufferMessageLen, retMessage, retResult);
+	return NSCHelper::wrapReturnString(returnBufferPerf, returnBufferPerfLen, retPerformance, ret);
 }
 /**
  * Wrap the NSLoadModule call
@@ -454,8 +477,8 @@ int NSCModuleWrapper::wrapHandleCommand(const std::string retStr, char *returnBu
  */
 int NSCModuleWrapper::wrapLoadModule(bool success) {
 	if (success)
-		return NSCAPI::success;
-	return NSCAPI::failed;
+		return NSCAPI::isSuccess;
+	return NSCAPI::hasFailed;
 }
 /**
  * Wrap the NSUnloadModule call
@@ -464,8 +487,8 @@ int NSCModuleWrapper::wrapLoadModule(bool success) {
  */
 int NSCModuleWrapper::wrapUnloadModule(bool success) {
 	if (success)
-		return NSCAPI::success;
-	return NSCAPI::failed;
+		return NSCAPI::isSuccess;
+	return NSCAPI::hasFailed;
 }
 
 

@@ -3,6 +3,7 @@
 #include <Thread.h>
 #include <Mutex.h>
 #include <WinSock2.h>
+#include <Socket.h>
 /**
  * @ingroup NSClient++
  * Socket responder class.
@@ -27,27 +28,20 @@
  * @bug 
  *
  */
-class NRPESocket {
+
+#define DEFAULT_NRPE_PORT 5666
+
+
+class NRPESocket : public SimpleSocketListsner {
 private:
-	MutexHandler mutexHandler;
-	SOCKET server;
-	HANDLE hStopEvent;
 
 public:
 	NRPESocket();
 	virtual ~NRPESocket();
-	DWORD threadProc(LPVOID lpParameter);
-	void exitThread(void);
 
 private:
-	bool isRunning(void);
-	void stopRunning(void);
-	void startRunning(void);
-	std::list<std::string> split(char* buffer);
-	std::string parseCommand(char* request);
+	virtual void onAccept(SOCKET client);
 };
-#define DEFAULT_NRPE_PORT 5666
-
 
 
 typedef Thread<NRPESocket> NRPESocketThread; // Thread manager
