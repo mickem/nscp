@@ -11,7 +11,7 @@
 #include <windows.h>
 
 #include <string>
-
+#include <functional>
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>

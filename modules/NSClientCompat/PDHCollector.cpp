@@ -20,6 +20,13 @@
 #include "stdafx.h"
 #include "PDHCollector.h"
 
+
+PDHCollector::PDHCollector() : cpu(BACK_INTERVAL*60/CHECK_INTERVAL), running_(true) {
+}
+PDHCollector::~PDHCollector() 
+{
+}
+
 /**
  * Check running status (mutex locked)
  * @return current status of the running flag (or false if we could  not get the mutex, though this is most likely a critical state)

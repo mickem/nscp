@@ -115,6 +115,7 @@ void TrayIcon::createDialog(void) {
 			::DispatchMessage(&Msg); 
 		} 
 	}
+	removeIcon();
 
 	::DestroyWindow(ghDlgWnd);
 	::ReleaseMutex(ghMutex);
