@@ -67,7 +67,6 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 				}
 				break;
 			case ID_POPUP_SHOWLOG:
-//				SE_ERR_ACCESSDENIED
 				if ((tmp = (INT)ShellExecute(ghDlgWnd, "open", (NSCModuleHelper::getBasePath() + NSCModuleHelper::getSettingsString("log", "file", "")).c_str(), NULL, NULL, SW_SHOWNORMAL))<=32) {
 					NSC_LOG_ERROR("ShellExecute failed : " + strEx::itos((INT)tmp));
 				}
