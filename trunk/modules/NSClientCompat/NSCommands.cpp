@@ -58,9 +58,9 @@ NSPROCLST GetProcessList(void)
  * @return 
  * @todo Is this correct ? (has never been used so is most likely broken)
  */
-std::string NSCommands::procState(std::list<std::string> args) {
+NSClientCompat::returnBundle NSCommands::procState(std::list<std::string> args) {
 	if (args.empty())
-		return "ERROR: Missing argument exception.";
+		return NSClientCompat::returnBundle(NSCAPI::returnCRIT, "ERROR: Missing argument exception.");
 	NSPROCLST procs;
 	std::string ret;
 	ServiceState state = ok;
@@ -71,7 +71,7 @@ std::string NSCommands::procState(std::list<std::string> args) {
 		procs = GetProcessList();
 	} catch (char *c) {
 		NSC_LOG_ERROR_STD("ERROR: " + c);
-		return (std::string)("ERROR: ") + c;
+		return NSClientCompat::returnBundle(NSCAPI::returnCRIT, (std::string)"ERROR: " + c);
 	}
 	for (std::list<std::string>::iterator it = args.begin();it!=args.end();it++) {
 		std::string exe = (*it);
@@ -89,7 +89,7 @@ std::string NSCommands::procState(std::list<std::string> args) {
 	}
 	if (ret.empty())
 		ret ="All processes are running.";
-	return strEx::itos(state) + "&" + ret;
+	return NSClientCompat::returnBundle(state, ret);
 }
 
 
@@ -132,9 +132,9 @@ std::string NSCommands::cmdServiceStateCheckItem(bool bShowAll, int &nState, TNt
  * @param args 
  * @return 
  */
-std::string NSCommands::serviceState(std::list<std::string> args) {
+NSClientCompat::returnBundle NSCommands::serviceState(std::list<std::string> args) {
 	if (args.empty())
-		return "ERROR: Missing argument exception.";
+		return NSClientCompat::returnBundle(NSCAPI::returnCRIT, "ERROR: Missing argument exception.");
 	else {
 		std::string ret;
 		int nState = 0;
@@ -161,7 +161,7 @@ std::string NSCommands::serviceState(std::list<std::string> args) {
 		}
 		if (ret.empty())
 			ret ="All services are running.";
-		return strEx::itos(nState) + "&" + ret;
+		return NSClientCompat::returnBundle(nState, ret);
 	}
 }
 /**
@@ -175,23 +175,23 @@ std::string NSCommands::serviceState(std::list<std::string> args) {
  * @param args A list of drives
  * @return A string with a list of drive usage stats
  */
-std::string NSCommands::usedDiskSpace(std::list<std::string> args) {
+NSClientCompat::returnBundle NSCommands::usedDiskSpace(std::list<std::string> args) {
 	if (args.empty())
-		return "ERROR: Missing argument exception.";
+		return NSClientCompat::returnBundle(NSCAPI::returnCRIT, "ERROR: Missing argument exception.");
 	std::string ret;
 	for (std::list<std::string>::iterator it = args.begin();it!=args.end();it++) {
 		std::string path = (*it);
 		if (path.length() == 1)
 			path += ":";
 		if (GetDriveType(path.c_str()) != DRIVE_FIXED)
-			return "ERROR: Drive is not a fixed drive." + path;
+			return NSClientCompat::returnBundle(NSCAPI::returnCRIT, "ERROR: Drive is not a fixed drive." + path);
 		ULARGE_INTEGER freeBytesAvailableToCaller;
 		ULARGE_INTEGER totalNumberOfBytes;
 		ULARGE_INTEGER totalNumberOfFreeBytes;
 		if (!GetDiskFreeSpaceEx(path.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes))
-			return "ERROR: Could not get freespace." + path;
+			return NSClientCompat::returnBundle(NSCAPI::returnCRIT, "ERROR: Could not get free space for" + path);
 		ret += strEx::itos(static_cast<__int64>(totalNumberOfFreeBytes.QuadPart)) + "&";
 		ret += strEx::itos(static_cast<__int64>(totalNumberOfBytes.QuadPart)) + "&";
 	}
-	return ret;
+	return NSClientCompat::returnBundle(NSCAPI::returnUNKNOWN, ret);
 }

@@ -1,3 +1,4 @@
+#pragma once
 #include "PDHCollector.h"
 
 NSC_WRAPPERS_MAIN();
@@ -6,6 +7,15 @@ class NSClientCompat {
 private:
 	PDHCollectorThread pdhThread;
 	PDHCollector *pdhCollector;
+
+public:
+	typedef struct rB {
+		NSCAPI::nagiosReturn code_;
+		std::string msg_;
+		std::string perf_;
+		rB(NSCAPI::nagiosReturn code, std::string msg) : code_(code), msg_(msg) {}
+		rB() : code_(NSCAPI::returnUNKNOWN) {}
+	} returnBundle;
 
 public:
 	NSClientCompat();

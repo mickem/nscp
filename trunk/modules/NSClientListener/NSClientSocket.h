@@ -54,6 +54,16 @@ private:
 
 #define DEFAULT_TCP_PORT 12489
 
+#define REQ_CLIENTVERSION	1	// Works fine!
+#define REQ_CPULOAD			2	// Quirks
+#define REQ_UPTIME			3	// Works fine!
+#define REQ_USEDDISKSPACE	4	// Works fine!
+#define REQ_SERVICESTATE	5	// Works fine!
+#define REQ_PROCSTATE		6	// Works fine!
+#define REQ_MEMUSE			7	// Works fine!
+//#define REQ_COUNTER		8	// ! - not implemented Have to look at this, if anyone has a sample let me know...
+//#define REQ_FILEAGE		9	// ! - not implemented Dont know how to use
+//#define REQ_INSTANCES	10	// ! - not implemented Dont know how to use
 
 
 typedef Thread<NSClientSocket> NSClientSocketThread; // Thread manager
