@@ -14,6 +14,7 @@ namespace NSCHelper
 namespace NSCModuleHelper
 {
 	// Types for the Callbacks into the main program
+	typedef int (*lpNSAPIGetBasePath)(char*,unsigned int);
 	typedef int (*lpNSAPIGetApplicationName)(char*,unsigned int);
 	typedef int (*lpNSAPIGetApplicationVersionStr)(char*,unsigned int);
 	typedef int (*lpNSAPIGetSettingsString)(const char*,const char*,const char*,char*,unsigned int);
@@ -31,6 +32,7 @@ namespace NSCModuleHelper
 	void Message(int msgType, std::string file, int line, std::string message);
 	std::string InjectCommand(std::string command);
 	void StopService(void);
+	std::string getBasePath();
 };
 
 namespace NSCModuleWrapper {

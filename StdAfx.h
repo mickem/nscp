@@ -24,5 +24,6 @@
 #include "config.h"
 #include <singleton.h>
 #include <charEx.h>
+#include <memory>
 
 #endif // !defined(AFX_STDAFX_H__6B96F953_C431_11D3_BCD2_00A0D21A1A22__INCLUDED_)
