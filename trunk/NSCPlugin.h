@@ -118,8 +118,6 @@ public:
 	void handleMessage(int msgType, const char* file, const int line, const char *message);
 	void unload(void);
 
-	static NSCPlugin* loadPlugin(std::string file);
-
 private:
 	bool isLoaded() const {
 		return bLoaded_;

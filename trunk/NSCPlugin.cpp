@@ -153,17 +153,6 @@ bool NSCPlugin::getName_(char* buf, unsigned int buflen) {
 	return fGetName(buf, buflen)?true:false;
 }
 /**
- * Helper function to create a plug in for a third party.
- * <b>Notice</b> though the name might suggest it the plug in is <b>not</b> actually loaded.
- *
- * @deprecated
- * @param file The file (DLL) of the plug in module
- * @return A pointer to a new instance of the plug in wrapper class.
- */
-NSCPlugin* NSCPlugin::loadPlugin(std::string file) {
-	return new NSCPlugin(file);
-}
-/**
  * Load all remote function pointers from the loaded module.
  * These pointers are cached for "speed" which might (?) be dangerous if something changes.
  * @throws NSPluginException if any of the function pointers fail to load.

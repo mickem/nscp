@@ -64,11 +64,13 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			mainClient.InitiateService();
 			LOG_MESSAGE("Enter command to inject or exit to terminate...");
 			std::string s = "";
+			std::cin >> s;
 			while (s != "exit") {
-				std::cin >> s;
 				mainClient.inject(s);
+				std::cin >> s;
 			}
 			mainClient.TerminateService();
+			LOG_MESSAGE("DONE!");
 			return 0;
 		} else {
 			LOG_MESSAGE("Usage: -version, -about, -install, -uninstall, -start, -stop");
@@ -87,20 +89,13 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
  * When the program is started as a service this will be the entry point.
  */
 void NSClientT::InitiateService(void) {
-	char* buffer = new char[1024];
-	GetModuleFileName(NULL, buffer, 1023);
-	std::string path = buffer;
-	std::string::size_type pos = path.rfind('\\');
-	basePath = path.substr(0, pos) + "\\";
-	LOG_DEBUG_STD("Base path is: " + basePath);
-	delete [] buffer;
-	Settings::getInstance()->setFile(basePath + "NSC.ini");
+	Settings::getInstance()->setFile(getBasePath() + "NSC.ini");
 
 	SettingsT::sectionList list = Settings::getInstance()->getSection("modules");
 	for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
 		try {
-			LOG_DEBUG_STD("Loading: " + basePath + "modules\\" + (*it));
-			loadPlugin(basePath + "modules\\" + (*it));
+			LOG_DEBUG_STD("Loading: " + getBasePath() + "modules\\" + (*it));
+			loadPlugin(getBasePath() + "modules\\" + (*it));
 		} catch(const NSPluginException& e) {
 			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
 		}
@@ -115,7 +110,9 @@ void NSClientT::TerminateService(void) {
 	if (!socketThread.exitThread())
 		LOG_ERROR("Could not exit socket listener thread");
 	try {
+		LOG_DEBUG("Socket closed, unloading plugins...");
 		mainClient.unloadPlugins();
+		LOG_DEBUG("Plugins unloaded...");
 	} catch(NSPluginException *e) {
 		LOG_ERROR_STD("Exception raised: " + e->error_ + " in module: " + e->file_);
 	}
@@ -156,12 +153,19 @@ void NSClientT::loadPlugins(std::list<std::string> plugins) {
  * Unload all plug-ins (in reversed order)
  */
 void NSClientT::unloadPlugins() {
-	messageHandlers_.clear();
-	commandHandlers_.clear();
 	pluginList::reverse_iterator it;
 	for (it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
-		LOG_DEBUG_STD("---\n\n\nUnloading: " + (*it)->getName());
+#ifdef _DEBUG
+		std::cout << "Unloading plugin: " << (*it)->getName() << "...";
+#endif
 		(*it)->unload();
+#ifdef _DEBUG
+		std::cout << "OK" << std::endl;
+#endif
+	}
+	messageHandlers_.clear();
+	commandHandlers_.clear();
+	for (it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
 		delete (*it);
 	}
 	plugins_.clear();
@@ -171,13 +175,13 @@ void NSClientT::unloadPlugins() {
  * @param file The DLL file
  */
 void NSClientT::loadPlugin(std::string file) {
-	addPlugin(NSCPlugin::loadPlugin(file));
+	addPlugin(new NSCPlugin(file));
 }
 /**
  * Load and add a plugin to various internal structures
  * @param *plugin The plug-ininstance to load. The pointer is managed by the 
  */
-void NSClientT::addPlugin(NSCPlugin *plugin) {
+void NSClientT::addPlugin(plugin_type plugin) {
 	plugin->load();
 	LOG_DEBUG_STD("Loading: " + plugin->getName());
 	// @todo Catch here and unload if we fail perhaps ?
@@ -289,6 +293,19 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 		}
 	}
 }
+std::string NSClientT::getBasePath(void) {
+	if (!basePath.empty())
+		return basePath;
+	char* buffer = new char[1024];
+	GetModuleFileName(NULL, buffer, 1023);
+	std::string path = buffer;
+	std::string::size_type pos = path.rfind('\\');
+	basePath = path.substr(0, pos) + "\\";
+	delete [] buffer;
+	Settings::getInstance()->setFile(basePath + "NSC.ini");
+	return basePath;
+}
+
 
 int NSAPIGetSettingsString(const char* section, const char* key, const char* defaultValue, char* buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, Settings::getInstance()->getString(section, key, defaultValue));
@@ -297,6 +314,10 @@ int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue) 
 	return Settings::getInstance()->getInt(section, key, defaultValue);
 }
 
+
+int NSAPIGetBasePath(char*buffer, unsigned int bufLen) {
+	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath());
+}
 int NSAPIGetApplicationName(char*buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, SZAPPNAME);
 }
@@ -328,5 +349,7 @@ LPVOID NSAPILoader(char*buffer) {
 		return &NSAPIStopServer;
 	if (stricmp(buffer, "NSAPIInject") == 0)
 		return &NSAPIInject;
+	if (stricmp(buffer, "NSAPIGetBasePath") == 0)
+		return &NSAPIGetBasePath;
 	return NULL;
 }

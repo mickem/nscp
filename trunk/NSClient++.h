@@ -36,7 +36,8 @@
  */
 class NSClientT {
 private:
-	typedef std::list<NSCPlugin*> pluginList;
+	typedef NSCPlugin* plugin_type;
+	typedef std::list<plugin_type> pluginList;
 	pluginList plugins_;
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
@@ -57,6 +58,7 @@ public:
 
 	// Member functions
 	static std::string getPassword(void);
+	std::string getBasePath(void);
 	std::string inject(std::string buffer);
 	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
 	void reportMessage(int msgType, const char* file, const int line, std::string message);
@@ -67,7 +69,7 @@ public:
 	void unloadPlugins(void);
 
 private:
-	void addPlugin(NSCPlugin *plugin);
+	void addPlugin(plugin_type plugin);
 
 };
 
@@ -81,6 +83,7 @@ typedef NTService<NSClientT> NSClient;
 
 LPVOID NSAPILoader(char*buffer);
 int NSAPIGetApplicationName(char*buffer, unsigned int bufLen);
+int NSAPIGetBasePath(char*buffer, unsigned int bufLen);
 int NSAPIGetApplicationVersionStr(char*buffer, unsigned int bufLen);
 int NSAPIGetSettingsString(const char* section, const char* key, const char* defaultValue, char* buffer, unsigned int bufLen);
 int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue);
