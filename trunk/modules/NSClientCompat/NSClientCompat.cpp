@@ -106,39 +106,43 @@ bool NSClientCompat::hasMessageHandler() {
  * @param **args 
  * @return 
  */
-std::string NSClientCompat::handleCommand(const std::string command, const unsigned int argLen, char **args) {
+NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	std::list<std::string> stl_args;
 	int id = atoi(command.c_str());
 	if (id == 0)
-		return "";
+		return NSCAPI::returnIgnored;
 	switch (id) {
 		case REQ_CLIENTVERSION:
 			{
-				std::string version = NSCModuleHelper::getSettingsString("nsclient compat", "version", "modern");
-				if (version == "modern")
-					return NSCModuleHelper::getApplicationName() + " " + NSCModuleHelper::getApplicationVersionString();
-				return version;
+				std::string msg = NSCModuleHelper::getSettingsString("nsclient compat", "version", "modern");
+				if (msg == "modern")
+					msg = NSCModuleHelper::getApplicationName() + " " + NSCModuleHelper::getApplicationVersionString();
+				return NSCAPI::returnOK;
 			}
 		case REQ_UPTIME:
-			return strEx::itos(pdhCollector->getUptime());
+			msg= strEx::itos(pdhCollector->getUptime());
+			return NSCAPI::returnOK;
 
 		case REQ_CPULOAD:
 			{
-				stl_args = NSCHelper::arrayBuffer2list(argLen, args);
-				if (stl_args.empty())
-					return "ERROR: Missing argument exception.";
-				std::string ret;
+				stl_args = NSCHelper::arrayBuffer2list(argLen, char_args);
+				if (stl_args.empty()) {
+					msg = "ERROR: Missing argument exception.";
+					return NSCAPI::returnCRIT;
+				}
 				while (!stl_args.empty()) {
 					std::string s = stl_args.front(); stl_args.pop_front();
 					int v = pdhCollector->getCPUAvrage(strEx::stoi(s)*(60/CHECK_INTERVAL));
-					if (v == -1)
-						return ret;
-					if (!ret.empty())
-						ret += "&";
-					ret += strEx::itos(v);
+					if (v == -1) {
+						return NSCAPI::returnOK;
+					}
+					if (!msg.empty())
+						msg += "&";
+					msg += strEx::itos(v);
 				}
-				return ret;
+				return NSCAPI::returnOK;
 			}
+			/*
 		case REQ_SERVICESTATE:
 			return NSCommands::serviceState(NSCHelper::arrayBuffer2list(argLen, args));
 
@@ -151,8 +155,9 @@ std::string NSClientCompat::handleCommand(const std::string command, const unsig
 
 		case REQ_USEDDISKSPACE:
 			return NSCommands::usedDiskSpace(NSCHelper::arrayBuffer2list(argLen, args));
+			*/
 	}
-	return "";
+	return NSCAPI::returnIgnored;
 }
 
 

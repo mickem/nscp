@@ -21,9 +21,11 @@ NRPEListener::~NRPEListener() {
 
 
 bool NRPEListener::loadModule() {
+	socketThreadManager.createThread(NULL);
 	return true;
 }
 bool NRPEListener::unloadModule() {
+	socketThreadManager.exitThread();
 	return true;
 }
 
@@ -43,8 +45,8 @@ bool NRPEListener::hasMessageHandler() {
 }
 
 
-std::string NRPEListener::handleCommand(const std::string command, const unsigned int argLen, char **char_args) {
-	return "";
+NSCAPI::nagiosReturn NRPEListener::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
+	return NSCAPI::returnIgnored;
 }
 
 

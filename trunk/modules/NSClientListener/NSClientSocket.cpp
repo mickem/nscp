@@ -82,7 +82,10 @@ std::string NSClientSocket::parseRequest(char *buffer)  {
 		return "ERRRO: No command specified.";
 	charEx::token cmd = charEx::getToken(pwd.second, '&');
 	NSC_DEBUG_MSG("Command: " + cmd.first);
-	return NSCModuleHelper::InjectSplitAndCommand(cmd.first.c_str(), cmd.second, '&');
+	std::string message, perf;
+	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first.c_str(), cmd.second, '&', message, perf);
+	// @todo fix some way to interpret return code
+	return message;
 }
 
 void NSClientSocket::onAccept(SOCKET client) {

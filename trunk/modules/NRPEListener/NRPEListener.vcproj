@@ -133,6 +133,9 @@
 				RelativePath="..\..\include\NSCHelper.cpp">
 			</File>
 			<File
+				RelativePath="..\..\include\Socket.cpp">
+			</File>
+			<File
 				RelativePath=".\stdafx.cpp">
 				<FileConfiguration
 					Name="Debug|Win32">
@@ -163,6 +166,9 @@
 			</File>
 			<File
 				RelativePath="..\..\include\NSCHelper.h">
+			</File>
+			<File
+				RelativePath="..\..\include\Socket.h">
 			</File>
 			<File
 				RelativePath=".\stdafx.h">

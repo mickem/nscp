@@ -92,7 +92,7 @@ private:
 	typedef INT (*lpGetName)(char*,unsigned int);
 	typedef INT (*lpHasCommandHandler)();
 	typedef INT (*lpHasMessageHandler)();
-	typedef INT (*lpHandleCommand)(const char*, const unsigned int, char**,char*,unsigned int);
+	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const char*,const unsigned int, char**,char*,unsigned int,char *,unsigned int);
 	typedef INT (*lpHandleMessage)(int,const char*,const int,const char*);
 	typedef int (*lpUnLoadModule)();
 
@@ -114,7 +114,7 @@ public:
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
 	bool hasMessageHandler(void);
-	int handleCommand(const char *command, const unsigned int, char **arguments, char* returnBuffer, unsigned int returnBufferLen);
+	NSCAPI::nagiosReturn handleCommand(const char *command, const unsigned int argLen, char **arguments, char* returnMessageBuffer, unsigned int returnMessageBufferLen, char* returnPerfBuffer, unsigned int returnPerfBufferLen);
 	void handleMessage(int msgType, const char* file, const int line, const char *message);
 	void unload(void);
 

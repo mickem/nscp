@@ -1,3 +1,13 @@
+2005-03-20 MickeM
+ * Fundamental API changes (due to NRPE compatibility)
+   - HandleCommand has changed
+   - Inject has changed
+   - Most API calls have new "return codes" (typedef:ed INT to allow for return code compiler checks)
+   - A lot of the old return codes have changed
+ * Preliminary NRPE support (can parse and execute incoming requests, cant return data yet, and no encryption)
+ * New SimpleSocket in include/ will be used as base class for Listeners
+ * A lot of rewrite to the NSC API
+
 2005-03-19 MickeM
  * Refactored out NSCLient Listener as a separate module
  * Added initial NRPE listener module (not yet implemented only a shell)

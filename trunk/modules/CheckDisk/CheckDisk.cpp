@@ -81,7 +81,7 @@ void RecursiveScanDirectory(std::string dir, GetSize & f) {
 	FindClose(hFind);
 }
 
-std::string CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args) {
+NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	// CheckFileSize
 	// request: CheckFileSize&<option>&<option>...
 	// <option>			MaxWarn=<size gmkb>
@@ -107,12 +107,12 @@ std::string CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args
 	// ./check_nscp -H 192.168.0.167 -p 1234 -s pwd -c 'CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*'
 	// WIN: 1G (2110962363B)|WIN:2110962363:1073741824:4294967296
 	NSC_DEBUG_MSG("CheckFileSize");
-	std::string perfData;
-	std::string ret;
-	NSCAPI::returnCodes returnCode = NSCAPI::returnOK;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::string> args = NSCHelper::arrayBuffer2list(argLen, char_args);
-	if (args.empty())
-		return "Missing argument(s).";
+	if (args.empty()) {
+		message = "Missing argument(s).";
+		return NSCAPI::returnCRIT;
+	}
 	long long maxWarn = 0;
 	long long maxCrit = 0;
 	long long minWarn = 0;
@@ -141,10 +141,12 @@ std::string CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args
 			if (p2.first == "File") {
 				paths.push_back(std::pair<std::string,std::string>(p2.second,p.second));
 			} else {
-				return "Unknown command: " + p.first;
+				message = "Unknown command: " + p.first;
+				return NSCAPI::returnCRIT;
 			}
 		} else {
-			return "Unknown command: " + p.first;
+			message = "Unknown command: " + p.first;
+			return NSCAPI::returnCRIT;
 		}
 	}
 	NSC_DEBUG_MSG_STD("Bounds: critical " + strEx::itos(minCrit) + " > siez > " + strEx::itos(maxCrit));
@@ -176,28 +178,26 @@ std::string CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args
 			tstr = sName +  ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
 		}
 		if (!(*pit).first.empty())
-			perfData += (*pit).first + "=" + strEx::itos(sizeFinder.getSize()) + ";" + strEx::itos(maxWarn) + ";" + strEx::itos(maxCrit) + " ";
-		if (!ret.empty() && !tstr.empty())
-			ret += ", ";
+			perf += (*pit).first + "=" + strEx::itos(sizeFinder.getSize()) + ";" + strEx::itos(maxWarn) + ";" + strEx::itos(maxCrit) + " ";
+		if (!message.empty() && !tstr.empty())
+			message += ", ";
 		if (!tstr.empty())
-			ret += tstr;
+			message += tstr;
 	}
-	if (ret.empty())
-		ret = "OK all file sizes are within bounds.";
-	if (!perfData.empty())
-		ret += "|" + perfData;
-	return NSCHelper::returnNSCP(returnCode, ret);
+	if (message.empty())
+		message = "OK all file sizes are within bounds.";
+	return returnCode;
 }
 
 
 #define BUFFER_SIZE 1024*64
 
-std::string CheckDisk::handleCommand(const std::string command, const unsigned int argLen, char **char_args) {
+NSCAPI::nagiosReturn CheckDisk::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	if (command == "CheckFileSize") {
-		return CheckFileSize(argLen, char_args);
+		return CheckFileSize(argLen, char_args, msg, perf);
 //	} else if (command == "CheckFileDate") {
 	}	
-	return "";
+	return NSCAPI::returnIgnored;
 }
 
 

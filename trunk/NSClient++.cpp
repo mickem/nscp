@@ -219,7 +219,7 @@ void NSClientT::addPlugin(plugin_type plugin) {
  * @param buffer A command string to inject. This should be a unparsed command string such as command&arg1&arg2&arg...
  * @return The result, empty string if no result
  */
-int NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) {
+NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	MutexLock lock(pluginMutex);
 
 	LOG_MESSAGE_STD("Injecting: " + command);
@@ -227,29 +227,32 @@ int NSClientT::injectRAW(const char* command, const unsigned int argLen, char **
 	pluginList::const_iterator plit;
 	for (plit = commandHandlers_.begin(); plit != commandHandlers_.end(); ++plit) {
 		try {
-			int c = (*plit)->handleCommand(command, argLen, argument, returnBuffer, returnBufferLen);
-			if (c == NSCAPI::handled) {					// module handled the message "we are done..."
-				LOG_DEBUG_STD("Injected Result: " +(std::string) returnBuffer);
-				return c;
-			} else if (c == NSCAPI::isfalse) {			// Module ignored the message
-				LOG_DEBUG("A module ignored this message");
-			} else if (c == NSCAPI::invalidBufferLen) {	// Buffer is to small
-				LOG_ERROR("Return buffer to small to handle this command.");
-				return c;
-			} else if (c == NSCAPI::isError) {			// Error
-				LOG_ERROR("An error occured while handling this command.");
-				return c;
-			} else {									// Something else went wrong...
-				LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
-				return c;
+			NSCAPI::nagiosReturn c = (*plit)->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+			switch (c) {
+				case NSCAPI::returnInvalidBufferLen:
+					LOG_ERROR("Return buffer to small to handle this command.");
+					return c;
+				case NSCAPI::returnIgnored:
+					LOG_DEBUG("A module ignored this message");
+					break;
+				case NSCAPI::returnOK:
+				case NSCAPI::returnWARN:
+				case NSCAPI::returnCRIT:
+				case NSCAPI::returnUNKNOWN:
+					LOG_DEBUG_STD("Injected Result: " +(std::string) returnMessageBuffer);
+					LOG_DEBUG_STD("Injected Performance Result: " +(std::string) returnPerfBuffer);
+					return c;
+				default:
+					LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
+					return c;
 			}
 		} catch(const NSPluginException& e) {
 			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
-			return NSCAPI::isError;
+			return NSCAPI::returnCRIT;
 		}
 	}
 	LOG_MESSAGE_STD("No handler for command: " + command);
-	return NSCAPI::isfalse;
+	return NSCAPI::returnIgnored;
 }
 /**
  * Helper function to return the current password (perhaps this should be static ?)
@@ -270,6 +273,7 @@ std::string NSClientT::getPassword() {
  * @todo Make an int return value to set critical/warning/ok/unknown status.
  * ie. pair<int,string>
  */
+/*
 std::string NSClientT::execute(std::string password, std::string cmd, std::list<std::string> args) {
 	MutexLock lock(pluginMutex);
 	if (!lock.hasMutex()) {
@@ -311,6 +315,7 @@ std::string NSClientT::execute(std::string password, std::string cmd, std::list<
 	NSCHelper::destroyArrayBuffer(arguments, len);
 	return ret;
 }
+*/
 /**
  * Report a message to all logging enabled modules.
  *
@@ -371,20 +376,20 @@ std::string NSClientT::getBasePath(void) {
 }
 
 
-int NSAPIGetSettingsString(const char* section, const char* key, const char* defaultValue, char* buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, Settings::getInstance()->getString(section, key, defaultValue));
+NSCAPI::errorReturn NSAPIGetSettingsString(const char* section, const char* key, const char* defaultValue, char* buffer, unsigned int bufLen) {
+	return NSCHelper::wrapReturnString(buffer, bufLen, Settings::getInstance()->getString(section, key, defaultValue), NSCAPI::isSuccess);
 }
 int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue) {
 	return Settings::getInstance()->getInt(section, key, defaultValue);
 }
-int NSAPIGetBasePath(char*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath());
+NSCAPI::errorReturn NSAPIGetBasePath(char*buffer, unsigned int bufLen) {
+	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath(), NSCAPI::isSuccess);
 }
-int NSAPIGetApplicationName(char*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, SZAPPNAME);
+NSCAPI::errorReturn NSAPIGetApplicationName(char*buffer, unsigned int bufLen) {
+	return NSCHelper::wrapReturnString(buffer, bufLen, SZAPPNAME, NSCAPI::isSuccess);
 }
-int NSAPIGetApplicationVersionStr(char*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, SZVERSION);
+NSCAPI::errorReturn NSAPIGetApplicationVersionStr(char*buffer, unsigned int bufLen) {
+	return NSCHelper::wrapReturnString(buffer, bufLen, SZVERSION, NSCAPI::isSuccess);
 }
 void NSAPIMessage(int msgType, const char* file, const int line, const char* message) {
 	mainClient.reportMessage(msgType, file, line, message);
@@ -392,8 +397,8 @@ void NSAPIMessage(int msgType, const char* file, const int line, const char* mes
 void NSAPIStopServer(void) {
 	serviceControll::Stop(SZSERVICENAME);
 }
-int NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) {
-	return mainClient.injectRAW(command, argLen, argument, returnBuffer, returnBufferLen);
+NSCAPI::nagiosReturn NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
+	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
 
 LPVOID NSAPILoader(char*buffer) {

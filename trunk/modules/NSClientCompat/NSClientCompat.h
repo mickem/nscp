@@ -17,5 +17,5 @@ public:
 	NSCModuleWrapper::module_version getModuleVersion();
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	std::string handleCommand(const std::string command, const unsigned int argLen, char **args);
+	NSCAPI::nagiosReturn handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 };

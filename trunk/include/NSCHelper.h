@@ -8,7 +8,9 @@
 
 namespace NSCHelper
 {
-	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode = NSCAPI::success);
+//	int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode);
+	NSCAPI::nagiosReturn wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::nagiosReturn defaultReturnCode);
+	NSCAPI::errorReturn wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::errorReturn defaultReturnCode);
 
 	std::list<std::string> arrayBuffer2list(const unsigned int argLen, char **argument);
 	char ** list2arrayBuffer(const std::list<std::string> lst, unsigned int &argLen);
@@ -18,10 +20,7 @@ namespace NSCHelper
 	void destroyArrayBuffer(char **argument, const unsigned int argLen);
 
 	std::string translateMessageType(NSCAPI::messageTypes msgType);
-	std::string translateReturn(NSCAPI::returnCodes returnCode);
-	inline std::string returnNSCP(NSCAPI::returnCodes returnCode, std::string str) {
-		return translateReturn(returnCode) + "&" + str;
-	}
+	std::string translateReturn(NSCAPI::nagiosReturn returnCode);
 
 	/*
 	/ * **************************************************************************
@@ -52,7 +51,7 @@ namespace NSCHelper
 */
 
 
-	inline void escalteReturnCode(NSCAPI::returnCodes &currentReturnCode, NSCAPI::returnCodes newReturnCode) {
+	inline void escalteReturnCode(NSCAPI::nagiosReturn &currentReturnCode, NSCAPI::nagiosReturn newReturnCode) {
 		if (newReturnCode == NSCAPI::returnCRIT)
 			currentReturnCode = NSCAPI::returnCRIT;
 		else if ((newReturnCode == NSCAPI::returnWARN) && (currentReturnCode != NSCAPI::returnCRIT) )
@@ -62,10 +61,10 @@ namespace NSCHelper
 			&& (currentReturnCode != NSCAPI::returnWARN) )
 			currentReturnCode = NSCAPI::returnUNKNOWN;
 	}
-	inline void escalteReturnCodeToCRIT(NSCAPI::returnCodes &currentReturnCode) {
+	inline void escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode) {
 		currentReturnCode = NSCAPI::returnCRIT;
 	}
-	inline void escalteReturnCodeToWARN(NSCAPI::returnCodes &currentReturnCode) {
+	inline void escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode) {
 		if (currentReturnCode != NSCAPI::returnCRIT)
 			currentReturnCode = NSCAPI::returnWARN;
 	}
@@ -80,14 +79,14 @@ namespace NSCModuleHelper
 		NSCMHExcpetion(std::string msg) : msg_(msg) {}
 	};
 	// Types for the Callbacks into the main program
-	typedef int (*lpNSAPIGetBasePath)(char*,unsigned int);
-	typedef int (*lpNSAPIGetApplicationName)(char*,unsigned int);
-	typedef int (*lpNSAPIGetApplicationVersionStr)(char*,unsigned int);
-	typedef int (*lpNSAPIGetSettingsString)(const char*,const char*,const char*,char*,unsigned int);
-	typedef int (*lpNSAPIGetSettingsInt)(const char*, const char*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetBasePath)(char*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(char*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(char*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const char*,const char*,const char*,char*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const char*, const char*, int);
 	typedef void (*lpNSAPIMessage)(int, const char*, const int, const char*);
-	typedef int (*lpNSAPIStopServer)(void);
-	typedef int (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int );
+	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
+	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int );
 	typedef LPVOID (*lpNSAPILoader)(char*);
 
 	// Helper functions for calling into the core
@@ -96,9 +95,9 @@ namespace NSCModuleHelper
 	std::string getSettingsString(std::string section, std::string key, std::string defaultValue);
 	int getSettingsInt(std::string section, std::string key, int defaultValue);
 	void Message(int msgType, std::string file, int line, std::string message);
-	int InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
-	std::string InjectCommand(const char* command, const unsigned int argLen, char **argument);
-	std::string InjectSplitAndCommand(const char* command, char* buffer, char splitChar = '&');
+	NSCAPI::nagiosReturn InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen);
+	NSCAPI::nagiosReturn InjectCommand(const char* command, const unsigned int argLen, char **argument, std::string & message, std::string & perf);
+	NSCAPI::nagiosReturn InjectSplitAndCommand(const char* command, char* buffer, char splitChar, std::string & message, std::string & perf);
 	void StopService(void);
 	std::string getBasePath();
 };
@@ -114,13 +113,13 @@ namespace NSCModuleWrapper {
 	HINSTANCE getModule();
 
 	int wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f);;
-	int wrapGetModuleName(char* buf, unsigned int buflen, std::string str);
+	NSCAPI::errorReturn wrapGetModuleName(char* buf, unsigned int buflen, std::string str);
 	int wrapLoadModule(bool success);
-	int wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
-	int wrapHasCommandHandler(bool has);
-	int wrapHasMessageHandler(bool has);
+	NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
+	NSCAPI::boolReturn wrapHasCommandHandler(bool has);
+	NSCAPI::boolReturn wrapHasMessageHandler(bool has);
 	int wrapUnloadModule(bool success);
-	int wrapHandleCommand(const std::string retStr, char *returnBuffer, unsigned int returnBufferLen);
+	NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string retMessage, const std::string retPerformance, char *returnBufferMessage, unsigned int returnBufferMessageLen, char *returnBufferPerf, unsigned int returnBufferPerfLen);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -130,10 +129,11 @@ namespace NSCModuleWrapper {
 	extern int NSLoadModule(); \
 	extern int NSGetModuleName(char* buf, int buflen); \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision); \
-	extern int NSHasCommandHandler(); \
-	extern int NSHasMessageHandler(); \
+	extern NSCAPI::boolReturn NSHasCommandHandler(); \
+	extern NSCAPI::boolReturn NSHasMessageHandler(); \
 	extern void NSHandleMessage(int msgType, char* file, int line, char* message); \
-	extern int NSHandleCommand(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen); \
+	extern NSCAPI::nagiosReturn NSHandleCommand(const char* IN_cmd, const unsigned int IN_argsLen, char **IN_args, \
+		char *OUT_retBufMessage, unsigned int IN_retBufMessageLen, char *OUT_retBufPerf, unsigned int IN_retBufPerfLen); \
 	extern int NSUnloadModule();
 
 
@@ -177,21 +177,26 @@ namespace NSCModuleWrapper {
 	extern void NSHandleMessage(int msgType, char* file, int line, char* message) { \
 		toObject.handleMessage(msgType, file, line, message); \
 	} \
-	extern int NSHasMessageHandler() { \
+	extern NSCAPI::boolReturn NSHasMessageHandler() { \
 		return NSCModuleWrapper::wrapHasMessageHandler(toObject.hasMessageHandler()); \
 	}
 #define NSC_WRAPPERS_IGNORE_MSG_DEF() \
 	extern void NSHandleMessage(int msgType, char* file, int line, char* message) {} \
-	extern int NSHasMessageHandler() { return NSCAPI::isfalse; }
+	extern NSCAPI::boolReturn NSHasMessageHandler() { return NSCAPI::isfalse; }
 #define NSC_WRAPPERS_HANDLE_CMD_DEF(toObject) \
-	extern int NSHandleCommand(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) { \
-		return NSCModuleWrapper::wrapHandleCommand(toObject.handleCommand(command, argLen, argument), returnBuffer, returnBufferLen); \
+	extern NSCAPI::nagiosReturn NSHandleCommand(const char* IN_cmd, const unsigned int IN_argsLen, char **IN_args, \
+									char *OUT_retBufMessage, unsigned int IN_retBufMessageLen, char *OUT_retBufPerf, unsigned int IN_retBufPerfLen) \
+	{ \
+		std::string message, perf; \
+		NSCAPI::nagiosReturn retCode = toObject.handleCommand(IN_cmd, IN_argsLen, IN_args, message, perf); \
+		return NSCModuleWrapper::wrapHandleCommand(retCode, message, perf, OUT_retBufMessage, IN_retBufMessageLen, OUT_retBufPerf, IN_retBufPerfLen); \
 	} \
-	extern int NSHasCommandHandler() { \
+	extern NSCAPI::boolReturn NSHasCommandHandler() { \
 		return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
 	}
 #define NSC_WRAPPERS_IGNORE_CMD_DEF() \
-	extern int NSHandleCommand(const char* command, const unsigned int argLen, char **argument, char *returnBuffer, unsigned int returnBufferLen) { \
-		return NSCAPI::failed; \
+	extern NSCAPI::nagiosReturn NSHandleCommand(const char* IN_cmd, const unsigned int IN_argsLen, char **IN_args, \
+									char *OUT_retBufMessage, unsigned int IN_retBufMessageLen, char *OUT_retBufPerf, unsigned int IN_retBufPerfLen) { \
+		return NSCAPI::returnIgnored; \
 	} \
-	extern int NSHasCommandHandler() { return NSCAPI::isfalse; }
+	extern NSCAPI::boolReturn NSHasCommandHandler() { return NSCAPI::isfalse; }
