@@ -39,7 +39,10 @@
 				WarningLevel="3"
 				SuppressStartupBanner="TRUE"/>
 			<Tool
-				Name="VCCustomBuildTool"/>
+				Name="VCCustomBuildTool"
+				CommandLine="echo Copying dependency DLLs
+cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;"
+				Outputs="$(InputDir)\$(OutDir)\msvcp71.dll"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
@@ -142,6 +145,79 @@
 			<Tool
 				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
+		<Configuration
+			Name="Distribution|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
+			CharacterSet="2">
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				StringPooling="TRUE"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="stdafx.h"
+				PrecompiledHeaderFile=".\Release/IconService.pch"
+				AssemblerListingLocation=".\Release/"
+				ObjectFile=".\Release/"
+				ProgramDataBaseFileName=".\Release/"
+				WarningLevel="3"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCCustomBuildTool"
+				CommandLine="echo Copying dependency DLLs
+cmd /c &quot;copy $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;
+echo Removing old archive
+cmd /c &quot;del $(InputDir)\Dist\$(InputName).zip&quot;
+echo Making archive
+7z.exe a -r -tzip -bd $(InputDir)\Dist\$(InputName).zip $(InputDir)\Dist\*"
+				Outputs="$(InputDir)\Dist\$(ProjectName).zip"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				OutputFile=".\Dist/NSClient++.exe"
+				LinkIncremental="1"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="FALSE"
+				IgnoreDefaultLibraryNames=""
+				ModuleDefinitionFile=""
+				ProgramDatabaseFile=".\Release/IconService.pdb"
+				SubSystem="1"
+				OptimizeForWindows98="1"
+				TargetMachine="1"/>
+			<Tool
+				Name="VCMIDLTool"
+				TypeLibraryName=".\Release/IconService.tlb"
+				HeaderFileName=""/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1036"
+				AdditionalIncludeDirectories="./res/"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
 	</Configurations>
 	<References>
 	</References>
@@ -186,6 +262,14 @@
 						BasicRuntimeChecks="3"
 						UsePrecompiledHeader="1"/>
 				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						Optimization="2"
+						PreprocessorDefinitions=""
+						UsePrecompiledHeader="1"/>
+				</FileConfiguration>
 			</File>
 		</Filter>
 		<Filter
@@ -198,7 +282,7 @@
 				RelativePath=".\include\charEx.h">
 			</File>
 			<File
-				RelativePath=".\config.h">
+				RelativePath=".\include\config.h">
 			</File>
 			<File
 				RelativePath=".\include\Mutex.h">
@@ -237,11 +321,20 @@
 			Filter="">
 			<File
 				RelativePath=".\changelog">
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;"
+						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\Doxyfile">
 				<FileConfiguration
-					Name="Release|Win32">
+					Name="Release|Win32"
+					ExcludedFromBuild="TRUE">
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="doxygen.exe $(InputPath)
@@ -256,6 +349,15 @@
 						CommandLine="doxygen.exe $(InputPath)
 "/>
 				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32"
+					ExcludedFromBuild="TRUE">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="doxygen.exe $(InputPath)
+"
+						Outputs=".\Doc"/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\Doc\html\index.html">
@@ -263,23 +365,57 @@
 			<File
 				RelativePath=".\NSC.ini">
 				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="TRUE">
+					Name="Release|Win32">
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="copy $(InputPath) $(OutDir)\$(InputFileName)
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\$(OutDir)&quot;
 "
 						AdditionalDependencies=""
-						Outputs="$(OutDir)\$(InputFileName)"/>
+						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="TRUE">
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="copy $(InputPath) $(OutDir)\$(InputFileName)
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\$(OutDir)&quot;
 "
-						Outputs="$(OutDir)\$(InputFileName)"/>
+						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;"
+						AdditionalDependencies=""
+						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\readme.txt">
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine=""
+						Outputs=""/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine=""
+						Outputs=""/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;"
+						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
 				</FileConfiguration>
 			</File>
 		</Filter>

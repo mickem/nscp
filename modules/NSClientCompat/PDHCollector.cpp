@@ -21,45 +21,12 @@
 #include "PDHCollector.h"
 
 
-PDHCollector::PDHCollector() : cpu(BACK_INTERVAL*60/CHECK_INTERVAL), running_(true) {
+PDHCollector::PDHCollector() : cpu(BACK_INTERVAL*60/CHECK_INTERVAL), hStopEvent_(NULL) {
 }
 PDHCollector::~PDHCollector() 
 {
-}
-
-/**
- * Check running status (mutex locked)
- * @return current status of the running flag (or false if we could  not get the mutex, though this is most likely a critical state)
- */
-bool PDHCollector::isRunning(void) {
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
-		NSC_LOG_ERROR("Failed to get Mutex!");
-		return false;
-	}
-	return running_;
-}
-/**
- * set running status (to stopped) 
- */
-void PDHCollector::stopRunning(void) {
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
-		NSC_LOG_ERROR("Failed to get Mutex!");
-		return;
-	}
-	running_ = false;
-}
-/**
- *set running status (to started) 
- */
-void PDHCollector::startRunning(void) {
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
-		NSC_LOG_ERROR("Failed to get Mutex!");
-		return;
-	}
-	running_ = true;
+	if (hStopEvent_)
+		CloseHandle(hStopEvent_);
 }
 
 /**
@@ -91,29 +58,34 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		return 0;
 	}
 
-	startRunning();
-	while(isRunning()) {
-		{
-			MutexLock mutex(mutexHandler);
-			if (!mutex.hasMutex()) 
-				NSC_LOG_ERROR("Failed to get Mutex!");
-			else {
-				try {
-					pdh.collect();
-				} catch (const PDH::PDHException &e) {
-					NSC_LOG_ERROR_STD("Failed to query performance counters: " + e.str_);
-				}
-			}
-		}
-		Sleep(CHECK_INTERVAL*1000);
+	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (!hStopEvent_) {
+		NSC_LOG_ERROR_STD("Create StopEvent failed: " + strEx::itos(GetLastError()));
+		return 0;
 	}
 
+	do {
+		MutexLock mutex(mutexHandler);
+		if (!mutex.hasMutex()) 
+			NSC_LOG_ERROR("Failed to get Mutex!");
+		else {
+			try {
+				pdh.collect();
+			} catch (const PDH::PDHException &e) {
+				NSC_LOG_ERROR_STD("Failed to query performance counters: " + e.str_);
+			}
+		} 
+	}while (!(WaitForSingleObject(hStopEvent_, CHECK_INTERVAL*1000) == WAIT_OBJECT_0));
+
+	if (!CloseHandle(hStopEvent_))
+		NSC_LOG_ERROR_STD("Failed to close stopEvent handle: " + strEx::itos(GetLastError()));
+	else
+		hStopEvent_ = NULL;
 	try {
 		pdh.close();
 	} catch (const PDH::PDHException &e) {
 		NSC_LOG_ERROR_STD("Failed to close performance counters: " + e.str_);
 	}
-	NSC_DEBUG_MSG("PDHCollector - shutdown!");
 	return 0;
 }
 
@@ -122,8 +94,12 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
  * Request termination of the thread (waiting for thread termination is not handled)
  */
 void PDHCollector::exitThread(void) {
-	NSC_DEBUG_MSG("PDHCollector - Requesting shutdown!");
-	stopRunning();
+	if (hStopEvent_ == NULL)
+		NSC_LOG_ERROR("Failed to get Mutex!");
+	else
+		if (!SetEvent(hStopEvent_)) {
+			NSC_LOG_ERROR_STD("SetStopEvent failed");
+	}
 }
 /**
  * Get the average CPU usage for "time"

@@ -17,6 +17,7 @@
 #include "NSClient++.h"
 #include "Settings.h"
 #include <charEx.h>
+#include <Socket.h>
 
 NSClient mainClient;	// Global core instance.
 bool g_bConsoleLog = false;
@@ -106,6 +107,12 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 void NSClientT::InitiateService(void) {
 	Settings::getInstance()->setFile(getBasePath() + "NSC.ini");
 
+	try {
+		simpleSocket::Socket::WSAStartup();
+	} catch (simpleSocket::SocketException e) {
+		LOG_ERROR_STD("Uncaught exception: " + e.getMessage());
+	}
+
 	SettingsT::sectionList list = Settings::getInstance()->getSection("modules");
 	for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
 		try {
@@ -122,11 +129,15 @@ void NSClientT::InitiateService(void) {
  */
 void NSClientT::TerminateService(void) {
 	try {
-		LOG_DEBUG("Socket closed, unloading plugins...");
 		mainClient.unloadPlugins();
 		LOG_DEBUG("Plugins unloaded...");
 	} catch(NSPluginException *e) {
 		std::cout << "Exception raised: " << e->error_ << " in module: " << e->file_ << std::endl;;
+	}
+	try {
+		simpleSocket::Socket::WSACleanup();
+	} catch (simpleSocket::SocketException e) {
+		LOG_ERROR_STD("Uncaught exception: " + e.getMessage());
 	}
 	Settings::destroyInstance();
 }
@@ -229,8 +240,6 @@ void NSClientT::addPlugin(plugin_type plugin) {
 NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	MutexLock lock(pluginMutex);
 
-	LOG_MESSAGE_STD("Injecting: " + command);
-
 	pluginList::const_iterator plit;
 	for (plit = commandHandlers_.begin(); plit != commandHandlers_.end(); ++plit) {
 		try {
@@ -261,68 +270,6 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 	LOG_MESSAGE_STD("No handler for command: " + command);
 	return NSCAPI::returnIgnored;
 }
-/**
- * Helper function to return the current password (perhaps this should be static ?)
- *
- * @return The current password
- */
-std::string NSClientT::getPassword() {
-	return Settings::getInstance()->getString("generic", "password", "");
-}
-/**
- * Execute a command.
- *
- * @param password The password
- * @param cmd The command
- * @param args Arguments as a list<string>
- * @return The result if any, empty string if no result.
- *
- * @todo Make an int return value to set critical/warning/ok/unknown status.
- * ie. pair<int,string>
- */
-/*
-std::string NSClientT::execute(std::string password, std::string cmd, std::list<std::string> args) {
-	MutexLock lock(pluginMutex);
-	if (!lock.hasMutex()) {
-		LOG_ERROR("FATAL ERROR: Could not execute command with a reasonable timeframe. (could not get mutex so core is most likely locked down).");
-		return "ERROR: Core was locked down";
-	}
-	static unsigned int bufferSize = 0;
-	if (bufferSize == 0)
-		bufferSize = static_cast<unsigned int>(Settings::getInstance()->getInt("main", "bufferSize", 4096));
-
-	if (password != getPassword())
-		return "ERROR: Authorization denied.";
-
-	std::string ret;
-	unsigned int len;
-	char **arguments = NSCHelper::list2arrayBuffer(args, len);
-	// Allocate return buffer
-	char* returnbuffer = new char[bufferSize+1];
-	pluginList::const_iterator plit;
-	for (plit = commandHandlers_.begin(); plit != commandHandlers_.end(); ++plit) {
-		try {
-			int c = (*plit)->handleCommand(cmd.c_str(), len, arguments, returnbuffer, bufferSize);
-			if (c == NSCAPI::handled) {					// module handled the message "we are done..."
-				ret = returnbuffer;
-				break;
-			} else if (c == NSCAPI::isfalse) {			// Module ignored the message
-				LOG_DEBUG("A module ignored this message");
-			} else if (c == NSCAPI::invalidBufferLen) {	// Buffer is to small
-				LOG_ERROR("Return buffer to small, need to increase it in the ini file.");
-			} else {									// Something else went wrong...
-				LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
-			}
-		} catch(const NSPluginException& e) {
-			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
-		}
-	}
-	// delete buffers
-	delete [] returnbuffer;
-	NSCHelper::destroyArrayBuffer(arguments, len);
-	return ret;
-}
-*/
 /**
  * Report a message to all logging enabled modules.
  *

@@ -17,7 +17,7 @@ NSClientSocket::~NSClientSocket() {
 std::string NSClientSocket::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');
 	NSC_DEBUG_MSG("Password: " + pwd.first);
-	if ( (pwd.first.empty()) || (pwd.first != NSCModuleHelper::getSettingsString("generic", "password", "")) )
+	if ( (pwd.first.empty()) || (pwd.first != NSCModuleHelper::getSettingsString("NSClient", "password", "")) )
 		return "ERROR: Invalid password.";
 	if (pwd.second.empty())
 		return "ERRRO: No command specified.";
@@ -48,10 +48,14 @@ std::string NSClientSocket::parseRequest(std::string buffer)  {
 }
 
 void NSClientSocket::onAccept(simpleSocket::Socket client) {
+	if (!inAllowedHosts(client.getAddrString())) {
+		NSC_LOG_ERROR("Unothorized access from: " + client.getAddrString());
+		client.close();
+		return;
+	}
 	simpleSocket::DataBuffer db;
 	client.readAll(db);
 	if (db.getLength() > 0) {
-		NSC_DEBUG_MSG_STD("Incoming data length: " + strEx::itos(db.getLength()));
 		std::string incoming(db.getBuffer(), db.getLength());
 		NSC_DEBUG_MSG_STD("Incoming data: " + incoming);
 		std::string response = parseRequest(incoming);

@@ -11,7 +11,7 @@
 #endif // _MSC_VER > 1000
 
 #define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
-#include <winsock2.h>
+#include <WinSock2.h>
 #include <windows.h>
 
 

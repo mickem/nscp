@@ -62,6 +62,7 @@ namespace simpleSocket {
 		}
 		Socket(Socket &other) {
 			socket_ = other.socket_;
+			from_ = other.from_;
 			other.socket_ = NULL;
 		}
 		virtual ~Socket() {
@@ -73,8 +74,8 @@ namespace simpleSocket {
 			return socket_;
 		}
 		virtual void close() {
-			assert(socket_);
-			closesocket(socket_);
+			if (socket_)
+				closesocket(socket_);
 			socket_ = NULL;
 		}
 		void readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
@@ -114,6 +115,9 @@ namespace simpleSocket {
 		void ioctlsocket(long cmd, u_long *argp) {
 			if (::ioctlsocket(socket_, cmd, argp) == SOCKET_ERROR)
 				throw SocketException("ioctlsocket failed: ", ::WSAGetLastError());
+		}
+		std::string getAddrString() {
+			return inet_ntoa(from_.sin_addr);
 		}
 
 		static WSADATA WSAStartup(WORD wVersionRequested = 0x202) {

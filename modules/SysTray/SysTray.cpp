@@ -50,7 +50,7 @@ bool SysTray::unloadModule() {
 
 
 std::string SysTray::getModuleName() {
-	return "This is a nice systray module.";
+	return "System Tray icon Module.";
 }
 NSCModuleWrapper::module_version SysTray::getModuleVersion() {
 	NSCModuleWrapper::module_version version = {0, 0, 1 };

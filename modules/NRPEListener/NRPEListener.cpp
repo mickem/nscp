@@ -5,6 +5,7 @@
 #include "NRPEListener.h"
 #include <strEx.h>
 #include <time.h>
+#include <config.h>
 
 NRPEListener gNRPEListener;
 
@@ -19,12 +20,11 @@ NRPEListener::NRPEListener() {
 NRPEListener::~NRPEListener() {
 }
 
-#define DEFAULT_NRPE_PORT 5666
 
 
 bool NRPEListener::loadModule() {
-	timeout = NSCModuleHelper::getSettingsInt("NRPE", "commandTimeout", 60);
-	std::list<std::string> commands = NSCModuleHelper::getSettingsSection("NRPE Handlers");
+	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,60);
+	std::list<std::string> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::string>::iterator it;
 	for (it = commands.begin(); it != commands.end(); it++) {
 		strEx::token t = strEx::getToken(*it, '=');
@@ -39,13 +39,22 @@ bool NRPEListener::loadModule() {
 			addCommand(t.first, t.second);
 	}
 
-	simpleSocket::Socket::WSAStartup();
-	socket.StartListen(NSCModuleHelper::getSettingsInt("NRPE", "port", DEFAULT_NRPE_PORT));
+	socket.setAllowedHosts(strEx::splitEx(NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOWED, ""), ","));
+	try {
+		socket.StartListen(NSCModuleHelper::getSettingsInt("NSClient", NRPE_SETTINGS_PORT, DEFAULT_NRPE_PORT));
+	} catch (simpleSocket::SocketException e) {
+		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		return false;
+	}
 	return true;
 }
 bool NRPEListener::unloadModule() {
-	socket.close();
-	simpleSocket::Socket::WSACleanup();
+	try {
+		socket.close();
+	} catch (simpleSocket::SocketException e) {
+		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		return false;
+	}
 	return true;
 }
 
@@ -71,21 +80,27 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const std::string command, cons
 		return NSCAPI::returnIgnored;
 
 	std::string str = (*it).second;
-	if (NSCModuleHelper::getSettingsInt("NRPE", "AllowArguments", 0) == 0) {
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, 0) == 1) {
 		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
 		arrayBuffer::arrayList::const_iterator cit = arr.begin();
-		int i=0;
+		int i=1;
 
-		for (;cit!=arr.end();it++,i++) {
-			strEx::replace(str, "ARG" + strEx::itos(i), (*cit));
+		for (;cit!=arr.end();cit++,i++) {
+			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, 0) == 0) {
+				if ((*cit).find_first_of(NASTY_METACHARS) != std::string::npos) {
+					NSC_LOG_ERROR("Request string contained illegal metachars!");
+					return NSCAPI::returnIgnored;
+				}
+			}
+			NSC_DEBUG_MSG_STD("Attempting to replace: " + "$ARG" + strEx::itos(i) + "$" + " with " + (*cit));
+			strEx::replace(str, "$ARG" + strEx::itos(i) + "$", (*cit));
 		}
 	}
 
-	if (NSCModuleHelper::getSettingsInt("NRPE", "AllowNastyMetaChars", 0) == 0) {
-		if (str.find_first_of(NASTY_METACHARS) != std::string::npos) {
-			NSC_LOG_ERROR("Request command contained illegal metachars!");
-			return NSCAPI::returnIgnored;
-		}
+	if ((str.substr(0,6) == "inject")&&(str.length() > 7)) {
+		strEx::token t = strEx::getToken(str.substr(7), ' ');
+		NSC_DEBUG_MSG_STD("Injecting: " + t.first + ", " + t.second);
+		return NSCModuleHelper::InjectSplitAndCommand(t.first, t.second, ' ', message, perf);
 	}
 
 	return executeNRPECommand(str, message, perf);

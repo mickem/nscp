@@ -1,10 +1,5 @@
 #pragma once
 #include "resource.h"
-#include <Thread.h>
-#include <Mutex.h>
-#include <WinSock2.h>
-#include <strEx.h>
-#include <charEx.h>
 #include <Socket.h>
 /**
  * @ingroup NSClient++
@@ -32,6 +27,7 @@
  */
 class NSClientSocket : public simpleSocket::Listener {
 private:
+	strEx::splitList allowedHosts_;
 
 public:
 	NSClientSocket();
@@ -40,6 +36,22 @@ public:
 private:
 	virtual void onAccept(simpleSocket::Socket client);
 	std::string parseRequest(std::string buffer);
+	bool inAllowedHosts(std::string s) {
+		if (allowedHosts_.empty())
+			return true;
+		strEx::splitList::const_iterator cit;
+		for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
+			if ( (*cit) == s)
+				return true;
+		}
+		return false;
+	}
+
+public:
+	void setAllowedHosts(strEx::splitList allowedHosts) {
+		allowedHosts_ = allowedHosts;
+	}
+
 };
 
 

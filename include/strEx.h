@@ -61,6 +61,20 @@ namespace strEx {
 			return itos(i/(1024))+"K (" + itos(i) + "B)";
 		return itos(i>>24)+"B";
 	}
+
+	typedef std::list<std::string> splitList;
+	inline splitList splitEx(std::string str, std::string key) {
+		splitList ret;
+		std::string::size_type pos = 0, lpos = 0;
+		while ((pos = str.find(key, pos)) !=  std::string::npos) {
+			ret.push_back(str.substr(lpos, pos-lpos));
+			lpos = ++pos;
+		}
+		if (lpos < str.size())
+			ret.push_back(str.substr(lpos));
+		return ret;
+	}
+
 	inline std::pair<std::string,std::string> split(std::string str, std::string key) {
 		std::string::size_type pos = str.find(key);
 		if (pos == std::string::npos)

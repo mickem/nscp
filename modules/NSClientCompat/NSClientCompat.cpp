@@ -25,7 +25,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
  * Default c-tor
  * @return 
  */
-NSClientCompat::NSClientCompat() : pdhCollector(NULL) {}
+NSClientCompat::NSClientCompat() {}
 /**
  * Default d-tor
  * @return 
@@ -37,7 +37,7 @@ NSClientCompat::~NSClientCompat() {}
  * @return true
  */
 bool NSClientCompat::loadModule() {
-	pdhCollector = pdhThread.createThread();
+	pdhThread.createThread();
 	return true;
 }
 /**
@@ -109,10 +109,46 @@ bool NSClientCompat::hasMessageHandler() {
 NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	std::list<std::string> stl_args;
 	NSClientCompat::returnBundle rb;
+	if (command == "checkCPU") {
+		stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+		if (stl_args.empty()) {
+			msg = "ERROR: Missing argument exception.";
+			return NSCAPI::returnUNKNOWN;
+		}
+		int warn;
+		int crit;
+		msg = "CPU Load: ";
+		NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
+		for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
+			strEx::token t = strEx::getToken((*it), '=');
+			if (t.first == "crit")
+				crit = strEx::stoi(t.second);
+			else if (t.first == "warn")
+				warn = strEx::stoi(t.second);
+			else {
+				PDHCollector *pObject = pdhThread.getThread();
+				assert(pObject);
+				int v = pObject->getCPUAvrage(strEx::stoi(*it)*(60/CHECK_INTERVAL));
+				if (v == -1) {
+					msg = "ERROR: We don't collect data that far back.";
+					return NSCAPI::returnCRIT;
+				} else {
+					if (v > warn)
+						NSCHelper::escalteReturnCodeToWARN(ret);
+					if (v > crit)
+						NSCHelper::escalteReturnCodeToCRIT(ret);
+					msg += strEx::itos(v) + "% (" + (*it) + " min average) ";
+					perf += "'" + (*it) + " min average'=" + strEx::itos(v) + "%;" + strEx::itos(warn) + ";" + strEx::itos(crit) + "; ";
+				}
+			}
+		}
+		return ret;
+	}
 
 	int id = atoi(command.c_str());
-	if (id == 0)
+	if (id == 0) {
 		return NSCAPI::returnIgnored;
+	}
 	switch (id) {
 		case REQ_CLIENTVERSION:
 			{
@@ -122,9 +158,12 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 				return NSCAPI::returnOK;
 			}
 		case REQ_UPTIME:
-			msg= strEx::itos(pdhCollector->getUptime());
-			return NSCAPI::returnOK;
-
+			{
+				PDHCollector *pObject = pdhThread.getThread();
+				assert(pObject);
+				msg = strEx::itos(pObject->getUptime());
+				return NSCAPI::returnOK;
+			}
 		case REQ_CPULOAD:
 			{
 				stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
@@ -134,7 +173,9 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 				}
 				while (!stl_args.empty()) {
 					std::string s = stl_args.front(); stl_args.pop_front();
-					int v = pdhCollector->getCPUAvrage(strEx::stoi(s)*(60/CHECK_INTERVAL));
+					PDHCollector *pObject = pdhThread.getThread();
+					assert(pObject);
+					int v = pObject->getCPUAvrage(strEx::stoi(s)*(60/CHECK_INTERVAL));
 					if (v == -1) {
 						msg = "ERROR: We don't collect data that far back.";
 						return NSCAPI::returnCRIT;
@@ -159,8 +200,13 @@ NSCAPI::nagiosReturn NSClientCompat::handleCommand(const std::string command, co
 			return rb.code_;
 
 		case REQ_MEMUSE:
-			msg = strEx::itos(pdhCollector->getMemCommitLimit()) + "&" + 
-				strEx::itos(pdhCollector->getMemCommit());
+			{
+				PDHCollector *pObject = pdhThread.getThread();
+				assert(pObject);
+				msg = strEx::itos(pObject->getMemCommitLimit()) + "&" + 
+					strEx::itos(pObject->getMemCommit());
+
+			}
 			return NSCAPI::returnOK;
 
 		case REQ_USEDDISKSPACE:

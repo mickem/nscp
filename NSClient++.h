@@ -56,7 +56,6 @@ public:
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);
 
 	// Member functions
-	static std::string getPassword(void);
 	std::string getBasePath(void);
 	NSCAPI::nagiosReturn injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
 //	std::string inject(const std::string buffer);
