@@ -5,6 +5,7 @@
 #include "NSClientListener.h"
 #include <strEx.h>
 #include <time.h>
+#include <config.h>
 
 NSClientListener gNSClientListener;
 
@@ -19,14 +20,23 @@ NSClientListener::NSClientListener() {
 NSClientListener::~NSClientListener() {
 }
 
-#define DEFAULT_TCP_PORT 12489
-
 bool NSClientListener::loadModule() {
-	socket.StartListen(NSCModuleHelper::getSettingsInt("NSClient", "port", DEFAULT_TCP_PORT));
+	socket.setAllowedHosts(strEx::splitEx(NSCModuleHelper::getSettingsString("NRPE", "allowed_hosts", ""), ","));
+	try {
+		socket.StartListen(NSCModuleHelper::getSettingsInt("NSClient", "port", DEFAULT_NSCLIENT_PORT));
+	} catch (simpleSocket::SocketException e) {
+		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		return false;
+	}
 	return true;
 }
 bool NSClientListener::unloadModule() {
-	socket.close();
+	try {
+		socket.close();
+	} catch (simpleSocket::SocketException e) {
+		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		return false;
+	}
 	return true;
 }
 

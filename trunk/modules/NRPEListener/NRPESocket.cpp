@@ -129,6 +129,11 @@ public:
 };
 
 void NRPESocket::onAccept(simpleSocket::Socket client) {
+	if (!inAllowedHosts(client.getAddrString())) {
+		NSC_LOG_ERROR("Unothorized access from: " + client.getAddrString());
+		client.close();
+		return;
+	}
 	simpleSocket::DataBuffer block;
 	client.readAll(block);
 	NRPEPacket p(block.getBuffer());
@@ -152,14 +157,14 @@ void NRPESocket::onAccept(simpleSocket::Socket client) {
 	NSC_DEBUG_MSG_STD("Command: " + cmd.first);
 	NSC_DEBUG_MSG_STD("Arguments: " + cmd.second);
 
-	if (NSCModuleHelper::getSettingsInt("NRPE", "AllowArguments", 0) == 0) {
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, 0) == 0) {
 		if (!cmd.second.empty()) {
 			NSC_LOG_ERROR("Request contained arguments (not currently allowed).");
 			client.close();
 			return;
 		}
 	}
-	if (NSCModuleHelper::getSettingsInt("NRPE", "AllowNastyMetaChars", 0) == 0) {
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, 0) == 0) {
 		if (cmd.first.find_first_of(NASTY_METACHARS) != std::string::npos) {
 			NSC_LOG_ERROR("Request command contained illegal metachars!");
 			client.close();

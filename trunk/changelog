@@ -1,3 +1,9 @@
+2005-03-28 MickeM
+ * Changed the Thread class a bit (mutex -> signal, and CreatThread does not return the instance)
+ * Moved settings "keys" fro NRPE to config.h
+ * Changed build options (added Distribution) which builds a zip file under ./dist (requires 7z installed)
+ * Minor tweaks to error/debug logging and small fixes "here and there"
+
 2005-03-26 MickeM
  + NRPE Support (very basic, no encryption, and nothing fancy)
  * Socket classes rewritten

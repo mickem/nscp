@@ -13,5 +13,7 @@
 #include <string>
 #include <functional>
 
+#include <config.h>
+
 #include <NSCAPI.h>
 #include <NSCHelper.h>

@@ -25,7 +25,7 @@ bool FileLogger::unloadModule() {
 	return true;
 }
 std::string FileLogger::getModuleName() {
-	return "Simple console logger (used for debug purposes).";
+	return "File logger: " + NSCModuleHelper::getSettingsString("log", "file", "nsclient.log");
 }
 NSCModuleWrapper::module_version FileLogger::getModuleVersion() {
 	NSCModuleWrapper::module_version version = {0, 0, 1 };

@@ -6,7 +6,6 @@ NSC_WRAPPERS_MAIN();
 class NSClientCompat {
 private:
 	PDHCollectorThread pdhThread;
-	PDHCollector *pdhCollector;
 
 public:
 	typedef struct rB {

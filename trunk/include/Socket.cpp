@@ -30,9 +30,6 @@ DWORD simpleSocket::Listener::ListenerThread::threadProc(LPVOID lpParameter)
 		core->bind();
 		core->listen(10);
 		core->ioctlsocket(FIONBIO, &NoBlock);
-
-		NSC_DEBUG_MSG_STD("Currently listeneing to: " + strEx::itos(core->port_));
-
 		while (!(WaitForSingleObject(hStopEvent, 100) == WAIT_OBJECT_0)) {
 			Socket client;
 			if (core->accept(client))
@@ -41,9 +38,10 @@ DWORD simpleSocket::Listener::ListenerThread::threadProc(LPVOID lpParameter)
 	} catch (SocketException e) {
 		NSC_LOG_ERROR_STD(e.getMessage());
 	}
-
-	CloseHandle(hStopEvent);
-	NSC_DEBUG_MSG("Socket closed!");
+	HANDLE hTmp = hStopEvent;
+	hStopEvent = NULL;
+	BOOL b = CloseHandle(hTmp);
+	assert(b);
 	return 0;
 }
 
@@ -53,7 +51,7 @@ DWORD simpleSocket::Listener::ListenerThread::threadProc(LPVOID lpParameter)
 * The thread manager is responsible for waiting for the actual termination of the thread.
 */
 void simpleSocket::Listener::ListenerThread::exitThread(void) {
-	NSC_DEBUG_MSG("Requesting Socket shutdown!");
+	assert(hStopEvent);
 	if (!SetEvent(hStopEvent)) {
 		NSC_LOG_ERROR_STD("SetStopEvent failed");
 	}
@@ -84,7 +82,9 @@ void simpleSocket::Listener::StartListen(int port) {
 	threadManager_.createThread(this);
 }
 void simpleSocket::Listener::close() {
-	threadManager_.exitThread();
+	if (threadManager_.hasActiveThread())
+		if (!threadManager_.exitThread())
+			throw new SocketException("Could not terminate thread.");
 	Socket::close();
 }
 

@@ -26,7 +26,7 @@
 class PDHCollector {
 private:
 	MutexHandler mutexHandler;
-	bool running_;
+	HANDLE hStopEvent_;
 
 	PDHCollectors::StaticPDHCounterListener memCmtLim;
 	PDHCollectors::StaticPDHCounterListener memCmt;
