@@ -124,7 +124,7 @@ std::string NSClientCompat::handleCommand(const std::string command, const unsig
 
 		case REQ_CPULOAD:
 			{
-				stl_args = NSCHelper::makelist(argLen, args);
+				stl_args = NSCHelper::arrayBuffer2list(argLen, args);
 				if (stl_args.empty())
 					return "ERROR: Missing argument exception.";
 				std::string ret;
@@ -140,17 +140,17 @@ std::string NSClientCompat::handleCommand(const std::string command, const unsig
 				return ret;
 			}
 		case REQ_SERVICESTATE:
-			return NSCommands::serviceState(NSCHelper::makelist(argLen, args));
+			return NSCommands::serviceState(NSCHelper::arrayBuffer2list(argLen, args));
 
 		case REQ_PROCSTATE:
-			return NSCommands::procState(NSCHelper::makelist(argLen, args));
+			return NSCommands::procState(NSCHelper::arrayBuffer2list(argLen, args));
 
 		case REQ_MEMUSE:
 			return strEx::itos(pdhCollector->getMemCommitLimit()) + "&" + 
 				strEx::itos(pdhCollector->getMemCommit());
 
 		case REQ_USEDDISKSPACE:
-			return NSCommands::usedDiskSpace(NSCHelper::makelist(argLen, args));
+			return NSCommands::usedDiskSpace(NSCHelper::arrayBuffer2list(argLen, args));
 	}
 	return "";
 }

@@ -114,7 +114,7 @@ void NSClientT::TerminateService(void) {
 		mainClient.unloadPlugins();
 		LOG_DEBUG("Plugins unloaded...");
 	} catch(NSPluginException *e) {
-		LOG_ERROR_STD("Exception raised: " + e->error_ + " in module: " + e->file_);
+		std::cout << "Exception raised: " << e->error_ << " in module: " << e->file_ << std::endl;;
 	}
 	Settings::destroyInstance();
 }
@@ -158,7 +158,7 @@ void NSClientT::loadPlugins(const std::list<std::string> plugins) {
  * Unload all plug-ins (in reversed order)
  */
 void NSClientT::unloadPlugins() {
-	MutexLock lock(pluginMutex);
+	MutexLock lock(pluginMutex,20000);
 	if (!lock.hasMutex()) {
 		LOG_ERROR("FATAL ERROR: Could not get mutex.");
 		return;
@@ -168,12 +168,19 @@ void NSClientT::unloadPlugins() {
 #ifdef _DEBUG
 		std::cout << "Unloading plugin: " << (*it)->getName() << "...";
 #endif
-		(*it)->unload();
+			(*it)->unload();
 #ifdef _DEBUG
 		std::cout << "OK" << std::endl;
 #endif
 	}
-	messageHandlers_.clear();
+	{
+		MutexLock lock2(messageMutex,20000);
+		if (!lock2.hasMutex()) {
+			LOG_ERROR("FATAL ERROR: Could not get mutex (we will now crash BTW).");
+		} else {
+			messageHandlers_.clear();
+		}
+	}
 	commandHandlers_.clear();
 	for (it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
 		delete (*it);
@@ -214,6 +221,8 @@ void NSClientT::addPlugin(plugin_type plugin) {
  */
 std::string NSClientT::inject(const std::string buffer) {
 	std::list<std::string> args = charEx::split(buffer.c_str(), '&');
+	if (args.empty())
+		return "";
 	std::string command = args.front(); args.pop_front();
 	LOG_MESSAGE_STD("Injecting: " + command);
 	std::string ret = execute(NSClientT::getPassword(), command, args);
@@ -243,26 +252,19 @@ std::string NSClientT::getPassword() {
 std::string NSClientT::execute(std::string password, std::string cmd, std::list<std::string> args) {
 	MutexLock lock(pluginMutex);
 	if (!lock.hasMutex()) {
-		LOG_ERROR("FATAL ERROR: Could not get mutex.");
-		return "FATAL ERROR";
+		LOG_ERROR("FATAL ERROR: Could not execute command with a reasonable timeframe. (could not get mutex so core is most likely locked down).");
+		return "ERROR: Core was locked down";
 	}
 	static unsigned int bufferSize = 0;
 	if (bufferSize == 0)
 		bufferSize = static_cast<unsigned int>(Settings::getInstance()->getInt("main", "bufferSize", 4096));
 
 	if (password != getPassword())
-		return "INVALID PASSWORD";
+		return "ERROR: Authorization denied.";
 
-	// Pack the argument as a char** buffer
 	std::string ret;
-	int len = args.size();
-	char **arguments = new char*[len];
-	std::list<std::string>::iterator it = args.begin();
-	for (int i=0;it!=args.end();++it,i++) {
-		int alen = (*it).size();
-		arguments[i] = new char[alen+2];
-		strncpy(arguments[i], (*it).c_str(), alen+1);
-	}
+	unsigned int len;
+	char **arguments = NSCHelper::list2arrayBuffer(args, len);
 	// Allocate return buffer
 	char* returnbuffer = new char[bufferSize+1];
 	pluginList::const_iterator plit;
@@ -285,10 +287,7 @@ std::string NSClientT::execute(std::string password, std::string cmd, std::list<
 	}
 	// delete buffers
 	delete [] returnbuffer;
-	for (int i=0;i<len;i++) {
-		delete [] arguments[i];
-	}
-	delete [] arguments;
+	NSCHelper::destroyArrayBuffer(arguments, len);
 	return ret;
 }
 /**
@@ -302,7 +301,8 @@ std::string NSClientT::execute(std::string password, std::string cmd, std::list<
 void NSClientT::reportMessage(int msgType, const char* file, const int line, std::string message) {
 	MutexLock lock(messageMutex);
 	if (!lock.hasMutex()) {
-		LOG_ERROR("FATAL ERROR: Could not get mutex.");
+		std::cout << "Message was lost as the core was locked..." << std::endl;
+		std::cout << message << std::endl;
 		return;
 	}
 	if (msgType == NSCAPI::debug) {
@@ -323,6 +323,7 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 			(*plit)->handleMessage(msgType, file, line, message.c_str());
 		} catch(const NSPluginException& e) {
 			// Here we are pretty much fucked! (as logging this might cause a loop :)
+			std::cout << "Caught: " << e.error_ << " when trying to log a message..." << std::endl;
 			std::cout << "This is *really really* bad, now the world is about to end..." << std::endl;
 		}
 	}

@@ -110,7 +110,7 @@ std::string CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args
 	std::string perfData;
 	std::string ret;
 	NSCAPI::returnCodes returnCode = NSCAPI::returnOK;
-	std::list<std::string> args = NSCHelper::makelist(argLen, char_args);
+	std::list<std::string> args = NSCHelper::arrayBuffer2list(argLen, char_args);
 	if (args.empty())
 		return "Missing argument(s).";
 	long long maxWarn = 0;

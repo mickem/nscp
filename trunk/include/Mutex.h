@@ -98,9 +98,9 @@ public:
 	 * Waits for the mutex object.
 	 * @param hMutex The mutex to use
 	 */
-	MutexLock(HANDLE hMutex) : bHasMutex(false), hMutex_(hMutex) {
+	MutexLock(HANDLE hMutex, DWORD timeout = 5000L) : bHasMutex(false), hMutex_(hMutex) {
 		assert(hMutex_ != NULL);
-		dwWaitResult = WaitForSingleObject(hMutex_, 5000L);
+		dwWaitResult = WaitForSingleObject(hMutex_, timeout);
 		switch (dwWaitResult) {
 			// The thread got mutex ownership.
         case WAIT_OBJECT_0:

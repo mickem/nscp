@@ -456,6 +456,9 @@
 			Name="Misc"
 			Filter="">
 			<File
+				RelativePath=".\changelog">
+			</File>
+			<File
 				RelativePath=".\Doxyfile">
 				<FileConfiguration
 					Name="Release|Win32">
