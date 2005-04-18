@@ -5,6 +5,7 @@
 #include "CheckDisk.h"
 #include <strEx.h>
 #include <time.h>
+#include <utils.h>
 
 CheckDisk gCheckDisk;
 
@@ -81,9 +82,9 @@ void RecursiveScanDirectory(std::string dir, GetSize & f) {
 	FindClose(hFind);
 }
 
-NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
+NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	// CheckFileSize
-	// request: CheckFileSize&<option>&<option>...
+	// request: CheckFileSize <option> <option>...
 	// <option>			MaxWarn=<size gmkb>
 	//					MaxCrit=<size gmkb>
 	//					MinWarn=<size gmkb>
@@ -99,7 +100,124 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 	// <size gmkb> is a size with a possible modifier letter (such as G for gigabyte, M for Megabyte, K for kilobyte etc)
 	// Examples:
 	// <return string>	<directory> <size gmkb> ... |<shortname>=<size>:<warn>:<crit>
-	// test: CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*
+	// test: CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\WINDOWS\*.*
+	//       CheckFileSize
+	//
+	// check_nscp -H <ip> -p <port> -s <passwd> -c <commandstring>
+	//
+	// ./check_nscp -H 192.168.0.167 -p 1234 -s pwd -c 'CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*'
+	// WIN: 1G (2110962363B)|WIN:2110962363:1073741824:4294967296
+	NSC_DEBUG_MSG("CheckDriveSize");
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (args.empty()) {
+		message = "Missing argument(s).";
+		return NSCAPI::returnCRIT;
+	}
+
+	checkHolders::SizeMaxMin warn;
+	checkHolders::SizeMaxMin crit;
+	bool bShowAll = false;
+	bool bNSClient = false;
+	std::list<std::string> drives;
+
+	std::list<std::string>::const_iterator cit;
+	for (cit=args.begin();cit!=args.end();++cit) {
+		std::string arg = *cit;
+		std::pair<std::string,std::string> p = strEx::split(arg,"=");
+		if (p.first == "Drive") {
+			drives.push_back(p.second);
+		} else if (p.first == "MaxWarn") {
+			warn.max.set(p.second);
+		} else if (p.first == "MinWarn") {
+			warn.min.set(p.second);
+		} else if (p.first == "MaxCrit") {
+			crit.max.set(p.second);
+		} else if (p.first == "MinCrit") {
+			crit.min.set(p.second);
+		} else if (p.first == "ShowAll") {
+			bShowAll = true;
+		} else if (p.first == "nsclient") {
+			bNSClient = true;
+		} else {
+			drives.push_back(p.first);
+		}
+	}
+
+	NSC_DEBUG_MSG_STD("Bounds: critical " + crit.min.toString() + " > size > " + crit.max.toString());
+	NSC_DEBUG_MSG_STD("Bounds: warning " + warn.min.toString() + " > size > " + warn.max.toString());
+	NSC_DEBUG_MSG_STD("Showall: " + ((bShowAll)?"yeap":"noop"));
+	NSC_DEBUG_MSG_STD("nsclient: " + ((bNSClient)?"yeap":"noop"));
+
+	for (std::list<std::string>::iterator it = drives.begin();it!=drives.end();it++) {
+		std::string drive = (*it);
+		if (drive.length() == 1)
+			drive += ":";
+		if (GetDriveType(drive.c_str()) != DRIVE_FIXED){
+			message = "ERROR: Drive is not a fixed drive: " + drive;
+			return NSCAPI::returnUNKNOWN;
+		}
+		ULARGE_INTEGER freeBytesAvailableToCaller;
+		ULARGE_INTEGER totalNumberOfBytes;
+		ULARGE_INTEGER totalNumberOfFreeBytes;
+		if (!GetDiskFreeSpaceEx(drive.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+			message = "ERROR: Could not get free space for" + drive;
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		if (bNSClient) {
+			message += strEx::itos(totalNumberOfFreeBytes.QuadPart) + "&";
+			message += strEx::itos(totalNumberOfBytes.QuadPart) + "&";
+		} else {
+			std::string tStr;
+			long long usedSpace = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
+			long long totalSpace = totalNumberOfBytes.QuadPart;
+			if (crit.max.hasBounds() && crit.max.checkMAX(usedSpace, totalSpace)) {
+				message += crit.max.prettyPrint(drive, usedSpace, totalSpace);
+				NSCHelper::escalteReturnCodeToCRIT(returnCode);
+			} else if (crit.min.hasBounds() && crit.min.checkMIN(usedSpace, totalSpace)) {
+				tStr = crit.min.prettyPrint(drive, usedSpace, totalSpace);
+				NSCHelper::escalteReturnCodeToCRIT(returnCode);
+			} else if (warn.max.hasBounds() && warn.max.checkMAX(usedSpace, totalSpace)) {
+				tStr = warn.max.prettyPrint(drive, usedSpace, totalSpace);
+				NSCHelper::escalteReturnCodeToWARN(returnCode);
+			} else if (warn.min.hasBounds() && warn.min.checkMIN(usedSpace, totalSpace)) {
+				tStr = warn.min.prettyPrint(drive, usedSpace, totalSpace);
+				NSCHelper::escalteReturnCodeToWARN(returnCode);
+			} else if (bShowAll) {
+				tStr = drive + ": " + strEx::itos_as_BKMG(usedSpace);
+			}
+			perf += checkHolders::SizeMaxMin::printPerf(drive, usedSpace, totalSpace, warn, crit);
+			if (!message.empty() && !tStr.empty())
+				message += ", ";
+			if (!tStr.empty())
+				message += tStr;
+		}
+	}
+	if (message.empty())
+		message = "All drive sizes are within bounds.";
+	return returnCode;
+}
+
+NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
+	// CheckFileSize
+	// request: CheckFileSize <option> <option>...
+	// <option>			MaxWarn=<size gmkb>
+	//					MaxCrit=<size gmkb>
+	//					MinWarn=<size gmkb>
+	//					MinCrit=<size gmkb>
+	//					ShowAll
+	//					File=<path>
+	//					File:<shortname>=<path>
+	//
+	// Return: <return state>&<return string>...
+	// <return state>	0 - No errors
+	//					1 - Unknown
+	//					2 - Errors
+	// <size gmkb> is a size with a possible modifier letter (such as G for gigabyte, M for Megabyte, K for kilobyte etc)
+	// Examples:
+	// <return string>	<directory> <size gmkb> ... |<shortname>=<size>:<warn>:<crit>
+	// test: CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\WINDOWS\*.*
 	//       CheckFileSize
 	//
 	// check_nscp -H <ip> -p <port> -s <passwd> -c <commandstring>
@@ -195,6 +313,9 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 NSCAPI::nagiosReturn CheckDisk::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	if (command == "CheckFileSize") {
 		return CheckFileSize(argLen, char_args, msg, perf);
+	} else if (command == "CheckDriveSize") {
+		return CheckDriveSize(argLen, char_args, msg, perf);
+
 //	} else if (command == "CheckFileDate") {
 	}	
 	return NSCAPI::returnIgnored;

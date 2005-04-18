@@ -81,7 +81,13 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			std::string s = "";
 			std::cin >> s;
 			while (s != "exit") {
-//				mainClient.inject(s);
+				strEx::token t = strEx::getToken(s, ',');
+				std::string msg, perf;
+				NSCAPI::nagiosReturn ret = mainClient.inject(t.first, t.second, ',', msg, perf);
+				if (perf.empty())
+					std::cout << NSCHelper::translateReturn(ret) << ":" << msg << std::endl;
+				else
+					std::cout << NSCHelper::translateReturn(ret) << ":" << msg << "|" << perf << std::endl;
 				std::cin >> s;
 			}
 			mainClient.TerminateService();
@@ -108,7 +114,7 @@ void NSClientT::InitiateService(void) {
 	Settings::getInstance()->setFile(getBasePath() + "NSC.ini");
 
 	try {
-		simpleSocket::Socket::WSAStartup();
+		simpleSocket::WSAStartup();
 	} catch (simpleSocket::SocketException e) {
 		LOG_ERROR_STD("Uncaught exception: " + e.getMessage());
 	}
@@ -135,7 +141,7 @@ void NSClientT::TerminateService(void) {
 		std::cout << "Exception raised: " << e->error_ << " in module: " << e->file_ << std::endl;;
 	}
 	try {
-		simpleSocket::Socket::WSACleanup();
+		simpleSocket::WSACleanup();
 	} catch (simpleSocket::SocketException e) {
 		LOG_ERROR_STD("Uncaught exception: " + e.getMessage());
 	}
@@ -186,11 +192,7 @@ void NSClientT::unloadPlugins() {
 		LOG_ERROR("FATAL ERROR: Could not get mutex.");
 		return;
 	}
-	pluginList::reverse_iterator it;
-	for (it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
-		LOG_DEBUG_STD("Unloading plugin: " + (*it)->getName() + "...");
-		(*it)->unload();
-	}
+	commandHandlers_.clear();
 	{
 		MutexLock lock2(messageMutex,20000);
 		if (!lock2.hasMutex()) {
@@ -199,9 +201,16 @@ void NSClientT::unloadPlugins() {
 			messageHandlers_.clear();
 		}
 	}
-	commandHandlers_.clear();
-	for (it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
-		delete (*it);
+	for (pluginList::size_type i=plugins_.size();i>0;i--) {
+		NSCPlugin *p = plugins_[i-1];
+		LOG_DEBUG_STD("Unloading plugin: " + p->getName() + "...");
+		p->unload();
+	}
+
+	for (unsigned int i=plugins_.size();i>0;i--) {
+		NSCPlugin *p = plugins_[i-1];
+		plugins_[i-1] = NULL;
+		delete p;
 	}
 	plugins_.clear();
 }
@@ -225,12 +234,29 @@ void NSClientT::addPlugin(plugin_type plugin) {
 	plugin->load();
 	LOG_DEBUG_STD("Loading: " + plugin->getName());
 	// @todo Catch here and unload if we fail perhaps ?
-	plugins_.push_back(plugin);
+	plugins_.insert(plugins_.end(), plugin);
 	if (plugin->hasCommandHandler())
-		commandHandlers_.push_back(plugin);
+		commandHandlers_.insert(commandHandlers_.end(), plugin);
 	if (plugin->hasMessageHandler())
-		messageHandlers_.push_back(plugin);
+		messageHandlers_.insert(messageHandlers_.end(), plugin);
 }
+
+NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string arguments, char splitter, std::string &msg, std::string & perf) {
+	unsigned int aLen = 0;
+	char ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen);
+	char * mBuf = new char[1024];
+	char * pBuf = new char[1024];
+	NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, 1023, pBuf, 1023);
+	arrayBuffer::destroyArrayBuffer(aBuf, aLen);
+	if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) )
+		return ret;
+	msg = mBuf;
+	perf = pBuf;
+	delete [] mBuf;
+	delete [] pBuf;
+	return ret;
+}
+
 /**
  * Inject a command into the plug-in stack.
  *
@@ -239,11 +265,13 @@ void NSClientT::addPlugin(plugin_type plugin) {
  */
 NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	MutexLock lock(pluginMutex);
+	if (!lock.hasMutex()) {
+		LOG_ERROR("Failed to get mutex, command ignored...");
+	}
 
-	pluginList::const_iterator plit;
-	for (plit = commandHandlers_.begin(); plit != commandHandlers_.end(); ++plit) {
+	for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
 		try {
-			NSCAPI::nagiosReturn c = (*plit)->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+			NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 			switch (c) {
 				case NSCAPI::returnInvalidBufferLen:
 					LOG_ERROR("Return buffer to small to handle this command.");
@@ -286,7 +314,25 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 		return;
 	}
 	if (g_bConsoleLog) {
-		std::cout << NSCHelper::translateMessageType(msgType) << " " << file << "(" << line << ") " << message << std::endl;
+		std::string k = "?";
+		switch (msgType) {
+			case NSCAPI::critical:
+				k ="c";
+				break;
+			case NSCAPI::warning:
+				k ="w";
+				break;
+			case NSCAPI::error:
+				k ="e";
+				break;
+			case NSCAPI::log:
+				k ="l";
+				break;
+			case NSCAPI::debug:
+				k ="d";
+				break;
+		}
+		std::cout << k << " " << file << "(" << line << ") " << message << std::endl;
 	}
 	if (msgType == NSCAPI::debug) {
 		typedef enum status {unknown, debug, nodebug };
@@ -300,10 +346,9 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 		if (d == nodebug)
 			return;
 	}
-	pluginList::const_iterator plit;
-	for (plit = messageHandlers_.begin(); plit != messageHandlers_.end(); ++plit) {
+	for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
 		try {
-			(*plit)->handleMessage(msgType, file, line, message.c_str());
+			messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
 		} catch(const NSPluginException& e) {
 			// Here we are pretty much fucked! (as logging this might cause a loop :)
 			std::cout << "Caught: " << e.error_ << " when trying to log a message..." << std::endl;

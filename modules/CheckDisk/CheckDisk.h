@@ -17,4 +17,5 @@ public:
 
 	// Check commands
 	NSCAPI::nagiosReturn CheckFileSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	NSCAPI::nagiosReturn CheckDriveSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
 };

@@ -18,14 +18,14 @@ FileLogger::~FileLogger() {
 }
 
 bool FileLogger::loadModule() {
-	file_ = NSCModuleHelper::getSettingsString("log", "file", "nsclient.log");
+	file_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_FILENAME, LOG_FILENAME_DEFAULT);
 	return true;
 }
 bool FileLogger::unloadModule() {
 	return true;
 }
 std::string FileLogger::getModuleName() {
-	return "File logger: " + NSCModuleHelper::getSettingsString("log", "file", "nsclient.log");
+	return "File logger: " + NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_FILENAME, LOG_FILENAME_DEFAULT);
 }
 NSCModuleWrapper::module_version FileLogger::getModuleVersion() {
 	NSCModuleWrapper::module_version version = {0, 0, 1 };

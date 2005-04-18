@@ -20,6 +20,7 @@
 #include <string>
 #include <list>
 #include <sstream>
+#include <vector>
 
 #include "config.h"
 #include <singleton.h>

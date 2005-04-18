@@ -1,10 +1,13 @@
-#include "NSClientSocket.h"
+#include <Socket.h>
+#include <string>
+#include <utils.h>
 
 NSC_WRAPPERS_MAIN();
 
-class NSClientListener {
+class NSClientListener  : public simpleSocket::ListenerHandler {
 private:
-	NSClientSocket socket;
+	simpleSocket::Listener<> socket;
+	socketHelpers::allowedHosts allowedHosts;
 
 public:
 	NSClientListener();
@@ -14,4 +17,10 @@ public:
 	bool unloadModule();
 	std::string getModuleName();
 	NSCModuleWrapper::module_version getModuleVersion();
+	std::string parseRequest(std::string buffer);
+
+	// simpleSocket::ListenerHandler implementation
+	void onAccept(simpleSocket::Socket &client);
+	void onClose();
+
 };

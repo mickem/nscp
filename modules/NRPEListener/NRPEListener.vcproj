@@ -32,9 +32,10 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="&quot;C:\Source\openssl-0.9.7f\out32dll.dbg&quot;"
 				ModuleDefinitionFile="NRPEListener.def"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile="$(OutDir)/NRPEListener.pdb"
@@ -81,9 +82,10 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="&quot;C:\Source\openssl-0.9.7f\out32dll&quot;"
 				ModuleDefinitionFile="NRPEListener.def"
 				GenerateDebugInformation="TRUE"
 				SubSystem="2"
@@ -131,7 +133,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="NRPEListener.def"
@@ -180,13 +182,16 @@
 				RelativePath=".\NRPEListener.def">
 			</File>
 			<File
-				RelativePath=".\NRPESocket.cpp">
+				RelativePath=".\NRPEPacket.cpp">
 			</File>
 			<File
 				RelativePath="..\..\include\NSCHelper.cpp">
 			</File>
 			<File
 				RelativePath="..\..\include\Socket.cpp">
+			</File>
+			<File
+				RelativePath="..\..\include\SSLSocket.cpp">
 			</File>
 			<File
 				RelativePath=".\stdafx.cpp">
@@ -209,6 +214,27 @@
 						UsePrecompiledHeader="1"/>
 				</FileConfiguration>
 			</File>
+			<File
+				RelativePath="..\..\include\utils.cpp">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"/>
+				</FileConfiguration>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -218,10 +244,10 @@
 				RelativePath="..\..\include\charEx.h">
 			</File>
 			<File
-				RelativePath=".\NRPEListener.h">
+				RelativePath="..\..\include\config.h">
 			</File>
 			<File
-				RelativePath=".\NRPESocket.h">
+				RelativePath=".\NRPEListener.h">
 			</File>
 			<File
 				RelativePath="..\..\include\NSCHelper.h">
@@ -230,10 +256,16 @@
 				RelativePath="..\..\include\Socket.h">
 			</File>
 			<File
+				RelativePath="..\..\include\SSLSocket.h">
+			</File>
+			<File
 				RelativePath=".\stdafx.h">
 			</File>
 			<File
 				RelativePath="..\..\include\thread.h">
+			</File>
+			<File
+				RelativePath="..\..\include\utils.h">
 			</File>
 		</Filter>
 		<Filter

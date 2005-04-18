@@ -1,7 +1,9 @@
 Put your "libs" here to make building automatic:
 I have the following in my directory:
 
-boost_regex-vc71-mt-p-1_32.dll	- Only needed if you want to compile the CheckEventLog module
+boost_regex-vc71-mt-p-1_32.dll	- Only needed if you want to use the CheckEventLog module
 msvcp71.dll			- Regular MS VC++ 7.1 runtimes
 msvcr71.dll			- Regular MS VC++ 7.1 runtimes
 stlport_vc7146.dll		- STL port runtimes
+libeay32.dll			- SSL
+ssleay32.dll			- SSL

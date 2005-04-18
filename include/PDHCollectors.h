@@ -25,6 +25,7 @@ namespace PDHCollectors {
 		int *buffer;
 		unsigned int current;
 	public:
+		RoundINTPDHBufferListener() : buffer(NULL), length(0), current(0) {}
 		RoundINTPDHBufferListener(int length_) : length(length_), current(0) {
 			buffer = new int[length];
 			for (unsigned int i=0; i<length;i++)
@@ -33,12 +34,35 @@ namespace PDHCollectors {
 		virtual ~RoundINTPDHBufferListener() {
 			delete [] buffer;
 		}
+		
+		/**
+		 * Resize the buffer to a new length
+		 *
+		 * @todo Make this copy the old buffer if there is one.
+		 *
+		 * @param newLength The new length
+		 */
+		void resize(int newLength) {
+			delete [] buffer;
+
+			current = 0;
+			length = newLength;
+
+			buffer = new int[length];
+			for (unsigned int i=0; i<length;i++)
+				buffer[i] = 0;
+				
+		}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			pushValue(static_cast<int>(counter.getInt64Value()));
 		}
 		void attach(const PDH::PDHCounter &counter){}
 		void detach(const PDH::PDHCounter &counter){}
 		void pushValue(int value) {
+			if (buffer == NULL)
+				return;
+			if (current >= length)
+				return;
 			buffer[current++] = value;
 			if (current >= length)
 				current = 0;
@@ -59,6 +83,9 @@ namespace PDHCollectors {
 					ret += buffer[i];
 			}
 			return static_cast<int>(ret/backItems);
+		}
+		inline unsigned int getLength() const {
+			return length;
 		}
 	};
 

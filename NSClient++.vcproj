@@ -41,7 +41,8 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				CommandLine="echo Copying dependency DLLs
-cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;"
+cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;
+"
 				Outputs="$(InputDir)\$(OutDir)\msvcp71.dll"/>
 			<Tool
 				Name="VCLinkerTool"
@@ -172,12 +173,15 @@ cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;"
 				SuppressStartupBanner="TRUE"/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs
+				CommandLine="echo Copying documentation
+cmd /c &quot;copy $(InputDir)\*.html $(InputDir)\Dist\&quot;
+echo Copying dependency DLLs
 cmd /c &quot;copy $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;
 echo Removing old archive
 cmd /c &quot;del $(InputDir)\Dist\$(InputName).zip&quot;
 echo Making archive
-7z.exe a -r -tzip -bd $(InputDir)\Dist\$(InputName).zip $(InputDir)\Dist\*"
+7z.exe a -r -tzip -bd $(InputDir)\Dist\$(InputName).zip $(InputDir)\Dist\*
+"
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"/>
 			<Tool
 				Name="VCLinkerTool"
@@ -242,6 +246,9 @@ echo Making archive
 			</File>
 			<File
 				RelativePath=".\include\ServiceCmd.cpp">
+			</File>
+			<File
+				RelativePath=".\include\Socket.cpp">
 			</File>
 			<File
 				RelativePath="StdAfx.cpp">
@@ -326,7 +333,8 @@ echo Making archive
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="echo Copying $(InputFileName)...
-cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;"
+cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;
+"
 						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
 				</FileConfiguration>
 			</File>
@@ -388,7 +396,8 @@ cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\$(OutDir)&quot;
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="echo Copying $(InputFileName)...
-cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;"
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;
+"
 						AdditionalDependencies=""
 						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
 				</FileConfiguration>
@@ -414,7 +423,8 @@ cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;"
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="echo Copying $(InputFileName)...
-cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;"
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;
+"
 						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
 				</FileConfiguration>
 			</File>

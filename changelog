@@ -1,3 +1,12 @@
+2004-04-19 MickeM
+ + Added SSL support
+ + Added alot of new options
+ + Added documentation
+ * Renamed and restructured NSCLientCompat to CheckSystem
+ * *ALOT* of fixes all over
+ : We are now starting to get to something that is "stable"
+ : This means that soon you might actually be able to use this.
+ 
 2005-03-28 MickeM
  * Changed the Thread class a bit (mutex -> signal, and CreatThread does not return the instance)
  * Moved settings "keys" fro NRPE to config.h
