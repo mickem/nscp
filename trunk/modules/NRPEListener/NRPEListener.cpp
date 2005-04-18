@@ -6,6 +6,7 @@
 #include <strEx.h>
 #include <time.h>
 #include <config.h>
+#include "NRPEPacket.h"
 
 NRPEListener gNRPEListener;
 
@@ -23,7 +24,8 @@ NRPEListener::~NRPEListener() {
 
 
 bool NRPEListener::loadModule() {
-	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,60);
+	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
+	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
 	std::list<std::string> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::string>::iterator it;
 	for (it = commands.begin(); it != commands.end(); it++) {
@@ -39,19 +41,38 @@ bool NRPEListener::loadModule() {
 			addCommand(t.first, t.second);
 	}
 
-	socket.setAllowedHosts(strEx::splitEx(NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOWED, ""), ","));
+	allowedHosts.setAllowedHosts(strEx::splitEx(NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOWED, NRPE_SETTINGS_ALLOWED_DEFAULT), ","));
 	try {
-		socket.StartListen(NSCModuleHelper::getSettingsInt("NSClient", NRPE_SETTINGS_PORT, DEFAULT_NRPE_PORT));
+		if (bUseSSL_) {
+			socket_ssl_.setHandler(this);
+			socket_ssl_.StartListener(NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT));
+		} else {
+			socket_.setHandler(this);
+			socket_.StartListener(NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT));
+		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
 		return false;
+	} catch (simpleSSL::SSLException e) {
+		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		return false;
 	}
+
 	return true;
 }
 bool NRPEListener::unloadModule() {
 	try {
-		socket.close();
+		if (bUseSSL_) {
+			socket_ssl_.removeHandler(this);
+			socket_ssl_.StopListener();
+		} else {
+			socket_.removeHandler(this);
+			socket_.StopListener();
+		}
 	} catch (simpleSocket::SocketException e) {
+		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		return false;
+	} catch (simpleSSL::SSLException e) {
 		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
 		return false;
 	}
@@ -80,13 +101,13 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const std::string command, cons
 		return NSCAPI::returnIgnored;
 
 	std::string str = (*it).second;
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, 0) == 1) {
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 1) {
 		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
 		arrayBuffer::arrayList::const_iterator cit = arr.begin();
 		int i=1;
 
 		for (;cit!=arr.end();cit++,i++) {
-			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, 0) == 0) {
+			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
 				if ((*cit).find_first_of(NASTY_METACHARS) != std::string::npos) {
 					NSC_LOG_ERROR("Request string contained illegal metachars!");
 					return NSCAPI::returnIgnored;
@@ -198,7 +219,92 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 	}
 	return result;
 }
+void NRPEListener::onClose()
+{}
 
+void NRPEListener::onAccept(simpleSocket::Socket &client) 
+{
+	if (!allowedHosts.inAllowedHosts(client.getAddrString())) {
+		NSC_LOG_ERROR("Unothorized access from: " + client.getAddrString());
+		client.close();
+		return;
+	}
+	try {
+		simpleSocket::DataBuffer block;
+
+		for (int i=0;i<100;i++) {
+			client.readAll(block);
+			if (block.getLength() >= NRPEPacket::getBufferLength())
+				break;
+			Sleep(100);
+		}
+		if (i == 100) {
+			NSC_LOG_ERROR_STD("Could not retrieve NRPE packet.");
+			client.close();
+			return;
+		}
+
+		if (block.getLength() == NRPEPacket::getBufferLength()) {
+			try {
+				NRPEPacket out = handlePacket(NRPEPacket(block.getBuffer(), block.getLength()));
+				block.copyFrom(out.getBuffer(), out.getBufferLength());
+			} catch (NRPEPacket::NRPEPacketException e) {
+				NSC_LOG_ERROR_STD("NRPESocketException: " + e.getMessage());
+				client.close();
+				return;
+			}
+			client.send(block);
+		}
+	} catch (simpleSocket::SocketException e) {
+		NSC_LOG_ERROR_STD("SocketException: " + e.getMessage());
+	} catch (NRPEException e) {
+		NSC_LOG_ERROR_STD("NRPEException: " + e.getMessage());
+	}
+	client.close();
+}
+
+NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
+	if (p.getType() != NRPEPacket::queryPacket) {
+		NSC_LOG_ERROR("Request is not a query.");
+		throw NRPEException("Invalid query type");
+	}
+	if (p.getVersion() != NRPEPacket::version2) {
+		NSC_LOG_ERROR("Request had unsupported version.");
+		throw NRPEException("Invalid version");
+	}
+	if (!p.verifyCRC()) {
+		NSC_LOG_ERROR("Request had invalid checksum.");
+		throw NRPEException("Invalid checksum");
+	}
+	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
+	std::string msg, perf;
+	NSC_DEBUG_MSG_STD("Command: " + cmd.first);
+	NSC_DEBUG_MSG_STD("Arguments: " + cmd.second);
+
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
+		if (!cmd.second.empty()) {
+			NSC_LOG_ERROR("Request contained arguments (not currently allowed).");
+			throw NRPEException("Request contained arguments (not currently allowed).");
+		}
+	}
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+		if (cmd.first.find_first_of(NASTY_METACHARS) != std::string::npos) {
+			NSC_LOG_ERROR("Request command contained illegal metachars!");
+			throw NRPEException("Request command contained illegal metachars!");
+		}
+		if (cmd.second.find_first_of(NASTY_METACHARS) != std::string::npos) {
+			NSC_LOG_ERROR("Request arguments contained illegal metachars!");
+			throw NRPEException("Request command contained illegal metachars!");
+		}
+	}
+
+	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
+	if (perf.empty()) {
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg);
+	} else {
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + "|" + perf);
+	}
+}
 
 NSC_WRAPPERS_MAIN_DEF(gNRPEListener);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

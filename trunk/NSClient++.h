@@ -36,7 +36,7 @@
 class NSClientT {
 private:
 	typedef NSCPlugin* plugin_type;
-	typedef std::list<plugin_type> pluginList;
+	typedef std::vector<plugin_type> pluginList;
 	pluginList plugins_;
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
@@ -58,6 +58,7 @@ public:
 	// Member functions
 	std::string getBasePath(void);
 	NSCAPI::nagiosReturn injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
+	NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string arguments, char splitter, std::string &msg, std::string & perf);
 //	std::string inject(const std::string buffer);
 	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
 	void reportMessage(int msgType, const char* file, const int line, std::string message);
@@ -104,6 +105,11 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const char*, char***, unsigned int *
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::string)msg).c_str())
 #define LOG_MESSAGE(msg) \
 	NSAPIMessage(NSCAPI::log, __FILE__, __LINE__, msg)
+
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::string)msg).c_str())
 #define LOG_DEBUG(msg) \
 	NSAPIMessage(NSCAPI::debug, __FILE__, __LINE__, msg)
+/*
+#define LOG_DEBUG_STD(msg)
+#define LOG_DEBUG(msg)
+*/

@@ -19,6 +19,12 @@ namespace NSCHelper
 	std::string translateReturn(NSCAPI::nagiosReturn returnCode);
 	NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b);
 
+	inline bool isNagiosReturnCode(NSCAPI::nagiosReturn code) {
+		if ( (code == NSCAPI::returnOK) || (code == NSCAPI::returnWARN) || (code == NSCAPI::returnCRIT) || (code == NSCAPI::returnUNKNOWN) )
+			return true;
+		return false;
+	}
+
 #ifdef DEBUG
 	inline NSCAPI::nagiosReturn int2nagios(int code) {
 		if (code == 0)
@@ -158,6 +164,10 @@ namespace NSCModuleWrapper {
 #define NSC_DEBUG_MSG(msg) \
 	NSCModuleHelper::Message(NSCAPI::debug, __FILE__, __LINE__, msg)
 
+/*
+#define NSC_DEBUG_MSG_STD(msg)
+#define NSC_DEBUG_MSG(msg)
+*/
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point
 

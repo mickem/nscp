@@ -1,5 +1,14 @@
 #pragma once
 
+#include <process.h>
+#include <Mutex.h>
+
+class ThreadException {
+public:
+	std::string e_;
+	ThreadException(std::string e) : e_(e) {}
+};
+
 /**
  * @ingroup NSClientCompat
  * Thread helper class.
@@ -27,14 +36,16 @@ template <class T>
 class Thread {
 private:
 	HANDLE hThread_;		// Thread handle
-	DWORD dwThreadID_;		// Thread ID
 	T* pObject_;			// Wrapped object
 	HANDLE hStopEvent_;		// Event to signal that the thread has stopped
+	HANDLE hMutex_;			// Mutex to protect internal data
+
 
 	typedef struct thread_param {
-		Thread* manager;	// The thread manager
+		HANDLE hStopEvent;	// The stop event to signal when thread dies
 		T *instance;		// The thread instance object
 		LPVOID lpParam;		// The optional argument to the thread
+		Thread *pCore;
 	} thread_param;
 
 public:
@@ -42,17 +53,33 @@ public:
 	 * Default c-tor.
 	 * Sets up default values
 	 */
-	Thread() : hThread_(NULL), dwThreadID_(0), pObject_(NULL), hStopEvent_(NULL) {}
+	Thread() : hThread_(NULL), pObject_(NULL), hStopEvent_(NULL) {
+		hMutex_ = CreateMutex(NULL, FALSE, NULL);
+		assert(hMutex_ != NULL);
+	}
 	/**
 	 * Default d-tor.
 	 * Does not really kill the thread only closes the handle to it.
 	 *  @bug Should perhaps kill the thread, delete the object etc ?
 	 */
 	virtual ~Thread() {
-		if (hThread_)
-			CloseHandle(hThread_);
-		if (hStopEvent_)
-			CloseHandle(hStopEvent_);
+		{
+			MutexLock mutex(hMutex_, 5000L);
+			if (!mutex.hasMutex()) {
+				throw ThreadException("Could not retrieve mutex when killing thread, we are fucked...");
+			}
+			if (hThread_)
+				CloseHandle(hThread_);
+			hThread_ = NULL;
+			if (hStopEvent_)
+				CloseHandle(hStopEvent_);
+			hStopEvent_ = NULL;
+			delete pObject_;
+			pObject_ = NULL;
+		}
+		if (hMutex_)
+			CloseHandle(hMutex_);
+		hMutex_ = NULL;
 	}
 
 private:
@@ -63,18 +90,20 @@ private:
 	 * @param lpParameter thread_param* with arguments for the thread construction
 	 * @return exit status
 	 */
-	static DWORD WINAPI threadProc(LPVOID lpParameter) {
+	static void threadProc(LPVOID lpParameter) {
 		thread_param* param = static_cast<thread_param*>(lpParameter);
 		T* instance = param->instance;
-		Thread *manager = param->manager;
+		HANDLE hStopEvent = param->hStopEvent;
 		LPVOID lpParam = param->lpParam;
+		Thread *pCore = param->pCore;
 		delete param;
 
-		assert(manager->hStopEvent_);
-		DWORD ret = instance->threadProc(lpParam);
-		BOOL b = SetEvent(manager->hStopEvent_);
-		assert(b);
-		return ret;
+		if (hStopEvent != NULL) {
+			instance->threadProc(lpParam);
+			SetEvent(hStopEvent);
+		}
+		pCore->terminate();
+		_endthread();
 	}
 
 public:
@@ -88,15 +117,24 @@ public:
 	 * @bug the object return thing is *unsafe* and should be changed (if the thread is terminated that pointer is invalidated without any signal).
 	 */
 	void createThread(LPVOID lpParam = NULL) {
-		assert(pObject_ == NULL);
-		assert(hStopEvent_ == NULL);
-		pObject_ = new T;
-		thread_param* param = new thread_param;
-		param->instance = pObject_;
-		param->manager = this;
-		param->lpParam = lpParam;
-		hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
-		hThread_ = ::CreateThread(NULL,0,threadProc,reinterpret_cast<VOID*>(param),0,&dwThreadID_);
+		thread_param* param = NULL;
+		{
+			MutexLock mutex(hMutex_, 5000L);
+			if (!mutex.hasMutex()) {
+				throw ThreadException("Could not retrieve mutex, thread not started...");
+			}
+			if (pObject_) {
+				throw ThreadException("Thread already started, thread not started...");
+			}
+			assert(hStopEvent_ == NULL);
+			param = new thread_param;
+			param->instance = pObject_ = new T;
+			param->hStopEvent = hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+			param->lpParam = lpParam;
+			param->pCore = this;
+		}
+		hThread_ = reinterpret_cast<HANDLE>(::_beginthread(threadProc, 0, reinterpret_cast<VOID*>(param)));
+		assert(hThread_ != NULL);
 	}
 	/**
 	 * Ask the thread to terminate (within 5 seconds) if not return false.
@@ -104,28 +142,25 @@ public:
 	 * @return true if the thread has terminated
 	 */
 	bool exitThread(const unsigned int delay = 5000L) {
-		assert(pObject_ != NULL);
-		assert(hStopEvent_ != NULL);
-		pObject_->exitThread();
-
-		DWORD dwWaitResult = WaitForSingleObject(hStopEvent_, delay);
+		DWORD dwWaitResult = -1;
+		{
+			MutexLock mutex(hMutex_, 5000L);
+			if (!mutex.hasMutex()) {
+				throw ThreadException("Could not retrieve mutex, thread not stopped...");
+			}
+			if (!pObject_)
+				return true;
+			assert(hStopEvent_ != NULL);
+			pObject_->exitThread();
+			dwWaitResult = WaitForSingleObject(hStopEvent_, delay);
+		}
 		switch (dwWaitResult) {
 			// The thread got mutex ownership.
 			case WAIT_OBJECT_0:
-				{
-					// @todo pObject should be protected!
-					HANDLE hTmp = hStopEvent_;
-					T* pTmp = pObject_;
-					pObject_ = NULL;
-					delete pTmp;
-					hStopEvent_ = NULL;
-					CloseHandle(hTmp);
-				}
 				return true;
 				// Did not get a signal due to time-out.
 			case WAIT_TIMEOUT: 
 				return false; 
-
 				// Never got a signal.
 			case WAIT_ABANDONED: 
 				return false; 
@@ -133,16 +168,37 @@ public:
 		return false;
 	}
 	bool hasActiveThread() const {
-		// @todo pObject should be protected!
+		MutexLock mutex(hMutex_, 5000L);
+		if (!mutex.hasMutex()) {
+			throw ThreadException("Could not retrieve mutex, thread not stopped...");
+		}
 		return pObject_ != NULL;
 	}
 	const T* getThreadConst() const {
-		// @todo pObject should be protected!
+		MutexLock mutex(hMutex_, 5000L);
+		if (!mutex.hasMutex()) {
+			throw ThreadException("Could not retrieve mutex, thread not stopped...");
+		}
 		return pObject_;
 	}
 	T* getThread() const {
-		// @todo pObject should be protected!
+		MutexLock mutex(hMutex_, 5000L);
+		if (!mutex.hasMutex()) {
+			throw ThreadException("Could not retrieve mutex, thread not stopped...");
+		}
 		return pObject_;
+	}
+private:
+	void terminate() {
+		MutexLock mutex(hMutex_, 5000L);
+		if (!mutex.hasMutex()) {
+			throw ThreadException("Could not retrieve mutex, thread not stopped...");
+		}
+		delete pObject_;
+		pObject_ = NULL;
+		CloseHandle(hStopEvent_);
+		hStopEvent_ = NULL;
+		hThread_ = NULL;
 	}
 };
 

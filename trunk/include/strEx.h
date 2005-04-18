@@ -3,6 +3,10 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <list>
+#ifdef _DEBUG
+#include <iostream>
+#endif
 
 namespace strEx {
 
@@ -24,12 +28,17 @@ namespace strEx {
 		ss << i;
 		return ss.str();
 	}
+	inline std::string itos(unsigned long long i) {
+		std::stringstream ss;
+		ss << i;
+		return ss.str();
+	}
 	inline std::string itos(__int64 i) {
 		std::stringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string itos(DWORD i) {
+	inline std::string itos(unsigned long i) {
 		std::stringstream ss;
 		ss << i;
 		return ss.str();
@@ -37,6 +46,57 @@ namespace strEx {
 	inline int stoi(std::string s) {
 		return atoi(s.c_str());
 	}
+	inline long long stoi64(std::string s) {
+		return _atoi64(s.c_str());
+	}
+	inline unsigned stoui_as_time(std::string time, unsigned int smallest_unit = 1000) {
+		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
+		unsigned int value = atoi(time.c_str());
+		if (p == std::string::npos)
+			return value * smallest_unit;
+		else if ( (time[p] == 's') || (time[p] == 'S') )
+			return value * 1000;
+		else if ( (time[p] == 'm') || (time[p] == 'M') )
+			return value * 60 * 1000;
+		else if ( (time[p] == 'h') || (time[p] == 'H') )
+			return value * 60 * 60 * 1000;
+		else if ( (time[p] == 'd') || (time[p] == 'D') )
+			return value * 24 * 60 * 60 * 1000;
+		else if ( (time[p] == 'w') || (time[p] == 'W') )
+			return value * 7 * 24 * 60 * 60 * 1000;
+		return value * smallest_unit;
+	}
+	inline unsigned long long stoi64_as_time(std::string time, unsigned int smallest_unit = 1000) {
+		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
+		unsigned long long value = _atoi64(time.c_str());
+		if (p == std::string::npos)
+			return value * smallest_unit;
+		else if ( (time[p] == 's') || (time[p] == 'S') )
+			return value * 1000;
+		else if ( (time[p] == 'm') || (time[p] == 'M') )
+			return value * 60 * 1000;
+		else if ( (time[p] == 'h') || (time[p] == 'H') )
+			return value * 60 * 60 * 1000;
+		else if ( (time[p] == 'd') || (time[p] == 'D') )
+			return value * 24 * 60 * 60 * 1000;
+		else if ( (time[p] == 'w') || (time[p] == 'W') )
+			return value * 7 * 24 * 60 * 60 * 1000;
+		return value * smallest_unit;
+	}
+	inline std::string itos_as_time(unsigned long long time) {
+		if (time > 7 * 24 * 60 * 60 * 1000)
+			return itos(static_cast<unsigned int>(time/(7 * 24 * 60 * 60 * 1000))) + "w";
+		else if (time > 24 * 60 * 60 * 1000)
+			return itos(static_cast<unsigned int>(time/(24 * 60 * 60 * 1000))) + "d";
+		else if (time > 60 * 60 * 1000)
+			return itos(static_cast<unsigned int>(time/(60 * 60 * 1000))) + "h";
+		else if (time > 60 * 1000)
+			return itos(static_cast<unsigned int>(time/(60 * 1000))) + "m";
+		else if (time > 1000)
+			return itos(static_cast<unsigned int>(time/(1000))) + "s";
+		return itos(static_cast<unsigned int>(time));
+	}
+
 	inline long long stoi64_as_BKMG(std::string s) {
 		std::string::size_type p = s.find_first_of("BMKG");
 		if (p == std::string::npos)

@@ -1,6 +1,8 @@
 #pragma once
 #include "resource.h"
 #include <Socket.h>
+#include <SSLSocket.h>
+
 /**
  * @ingroup NSClient++
  * Socket responder class.
@@ -29,32 +31,82 @@
 
 #define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
 
-class NRPESocket : public simpleSocket::Listener {
+typedef short int16_t;
+typedef unsigned long u_int32_t;
+
+
+template <class TBase>
+class NRPESocket : public TBase {
 private:
 	strEx::splitList allowedHosts_;
 
-public:
-	NRPESocket();
-	virtual ~NRPESocket();
-
-	void setAllowedHosts(strEx::splitList allowedHosts) {
-		allowedHosts_ = allowedHosts;
-	}
-	bool inAllowedHosts(std::string s) {
-		if (allowedHosts_.empty())
-			return true;
-		strEx::splitList::const_iterator cit;
-		for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
-			if ( (*cit) == s)
-				return true;
+	class NRPESocketException {
+		std::string error_;
+	public:
+		NRPESocketException(simpleSSL::SSLException e) {
+			error_ = e.getMessage();
 		}
-		return false;
+		NRPESocketException(NRPEPacket::NRPEPacketException e) {
+			error_ = e.getMessage();
+		}
+		NRPESocketException(std::string s) {
+			error_ = s;
+		}
+		std::string getMessage() {
+			return error_;
+		}
+	};
+
+
+public:
+	NRPESocket() {
 	}
+	virtual ~NRPESocket() {
+	}
+
 
 private:
-	virtual void onAccept(simpleSocket::Socket client);
+	NRPEPacket handlePacket(NRPEPacket p) {
+		if (p.getType() != NRPEPacket::queryPacket) {
+			NSC_LOG_ERROR("Request is not a query.");
+			throw NRPESocketException("Invalid query type");
+		}
+		if (p.getVersion() != NRPEPacket::version2) {
+			NSC_LOG_ERROR("Request had unsupported version.");
+			throw NRPESocketException("Invalid version");
+		}
+		if (!p.verifyCRC()) {
+			NSC_LOG_ERROR("Request had invalid checksum.");
+			throw NRPESocketException("Invalid checksum");
+		}
+		strEx::token cmd = strEx::getToken(p.getPayload(), '!');
+		std::string msg, perf;
+		NSC_DEBUG_MSG_STD("Command: " + cmd.first);
+		NSC_DEBUG_MSG_STD("Arguments: " + cmd.second);
+
+		if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
+			if (!cmd.second.empty()) {
+				NSC_LOG_ERROR("Request contained arguments (not currently allowed).");
+				throw NRPESocketException("Request contained arguments (not currently allowed).");
+			}
+		}
+		if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+			if (cmd.first.find_first_of(NASTY_METACHARS) != std::string::npos) {
+				NSC_LOG_ERROR("Request command contained illegal metachars!");
+				throw NRPESocketException("Request command contained illegal metachars!");
+			}
+			if (cmd.second.find_first_of(NASTY_METACHARS) != std::string::npos) {
+				NSC_LOG_ERROR("Request arguments contained illegal metachars!");
+				throw NRPESocketException("Request command contained illegal metachars!");
+			}
+		}
+
+		NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
+		if (perf.empty()) {
+			return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg);
+		} else {
+			return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + "|" + perf);
+		}
+	}
+	void setupDH(simpleSSL::DH &dh);
 };
-
-
-
-

@@ -48,18 +48,21 @@ namespace simpleSocket {
 		unsigned int getLength() const {
 			return length_;
 		}
+		void copyFrom(const char* buffer, const unsigned int length) {
+			delete [] buffer_;
+			buffer_ = new char[length+1];
+			memcpy(buffer_, buffer, length);
+		}
 	};
 
 	class Socket {
-	private:
+	protected:
 		SOCKET socket_;
 		sockaddr_in from_;
 
 	public:
-		Socket() : socket_(NULL) {
-		}
-		Socket(SOCKET socket) : socket_(socket) {
-		}
+		Socket() : socket_(NULL) {}
+		Socket(SOCKET socket) : socket_(socket) {}
 		Socket(Socket &other) {
 			socket_ = other.socket_;
 			from_ = other.from_;
@@ -70,70 +73,85 @@ namespace simpleSocket {
 				closesocket(socket_);
 			socket_ = NULL;
 		}
-		SOCKET getSocket() const {
-			return socket_;
+		virtual SOCKET detach() {
+			SOCKET s = socket_;
+			socket_ = NULL;
+			return s;
 		}
+		virtual void attach(SOCKET s) {
+			assert(socket_ == NULL);
+			socket_ = s;
+		}
+		virtual void shutdown(int how = SD_BOTH) {
+			if (socket_)
+				::shutdown(socket_, how);
+		}
+
 		virtual void close() {
 			if (socket_)
 				closesocket(socket_);
 			socket_ = NULL;
 		}
-		void readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
+		virtual void setNonBlock() {
+			unsigned long NoBlock = 1;
+			this->ioctlsocket(FIONBIO, &NoBlock);
+		}
+		virtual void readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
 
-		void socket(int af, int type, int protocol ) {
+		virtual void socket(int af, int type, int protocol ) {
 			socket_ = ::socket(af, type, protocol);
 			assert(socket_ != INVALID_SOCKET);
 		}
-		void bind() {
+		virtual void bind() {
+			assert(socket_);
 			int fromlen=sizeof(from_);
 			if (::bind(socket_, (sockaddr*)&from_, fromlen) == SOCKET_ERROR)
 				throw SocketException("bind failed: ", ::WSAGetLastError());
 		}
-		void listen(int backlog = 0) {
+		virtual void listen(int backlog = 0) {
+			assert(socket_);
 			if (::listen(socket_, backlog) == SOCKET_ERROR)
 				throw SocketException("listen failed: ", ::WSAGetLastError());
 		}
-		bool accept(Socket &client) {
+		virtual bool accept(Socket &client) {
 			int fromlen=sizeof(client.from_);
-			client.socket_ = ::accept(socket_, (sockaddr*)&client.from_, &fromlen);
-			if(client.socket_ == INVALID_SOCKET) {
+			SOCKET s = ::accept(socket_, (sockaddr*)&client.from_, &fromlen);
+			if(s == INVALID_SOCKET) {
 				int err = ::WSAGetLastError();
 				if (err == WSAEWOULDBLOCK)
 					return false;
 				throw SocketException("accept failed: ", ::WSAGetLastError());
 			}
+			client.attach(s);
 			return true;
 		}
-		void setAddr(short family, u_long addr, u_short port) {
+		virtual void setAddr(short family, u_long addr, u_short port) {
 			from_.sin_family=family;
 			from_.sin_addr.s_addr=addr;
 			from_.sin_port=port;
 		}
-		int send(const char * buf, unsigned int len, int flags ) {
+		virtual int send(const char * buf, unsigned int len, int flags = 0) {
+			assert(socket_);
 			return ::send(socket_, buf, len, flags);
 		}
-		void ioctlsocket(long cmd, u_long *argp) {
+		int inline send(DataBuffer &buffer, int flags = 0) {
+			return send(buffer.getBuffer(), buffer.getLength(), flags);
+		}
+		virtual void ioctlsocket(long cmd, u_long *argp) {
+			assert(socket_);
 			if (::ioctlsocket(socket_, cmd, argp) == SOCKET_ERROR)
 				throw SocketException("ioctlsocket failed: ", ::WSAGetLastError());
 		}
-		std::string getAddrString() {
+		virtual std::string getAddrString() {
 			return inet_ntoa(from_.sin_addr);
 		}
+		virtual void printError(std::string error);
+	};
 
-		static WSADATA WSAStartup(WORD wVersionRequested = 0x202) {
-			WSADATA wsaData;
-			int wsaret=::WSAStartup(wVersionRequested,&wsaData);
-			if(wsaret != 0)
-				throw SocketException("WSAStartup failed: " + strEx::itos(wsaret));
-			return wsaData;
-		}
-		static void WSACleanup() {
-			if (::WSACleanup() != 0)
-				throw SocketException("WSACleanup failed: ", ::WSAGetLastError());
-		}
-
-
-
+	class ListenerHandler {
+	public:
+		virtual void onAccept(Socket &client) = 0;
+		virtual void onClose() = 0;
 	};
 
 
@@ -161,34 +179,117 @@ namespace simpleSocket {
 	 * @bug 
 	 *
 	 */
-	class Listener : public Socket {
+	template <class TListenerType = simpleSocket::Socket, class TSocketType = TListenerType>
+	class Listener : public TListenerType {
 	public:
-		class ListenerThread {
-		private:
-			HANDLE hStopEvent;
-		public:
-			ListenerThread() : hStopEvent(NULL) {
-			}
-			DWORD threadProc(LPVOID lpParameter);
-			void exitThread(void);
-		};
-
+		typedef TListenerType tListener;
+		typedef TSocketType tSocket;
 	private:
-		MutexHandler mutexHandler;
-		u_short port_;
+		typedef TListenerType tBase;
+		class ListenerThread;
 		typedef Thread<ListenerThread> listenThreadManager;
+
+		u_short port_;
 		listenThreadManager threadManager_;
 
 	public:
-		Listener() {};
-		virtual ~Listener();
+		class ListenerThread {
+		private:
+			typedef TListenerType tParentBase;
+			typedef TSocketType tSocket;
 
-		void StartListen(int port);
-		virtual void close();
+			HANDLE hStopEvent_;
+		public:
+			ListenerThread() : hStopEvent_(NULL) {}
+			DWORD threadProc(LPVOID lpParameter);
+			void exitThread(void) {
+				assert(hStopEvent_ != NULL);
+				if (!SetEvent(hStopEvent_))
+					throw new SocketException("SetEvent failed.");
+			}
+		};
+	private:
+		ListenerHandler *pHandler_;
+
+	public:
+		Listener() : pHandler_(NULL) {};
+		virtual ~Listener() {};
+
+		virtual void StartListener(int port) {
+			port_ = port;
+			threadManager_.createThread(this);
+		}
+		virtual void StopListener() {
+			if (threadManager_.hasActiveThread())
+				if (!threadManager_.exitThread())
+					throw new SocketException("Could not terminate thread.");
+			tBase::close();
+		}
+		void setHandler(ListenerHandler* pHandler) {
+			pHandler_ = pHandler;
+		}
+		void removeHandler(ListenerHandler* pHandler) {
+			if (pHandler != pHandler_)
+				throw SocketException("Not a registered handler!");
+			pHandler_ = NULL;
+		}
+
 
 	private:
-		virtual void onAccept(Socket client) = 0;
-
+		void onAccept(tSocket &client) {
+			if (pHandler_)
+				pHandler_->onAccept(client);
+		}
+		void onClose() {
+			if (pHandler_)
+				pHandler_->onClose();
+		}
+		virtual bool accept(tSocket &client) {
+			return tBase::accept(client);
+		}
 	};
+
+	WSADATA WSAStartup(WORD wVersionRequested = 0x202);
+	void WSACleanup();
+
 }
 
+template <class TListenerType, class TSocketType>
+DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::threadProc(LPVOID lpParameter)
+{
+	Listener *core = reinterpret_cast<Listener*>(lpParameter);
+
+	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (!hStopEvent_) {
+		core->printError("Create StopEvent failed: " + strEx::itos(GetLastError()));
+		return 0;
+	}
+
+	try {
+		core->socket(AF_INET,SOCK_STREAM,0);
+		core->setAddr(AF_INET, INADDR_ANY, htons(core->port_));
+		core->bind();
+		core->listen(10);
+		core->setNonBlock();
+		while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
+			try {
+				tSocket client;
+				if (core->accept(client))
+					core->onAccept(client);
+			} catch (SocketException e) {
+				core->printError(e.getMessage() + ", attempting to resume...");
+			}
+		}
+	} catch (SocketException e) {
+		core->printError(e.getMessage());
+	}
+	core->shutdown(SD_BOTH);
+	core->close();
+	core->onClose();
+	HANDLE hTmp = hStopEvent_;
+	hStopEvent_ = NULL;
+	if (!CloseHandle(hTmp)) {
+		core->printError("CloseHandle StopEvent failed: " + strEx::itos(GetLastError()));
+	}
+	return 0;
+}

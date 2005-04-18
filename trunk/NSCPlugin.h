@@ -87,14 +87,14 @@ private:
 	HMODULE hModule_;		// module handle to the DLL (once it is loaded)
 	std::string file_;		// Name of the DLL file
 
-	typedef int (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
-	typedef int (*lpLoadModule)();
+	typedef INT (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
+	typedef INT (*lpLoadModule)();
 	typedef INT (*lpGetName)(char*,unsigned int);
 	typedef INT (*lpHasCommandHandler)();
 	typedef INT (*lpHasMessageHandler)();
 	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const char*,const unsigned int, char**,char*,unsigned int,char *,unsigned int);
 	typedef INT (*lpHandleMessage)(int,const char*,const int,const char*);
-	typedef int (*lpUnLoadModule)();
+	typedef INT (*lpUnLoadModule)();
 
 	lpModuleHelperInit fModuleHelperInit;
 	lpLoadModule fLoadModule;
@@ -107,6 +107,7 @@ private:
 
 public:
 	NSCPlugin(const std::string file);
+	NSCPlugin(NSCPlugin &other);
 	virtual ~NSCPlugin(void);
 
 	std::string getName(void);

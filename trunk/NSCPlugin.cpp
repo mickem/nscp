@@ -9,6 +9,7 @@
  */
 NSCPlugin::NSCPlugin(const std::string file)
 	: file_(file)
+	,hModule_(NULL)
 	,fLoadModule(NULL)
 	,fGetName(NULL)
 	,fHasCommandHandler(NULL)
@@ -17,6 +18,28 @@ NSCPlugin::NSCPlugin(const std::string file)
 	,fHandleMessage(NULL)
 	,bLoaded_(false)
 {
+}
+
+NSCPlugin::NSCPlugin(NSCPlugin &other)
+	:hModule_(NULL)
+	,fLoadModule(NULL)
+	,fGetName(NULL)
+	,fHasCommandHandler(NULL)
+	,fUnLoadModule(NULL)
+	,fHasMessageHandler(NULL)
+	,fHandleMessage(NULL)
+	,bLoaded_(false)
+{
+	if (other.bLoaded_) {
+		file_ = other.file_;
+		hModule_ = LoadLibrary(file_.c_str());
+		if (!hModule_)
+			throw NSPluginException(file_, "Could not load library: ", GetLastError());
+		loadRemoteProcs_();
+		if (!fLoadModule)
+			throw NSPluginException(file_, "Critical error (fLoadModule)");
+		bLoaded_ = other.bLoaded_;
+	}
 }
 
 /**
