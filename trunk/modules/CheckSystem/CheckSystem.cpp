@@ -86,21 +86,6 @@ bool CheckSystem::hasMessageHandler() {
  * Main command parser and delegator.
  * This also handles a lot of the simpler responses (though some are deferred to other helper functions)
  *
- #define REQ_CLIENTVERSION	1	// Works fine!
- #define REQ_CPULOAD		2	// Quirks
- - Needs settings for default buffer size (backlog) and possibly other things.
- - Buffer needs to be synced with the client (don't know the size of that)
- - I think the idea was that the buffer would recursive to make a smaller memory footprint.
-	(ie. the first level buffer have samples from every second, next level samples from every minute, next level hours etc...)
-	(and I don't know the status of this, doesn't seem to be that way)
- #define REQ_UPTIME			3	// Works fine!
- #define REQ_USEDDISKSPACE	4	// Works fine!
- #define REQ_SERVICESTATE	5	// Works fine!
- #define REQ_PROCSTATE		6	// Works fine!
- #define REQ_MEMUSE			7	// Works fine!
- //#define REQ_COUNTER		8	// ! - not implemented Have to look at this, if anyone has a sample let me know...
- //#define REQ_FILEAGE		9	// ! - not implemented Don't know how to use
- //#define REQ_INSTANCES	10	// ! - not implemented Don't know how to use
  *
  * @param command 
  * @param argLen 
@@ -120,6 +105,8 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::string command, const
 		return checkProcState(command, argLen, char_args, msg, perf);
 	} else if (command == "checkMem") {
 		return checkMem(command, argLen, char_args, msg, perf);
+	} else if (command == "checkCounter") {
+		return checkCounter(command, argLen, char_args, msg, perf);
 	}
 /*
 		case REQ_PROCSTATE:
@@ -494,6 +481,59 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const std::string command, cons
 	}
 	if (msg.empty())
 		msg ="All processes ok.";
+	return ret;
+}
+
+NSCAPI::nagiosReturn CheckSystem::checkCounter(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
+{
+	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (stl_args.empty()) {
+		msg = "ERROR: Missing argument exception.";
+		return NSCAPI::returnUNKNOWN;
+	}
+	std::list<std::string> counters;
+	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
+	bool bShowAll = false;
+	bool bNSCLientCompatible = false;
+
+	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
+		strEx::token t = strEx::getToken((*it), '=');
+		if (t.first == SHOW_ALL)
+			bShowAll = true;
+		else if (t.first == SHOW_FAIL)  {
+			bShowAll = false;
+		} else if (t.first == NSCLIENT) {
+			bNSCLientCompatible = true;
+		} else if (t.first == "counter") {
+			counters.push_back(t.second);
+		} else {
+			counters.push_back(t.first);
+		}
+	}
+
+	for (std::list<std::string>::iterator it = counters.begin(); it != counters.end(); ++it) {
+		try {
+			try {
+				PDH::PDHQuery pdh;
+				PDHCollectors::StaticPDHCounterListener counter;
+				pdh.addCounter((*it), &counter);
+				pdh.open();
+				pdh.collect();
+				msg += strEx::itos(counter.getValue());
+				pdh.close();
+			} catch (const PDH::PDHException &e) {
+				NSC_LOG_ERROR_STD("ERROR: " + e.str_);
+				msg = static_cast<std::string>("ERROR: ") + e.str_;
+				return 0;
+			}
+		} catch (PDH::PDHException e) {
+			NSC_LOG_ERROR_STD("ERROR: " + e.str_);
+			msg = static_cast<std::string>("ERROR: ") + e.str_;
+			return NSCAPI::returnCRIT;
+		}
+	}
+	if (msg.empty())
+		msg ="uhmm...";
 	return ret;
 }
 NSC_WRAPPERS_MAIN_DEF(gNSClientCompat);

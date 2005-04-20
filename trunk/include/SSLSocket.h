@@ -87,14 +87,12 @@ namespace simpleSSL {
 
 		void destroy() {
 			assert(ctx_);
-			NSC_DEBUG_MSG_STD("***___CTX DESTROY___***");
 			SSL_CTX_free(ctx_);
 			ctx_ = NULL;
 		}
 		void createSSLv23() {
 			assert(ctx_ == NULL);
 			ctx_ = SSL_CTX_new(SSLv23_server_method());
-			NSC_DEBUG_MSG_STD("***___CTX CREATE___***");
 			if (ctx_ == NULL) {
 				throw SSLException("Error: could not create SSL context.");
 			}
@@ -109,7 +107,6 @@ namespace simpleSSL {
 			SSL_CTX_set_tmp_dh(ctx_, dh);
 		}
 		SSL* newSSL() {
-			NSC_DEBUG_MSG_STD("***ADDING NEW SSL***");
 			return SSL_new(ctx_);
 		}
 
@@ -130,7 +127,6 @@ namespace simpleSSL {
 		void free() {
 			if (ssl_ == NULL)
 				return;
-			NSC_DEBUG_MSG_STD("***REMOVING NEW SSL***");
 			SSL_free(ssl_);
 			ssl_ = NULL;
 		}
@@ -270,7 +266,7 @@ namespace simpleSSL {
 		int lock_cs_count;
 	public:
 
-		virtual bool accept(tBase::tBase &client);
+		virtual bool accept(tBase::tBase *client);
 
 		void setContext(Context c) {
 			context = c;

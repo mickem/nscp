@@ -1,3 +1,8 @@
+2004-04-20 MickeM
+ + Added multitasking to socket listsner (it can now handle multiple connections)
+ * Fixed bug in NSClientListener now "seqv" in check_nt shouldn't happen.
+ + Added COUNTER support to NSClient and CheckSystem
+
 2004-04-19 MickeM
  + Added SSL support
  + Added alot of new options

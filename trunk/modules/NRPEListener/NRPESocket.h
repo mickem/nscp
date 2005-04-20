@@ -81,8 +81,6 @@ private:
 		}
 		strEx::token cmd = strEx::getToken(p.getPayload(), '!');
 		std::string msg, perf;
-		NSC_DEBUG_MSG_STD("Command: " + cmd.first);
-		NSC_DEBUG_MSG_STD("Arguments: " + cmd.second);
 
 		if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
 			if (!cmd.second.empty()) {

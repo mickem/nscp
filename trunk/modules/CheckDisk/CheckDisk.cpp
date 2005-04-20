@@ -107,7 +107,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	//
 	// ./check_nscp -H 192.168.0.167 -p 1234 -s pwd -c 'CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*'
 	// WIN: 1G (2110962363B)|WIN:2110962363:1073741824:4294967296
-	NSC_DEBUG_MSG("CheckDriveSize");
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.empty()) {
@@ -143,11 +142,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 			drives.push_back(p.first);
 		}
 	}
-
-	NSC_DEBUG_MSG_STD("Bounds: critical " + crit.min.toString() + " > size > " + crit.max.toString());
-	NSC_DEBUG_MSG_STD("Bounds: warning " + warn.min.toString() + " > size > " + warn.max.toString());
-	NSC_DEBUG_MSG_STD("Showall: " + ((bShowAll)?"yeap":"noop"));
-	NSC_DEBUG_MSG_STD("nsclient: " + ((bNSClient)?"yeap":"noop"));
 
 	for (std::list<std::string>::iterator it = drives.begin();it!=drives.end();it++) {
 		std::string drive = (*it);
@@ -224,7 +218,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 	//
 	// ./check_nscp -H 192.168.0.167 -p 1234 -s pwd -c 'CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*'
 	// WIN: 1G (2110962363B)|WIN:2110962363:1073741824:4294967296
-	NSC_DEBUG_MSG("CheckFileSize");
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.empty()) {
@@ -267,9 +260,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 			return NSCAPI::returnCRIT;
 		}
 	}
-	NSC_DEBUG_MSG_STD("Bounds: critical " + strEx::itos(minCrit) + " > siez > " + strEx::itos(maxCrit));
-	NSC_DEBUG_MSG_STD("Bounds: warning " + strEx::itos(minWarn) + " > size > " + strEx::itos(maxWarn));
-	NSC_DEBUG_MSG_STD("Showall: " + ((bShowAll)?"yeap":"noop"));
 
 	std::list<std::pair<std::string,std::string> >::const_iterator pit;
 	for (pit = paths.begin(); pit != paths.end(); ++pit) {

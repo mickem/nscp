@@ -17,7 +17,7 @@ NSClientListener gNSClientListener;
 #define REQ_SERVICESTATE	5	// Works fine!
 #define REQ_PROCSTATE		6	// Works fine!
 #define REQ_MEMUSE			7	// Works fine!
-//#define REQ_COUNTER		8	// ! - not implemented Have to look at this, if anyone has a sample let me know...
+#define REQ_COUNTER			8	// ... in the works ...
 //#define REQ_FILEAGE		9	// ! - not implemented Dont know how to use
 //#define REQ_INSTANCES	10	// ! - not implemented Dont know how to use
 
@@ -65,7 +65,6 @@ NSCModuleWrapper::module_version NSClientListener::getModuleVersion() {
 
 std::string NSClientListener::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');
-	NSC_DEBUG_MSG("Password: " + pwd.first);
 	if ( (pwd.first.empty()) || (pwd.first != NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PWD, NSCLIENT_SETTINGS_PWD_DEFAULT)) )
 		return "ERROR: Invalid password.";
 	if (pwd.second.empty())
@@ -73,7 +72,6 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 	strEx::token cmd = strEx::getToken(pwd.second, '&');
 	if (cmd.first.empty())
 		return "ERRRO: No command specified.";
-	NSC_DEBUG_MSG("Command: " + cmd.first);
 
 	int c = atoi(cmd.first.c_str());
 
@@ -108,8 +106,11 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 			cmd.first = "checkMem";
 			cmd.second = "nsclient";
 			break;
+		case REQ_COUNTER:
+			cmd.first = "checkCounter";
+			cmd.second += "&nsclient";
+			break;
 	}
-
 
 	std::string message, perf;
 	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first.c_str(), cmd.second.c_str(), '&', message, perf);
@@ -124,6 +125,7 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 		case REQ_CPULOAD:
 		case REQ_CLIENTVERSION:
 		case REQ_USEDDISKSPACE:
+		case REQ_COUNTER:
 			return message;
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
@@ -140,22 +142,41 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 void NSClientListener::onClose()
 {}
 
-void NSClientListener::onAccept(simpleSocket::Socket &client) {
-	if (!allowedHosts.inAllowedHosts(client.getAddrString())) {
-		NSC_LOG_ERROR("Unothorized access from: " + client.getAddrString());
-		client.close();
+void NSClientListener::onAccept(simpleSocket::Socket *client) {
+	assert(client);
+	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
+		NSC_LOG_ERROR("Unothorized access from: " + client->getAddrString());
+		client->close();
 		return;
 	}
 	simpleSocket::DataBuffer db;
-	client.readAll(db);
+
+
+
+	for (int i=0;i<100;i++) {
+		client->readAll(db);
+		// @todo Make this check if a pcket is read instead of just if we have data
+		if (db.getLength() > 0)
+			break;
+		Sleep(100);
+	}
+	if (i == 100) {
+		NSC_LOG_ERROR_STD("Could not retrieve NSClient packet.");
+		client->close();
+		return;
+	}
+
+
+
+//	client->readAll(db);
 	if (db.getLength() > 0) {
 		std::string incoming(db.getBuffer(), db.getLength());
-		NSC_DEBUG_MSG_STD("Incoming data: " + incoming);
+//		NSC_DEBUG_MSG_STD("Incoming data: " + incoming);
 		std::string response = parseRequest(incoming);
-		NSC_DEBUG_MSG("Outgoing data: " + response);
-		client.send(response.c_str(), static_cast<int>(response.length()), 0);
+//		NSC_DEBUG_MSG("Outgoing data: " + response);
+		client->send(response.c_str(), static_cast<int>(response.length()), 0);
 	}
-	client.close();
+	client->close();
 }
 
 NSC_WRAPPERS_MAIN_DEF(gNSClientListener);
