@@ -112,7 +112,6 @@ void PDHCollector::exitThread(void) {
  */
 int PDHCollector::getCPUAvrage(std::string time) {
 	unsigned int mseconds = strEx::stoui_as_time(time, checkIntervall_*100);
-	NSC_DEBUG_MSG_STD(time + " resolved to: " + strEx::itos(mseconds) + "ms (" + strEx::itos(mseconds / (checkIntervall_*100)) + "items)");
 	MutexLock mutex(mutexHandler);
 	if (!mutex.hasMutex()) {
 		NSC_LOG_ERROR("Failed to get Mutex!");

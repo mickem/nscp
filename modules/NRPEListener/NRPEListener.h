@@ -47,7 +47,7 @@ private:
 
 
 private:
-	void onAccept(simpleSocket::Socket &client);
+	void onAccept(simpleSocket::Socket *client);
 	void onClose();
 
 

@@ -20,7 +20,7 @@ public:
 	std::string parseRequest(std::string buffer);
 
 	// simpleSocket::ListenerHandler implementation
-	void onAccept(simpleSocket::Socket &client);
+	void onAccept(simpleSocket::Socket *client);
 	void onClose();
 
 };

@@ -65,11 +65,10 @@ void simpleSSL::SSL::send(const char * buf, unsigned int len) {
 		throw SSLException("Socket write failed: ", rc, getError(rc));
 }
 
-bool simpleSSL::Listener::accept(tSocket &client) {
-	client.setContext(context);
-	if (!simpleSocket::Socket::accept(client))
-		return false;
-	return true;
+bool simpleSSL::Listener::accept(tSocket *client) {
+	assert(client);
+	client->setContext(context);
+	return simpleSocket::Socket::accept(client);
 }
 
 

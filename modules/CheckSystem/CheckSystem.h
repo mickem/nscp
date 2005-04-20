@@ -35,6 +35,7 @@ public:
 	NSCAPI::nagiosReturn checkServiceState(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn checkMem(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn checkProcState(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn checkCounter(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 
 
 };

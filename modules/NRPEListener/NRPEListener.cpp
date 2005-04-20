@@ -113,14 +113,12 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const std::string command, cons
 					return NSCAPI::returnIgnored;
 				}
 			}
-			NSC_DEBUG_MSG_STD("Attempting to replace: " + "$ARG" + strEx::itos(i) + "$" + " with " + (*cit));
 			strEx::replace(str, "$ARG" + strEx::itos(i) + "$", (*cit));
 		}
 	}
 
 	if ((str.substr(0,6) == "inject")&&(str.length() > 7)) {
 		strEx::token t = strEx::getToken(str.substr(7), ' ');
-		NSC_DEBUG_MSG_STD("Injecting: " + t.first + ", " + t.second);
 		return NSCModuleHelper::InjectSplitAndCommand(t.first, t.second, ' ', message, perf);
 	}
 
@@ -222,25 +220,26 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 void NRPEListener::onClose()
 {}
 
-void NRPEListener::onAccept(simpleSocket::Socket &client) 
+void NRPEListener::onAccept(simpleSocket::Socket *client) 
 {
-	if (!allowedHosts.inAllowedHosts(client.getAddrString())) {
-		NSC_LOG_ERROR("Unothorized access from: " + client.getAddrString());
-		client.close();
+	assert(client);
+	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
+		NSC_LOG_ERROR("Unothorized access from: " + client->getAddrString());
+		client->close();
 		return;
 	}
 	try {
 		simpleSocket::DataBuffer block;
 
 		for (int i=0;i<100;i++) {
-			client.readAll(block);
+			client->readAll(block);
 			if (block.getLength() >= NRPEPacket::getBufferLength())
 				break;
 			Sleep(100);
 		}
 		if (i == 100) {
 			NSC_LOG_ERROR_STD("Could not retrieve NRPE packet.");
-			client.close();
+			client->close();
 			return;
 		}
 
@@ -250,17 +249,17 @@ void NRPEListener::onAccept(simpleSocket::Socket &client)
 				block.copyFrom(out.getBuffer(), out.getBufferLength());
 			} catch (NRPEPacket::NRPEPacketException e) {
 				NSC_LOG_ERROR_STD("NRPESocketException: " + e.getMessage());
-				client.close();
+				client->close();
 				return;
 			}
-			client.send(block);
+			client->send(block);
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD("SocketException: " + e.getMessage());
 	} catch (NRPEException e) {
 		NSC_LOG_ERROR_STD("NRPEException: " + e.getMessage());
 	}
-	client.close();
+	client->close();
 }
 
 NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
@@ -278,8 +277,6 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	}
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
 	std::string msg, perf;
-	NSC_DEBUG_MSG_STD("Command: " + cmd.first);
-	NSC_DEBUG_MSG_STD("Arguments: " + cmd.second);
 
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
 		if (!cmd.second.empty()) {

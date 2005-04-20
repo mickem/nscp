@@ -113,16 +113,17 @@ namespace simpleSocket {
 			if (::listen(socket_, backlog) == SOCKET_ERROR)
 				throw SocketException("listen failed: ", ::WSAGetLastError());
 		}
-		virtual bool accept(Socket &client) {
-			int fromlen=sizeof(client.from_);
-			SOCKET s = ::accept(socket_, (sockaddr*)&client.from_, &fromlen);
+		virtual bool accept(Socket *client) {
+			assert(client);
+			int fromlen=sizeof(client->from_);
+			SOCKET s = ::accept(socket_, (sockaddr*)&client->from_, &fromlen);
 			if(s == INVALID_SOCKET) {
 				int err = ::WSAGetLastError();
 				if (err == WSAEWOULDBLOCK)
 					return false;
 				throw SocketException("accept failed: ", ::WSAGetLastError());
 			}
-			client.attach(s);
+			client->attach(s);
 			return true;
 		}
 		virtual void setAddr(short family, u_long addr, u_short port) {
@@ -150,7 +151,7 @@ namespace simpleSocket {
 
 	class ListenerHandler {
 	public:
-		virtual void onAccept(Socket &client) = 0;
+		virtual void onAccept(Socket *client) = 0;
 		virtual void onClose() = 0;
 	};
 
@@ -185,12 +186,17 @@ namespace simpleSocket {
 		typedef TListenerType tListener;
 		typedef TSocketType tSocket;
 	private:
+		struct simpleResponderBundle {
+			HANDLE hThread;
+		};
+		typedef std::list<simpleResponderBundle> socketResponses;
 		typedef TListenerType tBase;
 		class ListenerThread;
 		typedef Thread<ListenerThread> listenThreadManager;
 
 		u_short port_;
 		listenThreadManager threadManager_;
+		socketResponses responderList_;
 
 	public:
 		class ListenerThread {
@@ -213,7 +219,9 @@ namespace simpleSocket {
 
 	public:
 		Listener() : pHandler_(NULL) {};
-		virtual ~Listener() {};
+		virtual ~Listener() {
+			// @todo check if we have stale processes here (if so log an error)
+		};
 
 		virtual void StartListener(int port) {
 			port_ = port;
@@ -233,10 +241,36 @@ namespace simpleSocket {
 				throw SocketException("Not a registered handler!");
 			pHandler_ = NULL;
 		}
+		static void socketResponceProc(LPVOID lpParameter);
+		struct srp_data {
+			Listener *pCore;
+			tSocket *pClient;
+		};
+		void addResponder(tSocket *client) {
+			simpleResponderBundle data;
+			// @todo protect
+			srp_data *lpData = new srp_data;
+			lpData->pCore = this;
+			lpData->pClient = client;
+			data.hThread = reinterpret_cast<HANDLE>(::_beginthread(socketResponceProc, 0, lpData));
+			responderList_.push_back(data);
+			// @todo protect
+		}
+		bool removeResponder(HANDLE h) {
+			// @todo protect
+			for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end(); ++it) {
+				if ( (*it).hThread == h) {
+					responderList_.erase(it);
+					return true;
+				}
+			}
+			// @todo protect
+			return false;
+		}
 
 
 	private:
-		void onAccept(tSocket &client) {
+		void onAccept(tSocket *client) {
 			if (pHandler_)
 				pHandler_->onAccept(client);
 		}
@@ -244,7 +278,7 @@ namespace simpleSocket {
 			if (pHandler_)
 				pHandler_->onClose();
 		}
-		virtual bool accept(tSocket &client) {
+		virtual bool accept(tSocket *client) {
 			return tBase::accept(client);
 		}
 	};
@@ -253,6 +287,26 @@ namespace simpleSocket {
 	void WSACleanup();
 
 }
+
+template <class TListenerType, class TSocketType>
+void simpleSocket::Listener<TListenerType, TSocketType>::socketResponceProc(LPVOID lpParameter)
+{
+	// @todo make sure this terminates after X seconds!
+
+	srp_data *data = reinterpret_cast<srp_data*>(lpParameter);
+	Listener *pCore = data->pCore;
+	tSocket *pClient = data->pClient;
+	delete data;
+	try {
+		pCore->onAccept(pClient);
+	} catch (SocketException e) {
+		pCore->printError(e.getMessage() + " killing socket...");
+	}
+	delete pClient;
+	pCore->removeResponder(GetCurrentThread());
+	_endthread();
+}
+
 
 template <class TListenerType, class TSocketType>
 DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::threadProc(LPVOID lpParameter)
@@ -273,9 +327,11 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		core->setNonBlock();
 		while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
 			try {
-				tSocket client;
+				tSocket *client = new tSocket;
 				if (core->accept(client))
-					core->onAccept(client);
+					core->addResponder(client);
+				else 
+					delete client;
 			} catch (SocketException e) {
 				core->printError(e.getMessage() + ", attempting to resume...");
 			}
