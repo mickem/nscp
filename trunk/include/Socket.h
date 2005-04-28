@@ -4,6 +4,7 @@
 #include <Mutex.h>
 #include <WinSock2.h>
 
+
 namespace simpleSocket {
 	class SocketException {
 	private:
@@ -52,6 +53,7 @@ namespace simpleSocket {
 			delete [] buffer_;
 			buffer_ = new char[length+1];
 			memcpy(buffer_, buffer, length);
+			length_ = length;
 		}
 	};
 
@@ -61,8 +63,10 @@ namespace simpleSocket {
 		sockaddr_in from_;
 
 	public:
-		Socket() : socket_(NULL) {}
-		Socket(SOCKET socket) : socket_(socket) {}
+		Socket() : socket_(NULL) {
+		}
+		Socket(SOCKET socket) : socket_(socket) {
+		}
 		Socket(Socket &other) {
 			socket_ = other.socket_;
 			from_ = other.from_;
@@ -113,17 +117,16 @@ namespace simpleSocket {
 			if (::listen(socket_, backlog) == SOCKET_ERROR)
 				throw SocketException("listen failed: ", ::WSAGetLastError());
 		}
-		virtual bool accept(Socket *client) {
-			assert(client);
-			int fromlen=sizeof(client->from_);
-			SOCKET s = ::accept(socket_, (sockaddr*)&client->from_, &fromlen);
+		virtual bool accept(Socket &client) {
+			int fromlen=sizeof(client.from_);
+			SOCKET s = ::accept(socket_, (sockaddr*)&client.from_, &fromlen);
 			if(s == INVALID_SOCKET) {
 				int err = ::WSAGetLastError();
 				if (err == WSAEWOULDBLOCK)
 					return false;
 				throw SocketException("accept failed: ", ::WSAGetLastError());
 			}
-			client->attach(s);
+			client.attach(s);
 			return true;
 		}
 		virtual void setAddr(short family, u_long addr, u_short port) {
@@ -188,6 +191,7 @@ namespace simpleSocket {
 	private:
 		struct simpleResponderBundle {
 			HANDLE hThread;
+			unsigned dwThreadID;
 		};
 		typedef std::list<simpleResponderBundle> socketResponses;
 		typedef TListenerType tBase;
@@ -197,6 +201,7 @@ namespace simpleSocket {
 		u_short port_;
 		listenThreadManager threadManager_;
 		socketResponses responderList_;
+		MutexHandler responderMutex_;
 
 	public:
 		class ListenerThread {
@@ -220,6 +225,7 @@ namespace simpleSocket {
 	public:
 		Listener() : pHandler_(NULL) {};
 		virtual ~Listener() {
+			std::cout << "Stale process count: " << responderList_.size() << std::endl;
 			// @todo check if we have stale processes here (if so log an error)
 		};
 
@@ -241,30 +247,38 @@ namespace simpleSocket {
 				throw SocketException("Not a registered handler!");
 			pHandler_ = NULL;
 		}
-		static void socketResponceProc(LPVOID lpParameter);
+		static unsigned __stdcall socketResponceProc(void* lpParameter);
 		struct srp_data {
 			Listener *pCore;
-			tSocket *pClient;
+			tSocket *client;
 		};
 		void addResponder(tSocket *client) {
 			simpleResponderBundle data;
 			// @todo protect
 			srp_data *lpData = new srp_data;
 			lpData->pCore = this;
-			lpData->pClient = client;
-			data.hThread = reinterpret_cast<HANDLE>(::_beginthread(socketResponceProc, 0, lpData));
+			lpData->client = client;
+
+			MutexLock lock(responderMutex_);
+			if (!lock.hasMutex()) {
+				printError("Failed to get responder mutex.");
+				return;
+			}
+			data.hThread = reinterpret_cast<HANDLE>(::_beginthreadex( NULL, 0, &socketResponceProc, lpData, 0, &data.dwThreadID));
 			responderList_.push_back(data);
-			// @todo protect
 		}
-		bool removeResponder(HANDLE h) {
-			// @todo protect
+		bool removeResponder(DWORD dwThreadID) {
+			MutexLock lock(responderMutex_);
+			if (!lock.hasMutex()) {
+				printError("Failed to get responder mutex when trying to free thread.");
+				return false;
+			}
 			for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end(); ++it) {
-				if ( (*it).hThread == h) {
+				if ( (*it).dwThreadID == dwThreadID) {
 					responderList_.erase(it);
 					return true;
 				}
 			}
-			// @todo protect
 			return false;
 		}
 
@@ -278,7 +292,7 @@ namespace simpleSocket {
 			if (pHandler_)
 				pHandler_->onClose();
 		}
-		virtual bool accept(tSocket *client) {
+		virtual bool accept(tSocket &client) {
 			return tBase::accept(client);
 		}
 	};
@@ -289,22 +303,26 @@ namespace simpleSocket {
 }
 
 template <class TListenerType, class TSocketType>
-void simpleSocket::Listener<TListenerType, TSocketType>::socketResponceProc(LPVOID lpParameter)
+unsigned simpleSocket::Listener<TListenerType, TSocketType>::socketResponceProc(void* lpParameter)
 {
 	// @todo make sure this terminates after X seconds!
 
 	srp_data *data = reinterpret_cast<srp_data*>(lpParameter);
 	Listener *pCore = data->pCore;
-	tSocket *pClient = data->pClient;
+	tSocket *client = data->client;
 	delete data;
 	try {
-		pCore->onAccept(pClient);
+		pCore->onAccept(client);
 	} catch (SocketException e) {
 		pCore->printError(e.getMessage() + " killing socket...");
 	}
-	delete pClient;
-	pCore->removeResponder(GetCurrentThread());
-	_endthread();
+	client->close();
+	delete client;
+	if (!pCore->removeResponder(GetCurrentThreadId())) {
+		pCore->printError("Could not remove thread: " + strEx::itos(GetCurrentThreadId()));
+	}
+	_endthreadex(0);
+	return 0;
 }
 
 
@@ -327,11 +345,10 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		core->setNonBlock();
 		while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
 			try {
-				tSocket *client = new tSocket;
-				if (core->accept(client))
-					core->addResponder(client);
-				else 
-					delete client;
+				tSocket client;
+				if (core->accept(client)) {
+					core->addResponder(new tSocket(client));
+				}
 			} catch (SocketException e) {
 				core->printError(e.getMessage() + ", attempting to resume...");
 			}

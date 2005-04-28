@@ -5,6 +5,7 @@ NSC_WRAPPERS_MAIN();
 
 class CheckSystem {
 private:
+	int processMethod_;
 	PDHCollectorThread pdhThread;
 
 public:

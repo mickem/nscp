@@ -266,7 +266,8 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
 NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	MutexLock lock(pluginMutex);
 	if (!lock.hasMutex()) {
-		LOG_ERROR("Failed to get mutex, command ignored...");
+		LOG_ERROR_STD("Failed to get mutex (" + strEx::itos(lock.getWaitResult()) + "), command ignored...");
+		return NSCAPI::returnUNKNOWN;
 	}
 
 	for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
@@ -277,7 +278,6 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 					LOG_ERROR("Return buffer to small to handle this command.");
 					return c;
 				case NSCAPI::returnIgnored:
-					LOG_DEBUG("A module ignored this message");
 					break;
 				case NSCAPI::returnOK:
 				case NSCAPI::returnWARN:

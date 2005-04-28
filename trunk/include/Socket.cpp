@@ -3,6 +3,8 @@
 #include <NSCHelper.h>
 
 
+
+
 /**
 * Thread procedure for the socket listener
 * @param lpParameter Potential argument to the thread proc.
