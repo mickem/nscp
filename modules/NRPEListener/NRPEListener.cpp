@@ -222,7 +222,6 @@ void NRPEListener::onClose()
 
 void NRPEListener::onAccept(simpleSocket::Socket *client) 
 {
-	assert(client);
 	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
 		NSC_LOG_ERROR("Unothorized access from: " + client->getAddrString());
 		client->close();
@@ -232,7 +231,7 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 		simpleSocket::DataBuffer block;
 
 		for (int i=0;i<100;i++) {
-			client->readAll(block);
+			client->readAll(block, 1048);
 			if (block.getLength() >= NRPEPacket::getBufferLength())
 				break;
 			Sleep(100);
@@ -242,7 +241,6 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 			client->close();
 			return;
 		}
-
 		if (block.getLength() == NRPEPacket::getBufferLength()) {
 			try {
 				NRPEPacket out = handlePacket(NRPEPacket(block.getBuffer(), block.getLength()));

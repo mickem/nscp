@@ -6,6 +6,7 @@
 #include <strEx.h>
 
 namespace simpleSSL {
+	void count_socket(bool add);
 
 	class SSLException {
 	private:
@@ -77,7 +78,8 @@ namespace simpleSSL {
 	class Context {
 		SSL_CTX *ctx_;
 	public:
-		Context() : ctx_(NULL){}
+		Context() : ctx_(NULL){
+		}
 		// @todo Need to make this RAII! (smart pointers ?)
 		Context(Context &other) {
 			ctx_ = other.ctx_;
@@ -113,16 +115,21 @@ namespace simpleSSL {
 
 	};
 
-	class SSL {
+	class sSSL {
 	private:
 		::SSL *ssl_;
 		simpleSSL::Context context_;
 
 	public:
-		SSL() : ssl_(NULL) {}
-		~SSL() {
-			if (ssl_)
-				free();
+		sSSL() : ssl_(NULL) {
+		}
+		sSSL(sSSL &other) : ssl_(NULL) {
+			ssl_ = other.ssl_;
+			other.ssl_ = NULL;
+			context_ = other.context_;
+		}
+		~sSSL() {
+			free();
 		}
 		void free() {
 			if (ssl_ == NULL)
@@ -151,6 +158,7 @@ namespace simpleSSL {
 		void accept() {
 			if (!ssl_)
 				create();
+			/**/
 			int rc = 0;
 			int i = 0;
 			while ((rc = SSL_accept(ssl_)) != 1) {
@@ -165,12 +173,16 @@ namespace simpleSSL {
 					throw SSLException("Error: Could not complete SSL handshake : ", rc, rc2);
 				}
 			}
+			/**/
 		}
 		void shutdown() {
-			if (!ssl_)
+			if (ssl_ == NULL)
 				return;
 			int i = 0;
 			int rc = 0;
+			// @bug This will break but I don't know how to fix it...
+//			SSL_shutdown(ssl_); @bug this leaks memory!
+			/*
 			while ((rc = SSL_shutdown(ssl_)) != 1) {
 				if (++i >= 100) {
 					throw SSLException("SSL: Could not complete SSL shutdown.");
@@ -183,6 +195,7 @@ namespace simpleSSL {
 					throw SSLException("Error: Could not complete SSL shutdown : ", rc, rc2);
 				}
 			}
+			*/
 		}
 		int set_fd(int fd) {
 			if (!ssl_)
@@ -199,17 +212,15 @@ namespace simpleSSL {
 	class Socket : public simpleSocket::Socket {
 	private:
 		typedef simpleSocket::Socket tBase;
-		simpleSSL::SSL ssl;
+		simpleSSL::sSSL ssl;
 	public:
-		Socket() {}
-		~Socket() {
-			try {
-				ssl.shutdown();
-			} catch (SSLException e) {
-				NSC_LOG_ERROR_STD(e.getMessage());
-			}
+		Socket() {
+		}
+		Socket(Socket &other) : tBase(other), ssl(other.ssl) {
+		}
+		virtual ~Socket() {
+			ssl.shutdown();
 			ssl.free();
-			tBase::~Socket();
 		}
 		void attach(SOCKET s) {
 			assert(s);
@@ -240,6 +251,8 @@ namespace simpleSSL {
 			return 0;
 		}
 		virtual void close() {
+			ssl.shutdown();
+			ssl.free();
 			/* @todo
 			try {
 				ssl.shutdown();
@@ -266,19 +279,13 @@ namespace simpleSSL {
 		int lock_cs_count;
 	public:
 
-		virtual bool accept(tBase::tBase *client);
+		virtual bool accept(tBase::tBase &client);
 
 		void setContext(Context c) {
 			context = c;
 		}
 		virtual void StartListener(int port);
 		virtual void StopListener();
-/*
-		virtual void onAccept(simpleSocket::Socket& client) = 0;
-		virtual void onAccept(tBase::tBase &client) {
-			onAccept(static_cast<simpleSocket::Socket&>(client));
-		}
-		*/
 	};
 
 

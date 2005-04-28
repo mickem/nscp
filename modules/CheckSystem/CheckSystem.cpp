@@ -6,6 +6,7 @@
 #include <utils.h>
 #include <tlhelp32.h>
 #include <EnumNtSrv.h>
+#include <EnumProcess.h>
 
 CheckSystem gNSClientCompat;
 
@@ -26,7 +27,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
  * Default c-tor
  * @return 
  */
-CheckSystem::CheckSystem() {}
+CheckSystem::CheckSystem() : processMethod_(0) {}
 /**
  * Default d-tor
  * @return 
@@ -39,6 +40,25 @@ CheckSystem::~CheckSystem() {}
  */
 bool CheckSystem::loadModule() {
 	pdhThread.createThread();
+
+	std::string wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
+
+	CEnumProcess tmp;
+	int method = tmp.GetAvailableMethods();
+
+	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
+		if (method == (method|ENUM_METHOD::PSAPI)) {
+			processMethod_ = ENUM_METHOD::PSAPI;
+		} else {
+			NSC_LOG_ERROR_STD("PSAPI method not avalible, check " C_SYSTEM_ENUMPROC_METHOD " option.");
+		}
+	} else {
+		if (method == (method|ENUM_METHOD::TOOLHELP)) {
+			processMethod_ = ENUM_METHOD::TOOLHELP;
+		} else {
+			NSC_LOG_ERROR_STD("TOOLHELP method not avalible, check " C_SYSTEM_ENUMPROC_METHOD " option.");
+		}
+	}
 	return true;
 }
 /**
@@ -108,13 +128,6 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::string command, const
 	} else if (command == "checkCounter") {
 		return checkCounter(command, argLen, char_args, msg, perf);
 	}
-/*
-		case REQ_PROCSTATE:
-			rb = NSCommands::procState(arrayBuffer::arrayBuffer2list(argLen, char_args));
-			msg = rb.msg_;
-			perf = rb.perf_;
-			return rb.code_;
-	*/
 	return NSCAPI::returnIgnored;
 }
 
@@ -389,35 +402,19 @@ typedef std::hash_map<std::string,DWORD> NSPROCLST;
 * Get a hash_map with all running processes.
 * @return a hash_map with all running processes
 */
-NSPROCLST GetProcessList(void)
+NSPROCLST GetProcessList(int processMethod)
 {
-	HANDLE hProcessSnap;
-	PROCESSENTRY32 pe32;
 	NSPROCLST ret;
-
-	// Take a snapshot of all processes in the system.
-	hProcessSnap = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 );
-	if( hProcessSnap == INVALID_HANDLE_VALUE )
-		throw "CreateToolhelp32Snapshot (of processes) failed";
-
-	// Set the size of the structure before using it.
-	pe32.dwSize = sizeof( PROCESSENTRY32 );
-
-	// Retrieve information about the first process,
-	// and exit if unsuccessful
-	if( !Process32First( hProcessSnap, &pe32 ) ) {
-		CloseHandle( hProcessSnap );     // Must clean up the snapshot object!
-		throw "Process32First failed!";
+	if (processMethod == 0) {
+		NSC_LOG_ERROR_STD("ProcessMethod not defined or not available.");
+		return ret;
 	}
-
-	// Now walk the snapshot of processes, and
-	// display information about each process in turn
-	do {
-		ret[pe32.szExeFile] = pe32.th32ProcessID;
-	} while( Process32Next( hProcessSnap, &pe32 ) );
-
-	// Don't forget to clean up the snapshot object!
-	CloseHandle( hProcessSnap );
+	CEnumProcess enumeration;
+	enumeration.SetMethod(processMethod);
+	CEnumProcess::CProcessEntry entry;
+	for (BOOL OK = enumeration.GetProcessFirst(&entry); OK; OK = enumeration.GetProcessNext(&entry) ) {
+		ret[entry.lpFilename] = entry.dwPID;
+	}
 	return ret;
 }
 
@@ -451,7 +448,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const std::string command, cons
 	}
 	NSPROCLST runningProcs;
 	try {
-		runningProcs = GetProcessList();
+		runningProcs = GetProcessList(processMethod_);
 	} catch (char *c) {
 		NSC_LOG_ERROR_STD("ERROR: " + c);
 		msg = static_cast<std::string>("ERROR: ") + c;

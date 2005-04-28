@@ -15,13 +15,13 @@
 // list of service dependencies - "dep1\0dep2\0\0"
 #define SZDEPENDENCIES       ""
 
-// Buffer size of incoming data (noteice this is the maximum request length!)
+// Buffer size of incoming data (notice this is the maximum request length!)
 #define RECV_BUFFER_LEN		1024
 
 #define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
 
 
-// Default Argumentstring (for consistency)
+// Default Argument string (for consistency)
 #define SHOW_ALL "ShowAll"
 #define SHOW_FAIL "ShowFail"
 #define NSCLIENT "nsclient"
@@ -65,6 +65,10 @@
 #define C_SYSTEM_UPTIME_DEFAULT "\\\\.\\System\\System Up Time"
 #define C_SYSTEM_CPU "CounterCPU"
 #define C_SYSTEM_MEM_CPU_DEFAULT "\\\\.\\Processor(_total)\\% Processor Time"
+#define C_SYSTEM_ENUMPROC_METHOD_PSAPI "PSAPI"
+#define C_SYSTEM_ENUMPROC_METHOD_THELP "TOOLHELP"
+#define C_SYSTEM_ENUMPROC_METHOD "ProcessEnumerationMethod"
+#define C_SYSTEM_ENUMPROC_METHOD_DEFAULT C_SYSTEM_ENUMPROC_METHOD_THELP
 
 // Log to File Settings
 #define LOG_SECTION_TITLE "log"

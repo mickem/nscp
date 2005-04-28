@@ -143,7 +143,6 @@ void NSClientListener::onClose()
 {}
 
 void NSClientListener::onAccept(simpleSocket::Socket *client) {
-	assert(client);
 	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
 		NSC_LOG_ERROR("Unothorized access from: " + client->getAddrString());
 		client->close();

@@ -180,6 +180,9 @@
 				RelativePath="..\..\include\EnumNtSrv.cpp">
 			</File>
 			<File
+				RelativePath="..\..\include\EnumProcess.cpp">
+			</File>
+			<File
 				RelativePath="..\..\include\NSCHelper.cpp">
 			</File>
 			<File

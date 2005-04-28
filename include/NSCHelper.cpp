@@ -98,9 +98,10 @@ namespace NSCModuleHelper {
  * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
 void NSCModuleHelper::Message(int msgType, std::string file, int line, std::string message) {
-	if (!fNSAPIMessage)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
-	return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
+	if (fNSAPIMessage) 
+		return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
+	else
+		std::cout << "NSCore not loaded..." << std::endl << message << std::endl;
 }
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)

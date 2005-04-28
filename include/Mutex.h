@@ -133,7 +133,8 @@ public:
 	 * Release the mutex
 	 */
 	virtual ~MutexLock() {
-        ReleaseMutex(hMutex_);
+		if (bHasMutex)
+	        ReleaseMutex(hMutex_);
 		bHasMutex = false;
 	}
 	/**

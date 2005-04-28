@@ -29,35 +29,52 @@ void simpleSSL::SSL_deinit() {
 	ERR_free_strings();
 }
 
+void simpleSSL::count_socket(bool add) {
+	static int count = 0;
+	if (add) {
+		count++;
+		std::cout << "+++SSSL::Socket" << count << std::endl;
+	} else {
+		count--;
+		std::cout << "---SSSL::Socket" << count << std::endl;
+	}
+}
 
 
-void simpleSSL::SSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/) {
+void simpleSSL::sSSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/) {
 	// @todo this could be optimized a bit if we want to
 	// If only one buffer is needed we could "reuse" the buffer instead of copying it.
 	char *tmpBuffer = new char[tmpBufferLength+1];
 	if (!ssl_)
 		create();
 	int n= SSL_read(ssl_,tmpBuffer,tmpBufferLength);
+	if (n > 0) {
+		buffer.append(tmpBuffer, n);
+	}
+	/*
 	while (n>0) {
 		if (n == tmpBufferLength) {
 			// We filled the buffer (There is more to get)
-			buffer.append(tmpBuffer, n);
+//			buffer.append(tmpBuffer, n);
 			n=SSL_read(ssl_,tmpBuffer,tmpBufferLength);
+			break;
 		} else {
 			// Buffer not full, we got it "all"
-			buffer.append(tmpBuffer, n);
+//			buffer.append(tmpBuffer, n);
 			break;
 		}
 	}
+	*/
 	delete [] tmpBuffer;
+	/*
 	if (n <= 0) {
 		int rc = getError(n);
 		if ((rc != SSL_ERROR_WANT_READ) && (rc != SSL_ERROR_WANT_WRITE))
 			throw SSLException("Socket read failed: ", n, rc);
 	}
+	*/
 }
-void simpleSSL::SSL::send(const char * buf, unsigned int len) {
-	std::cout << "sending data..." << std::endl;
+void simpleSSL::sSSL::send(const char * buf, unsigned int len) {
 	if (!ssl_)
 		create();
 	int rc = SSL_write(ssl_, buf, len);
@@ -65,9 +82,8 @@ void simpleSSL::SSL::send(const char * buf, unsigned int len) {
 		throw SSLException("Socket write failed: ", rc, getError(rc));
 }
 
-bool simpleSSL::Listener::accept(tSocket *client) {
-	assert(client);
-	client->setContext(context);
+bool simpleSSL::Listener::accept(tSocket &client) {
+	client.setContext(context);
 	return simpleSocket::Socket::accept(client);
 }
 
