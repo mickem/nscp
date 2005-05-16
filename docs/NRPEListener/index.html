@@ -1,0 +1,53 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>NRPEListener</title>
+<link rel="stylesheet" type="text/css" href="../nscplus.css">
+</head>
+
+<body>
+
+<div id="content" class="documentContent">
+<h1>NRPEListener.dll</h1>
+<p>This module accepts incoming NRPE connections 
+and responds by executing various checks and returns their result. To use this you 
+need to have check_nrpe or another NRPE client. This is similar to check_nt (NSClient) 
+but much more flexible and supports encryption. This only drawback is that it lacks 
+any authorization (something I hope will come within the next few months).</p>
+<p>As this module has the ability to generate 
+command handlers by configuration there are command handlers but nothing built in.</p>
+<p>This module can add two types of command 
+handlers.</p>
+<p>First there are external command handlers 
+that execute a separate program or script and simply return the output and return 
+status from that. The other possibility is to create an alias for an internal command.
+</p>
+<h2>External commands</h2>
+<p>To add an external command you add a command 
+definition under the “NRPE Handlers” section. A command definition has the following 
+syntax:</p>
+<p><i>command_name=/some/executable with some 
+arguments</i></p>
+<p>for instance:</p>
+<p><i>test_batch_file=c:\test.bat foo $ARG1$ 
+bar</i></p>
+<p>The above example will on an incoming “test_batch_file” 
+execute the c:\test.bat file and return the output as text and the return code as 
+the Nagios status.</p>
+<h2>Internal commands</h2>
+<p>To add an internal command or alias is perhaps 
+a better word. You add a command definition under the “NRPE Handlers” section. A 
+command definition with the following syntax:</p>
+<p><i>command_name=inject some_other_command 
+with some arguments</i></p>
+<p>for instance:</p>
+<p><i>check_cpu=inject checkCPU warn=80 crit=90 
+5 10 15</i></p>
+<p>The above example will on an incoming “check_cpu” 
+execute the internal command “checkCPU” with predefined arguments give in the command 
+definition.</p>
+</div>
+</body>
+
+</html>

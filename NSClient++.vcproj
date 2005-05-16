@@ -358,8 +358,7 @@ cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;
 "/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Distribution|Win32"
-					ExcludedFromBuild="TRUE">
+					Name="Distribution|Win32">
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="doxygen.exe $(InputPath)
@@ -401,6 +400,9 @@ cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;
 						AdditionalDependencies=""
 						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\readme.html">
 			</File>
 			<File
 				RelativePath=".\readme.txt">

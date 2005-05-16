@@ -98,7 +98,7 @@ namespace strEx {
 	}
 
 	inline long long stoi64_as_BKMG(std::string s) {
-		std::string::size_type p = s.find_first_of("BMKG");
+		std::string::size_type p = s.find_first_of("BMKGT");
 		if (p == std::string::npos)
 			return _atoi64(s.c_str());
 		else if (s[p] == 'B') 
@@ -109,17 +109,28 @@ namespace strEx {
 			return _atoi64(s.c_str())*1024*1024;
 		else if (s[p] == 'G') 
 			return _atoi64(s.c_str())*1024*1024*1024;
+		else if (s[p] == 'T') 
+			return _atoi64(s.c_str())*1024*1024*1024*1024;
 		else
 			return _atoi64(s.c_str());
 	}
-	inline std::string itos_as_BKMG(long long i) {
-		if (i > (1024*1024*1024))
-			return itos(i/(1024*1024*1024))+"G (" + itos(i) + "B)";
-		if (i > (1024*1024))
-			return itos(i/(1024*1024))+"M (" + itos(i) + "B)";
-		if (i > (1024))
-			return itos(i/(1024))+"K (" + itos(i) + "B)";
-		return itos(i>>24)+"B";
+#define BKMG_RANGE "BKMGTP"
+#define BKMG_SIZE 5
+
+	inline std::string itos_as_BKMG(unsigned __int64 i) {
+		unsigned __int64 cpy = i;
+		char postfix[] = BKMG_RANGE;
+		int idx = 0;
+		while ((cpy > 1024)&&(idx<BKMG_SIZE)) {
+			cpy/=1024;
+			idx++;
+		}
+		std::string ret = itos(cpy);
+		ret += postfix[idx];
+		if (idx > 0) {
+			ret += " (" + itos(i) + "B)";
+		}
+		return ret;
 	}
 
 	typedef std::list<std::string> splitList;
@@ -150,6 +161,47 @@ namespace strEx {
 			return token(buffer.substr(0, pos), "");
 		return token(buffer.substr(0, pos-1), buffer.substr(++pos));
 	}
+
+
+	template<class _E>
+	struct blind_traits : public std::char_traits<_E>
+	{
+		static bool eq(const _E& x, const _E& y) {
+			return tolower( x ) == tolower( y ); 
+		}
+		static bool lt(const _E& x, const _E& y) {
+			return tolower( x ) < tolower( y ); 
+		}
+
+		static int compare(const _E *x, const _E *y, size_t n) { 
+			return strnicmp( x, y, n );
+		}
+
+		//  There's no memichr(), so we roll our own.  It ain't rocket science.
+		static const _E * __cdecl find(const _E *buf, size_t len, const _E& ch) {
+			//  Jerry says that x86s have special mojo for memchr(), so the 
+			//  memchr() calls end up being reasonably efficient in practice.
+			const _E *pu = (const _E *)memchr(buf, ch, len);
+			const _E *pl = (const _E *)memchr(buf, tolower( ch ), len);
+			if ( ! pu )
+				return pl;  //  Might be NULL; if so, NULL's the word.
+			else if ( ! pl )
+				return pu;
+			else
+				//  If either one was NULL, we return the other; if neither is 
+				//  NULL, we return the lesser of the two.
+				return ( pu < pl ) ? pu : pl;
+		}
+
+		//  I'm reasonably sure that this is eq() for wide characters.  Maybe.
+		static bool eq_int_type(const int_type& ch1, const int_type& ch2) { 
+			return char_traits<_E>::eq_int_type( tolower( ch1 ), tolower( ch2 ) ); 
+		}
+	};
+
+	//  And here's our case-blind string class.
+	typedef std::basic_string<char, blind_traits<char>, std::allocator<char> >  blindstr;
+
 #ifdef _DEBUG
 	inline void test_getToken(std::string in1, char in2, std::string out1, std::string out2) {
 		token t = getToken(in1, in2);

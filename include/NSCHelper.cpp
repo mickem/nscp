@@ -5,6 +5,7 @@
 #define BUFF_LEN 4096
 
 
+#ifdef DEBUG
 /**
 * Wrap a return string.
 * This function copies a string to a char buffer making sure the buffer has the correct length.
@@ -14,13 +15,21 @@
 * @param str Th string to copy
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-#ifdef DEBUG
 NSCAPI::nagiosReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::nagiosReturn defaultReturnCode /* = NSCAPI::success */) {
 	if (str.length() >= bufLen)
 		return NSCAPI::returnInvalidBufferLen;
 	strncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
+/**
+* Wrap a return string.
+* This function copies a string to a char buffer making sure the buffer has the correct length.
+*
+* @param *buffer Buffer to copy the string to.
+* @param bufLen Length of the buffer
+* @param str Th string to copy
+* @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
+*/
 NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::errorReturn defaultReturnCode /* = NSCAPI::success */) {
 	if (str.length() >= bufLen)
 		return NSCAPI::isInvalidBufferLen;
@@ -28,10 +37,20 @@ NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLe
 	return defaultReturnCode;
 }
 #else
+/**
+* Wrap a return string.
+* This function copies a string to a char buffer making sure the buffer has the correct length.
+*
+* @param *buffer Buffer to copy the string to.
+* @param bufLen Length of the buffer
+* @param str Th string to copy
+* @param defaultReturnCode The default return code
+* @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
+*/
 int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode ) {
 	// @todo deprecate this
 	if (str.length() >= bufLen)
-		return -1;
+		return NSCAPI::isInvalidBufferLen;
 	strncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
@@ -59,6 +78,11 @@ std::string NSCHelper::translateMessageType(NSCAPI::messageTypes msgType) {
 	}
 	return "unknown";
 }
+/**
+ * Translate a return code into the corresponding string
+ * @param returnCode 
+ * @return 
+ */
 std::string NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 	if (returnCode == NSCAPI::returnOK)
 		return "OK";
@@ -109,12 +133,33 @@ void NSCModuleHelper::Message(int msgType, std::string file, int line, std::stri
  * @return The result (if any) of the command.
  * @throws NSCMHExcpetion When core pointer set is unavailable or an unknown inject error occurs.
  */
+
+/**
+ * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
+ * @param command Command to inject
+ * @param argLen The length of the argument buffer
+ * @param **argument The argument buffer
+ * @param *returnMessageBuffer Buffer to hold the returned message
+ * @param returnMessageBufferLen Length of returnMessageBuffer
+ * @param *returnPerfBuffer Buffer to hold the returned performance data
+ * @param returnPerfBufferLen returnPerfBuffer
+ * @return The returned status of the command
+ */
 NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	return fNSAPIInject(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
+/**
+ * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
+ * @param command Command to inject (password should not be included.
+ * @param argLen The length of the argument buffer
+ * @param **argument The argument buffer
+ * @param message The return message buffer
+ * @param perf The return performance data buffer
+ * @return The return of the command
+ */
 NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const unsigned int argLen, char **argument, std::string & message, std::string & perf) 
 {
 	if (!fNSAPIInject)
@@ -150,9 +195,10 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const u
  * A wrapper around the InjetCommand that is simpler to use.
  * Parses a string by splitting and makes the array and also manages return buffers and such.
  * @param command The command to execute
- * @param buffer The buffer to splitwww.ikea.se
-
+ * @param buffer The buffer to split
  * @param splitChar The char to use as splitter
+ * @param message The return message buffer
+ * @param perf The return performance data buffer
  * @return The result of the command
  */
 NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const char* command, char* buffer, char splitChar, std::string & message, std::string & perf)
@@ -169,6 +215,15 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const char* command,
 	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
 	return ret;
 }
+/**
+ * A wrapper around the InjetCommand that is simpler to use.
+ * @param command The command to execute
+ * @param buffer The buffer to split
+ * @param splitChar The char to use as splitter
+ * @param message The return message buffer
+ * @param perf The return performance data buffer
+ * @return The result of the command
+ */
 NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::string command, const std::string buffer, char splitChar, std::string & message, std::string & perf)
 {
 	if (!fNSAPIInject)
@@ -213,6 +268,11 @@ std::string NSCModuleHelper::getSettingsString(std::string section, std::string 
 	delete [] buffer;
 	return ret;
 }
+/**
+ * Get a section of settings strings
+ * @param section The section to retrieve
+ * @return The keys in the section
+ */
 std::list<std::string> NSCModuleHelper::getSettingsSection(std::string section) {
 	if (!fNSAPIGetSettingsSection)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
@@ -240,15 +300,13 @@ int NSCModuleHelper::getSettingsInt(std::string section, std::string key, int de
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
-
-
-/***************************************************************************
-* max_state(STATE_x, STATE_y)
-* compares STATE_x to  STATE_y and returns result based on the following
-* STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
-*
-* Note that numerically the above does not hold
-****************************************************************************/
+/**
+ * Returns the biggest of the two states
+ * STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
+ * @param a 
+ * @param b 
+ * @return 
+ */
 NSCAPI::nagiosReturn NSCHelper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b)
 {
 	if (a == NSCAPI::returnCRIT || b == NSCAPI::returnCRIT)
@@ -259,16 +317,8 @@ NSCAPI::nagiosReturn NSCHelper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosR
 		return NSCAPI::returnOK;
 	else if (a == NSCAPI::returnUNKNOWN || b == NSCAPI::returnUNKNOWN)
 		return NSCAPI::returnUNKNOWN;
-	/*
-	else if (a == STATE_DEPENDENT || b == STATE_DEPENDENT)
-	return STATE_DEPENDENT;
-	*/
-	//		else
-	throw "undefined state";
-	//			return max (a, b);
+	return NSCAPI::returnUNKNOWN;
 }
-
-
 /**
  * Retrieve the application name (in human readable format) from the core.
  * @return A string representing the application name.
@@ -318,9 +368,6 @@ std::string NSCModuleHelper::getApplicationVersionString() {
 	return ret;
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Module helper functions
-//////////////////////////////////////////////////////////////////////////
 namespace NSCModuleWrapper {
 	HINSTANCE hModule_ = NULL;
 }
@@ -416,10 +463,14 @@ NSCAPI::boolReturn NSCModuleWrapper::wrapHasMessageHandler(bool has) {
 }
 /**
  * Wrap the HandleCommand call
- * @param retStr The string to return to the core
- * @param *returnBuffer A buffer to copy the return string to
- * @param returnBufferLen length of returnBuffer
- * @return copy status or NSCAPI::isfalse if retStr is empty
+ * @param retResult The returned result
+ * @param retMessage The returned message
+ * @param retPerformance The returned performance data
+ * @param *returnBufferMessage The return message buffer
+ * @param returnBufferMessageLen The return message buffer length
+ * @param *returnBufferPerf The return perfomance data buffer
+ * @param returnBufferPerfLen The return perfomance data buffer length
+ * @return the return code
  */
 NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string retMessage, const std::string retPerformance, char *returnBufferMessage, unsigned int returnBufferMessageLen, char *returnBufferPerf, unsigned int returnBufferPerfLen) {
 	if (retMessage.empty())

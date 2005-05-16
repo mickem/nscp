@@ -62,6 +62,27 @@ NSCModuleWrapper::module_version NSClientListener::getModuleVersion() {
 	return version;
 }
 
+/**
+* Main command parser and delegator.
+* This also handles a lot of the simpler responses (though some are deferred to other helper functions)
+*
+#define REQ_CLIENTVERSION	1	// Works fine!
+#define REQ_CPULOAD		2	// Quirks
+- Needs settings for default buffer size (backlog) and possibly other things.
+- Buffer needs to be synced with the client (don't know the size of that)
+- I think the idea was that the buffer would recursive to make a smaller memory footprint.
+(ie. the first level buffer have samples from every second, next level samples from every minute, next level hours etc...)
+(and I don't know the status of this, doesn't seem to be that way)
+#define REQ_UPTIME			3	// Works fine!
+#define REQ_USEDDISKSPACE	4	// Works fine!
+#define REQ_SERVICESTATE	5	// Works fine!
+#define REQ_PROCSTATE		6	// Works fine!
+#define REQ_MEMUSE			7	// Works fine!
+//#define REQ_COUNTER		8	// ! - not implemented Have to look at this, if anyone has a sample let me know...
+//#define REQ_FILEAGE		9	// ! - not implemented Don't know how to use
+//#define REQ_INSTANCES	10	// ! - not implemented Don't know how to use
+*
+*/
 
 std::string NSClientListener::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');

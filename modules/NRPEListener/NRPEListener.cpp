@@ -37,8 +37,9 @@ bool NRPEListener::loadModule() {
 		}
 		if (t.first.empty() || t.second.empty()) {
 			NSC_LOG_ERROR_STD("Invalid command definition: " + (*it));
-		} else
-			addCommand(t.first, t.second);
+		} else {
+			addCommand(t.first.c_str(), t.second);
+		}
 	}
 
 	allowedHosts.setAllowedHosts(strEx::splitEx(NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOWED, NRPE_SETTINGS_ALLOWED_DEFAULT), ","));
@@ -95,7 +96,7 @@ bool NRPEListener::hasMessageHandler() {
 }
 
 
-NSCAPI::nagiosReturn NRPEListener::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
+NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	commandList::iterator it = commands.find(command);
 	if (it == commands.end())
 		return NSCAPI::returnIgnored;

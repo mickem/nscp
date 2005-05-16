@@ -83,7 +83,7 @@ std::string CheckSystem::getModuleName() {
  * @return module version
  */
 NSCModuleWrapper::module_version CheckSystem::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 0, 1 };
+	NSCModuleWrapper::module_version version = {0, 3, 0 };
 	return version;
 }
 /**
@@ -112,21 +112,21 @@ bool CheckSystem::hasMessageHandler() {
  * @param **args 
  * @return 
  */
-NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
+NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	std::list<std::string> stl_args;
 	CheckSystem::returnBundle rb;
 	if (command == "checkCPU") {
-		return checkCPU(command, argLen, char_args, msg, perf);
+		return checkCPU(argLen, char_args, msg, perf);
 	} else if (command == "checkUpTime") {
-		return checkUpTime(command, argLen, char_args, msg, perf);
+		return checkUpTime(argLen, char_args, msg, perf);
 	} else if (command == "checkServiceState") {
-		return checkServiceState(command, argLen, char_args, msg, perf);
+		return checkServiceState(argLen, char_args, msg, perf);
 	} else if (command == "checkProcState") {
-		return checkProcState(command, argLen, char_args, msg, perf);
+		return checkProcState(argLen, char_args, msg, perf);
 	} else if (command == "checkMem") {
-		return checkMem(command, argLen, char_args, msg, perf);
+		return checkMem(argLen, char_args, msg, perf);
 	} else if (command == "checkCounter") {
-		return checkCounter(command, argLen, char_args, msg, perf);
+		return checkCounter(argLen, char_args, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -134,7 +134,7 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::string command, const
 // checkCPU warn=80 crit=90 time=20m time=10s time=4
 // checkCPU warn=80 crit=90 time=20m time=10s time=4 showAll
 // checkCPU 20 10 4 nsclient
-NSCAPI::nagiosReturn CheckSystem::checkCPU(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) 
+NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) 
 {
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
@@ -207,7 +207,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const std::string command, const unsi
 
 // checkUpTime crit=1d warn=6h
 // checkUpTime nsclient
-NSCAPI::nagiosReturn CheckSystem::checkUpTime(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
+NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
@@ -233,7 +233,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const std::string command, const u
 	}
 	PDHCollector *pObject = pdhThread.getThread();
 	assert(pObject);
-	long long uptime = pObject->getUptime();
+	unsigned long long uptime = pObject->getUptime();
 	if (bNSCLientCompatible) {
 		msg = strEx::itos(uptime);
 		return NSCAPI::returnOK;
@@ -269,10 +269,14 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const std::string command, const u
  * checkServiceState showAll myService MyService
  *</pre>
  *
- * @param args 
- * @return 
+ * @param command Command to execute
+ * @param argLen The length of the argument buffer
+ * @param **char_args The argument buffer
+ * @param &msg String to put message in
+ * @param &perf String to put performance data in 
+ * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::checkServiceState(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
+NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
@@ -329,8 +333,18 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const std::string command, c
 }
 
 
-// checkMem showAll maxWarn=50 maxCrit=75
-NSCAPI::nagiosReturn CheckSystem::checkMem(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
+/**
+ * Check availible memory and return various check results
+ * Example: checkMem showAll maxWarn=50 maxCrit=75
+ *
+ * @param command Command to execute
+ * @param argLen The length of the argument buffer
+ * @param **char_args The argument buffer
+ * @param &msg String to put message in
+ * @param &perf String to put performance data in 
+ * @return The status of the command
+ */
+NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
@@ -342,8 +356,8 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const std::string command, const unsi
 	bool bShowAll = false;
 	bool bNSCLientCompatible = false;
 
-	checkHolders::SizeMaxMin warn;
-	checkHolders::SizeMaxMin crit;
+	checkHolders::SizeMaxMinPercentage<> warn;
+	checkHolders::SizeMaxMinPercentage<> crit;
 
 	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
 		strEx::token t = strEx::getToken((*it), '=');
@@ -389,11 +403,13 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const std::string command, const unsi
 		} else if (bShowAll) {
 			tStr = "page: " + strEx::itos_as_BKMG(pageCommit);
 		}
-		perf += checkHolders::SizeMaxMin::printPerf("page", pageCommit, pageCommitLimit, warn, crit);
+		perf += checkHolders::SizeMaxMinPercentage<>::printPerf("page", pageCommit, pageCommitLimit, warn, crit);
 		msg += tStr;
 	}
 	if (msg.empty())
-		msg ="Memory ok.";
+		msg = "OK memory within bounds.";
+	else
+		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 
@@ -418,7 +434,17 @@ NSPROCLST GetProcessList(int processMethod)
 	return ret;
 }
 
-NSCAPI::nagiosReturn CheckSystem::checkProcState(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
+/**
+ * Check process state and return result
+ *
+ * @param command Command to execute
+ * @param argLen The length of the argument buffer
+ * @param **char_args The argument buffer
+ * @param &msg String to put message in
+ * @param &perf String to put performance data in 
+ * @return The status of the command
+ */
+NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
@@ -481,17 +507,32 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const std::string command, cons
 	return ret;
 }
 
-NSCAPI::nagiosReturn CheckSystem::checkCounter(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
+/**
+ * Check a counter and return the value
+ *
+ * @param command Command to execute
+ * @param argLen The length of the argument buffer
+ * @param **char_args The argument buffer
+ * @param &msg String to put message in
+ * @param &perf String to put performance data in 
+ * @return The status of the command
+ *
+ * @todo add parsing support for NRPE
+ */
+NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::list<std::string> counters;
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
+	std::list<std::pair<std::string,std::string> > counters;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
 	bool bNSCLientCompatible = false;
+
+	checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> > warn;
+	checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> > crit;
 
 	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
 		strEx::token t = strEx::getToken((*it), '=');
@@ -499,24 +540,65 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const std::string command, const 
 			bShowAll = true;
 		else if (t.first == SHOW_FAIL)  {
 			bShowAll = false;
+		} else if (t.first == "MaxWarn") {
+			warn.max.set(t.second);
+		} else if (t.first == "MinWarn") {
+			warn.min.set(t.second);
+		} else if (t.first == "MaxCrit") {
+			crit.max.set(t.second);
+		} else if (t.first == "MinCrit") {
+			crit.min.set(t.second);
 		} else if (t.first == NSCLIENT) {
 			bNSCLientCompatible = true;
-		} else if (t.first == "counter") {
-			counters.push_back(t.second);
+		} else if (t.first == "Counter") {
+			counters.push_back(std::pair<std::string,std::string>("",t.second));
+		} else if (t.first.find(":") != std::string::npos) {
+			std::pair<std::string,std::string> t2 = strEx::split(t.first,":");
+			if (t2.first == "Counter") {
+				counters.push_back(std::pair<std::string,std::string>(t2.second,t.second));
+			} else {
+				msg = "Unknown command: " + t.first;
+				return NSCAPI::returnUNKNOWN;
+			}
 		} else {
-			counters.push_back(t.first);
+			counters.push_back(std::pair<std::string,std::string>("",t.first));
 		}
 	}
 
-	for (std::list<std::string>::iterator it = counters.begin(); it != counters.end(); ++it) {
+	for (std::list<std::pair<std::string,std::string> >::iterator it = counters.begin(); it != counters.end(); ++it) {
 		try {
 			try {
 				PDH::PDHQuery pdh;
 				PDHCollectors::StaticPDHCounterListener counter;
-				pdh.addCounter((*it), &counter);
+				pdh.addCounter((*it).second, &counter);
 				pdh.open();
 				pdh.collect();
-				msg += strEx::itos(counter.getValue());
+				std::string name = (*it).first;
+				if (name.empty())
+					name = (*it).second;
+				if (bNSCLientCompatible) {
+					msg += strEx::itos(counter.getValue());
+				} else {
+					std::string tStr;
+					if (crit.max.hasBounds() && crit.max.checkMAX(counter.getValue())) {
+						tStr = crit.max.prettyPrint(name, counter.getValue()) + " > critical";
+						NSCHelper::escalteReturnCodeToCRIT(returnCode);
+					} else if (crit.min.hasBounds() && crit.min.checkMIN(counter.getValue())) {
+						tStr = crit.min.prettyPrint(name, counter.getValue()) + " < critical";
+						NSCHelper::escalteReturnCodeToCRIT(returnCode);
+					} else if (warn.max.hasBounds() && warn.max.checkMAX(counter.getValue())) {
+						tStr = warn.max.prettyPrint(name, counter.getValue()) + " > warning";
+						NSCHelper::escalteReturnCodeToWARN(returnCode);
+					} else if (warn.min.hasBounds() && warn.min.checkMIN(counter.getValue())) {
+						tStr = warn.min.prettyPrint(name, counter.getValue()) + " < warning";
+						NSCHelper::escalteReturnCodeToWARN(returnCode);
+					} else if (bShowAll) {
+						tStr = name + ": " + strEx::itos(counter.getValue());
+					}
+					perf += checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> >::printPerf(name, counter.getValue(), warn, crit);
+					msg += tStr;
+				}
+
 				pdh.close();
 			} catch (const PDH::PDHException &e) {
 				NSC_LOG_ERROR_STD("ERROR: " + e.str_);
@@ -530,8 +612,10 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const std::string command, const 
 		}
 	}
 	if (msg.empty())
-		msg ="uhmm...";
-	return ret;
+		msg = "OK all counters within bounds.";
+	else
+		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
+	return returnCode;
 }
 NSC_WRAPPERS_MAIN_DEF(gNSClientCompat);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

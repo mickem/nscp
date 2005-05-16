@@ -41,7 +41,7 @@ public:
 	/**
 	 *
 	 * @param file DLL filename (for which the exception is thrown)
-	 * @param error An error message (human readable format)
+	 * @param sError An error message (human readable format)
 	 * @param nError Error code to be appended at the end of the string
 	 * @todo Change this to be some form of standard error code and merge with above.
 	 */

@@ -1,0 +1,187 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>About NSClient++</title>
+<link rel="stylesheet" type="text/css" href="nscplus.css">
+</head>
+
+<body>
+<div id="content" class="documentContent">
+<h1>About NSClient++</h1>
+<p>NSClient++ (or nscp as I tend to call it nowadays) aims to be a simple yet powerful 
+and secure monitoring daemon for windows operating systems. It is built for Nagios 
+but nothing in the daemon is actually Nagios specific and could probably with little 
+or no change be integrated in any monitoring software that supports running user 
+tools for polling.</p>
+<p>The structure of the daemon is a simple NT service that loads a plug-ins to an 
+internal stack. The plug-ins can then request data (poll performance data) from 
+the other plug-ins through the internal stack. As of now there are a few plug-ins 
+for basic performance data collection. </p>
+<p>NSClient++ can be extended in two ways you can either write your own plug-in 
+to or you can execute an external script (as of now batch/exe/*). Writing your own 
+plug-in is of course the most powerful way but requires knowledge of C++ or other 
+language which can produce DLLs and interface with regular C programs.</p>
+<h1>News</h1>
+<table id="table17"   border="0" cellspacing="0" cellpadding="0" class="MsoNormalTable" >
+	<tr>
+		<td>2005-05-14</td>
+		<td>New webpage is created and semi updated.</td>
+	</tr>
+</table>
+<h1>Download</h1>
+<p>NSClient can be found at its source forge page
+<a href="http://nscplus.sf.net" target="_top">http://nscplus.sf.net</a></p>
+<p>Latest version is <a href="http://prdownloads.sourceforge.net/nscplus/NSClient++-0.1.0-a2.zip?download">NSClient++ 0.1.0 Alpha 2.zip</a> </p>
+<h1>Modules</h1>
+<p>NSClient++ comes with a few modules out of the box that does various checks. 
+A list of the modules and there potential use is listed below here click each plug-in 
+to see detailed command descriptions and how the various modules can be used.</p>
+<table id="table16"   border="0" cellspacing="0" cellpadding="0" class="MsoNormalTable" >
+	<tr>
+		<td width="221" colspan="2"><b><a href="CheckDisk/index.html">CheckDisk</a></b></td>
+		<td>Module to do various disk related checks</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">
+		<span>CheckFileSize</span></td>
+		<td>Check the size of a file</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">
+		<span>CheckDriveSize</span></td>
+		<td>Check the size of a fixed drive or mounted volume</td>
+	</tr>
+	<tr>
+		<td width="221" colspan="2">
+		<b>
+		<span>
+		<a href="CheckEventLog/index.html">CheckEventLog</a></span></b></td>
+		<td>Module to check event log</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">
+		<span>CheckEventLog</span></td>
+		<td>Check event log for errors</td>
+	</tr>
+	<tr>
+		<td width="221" colspan="2"><b><a href="CheckSystem/index.html">CheckSystem</a></b></td>
+		<td>Module to check system related things</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckCPU</td>
+		<td>Check CPU load averages</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckUpTime</td>
+		<td>Check system uptime</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckServiceState</td>
+		<td>Check State of a service</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckProcState</td>
+		<td>Check state of a process (application)</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckMem</td>
+		<td>Check state of memory (Page file)</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckCounter</td>
+		<td>Check performance counters</td>
+	</tr>
+	<tr>
+		<td width="221" colspan="2"><b><a href="CheckHelpers/index.html">CheckHelpers</a></b></td>
+		<td>Various helper function, doesn't check anything it it self but can 
+		help make things simpler.</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckAlwaysOK</td>
+		<td>Runs another check and always returns OK regardless of result.</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckAlwaysCRITICAL</td>
+		<td>Runs another check and always returns CRITICAL regardless of result.</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckAlwaysWARNING</td>
+		<td>Runs another check and always returns WARNING regardless of result.</td>
+	</tr>
+	<tr>
+		<td width="67">&nbsp;</td>
+		<td width="146">CheckMultiple</td>
+		<td>Runs multiple checks and returns them all in one go.</td>
+	</tr>
+	<tr>
+		<td width="221" colspan="2"><b><a href="FileLogger/index.html">FileLogger</a></b></td>
+		<td>Logs all messages (errors, warnings etc) to a file.</td>
+	</tr>
+	<tr>
+		<td width="221" colspan="2"><b><a href="NRPEListener/index.html">NRPEListener</a></b></td>
+		<td>Listens for incoming NRPE calls and handles them by injecting them 
+		into the core. It also listens for all NRPE definitions and executes them</td>
+	</tr>
+	<tr>
+		<td width="221" colspan="2"><b><a href="NSClientListener/index.html">NSClientListener</a></b></td>
+		<td>Listens for incoming NSClient calls and handles them accordingly. This 
+		only allows a limited subset of functionality and NRPE is recommended.</td>
+	</tr>
+	<tr>
+		<td width="221" colspan="2"><b><a href="SysTray/index.html">SysTray</a></b></td>
+		<td>
+		<p>A simple module to show an icon in the tray when the service is running 
+		this module does not export any check commands.</p>
+		</td>
+	</tr>
+</table>
+<h1>Installation</h1>
+<p>NSClient++ comes with simple command line option for registering (and deregistering) 
+the service but it does not have a GUI installer.</p>
+<p>Thus to install the Client you only need to copy the files to a directory of 
+you choice and then run “NSClient /install”.</p>
+<p>Before you start NSClient++ you need to configure the client this is done by 
+editing the configuration file (NSC.ini). The configuration file is a simple text 
+file and is explained in detail under Configuration. The files needed by 
+NSClient++ varies but mainly the exe and DLL:s in the NSClient++ root are 
+required as well as all the modules you plan to use from the modules 
+subdirectory (/modules/*). The configuration file (NSC.ini) is technically not 
+required as all settings have default values but generally you will need this 
+file as well.</p>
+<p>&nbsp;</p>
+<p>To <b>install</b> NSClient++ execute the following command:</p>
+<p><i>NSClient++ /install</i></p>
+<p>To <b>uninstall</b> NSClient++ execute the following command:</p>
+<p><i>NSClient++ /uninstall</i></p>
+<p>To <b>start</b> NSClient++ execute the following command:</p>
+<p><i>NSClient++ /start</i></p>
+<p>To <b>stop</b> NSClient++ execute the following command:</p>
+<p><i>NSClient++ /stop</i></p>
+<p>&nbsp;</p>
+<p>If you only wish to test it or debug the client you can use the following without 
+installing it first.</p>
+<p><i>NSClient++ /test</i></p>
+<h1>Configuration</h1>
+<p>Configuration is fairly simple and straight forward. Open the configuration file 
+in notepad (or you favorite editor) “notepad &lt;installation path&gt;\NSC.ini” and edit 
+it accordingly. </p>
+<p>A longer description of the Configuration file is included in the 
+following <a href="Configuration/index.html">page</a>.</p>
+
+</div>
+</body>
+
+</html>

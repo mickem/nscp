@@ -3,11 +3,11 @@
 #include <arrayBuffer.h>
 
 /**
-* Make a list out of a array of char arrays (arguments type)
-* @param argLen Length of argument array
-* @param *argument[] Argument array
-* @return Argument wrapped as a list
-*/
+ * Make a list out of a array of char arrays (arguments type)
+ * @param argLen Length of argument array
+ * @param *argument[] Argument array
+ * @return Argument wrapped as a list
+ */
 arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, char *argument[]) {
 	arrayList ret;
 	int i=0;
@@ -48,9 +48,6 @@ char ** arrayBuffer::createEmptyArrayBuffer(unsigned int &argLen) {
 	char **arrayBuffer = new char*[0];
 	return arrayBuffer;
 }
-
-
-
 /**
 * Joins an arrayBuffer back into a string
 * @param **argument The ArrayBuffer
@@ -68,7 +65,7 @@ std::string arrayBuffer::arrayBuffer2string(char **argument, const unsigned int 
 	return ret;
 }
 /**
-* Split a string into elements as an arrayBuffer
+* Split a string into elements as a newly created arrayBuffer
 * @param buffer The CharArray to split along
 * @param splitChar The char to use as splitter
 * @param &argLen [OUT] The length of the Array
@@ -99,6 +96,13 @@ char ** arrayBuffer::split2arrayBuffer(const char* buffer, char splitChar, unsig
 	}
 	return arrayBuffer;
 }
+/**
+ * Split a string into elements as a newly created arrayBuffer
+ * @param inBuf The CharArray to split along
+ * @param splitChar The char to use as splitter
+ * @param &argLen [OUT] The length of the Array
+ * @return The arrayBuffer
+ */
 char ** arrayBuffer::split2arrayBuffer(const std::string inBuf, char splitChar, unsigned int &argLen) {
 	if (inBuf.empty())
 		return createEmptyArrayBuffer(argLen);
@@ -143,6 +147,9 @@ void arrayBuffer::destroyArrayBuffer(char **argument, const unsigned int argLen)
 
 
 #ifdef _DEBUG
+/**
+ * Test function for createEmptyArrayBuffer
+ */
 void arrayBuffer::test_createEmptyArrayBuffer() {
 	std::cout << "arrayBuffer::test_createEmptyArrayBuffer() : ";
 	unsigned int argLen;
@@ -153,6 +160,12 @@ void arrayBuffer::test_createEmptyArrayBuffer() {
 		std::cout << "Failed" << std::endl;
 	destroyArrayBuffer(c, argLen);
 }
+/**
+ * Test function for split2arrayBuffer
+ * @param buffer 
+ * @param splitter 
+ * @param OUT_argLen 
+ */
 void arrayBuffer::test_split2arrayBuffer_str(std::string buffer, char splitter, int OUT_argLen) {
 	std::cout << "arrayBuffer::test_split2arrayBuffer(" << buffer << ", ...) : ";
 	unsigned int argLen = 0;
@@ -163,6 +176,12 @@ void arrayBuffer::test_split2arrayBuffer_str(std::string buffer, char splitter, 
 		std::cout << "Failed |" << argLen << "=" << OUT_argLen << "]" << std::endl;
 	destroyArrayBuffer(c, argLen);
 }
+/**
+ * Test function for split2arrayBuffer
+ * @param buffer 
+ * @param splitter 
+ * @param OUT_argLen 
+ */
 void arrayBuffer::test_split2arrayBuffer_char(char* buffer, char splitter, int OUT_argLen) {
 	std::cout << "arrayBuffer::test_split2arrayBuffer(" << buffer << ", ...) : ";
 	unsigned int argLen = 0;
@@ -174,6 +193,9 @@ void arrayBuffer::test_split2arrayBuffer_char(char* buffer, char splitter, int O
 	destroyArrayBuffer(c, argLen);
 }
 
+/**
+ * Test function for ArrayBuffer
+ */
 void arrayBuffer::run_testArrayBuffer() {
 	test_createEmptyArrayBuffer();
 	test_split2arrayBuffer_str("", '&', 0);
@@ -194,5 +216,4 @@ void arrayBuffer::run_testArrayBuffer() {
 	test_split2arrayBuffer_char("foo&bar&test", '&', 3);
 	test_split2arrayBuffer_char("foo&&&", '&', 4);
 }
-
 #endif

@@ -56,19 +56,6 @@ namespace NSCHelper
 		return code;
 	}
 #endif
-
-/*
-	inline void escalteReturnCode(NSCAPI::nagiosReturn &currentReturnCode, NSCAPI::nagiosReturn newReturnCode) {
-		if (newReturnCode == NSCAPI::returnCRIT)
-			currentReturnCode = NSCAPI::returnCRIT;
-		else if ((newReturnCode == NSCAPI::returnWARN) && (currentReturnCode != NSCAPI::returnCRIT) )
-			currentReturnCode = NSCAPI::returnWARN;
-		else if ((newReturnCode == NSCAPI::returnUNKNOWN) 
-			&& (currentReturnCode != NSCAPI::returnCRIT) 
-			&& (currentReturnCode != NSCAPI::returnWARN) )
-			currentReturnCode = NSCAPI::returnUNKNOWN;
-	}
-	*/
 	inline void escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode) {
 		currentReturnCode = NSCAPI::returnCRIT;
 	}

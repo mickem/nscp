@@ -295,7 +295,7 @@ void buildQury(searchQuery &query, std::list<std::string> args) {
 // CheckEventLog&Application&warn.require.eventType=warning&critical.require.eventType=error&truncate=1024&descriptions&all.exclude.eventSourceRegexp=^(Win|Msi|NSClient\+\+|Userenv|ASP\.NET|LoadPerf|Outlook|Application E|NSClient).*
 #define BUFFER_SIZE 1024*64
 
-NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
+NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	if (command != "CheckEventLog")
 		return NSCAPI::returnIgnored;
 	NSCAPI::nagiosReturn rCode = NSCAPI::returnOK;
