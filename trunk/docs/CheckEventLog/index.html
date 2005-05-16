@@ -1,0 +1,62 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>CheckEventLog</title>
+<link rel="stylesheet" type="text/css" href="../nscplus.css">
+</head>
+
+<body>
+
+<div id="content" class="documentContent">
+	<h1>CheckEventLog.dll</h1>
+	<p>Simple module to check for errors in the system event log. This module is 
+	in an early stage and feedback would be appreciated.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table1">
+		<tr>
+			<th width="134" valign="top">Command </th>
+			<th width="473" valign="top">Description </th>
+		</tr>
+		<tr>
+			<td width="134" valign="top">CheckEventLog </td>
+			<td width="473" valign="top">Check for errors in the event log. </td>
+		</tr>
+	</table>
+	<h2>Configuration</h2>
+	<p><i>This module has no configuration directives.</i></p>
+	<h2>CheckEventLog</h2>
+	<p>Yet to be written</p>
+	<p>A quick introduction though:</p>
+	<p>First option is the logfile to parse. (Application, System etc)</p>
+	<p>Options have the following format.</p>
+	<p>warn.require.eventType=warning</p>
+	<p>&lt;alert&gt;.&lt;action&gt;.&lt;key&gt;=&lt;value&gt;</p>
+	<p>Where “alert” is either warning or critical or all depending on the type 
+	of alert to generate if this rule is matched.</p>
+	<p>Where action is either require or exclude depending on if the options should 
+	be required by the state (if this rule is needed to generate an alert) or excluded 
+	(if the rule is matched the alert cannot be generated).</p>
+	<p>Where key is one of the following value:</p>
+	<p>eventType</p>
+	<p>eventSource</p>
+	<p>eventSourceRegexp</p>
+	<p>generatedBeforeDelta</p>
+	<p>generatedAfterDelta</p>
+	<p>writtenBeforeDelta</p>
+	<p>writtenAfterDelta</p>
+	<p>regexp</p>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Sample eventlog check command:</p>
+			<p><code>Application critical.require.eventType=error truncate=1024 descriptions all.exclude.eventSourceRegexp=^(Win|Msi|NSClient\+\+|Userenv|ASP\.NET|).*</code></p>
+			<p><code>CRITICAL: MSDTC - MSDTC [0, 0, 0, 0, 0, 0, ] - </code></p>
+			</li>
+		</ul>
+	</div>
+</div>
+
+</body>
+
+</html>

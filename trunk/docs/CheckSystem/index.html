@@ -1,0 +1,367 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>CheckSystem</title>
+<link rel="stylesheet" type="text/css" href="../nscplus.css">
+</head>
+
+<body>
+
+<div id="content" class="documentContent">
+	<h1>CheckSystem.dll</h1>
+	<p>A module to check various system related things. A list of the modules and 
+	there potential use is listed below here.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table11">
+		<tr>
+			<td valign="top">Command</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckCPU</td>
+			<td valign="top">Check CPU load</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckUpTime</td>
+			<td valign="top">Check system uptime</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckServiceState</td>
+			<td valign="top">Check state of a service</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckProcState</td>
+			<td valign="top">Check state of a process</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckMem</td>
+			<td valign="top">Check memory usage (page)</td>
+		</tr>
+	</table>
+	<h2>Configuration</h2>
+	<p>This module needs configuration as PDH counters are version and language 
+	specific. This means that unless you use an English language windows 2000 you 
+	will most likely have to edit this. There is also some other tweks that can 
+	be configured such as check resolution and buffer size. For more details on 
+	how to configure this refer to the Configuration section.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table20">
+		<tr>
+			<td valign="top">Option</td>
+			<td valign="top">Default value</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">CPUBufferSize</td>
+			<td valign="top">1h</td>
+			<td valign="top">The time to store CPU load.</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckResolution</td>
+			<td valign="top">10</td>
+			<td valign="top">Time between checks in 1/10 of seconds.</td>
+		</tr>
+		<tr>
+			<td valign="top">CounterPageLimit</td>
+			<td valign="top">\\\\.\\Memory\\Commit Limit</td>
+			<td valign="top">Counter to use to check upper memory limit.</td>
+		</tr>
+		<tr>
+			<td valign="top">CounterPage</td>
+			<td valign="top">\\\\.\\Memory\\Committed Bytes</td>
+			<td valign="top">Counter to use to check current memory usage.</td>
+		</tr>
+		<tr>
+			<td valign="top">CounterUptime</td>
+			<td valign="top">\\\\.\\System\\System Up Time</td>
+			<td valign="top">Counter to use to check the uptime of the system.</td>
+		</tr>
+		<tr>
+			<td valign="top">CounterCPU</td>
+			<td valign="top">\\\\.\\Processor(_total)\\% Processor Time</td>
+			<td valign="top">Counter to use for CPU load.</td>
+		</tr>
+	</table>
+	<h2>CheckCPU</h2>
+	<p>This check calculates an average of CPU usage for a specified period of time. 
+	The data is always collected in the background and the size and interval is 
+	configured from the <span lang="EN-US">CPUBufferSize and CheckResolution options.
+	</span>A request has one or more options described in the table below. </p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table12">
+		<tr>
+			<td valign="top">Option</td>
+			<td valign="top">Values</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">warn</td>
+			<td valign="top">load in %</td>
+			<td valign="top">Load to go above to generate a warning.</td>
+		</tr>
+		<tr>
+			<td valign="top">crit</td>
+			<td valign="top">load in %</td>
+			<td valign="top">Load to go above to generate a critical state.</td>
+		</tr>
+		<tr>
+			<td valign="top">time</td>
+			<td valign="top">time</td>
+			<td valign="top">The time to calculate average over.</td>
+		</tr>
+		<tr>
+			<td valign="top">nsclient</td>
+			<td valign="top">&nbsp;</td>
+			<td valign="top">Flag to make the plug in run in NSClient compatibility 
+			mode</td>
+		</tr>
+	</table>
+	<p>Time can use any of the following postfixes. w=week, d=day, h=hour, m=minute 
+	and s=second.</p>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Check that the CPU load for various times is below 80%:</p>
+			<p><code>checkCPU warn=80 crit=90 time=20m time=10s time=4</code></p>
+			<p><code>CPU Load ok.|&#39;20m average&#39;=11%;80;90; &#39;10s average&#39;=7%;80;90; 
+			&#39;4 average&#39;=10%;80;90;</code></p>
+			</li>
+		</ul>
+	</div>
+	<h2>CheckUpTime</h2>
+	<p>This check checks the uptime of a server and if the time is less then the 
+	times given as arguments a state is returned.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table13">
+		<tr>
+			<td valign="top">Option</td>
+			<td valign="top">Values</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">warn</td>
+			<td valign="top">time</td>
+			<td valign="top">Minimum uptime time to not generate a warning state.</td>
+		</tr>
+		<tr>
+			<td valign="top">crit</td>
+			<td valign="top">time</td>
+			<td valign="top">Minimum uptime time to not generate a critical state.</td>
+		</tr>
+		<tr>
+			<td valign="top">nsclient</td>
+			<td valign="top">&nbsp;</td>
+			<td valign="top">Flag to make the plug in run in NSClient compatibility 
+			mode</td>
+		</tr>
+	</table>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Check that the system has been running for atleast a day:</p>
+			<p><code>checkUpTime warn=1d crit=12h</code></p>
+			<p><code>Client has uptime (19h) &lt; warning (24h)</code></p>
+			</li>
+		</ul>
+	</div>
+	<p></p>
+	<h2>CheckServiceState</h2>
+	<p>This check checks the state of one or more service on the system and generates 
+	a critical state if any service is not in the required state.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table14">
+		<tr>
+			<td valign="top">Option</td>
+			<td valign="top">Values</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">ShowAll</td>
+			<td valign="top">&nbsp;</td>
+			<td valign="top">A flag to toggle if all service states should be listed.</td>
+		</tr>
+		<tr>
+			<td valign="top">ShowFail</td>
+			<td valign="top">(default)</td>
+			<td valign="top">A flag to indicate if only failed service states should 
+			be listed.</td>
+		</tr>
+		<tr>
+			<td valign="top">service=state</td>
+			<td valign="top">&nbsp;</td>
+			<td valign="top">A service name and a state the service should have. 
+			The state can be either started or stopped. If no state is given started 
+			is assumed.</td>
+		</tr>
+	</table>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Check that myService is running and that MyStoppedService is not 
+			running:</p>
+			<p><code>checkServiceState ShowAll myService MyStoppedService=stopped</code></p>
+			<p><code>myService : Running - MyStoppedService : Stopped</code></p>
+			</li>
+		</ul>
+	</div>
+	<h2>CheckProcState</h2>
+	<p>This check checks the state of one or more processes on the system and generates 
+	a critical state if any process is not in the required state </p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table15">
+		<tr>
+			<td valign="top">Option</td>
+			<td valign="top">Values</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">ShowAll</td>
+			<td valign="top">&nbsp;</td>
+			<td valign="top">A flag to toggle if all process states should be listed.</td>
+		</tr>
+		<tr>
+			<td valign="top">ShowFail</td>
+			<td valign="top">(default)</td>
+			<td valign="top">A flag to indicate if only failed process states should 
+			be listed.</td>
+		</tr>
+		<tr>
+			<td valign="top">process=state</td>
+			<td valign="top">&nbsp;</td>
+			<td valign="top">A process name and a state the process should have. 
+			The state can be either started or stopped. If no state is given started 
+			is assumed. The name is the name of the executable.</td>
+		</tr>
+	</table>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Check that quake.exe is not running and NSClient++.exe is running:</p>
+			<p><code>checkProcState ShowAll quake.exe=stopped NSClient++.exe=started</code></p>
+			<p><code>quake.exe : Stopped - NSClient++.exe : Running</code></p>
+			</li>
+			<li>
+			<p>Check that quake.exe is not running and my.exe and NSClient++.exe 
+			is running and only show problems:</p>
+			<p><code>checkProcState my.exe quake.exe=stopped NSClient++.exe=started</code></p>
+			<p><code>my.exe : Stopped</code></p>
+			</li>
+		</ul>
+	</div>
+	<h2>CheckMem</h2>
+	<p>This check checks the memory (page) usage and generates a state if the memory 
+	is above or below give parameters.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table16">
+		<tr>
+			<td valign="top">Option</td>
+			<td valign="top">Values</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">MaxWarn</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The maximum size allowed before a warning state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">MaxCrit</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The maximum size allowed before a critical state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">MinWarn</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The minimum size allowed before a warning state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">MinCrit</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The minimum size allowed before a critical state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">ShowAll</td>
+			<td valign="top"><i>None</i></td>
+			<td valign="top">A Boolean flag to show size even if no state is returned 
+			(?).</td>
+		</tr>
+	</table>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Check that the page is below 80%:</p>
+			<p><code>checkMem MaxWarn=80% MaxCrit=90% ShowAll</code></p>
+			<p><code>OK: page: 758M (795205632B)|page=30% 80%;90%;</code></p>
+			</li>
+		</ul>
+	</div>
+	<h2>CheckCounter</h2>
+	<p>Used to check performance counters. This is probably where most things 
+	can be check as there are a lot of performance counter. To find performance 
+	counters use the program perfmon that is shipped with windows. An important 
+	note is that performance counters are language and version specific.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table16">
+		<tr>
+			<td valign="top">Option</td>
+			<td valign="top">Values</td>
+			<td valign="top">Description</td>
+		</tr>
+		<tr>
+			<td valign="top">MaxWarn</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The maximum size allowed before a warning state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">MaxCrit</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The maximum size allowed before a critical state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">MinWarn</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The minimum size allowed before a warning state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">MinCrit</td>
+			<td valign="top">Size GMKB%</td>
+			<td valign="top">The minimum size allowed before a critical state is 
+			returned.</td>
+		</tr>
+		<tr>
+			<td valign="top">ShowAll</td>
+			<td valign="top"><i>None</i></td>
+			<td valign="top">A Boolean flag to show size even if no state is returned 
+			(?).</td>
+		</tr>
+		<tr>
+			<td valign="top">Counter</td>
+			<td valign="top">Performance Counter</td>
+			<td valign="top">Add a performance counter to this check</td>
+		</tr>
+		<tr>
+			<td valign="top">Counter:&lt;name&gt;</td>
+			<td valign="top">Perfomance Counter</td>
+			<td valign="top">Add a named performance counter. The &lt;name&gt; will be 
+			used as an alias.</td>
+		</tr>
+	</table>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Check that mutex count (on WinXP) is below 500:</p>
+			<p><code>checkCounter "Counter:mutex=\\Objects\\Mutexes" ShowAll MaxWarn=500 MaxCrit=1000</code></p>
+			<p><code>WARNING: mutex: 673 > warning|page=673;500;1000;</code></p>
+			</li>
+		</ul>
+	</div>
+</div>
+
+</body>
+
+</html>
