@@ -1,0 +1,166 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>CheckDisk</title>
+<link rel="stylesheet" type="text/css" href="../nscplus.css">
+</head>
+
+<body>
+
+<div id="content" class="documentContent">
+	<h1>CheckHelpers.dll</h1>
+	<p>The CheckHelpers module has various helper function to alter other checks 
+	in various ways. This module does not check anything by it self.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table4">
+		<tr>
+			<th valign="top">Command </th>
+			<th valign="top">Description </th>
+		</tr>
+		<tr>
+			<td valign="top">CheckAlwaysOK</td>
+			<td valign="top">Alter the retun code of another check to always return 
+			OK.</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckAlwaysCRITICAL</td>
+			<td valign="top">Alter the retun code of another check to always return 
+			CRITICAL.</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckAlwaysWARNING</td>
+			<td valign="top">Alter the retun code of another check to always return 
+			WARNING.</td>
+		</tr>
+		<tr>
+			<td valign="top">CheckMultiple</td>
+			<td valign="top">Runs multiple checks and returns the worsta state. 
+			Usefull for minimizing network traffic and command defenitions.</td>
+		</tr>
+	</table>
+	<h2>Configuration</h2>
+	<p><i>This module has no configuration directives.</i></p>
+	<h2>CheckAlwaysOK</h2>
+	<p>Runs another check and aters the return state to always return OK.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
+		<tr>
+			<th valign="top">Option </th>
+			<th valign="top">Values </th>
+			<th valign="top">Description </th>
+		</tr>
+		<tr>
+			<td valign="top"><i>None</i></td>
+			<td valign="top"><i>None</i></td>
+			<td valign="top"><i>None</i></td>
+		</tr>
+	</table>
+	<p>This command has no options instead everything is inject as a new command. 
+	Notice that this command does not alter the return string so if a check (as 
+	most do) prints WARNING that will still remain, only the return state is altered. 
+	The return state is what Nagios will use to determine state.</p>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Run the sample check from CheckDisk but alter the return state. Notice 
+			that WARNING is still printed, yet Nagios will interpret this as an 
+			OK state.</p>
+			<p><code>CheckAlwaysOK CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M 
+			File:WIN=c:\WINDOWS\*.*</code></p>
+			<p><code>WARNING: WIN: 2G (2325339822B)|WIN=2325339822;1073741824;4294967296</code></p>
+			</li>
+		</ul>
+	</div>
+	<h2>CheckAlwaysCRITICAL</h2>
+	<p>Runs another check and ater the return state to always return CRITICAL.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
+		<tr>
+			<th valign="top">Option </th>
+			<th valign="top">Values </th>
+			<th valign="top">Description </th>
+		</tr>
+		<tr>
+			<td valign="top"><i>None</i></td>
+			<td valign="top"><i>None</i></td>
+			<td valign="top"><i>None</i></td>
+		</tr>
+	</table>
+	<p>This command has no options instead everything is inject as a new command. 
+	Notice that this command does not alter the return string so if a check (as 
+	most do) prints WARNING that will still remain, only the return state is altered. 
+	The return state is what Nagios will use to determine state.</p>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Run the sample check from CheckDisk but alter the return state. Notice 
+			that WARNING is still printed, yet Nagios will interpret this as a critical 
+			state.</p>
+			<p><code>CheckAlwaysCRITICAL CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M 
+			File:WIN=c:\WINDOWS\*.*</code></p>
+			<p><code>WARNING: WIN: 2G (2325339822B)|WIN=2325339822;1073741824;4294967296</code></p>
+			</li>
+		</ul>
+	</div>
+	<h2>CheckAlwaysWARNING</h2>
+	<p>Runs another check and ater the return state to always return WARNING.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
+		<tr>
+			<th valign="top">Option </th>
+			<th valign="top">Values </th>
+			<th valign="top">Description </th>
+		</tr>
+		<tr>
+			<td valign="top"><i>None</i></td>
+			<td valign="top"><i>None</i></td>
+			<td valign="top"><i>None</i></td>
+		</tr>
+	</table>
+	<p>This command has no options instead everything is inject as a new command. 
+	Notice that this command does not alter the return string so if a check (as 
+	most do) prints WARNING that will still remain, only the return state is altered. 
+	The return state is what Nagios will use to determine state.</p>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Run the sample check from CheckDisk but alter the return state. Notice 
+			that WARNING is still printed, yet Nagios will interpret this as an 
+			warning state.</p>
+			<p><code>CheckAlwaysOK CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M 
+			File:WIN=c:\WINDOWS\*.*</code></p>
+			<p><code>WARNING: WIN: 2G (2325339822B)|WIN=2325339822;1073741824;4294967296</code></p>
+			</li>
+		</ul>
+	</div>
+	<h2>CheckMultiple</h2>
+	<p>Runs multiple checks and returns the worst state. It allows you to check an entire system in one go.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
+		<tr>
+			<th valign="top">Option </th>
+			<th valign="top">Values </th>
+			<th valign="top">Description </th>
+		</tr>
+		<tr>
+			<td valign="top">command</td>
+			<td valign="top">The command to run</td>
+			<td valign="top">A command to execute, you can have any number of 
+			this option.</td>
+		</tr>
+	</table>
+	<h3>Examples</h3>
+	<div class="example">
+		<ul>
+			<li>
+			<p>Run two checks (CheckDriveSize and ChEckMeM) and return the worst state. Performance data and 
+			message is collected and concatenated.</p>
+			<p><code>CheckMultiple command=CheckDriveSize MaxWarn=1M MaxCrit=2M Drive=c:\\volumne_test\\ command=ChEckMeM MaxWarn=80% MaxCrit=90%</code></p>
+			<p><code>CRITICAL: c:\volumne_test\: 3M (4193280B) > critical, OK memory within bounds.|c:\volumne_test\=4193280;1024K (1048576B);2M (2097152B); page=31% 80%;90%;</code></p>
+			</li>
+		</ul>
+	</div>
+</div>
+
+</body>
+
+</html>
