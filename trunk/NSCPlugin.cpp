@@ -126,17 +126,17 @@ bool NSCPlugin::hasMessageHandler() {
  * 
  * Plug ins may refuse to handle the plug in (if not applicable) by returning an empty string.
  *
- * @param *command The command name (is a string encoded number for legacy commands)
+ * @param command The command name (is a string encoded number for legacy commands)
  * @param argLen The length of the argument buffer.
  * @param **arguments The arguments for this command
- * @param returnBuffer Return buffer for plug in to store the result of the executed command.
- * @param returnBufferLen Size of the return buffer.
+ * @param returnMessageBuffer Return buffer for plug in to store the result of the executed command.
+ * @param returnMessageBufferLen Size of returnMessageBuffer
+ * @param returnPerfBuffer Return buffer for performance data
+ * @param returnPerfBufferLen Sixe of returnPerfBuffer
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
- *
- * @todo Implement return status as an enum to make it simpler for clients to see potential return stats?
  */
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char *command, const unsigned int argLen, char **arguments, char* returnMessageBuffer, unsigned int returnMessageBufferLen, char* returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char* command, const unsigned int argLen, char **arguments, char* returnMessageBuffer, unsigned int returnMessageBufferLen, char* returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	if (!isLoaded())
 		throw NSPluginException(file_, "Library is not loaded");
 	return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
@@ -149,7 +149,6 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char *command, const unsigne
  * @param file The file that generated this message generally __FILE__.
  * @param line The line in the file that generated the message generally __LINE__
  * @throws NSPluginException if the module is not loaded.
- * @throws 
  */
 void NSCPlugin::handleMessage(int msgType, const char* file, const int line, const char *message) {
 	if (!fHandleMessage)

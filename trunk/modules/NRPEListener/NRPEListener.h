@@ -9,7 +9,7 @@ private:
 	bool bUseSSL_;
 	simpleSSL::Listener socket_ssl_;
 	simpleSocket::Listener<> socket_;
-	typedef std::map<std::string, std::string> commandList;
+	typedef std::map<strEx::blindstr, std::string> commandList;
 	commandList commands;
 	unsigned int timeout;
 	socketHelpers::allowedHosts allowedHosts;
@@ -24,7 +24,7 @@ public:
 	NSCModuleWrapper::module_version getModuleVersion();
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
 
 private:
 	class NRPEException {
@@ -53,7 +53,7 @@ private:
 
 	NRPEPacket handlePacket(NRPEPacket p);
 	int executeNRPECommand(std::string command, std::string &msg, std::string &perf);
-	void addCommand(std::string key, std::string args) {
+	void addCommand(strEx::blindstr key, std::string args) {
 		commands[key] = args;
 	}
 

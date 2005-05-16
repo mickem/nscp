@@ -28,15 +28,15 @@ public:
 	NSCModuleWrapper::module_version getModuleVersion();
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 
 
-	NSCAPI::nagiosReturn checkCPU(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn checkUpTime(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn checkServiceState(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn checkMem(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn checkProcState(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn checkCounter(const std::string command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn checkCPU(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn checkUpTime(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn checkServiceState(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn checkMem(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn checkProcState(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn checkCounter(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 
 
 };

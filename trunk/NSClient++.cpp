@@ -260,8 +260,14 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
 /**
  * Inject a command into the plug-in stack.
  *
- * @param buffer A command string to inject. This should be a unparsed command string such as command&arg1&arg2&arg...
- * @return The result, empty string if no result
+ * @param command Command to inject
+ * @param argLen Length of argument buffer
+ * @param **argument Argument buffer
+ * @param *returnMessageBuffer Message buffer
+ * @param returnMessageBufferLen Length of returnMessageBuffer
+ * @param *returnPerfBuffer Performance data buffer
+ * @param returnPerfBufferLen Length of returnPerfBuffer
+ * @return The command status
  */
 NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	MutexLock lock(pluginMutex);

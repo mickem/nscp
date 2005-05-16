@@ -1,9 +1,21 @@
-2004-04-20 MickeM
+2005-05-15 MickeM
+ + Added NRPE support for checkCounter
+ + Updated documentation
+ * Make check commands ignore case
+ + Added CheckHelpers module to alter the result of various check and similar things 
+
+2005-05-14 MickeM
+ + Added support for Volumes (CheckDisk)
+ + Added support for checking all drives of a certain kind
+ + Added support for altering filter (makes it posible to check removale drives)
+ + Created webpage and better documentation
+
+2005-04-20 MickeM
  + Added multitasking to socket listsner (it can now handle multiple connections)
  * Fixed bug in NSClientListener now "seqv" in check_nt shouldn't happen.
  + Added COUNTER support to NSClient and CheckSystem
 
-2004-04-19 MickeM
+2005-04-19 MickeM
  + Added SSL support
  + Added alot of new options
  + Added documentation

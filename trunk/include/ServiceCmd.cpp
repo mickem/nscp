@@ -66,7 +66,7 @@ namespace serviceControll {
 	/**
 	 * Stars the service.
 	 *
-	 * @param szName 
+	 * @param name The name of the service to start 
 	 *
 	 * @author mickem
 	 *
@@ -111,7 +111,7 @@ namespace serviceControll {
 	/**
 	 * Stops and removes the service
 	 *
-	 * @param szName 
+	 * @param name The name of the service to uninstall 
 	 *
 	 * @author mickem
 	 *
@@ -144,7 +144,7 @@ namespace serviceControll {
 	/**
 	 * Stops the service
 	 *
-	 * @param szName 
+	 * @param name The name of the serive to stop 
 	 *
 	 * @author MickeM
 	 *

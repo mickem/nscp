@@ -97,6 +97,7 @@ public:
 	 * Default c-tor.
 	 * Waits for the mutex object.
 	 * @param hMutex The mutex to use
+	 * @timeout The timeout before abandoning wait
 	 */
 	MutexLock(HANDLE hMutex, DWORD timeout = 5000L) : bHasMutex(false), hMutex_(hMutex) {
 		assert(hMutex_ != NULL);

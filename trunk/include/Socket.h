@@ -225,7 +225,8 @@ namespace simpleSocket {
 	public:
 		Listener() : pHandler_(NULL) {};
 		virtual ~Listener() {
-			std::cout << "Stale process count: " << responderList_.size() << std::endl;
+			if (responderList_.size() > 0)
+				std::cout << "We had stale processes running then the socket closed." << std::endl;
 			// @todo check if we have stale processes here (if so log an error)
 		};
 

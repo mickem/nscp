@@ -37,6 +37,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheckSystem", "modules\Chec
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheckHelpers", "modules\CheckHelpers\CheckHelpers.vcproj", "{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(DPCodeReviewSolutionGUID) = preSolution
 		DPCodeReviewSolutionGUID = {00000000-0000-0000-0000-000000000000}
@@ -95,6 +99,12 @@ Global
 		{2FCAF54B-AAD3-4F59-895A-8F9CEAFDC65D}.Distribution.Build.0 = Distribution|Win32
 		{2FCAF54B-AAD3-4F59-895A-8F9CEAFDC65D}.Release.ActiveCfg = Release|Win32
 		{2FCAF54B-AAD3-4F59-895A-8F9CEAFDC65D}.Release.Build.0 = Release|Win32
+		{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}.Debug.ActiveCfg = Debug|Win32
+		{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}.Debug.Build.0 = Debug|Win32
+		{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}.Distribution.ActiveCfg = Distribution|Win32
+		{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}.Distribution.Build.0 = Distribution|Win32
+		{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}.Release.ActiveCfg = Release|Win32
+		{E6E588AB-EFEF-481C-9AF7-DCDCB95CFF45}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
