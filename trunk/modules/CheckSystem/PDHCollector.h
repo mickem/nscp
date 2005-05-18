@@ -48,9 +48,9 @@ public:
 
 
 private:
-	bool isRunning(void);
-	void startRunning(void);
-	void stopRunning(void);
+//	bool isRunning(void);
+//	void startRunning(void);
+//	void stopRunning(void);
 
 };
 

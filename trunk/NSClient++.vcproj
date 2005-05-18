@@ -295,6 +295,9 @@ echo Making archive
 				RelativePath=".\include\Mutex.h">
 			</File>
 			<File
+				RelativePath=".\include\MutexRW.h">
+			</File>
+			<File
 				RelativePath=".\include\NSCAPI.h">
 			</File>
 			<File

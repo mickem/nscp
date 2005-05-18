@@ -81,14 +81,21 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		} 
 	}while (!(WaitForSingleObject(hStopEvent_, checkIntervall_*100) == WAIT_OBJECT_0));
 
-	if (!CloseHandle(hStopEvent_))
-		NSC_LOG_ERROR_STD("Failed to close stopEvent handle: " + strEx::itos(GetLastError()));
-	else
-		hStopEvent_ = NULL;
-	try {
-		pdh.close();
-	} catch (const PDH::PDHException &e) {
-		NSC_LOG_ERROR_STD("Failed to close performance counters: " + e.str_);
+	{
+		MutexLock mutex(mutexHandler);
+		if (!mutex.hasMutex()) {
+			NSC_LOG_ERROR("Failed to get Mute when closing thread!");
+		}
+
+		if (!CloseHandle(hStopEvent_))
+			NSC_LOG_ERROR_STD("Failed to close stopEvent handle: " + strEx::itos(GetLastError()));
+		else
+			hStopEvent_ = NULL;
+		try {
+			pdh.close();
+		} catch (const PDH::PDHException &e) {
+			NSC_LOG_ERROR_STD("Failed to close performance counters: " + e.str_);
+		}
 	}
 	return 0;
 }
@@ -98,8 +105,13 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
  * Request termination of the thread (waiting for thread termination is not handled)
  */
 void PDHCollector::exitThread(void) {
+	MutexLock mutex(mutexHandler);
+	if (!mutex.hasMutex()) {
+		NSC_LOG_ERROR("Failed to get Mute when trying to close thread!");
+		return;
+	}
 	if (hStopEvent_ == NULL)
-		NSC_LOG_ERROR("Failed to get Mutex!");
+		NSC_LOG_ERROR("Failed to get stop event!");
 	else
 		if (!SetEvent(hStopEvent_)) {
 			NSC_LOG_ERROR_STD("SetStopEvent failed");

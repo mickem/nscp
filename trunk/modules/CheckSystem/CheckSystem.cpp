@@ -47,12 +47,14 @@ bool CheckSystem::loadModule() {
 	int method = tmp.GetAvailableMethods();
 
 	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
+		NSC_DEBUG_MSG_STD("Using PSAPI method.");
 		if (method == (method|ENUM_METHOD::PSAPI)) {
 			processMethod_ = ENUM_METHOD::PSAPI;
 		} else {
-			NSC_LOG_ERROR_STD("PSAPI method not avalible, check " C_SYSTEM_ENUMPROC_METHOD " option.");
+			NSC_LOG_ERROR_STD("PSAPI method not available, check " C_SYSTEM_ENUMPROC_METHOD " option.");
 		}
 	} else {
+		NSC_DEBUG_MSG_STD("Using TOOLHELP method.");
 		if (method == (method|ENUM_METHOD::TOOLHELP)) {
 			processMethod_ = ENUM_METHOD::TOOLHELP;
 		} else {
@@ -67,8 +69,10 @@ bool CheckSystem::loadModule() {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
-	if (!pdhThread.exitThread(20000))
+	if (!pdhThread.exitThread(20000)) {
+		std::cout << "MAJOR ERROR: Could not unload thread..." << std::endl;
 		NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
+	}
 	return true;
 }
 /**
@@ -167,7 +171,10 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 
 	for (std::list<std::string>::iterator it = times.begin(); it != times.end(); ++it) {
 		PDHCollector *pObject = pdhThread.getThread();
-		assert(pObject);
+		if (!pObject) {
+			msg = "ERROR: PDH Collection thread not running.";
+			return NSCAPI::returnUNKNOWN;
+		}
 		if (bNSCLientCompatible) {
 			int v = pObject->getCPUAvrage((*it) + "m");
 			if (v == -1) {
@@ -232,7 +239,10 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
 		}
 	}
 	PDHCollector *pObject = pdhThread.getThread();
-	assert(pObject);
+	if (!pObject) {
+		msg = "ERROR: PDH Collection thread not running.";
+		return NSCAPI::returnUNKNOWN;
+	}
 	unsigned long long uptime = pObject->getUptime();
 	if (bNSCLientCompatible) {
 		msg = strEx::itos(uptime);
@@ -380,7 +390,10 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	}
 
 	PDHCollector *pObject = pdhThread.getThread();
-	assert(pObject);
+	if (!pObject) {
+		msg = "ERROR: PDH Collection thread not running.";
+		return NSCAPI::returnUNKNOWN;
+	}
 	long long pageCommit = pObject->getMemCommit(); 
 	long long pageCommitLimit = pObject->getMemCommitLimit(); 
 	if (bNSCLientCompatible) {
@@ -566,49 +579,43 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 	}
 
 	for (std::list<std::pair<std::string,std::string> >::iterator it = counters.begin(); it != counters.end(); ++it) {
+		std::string name;
 		try {
-			try {
-				PDH::PDHQuery pdh;
-				PDHCollectors::StaticPDHCounterListener counter;
-				pdh.addCounter((*it).second, &counter);
-				pdh.open();
-				pdh.collect();
-				std::string name = (*it).first;
-				if (name.empty())
-					name = (*it).second;
-				if (bNSCLientCompatible) {
-					msg += strEx::itos(counter.getValue());
-				} else {
-					std::string tStr;
-					if (crit.max.hasBounds() && crit.max.checkMAX(counter.getValue())) {
-						tStr = crit.max.prettyPrint(name, counter.getValue()) + " > critical";
-						NSCHelper::escalteReturnCodeToCRIT(returnCode);
-					} else if (crit.min.hasBounds() && crit.min.checkMIN(counter.getValue())) {
-						tStr = crit.min.prettyPrint(name, counter.getValue()) + " < critical";
-						NSCHelper::escalteReturnCodeToCRIT(returnCode);
-					} else if (warn.max.hasBounds() && warn.max.checkMAX(counter.getValue())) {
-						tStr = warn.max.prettyPrint(name, counter.getValue()) + " > warning";
-						NSCHelper::escalteReturnCodeToWARN(returnCode);
-					} else if (warn.min.hasBounds() && warn.min.checkMIN(counter.getValue())) {
-						tStr = warn.min.prettyPrint(name, counter.getValue()) + " < warning";
-						NSCHelper::escalteReturnCodeToWARN(returnCode);
-					} else if (bShowAll) {
-						tStr = name + ": " + strEx::itos(counter.getValue());
-					}
-					perf += checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> >::printPerf(name, counter.getValue(), warn, crit);
-					msg += tStr;
+			PDH::PDHQuery pdh;
+			PDHCollectors::StaticPDHCounterListener counter;
+			std::string name = (*it).first;
+			if (name.empty())
+				name = (*it).second;
+			pdh.addCounter((*it).second, &counter);
+			pdh.open();
+			pdh.collect();
+			if (bNSCLientCompatible) {
+				msg += strEx::itos(counter.getValue());
+			} else {
+				std::string tStr;
+				if (crit.max.hasBounds() && crit.max.checkMAX(counter.getValue())) {
+					tStr = crit.max.prettyPrint(name, counter.getValue()) + " > critical";
+					NSCHelper::escalteReturnCodeToCRIT(returnCode);
+				} else if (crit.min.hasBounds() && crit.min.checkMIN(counter.getValue())) {
+					tStr = crit.min.prettyPrint(name, counter.getValue()) + " < critical";
+					NSCHelper::escalteReturnCodeToCRIT(returnCode);
+				} else if (warn.max.hasBounds() && warn.max.checkMAX(counter.getValue())) {
+					tStr = warn.max.prettyPrint(name, counter.getValue()) + " > warning";
+					NSCHelper::escalteReturnCodeToWARN(returnCode);
+				} else if (warn.min.hasBounds() && warn.min.checkMIN(counter.getValue())) {
+					tStr = warn.min.prettyPrint(name, counter.getValue()) + " < warning";
+					NSCHelper::escalteReturnCodeToWARN(returnCode);
+				} else if (bShowAll) {
+					tStr = name + ": " + strEx::itos(counter.getValue());
 				}
-
-				pdh.close();
-			} catch (const PDH::PDHException &e) {
-				NSC_LOG_ERROR_STD("ERROR: " + e.str_);
-				msg = static_cast<std::string>("ERROR: ") + e.str_;
-				return 0;
+				perf += checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> >::printPerf(name, counter.getValue(), warn, crit);
+				msg += tStr;
 			}
-		} catch (PDH::PDHException e) {
-			NSC_LOG_ERROR_STD("ERROR: " + e.str_);
+			pdh.close();
+		} catch (const PDH::PDHException &e) {
+			NSC_LOG_ERROR_STD("ERROR: " + e.str_ + " (" + name + ")");
 			msg = static_cast<std::string>("ERROR: ") + e.str_;
-			return NSCAPI::returnCRIT;
+			return 0;
 		}
 	}
 	if (msg.empty())

@@ -49,15 +49,17 @@ namespace PDH {
 		void addToQuery(HQUERY hQuery) {
 			PDH_STATUS status;
 			assert(hQuery != NULL);
-			assert(hCounter_ == NULL);
+			if (hCounter_ != NULL)
+				throw PDHException("addToQuery failed (already opened): " + name_);
 			if (listener_)
 				listener_->attach(*this);
 			if ((status = PdhAddCounter(hQuery, name_.c_str(), 0, &hCounter_)) != ERROR_SUCCESS) 
-				throw PDHException("PdhOpenQuery failed", status);
+				throw PDHException("PdhOpenQuery failed: " + name_, status);
 			assert(hCounter_ != NULL);
 		}
 		void remove() {
-			assert(hCounter_ != NULL);
+			if (hCounter_ == NULL)
+				return;
 			PDH_STATUS status;
 			if (listener_)
 				listener_->detach(*this);
@@ -66,7 +68,8 @@ namespace PDH {
 			hCounter_ = NULL;
 		}
 		void collect() {
-			assert(hCounter_ != NULL);
+			if (hCounter_ == NULL)
+				return;
 			PDH_STATUS status;
 			if ((status = PdhGetFormattedCounterValue(hCounter_, PDH_FMT_LARGE , NULL, &data_)) != ERROR_SUCCESS)
 				throw PDHException("PdhGetFormattedCounterValue failed", status);
