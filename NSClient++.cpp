@@ -173,11 +173,18 @@ void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
  * @param plugins A list with plug-ins (DLL files) to load
  */
 void NSClientT::loadPlugins(const std::list<std::string> plugins) {
+	ReadLock readLock(&m_mutexRW, true, 10000);
+	if (!readLock.IsLocked()) {
+		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+		return;
+	}
+	/*
 	MutexLock lock(pluginMutex);
 	if (!lock.hasMutex()) {
 		LOG_ERROR("FATAL ERROR: Could not get mutex.");
 		return;
 	}
+	*/
 	std::list<std::string>::const_iterator it;
 	for (it = plugins.begin(); it != plugins.end(); ++it) {
 		loadPlugin(*it);
@@ -187,38 +194,63 @@ void NSClientT::loadPlugins(const std::list<std::string> plugins) {
  * Unload all plug-ins (in reversed order)
  */
 void NSClientT::unloadPlugins() {
-	MutexLock lock(pluginMutex,20000);
-	if (!lock.hasMutex()) {
+	{
+		WriteLock writeLock(&m_mutexRW, true, 10000);
+		if (!writeLock.IsLocked()) {
+			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+			return;
+		}
+		/*	MutexLock lock(pluginMutex,20000);
+		if (!lock.hasMutex()) {
 		LOG_ERROR("FATAL ERROR: Could not get mutex.");
 		return;
-	}
-	commandHandlers_.clear();
-	{
-		MutexLock lock2(messageMutex,20000);
-		if (!lock2.hasMutex()) {
+		}
+		*/
+		commandHandlers_.clear();
+		{
+			/*		MutexLock lock(messageMutex,20000);
+			if (!lock.hasMutex()) {
 			LOG_ERROR("FATAL ERROR: Could not get mutex (we will now crash BTW).");
-		} else {
+			} else {
+			messageHandlers_.clear();
+			}
+			*/
 			messageHandlers_.clear();
 		}
 	}
-	for (pluginList::size_type i=plugins_.size();i>0;i--) {
-		NSCPlugin *p = plugins_[i-1];
-		LOG_DEBUG_STD("Unloading plugin: " + p->getName() + "...");
-		p->unload();
+	{
+		ReadLock readLock(&m_mutexRW, true, 10000);
+		if (!readLock.IsLocked()) {
+			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+			return;
+		}
+		for (pluginList::size_type i=plugins_.size();i>0;i--) {
+			NSCPlugin *p = plugins_[i-1];
+			LOG_DEBUG_STD("Unloading plugin: " + p->getName() + "...");
+			p->unload();
+		}
 	}
 
-	for (unsigned int i=plugins_.size();i>0;i--) {
-		NSCPlugin *p = plugins_[i-1];
-		plugins_[i-1] = NULL;
-		delete p;
+	{
+		WriteLock writeLock(&m_mutexRW, true, 10000);
+		if (!writeLock.IsLocked()) {
+			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+			return;
+		}
+		for (unsigned int i=plugins_.size();i>0;i--) {
+			NSCPlugin *p = plugins_[i-1];
+			plugins_[i-1] = NULL;
+			delete p;
+		}
+		plugins_.clear();
 	}
-	plugins_.clear();
 }
 /**
  * Load a single plug-in using a DLL filename
  * @param file The DLL file
  */
 void NSClientT::loadPlugin(const std::string file) {
+	LOG_DEBUG_STD("Loading: " + file);
 	addPlugin(new NSCPlugin(file));
 }
 /**
@@ -226,19 +258,36 @@ void NSClientT::loadPlugin(const std::string file) {
  * @param *plugin The plug-ininstance to load. The pointer is managed by the 
  */
 void NSClientT::addPlugin(plugin_type plugin) {
+	{
+		ReadLock readLock(&m_mutexRW, true, 5000);
+		if (!readLock.IsLocked()) {
+			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+			return;
+		}
+		plugin->load();
+	}
+	/*
 	MutexLock lock(pluginMutex);
 	if (!lock.hasMutex()) {
 		LOG_ERROR("FATAL ERROR: Could not get mutex.");
 		return;
 	}
-	plugin->load();
-	LOG_DEBUG_STD("Loading: " + plugin->getName());
-	// @todo Catch here and unload if we fail perhaps ?
-	plugins_.insert(plugins_.end(), plugin);
-	if (plugin->hasCommandHandler())
-		commandHandlers_.insert(commandHandlers_.end(), plugin);
-	if (plugin->hasMessageHandler())
-		messageHandlers_.insert(messageHandlers_.end(), plugin);
+	*/
+
+	{
+		WriteLock writeLock(&m_mutexRW, true, 10000);
+		if (!writeLock.IsLocked()) {
+			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+			return;
+		}
+		// @todo Catch here and unload if we fail perhaps ?
+		plugins_.insert(plugins_.end(), plugin);
+		if (plugin->hasCommandHandler())
+			commandHandlers_.insert(commandHandlers_.end(), plugin);
+		if (plugin->hasMessageHandler())
+			messageHandlers_.insert(messageHandlers_.end(), plugin);
+	}
+
 }
 
 NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string arguments, char splitter, std::string &msg, std::string & perf) {
@@ -270,12 +319,17 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
  * @return The command status
  */
 NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
-	MutexLock lock(pluginMutex);
+	ReadLock readLock(&m_mutexRW, true, 5000);
+	if (!readLock.IsLocked()) {
+		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+		return NSCAPI::returnUNKNOWN;
+	}
+/*	MutexLock lock(pluginMutex);
 	if (!lock.hasMutex()) {
 		LOG_ERROR_STD("Failed to get mutex (" + strEx::itos(lock.getWaitResult()) + "), command ignored...");
 		return NSCAPI::returnUNKNOWN;
 	}
-
+*/
 	for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
 		try {
 			NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
@@ -289,8 +343,8 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 				case NSCAPI::returnWARN:
 				case NSCAPI::returnCRIT:
 				case NSCAPI::returnUNKNOWN:
-					LOG_DEBUG_STD("Injected Result: " +(std::string) returnMessageBuffer);
-					LOG_DEBUG_STD("Injected Performance Result: " +(std::string) returnPerfBuffer);
+//					LOG_DEBUG_STD("Injected Result: " +(std::string) returnMessageBuffer);
+//					LOG_DEBUG_STD("Injected Performance Result: " +(std::string) returnPerfBuffer);
 					return c;
 				default:
 					LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
@@ -313,12 +367,25 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
  * @param message The message as a human readable string.
  */
 void NSClientT::reportMessage(int msgType, const char* file, const int line, std::string message) {
+	ReadLock readLock(&m_mutexRW, true, 5000);
+	if (!readLock.IsLocked()) {
+		std::cout << "Message was lost as the core was locked..." << std::endl;
+		return;
+	}
 	MutexLock lock(messageMutex);
 	if (!lock.hasMutex()) {
 		std::cout << "Message was lost as the core was locked..." << std::endl;
 		std::cout << message << std::endl;
 		return;
 	}
+	/*
+	MutexLock lock(messageMutex);
+	if (!lock.hasMutex()) {
+		std::cout << "Message was lost as the core was locked..." << std::endl;
+		std::cout << message << std::endl;
+		return;
+	}
+	*/
 	if (g_bConsoleLog) {
 		std::string k = "?";
 		switch (msgType) {
@@ -363,7 +430,7 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 	}
 }
 std::string NSClientT::getBasePath(void) {
-	MutexLock lock(pluginMutex);
+	MutexLock lock(internalVariables);
 	if (!lock.hasMutex()) {
 		LOG_ERROR("FATAL ERROR: Could not get mutex.");
 		return "FATAL ERROR";

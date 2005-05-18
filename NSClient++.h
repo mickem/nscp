@@ -6,6 +6,7 @@
 #include "NSCPlugin.h"
 #include <Mutex.h>
 #include <NSCAPI.h>
+#include <MutexRW.h>
 
 
 /**
@@ -41,8 +42,10 @@ private:
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
 	std::string basePath;
-	MutexHandler pluginMutex;
+	MutexHandler internalVariables;
+//	MutexHandler pluginMutex;
 	MutexHandler messageMutex;
+	MutexRW  m_mutexRW;
 
 public:
 	// c-tor, d-tor

@@ -1,3 +1,8 @@
+2005-05-18 MickeM
+ * Fixed bug in NSC.ini (section title for Check System was wrong)
+ + Added multitasking for plugins (now two plugins can handle requests simultaniously)
+ * Fixed som minor issues here and there
+
 2005-05-15 MickeM
  + Added NRPE support for checkCounter
  + Updated documentation

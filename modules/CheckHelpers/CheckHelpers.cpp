@@ -102,6 +102,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, char
 		char ** args = arrayBuffer::list2arrayBuffer((*cit2).second, length);
 		std::string tMsg, tPerf;
 		NSCAPI::nagiosReturn tRet = NSCModuleHelper::InjectCommand((*cit2).first.c_str(), length, args, tMsg, tPerf);
+		arrayBuffer::destroyArrayBuffer(args, length);
 		returnCode = NSCHelper::maxState(returnCode, tRet);
 		if (!msg.empty())
 			msg += ", ";
