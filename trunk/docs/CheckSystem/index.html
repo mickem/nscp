@@ -2,6 +2,7 @@
 
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<meta http-equiv="Content-Language" content="en-us">
 <title>CheckSystem</title>
 <link rel="stylesheet" type="text/css" href="../nscplus.css">
 </head>
@@ -41,7 +42,7 @@
 	<h2>Configuration</h2>
 	<p>This module needs configuration as PDH counters are version and language 
 	specific. This means that unless you use an English language windows 2000 you 
-	will most likely have to edit this. There is also some other tweks that can 
+	will most likely have to edit this. There is also some other tweaks that can 
 	be configured such as check resolution and buffer size. For more details on 
 	how to configure this refer to the Configuration section.</p>
 	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table20">
@@ -157,7 +158,7 @@
 	<div class="example">
 		<ul>
 			<li>
-			<p>Check that the system has been running for atleast a day:</p>
+			<p>Check that the system has been running for at least a day:</p>
 			<p><code>checkUpTime warn=1d crit=12h</code></p>
 			<p><code>Client has uptime (19h) &lt; warning (24h)</code></p>
 			</li>
@@ -302,6 +303,7 @@
 	can be check as there are a lot of performance counter. To find performance 
 	counters use the program perfmon that is shipped with windows. An important 
 	note is that performance counters are language and version specific.</p>
+	<p><i><b>This is currently broken and will be fixed in the next version.</b></i></p>
 	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table16">
 		<tr>
 			<td valign="top">Option</td>
@@ -345,7 +347,7 @@
 		</tr>
 		<tr>
 			<td valign="top">Counter:&lt;name&gt;</td>
-			<td valign="top">Perfomance Counter</td>
+			<td valign="top">Performance Counter</td>
 			<td valign="top">Add a named performance counter. The &lt;name&gt; will be 
 			used as an alias.</td>
 		</tr>

@@ -173,12 +173,13 @@ cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;
 				SuppressStartupBanner="TRUE"/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying documentation
-cmd /c &quot;copy $(InputDir)\*.html $(InputDir)\Dist\&quot;
-echo Copying dependency DLLs
-cmd /c &quot;copy $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;
+				CommandLine="echo Copying dependency DLLs
+cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;
 echo Removing old archive
 cmd /c &quot;del $(InputDir)\Dist\$(InputName).zip&quot;
+echo Copying documenation
+mkdir $(TargetDir)\docs
+xcopy /s /e /c /q /y $(InputDir)\docs $(TargetDir)\docs
 echo Making archive
 7z.exe a -r -tzip -bd $(InputDir)\Dist\$(InputName).zip $(InputDir)\Dist\*
 "
@@ -233,13 +234,31 @@ echo Making archive
 				RelativePath=".\include\arrayBuffer.cpp">
 			</File>
 			<File
+				RelativePath=".\include\b64\b64.c">
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath=".\include\NSCHelper.cpp">
 			</File>
 			<File
 				RelativePath=".\NSClient++.cpp">
-			</File>
-			<File
-				RelativePath=".\NSClient++.def">
 			</File>
 			<File
 				RelativePath=".\NSCPlugin.cpp">
@@ -361,7 +380,8 @@ cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;
 "/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Distribution|Win32">
+					Name="Distribution|Win32"
+					ExcludedFromBuild="TRUE">
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="doxygen.exe $(InputPath)

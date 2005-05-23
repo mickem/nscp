@@ -76,6 +76,9 @@ namespace PDH {
 			if (listener_)
 				listener_->collect(*this);
 		}
+		double getDoubleValue() const {
+			return data_.doubleValue;
+		}
 		__int64 getInt64Value() const {
 			return data_.largeValue;
 		}
@@ -127,6 +130,10 @@ namespace PDH {
 			if( (status = PdhCloseQuery(hQuery_)) != ERROR_SUCCESS)
 				throw PDHException("PdhCloseQuery failed", status);
 			hQuery_ = NULL;
+			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
+				delete (*it);
+			}
+			counters_.clear();
 		}
 
 		void collect() {

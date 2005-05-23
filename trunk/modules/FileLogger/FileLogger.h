@@ -5,6 +5,7 @@ NSC_WRAPPERS_MAIN();
 class FileLogger {
 private:
 	std::string file_;
+	std::string format_;
 
 public:
 	FileLogger();
@@ -18,4 +19,7 @@ public:
 	bool hasMessageHandler();
 	void handleMessage(int msgType, char* file, int line, char* message);
 	int handleCommand(char* command, char **argument, char *returnBuffer, int returnBufferLen);
+
+
+	std::string getFileName();
 };

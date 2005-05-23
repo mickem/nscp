@@ -203,10 +203,14 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 			message = "UNKNOWN: Could not get free space for: " + drive;
 			return NSCAPI::returnUNKNOWN;
 		}
+		//10597515264&80015491072
 
 		if (bNSClient) {
-			message += strEx::itos(totalNumberOfFreeBytes.QuadPart) + "&";
-			message += strEx::itos(totalNumberOfBytes.QuadPart) + "&";
+			if (!message.empty())
+				message += "&";
+			message += strEx::itos(totalNumberOfFreeBytes.QuadPart);
+			message += "&";
+			message += strEx::itos(totalNumberOfBytes.QuadPart);
 		} else {
 			std::string tStr;
 			checkHolders::drive_size usedSpace = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
@@ -235,7 +239,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	}
 	if (message.empty())
 		message = "All drive sizes are within bounds.";
-	else
+	else if (!bNSClient)
 		message = NSCHelper::translateReturn(returnCode) + ": " + message;
 	return returnCode;
 }

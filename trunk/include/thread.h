@@ -6,7 +6,9 @@
 class ThreadException {
 public:
 	std::string e_;
-	ThreadException(std::string e) : e_(e) {}
+	ThreadException(std::string e) : e_(e) {
+		std::cout << e << std::endl;
+	}
 };
 
 /**
@@ -68,8 +70,6 @@ public:
 			if (!mutex.hasMutex()) {
 				throw ThreadException("Could not retrieve mutex when killing thread, we are fucked...");
 			}
-			if (hThread_)
-				CloseHandle(hThread_);
 			hThread_ = NULL;
 			if (hStopEvent_)
 				CloseHandle(hStopEvent_);
@@ -98,11 +98,9 @@ private:
 		Thread *pCore = param->pCore;
 		delete param;
 
-		if (hStopEvent != NULL) {
-			instance->threadProc(lpParam);
-			SetEvent(hStopEvent);
-		}
+		instance->threadProc(lpParam);
 		pCore->terminate();
+		SetEvent(hStopEvent);
 		_endthread();
 	}
 
@@ -134,7 +132,6 @@ public:
 			param->pCore = this;
 		}
 		hThread_ = reinterpret_cast<HANDLE>(::_beginthread(threadProc, 0, reinterpret_cast<VOID*>(param)));
-		assert(hThread_ != NULL);
 	}
 	/**
 	 * Ask the thread to terminate (within 5 seconds) if not return false.
@@ -152,8 +149,8 @@ public:
 				return true;
 			assert(hStopEvent_ != NULL);
 			pObject_->exitThread();
-			dwWaitResult = WaitForSingleObject(hStopEvent_, delay);
 		}
+		dwWaitResult = WaitForSingleObject(hStopEvent_, delay);
 		switch (dwWaitResult) {
 			// The thread got mutex ownership.
 			case WAIT_OBJECT_0:
@@ -181,7 +178,7 @@ public:
 		}
 		return pObject_;
 	}
-	T* getThread() const {
+	T* getThread() {
 		MutexLock mutex(hMutex_, 5000L);
 		if (!mutex.hasMutex()) {
 			throw ThreadException("Could not retrieve mutex, thread not stopped...");
@@ -196,8 +193,6 @@ private:
 		}
 		delete pObject_;
 		pObject_ = NULL;
-		CloseHandle(hStopEvent_);
-		hStopEvent_ = NULL;
 		hThread_ = NULL;
 	}
 };

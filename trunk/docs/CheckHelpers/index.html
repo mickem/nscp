@@ -2,8 +2,10 @@
 
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<meta http-equiv="Content-Language" content="en-us">
 <title>CheckDisk</title>
 <link rel="stylesheet" type="text/css" href="../nscplus.css">
+<base target="_self">
 </head>
 
 <body>
@@ -19,29 +21,29 @@
 		</tr>
 		<tr>
 			<td valign="top">CheckAlwaysOK</td>
-			<td valign="top">Alter the retun code of another check to always return 
+			<td valign="top">Alter the return code of another check to always return 
 			OK.</td>
 		</tr>
 		<tr>
 			<td valign="top">CheckAlwaysCRITICAL</td>
-			<td valign="top">Alter the retun code of another check to always return 
+			<td valign="top">Alter the return code of another check to always return 
 			CRITICAL.</td>
 		</tr>
 		<tr>
 			<td valign="top">CheckAlwaysWARNING</td>
-			<td valign="top">Alter the retun code of another check to always return 
+			<td valign="top">Alter the return code of another check to always return 
 			WARNING.</td>
 		</tr>
 		<tr>
 			<td valign="top">CheckMultiple</td>
-			<td valign="top">Runs multiple checks and returns the worsta state. 
-			Usefull for minimizing network traffic and command defenitions.</td>
+			<td valign="top">Runs multiple checks and returns the worst state. Useful 
+			for minimizing network traffic and command definitions.</td>
 		</tr>
 	</table>
 	<h2>Configuration</h2>
 	<p><i>This module has no configuration directives.</i></p>
 	<h2>CheckAlwaysOK</h2>
-	<p>Runs another check and aters the return state to always return OK.</p>
+	<p>Runs another check and alters the return state to always return OK.</p>
 	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
 		<tr>
 			<th valign="top">Option </th>
@@ -72,7 +74,7 @@
 		</ul>
 	</div>
 	<h2>CheckAlwaysCRITICAL</h2>
-	<p>Runs another check and ater the return state to always return CRITICAL.</p>
+	<p>Runs another check and alters the return state to always return CRITICAL.</p>
 	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
 		<tr>
 			<th valign="top">Option </th>
@@ -103,7 +105,7 @@
 		</ul>
 	</div>
 	<h2>CheckAlwaysWARNING</h2>
-	<p>Runs another check and ater the return state to always return WARNING.</p>
+	<p>Runs another check and alter the return state to always return WARNING.</p>
 	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
 		<tr>
 			<th valign="top">Option </th>
@@ -134,7 +136,8 @@
 		</ul>
 	</div>
 	<h2>CheckMultiple</h2>
-	<p>Runs multiple checks and returns the worst state. It allows you to check an entire system in one go.</p>
+	<p>Runs multiple checks and returns the worst state. It allows you to check 
+	an entire system in one go.</p>
 	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
 		<tr>
 			<th valign="top">Option </th>
@@ -144,18 +147,21 @@
 		<tr>
 			<td valign="top">command</td>
 			<td valign="top">The command to run</td>
-			<td valign="top">A command to execute, you can have any number of 
-			this option.</td>
+			<td valign="top">A command to execute, you can have any number of this 
+			option.</td>
 		</tr>
 	</table>
 	<h3>Examples</h3>
 	<div class="example">
 		<ul>
 			<li>
-			<p>Run two checks (CheckDriveSize and ChEckMeM) and return the worst state. Performance data and 
-			message is collected and concatenated.</p>
-			<p><code>CheckMultiple command=CheckDriveSize MaxWarn=1M MaxCrit=2M Drive=c:\\volumne_test\\ command=ChEckMeM MaxWarn=80% MaxCrit=90%</code></p>
-			<p><code>CRITICAL: c:\volumne_test\: 3M (4193280B) > critical, OK memory within bounds.|c:\volumne_test\=4193280;1024K (1048576B);2M (2097152B); page=31% 80%;90%;</code></p>
+			<p>Run two checks (CheckDriveSize and ChEckMeM) and return the worst 
+			state. Performance data and message is collected and concatenated.</p>
+			<p><code>CheckMultiple command=CheckDriveSize MaxWarn=1M MaxCrit=2M 
+			Drive=c:\\volumne_test\\ command=ChEckMeM MaxWarn=80% MaxCrit=90%</code></p>
+			<p><code>CRITICAL: c:\volumne_test\: 3M (4193280B) &gt; critical, OK memory 
+			within bounds.|c:\volumne_test\=4193280;1024K (1048576B);2M (2097152B); 
+			page=31% 80%;90%;</code></p>
 			</li>
 		</ul>
 	</div>

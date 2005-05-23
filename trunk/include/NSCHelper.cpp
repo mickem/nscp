@@ -106,6 +106,9 @@ namespace NSCModuleHelper {
 	lpNSAPIMessage fNSAPIMessage = NULL;
 	lpNSAPIStopServer fNSAPIStopServer = NULL;
 	lpNSAPIInject fNSAPIInject = NULL;
+	lpNSAPICheckLogMessages fNSAPICheckLogMessages = NULL;
+	lpNSAPIEncrypt fNSAPIEncrypt = NULL;
+	lpNSAPIDecrypt fNSAPIDecrypt = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -122,8 +125,11 @@ namespace NSCModuleHelper {
  * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
 void NSCModuleHelper::Message(int msgType, std::string file, int line, std::string message) {
-	if (fNSAPIMessage) 
+	if (fNSAPIMessage) {
+		if ((msgType == NSCAPI::debug) && (!logDebug()))
+			return;
 		return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
+	}
 	else
 		std::cout << "NSCore not loaded..." << std::endl << message << std::endl;
 }
@@ -353,6 +359,60 @@ std::string NSCModuleHelper::getBasePath() {
 	delete [] buffer;
 	return ret;
 }
+
+
+bool NSCModuleHelper::logDebug() {
+	typedef enum status {unknown, debug, nodebug };
+	static status d = unknown;
+	if (d == unknown) {
+		if (checkLogMessages(debug)== NSCAPI::istrue)
+			d = debug;
+		else
+			d = nodebug;
+	}
+	return (d == debug);
+}
+
+
+
+
+std::string NSCModuleHelper::Encrypt(std::string str, unsigned int algorithm) {
+	if (!fNSAPIEncrypt)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	unsigned int len = 0;
+	fNSAPIEncrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	len+=2;
+	char *buf = new char[len+1];
+	NSCAPI::errorReturn ret = fNSAPIEncrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	if (ret == NSCAPI::isSuccess) {
+		std::string ret = buf;
+		delete [] buf;
+		return ret;
+	}
+	return "";
+}
+std::string NSCModuleHelper::Decrypt(std::string str, unsigned int algorithm) {
+	if (!fNSAPIDecrypt)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	unsigned int len = 0;
+	fNSAPIDecrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	len+=2;
+	char *buf = new char[len+1];
+	NSCAPI::errorReturn ret = fNSAPIDecrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	if (ret == NSCAPI::isSuccess) {
+		std::string ret = buf;
+		delete [] buf;
+		return ret;
+	}
+	return "";
+}
+
+
+bool NSCModuleHelper::checkLogMessages(int type) {
+	if (!fNSAPICheckLogMessages)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	return fNSAPICheckLogMessages(type) == NSCAPI::istrue;
+}
 /**
  * Retrieve the application version as a string (in human readable format) from the core.
  * @return A string representing the application version.
@@ -415,6 +475,9 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f("NSAPIStopServer");
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f("NSAPIInject");
 	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f("NSAPIGetBasePath");
+	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f("NSAPICheckLogMessages");
+	NSCModuleHelper::fNSAPIDecrypt = (NSCModuleHelper::lpNSAPIDecrypt)f("NSAPIDecrypt");
+	NSCModuleHelper::fNSAPIEncrypt = (NSCModuleHelper::lpNSAPIEncrypt)f("NSAPIEncrypt");
 	return NSCAPI::isSuccess;
 }
 /**

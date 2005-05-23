@@ -1,7 +1,25 @@
+2005-05-23 MickeM
+ + Added obfuscated password support
+ + Added some more debug info on commands (returncode, and input args)
+ + Added some more comments  ot the NSC.ini
+ + Added central password "override"
+ + Added central "host override"
+ + Fixed bug with external commands always getting WARNING state
+
+2005-05-22 MickeM
+ + Added debug outout for command
+ + Added timestamps for log-to-file (date_mask to configure format)
+ + Added support for "no password" with check_nt
+ + Added log of bad password on NSClient requests.
+ * Some threading issues fixed (I hate threading :)
+
+2005-05-19 MickeM
+ * Verified NT4 compatibility
+
 2005-05-18 MickeM
  * Fixed bug in NSC.ini (section title for Check System was wrong)
- + Added multitasking for plugins (now two plugins can handle requests simultaniously)
- * Fixed som minor issues here and there
+ + Added multitasking for plug-ins (now two plug-ins can handle requests simultaneously)
+ * Fixed some minor issues here and there
 
 2005-05-15 MickeM
  + Added NRPE support for checkCounter
@@ -12,17 +30,17 @@
 2005-05-14 MickeM
  + Added support for Volumes (CheckDisk)
  + Added support for checking all drives of a certain kind
- + Added support for altering filter (makes it posible to check removale drives)
- + Created webpage and better documentation
+ + Added support for altering filter (makes it possible to check removable drives)
+ + Created web page and better documentation
 
 2005-04-20 MickeM
- + Added multitasking to socket listsner (it can now handle multiple connections)
+ + Added multitasking to socket listener (it can now handle multiple connections)
  * Fixed bug in NSClientListener now "seqv" in check_nt shouldn't happen.
  + Added COUNTER support to NSClient and CheckSystem
 
 2005-04-19 MickeM
  + Added SSL support
- + Added alot of new options
+ + Added a lot of new options
  + Added documentation
  * Renamed and restructured NSCLientCompat to CheckSystem
  * *ALOT* of fixes all over

@@ -21,7 +21,12 @@ NRPEListener::NRPEListener() {
 NRPEListener::~NRPEListener() {
 }
 
-
+std::string getAllowedHosts() {
+	std::string ret = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS, "");
+	if (ret.empty())
+		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
+	return ret;
+}
 
 bool NRPEListener::loadModule() {
 	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
@@ -42,7 +47,7 @@ bool NRPEListener::loadModule() {
 		}
 	}
 
-	allowedHosts.setAllowedHosts(strEx::splitEx(NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOWED, NRPE_SETTINGS_ALLOWED_DEFAULT), ","));
+	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","));
 	try {
 		if (bUseSSL_) {
 			socket_ssl_.setHandler(this);
@@ -200,7 +205,8 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 				perf = t.second;
 			}
 			delete [] buf;
-			result = NSCHelper::int2nagios(GetExitCodeProcess(pi.hProcess, &dwexitcode));
+			GetExitCodeProcess(pi.hProcess, &dwexitcode);
+			result = NSCHelper::int2nagios(dwexitcode);
 		}
 		CloseHandle(pi.hThread);
 		CloseHandle(pi.hProcess);

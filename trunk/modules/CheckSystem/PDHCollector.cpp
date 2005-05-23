@@ -35,19 +35,19 @@ PDHCollector::~PDHCollector()
 }
 
 /**
- * Thread that collects the data every "CHECK_INTERVAL" seconds.
- *
- * @param lpParameter Not used
- * @return thread exit status
- *
- * @author mickem
- *
- * @date 03-13-2004
- *
- * @bug If we have "custom named" counters ?
- * @bug This whole concept needs work I think.
- *
- */
+* Thread that collects the data every "CHECK_INTERVAL" seconds.
+*
+* @param lpParameter Not used
+* @return thread exit status
+*
+* @author mickem
+*
+* @date 03-13-2004
+*
+* @bug If we have "custom named" counters ?
+* @bug This whole concept needs work I think.
+*
+*/
 DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 	PDH::PDHQuery pdh;
 	pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
@@ -102,8 +102,8 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 
 
 /**
- * Request termination of the thread (waiting for thread termination is not handled)
- */
+* Request termination of the thread (waiting for thread termination is not handled)
+*/
 void PDHCollector::exitThread(void) {
 	MutexLock mutex(mutexHandler);
 	if (!mutex.hasMutex()) {
@@ -115,13 +115,13 @@ void PDHCollector::exitThread(void) {
 	else
 		if (!SetEvent(hStopEvent_)) {
 			NSC_LOG_ERROR_STD("SetStopEvent failed");
-	}
+		}
 }
 /**
- * Get the average CPU usage for "time"
- * @param time Time to check 
- * @return average CPU usage
- */
+* Get the average CPU usage for "time"
+* @param time Time to check 
+* @return average CPU usage
+*/
 int PDHCollector::getCPUAvrage(std::string time) {
 	unsigned int mseconds = strEx::stoui_as_time(time, checkIntervall_*100);
 	MutexLock mutex(mutexHandler);
@@ -132,11 +132,11 @@ int PDHCollector::getCPUAvrage(std::string time) {
 	return cpu.getAvrage(mseconds / (checkIntervall_*100));
 }
 /**
- * Get uptime from counter
- * @bug Do we need to collect this all the time ? (perhaps we can collect this in real time ?)
- * @return uptime for the system
- * @bug Are we overflow protected here ? (seem to recall some issues with overflow before ?)
- */
+* Get uptime from counter
+* @bug Do we need to collect this all the time ? (perhaps we can collect this in real time ?)
+* @return uptime for the system
+* @bug Are we overflow protected here ? (seem to recall some issues with overflow before ?)
+*/
 long long PDHCollector::getUptime() {
 	MutexLock mutex(mutexHandler);
 	if (!mutex.hasMutex()) {
@@ -146,9 +146,9 @@ long long PDHCollector::getUptime() {
 	return upTime.getValue();
 }
 /**
- * Memory commit limit (your guess is as good as mine to what this is :)
- * @return Some form of memory check
- */
+* Memory commit limit (your guess is as good as mine to what this is :)
+* @return Some form of memory check
+*/
 long long PDHCollector::getMemCommitLimit() {
 	MutexLock mutex(mutexHandler);
 	if (!mutex.hasMutex()) {
@@ -158,10 +158,10 @@ long long PDHCollector::getMemCommitLimit() {
 	return memCmtLim.getValue();
 }
 /**
- *
- * Memory committed bytes (your guess is as good as mine to what this is :)
- * @return Some form of memory check
- */
+*
+* Memory committed bytes (your guess is as good as mine to what this is :)
+* @return Some form of memory check
+*/
 long long PDHCollector::getMemCommit() {
 	MutexLock mutex(mutexHandler);
 	if (!mutex.hasMutex()) {

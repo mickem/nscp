@@ -1,9 +1,9 @@
 <html>
-
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
 <title>About NSClient++</title>
 <link rel="stylesheet" type="text/css" href="nscplus.css">
+<base target="_self">
 </head>
 
 <body>
@@ -22,17 +22,52 @@ for basic performance data collection. </p>
 to or you can execute an external script (as of now batch/exe/*). Writing your own 
 plug-in is of course the most powerful way but requires knowledge of C++ or other 
 language which can produce DLLs and interface with regular C programs.</p>
+<p>As for checking with NSClient++ I would recommend
+<a href="http://sourceforge.net/project/showfiles.php?group_id=26589&package_id=40241">
+NRPE</a> as it is a lot more flexible then check_nt. But NSClient has full 
+support for check_nt and if there is an interest I could probably add support 
+for check_nt from nc_net.</p>
 <h1>News</h1>
 <table id="table17"   border="0" cellspacing="0" cellpadding="0" class="MsoNormalTable" >
 	<tr>
-		<td>2005-05-14</td>
+		<td valign="top">2005-05-23</td>
+		<td>New version available.<p>Has many new features and some enhancements 
+		as well as NT4 Compatibility (verified this time).</p>
+		<p>Added:</p>
+		<ul>
+			<li>Multitasking support for requests.</li>
+			<li>NRPE support for checkCounter</li>
+			<li>CheckHelpers module to alter the result of various check and 
+			similar things </li>
+			<li>Support for Volumes (CheckDisk)</li>
+			<li>Support for checking all drives</li>
+			<li>Support for altering filter (makes it possible to check 
+			removable/network drives)</li>
+			<li>Webpage and better documentation</li>
+			<li>Obfuscated password support (try NSClient++ /encrypt)</li>
+			<li>Central host/password options in INI file (look for [Settings])</li>
+		</ul>
+		<p>Enhances/Fixes:</p>
+		<ul>
+			<li>Some threading issues fixed</li>
+			<li>Verified NT4 compatibility</li>
+			<li>Fixed bug in NSC.ini (section title for Check System was wrong)</li>
+			<li>Fixed some minor issues here and there</li>
+			<li>Make check commands ignore case</li>
+			<li>Better debugging log (timestamps, better info, etc)</li>
+			<li>Support for password-less NSClient</li>
+		</ul>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top">2005-05-14</td>
 		<td>New webpage is created and semi updated.</td>
 	</tr>
 </table>
 <h1>Download</h1>
 <p>NSClient can be found at its source forge page
 <a href="http://nscplus.sf.net" target="_top">http://nscplus.sf.net</a></p>
-<p>Latest version is <a href="http://prdownloads.sourceforge.net/nscplus/NSClient++-0.1.0-a2.zip?download">NSClient++ 0.1.0 Alpha 2.zip</a> </p>
+<p>Latest version is <a href="http://prdownloads.sourceforge.net/nscplus/NSClient++-0.2.0.zip?download">NSClient++ 0.2.0.zip</a></p>
 <h1>Modules</h1>
 <p>NSClient++ comes with a few modules out of the box that does various checks. 
 A list of the modules and there potential use is listed below here click each plug-in 
@@ -103,7 +138,7 @@ to see detailed command descriptions and how the various modules can be used.</p
 	</tr>
 	<tr>
 		<td width="221" colspan="2"><b><a href="CheckHelpers/index.html">CheckHelpers</a></b></td>
-		<td>Various helper function, doesn't check anything it it self but can 
+		<td>Various helper function, doesn't check anything in it self but can 
 		help make things simpler.</td>
 	</tr>
 	<tr>

@@ -17,7 +17,7 @@ namespace simpleSocket {
 		std::string getMessage() const {
 			return error_;
 		}
-		
+
 	};
 	class DataBuffer {
 	private:
@@ -149,7 +149,7 @@ namespace simpleSocket {
 		virtual std::string getAddrString() {
 			return inet_ntoa(from_.sin_addr);
 		}
-		virtual void printError(std::string error);
+		virtual void printError(std::string file, int line, std::string error);
 	};
 
 	class ListenerHandler {
@@ -160,29 +160,29 @@ namespace simpleSocket {
 
 
 	/**
-	 * @ingroup NSClient++
-	 * Socket responder class.
-	 * This is a background thread that listens to the socket and executes incoming commands.
-	 *
-	 * @version 1.0
-	 * first version
-	 *
-	 * @date 02-12-2005
-	 *
-	 * @author mickem
-	 *
-	 * @par license
-	 * This code is absolutely free to use and modify. The code is provided "as is" with
-	 * no expressed or implied warranty. The author accepts no liability if it causes
-	 * any damage to your computer, causes your pet to fall ill, increases baldness
-	 * or makes your car start emitting strange noises when you start it up.
-	 * This code has no bugs, just undocumented features!
-	 * 
-	 * @todo This is not very well written and should probably be reworked.
-	 *
-	 * @bug 
-	 *
-	 */
+	* @ingroup NSClient++
+	* Socket responder class.
+	* This is a background thread that listens to the socket and executes incoming commands.
+	*
+	* @version 1.0
+	* first version
+	*
+	* @date 02-12-2005
+	*
+	* @author mickem
+	*
+	* @par license
+	* This code is absolutely free to use and modify. The code is provided "as is" with
+	* no expressed or implied warranty. The author accepts no liability if it causes
+	* any damage to your computer, causes your pet to fall ill, increases baldness
+	* or makes your car start emitting strange noises when you start it up.
+	* This code has no bugs, just undocumented features!
+	* 
+	* @todo This is not very well written and should probably be reworked.
+	*
+	* @bug 
+	*
+	*/
 	template <class TListenerType = simpleSocket::Socket, class TSocketType = TListenerType>
 	class Listener : public TListenerType {
 	public:
@@ -190,6 +190,7 @@ namespace simpleSocket {
 		typedef TSocketType tSocket;
 	private:
 		struct simpleResponderBundle {
+			bool terminated;
 			HANDLE hThread;
 			unsigned dwThreadID;
 		};
@@ -225,9 +226,28 @@ namespace simpleSocket {
 	public:
 		Listener() : pHandler_(NULL) {};
 		virtual ~Listener() {
-			if (responderList_.size() > 0)
-				std::cout << "We had stale processes running then the socket closed." << std::endl;
-			// @todo check if we have stale processes here (if so log an error)
+			if (responderList_.size() > 0) {
+				MutexLock lock(responderMutex_);
+				if (!lock.hasMutex()) {
+					printError(__FILE__, __LINE__, "Failed to get responder mutex (cannot terminate socket threads).");
+				} else {
+					for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end(); ++it) {
+						if (WaitForSingleObject( (*it).hThread, 1000) == WAIT_OBJECT_0) {
+						} else {
+							if (!TerminateThread((*it).hThread, -1)) {
+								printError(__FILE__, __LINE__, "We failed to terminate check thread.");
+							} else {
+								if (WaitForSingleObject( (*it).hThread, 5000) == WAIT_OBJECT_0) {
+									CloseHandle((*it).hThread);
+								} else {
+									printError(__FILE__, __LINE__, "We failed to terminate check thread (wait timed out).");
+								}
+							}
+						}
+					}
+					responderList_.clear();
+				}
+			}
 		};
 
 		virtual void StartListener(int port) {
@@ -254,29 +274,38 @@ namespace simpleSocket {
 			tSocket *client;
 		};
 		void addResponder(tSocket *client) {
+			MutexLock lock(responderMutex_);
+			if (!lock.hasMutex()) {
+				printError(__FILE__, __LINE__, "Failed to get responder mutex.");
+				return;
+			}
+			for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end();) {
+				if ( (*it).terminated) {
+					if (WaitForSingleObject( (*it).hThread, 500) == WAIT_OBJECT_0) {
+						CloseHandle((*it).hThread);
+						responderList_.erase(it++);
+					}
+				} else
+					++it;
+			}
 			simpleResponderBundle data;
-			// @todo protect
 			srp_data *lpData = new srp_data;
 			lpData->pCore = this;
 			lpData->client = client;
 
-			MutexLock lock(responderMutex_);
-			if (!lock.hasMutex()) {
-				printError("Failed to get responder mutex.");
-				return;
-			}
 			data.hThread = reinterpret_cast<HANDLE>(::_beginthreadex( NULL, 0, &socketResponceProc, lpData, 0, &data.dwThreadID));
+			data.terminated = false;
 			responderList_.push_back(data);
 		}
 		bool removeResponder(DWORD dwThreadID) {
 			MutexLock lock(responderMutex_);
 			if (!lock.hasMutex()) {
-				printError("Failed to get responder mutex when trying to free thread.");
+				printError(__FILE__, __LINE__, "Failed to get responder mutex when trying to free thread.");
 				return false;
 			}
 			for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end(); ++it) {
 				if ( (*it).dwThreadID == dwThreadID) {
-					responderList_.erase(it);
+					(*it).terminated = true;
 					return true;
 				}
 			}
@@ -315,12 +344,12 @@ unsigned simpleSocket::Listener<TListenerType, TSocketType>::socketResponceProc(
 	try {
 		pCore->onAccept(client);
 	} catch (SocketException e) {
-		pCore->printError(e.getMessage() + " killing socket...");
+		pCore->printError(__FILE__, __LINE__, e.getMessage() + " killing socket...");
 	}
 	client->close();
 	delete client;
 	if (!pCore->removeResponder(GetCurrentThreadId())) {
-		pCore->printError("Could not remove thread: " + strEx::itos(GetCurrentThreadId()));
+		pCore->printError(__FILE__, __LINE__, "Could not remove thread: " + strEx::itos(GetCurrentThreadId()));
 	}
 	_endthreadex(0);
 	return 0;
@@ -334,7 +363,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 
 	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!hStopEvent_) {
-		core->printError("Create StopEvent failed: " + strEx::itos(GetLastError()));
+		core->printError(__FILE__, __LINE__, "Create StopEvent failed: " + strEx::itos(GetLastError()));
 		return 0;
 	}
 
@@ -351,11 +380,11 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 					core->addResponder(new tSocket(client));
 				}
 			} catch (SocketException e) {
-				core->printError(e.getMessage() + ", attempting to resume...");
+				core->printError(__FILE__, __LINE__, e.getMessage() + ", attempting to resume...");
 			}
 		}
 	} catch (SocketException e) {
-		core->printError(e.getMessage());
+		core->printError(__FILE__, __LINE__, e.getMessage());
 	}
 	core->shutdown(SD_BOTH);
 	core->close();
@@ -363,7 +392,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 	HANDLE hTmp = hStopEvent_;
 	hStopEvent_ = NULL;
 	if (!CloseHandle(hTmp)) {
-		core->printError("CloseHandle StopEvent failed: " + strEx::itos(GetLastError()));
+		core->printError(__FILE__, __LINE__, "CloseHandle StopEvent failed: " + strEx::itos(GetLastError()));
 	}
 	return 0;
 }
