@@ -4,7 +4,7 @@
 #define SZAPPNAME "NSClient++"
 
 // Version
-#define SZVERSION "0.3.0 a1 2005-05-16"
+#define SZVERSION "0.2.0 2005-05-21"
 
 // internal name of the service
 #define SZSERVICENAME        "NSClient++"
@@ -30,18 +30,14 @@
 #define NSCLIENT_SECTION_TITLE "NSClient"
 #define NSCLIENT_SETTINGS_PORT "port"
 #define NSCLIENT_SETTINGS_PORT_DEFAULT 12489
-#define NSCLIENT_SETTINGS_ALLOWED "allowed_hosts"
-#define NSCLIENT_SETTINGS_ALLOWED_DEFAULT ""
-#define NSCLIENT_SETTINGS_PWD "password"
-#define NSCLIENT_SETTINGS_PWD_DEFAULT ""
+#define NSCLIENT_SETTINGS_VERSION "version"
+#define NSCLIENT_SETTINGS_VERSION_DEFAULT "auto"
 
 // NRPE Settings headlines
 #define NRPE_SECTION_TITLE "NRPE"
 #define NRPE_HANDLER_SECTION_TITLE "NRPE Handlers"
 #define NRPE_SETTINGS_TIMEOUT "command_timeout"
 #define NRPE_SETTINGS_TIMEOUT_DEFAULT 60
-#define NRPE_SETTINGS_ALLOWED "allowed_hosts"
-#define NRPE_SETTINGS_ALLOWED_DEFAULT ""
 #define NRPE_SETTINGS_PORT "port"
 #define NRPE_SETTINGS_PORT_DEFAULT 5666
 #define NRPE_SETTINGS_ALLOW_ARGUMENTS "allow_arguments"
@@ -73,5 +69,17 @@
 // Log to File Settings
 #define LOG_SECTION_TITLE "log"
 #define LOG_FILENAME "file" 
-#define LOG_FILENAME_DEFAULT "nsclient.log" 
+#define LOG_FILENAME_DEFAULT "nsclient.log"
+#define LOG_DATEMASK "date_mask"
+#define LOG_DATEMASK_DEFAULT "%Y-%m-%d %H:%M:%S"
 
+// Main Settings
+#define MAIN_SECTION_TITLE "Settings"
+#define MAIN_MASTERKEY "master_key" 
+#define MAIN_MASTERKEY_DEFAULT "This is a secret key thet you should change"
+#define MAIN_OBFUSCATED_PASWD "obfuscated_password"
+#define MAIN_OBFUSCATED_PASWD_DEFAULT ""
+#define MAIN_SETTINGS_PWD "password"
+#define MAIN_SETTINGS_PWD_DEFAULT ""
+#define MAIN_ALLOWED_HOSTS "allowed_hosts"
+#define MAIN_ALLOWED_HOSTS_DEFAULT "127.0.0.1"

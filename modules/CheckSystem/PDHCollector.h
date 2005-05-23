@@ -29,9 +29,9 @@ private:
 	HANDLE hStopEvent_;
 	int checkIntervall_;
 
-	PDHCollectors::StaticPDHCounterListener memCmtLim;
-	PDHCollectors::StaticPDHCounterListener memCmt;
-	PDHCollectors::StaticPDHCounterListener upTime;
+	PDHCollectors::StaticPDHCounterListenerInt memCmtLim;
+	PDHCollectors::StaticPDHCounterListenerInt memCmt;
+	PDHCollectors::StaticPDHCounterListenerInt upTime;
 	PDHCollectors::RoundINTPDHBufferListener cpu;
 
 public:

@@ -21,9 +21,9 @@ namespace NSCAPI {
 		isInvalidBufferLen = -2
 	} errorReturn;
 #else
-	const int returnCRIT = 2;
 	const int returnOK = 0;
 	const int returnWARN = 1;
+	const int returnCRIT = 2;
 	const int returnUNKNOWN = 4;
 	const int returnInvalidBufferLen = -2;
 	const int returnIgnored = -1;
@@ -37,6 +37,7 @@ namespace NSCAPI {
 	typedef int errorReturn;
 #endif
 
+	const int xor = 1;
 
 	// Various message Types
 	const int log = 0;				// Log message

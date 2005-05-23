@@ -3,7 +3,7 @@
 #include <PDHCounter.h>
 
 namespace PDHCollectors {
-	class StaticPDHCounterListener : public PDH::PDHCounterListener {
+	class StaticPDHCounterListenerInt : public PDH::PDHCounterListener {
 		__int64 value_;
 	public:
 		virtual void collect(const PDH::PDHCounter &counter) {
@@ -15,6 +15,21 @@ namespace PDHCollectors {
 			value_ = value;
 		}
 		__int64 getValue() const {
+			return value_;
+		}
+	};
+	class StaticPDHCounterListenerDouble : public PDH::PDHCounterListener {
+		double value_;
+	public:
+		virtual void collect(const PDH::PDHCounter &counter) {
+			setValue(counter.getDoubleValue());
+		}
+		void attach(const PDH::PDHCounter &counter){}
+		void detach(const PDH::PDHCounter &counter){}
+		void setValue(double value) {
+			value_ = value;
+		}
+		double getValue() const {
 			return value_;
 		}
 	};

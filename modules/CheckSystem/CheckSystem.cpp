@@ -296,11 +296,14 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 	std::list<std::pair<std::string,states> > services;
 	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
 	bool bShowAll = false;
+	bool bNSClient = false;
 
 	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
 		strEx::token t = strEx::getToken((*it), '=');
 		if (t.first == SHOW_ALL)
 			bShowAll = true;
+		else if (t.first == NSCLIENT)
+			bNSClient = true;
 		else if (t.first == SHOW_FAIL)  {
 			bShowAll = false;
 		} else {
@@ -338,13 +341,15 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 		msg += tmp;
 	}
 	if (msg.empty())
-		msg ="All services ok.";
+		msg ="All services are running.";
+	else if (!bNSClient)
+		msg = NSCHelper::translateReturn(ret) + ": " + msg;
 	return ret;
 }
 
 
 /**
- * Check availible memory and return various check results
+ * Check available memory and return various check results
  * Example: checkMem showAll maxWarn=50 maxCrit=75
  *
  * @param command Command to execute
@@ -467,11 +472,14 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 	std::list<std::pair<std::string,states> > procs;
 	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
 	bool bShowAll = false;
+	bool bNSClient = false;
 
 	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
 		strEx::token t = strEx::getToken((*it), '=');
 		if (t.first == SHOW_ALL)
 			bShowAll = true;
+		else if (t.first == NSCLIENT)
+			bNSClient = true;
 		else if (t.first == SHOW_FAIL)  {
 			bShowAll = false;
 		} else {
@@ -517,6 +525,8 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 	}
 	if (msg.empty())
 		msg ="All processes ok.";
+	else if (!bNSClient)
+		msg = NSCHelper::translateReturn(ret) + ": " + msg;
 	return ret;
 }
 
@@ -582,7 +592,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 		std::string name;
 		try {
 			PDH::PDHQuery pdh;
-			PDHCollectors::StaticPDHCounterListener counter;
+			PDHCollectors::StaticPDHCounterListenerInt counter;
 			std::string name = (*it).first;
 			if (name.empty())
 				name = (*it).second;
@@ -590,6 +600,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			pdh.open();
 			pdh.collect();
 			if (bNSCLientCompatible) {
+//				std::cout << counter.getValue() << std::endl;
 				msg += strEx::itos(counter.getValue());
 			} else {
 				std::string tStr;

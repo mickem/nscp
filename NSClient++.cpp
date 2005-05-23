@@ -18,6 +18,8 @@
 #include "Settings.h"
 #include <charEx.h>
 #include <Socket.h>
+#include <b64/b64.h>
+
 
 NSClient mainClient;	// Global core instance.
 bool g_bConsoleLog = false;
@@ -54,6 +56,18 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 				LOG_MESSAGE_STD("Service deinstallation failed; " + e.error_);
 				return -1;
 			}
+		} else if ( _stricmp( "encrypt", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
+			std::string password;
+			Settings::getInstance()->setFile(mainClient.getBasePath() + "NSC.ini");
+			std::cout << "Enter password to encrypt (has to be a single word): ";
+			std::cin >> password;
+			std::string xor_pwd = Encrypt(password);
+			std::cout << "obfuscated_password=" << xor_pwd << std::endl;
+			if (password != Decrypt(xor_pwd)) 
+				std::cout << "ERROR: Password did not match!" << std::endl;
+			Settings::destroyInstance();
+			return 0;
 		} else if ( _stricmp( "start", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			serviceControll::Start(SZSERVICENAME);
@@ -69,10 +83,12 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			LOG_MESSAGE(SZAPPNAME " Version: " SZVERSION);
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
 #ifdef _DEBUG
+			/*
 			strEx::run_test_getToken();
 			strEx::run_test_replace();
 			charEx::run_test_getToken();
 			arrayBuffer::run_testArrayBuffer();
+			*/
 #endif
 
 			g_bConsoleLog = true;
@@ -91,8 +107,6 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 				std::cin >> s;
 			}
 			mainClient.TerminateService();
-			LOG_MESSAGE("DONE!");
-
 			return 0;
 		} else {
 			LOG_MESSAGE("Usage: -version, -about, -install, -uninstall, -start, -stop");
@@ -136,7 +150,6 @@ void NSClientT::InitiateService(void) {
 void NSClientT::TerminateService(void) {
 	try {
 		mainClient.unloadPlugins();
-		LOG_DEBUG("Plugins unloaded...");
 	} catch(NSPluginException *e) {
 		std::cout << "Exception raised: " << e->error_ << " in module: " << e->file_ << std::endl;;
 	}
@@ -178,13 +191,6 @@ void NSClientT::loadPlugins(const std::list<std::string> plugins) {
 		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
 		return;
 	}
-	/*
-	MutexLock lock(pluginMutex);
-	if (!lock.hasMutex()) {
-		LOG_ERROR("FATAL ERROR: Could not get mutex.");
-		return;
-	}
-	*/
 	std::list<std::string>::const_iterator it;
 	for (it = plugins.begin(); it != plugins.end(); ++it) {
 		loadPlugin(*it);
@@ -200,23 +206,8 @@ void NSClientT::unloadPlugins() {
 			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
 			return;
 		}
-		/*	MutexLock lock(pluginMutex,20000);
-		if (!lock.hasMutex()) {
-		LOG_ERROR("FATAL ERROR: Could not get mutex.");
-		return;
-		}
-		*/
 		commandHandlers_.clear();
-		{
-			/*		MutexLock lock(messageMutex,20000);
-			if (!lock.hasMutex()) {
-			LOG_ERROR("FATAL ERROR: Could not get mutex (we will now crash BTW).");
-			} else {
-			messageHandlers_.clear();
-			}
-			*/
-			messageHandlers_.clear();
-		}
+		messageHandlers_.clear();
 	}
 	{
 		ReadLock readLock(&m_mutexRW, true, 10000);
@@ -230,7 +221,6 @@ void NSClientT::unloadPlugins() {
 			p->unload();
 		}
 	}
-
 	{
 		WriteLock writeLock(&m_mutexRW, true, 10000);
 		if (!writeLock.IsLocked()) {
@@ -258,22 +248,7 @@ void NSClientT::loadPlugin(const std::string file) {
  * @param *plugin The plug-ininstance to load. The pointer is managed by the 
  */
 void NSClientT::addPlugin(plugin_type plugin) {
-	{
-		ReadLock readLock(&m_mutexRW, true, 5000);
-		if (!readLock.IsLocked()) {
-			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
-			return;
-		}
-		plugin->load();
-	}
-	/*
-	MutexLock lock(pluginMutex);
-	if (!lock.hasMutex()) {
-		LOG_ERROR("FATAL ERROR: Could not get mutex.");
-		return;
-	}
-	*/
-
+	plugin->load();
 	{
 		WriteLock writeLock(&m_mutexRW, true, 10000);
 		if (!writeLock.IsLocked()) {
@@ -297,8 +272,11 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
 	char * pBuf = new char[1024];
 	NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, 1023, pBuf, 1023);
 	arrayBuffer::destroyArrayBuffer(aBuf, aLen);
-	if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) )
+	if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
+		delete [] mBuf;
+		delete [] pBuf;
 		return ret;
+	}
 	msg = mBuf;
 	perf = pBuf;
 	delete [] mBuf;
@@ -319,17 +297,14 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
  * @return The command status
  */
 NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) {
+	if (logDebug()) {
+		LOG_DEBUG_STD("Injecting: " + (std::string) command + ": " + arrayBuffer::arrayBuffer2string(argument, argLen, ", "));
+	}
 	ReadLock readLock(&m_mutexRW, true, 5000);
 	if (!readLock.IsLocked()) {
 		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
 		return NSCAPI::returnUNKNOWN;
 	}
-/*	MutexLock lock(pluginMutex);
-	if (!lock.hasMutex()) {
-		LOG_ERROR_STD("Failed to get mutex (" + strEx::itos(lock.getWaitResult()) + "), command ignored...");
-		return NSCAPI::returnUNKNOWN;
-	}
-*/
 	for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
 		try {
 			NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
@@ -343,8 +318,8 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 				case NSCAPI::returnWARN:
 				case NSCAPI::returnCRIT:
 				case NSCAPI::returnUNKNOWN:
-//					LOG_DEBUG_STD("Injected Result: " +(std::string) returnMessageBuffer);
-//					LOG_DEBUG_STD("Injected Performance Result: " +(std::string) returnPerfBuffer);
+					LOG_DEBUG_STD("Injected Result: " + NSCHelper::translateReturn(c) + "  --  " + (std::string)(returnMessageBuffer));
+					LOG_DEBUG_STD("Injected Performance Result: " +(std::string) returnPerfBuffer);
 					return c;
 				default:
 					LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
@@ -358,6 +333,21 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 	LOG_MESSAGE_STD("No handler for command: " + command);
 	return NSCAPI::returnIgnored;
 }
+
+bool NSClientT::logDebug() {
+	if (g_bConsoleLog)
+		return true;
+	typedef enum status {unknown, debug, nodebug };
+	static status d = unknown;
+	if (d == unknown) {
+		if (Settings::getInstance()->getInt("log", "debug", 0) == 1)
+			d = debug;
+		else
+			d = nodebug;
+	}
+	return (d == debug);
+}
+
 /**
  * Report a message to all logging enabled modules.
  *
@@ -378,14 +368,6 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 		std::cout << message << std::endl;
 		return;
 	}
-	/*
-	MutexLock lock(messageMutex);
-	if (!lock.hasMutex()) {
-		std::cout << "Message was lost as the core was locked..." << std::endl;
-		std::cout << message << std::endl;
-		return;
-	}
-	*/
 	if (g_bConsoleLog) {
 		std::string k = "?";
 		switch (msgType) {
@@ -407,17 +389,8 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 		}
 		std::cout << k << " " << file << "(" << line << ") " << message << std::endl;
 	}
-	if (msgType == NSCAPI::debug) {
-		typedef enum status {unknown, debug, nodebug };
-		static status d = unknown;
-		if (d == unknown) {
-			if (Settings::getInstance()->getInt("log", "debug", 0) == 1)
-				d = debug;
-			else
-				d = nodebug;
-		}
-		if (d == nodebug)
-			return;
+	if ((msgType == NSCAPI::debug)&&(!logDebug())) {
+		return;
 	}
 	for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
 		try {
@@ -479,6 +452,92 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const char* section, char*** aBuffer
 	return NSCAPI::isSuccess;
 }
 
+NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
+	if (mainClient.logDebug())
+		return NSCAPI::istrue;
+	return NSCAPI::isfalse;
+}
+
+std::string Encrypt(std::string str, unsigned int algorithm) {
+	unsigned int len = 0;
+	NSAPIEncrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	len+=2;
+	char *buf = new char[len+1];
+	NSCAPI::errorReturn ret = NSAPIEncrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	if (ret == NSCAPI::isSuccess) {
+		std::string ret = buf;
+		delete [] buf;
+		return ret;
+	}
+	return "";
+}
+std::string Decrypt(std::string str, unsigned int algorithm) {
+	unsigned int len = 0;
+	NSAPIDecrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	len+=2;
+	char *buf = new char[len+1];
+	NSCAPI::errorReturn ret = NSAPIDecrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	if (ret == NSCAPI::isSuccess) {
+		std::string ret = buf;
+		delete [] buf;
+		return ret;
+	}
+	return "";
+}
+
+NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen) {
+	if (algorithm != NSCAPI::xor) {
+		LOG_ERROR("Unknown algortihm requested.");
+		return NSCAPI::hasFailed;
+	}
+	std::string s = inBuffer;
+	std::string key = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT);
+	char *c = new char[inBufLen+1];
+	strncpy(c, inBuffer, inBufLen);
+	for (int i=0,j=0;i<inBufLen;i++,j++) {
+		if (j > key.size())
+			j = 0;
+		c[i] ^= key[j];
+	}
+	unsigned int len = b64::b64_encode(reinterpret_cast<void*>(c), inBufLen, outBuf, *outBufLen);
+	delete [] c;
+	if (outBuf) {
+		if ((len == 0)||(len >= *outBufLen)) {
+			LOG_ERROR("Invalid out buffer length.");
+			return NSCAPI::isInvalidBufferLen;
+		}
+		outBuf[len] = 0;
+		*outBufLen = len;
+	} else {
+		*outBufLen = len;
+	}
+	return NSCAPI::isSuccess;
+}
+
+NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen) {
+	if (algorithm != NSCAPI::xor) {
+		LOG_ERROR("Unknown algortihm requested.");
+		return NSCAPI::hasFailed;
+	}
+	unsigned int len =  b64::b64_decode(inBuffer, inBufLen, reinterpret_cast<void*>(outBuf), *outBufLen);
+	if (outBuf) {
+		if ((len == 0)||(len >= *outBufLen)) {
+			LOG_ERROR("Invalid out buffer length.");
+			return NSCAPI::isInvalidBufferLen;
+		}
+		std::string key = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT);
+		for (int i=0,j=0;i<len;i++,j++) {
+			if (j > key.size())
+				j = 0;
+			outBuf[i] ^= key[j];
+		}
+		outBuf[len] = 0;
+		*outBufLen = len;
+	} else {
+		*outBufLen = len;
+	}
+	return NSCAPI::isSuccess;
+}
 
 LPVOID NSAPILoader(char*buffer) {
 	if (stricmp(buffer, "NSAPIGetApplicationName") == 0)
@@ -499,5 +558,11 @@ LPVOID NSAPILoader(char*buffer) {
 		return &NSAPIInject;
 	if (stricmp(buffer, "NSAPIGetBasePath") == 0)
 		return &NSAPIGetBasePath;
+	if (stricmp(buffer, "NSAPICheckLogMessages") == 0)
+		return &NSAPICheckLogMessages;
+	if (stricmp(buffer, "NSAPIEncrypt") == 0)
+		return &NSAPIEncrypt;
+	if (stricmp(buffer, "NSAPIDecrypt") == 0)
+		return &NSAPIDecrypt;
 	return NULL;
 }

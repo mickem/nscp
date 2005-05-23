@@ -83,6 +83,9 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int, char *, unsigned int);
 	typedef LPVOID (*lpNSAPILoader)(char*);
+	typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
+	typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const char*, unsigned int, char*, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const char*, unsigned int, char*, unsigned int *);
 
 	// Helper functions for calling into the core
 	std::string getApplicationName(void);
@@ -97,6 +100,10 @@ namespace NSCModuleHelper
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::string command, const std::string buffer, char splitChar, std::string & message, std::string & perf);
 	void StopService(void);
 	std::string getBasePath();
+	bool logDebug();
+	bool checkLogMessages(int type);
+	std::string Encrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
+	std::string Decrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
 };
 
 namespace NSCModuleWrapper {

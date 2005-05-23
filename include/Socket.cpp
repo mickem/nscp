@@ -6,8 +6,8 @@
  * Print an error message 
  * @param error 
  */
-void simpleSocket::Socket::printError(std::string error) {
-	NSC_LOG_ERROR_STD(error);
+void simpleSocket::Socket::printError(std::string FILE, int LINE, std::string error) {
+	NSCModuleHelper::Message(NSCAPI::error, FILE, LINE, error);
 }
 
 

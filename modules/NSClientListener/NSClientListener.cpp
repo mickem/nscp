@@ -31,9 +31,15 @@ NSClientListener::NSClientListener() {
 }
 NSClientListener::~NSClientListener() {
 }
+std::string getAllowedHosts() {
+	std::string ret = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS, "");
+	if (ret.empty())
+		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
+	return ret;
+}
 
 bool NSClientListener::loadModule() {
-	allowedHosts.setAllowedHosts(strEx::splitEx(NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_ALLOWED, NSCLIENT_SETTINGS_ALLOWED_DEFAULT), ","));
+	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","));
 	try {
 		socket.setHandler(this);
 		socket.StartListener(NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT));
@@ -84,11 +90,31 @@ NSCModuleWrapper::module_version NSClientListener::getModuleVersion() {
 *
 */
 
+
+std::string getPassword() {
+	static std::string password = "";
+	if (password.empty()) {
+		password = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+		if (password.empty())
+			password= NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+		if (!password.empty()) {
+			password = NSCModuleHelper::Decrypt(password);
+		} else {
+			password = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, MAIN_SETTINGS_PWD, MAIN_SETTINGS_PWD_DEFAULT);
+			if (password.empty())
+				password = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_SETTINGS_PWD, MAIN_SETTINGS_PWD_DEFAULT);
+		}
+	}
+	return password;
+}
+
 std::string NSClientListener::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');
-	if ( (pwd.first.empty()) || (pwd.first != NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PWD, NSCLIENT_SETTINGS_PWD_DEFAULT)) )
-		return "ERROR: Invalid password.";
-	if (pwd.second.empty())
+	std::string rPwd = getPassword();
+	if ((pwd.first != rPwd) && ((pwd.first == "None") && (!rPwd.empty())) ) {
+		NSC_LOG_ERROR_STD("Invalid password (" + pwd.first + ").");
+		return "ERROR: Invalid password."; 
+	} if (pwd.second.empty())
 		return "ERRRO: No command specified.";
 	strEx::token cmd = strEx::getToken(pwd.second, '&');
 	if (cmd.first.empty())
@@ -112,16 +138,18 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 			break;
 		case REQ_CLIENTVERSION:
 			{
-				std::string v = NSCModuleHelper::getSettingsString("nsclient compat", "version", "modern");
-				if (v == "modern")
+				std::string v = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_VERSION, NSCLIENT_SETTINGS_VERSION_DEFAULT);
+				if (v == "auto")
 					return NSCModuleHelper::getApplicationName() + " " + NSCModuleHelper::getApplicationVersionString();
-				return NSCModuleHelper::getSettingsString("nsclient compat", "version", "modern");
+				return v;
 			}
 		case REQ_SERVICESTATE:
 			cmd.first = "checkServiceState";
+			cmd.second += "&nsclient";
 			break;
 		case REQ_PROCSTATE:
 			cmd.first = "checkProcState";
+			cmd.second += "&nsclient";
 			break;
 		case REQ_MEMUSE:
 			cmd.first = "checkMem";

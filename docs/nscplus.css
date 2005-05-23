@@ -110,3 +110,15 @@ table.MsoNormalTable {
 .example li {
 	padding: 5px;
 }
+
+.config {
+	padding: 0px 0px 0px 20px;
+	border: none;
+	background: lightgrey;
+	font-style: italic;
+	clear: both;
+}
+
+
+
+

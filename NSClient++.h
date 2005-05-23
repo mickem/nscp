@@ -43,7 +43,6 @@ private:
 	pluginList messageHandlers_;
 	std::string basePath;
 	MutexHandler internalVariables;
-//	MutexHandler pluginMutex;
 	MutexHandler messageMutex;
 	MutexRW  m_mutexRW;
 
@@ -71,12 +70,18 @@ public:
 	void loadPlugins(void);
 	void unloadPlugins(void);
 
+	bool logDebug();
+
 private:
 	void addPlugin(plugin_type plugin);
 
 };
 
 typedef NTService<NSClientT> NSClient;
+
+
+std::string Encrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
+std::string Decrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
 
 //////////////////////////////////////////////////////////////////////////
 // Various NSAPI callback functions (available for plug-ins to make calls back to the core.
@@ -94,6 +99,9 @@ void NSAPIMessage(int msgType, const char* file, const int line, const char* mes
 void NSAPIStopServer(void);
 NSCAPI::nagiosReturn NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
 NSCAPI::errorReturn NSAPIGetSettingsSection(const char*, char***, unsigned int *);
+NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
+NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);
+NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging
 // Generally names are of the form LOG_<severity>[_STD] 
