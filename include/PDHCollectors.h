@@ -3,41 +3,39 @@
 #include <PDHCounter.h>
 
 namespace PDHCollectors {
-	class StaticPDHCounterListenerInt : public PDH::PDHCounterListener {
-		__int64 value_;
+	template <class TType = __int64, DWORD TCollectionFormat = PDH_FMT_LARGE>
+	class StaticPDHCounterListener : public PDH::PDHCounterListener {
+		TType value_;
 	public:
 		virtual void collect(const PDH::PDHCounter &counter) {
-			setValue(counter.getInt64Value());
+			switch (TCollectionFormat) {
+				case PDH_FMT_LARGE:
+					setValue(counter.getInt64Value());
+					break;
+				case PDH_FMT_DOUBLE:
+					setValue(counter.getDoubleValue());
+					break;
+				default:
+					return;
+			}
 		}
 		void attach(const PDH::PDHCounter &counter){}
 		void detach(const PDH::PDHCounter &counter){}
-		void setValue(__int64 value) {
+		void setValue(TType value) {
 			value_ = value;
 		}
-		__int64 getValue() const {
+		TType getValue() const {
 			return value_;
 		}
-	};
-	class StaticPDHCounterListenerDouble : public PDH::PDHCounterListener {
-		double value_;
-	public:
-		virtual void collect(const PDH::PDHCounter &counter) {
-			setValue(counter.getDoubleValue());
-		}
-		void attach(const PDH::PDHCounter &counter){}
-		void detach(const PDH::PDHCounter &counter){}
-		void setValue(double value) {
-			value_ = value;
-		}
-		double getValue() const {
-			return value_;
+		DWORD getFormat() const {
+			return TCollectionFormat;
 		}
 	};
 
-
+	template <class TType = __int64, DWORD TCollectionFormat = PDH_FMT_LARGE>
 	class RoundINTPDHBufferListener : public PDH::PDHCounterListener {
 		unsigned int length;
-		int *buffer;
+		TType *buffer;
 		unsigned int current;
 	public:
 		RoundINTPDHBufferListener() : buffer(NULL), length(0), current(0) {}
@@ -63,17 +61,26 @@ namespace PDHCollectors {
 			current = 0;
 			length = newLength;
 
-			buffer = new int[length];
+			buffer = new TType[length];
 			for (unsigned int i=0; i<length;i++)
 				buffer[i] = 0;
 				
 		}
 		virtual void collect(const PDH::PDHCounter &counter) {
-			pushValue(static_cast<int>(counter.getInt64Value()));
+			switch (TCollectionFormat) {
+				case PDH_FMT_LONG:
+					pushValue(counter.getInt64Value());
+					break;
+				case PDH_FMT_DOUBLE:
+					pushValue(counter.getInt64Value());
+					break;
+				default:
+					return;
+			}
 		}
 		void attach(const PDH::PDHCounter &counter){}
 		void detach(const PDH::PDHCounter &counter){}
-		void pushValue(int value) {
+		void pushValue(TType value) {
 			if (buffer == NULL)
 				return;
 			if (current >= length)
@@ -82,7 +89,7 @@ namespace PDHCollectors {
 			if (current >= length)
 				current = 0;
 		}
-		int getAvrage(unsigned int backItems) const {
+		TType getAvrage(unsigned int backItems) const {
 			if ((backItems == 0) || (backItems >= length))
 				return -1;
 			double ret = 0;
@@ -97,10 +104,13 @@ namespace PDHCollectors {
 				for (unsigned int i=length-backItems+current; i<length;i++)
 					ret += buffer[i];
 			}
-			return static_cast<int>(ret/backItems);
+			return (ret/backItems);
 		}
 		inline unsigned int getLength() const {
 			return length;
+		}
+		DWORD getFormat() const {
+			return TCollectionFormat;
 		}
 	};
 

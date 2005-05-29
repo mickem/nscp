@@ -43,6 +43,11 @@ namespace strEx {
 		ss << i;
 		return ss.str();
 	}
+	inline std::string itos(double i) {
+		std::stringstream ss;
+		ss << i;
+		return ss.str();
+	}
 	inline int stoi(std::string s) {
 		return atoi(s.c_str());
 	}
