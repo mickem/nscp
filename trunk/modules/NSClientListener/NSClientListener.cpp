@@ -179,7 +179,7 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
 		case REQ_PROCSTATE:
-			return NSCHelper::translateReturn(ret) + "&" + message;
+			return strEx::itos(NSCHelper::nagios2int(ret)) + "& " + message;
 
 		default:				// "New" check_nscp also returns performance data
 			if (perf.empty())

@@ -21,6 +21,9 @@ namespace checkHolders {
 		static std::string print_percent(TType value) {
 			return strEx::itos(value) + "%";
 		}
+		static std::string print_unformated(TType value) {
+			return strEx::itos(value);
+		}
 	};
 
 	template <typename TType = __int64>
@@ -33,6 +36,9 @@ namespace checkHolders {
 			return strEx::stoi(s);
 		}
 		static std::string print(TType value) {
+			return strEx::itos(value);
+		}
+		static std::string print_unformated(TType value) {
 			return strEx::itos(value);
 		}
 		static std::string print_percent(TType value) {
@@ -53,6 +59,12 @@ namespace checkHolders {
 		TType value_;
 
 		Size() : bHasBounds_(false), value_(0) {};
+
+		Size(const Size & other) {
+			bHasBounds_ = other.bHasBounds_;
+			value_ = other.value_;
+		}
+
 		void set(std::string s) {
 			value_ = THandler::parse(s);
 			bHasBounds_ = true;
@@ -100,6 +112,11 @@ namespace checkHolders {
 		TType value_;
 
 		SizePercentage() : type_(none), value_(0) {};
+
+		SizePercentage(const SizePercentage &other) {
+			type_ = other.type_;
+			value_ = other.value_;
+		};
 		void set(std::string s) {
 			std::string::size_type p = s.find_first_of('%');
 			if (p == std::string::npos) {
@@ -158,12 +175,18 @@ namespace checkHolders {
 		THolder min;
 		typedef SizeMaxMin<TType, THandler, THolder> TMyType;
 
+		SizeMaxMin() {}
+		SizeMaxMin(const SizeMaxMin &other) {
+			max = other.max;
+			min = other.min;
+		}
+
 		std::string printPerfData()
 		{
 			if (max.hasBounds()) {
-				return THandler::print(max.value_) + ";";
+				return THandler::print_unformated(max.value_) + ";";
 			} else if (min.hasBounds()) {
-				return THandler::print(min.value_) + ";";
+				return THandler::print_unformated(min.value_) + ";";
 			}
 			return "0;";
 		}
@@ -179,6 +202,12 @@ namespace checkHolders {
 		THolder max;
 		THolder min;
 		typedef SizeMaxMinPercentage<TType, THandler, THolder> TMyType;
+
+		SizeMaxMinPercentage() {}
+		SizeMaxMinPercentage(const SizeMaxMinPercentage &other) {
+			max = other.max;
+			min = other.min;
+		}
 
 		bool isPercentage() {
 			if (max.hasBounds())
@@ -206,15 +235,15 @@ namespace checkHolders {
 			} else {
 				if (max.hasBounds()) {
 					if (max.isPercentage()) {
-						return THandler::print((max.value_*total)/100) + ";";
+						return THandler::print_unformated((max.value_*total)/100) + ";";
 					} else {
-						return THandler::print(max.value_) + ";";
+						return THandler::print_unformated(max.value_) + ";";
 					}
 				} else if (min.hasBounds()) {
 					if (min.isPercentage()) {
-						return THandler::print((min.value_*total)/100) + ";";
+						return THandler::print_unformated((min.value_*total)/100) + ";";
 					} else {
-						return THandler::print(min.value_) + ";";
+						return THandler::print_unformated(min.value_) + ";";
 					}
 				}
 			}
@@ -235,33 +264,6 @@ namespace checkHolders {
 		}
 
 	};
-/*
-	template <typename TType = drive_size, class THandler = drive_size_handler<>, class THolder = SizeMaxMinPercentage<> > 
-	class PerformancePrinterPercentage {
-	public:
-		static std::string printPerf(std::string name, TType value, TType total, THolder &warn, THolder &crit)
-		{
-			std::string s;
-			bool percentage = crit.isPercentage()  || warn.isPercentage();
-			if (percentage)
-				s += name + "=" + strEx::itos(value*100/total)+ "% ";
-			else
-				s+= name + "=" + strEx::itos(value) + ";";
-			s += warn.printPerfData(percentage, value, total);
-			s += crit.printPerfData(percentage, value, total);
-			s += " ";
-			return s;
-		}
-	};
-	template <typename TType = drive_size, class THandler = drive_size_handler<>, class THolder = SizeMaxMin<> > 
-	class PerformancePrinter {
-	public:
-		static std::string printPerf(std::string name, TType value, THolder &warn, THolder &crit)
-		{
-			return name + "=" + strEx::itos(value) + ";" + warn.printPerfData() + crit.printPerfData();
-		}
-	};
-*/
 }
 void generate_crc32_table(void);
 unsigned long calculate_crc32(const char *buffer, int buffer_size);

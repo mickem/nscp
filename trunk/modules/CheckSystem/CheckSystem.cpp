@@ -592,7 +592,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 		std::string name;
 		try {
 			PDH::PDHQuery pdh;
-			PDHCollectors::StaticPDHCounterListenerInt counter;
+			PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> counter;
 			std::string name = (*it).first;
 			if (name.empty())
 				name = (*it).second;
@@ -600,7 +600,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			pdh.open();
 			pdh.collect();
 			if (bNSCLientCompatible) {
-//				std::cout << counter.getValue() << std::endl;
 				msg += strEx::itos(counter.getValue());
 			} else {
 				std::string tStr;
@@ -631,7 +630,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 	}
 	if (msg.empty())
 		msg = "OK all counters within bounds.";
-	else
+	else if (!bNSCLientCompatible)
 		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }

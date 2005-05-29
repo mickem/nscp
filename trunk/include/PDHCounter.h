@@ -22,6 +22,7 @@ namespace PDH {
 		virtual void collect(const PDHCounter &counter) = 0;
 		virtual void attach(const PDHCounter &counter) = 0;
 		virtual void detach(const PDHCounter &counter) = 0;
+		virtual DWORD getFormat() const = 0;
 	};
 
 	class PDHCounter
@@ -71,10 +72,11 @@ namespace PDH {
 			if (hCounter_ == NULL)
 				return;
 			PDH_STATUS status;
-			if ((status = PdhGetFormattedCounterValue(hCounter_, PDH_FMT_LARGE , NULL, &data_)) != ERROR_SUCCESS)
+			if (!listener_)
+				return;
+			if ((status = PdhGetFormattedCounterValue(hCounter_, listener_->getFormat(), NULL, &data_)) != ERROR_SUCCESS)
 				throw PDHException("PdhGetFormattedCounterValue failed", status);
-			if (listener_)
-				listener_->collect(*this);
+			listener_->collect(*this);
 		}
 		double getDoubleValue() const {
 			return data_.doubleValue;

@@ -1,3 +1,8 @@
+2005-05-29 MickeM
+ * Fixed PROCSTATE and SERVICESTATE return state.
+ + Added support for individual size in CheckDriveSize and CheckFileSize (size has to be specified before a drive/path)
+ * Fixed performance data for drives (and possibly other places)
+
 2005-05-23 MickeM
  + Added obfuscated password support
  + Added some more debug info on commands (returncode, and input args)

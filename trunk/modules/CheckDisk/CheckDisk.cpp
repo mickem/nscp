@@ -82,14 +82,14 @@ void RecursiveScanDirectory(std::string dir, GetSize & f) {
 	FindClose(hFind);
 }
 
-
-#define MY_FILTER_UNKNOWN     0
-#define MY_FILTER_NO_ROOT_DIR 1
-#define MY_FILTER_REMOVABLE   2
-#define MY_FILTER_FIXED       4
-#define MY_FILTER_REMOTE      8
-#define MY_FILTER_CDROM       16
-#define MY_FILTER_RAMDISK     32
+struct DriveConatiner {
+	checkHolders::SizeMaxMinPercentage<> warn_;
+	checkHolders::SizeMaxMinPercentage<> crit_;
+	std::string drive_;
+	DriveConatiner(std::string drive, checkHolders::SizeMaxMinPercentage<> warn, checkHolders::SizeMaxMinPercentage<> crit) 
+		: drive_(drive), warn_(warn), crit_(crit) 
+	{}
+};
 
 NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -110,14 +110,14 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	bool bFilterRemovable = false;
 	bool bFilterFixed = false;
 	bool bFilterCDROM = false;
-	std::list<std::string> drives;
+	std::list<DriveConatiner> drives;
 
 	std::list<std::string>::const_iterator cit;
 	for (cit=args.begin();cit!=args.end();++cit) {
 		std::string arg = *cit;
 		std::pair<std::string,std::string> p = strEx::split(arg,"=");
 		if (p.first == "Drive") {
-			drives.push_back(p.second);
+			drives.push_back(DriveConatiner(p.second, warn, crit));
 		} else if (p.first == "MaxWarn") {
 			warn.max.set(p.second);
 		} else if (p.first == "MinWarn") {
@@ -144,7 +144,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		} else if (p.first == "CheckAll") {
 			bCheckAll = true;
 		} else {
-			drives.push_back(p.first);
+			drives.push_back(DriveConatiner(p.first, warn, crit));
 		}
 	}
 
@@ -157,15 +157,15 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 				drv += static_cast<char>('A' + idx); drv += ":\\";
 				UINT drvType = GetDriveType(drv.c_str());
 				if ((!bFilter)&&(drvType == DRIVE_FIXED)) {
-					drives.push_back(drv);
+					drives.push_back(DriveConatiner(drv, warn, crit));
 				} else if ((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) {
-					drives.push_back(drv);
+					drives.push_back(DriveConatiner(drv, warn, crit));
 				} else if ((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) {
-					drives.push_back(drv);
+					drives.push_back(DriveConatiner(drv, warn, crit));
 				} else if ((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) {
-					drives.push_back(drv);
+					drives.push_back(DriveConatiner(drv, warn, crit));
 				} else if ((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) {
-					drives.push_back(drv);
+					drives.push_back(DriveConatiner(drv, warn, crit));
 				}
 			}
 			idx++;
@@ -173,34 +173,34 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		}
 	}
 
-	for (std::list<std::string>::iterator it = drives.begin();it!=drives.end();it++) {
-		std::string drive = (*it);
-		if (drive.length() == 1)
-			drive += ":";
-		UINT drvType = GetDriveType(drive.c_str());
+	for (std::list<DriveConatiner>::iterator it = drives.begin();it!=drives.end();it++) {
+		DriveConatiner drive = (*it);
+		if (drive.drive_.length() == 1)
+			drive.drive_ += ":";
+		UINT drvType = GetDriveType(drive.drive_.c_str());
 
 		if ((!bFilter)&&(drvType != DRIVE_FIXED)) {
-			message = "UNKNOWN: Drive is not a fixed drive: " + drive + " (it is a: " + strEx::itos(drvType) + ")";
+			message = "UNKNOWN: Drive is not a fixed drive: " + drive.drive_ + " (it is a: " + strEx::itos(drvType) + ")";
 			return NSCAPI::returnUNKNOWN;
 		} else if ((bFilter)&&(!bFilterFixed)&&(drvType==DRIVE_FIXED)) {
-			message = "UNKNOWN: Drive does not match the current filter: " + drive + " (it is a: " + strEx::itos(drvType) + ")";
+			message = "UNKNOWN: Drive does not match the current filter: " + drive.drive_ + " (it is a: " + strEx::itos(drvType) + ")";
 			return NSCAPI::returnUNKNOWN;
 		} else if ((bFilter)&&(!bFilterCDROM)&&(drvType==DRIVE_CDROM)) {
-			message = "UNKNOWN: Drive does not match the current filter: " + drive + " (it is a: " + strEx::itos(drvType) + ")";
+			message = "UNKNOWN: Drive does not match the current filter: " + drive.drive_ + " (it is a: " + strEx::itos(drvType) + ")";
 			return NSCAPI::returnUNKNOWN;
 		} else if ((bFilter)&&(!bFilterRemote)&&(drvType==DRIVE_REMOTE)) {
-			message = "UNKNOWN: Drive does not match the current filter: " + drive + " (it is a: " + strEx::itos(drvType) + ")";
+			message = "UNKNOWN: Drive does not match the current filter: " + drive.drive_ + " (it is a: " + strEx::itos(drvType) + ")";
 			return NSCAPI::returnUNKNOWN;
 		} else if ((bFilter)&&(!bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) {
-			message = "UNKNOWN: Drive does not match the current filter: " + drive + " (it is a: " + strEx::itos(drvType) + ")";
+			message = "UNKNOWN: Drive does not match the current filter: " + drive.drive_ + " (it is a: " + strEx::itos(drvType) + ")";
 			return NSCAPI::returnUNKNOWN;
 		}
 
 		ULARGE_INTEGER freeBytesAvailableToCaller;
 		ULARGE_INTEGER totalNumberOfBytes;
 		ULARGE_INTEGER totalNumberOfFreeBytes;
-		if (!GetDiskFreeSpaceEx(drive.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
-			message = "UNKNOWN: Could not get free space for: " + drive;
+		if (!GetDiskFreeSpaceEx(drive.drive_.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+			message = "UNKNOWN: Could not get free space for: " + drive.drive_;
 			return NSCAPI::returnUNKNOWN;
 		}
 		//10597515264&80015491072
@@ -215,22 +215,22 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 			std::string tStr;
 			checkHolders::drive_size usedSpace = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
 			checkHolders::drive_size totalSpace = totalNumberOfBytes.QuadPart;
-			if (crit.max.hasBounds() && crit.max.checkMAX(usedSpace, totalSpace)) {
-				tStr += crit.max.prettyPrint(drive, usedSpace, totalSpace) + " > critical";
+			if (drive.crit_.max.hasBounds() && drive.crit_.max.checkMAX(usedSpace, totalSpace)) {
+				tStr += drive.crit_.max.prettyPrint(drive.drive_, usedSpace, totalSpace) + " > critical";
 				NSCHelper::escalteReturnCodeToCRIT(returnCode);
-			} else if (crit.min.hasBounds() && crit.min.checkMIN(usedSpace, totalSpace)) {
-				tStr = crit.min.prettyPrint(drive, usedSpace, totalSpace) + " < critical";
+			} else if (drive.crit_.min.hasBounds() && drive.crit_.min.checkMIN(usedSpace, totalSpace)) {
+				tStr = drive.crit_.min.prettyPrint(drive.drive_, usedSpace, totalSpace) + " < critical";
 				NSCHelper::escalteReturnCodeToCRIT(returnCode);
-			} else if (warn.max.hasBounds() && warn.max.checkMAX(usedSpace, totalSpace)) {
-				tStr = warn.max.prettyPrint(drive, usedSpace, totalSpace) + " > warning";
+			} else if (drive.warn_.max.hasBounds() && drive.warn_.max.checkMAX(usedSpace, totalSpace)) {
+				tStr = drive.warn_.max.prettyPrint(drive.drive_, usedSpace, totalSpace) + " > warning";
 				NSCHelper::escalteReturnCodeToWARN(returnCode);
-			} else if (warn.min.hasBounds() && warn.min.checkMIN(usedSpace, totalSpace)) {
-				tStr = warn.min.prettyPrint(drive, usedSpace, totalSpace) + " < warning";
+			} else if (drive.warn_.min.hasBounds() && drive.warn_.min.checkMIN(usedSpace, totalSpace)) {
+				tStr = drive.warn_.min.prettyPrint(drive.drive_, usedSpace, totalSpace) + " < warning";
 				NSCHelper::escalteReturnCodeToWARN(returnCode);
 			} else if (bShowAll) {
-				tStr = drive + ": " + strEx::itos_as_BKMG(usedSpace);
+				tStr = drive.drive_ + ": " + strEx::itos_as_BKMG(usedSpace);
 			}
-			perf += checkHolders::SizeMaxMinPercentage<>::printPerf(drive, usedSpace, totalSpace, warn, crit);
+			perf += checkHolders::SizeMaxMinPercentage<>::printPerf(drive.drive_, usedSpace, totalSpace, drive.warn_, drive.crit_);
 			if (!message.empty() && !tStr.empty())
 				message += ", ";
 			if (!tStr.empty())
@@ -244,64 +244,59 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	return returnCode;
 }
 
+struct PathConatiner {
+	checkHolders::SizeMaxMin<> warn_;
+	checkHolders::SizeMaxMin<> crit_;
+	std::string drive_;
+	std::string alias_;
+	PathConatiner(std::string drive, checkHolders::SizeMaxMin<> warn, checkHolders::SizeMaxMin<> crit) 
+		: drive_(drive), warn_(warn), crit_(crit) 
+	{}
+	PathConatiner(std::string drive, std::string alias, checkHolders::SizeMaxMin<> warn, checkHolders::SizeMaxMin<> crit) 
+		: drive_(drive), alias_(alias), warn_(warn), crit_(crit) 
+	{}
+	std::string getPath() {
+		return drive_;
+	}
+	std::string getName() {
+		if (alias_.empty())
+			return drive_;
+		return alias_;
+	}
+};
+
 NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
-	// CheckFileSize
-	// request: CheckFileSize <option> <option>...
-	// <option>			MaxWarn=<size gmkb>
-	//					MaxCrit=<size gmkb>
-	//					MinWarn=<size gmkb>
-	//					MinCrit=<size gmkb>
-	//					ShowAll
-	//					File=<path>
-	//					File:<shortname>=<path>
-	//
-	// Return: <return state>&<return string>...
-	// <return state>	0 - No errors
-	//					1 - Unknown
-	//					2 - Errors
-	// <size gmkb> is a size with a possible modifier letter (such as G for gigabyte, M for Megabyte, K for kilobyte etc)
-	// Examples:
-	// <return string>	<directory> <size gmkb> ... |<shortname>=<size>:<warn>:<crit>
-	// test: CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\WINDOWS\*.*
-	//       CheckFileSize
-	//
-	// check_nscp -H <ip> -p <port> -s <passwd> -c <commandstring>
-	//
-	// ./check_nscp -H 192.168.0.167 -p 1234 -s pwd -c 'CheckFileSize&ShowAll&MaxWarn=1024M&MaxCrit=4096M&File:WIN=c:\WINDOWS\*.*'
-	// WIN: 1G (2110962363B)|WIN:2110962363:1073741824:4294967296
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.empty()) {
 		message = "Missing argument(s).";
 		return NSCAPI::returnCRIT;
 	}
-	long long maxWarn = 0;
-	long long maxCrit = 0;
-	long long minWarn = 0;
-	long long minCrit = 0;
+	checkHolders::SizeMaxMin<> crit;
+	checkHolders::SizeMaxMin<> warn;
 	bool bShowAll = false;
-	std::list<std::pair<std::string,std::string> > paths;
+	std::list<PathConatiner> paths;
 
 	std::list<std::string>::const_iterator cit;
 	for (cit=args.begin();cit!=args.end();++cit) {
 		std::string arg = *cit;
 		std::pair<std::string,std::string> p = strEx::split(arg,"=");
 		if (p.first == "File") {
-			paths.push_back(std::pair<std::string,std::string>("",p.second));
+			paths.push_back(PathConatiner(p.second, warn, crit));
 		} else if (p.first == "MaxWarn") {
-			maxWarn = strEx::stoi64_as_BKMG(p.second);
+			warn.max.set(p.second);
 		} else if (p.first == "MinWarn") {
-			minWarn = strEx::stoi64_as_BKMG(p.second);
+			warn.min.set(p.second);
 		} else if (p.first == "MaxCrit") {
-			maxCrit = strEx::stoi64_as_BKMG(p.second);
+			crit.max.set(p.second);
 		} else if (p.first == "MinCrit") {
-			minCrit = strEx::stoi64_as_BKMG(p.second);
+			crit.min.set(p.second);
 		} else if (p.first == SHOW_ALL) {
 			bShowAll = true;
 		} else if (p.first.find(":") != std::string::npos) {
 			std::pair<std::string,std::string> p2 = strEx::split(p.first,":");
 			if (p2.first == "File") {
-				paths.push_back(std::pair<std::string,std::string>(p2.second,p.second));
+				paths.push_back(PathConatiner(p.second, p2.second, warn, crit));
 			} else {
 				message = "Unknown command: " + p.first;
 				return NSCAPI::returnCRIT;
@@ -312,36 +307,34 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 		}
 	}
 
-	std::list<std::pair<std::string,std::string> >::const_iterator pit;
+	std::list<PathConatiner>::const_iterator pit;
 	for (pit = paths.begin(); pit != paths.end(); ++pit) {
+		PathConatiner path = (*pit);
 		std::string tstr;
 		GetSize sizeFinder;
-		std::string sName = (*pit).first;
-		if (sName.empty())
-			sName = (*pit).second;
-		RecursiveScanDirectory((*pit).second, sizeFinder);
+		std::string sName = path.getName();
+		RecursiveScanDirectory(path.getPath(), sizeFinder);
 
-		if ((maxCrit!=0) && (sizeFinder.getSize() > maxCrit)) {
-			tstr = sName + ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
-			returnCode = NSCAPI::returnCRIT;
-		} else if (sizeFinder.getSize() < minCrit) {
-			tstr = sName + ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+		if (path.crit_.max.hasBounds() && path.crit_.max.checkMAX(sizeFinder.getSize())) {
+			tstr += path.crit_.max.prettyPrint(sName, sizeFinder.getSize()) + " > critical";
 			NSCHelper::escalteReturnCodeToCRIT(returnCode);
-		} else if ((maxWarn!=0)&&(sizeFinder.getSize() > maxWarn)) {
-			tstr = sName +  ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+		} else if (path.crit_.min.hasBounds() && path.crit_.min.checkMIN(sizeFinder.getSize())) {
+			tstr += path.crit_.min.prettyPrint(sName, sizeFinder.getSize()) + " < critical";
+			NSCHelper::escalteReturnCodeToCRIT(returnCode);
+		} else if (path.warn_.max.hasBounds() && path.warn_.max.checkMAX(sizeFinder.getSize())) {
+			tstr += path.warn_.max.prettyPrint(sName, sizeFinder.getSize()) + " > warning";
 			NSCHelper::escalteReturnCodeToWARN(returnCode);
-		} else if (sizeFinder.getSize() < minWarn) {
-			tstr = sName +  ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
+		} else if (path.warn_.min.hasBounds() && path.warn_.min.checkMIN(sizeFinder.getSize())) {
+			tstr += path.warn_.min.prettyPrint(sName, sizeFinder.getSize()) + " < warning";
 			NSCHelper::escalteReturnCodeToWARN(returnCode);
 		} else if (bShowAll) {
 			tstr = sName +  ": " + strEx::itos_as_BKMG(sizeFinder.getSize());
 		}
-		if (!(*pit).first.empty())
-			perf += (*pit).first + "=" + strEx::itos(sizeFinder.getSize()) + ";" + strEx::itos(maxWarn) + ";" + strEx::itos(maxCrit) + " ";
+		perf += checkHolders::SizeMaxMin<>::printPerf(sName, sizeFinder.getSize(), path.warn_, path.crit_);
 		if (!message.empty() && !tstr.empty())
 			message += ", ";
 		if (!tstr.empty())
-			message += tstr;
+			message = tstr;
 	}
 	if (message.empty())
 		message = "OK all file sizes are within bounds.";
@@ -349,9 +342,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 		message = NSCHelper::translateReturn(returnCode) + ": " + message;
 	return returnCode;
 }
-
-
-#define BUFFER_SIZE 1024*64
 
 NSCAPI::nagiosReturn CheckDisk::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	if (command == "CheckFileSize") {

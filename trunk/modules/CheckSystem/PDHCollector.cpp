@@ -49,6 +49,11 @@ PDHCollector::~PDHCollector()
 *
 */
 DWORD PDHCollector::threadProc(LPVOID lpParameter) {
+	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (!hStopEvent_) {
+		NSC_LOG_ERROR_STD("Create StopEvent failed: " + strEx::itos(GetLastError()));
+		return 0;
+	}
 	PDH::PDHQuery pdh;
 	pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
 	pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
@@ -62,11 +67,6 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		return 0;
 	}
 
-	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (!hStopEvent_) {
-		NSC_LOG_ERROR_STD("Create StopEvent failed: " + strEx::itos(GetLastError()));
-		return 0;
-	}
 
 	do {
 		MutexLock mutex(mutexHandler);
