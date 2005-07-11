@@ -176,24 +176,30 @@ TNtServiceInfo *TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, DWORD 
 	return info;
 }
 
-TNtServiceInfo TNtServiceInfo::GetService(LPCTSTR szName)
+TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 {
 	TNtServiceInfo info;
-	info.m_strServiceName = szName;
+	info.m_strServiceName = name;
 	SC_HANDLE scman = ::OpenSCManager(NULL,NULL,SC_MANAGER_ENUMERATE_SERVICE);
-	if (scman) {
-		SC_HANDLE sh = ::OpenService(scman,szName,SERVICE_QUERY_STATUS);
-		if (sh) {
-			SERVICE_STATUS state;
-			if (::QueryServiceStatus(sh, &state)) {
-				info.m_dwCurrentState = state.dwCurrentState;
-				info.m_dwServiceType = state.dwServiceType;
-			}
-			// TODO: Get more info here 
-			::CloseServiceHandle(sh);
-		}
+	if (!scman) {
+		throw NTServiceException(name, "Could not open ServiceControl manager", GetLastError());
+	}
+	SC_HANDLE sh = ::OpenService(scman,name.c_str(),SERVICE_QUERY_STATUS);
+	if (!sh) {
+		throw NTServiceException(name, "Could not open Service", GetLastError());
 		::CloseServiceHandle(scman);
 	}
+	SERVICE_STATUS state;
+	if (::QueryServiceStatus(sh, &state)) {
+		info.m_dwCurrentState = state.dwCurrentState;
+		info.m_dwServiceType = state.dwServiceType;
+	} else {
+		info.m_dwCurrentState = -1;
+		info.m_dwServiceType = -1;
+	}
+	// TODO: Get more info here 
+	::CloseServiceHandle(sh);
+	::CloseServiceHandle(scman);
 	return info;
 }
 

@@ -13,49 +13,21 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
     return TRUE;
 }
 
-
-DWORD WINAPI threadProc(LPVOID param) {
-	SysTray* parent = reinterpret_cast<SysTray*>(param);
-	try {
-		TrayIcon::createDialog();
-	} catch (const std::string& s) {
-		NSC_LOG_ERROR_STD(s);
-		return FALSE;
-	}
-	return TRUE;
-}
-
-SysTray::SysTray() : hThread_(NULL) {
-}
-SysTray::~SysTray() {
-	if (hThread_) {
-		NSC_LOG_ERROR("Thread has not closed when exiting...");
-		CloseHandle(hThread_);
-	}
-}
+SysTray::SysTray() {}
+SysTray::~SysTray() {}
 bool SysTray::loadModule() {
-	hThread_ = ::CreateThread(NULL, NULL, threadProc, this, NULL, &dwThreadID_);
-	if (!hThread_)
-		NSC_LOG_ERROR("Could not create thread...");
+	icon.createThread();
 	return true;
 }
 bool SysTray::unloadModule() {
-	TrayIcon::removeIcon();
-	TrayIcon::destroyDialog();
-	bool ret = TrayIcon::waitForTermination();
-	CloseHandle(hThread_);
-	hThread_ = NULL;
-	return ret;
+	if (!icon.exitThread(20000)) {
+		std::cout << "MAJOR ERROR: Could not unload thread..." << std::endl;
+		NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
+		return false;
+	}
+	return true;
 }
 
-
-std::string SysTray::getModuleName() {
-	return "System Tray icon Module.";
-}
-NSCModuleWrapper::module_version SysTray::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 0, 1 };
-	return version;
-}
 
 bool SysTray::hasCommandHandler() {
 	return false;
@@ -63,8 +35,6 @@ bool SysTray::hasCommandHandler() {
 bool SysTray::hasMessageHandler() {
 	return false;
 }
-
-
 
 NSC_WRAPPERS_MAIN_DEF(gSysTray);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

@@ -10,4 +10,4 @@ EXPORTS
 	NSHandleMessage
 	NSHandleCommand
 	NSUnloadModule
-
+	NSGetModuleDescription

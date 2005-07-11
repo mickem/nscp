@@ -200,46 +200,54 @@
 	The latter is the preferred way as it is shorter.</p>
 	<h2>[Check System]</h2>
 	<p>Here you can set various options to configure the System Check module.</p>
-	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table20">
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table22">
 		<tr>
-			<td valign="top">Option</td>
+			<td valign="top" width="184">Option</td>
 			<td valign="top">Default value</td>
 			<td valign="top">Description</td>
 		</tr>
 		<tr>
-			<td valign="top">CPUBufferSize</td>
+			<td valign="top" width="184">CPUBufferSize</td>
 			<td valign="top">1h</td>
-			<td valign="top">The time to store CPU load. This means you can get 
-			averaged values this far back in time. The downside is the buffer might 
-			use a lot of memory if the check resolution is high.</td>
+			<td valign="top">The time to store CPU load.</td>
 		</tr>
 		<tr>
-			<td valign="top">CheckResolution</td>
+			<td valign="top" width="184">CheckResolution</td>
 			<td valign="top">10</td>
-			<td valign="top">Time between checks in 1/10 of seconds. That means 
-			a value of 10 means check every second. A value of 100 means check every 
-			10 seconds and so on.</td>
+			<td valign="top">Time between checks in 1/10 of seconds.</td>
 		</tr>
 		<tr>
-			<td valign="top">CounterPageLimit</td>
-			<td valign="top">\Memory\Commit Limit</td>
-			<td valign="top">Counter to use to check upper memory limit.</td>
+			<td valign="top" width="184">auto_detect_pdh</td>
+			<td valign="top">1</td>
+			<td valign="top">Set this to 0 to disable auto detect (counters.defs) 
+			PDH language and OS version.</td>
 		</tr>
 		<tr>
-			<td valign="top">CounterPage</td>
-			<td valign="top">\Memory\Committed Bytes</td>
-			<td valign="top">Counter to use to check current memory usage.</td>
+			<td valign="top" width="184" bgcolor="#D3D3D3"><i>MemoryCommitLimit</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>\Memory\Commit Limit</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>Counter to use to check upper memory limit.</i></td>
 		</tr>
 		<tr>
-			<td valign="top">CounterUptime</td>
-			<td valign="top">\System\System Up Time</td>
-			<td valign="top">Counter to use to check the uptime of the system.</td>
+			<td valign="top" width="184" bgcolor="#D3D3D3"><i>MemoryCommitByte</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>\Memory\Committed Bytes</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>Counter to use to check current memory usage.</i></td>
 		</tr>
 		<tr>
-			<td valign="top">CounterCPU</td>
-			<td valign="top">\Processor(_total)\% Processor Time</td>
-			<td valign="top">Counter to use for CPU load. For NT4 this has to be 
-			altered to &quot;\System\% Total Processor Time&quot; as PDH definitions have changed.</td>
+			<td valign="top" width="184" bgcolor="#D3D3D3"><i>SystemSystemUpTime</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>\System\System Up Time</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>Counter to use to check the uptime of the system.</i></td>
+		</tr>
+		<tr>
+			<td valign="top" width="184" bgcolor="#D3D3D3"><i>
+			SystemTotalProcessorTime</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>\Processor(_total)\% Processor Time</i></td>
+			<td valign="top" bgcolor="#D3D3D3"><i>Counter to use for CPU load.</i></td>
+		</tr>
+		<tr>
+			<td valign="top" width="184">ProcessEnumerationMethod</td>
+			<td valign="top">auto</td>
+			<td valign="top">Set the PROCESS enumeration method (auto or 
+			TOOLHELP or PSAPI)</td>
 		</tr>
 	</table>
 	<h2>[modules]</h2>

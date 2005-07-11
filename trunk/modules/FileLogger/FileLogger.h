@@ -13,8 +13,20 @@ public:
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
-	std::string getModuleName();
-	NSCModuleWrapper::module_version getModuleVersion();
+	std::string getConfigurationMeta();
+
+
+	std::string getModuleName() {
+		return "File logger";
+	}
+	NSCModuleWrapper::module_version getModuleVersion() {
+		NSCModuleWrapper::module_version version = {0, 0, 1 };
+		return version;
+	}
+	std::string getModuleDescription() {
+		return "Writes errors and (if configured) debug info to a text file.";
+	}
+
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	void handleMessage(int msgType, char* file, int line, char* message);

@@ -1,7 +1,6 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
-<meta http-equiv="Content-Language" content="en-us">
 <title>CheckEventLog</title>
 <link rel="stylesheet" type="text/css" href="../nscplus.css">
 <base target="_self">
@@ -11,48 +10,128 @@
 
 <div id="content" class="documentContent">
 	<h1>CheckEventLog.dll</h1>
-	<p>Simple module to check for errors in the system event log. This module is 
-	in an early stage and feedback would be appreciated.</p>
-	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table1">
+	<p>The CheckEventLog module checks for problems reported to the windows event log.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table4">
 		<tr>
-			<th width="134" valign="top">Command </th>
-			<th width="473" valign="top">Description </th>
+			<th valign="top">Command </th>
+			<th valign="top">Description </th>
 		</tr>
 		<tr>
-			<td width="134" valign="top">CheckEventLog </td>
-			<td width="473" valign="top">Check for errors in the event log. </td>
+			<td valign="top">CheckEventLog </td>
+			<td valign="top">Check to fins errors in the event log.</td>
 		</tr>
-	</table>
+		</table>
 	<h2>Configuration</h2>
 	<p><i>This module has no configuration directives.</i></p>
 	<h2>CheckEventLog</h2>
-	<p>Yet to be written</p>
-	<p>A quick introduction though:</p>
-	<p>First option is the log file to parse. (Application, System etc)</p>
-	<p>Options have the following format.</p>
-	<p>warn.require.eventType=warning</p>
-	<p>&lt;alert&gt;.&lt;action&gt;.&lt;key&gt;=&lt;value&gt;</p>
-	<p>Where “alert” is either warning or critical or all depending on the type 
-	of alert to generate if this rule is matched.</p>
-	<p>Where action is either require or exclude depending on if the options should 
-	be required by the state (if this rule is needed to generate an alert) or excluded 
-	(if the rule is matched the alert cannot be generated).</p>
-	<p>Where key is one of the following value:</p>
-	<p>eventType</p>
-	<p>eventSource</p>
-	<p>eventSourceRegexp</p>
-	<p>generatedBeforeDelta</p>
-	<p>generatedAfterDelta</p>
-	<p>writtenBeforeDelta</p>
-	<p>writtenAfterDelta</p>
-	<p>regexp</p>
+	<p>This check enumerates all event in the event log and filters out (or in) 
+	events and then the resulting list is used to determine state.</p>
+	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table5">
+		<tr>
+			<th valign="top">Option </th>
+			<th valign="top">Values </th>
+			<th valign="top">Description </th>
+		</tr>
+		<tr>
+			<td valign="top">file</td>
+			<td valign="top">A event log file name</td>
+			<td valign="top">The name of an eventlog file the default ones are 
+			Application, Security and System.</td>
+		</tr>
+		<tr>
+			<td valign="top">filter</td>
+			<td valign="top">in, out</td>
+			<td valign="top">Specify if you want to filter out or in records.</td>
+		</tr>
+		<tr>
+			<td valign="top">descriptions</td>
+			<td valign="top"><i>None</i></td>
+			<td valign="top">Flag to specify if you want to include string 
+			representationof the error messages.</td>
+		</tr>
+		<tr>
+			<td valign="top">truncate</td>
+			<td valign="top">length of the returned set</td>
+			<td valign="top">This wil ltruncate the output after the specified 
+			length. As NRPE can only handle 1024 chars you need to truncate the 
+			output.</td>
+		</tr>
+		<tr>
+			<td valign="top">warning-count</td>
+			<td valign="top">number of records</td>
+			<td valign="top">The maximum records to allow before reporting a 
+			warning state.</td>
+		</tr>
+		<tr>
+			<td valign="top">critical-count</td>
+			<td valign="top">number of records</td>
+			<td valign="top">The maximum records to allow before reporting a 
+			critical state.</td>
+		</tr>
+		<tr>
+			<td valign="top">
+			filter-eventType</td>
+			<td valign="top">
+			error, warning, etc</td>
+			<td valign="top">
+			An eventtype to filter out: error, warning, info, auditSuccess or 
+			auditFailure.</td>
+		</tr>
+		<tr>
+			<td valign="top">
+			filter-eventSource</td>
+			<td valign="top">
+			regexp</td>
+			<td valign="top">
+			The name of the source of the event.</td>
+		</tr>
+		<tr>
+			<td valign="top">
+			filter-generated</td>
+			<td valign="top">
+			Time with optional postfix</td>
+			<td valign="top">
+			Time ago the message was generated</td>
+		</tr>
+		<tr>
+			<td valign="top">
+			filter-written</td>
+			<td valign="top">
+			Time with optional postfix</td>
+			<td valign="top">
+			Time ago the message was written to the log</td>
+		</tr>
+		<tr>
+			<td valign="top">
+			filter-message</td>
+			<td valign="top">
+			regexp</td>
+			<td valign="top">
+			Filter strings in the message.</td>
+		</tr>
+	</table>
+	<p>The “Time with optional postfix” is a way to simply specify large times by 
+	adding unit postfix. The available postfixes are S for Second, M for Minute, 
+	H for Hour, D for Day and W for week. </p>
 	<h3>Examples</h3>
 	<div class="example">
 		<ul>
 			<li>
-			<p>Sample eventlog check command:</p>
-			<p><code>Application critical.require.eventType=error truncate=1024 descriptions all.exclude.eventSourceRegexp=^(Win|Msi|NSClient\+\+|Userenv|ASP\.NET|).*</code></p>
-			<p><code>CRITICAL: MSDTC - MSDTC [0, 0, 0, 0, 0, 0, ] - </code></p>
+			<p><b>Check the Application and System event log for errors in the 
+			last 24 hours. Filter out any Cdrom and NSClient errors as well as 
+			all warnings. Allow 3 errors before a warning is issued and 7 before 
+			a critical state.</b></p>
+			<p><code>checkEventLog file=system file=application filter-eventType=warning filter-generated=1d filter-eventSource=Cdrom filter-eventSource=NSClient warning-count=3 critical-count=7</code></p>
+			<p><code>CRITICAL: 27 > critical: ESENT, ESENT, ESENT, ESENT,...</code></p>
+			<div class="config">
+				<p>define command { </p>
+				<p>&nbsp;&nbsp;&nbsp; command_name check_event_log </p>
+				<p>&nbsp;&nbsp;&nbsp; command_line check_nrpe -H $HOSTADDRESS$ -p 
+				5666 -c checkEventLog -a file=system file=application filter-eventType=warning filter-generated=1d filter-eventSource=Cdrom filter-eventSource=NSClient warning-count=3 critical-count=7 </p>
+				<p>}</p>
+				<p>&nbsp;&nbsp;&nbsp; check_command check_event_log
+				</p>
+			</div>
 			</li>
 		</ul>
 	</div>

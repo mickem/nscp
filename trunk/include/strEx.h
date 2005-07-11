@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sstream>
+#include <iomanip>
 #include <string>
 #include <utility>
 #include <list>
@@ -48,8 +49,16 @@ namespace strEx {
 		ss << i;
 		return ss.str();
 	}
+	inline std::string ihextos(unsigned int i) {
+		std::stringstream ss;
+		ss << std::hex << i;
+		return ss.str();
+	}
 	inline int stoi(std::string s) {
 		return atoi(s.c_str());
+	}
+	inline double stod(std::string s) {
+		return atof(s.c_str());
 	}
 	inline long long stoi64(std::string s) {
 		return _atoi64(s.c_str());
@@ -88,16 +97,33 @@ namespace strEx {
 			return value * 7 * 24 * 60 * 60 * 1000;
 		return value * smallest_unit;
 	}
+
+#define WEEK	(7 * 24 * 60 * 60 * 1000)
+#define DAY		(24 * 60 * 60 * 1000)
+#define HOUR	(60 * 60 * 1000)
+#define MIN		(60 * 1000)
+#define SEC		(1000)
 	inline std::string itos_as_time(unsigned long long time) {
-		if (time > 7 * 24 * 60 * 60 * 1000)
-			return itos(static_cast<unsigned int>(time/(7 * 24 * 60 * 60 * 1000))) + "w";
-		else if (time > 24 * 60 * 60 * 1000)
-			return itos(static_cast<unsigned int>(time/(24 * 60 * 60 * 1000))) + "d";
-		else if (time > 60 * 60 * 1000)
-			return itos(static_cast<unsigned int>(time/(60 * 60 * 1000))) + "h";
-		else if (time > 60 * 1000)
-			return itos(static_cast<unsigned int>(time/(60 * 1000))) + "m";
-		else if (time > 1000)
+		if (time > WEEK) {
+			unsigned int w = static_cast<unsigned int>(time/WEEK);
+			unsigned int d = static_cast<unsigned int>((time-(w*WEEK))/DAY);
+			unsigned int h = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY))/HOUR);
+			unsigned int m = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN);
+			return itos(w) + "w " + itos(d) + "d " + itos(h) + ":" + itos(m);
+		}
+		else if (time > DAY) {
+			unsigned int d = static_cast<unsigned int>((time)/DAY);
+			unsigned int h = static_cast<unsigned int>((time-(d*DAY))/HOUR);
+			unsigned int m = static_cast<unsigned int>((time-(d*DAY)-(h*HOUR))/MIN);
+			return itos(d) + "d " + itos(h) + ":" + itos(m);
+		}
+		else if (time > HOUR) {
+			unsigned int h = static_cast<unsigned int>((time)/HOUR);
+			unsigned int m = static_cast<unsigned int>((time-(h*HOUR))/MIN);
+			return itos(h) + ":" + itos(m);
+		} else if (time > MIN) {
+			return "0:" + itos(static_cast<unsigned int>(time/(60 * 1000)));
+		} else if (time > SEC)
 			return itos(static_cast<unsigned int>(time/(1000))) + "s";
 		return itos(static_cast<unsigned int>(time));
 	}
@@ -123,18 +149,18 @@ namespace strEx {
 #define BKMG_SIZE 5
 
 	inline std::string itos_as_BKMG(unsigned __int64 i) {
-		unsigned __int64 cpy = i;
+		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
 		while ((cpy > 1024)&&(idx<BKMG_SIZE)) {
 			cpy/=1024;
 			idx++;
 		}
-		std::string ret = itos(cpy);
+		std::stringstream ss;
+		ss << std::setprecision(3);
+		ss << cpy;
+		std::string ret = ss.str(); // itos(cpy);
 		ret += postfix[idx];
-		if (idx > 0) {
-			ret += " (" + itos(i) + "B)";
-		}
 		return ret;
 	}
 
@@ -150,6 +176,15 @@ namespace strEx {
 			ret.push_back(str.substr(lpos));
 		return ret;
 	}
+	inline std::string joinEx(splitList lst, std::string key) {
+		std::string ret;
+		for (splitList::const_iterator it = lst.begin(); it != lst.end(); ++it) {
+			if (!ret.empty())
+				ret += key;
+			ret += *it;
+		}
+		return ret;
+	}
 
 	inline std::pair<std::string,std::string> split(std::string str, std::string key) {
 		std::string::size_type pos = str.find(key);
@@ -158,8 +193,17 @@ namespace strEx {
 		return std::pair<std::string,std::string>(str.substr(0, pos), str.substr(pos+key.length()));
 	}
 	typedef std::pair<std::string,std::string> token;
-	inline token getToken(std::string buffer, char split) {
-		std::string::size_type pos = buffer.find(split);
+	// foo bar "foo \" bar" foo -> foo, bar "foo \" bar" foo -> bar, "foo \" bar" foo -> 
+	// 
+	inline token getToken(std::string buffer, char split, bool escape = false) {
+		std::string::size_type pos = std::string::npos;
+		if ((escape) && (buffer[0] == '\"')) {
+			do {
+				pos = buffer.find('\"');
+			}
+			while (((pos != std::string::npos)&&(pos > 1))&&(buffer[pos-1] == '\\'));
+		} else
+			pos = buffer.find(split);
 		if (pos == std::string::npos)
 			return token(buffer, "");
 		if (pos == buffer.length()-1)

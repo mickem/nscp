@@ -19,6 +19,8 @@
 
 #include "stdafx.h"
 #include "PDHCollector.h"
+#include <Settings.h>
+#include <sysinfo.h>
 
 
 PDHCollector::PDHCollector() : hStopEvent_(NULL) {
@@ -55,31 +57,83 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		return 0;
 	}
 	PDH::PDHQuery pdh;
-	pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
-	pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
-	pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
-	pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
+
+
+	if (NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_AUTODETECT_PDH, C_SYSTEM_AUTODETECT_PDH_DEFAULT) == 1) {
+
+		SettingsT settings;
+		std::string prefix;
+		std::string section;
+		settings.setFile(NSCModuleHelper::getBasePath() + "\\counters.defs");
+
+
+		try {
+			OSVERSIONINFO osVer = systemInfo::getOSVersion();
+			if (!systemInfo::isNTBased(osVer)) {
+				NSC_LOG_ERROR_STD("Detected Windows 3.x or Windows 9x, PDH will be disabled.");
+				NSC_LOG_ERROR_STD("To manual set performance counters you need to first set " C_SYSTEM_AUTODETECT_PDH "=0 in the config file, and then you also need to configure the various counter.");
+				return 0;
+			}
+
+			LANGID langId = -1;
+			if (systemInfo::isBelowNT4(osVer)) {
+				NSC_DEBUG_MSG_STD("Autodetected NT4, using NT4 PDH counters.");
+				prefix = "NT4";
+				langId = systemInfo::GetSystemDefaultLangID();
+			} else if (systemInfo::isAboveW2K(osVer)) {
+				NSC_DEBUG_MSG_STD("Autodetected w2k or later, using w2k PDH counters.");
+				prefix = "W2K";
+				langId = systemInfo::GetSystemDefaultUILanguage();
+			} else {
+				NSC_LOG_ERROR_STD("Unknown OS detected, PDH will be disabled.");
+				NSC_LOG_ERROR_STD("To manual set performance counters you need to first set " C_SYSTEM_AUTODETECT_PDH "=0 in the config file, and then you also need to configure the various counter.");
+				return 0;
+			}
+
+			section = "0000" + strEx::ihextos(langId);
+			section = "0x" + section.substr(section.length()-4);
+			NSC_DEBUG_MSG_STD("Detected language: " + settings.getString(section, "Description", "Not found") + " (" + section + ")");
+		} catch (systemInfo::SystemInfoException e) {
+			NSC_LOG_ERROR_STD("System detection failed, PDH will be disabled: " + e.error_);
+			NSC_LOG_ERROR_STD("To manual set performance counters you need to first set " C_SYSTEM_AUTODETECT_PDH "=0 in the config file, and then you also need to configure the various counter.");
+			return -1;
+		}
+
+		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
+		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
+		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
+		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
+	} else {
+		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
+		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
+		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
+		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
+	}
 
 	try {
 		pdh.open();
 	} catch (const PDH::PDHException &e) {
-		NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.str_);
+		NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.getError());
 		return 0;
 	}
 
 
+	DWORD waitStatus = 0;
 	do {
 		MutexLock mutex(mutexHandler);
 		if (!mutex.hasMutex()) 
 			NSC_LOG_ERROR("Failed to get Mutex!");
 		else {
 			try {
-				pdh.collect();
+				pdh.gatherData();
 			} catch (const PDH::PDHException &e) {
-				NSC_LOG_ERROR_STD("Failed to query performance counters: " + e.str_);
+				NSC_LOG_ERROR_STD("Failed to query performance counters: " + e.getError());
 			}
 		} 
-	}while (!(WaitForSingleObject(hStopEvent_, checkIntervall_*100) == WAIT_OBJECT_0));
+	}while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));
+	if (waitStatus != WAIT_OBJECT_0) {
+		NSC_LOG_ERROR("Something odd happend, terminating PDH collection thread!");
+	}
 
 	{
 		MutexLock mutex(mutexHandler);
@@ -94,7 +148,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		try {
 			pdh.close();
 		} catch (const PDH::PDHException &e) {
-			NSC_LOG_ERROR_STD("Failed to close performance counters: " + e.str_);
+			NSC_LOG_ERROR_STD("Failed to close performance counters: " + e.getError());
 		}
 	}
 	return 0;
@@ -129,7 +183,7 @@ int PDHCollector::getCPUAvrage(std::string time) {
 		NSC_LOG_ERROR("Failed to get Mutex!");
 		return -1;
 	}
-	return cpu.getAvrage(mseconds / (checkIntervall_*100));
+	return static_cast<int>(cpu.getAvrage(mseconds / (checkIntervall_*100)));
 }
 /**
 * Get uptime from counter

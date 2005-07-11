@@ -25,6 +25,7 @@
 #define SHOW_ALL "ShowAll"
 #define SHOW_FAIL "ShowFail"
 #define NSCLIENT "nsclient"
+#define CHECK_ALL "CheckAll"
 
 // NSClient Setting headlines
 #define NSCLIENT_SECTION_TITLE "NSClient"
@@ -53,18 +54,23 @@
 #define C_SYSTEM_CPU_BUFFER_TIME_DEFAULT "1h"
 #define C_SYSTEM_CHECK_RESOLUTION "CheckResolution"
 #define C_SYSTEM_CHECK_RESOLUTION_DEFAULT 10 /* unit: second/10 */
-#define C_SYSTEM_MEM_PAGE_LIMIT "CounterPageLimit"
-#define C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT "\\\\.\\Memory\\Commit Limit"
-#define C_SYSTEM_MEM_PAGE "CounterPage"
-#define C_SYSTEM_MEM_PAGE_DEFAULT "\\\\.\\Memory\\Committed Bytes"
-#define C_SYSTEM_UPTIME "CounterUptime"
-#define C_SYSTEM_UPTIME_DEFAULT "\\\\.\\System\\System Up Time"
-#define C_SYSTEM_CPU "CounterCPU"
-#define C_SYSTEM_MEM_CPU_DEFAULT "\\\\.\\Processor(_total)\\% Processor Time"
+
+#define C_SYSTEM_AUTODETECT_PDH "auto_detect_pdh"
+#define C_SYSTEM_AUTODETECT_PDH_DEFAULT 1
+
+#define C_SYSTEM_MEM_PAGE_LIMIT "MemoryCommitLimit"
+#define C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT "\\Memory\\Commit Limit"
+#define C_SYSTEM_MEM_PAGE "MemoryCommitByte"
+#define C_SYSTEM_MEM_PAGE_DEFAULT "\\Memory\\Committed Bytes"
+#define C_SYSTEM_UPTIME "SystemSystemUpTime"
+#define C_SYSTEM_UPTIME_DEFAULT "\\System\\System Up Time"
+#define C_SYSTEM_CPU "SystemTotalProcessorTime"
+#define C_SYSTEM_MEM_CPU_DEFAULT "\\Processor(_total)\\% Processor Time"
 #define C_SYSTEM_ENUMPROC_METHOD_PSAPI "PSAPI"
 #define C_SYSTEM_ENUMPROC_METHOD_THELP "TOOLHELP"
+#define C_SYSTEM_ENUMPROC_METHOD_AUTO "auto"
 #define C_SYSTEM_ENUMPROC_METHOD "ProcessEnumerationMethod"
-#define C_SYSTEM_ENUMPROC_METHOD_DEFAULT C_SYSTEM_ENUMPROC_METHOD_THELP
+#define C_SYSTEM_ENUMPROC_METHOD_DEFAULT C_SYSTEM_ENUMPROC_METHOD_AUTO
 
 // Log to File Settings
 #define LOG_SECTION_TITLE "log"

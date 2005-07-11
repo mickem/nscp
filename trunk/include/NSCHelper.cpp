@@ -178,7 +178,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const u
 	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, msgBuffer, BUFF_LEN, perfBuffer, BUFF_LEN);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
-			NSC_LOG_MESSAGE("No handler for this message.");
+			NSC_LOG_MESSAGE_STD("No handler for command '" + command + "'.");
 			break;
 		case NSCAPI::returnInvalidBufferLen:
 			NSC_LOG_ERROR("Inject command resulted in an invalid buffer size.");
@@ -488,6 +488,10 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 * @return buffer copy status
 */
 NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleName(char* buf, unsigned int bufLen, std::string str) {
+	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);
+}
+
+NSCAPI::errorReturn NSCModuleWrapper::wrapGetConfigurationMeta(char* buf, unsigned int bufLen, std::string str) {
 	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);
 }
 /**

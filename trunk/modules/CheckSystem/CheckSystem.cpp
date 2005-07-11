@@ -7,6 +7,8 @@
 #include <tlhelp32.h>
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
+#include <sysinfo.h>
+#include <checkHelpers.hpp>
 
 CheckSystem gNSClientCompat;
 
@@ -46,7 +48,21 @@ bool CheckSystem::loadModule() {
 	CEnumProcess tmp;
 	int method = tmp.GetAvailableMethods();
 
-	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
+
+
+	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_AUTO) {
+		OSVERSIONINFO osVer = systemInfo::getOSVersion();
+		if (systemInfo::isBelowNT4(osVer)) {
+			NSC_DEBUG_MSG_STD("Autodetected NT4<, using PSAPI process enumeration.");
+			processMethod_ = ENUM_METHOD::PSAPI;
+		} else if (systemInfo::isAboveW2K(osVer)) {
+			NSC_DEBUG_MSG_STD("Autodetected W2K>, using TOOLHELP process enumeration.");
+			processMethod_ = ENUM_METHOD::TOOLHELP;
+		} else {
+			NSC_DEBUG_MSG_STD("Autodetected failed, using PSAPI process enumeration.");
+			processMethod_ = ENUM_METHOD::PSAPI;
+		}
+	} else if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
 		NSC_DEBUG_MSG_STD("Using PSAPI method.");
 		if (method == (method|ENUM_METHOD::PSAPI)) {
 			processMethod_ = ENUM_METHOD::PSAPI;
@@ -74,21 +90,6 @@ bool CheckSystem::unloadModule() {
 		NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
 	}
 	return true;
-}
-/**
- * Return the module name.
- * @return The module name
- */
-std::string CheckSystem::getModuleName() {
-	return "System Checks Module.";
-}
-/**
- * Module version
- * @return module version
- */
-NSCModuleWrapper::module_version CheckSystem::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 3, 0 };
-	return version;
 }
 /**
  * Check if we have a command handler.
@@ -135,132 +136,130 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::blindstr command, c
 	return NSCAPI::returnIgnored;
 }
 
-// checkCPU warn=80 crit=90 time=20m time=10s time=4
-// checkCPU warn=80 crit=90 time=20m time=10s time=4 showAll
-// checkCPU 20 10 4 nsclient
 NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) 
 {
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsInteger> CPULoadConatiner;
+
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	int warn;
-	int crit;
-	std::list<std::string> times;
-	bool bNSCLientCompatible = false;
+	std::list<CPULoadConatiner> list;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
+	bool bNSClient = false;
+	CPULoadConatiner tmpObject;
 
+	tmpObject.data = "cpuload";
 
-	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
-		strEx::token t = strEx::getToken((*it), '=');
-		if (t.first == "crit")
-			crit = strEx::stoi(t.second);
-		else if (t.first == "warn")
-			warn = strEx::stoi(t.second);
-		else if (t.first == "time")
-			times.push_back(t.second);
-		else if (t.first == NSCLIENT)
-			bNSCLientCompatible = true;
-		else if (t.first == "showAll")
-			bShowAll = true;
-		else
-			times.push_back(t.first);
-	}
+	MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max)
+		MAP_OPTIONS_STR("warn", tmpObject.warn.max)
+		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
+		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
+		MAP_OPTIONS_STR("crit", tmpObject.crit.max)
+		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
+		MAP_OPTIONS_STR_AND("time", tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_STR_AND("Time", tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+			MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+			else if (p2.first == "Time") {
+				tmpObject.data = p__.second;
+				tmpObject.alias = p2.second;
+				list.push_back(tmpObject);
+			}
+			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
+			MAP_OPTIONS_SECONDARY_END()
+		else { tmpObject.data = p__.first, list.push_back(tmpObject); }
+	MAP_OPTIONS_END()
 
-	for (std::list<std::string>::iterator it = times.begin(); it != times.end(); ++it) {
+	for (std::list<CPULoadConatiner>::const_iterator it = list.begin(); it != list.end(); ++it) {
+		CPULoadConatiner load = (*it);
 		PDHCollector *pObject = pdhThread.getThread();
 		if (!pObject) {
 			msg = "ERROR: PDH Collection thread not running.";
 			return NSCAPI::returnUNKNOWN;
 		}
-		if (bNSCLientCompatible) {
-			int v = pObject->getCPUAvrage((*it) + "m");
-			if (v == -1) {
-				msg = "ERROR: We don't collect data this far back: " + (*it);
+		if (bNSClient) {
+			int value = pObject->getCPUAvrage(load.data + "m");
+			if (value == -1) {
+				msg = "ERROR: We don't collect data this far back: " + load.getAlias();
 				return NSCAPI::returnUNKNOWN;
 			}
 			if (!msg.empty()) msg += "&";
-			msg += strEx::itos(v);
+			msg += strEx::itos(value);
 		} else {
-			int v = pObject->getCPUAvrage((*it));
-			if (v == -1) {
-				msg = "ERROR: We don't collect data this far back: " + (*it);
+			int value = pObject->getCPUAvrage(load.data);
+			if (value == -1) {
+				msg = "ERROR: We don't collect data this far back: " + load.getAlias();
 				return NSCAPI::returnUNKNOWN;
 			} else {
-				if (v > warn) {
-					NSCHelper::escalteReturnCodeToWARN(ret);
-					msg += strEx::itos(v) + "% > " + strEx::itos(warn) + " " + (*it);
-				} if (v > crit) {
-					NSCHelper::escalteReturnCodeToCRIT(ret);
-					msg += strEx::itos(v) + "% > " + strEx::itos(crit) + " " + (*it);
-				} else if (bShowAll) {
-					msg += strEx::itos(v) + "% ";
-				}
-				perf += "'" + (*it) + " average'=" + strEx::itos(v) + "%;" + strEx::itos(warn) + ";" + strEx::itos(crit) + "; ";
+				load.setDefault(tmpObject);
+				load.runCheck(value, returnCode, msg, perf, bShowAll);
 			}
 		}
 	}
-	if (bNSCLientCompatible) {
-		// Don't prefix/postfix the output for NSClient
-	} else if (msg.empty()) {
-		msg = "CPU Load ok.";
-	} else {
-		msg = "CPU Load: " + msg;
-	}
-	return ret;
+
+	if (msg.empty())
+		msg = "OK CPU Load ok.";
+	else if (!bNSClient)
+		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
+	return returnCode;
 }
 
-// checkUpTime crit=1d warn=6h
-// checkUpTime nsclient
 NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsTime> UpTimeConatiner;
+
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	unsigned long long warn;
-	unsigned long long crit;
-	bool bNSCLientCompatible = false;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	bool bShowAll = false;
+	bool bNSClient = false;
+	UpTimeConatiner bounds;
 
-	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
-		strEx::token t = strEx::getToken((*it), '=');
-		if (t.first == "crit")
-			crit = strEx::stoi64_as_time(t.second);
-		else if (t.first == "warn")
-			warn = strEx::stoi64_as_time(t.second);
-		else if (t.first == NSCLIENT)
-			bNSCLientCompatible = true;
-		else {
-			msg = "Invalid argument: " + t.first;
-			return NSCAPI::returnUNKNOWN;
-		}
-	}
+	bounds.data = "uptime";
+
+	MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_STR("MaxWarn", bounds.warn.max)
+		MAP_OPTIONS_STR("warn", bounds.warn.min)
+		MAP_OPTIONS_STR("MinWarn", bounds.warn.min)
+		MAP_OPTIONS_STR("MaxCrit", bounds.crit.max)
+		MAP_OPTIONS_STR("crit", bounds.crit.min)
+		MAP_OPTIONS_STR("MinCrit", bounds.crit.min)
+		MAP_OPTIONS_STR("Alias", bounds.data)
+		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
+	MAP_OPTIONS_END()
+
+
 	PDHCollector *pObject = pdhThread.getThread();
 	if (!pObject) {
 		msg = "ERROR: PDH Collection thread not running.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	unsigned long long uptime = pObject->getUptime();
-	if (bNSCLientCompatible) {
-		msg = strEx::itos(uptime);
-		return NSCAPI::returnOK;
+	unsigned long long value = pObject->getUptime();
+	if (bNSClient) {
+		msg = strEx::itos(value);
 	} else {
-		uptime *= 1000;
-		if (uptime < crit) {
-			msg = "Client has uptime (" + strEx::itos_as_time(uptime) + ") < critical (" + strEx::itos_as_time(crit) + ")";
-			return NSCAPI::returnCRIT;
-		}
-		if (uptime < warn) {
-			msg = "Client has uptime (" + strEx::itos_as_time(uptime) + ") < warning (" + strEx::itos_as_time(warn) + ")";
-			return NSCAPI::returnWARN;
-		}
+		value *= 1000;
+		bounds.runCheck(value, returnCode, msg, perf, bShowAll);
 	}
-	return NSCAPI::returnOK;
+
+	if (msg.empty())
+		msg = "OK all counters within bounds.";
+	else if (!bNSClient)
+		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
+	return returnCode;
 }
 
+// @todo state_handler
 
 
 
@@ -288,63 +287,100 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
  */
 NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
+	typedef checkHolders::CheckConatiner<checkHolders::SimpleBoundsStateBoundsInteger> StateConatiner;
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::list<std::pair<std::string,states> > services;
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
+	std::list<StateConatiner> list;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
 	bool bNSClient = false;
+	StateConatiner tmpObject;
 
-	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
-		strEx::token t = strEx::getToken((*it), '=');
-		if (t.first == SHOW_ALL)
-			bShowAll = true;
-		else if (t.first == NSCLIENT)
-			bNSClient = true;
-		else if (t.first == SHOW_FAIL)  {
-			bShowAll = false;
-		} else {
-			if (t.second.empty())
-				services.push_back(std::pair<std::string,states>(t.first, started));
-			else {
-				if (t.second == "started")
-					services.push_back(std::pair<std::string,states>(t.first, started));
-				else
-					services.push_back(std::pair<std::string,states>(t.first, stopped));
+	tmpObject.data = "uptime";
+	tmpObject.warn.state = "started";
+
+	MAP_OPTIONS_BEGIN(stl_args)
+		/*
+		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max)
+		MAP_OPTIONS_STR("warn", tmpObject.warn.min)
+		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
+		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
+		MAP_OPTIONS_STR("crit", tmpObject.crit.min)
+		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
+		*/
+		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_BOOL_FALSE(SHOW_FAIL, bShowAll)
+		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+			else if (p2.first == "Time") {
+				tmpObject.data = p__.second;
+				tmpObject.alias = p2.second;
+				list.push_back(tmpObject);
 			}
+			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
+		MAP_OPTIONS_SECONDARY_END()
+		else { 
+			tmpObject.data = p__.first;
+			if (p__.second.empty())
+				tmpObject.crit.state = "started"; 
+			else
+				tmpObject.crit.state = p__.second; 
+			list.push_back(tmpObject); 
 		}
-	}
-	for (std::list<std::pair<std::string,states> >::iterator it = services.begin(); it != services.end(); ++it) {
-		TNtServiceInfo info = TNtServiceInfo::GetService((*it).first.c_str());
-		std::string tmp;
-		if ( (info.m_dwCurrentState == SERVICE_RUNNING) && ((*it).second == started) ) {
-			if (bShowAll)
-				tmp = info.m_strServiceName + " : Started";
-		} else if ( (info.m_dwCurrentState == SERVICE_STOPPED) && ((*it).second == stopped) ) {
-			if (bShowAll)
-				tmp = info.m_strServiceName + " : Stopped";
-		} else if ((info.m_dwCurrentState == SERVICE_STOPPED) && ((*it).second == started) ) {
-			NSCHelper::escalteReturnCodeToCRIT(ret);
-			tmp = info.m_strServiceName + " : Stopped";
-		} else if ((info.m_dwCurrentState == SERVICE_RUNNING) && ((*it).second == stopped) ) {
-			NSCHelper::escalteReturnCodeToCRIT(ret);
-			tmp = info.m_strServiceName + " : Started";
+	MAP_OPTIONS_END()
+
+	for (std::list<StateConatiner>::iterator it = list.begin(); it != list.end(); ++it) {
+		TNtServiceInfo info;
+		if (bNSClient) {
+			try {
+				info = TNtServiceInfo::GetService((*it).data.c_str());
+			} catch (NTServiceException e) {
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": Unknown";
+				NSCHelper::escalteReturnCodeToWARN(returnCode);
+				continue;
+			}
+			if ((info.m_dwCurrentState == SERVICE_RUNNING) && (bShowAll)) {
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": Started";
+			} else if (info.m_dwCurrentState == SERVICE_RUNNING) {
+			} else if (info.m_dwCurrentState == SERVICE_STOPPED) {
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": Stopped";
+				NSCHelper::escalteReturnCodeToCRIT(returnCode);
+			} else {
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": Unknown";
+				NSCHelper::escalteReturnCodeToWARN(returnCode);
+			}
 		} else {
-			NSCHelper::escalteReturnCodeToWARN(ret);
-			tmp = info.m_strServiceName + " : Unknown";
+			try {
+				info = TNtServiceInfo::GetService((*it).data.c_str());
+			} catch (NTServiceException e) {
+				NSC_LOG_ERROR_STD(e.getError());
+				msg = e.getError();
+				return NSCAPI::returnUNKNOWN;
+			}
+			checkHolders::state_type value;
+			if (info.m_dwCurrentState == SERVICE_RUNNING)
+				value = checkHolders::state_started;
+			else if (info.m_dwCurrentState == SERVICE_STOPPED)
+				value = checkHolders::state_stopped;
+			else
+				value = checkHolders::state_none;
+			(*it).runCheck(value, returnCode, msg, perf, bShowAll);
 		}
-		if (!msg.empty()&&!tmp.empty())
-			msg += " - ";
-		msg += tmp;
+
 	}
 	if (msg.empty())
-		msg ="All services are running.";
+		msg = "OK: All services are running.";
 	else if (!bNSClient)
-		msg = NSCHelper::translateReturn(ret) + ": " + msg;
-	return ret;
+		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
+	return returnCode;
 }
 
 
@@ -361,38 +397,29 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
  */
 NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinPercentageBoundsInt64 > MemoryConatiner;
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::list<std::pair<std::string,states> > services;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
-	bool bNSCLientCompatible = false;
+	bool bNSClient = false;
+	MemoryConatiner bounds;
 
-	checkHolders::SizeMaxMinPercentage<> warn;
-	checkHolders::SizeMaxMinPercentage<> crit;
+	bounds.data = "page";
 
-	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
-		strEx::token t = strEx::getToken((*it), '=');
-		if (t.first == SHOW_ALL)
-			bShowAll = true;
-		else if (t.first == "MaxWarn") {
-			warn.max.set(t.second);
-		} else if (t.first == "MinWarn") {
-			warn.min.set(t.second);
-		} else if (t.first == "MaxCrit") {
-			crit.max.set(t.second);
-		} else if (t.first == "MinCrit") {
-			crit.min.set(t.second);
-		} else if (t.first == NSCLIENT)
-			bNSCLientCompatible = true;
-		else {
-			msg = "Invalid argument: " + t.first;
-			return NSCAPI::returnUNKNOWN;
-		}
-	}
+	MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_STR("MaxWarn", bounds.warn.max)
+		MAP_OPTIONS_STR("MinWarn", bounds.warn.min)
+		MAP_OPTIONS_STR("MaxCrit", bounds.crit.max)
+		MAP_OPTIONS_STR("MinCrit", bounds.crit.min)
+		MAP_OPTIONS_STR("Alias", bounds.data)
+		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
+	MAP_OPTIONS_END()
 
 	PDHCollector *pObject = pdhThread.getThread();
 	if (!pObject) {
@@ -401,28 +428,15 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	}
 	long long pageCommit = pObject->getMemCommit(); 
 	long long pageCommitLimit = pObject->getMemCommitLimit(); 
-	if (bNSCLientCompatible) {
+	if (bNSClient) {
 		msg = strEx::itos(pageCommitLimit) + "&" + strEx::itos(pageCommit);
 		return NSCAPI::returnOK;
 	} else {
-		std::string tStr;
-		if (crit.max.hasBounds() && crit.max.checkMAX(pageCommit, pageCommitLimit)) {
-			tStr = crit.max.prettyPrint("page", pageCommit, pageCommitLimit) + " > critical";
-			NSCHelper::escalteReturnCodeToCRIT(returnCode);
-		} else if (crit.min.hasBounds() && crit.min.checkMIN(pageCommit, pageCommitLimit)) {
-			tStr = crit.min.prettyPrint("page", pageCommit, pageCommitLimit) + " < critical";
-			NSCHelper::escalteReturnCodeToCRIT(returnCode);
-		} else if (warn.max.hasBounds() && warn.max.checkMAX(pageCommit, pageCommitLimit)) {
-			tStr = warn.max.prettyPrint("page", pageCommit, pageCommitLimit) + " > warning";
-			NSCHelper::escalteReturnCodeToWARN(returnCode);
-		} else if (warn.min.hasBounds() && warn.min.checkMIN(pageCommit, pageCommitLimit)) {
-			tStr = warn.min.prettyPrint("page", pageCommit, pageCommitLimit) + " < warning";
-			NSCHelper::escalteReturnCodeToWARN(returnCode);
-		} else if (bShowAll) {
-			tStr = "page: " + strEx::itos_as_BKMG(pageCommit);
-		}
-		perf += checkHolders::SizeMaxMinPercentage<>::printPerf("page", pageCommit, pageCommitLimit, warn, crit);
-		msg += tStr;
+		bounds.warn.max.setMax(pageCommitLimit);
+		bounds.warn.min.setMax(pageCommitLimit);
+		bounds.crit.max.setMax(pageCommitLimit);
+		bounds.crit.min.setMax(pageCommitLimit);
+		bounds.runCheck(pageCommit, returnCode, msg, perf, bShowAll);
 	}
 	if (msg.empty())
 		msg = "OK memory within bounds.";
@@ -430,8 +444,17 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
+typedef struct NSPROCDATA__ {
+	NSPROCDATA__() : count(0) {}
+	NSPROCDATA__(const NSPROCDATA__ &other) {
+		count = other.count;
+		entry = other.entry;
+	}
 
-typedef std::hash_map<std::string,DWORD> NSPROCLST;
+	unsigned int count;
+	CEnumProcess::CProcessEntry entry;
+} NSPROCDATA;
+typedef std::hash_map<std::string,NSPROCDATA> NSPROCLST;
 /**
 * Get a hash_map with all running processes.
 * @return a hash_map with all running processes
@@ -447,7 +470,11 @@ NSPROCLST GetProcessList(int processMethod)
 	enumeration.SetMethod(processMethod);
 	CEnumProcess::CProcessEntry entry;
 	for (BOOL OK = enumeration.GetProcessFirst(&entry); OK; OK = enumeration.GetProcessNext(&entry) ) {
-		ret[entry.lpFilename] = entry.dwPID;
+		NSPROCLST::iterator it = ret.find(entry.sFilename);
+		if (it == ret.end())
+			ret[entry.sFilename].entry = entry;
+		else
+			(*it).second.count++;
 	}
 	return ret;
 }
@@ -464,71 +491,93 @@ NSPROCLST GetProcessList(int processMethod)
  */
 NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinStateBoundsStateBoundsInteger> StateConatiner;
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::list<std::pair<std::string,states> > procs;
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
+	std::list<StateConatiner> list;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
 	bool bNSClient = false;
+	StateConatiner tmpObject;
 
-	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
-		strEx::token t = strEx::getToken((*it), '=');
-		if (t.first == SHOW_ALL)
-			bShowAll = true;
-		else if (t.first == NSCLIENT)
-			bNSClient = true;
-		else if (t.first == SHOW_FAIL)  {
-			bShowAll = false;
-		} else {
-			if (t.second.empty())
-				procs.push_back(std::pair<std::string,states>(t.first, started));
-			else {
-				if (t.second == "started")
-					procs.push_back(std::pair<std::string,states>(t.first, started));
-				else
-					procs.push_back(std::pair<std::string,states>(t.first, stopped));
-			}
+	tmpObject.data = "uptime";
+	tmpObject.crit.state = "started";
+
+	MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_STR("MaxWarnCount", tmpObject.warn.max)
+		MAP_OPTIONS_STR("MinWarnCount", tmpObject.warn.min)
+		MAP_OPTIONS_STR("MaxCritCount", tmpObject.crit.max)
+		MAP_OPTIONS_STR("MinCritCount", tmpObject.crit.min)
+		MAP_OPTIONS_STR("Alias", tmpObject.alias)
+		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_BOOL_FALSE(SHOW_FAIL, bShowAll)
+		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+		else if (p2.first == "Proc") {
+			tmpObject.data = p__.second;
+			tmpObject.alias = p2.second;
+			list.push_back(tmpObject);
 		}
-	}
+		MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
+			MAP_OPTIONS_SECONDARY_END()
+		else { 
+			tmpObject.data = p__.first;
+			if (p__.second.empty())
+				tmpObject.crit.state = "started"; 
+			else
+				tmpObject.crit.state = p__.second; 
+			list.push_back(tmpObject); 
+		}
+	MAP_OPTIONS_END()
+
+
 	NSPROCLST runningProcs;
 	try {
 		runningProcs = GetProcessList(processMethod_);
 	} catch (char *c) {
 		NSC_LOG_ERROR_STD("ERROR: " + c);
 		msg = static_cast<std::string>("ERROR: ") + c;
-		return NSCAPI::returnCRIT;
+		return NSCAPI::returnUNKNOWN;
 	}
 
-	for (std::list<std::pair<std::string,states> >::iterator it = procs.begin(); it != procs.end(); ++it) {
-		NSPROCLST::iterator proc = runningProcs.find((*it).first);
+	for (std::list<StateConatiner>::iterator it = list.begin(); it != list.end(); ++it) {
+		NSPROCLST::iterator proc = runningProcs.find((*it).data);
 		bool bFound = proc != runningProcs.end();
 		std::string tmp;
-		if ( (bFound) && ((*it).second == started) ) {
-			if (bShowAll)
-				tmp = (*it).first + " : Running";
-		} else if ( (!bFound) && ((*it).second == stopped) ) {
-			if (bShowAll)
-				tmp = (*it).first + " : Stopped";
-		} else if ( (!bFound) && ((*it).second == started) ) {
-			NSCHelper::escalteReturnCodeToCRIT(ret);
-			tmp = (*it).first + " : Stopped";
-		} else if ( (bFound) && ((*it).second == stopped) ) {
-			NSCHelper::escalteReturnCodeToCRIT(ret);
-			tmp = (*it).first + " : Running";
+		TNtServiceInfo info;
+		if (bNSClient) {
+			if (bFound && bShowAll) {
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": Started";
+			} else if (bFound) {
+			} else {
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": Stopped";
+				NSCHelper::escalteReturnCodeToCRIT(returnCode);
+			}
+		} else {
+			checkHolders::MaxMinStateValueType<int, checkHolders::state_type> value;
+			if (bFound) {
+				value.count = (*proc).second.count;
+				value.state = checkHolders::state_started;
+			} else {
+				value.count = 0;
+				value.state = checkHolders::state_stopped;
+			}
+			(*it).runCheck(value, returnCode, msg, perf, bShowAll);
 		}
-		if (!msg.empty()&&!tmp.empty())
-			msg += " - ";
-		msg += tmp;
+
 	}
 	if (msg.empty())
-		msg ="All processes ok.";
+		msg = "OK: All processes are running.";
 	else if (!bNSClient)
-		msg = NSCHelper::translateReturn(ret) + ": " + msg;
-	return ret;
+		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
+	return returnCode;
 }
+
 
 /**
  * Check a counter and return the value
@@ -544,96 +593,162 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
  */
 NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsDouble> CounterConatiner;
+
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::list<std::pair<std::string,std::string> > counters;
+	std::list<CounterConatiner> counters;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
-	bool bNSCLientCompatible = false;
+	bool bNSClient = false;
+	/* average maax */
+	bool bCheckAverages = true; 
+	unsigned int averageDelay = 1000;
+	CounterConatiner tmpObject;
 
-	checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> > warn;
-	checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> > crit;
+	MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_STR_AND("Counter", tmpObject.data, counters.push_back(tmpObject))
+		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max)
+		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
+		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
+		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
+		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_BOOL_FALSE(SHOW_FAIL, bShowAll)
+		MAP_OPTIONS_BOOL_EX("Averages", bCheckAverages, "true", "false")
+		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+			else if (p2.first == "Counter") {
+				tmpObject.data = p__.second;
+				tmpObject.alias = p2.second;
+				counters.push_back(tmpObject);
+			}
+			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
+		MAP_OPTIONS_SECONDARY_END()
+		else {
+			tmpObject.data = p__.first;
+			counters.push_back(tmpObject);
+		}
+	MAP_OPTIONS_END()
 
-	for (arrayBuffer::arrayList::const_iterator it = stl_args.begin(); it != stl_args.end(); ++it) {
-		strEx::token t = strEx::getToken((*it), '=');
-		if (t.first == SHOW_ALL)
-			bShowAll = true;
-		else if (t.first == SHOW_FAIL)  {
-			bShowAll = false;
-		} else if (t.first == "MaxWarn") {
-			warn.max.set(t.second);
-		} else if (t.first == "MinWarn") {
-			warn.min.set(t.second);
-		} else if (t.first == "MaxCrit") {
-			crit.max.set(t.second);
-		} else if (t.first == "MinCrit") {
-			crit.min.set(t.second);
-		} else if (t.first == NSCLIENT) {
-			bNSCLientCompatible = true;
-		} else if (t.first == "Counter") {
-			counters.push_back(std::pair<std::string,std::string>("",t.second));
-		} else if (t.first.find(":") != std::string::npos) {
-			std::pair<std::string,std::string> t2 = strEx::split(t.first,":");
-			if (t2.first == "Counter") {
-				counters.push_back(std::pair<std::string,std::string>(t2.second,t.second));
-			} else {
-				msg = "Unknown command: " + t.first;
+	for (std::list<CounterConatiner>::const_iterator cit = counters.begin(); cit != counters.end(); ++cit) {
+		CounterConatiner counter = (*cit);
+		try {
+			std::string tstr;
+			if (!PDH::Enumerations::validate(counter.data, tstr)) {
+				msg = tstr;
 				return NSCAPI::returnUNKNOWN;
 			}
-		} else {
-			counters.push_back(std::pair<std::string,std::string>("",t.first));
+			PDH::PDHQuery pdh;
+			PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+			pdh.addCounter(counter.data, &cDouble);
+			pdh.open();
+			pdh.collect();
+			Sleep(1000);
+			pdh.gatherData();
+			pdh.close();
+			double value = cDouble.getValue();
+			std::cout << "Collected double data: " << value << std::endl;
+			if (bNSClient) {
+				msg += strEx::itos(value);
+			} else {
+				counter.setDefault(tmpObject);
+				counter.runCheck(value, returnCode, msg, perf, bShowAll);
+			}
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD("ERROR: " + e.getError() + " (" + counter.getAlias() + ")");
+			msg = static_cast<std::string>("ERROR: ") + e.getError();
+			return NSCAPI::returnUNKNOWN;
 		}
 	}
 
-	for (std::list<std::pair<std::string,std::string> >::iterator it = counters.begin(); it != counters.end(); ++it) {
-		std::string name;
-		try {
-			PDH::PDHQuery pdh;
-			PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> counter;
-			std::string name = (*it).first;
-			if (name.empty())
-				name = (*it).second;
-			pdh.addCounter((*it).second, &counter);
-			pdh.open();
-			pdh.collect();
-			if (bNSCLientCompatible) {
-				msg += strEx::itos(counter.getValue());
-			} else {
-				std::string tStr;
-				if (crit.max.hasBounds() && crit.max.checkMAX(counter.getValue())) {
-					tStr = crit.max.prettyPrint(name, counter.getValue()) + " > critical";
-					NSCHelper::escalteReturnCodeToCRIT(returnCode);
-				} else if (crit.min.hasBounds() && crit.min.checkMIN(counter.getValue())) {
-					tStr = crit.min.prettyPrint(name, counter.getValue()) + " < critical";
-					NSCHelper::escalteReturnCodeToCRIT(returnCode);
-				} else if (warn.max.hasBounds() && warn.max.checkMAX(counter.getValue())) {
-					tStr = warn.max.prettyPrint(name, counter.getValue()) + " > warning";
-					NSCHelper::escalteReturnCodeToWARN(returnCode);
-				} else if (warn.min.hasBounds() && warn.min.checkMIN(counter.getValue())) {
-					tStr = warn.min.prettyPrint(name, counter.getValue()) + " < warning";
-					NSCHelper::escalteReturnCodeToWARN(returnCode);
-				} else if (bShowAll) {
-					tStr = name + ": " + strEx::itos(counter.getValue());
-				}
-				perf += checkHolders::SizeMaxMin<__int64, checkHolders::int64_handler<> >::printPerf(name, counter.getValue(), warn, crit);
-				msg += tStr;
-			}
-			pdh.close();
-		} catch (const PDH::PDHException &e) {
-			NSC_LOG_ERROR_STD("ERROR: " + e.str_ + " (" + name + ")");
-			msg = static_cast<std::string>("ERROR: ") + e.str_;
-			return 0;
-		}
-	}
 	if (msg.empty())
 		msg = "OK all counters within bounds.";
-	else if (!bNSCLientCompatible)
+	else if (!bNSClient)
 		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 NSC_WRAPPERS_MAIN_DEF(gNSClientCompat);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gNSClientCompat);
+NSC_WRAPPERS_HANDLE_CONFIGURATION(gNSClientCompat);
+
+
+
+MODULE_SETTINGS_START(CheckSystem, "System check module", "...")
+
+PAGE("Check options")
+
+ITEM_EDIT_TEXT("Check resolution", "This is how often the PDH data is polled and stored in the CPU buffer. (this is enterd in 1/th: of a second)")
+OPTION("unit", "1/10:th of a second")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "Check System")
+OPTION("key", "CheckResolution")
+OPTION("default", "10")
+ITEM_END()
+
+ITEM_EDIT_TEXT("CPU buffer size", "This is the size of the buffer that stores CPU history.")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "Check System")
+OPTION("key", "CPUBufferSize")
+OPTION("default", "1h")
+ITEM_END()
+
+PAGE_END()
+ADVANCED_PAGE("Compatiblity settings")
+
+ITEM_EDIT_TEXT("MemoryCommitByte", "The memory commited bytes used to calculate the avalible memory.")
+OPTION("disableCaption", "Attempt to autodetect this.")
+OPTION("disabled", "auto")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "Check System")
+OPTION("key", "MemoryCommitByte")
+OPTION("default", "auto")
+ITEM_END()
+
+ITEM_EDIT_TEXT("MemoryCommitLimit", "The memory commit limit used to calculate the avalible memory.")
+OPTION("disableCaption", "Attempt to autodetect this.")
+OPTION("disabled", "auto")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "Check System")
+OPTION("key", "MemoryCommitLimit")
+OPTION("default", "auto")
+ITEM_END()
+
+ITEM_EDIT_TEXT("SystemSystemUpTime", "The PDH counter for the System uptime.")
+OPTION("disableCaption", "Attempt to autodetect this.")
+OPTION("disabled", "auto")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "Check System")
+OPTION("key", "SystemSystemUpTime")
+OPTION("default", "auto")
+ITEM_END()
+
+ITEM_EDIT_TEXT("SystemTotalProcessorTime", "The PDH conter usaed to measure CPU load.")
+OPTION("disableCaption", "Attempt to autodetect this.")
+OPTION("disabled", "auto")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "Check System")
+OPTION("key", "SystemTotalProcessorTime")
+OPTION("default", "auto")
+ITEM_END()
+
+ITEM_EDIT_TEXT("ProcessEnumerationMethod", "The method to use when enumerating processes")
+OPTION("count", "3")
+OPTION("caption_1", "Autodetect (TOOLHELP for NT/4 and PSAPI for W2k)")
+OPTION("value_1", "auto")
+OPTION("caption_2", "TOOLHELP use this for NT/4 systems")
+OPTION("value_2", "TOOLHELP")
+OPTION("caption_3", "PSAPI use this for W2k (and abowe) systems")
+OPTION("value_3", "PSAPI")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "Check System")
+OPTION("key", "ProcessEnumerationMethod")
+OPTION("default", "auto")
+ITEM_END()
+
+PAGE_END()
+MODULE_SETTINGS_END()

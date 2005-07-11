@@ -19,7 +19,7 @@
 #include <charEx.h>
 #include <Socket.h>
 #include <b64/b64.h>
-
+#include <PDHCounter.h>
 
 NSClient mainClient;	// Global core instance.
 bool g_bConsoleLog = false;
@@ -81,6 +81,16 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 		} else if ( _stricmp( "version", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME " Version: " SZVERSION);
+
+
+		} else if ( _stricmp( "listpdh", argv[1]+1 ) == 0 ) {
+			PDH::Enumerations::str_lst lst = PDH::Enumerations::EnumObjects();
+			for (PDH::Enumerations::str_lst::iterator it = lst.begin();it!=lst.end();++it) {
+				PDH::Enumerations::str_lst lst = PDH::Enumerations::EnumObjectItems(*it);
+				for (PDH::Enumerations::str_lst::iterator it2 = lst.begin();it2!=lst.end();++it2) {
+					std::cout << "\\" << *it <<"\\" << *it2 << std::endl;;
+				}
+			}
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
 #ifdef _DEBUG
 			/*
@@ -95,15 +105,22 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			mainClient.InitiateService();
 			LOG_MESSAGE("Enter command to inject or exit to terminate...");
 			std::string s = "";
+			std::string buff = "";
 			std::cin >> s;
 			while (s != "exit") {
-				strEx::token t = strEx::getToken(s, ',');
-				std::string msg, perf;
-				NSCAPI::nagiosReturn ret = mainClient.inject(t.first, t.second, ',', msg, perf);
-				if (perf.empty())
-					std::cout << NSCHelper::translateReturn(ret) << ":" << msg << std::endl;
-				else
-					std::cout << NSCHelper::translateReturn(ret) << ":" << msg << "|" << perf << std::endl;
+				if (std::cin.peek() < 15) {
+					buff += s;
+					strEx::token t = strEx::getToken(buff, ' ');
+					std::string msg, perf;
+					NSCAPI::nagiosReturn ret = mainClient.inject(t.first, t.second, ' ', msg, perf);
+					if (perf.empty())
+						std::cout << NSCHelper::translateReturn(ret) << ":" << msg << std::endl;
+					else
+						std::cout << NSCHelper::translateReturn(ret) << ":" << msg << "|" << perf << std::endl;
+					buff = "";
+				} else {
+					buff += s + " ";
+				}
 				std::cin >> s;
 			}
 			mainClient.TerminateService();
@@ -136,12 +153,12 @@ void NSClientT::InitiateService(void) {
 	SettingsT::sectionList list = Settings::getInstance()->getSection("modules");
 	for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
 		try {
-			LOG_DEBUG_STD("Loading: " + getBasePath() + "modules\\" + (*it));
 			loadPlugin(getBasePath() + "modules\\" + (*it));
 		} catch(const NSPluginException& e) {
 			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
 		}
 	}
+	loadPlugins();
 }
 /**
  * Service control handler termination point.
@@ -185,7 +202,7 @@ void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
  * Load a list of plug-ins
  * @param plugins A list with plug-ins (DLL files) to load
  */
-void NSClientT::loadPlugins(const std::list<std::string> plugins) {
+void NSClientT::addPlugins(const std::list<std::string> plugins) {
 	ReadLock readLock(&m_mutexRW, true, 10000);
 	if (!readLock.IsLocked()) {
 		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
@@ -235,12 +252,23 @@ void NSClientT::unloadPlugins() {
 		plugins_.clear();
 	}
 }
+
+void NSClientT::loadPlugins() {
+	ReadLock readLock(&m_mutexRW, true, 10000);
+	if (!readLock.IsLocked()) {
+		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+		return;
+	}
+	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
+		LOG_DEBUG_STD("Loading plugin: " + (*it)->getName() + "...");
+		(*it)->load_plugin();
+	}
+}
 /**
  * Load a single plug-in using a DLL filename
  * @param file The DLL file
  */
 void NSClientT::loadPlugin(const std::string file) {
-	LOG_DEBUG_STD("Loading: " + file);
 	addPlugin(new NSCPlugin(file));
 }
 /**
@@ -248,14 +276,13 @@ void NSClientT::loadPlugin(const std::string file) {
  * @param *plugin The plug-ininstance to load. The pointer is managed by the 
  */
 void NSClientT::addPlugin(plugin_type plugin) {
-	plugin->load();
+	plugin->load_dll();
 	{
 		WriteLock writeLock(&m_mutexRW, true, 10000);
 		if (!writeLock.IsLocked()) {
 			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
 			return;
 		}
-		// @todo Catch here and unload if we fail perhaps ?
 		plugins_.insert(plugins_.end(), plugin);
 		if (plugin->hasCommandHandler())
 			commandHandlers_.insert(commandHandlers_.end(), plugin);
@@ -330,7 +357,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 			return NSCAPI::returnCRIT;
 		}
 	}
-	LOG_MESSAGE_STD("No handler for command: " + command);
+	LOG_MESSAGE_STD("No handler for command: '" + command + "'");
 	return NSCAPI::returnIgnored;
 }
 
@@ -494,7 +521,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, u
 	std::string key = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT);
 	char *c = new char[inBufLen+1];
 	strncpy(c, inBuffer, inBufLen);
-	for (int i=0,j=0;i<inBufLen;i++,j++) {
+	for (unsigned int i=0,j=0;i<inBufLen;i++,j++) {
 		if (j > key.size())
 			j = 0;
 		c[i] ^= key[j];
@@ -526,7 +553,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, u
 			return NSCAPI::isInvalidBufferLen;
 		}
 		std::string key = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT);
-		for (int i=0,j=0;i<len;i++,j++) {
+		for (unsigned int i=0,j=0;i<len;i++,j++) {
 			if (j > key.size())
 				j = 0;
 			outBuf[i] ^= key[j];

@@ -34,6 +34,19 @@ typedef std::list<TNtServiceInfo> TNtServiceInfoList;
 //
 //=============================================================================
 
+class NTServiceException {
+private:
+	std::string name_;
+	std::string msg_;
+	unsigned int error_;
+public:
+	NTServiceException(std::string name,std::string msg,unsigned int error) : name_(name), error_(error), msg_(msg) {};
+
+	std::string getError() {
+		return "Service: " + name_ + " caused: " + msg_;
+	}
+};
+
 class TNtServiceInfo {
 public:
 	std::string m_strServiceName;
@@ -57,7 +70,7 @@ public:
 
 	static TNtServiceInfo *EnumServices(DWORD dwType, DWORD dwState, DWORD *pdwCount);
 	static void EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList);
-	static TNtServiceInfo GetService(LPCTSTR szName);
+	static TNtServiceInfo GetService(std::string);
 };
 
 #endif

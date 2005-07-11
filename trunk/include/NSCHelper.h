@@ -118,6 +118,7 @@ namespace NSCModuleWrapper {
 
 	int wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f);;
 	NSCAPI::errorReturn wrapGetModuleName(char* buf, unsigned int buflen, std::string str);
+	NSCAPI::errorReturn wrapGetConfigurationMeta(char* buf, unsigned int buflen, std::string str);
 	int wrapLoadModule(bool success);
 	NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
 	NSCAPI::boolReturn wrapHasCommandHandler(bool has);
@@ -132,13 +133,16 @@ namespace NSCModuleWrapper {
 	extern "C" int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f); \
 	extern int NSLoadModule(); \
 	extern int NSGetModuleName(char* buf, int buflen); \
+	extern int NSGetModuleDescription(char* buf, int buflen); \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision); \
 	extern NSCAPI::boolReturn NSHasCommandHandler(); \
 	extern NSCAPI::boolReturn NSHasMessageHandler(); \
 	extern void NSHandleMessage(int msgType, char* file, int line, char* message); \
 	extern NSCAPI::nagiosReturn NSHandleCommand(const char* IN_cmd, const unsigned int IN_argsLen, char **IN_args, \
 		char *OUT_retBufMessage, unsigned int IN_retBufMessageLen, char *OUT_retBufPerf, unsigned int IN_retBufPerfLen); \
-	extern int NSUnloadModule();
+	extern int NSUnloadModule(); \
+	extern int NSGetConfigurationMeta(int IN_retBufLen, char *OUT_retBuf)
+
 
 
 
@@ -173,7 +177,10 @@ namespace NSCModuleWrapper {
 		return NSCModuleWrapper::wrapLoadModule(toObject.loadModule()); \
 	} \
 	extern int NSGetModuleName(char* buf, int buflen) { \
-		return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
+	return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
+	} \
+	extern int NSGetModuleDescription(char* buf, int buflen) { \
+	return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleDescription()); \
 	} \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { \
 		return NSCModuleWrapper::wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
@@ -208,3 +215,56 @@ namespace NSCModuleWrapper {
 		return NSCAPI::returnIgnored; \
 	} \
 	extern NSCAPI::boolReturn NSHasCommandHandler() { return NSCAPI::isfalse; }
+
+
+#define NSC_WRAPPERS_HANDLE_CONFIGURATION(toObject) \
+	extern int NSGetConfigurationMeta(int IN_retBufLen, char *OUT_retBuf) \
+	{ \
+	return NSCModuleWrapper::wrapGetConfigurationMeta(OUT_retBuf, IN_retBufLen, toObject.getConfigurationMeta()); \
+	}
+
+//////////////////////////////////////////////////////////////////////////
+#define MODULE_SETTINGS_START(class, name, description) \
+	std::string class::getConfigurationMeta() { \
+	return (std::string)"<module name=\"" + name + "\" description=\"" + description + "\">" \
+	"<pages>"
+
+
+#define ADVANCED_PAGE(title) \
+	"<page title=\"" title "\" advanced=\"true\">" \
+	"<items>"
+
+#define PAGE(title) \
+	"<page title=\"" title "\">" \
+	"<items>"
+
+#define ITEM_EDIT_TEXT(caption, description) \
+	"<item type=\"text\" caption=\"" caption "\" description=\"" description "\"><options>"
+
+#define ITEM_EDIT_OPTIONAL_LIST(caption, description) \
+	"<item type=\"optional_list\" caption=\"" caption "\" description=\"" description "\"><options>"
+
+#define ITEM_CHECK_BOOL(caption, description) \
+	"<item type=\"bool\" caption=\"" caption "\" description=\"" description "\"><options>"
+
+#define ITEM_MAP_TO(type) \
+	"</options><mapper type=\"" type "\">" \
+	"<options>"
+
+#define OPTION(key, value) \
+	"<option key=\"" key "\" value=\"" value "\"/>"
+
+#define ITEM_END() \
+	"</options>" \
+	"</mapper>" \
+	"</item>"
+
+#define PAGE_END() \
+	"</items>" \
+	"</page>"
+
+#define MODULE_SETTINGS_END() \
+			"</pages>" \
+		"</module>"; \
+	}
+
