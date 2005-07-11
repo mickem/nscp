@@ -29,10 +29,10 @@ private:
 	HANDLE hStopEvent_;
 	int checkIntervall_;
 
-	PDHCollectors::StaticPDHCounterListener<__int64, PDH_FMT_LARGE> memCmtLim;
-	PDHCollectors::StaticPDHCounterListener<__int64, PDH_FMT_LARGE> memCmt;
-	PDHCollectors::StaticPDHCounterListener<__int64, PDH_FMT_LARGE> upTime;
-	PDHCollectors::RoundINTPDHBufferListener<__int64, PDH_FMT_LARGE> cpu;
+	PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large> memCmtLim;
+	PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large> memCmt;
+	PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large> upTime;
+	PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large> cpu;
 
 public:
 	PDHCollector();

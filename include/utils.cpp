@@ -35,3 +35,5 @@ unsigned long calculate_crc32(const char *buffer, int buffer_size){
 
 	return (crc ^ 0xFFFFFFFF);
 }
+
+

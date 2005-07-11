@@ -65,7 +65,7 @@ public:
 	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
 	void reportMessage(int msgType, const char* file, const int line, std::string message);
 
-	void loadPlugins(const std::list<std::string> plugins);
+	void addPlugins(const std::list<std::string> plugins);
 	void loadPlugin(const std::string plugin);
 	void loadPlugins(void);
 	void unloadPlugins(void);

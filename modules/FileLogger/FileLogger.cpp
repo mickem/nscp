@@ -39,13 +39,6 @@ bool FileLogger::loadModule() {
 bool FileLogger::unloadModule() {
 	return true;
 }
-std::string FileLogger::getModuleName() {
-	return "File logger: " + getFileName();
-}
-NSCModuleWrapper::module_version FileLogger::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 0, 1 };
-	return version;
-}
 bool FileLogger::hasCommandHandler() {
 	return false;
 }
@@ -73,3 +66,37 @@ void FileLogger::handleMessage(int msgType, char* file, int line, char* message)
 NSC_WRAPPERS_MAIN_DEF(gFileLogger);
 NSC_WRAPPERS_HANDLE_MSG_DEF(gFileLogger);
 NSC_WRAPPERS_IGNORE_CMD_DEF();
+NSC_WRAPPERS_HANDLE_CONFIGURATION(gFileLogger);
+
+
+
+
+MODULE_SETTINGS_START(FileLogger, "File logger configuration", "...")
+PAGE("Filelogger")
+
+ITEM_CHECK_BOOL("Log debug messages", "Enable this to log debug messages (when running with /test debuglog is always enabled)")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "log")
+OPTION("key", "debug")
+OPTION("default", "false")
+OPTION("true_value", "1")
+OPTION("false_value", "0")
+ITEM_END()
+
+ITEM_EDIT_TEXT("Log file", "This is the size of the buffer that stores CPU history.")
+OPTION("unit", "(relative to NSClient++ binary")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "log")
+OPTION("key", "file")
+OPTION("default", "NSC.log")
+ITEM_END()
+
+ITEM_EDIT_TEXT("Date mask", "The date/timeformat in the log file.")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "log")
+OPTION("key", "date_mask")
+OPTION("default", "%Y-%m-%d %H:%M:%S")
+ITEM_END()
+
+PAGE_END()
+MODULE_SETTINGS_END()

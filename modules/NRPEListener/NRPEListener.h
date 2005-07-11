@@ -20,11 +20,23 @@ public:
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
-	std::string getModuleName();
-	NSCModuleWrapper::module_version getModuleVersion();
+
+
+	std::string getModuleName() {
+		return "NRPE server";
+	}
+	NSCModuleWrapper::module_version getModuleVersion() {
+		NSCModuleWrapper::module_version version = {0, 0, 1 };
+		return version;
+	}
+	std::string getModuleDescription() {
+		return "A simple server that listens for incoming NRPE connection and handles them.\nNRPE is preferred over NSClient as it is more flexible. You can of cource use both NSClient and NRPE.";
+	}
+
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	std::string getConfigurationMeta();
 
 private:
 	class NRPEException {

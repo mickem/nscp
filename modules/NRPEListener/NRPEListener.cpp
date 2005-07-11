@@ -85,13 +85,6 @@ bool NRPEListener::unloadModule() {
 	return true;
 }
 
-std::string NRPEListener::getModuleName() {
-	return "NRPE module.";
-}
-NSCModuleWrapper::module_version NRPEListener::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 0, 1 };
-	return version;
-}
 
 bool NRPEListener::hasCommandHandler() {
 	return true;
@@ -125,7 +118,43 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 
 	if ((str.substr(0,6) == "inject")&&(str.length() > 7)) {
 		strEx::token t = strEx::getToken(str.substr(7), ' ');
-		return NSCModuleHelper::InjectSplitAndCommand(t.first, t.second, ' ', message, perf);
+		std::string s = t.second;
+		std::string sTarget;
+
+		std::string::size_type p = 0;
+		while(true) {
+			std::string::size_type pStart = p;
+			std::string::size_type pEnd = std::string::npos;
+			if (s[p] == '\"') {
+				pStart++;
+				while (true) {
+					p = s.find(' ', ++p);
+					if (p == std::string::npos)
+						break;
+					if ((p>1)&&(s[p-1]=='\"')&&(((p>2)&&(s[p-2]!='\\'))||(p==2)))
+						break;
+				}
+				if (p != std::string::npos)
+					pEnd = p-1;
+				else
+					pEnd = s.length()-1;
+
+			} else {
+				pEnd = p = s.find(' ', ++p);
+			}
+			if (!sTarget.empty())
+				sTarget += "!";
+			if (p == std::string::npos) {
+				if (pEnd == std::string::npos)
+					sTarget += s.substr(pStart);
+				else
+					sTarget += s.substr(pStart, pEnd-pStart);
+				break;
+			}
+			sTarget += s.substr(pStart,pEnd-pStart);
+			p++;
+		}
+		return NSCModuleHelper::InjectSplitAndCommand(t.first, sTarget, '!', message, perf);
 	}
 
 	return executeNRPECommand(str, message, perf);
@@ -311,3 +340,61 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 NSC_WRAPPERS_MAIN_DEF(gNRPEListener);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gNRPEListener);
+NSC_WRAPPERS_HANDLE_CONFIGURATION(gNRPEListener);
+
+
+MODULE_SETTINGS_START(NRPEListener, "NRPE Listsner configuration", "...")
+
+PAGE("NRPE Listsner configuration")
+
+ITEM_EDIT_TEXT("port", "This is the port the NRPEListener.dll will listen to.")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "NRPE")
+OPTION("key", "port")
+OPTION("default", "5666")
+ITEM_END()
+
+ITEM_CHECK_BOOL("allow_arguments", "This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.")
+ITEM_MAP_TO("basic_ini_bool_mapper")
+OPTION("section", "NRPE")
+OPTION("key", "allow_arguments")
+OPTION("default", "false")
+OPTION("true_value", "1")
+OPTION("false_value", "0")
+ITEM_END()
+
+ITEM_CHECK_BOOL("allow_nasty_meta_chars", "This might have security implications (depending on what you do with the options)")
+ITEM_MAP_TO("basic_ini_bool_mapper")
+OPTION("section", "NRPE")
+OPTION("key", "allow_nasty_meta_chars")
+OPTION("default", "false")
+OPTION("true_value", "1")
+OPTION("false_value", "0")
+ITEM_END()
+
+ITEM_CHECK_BOOL("use_ssl", "This option will enable SSL encryption on the NRPE data socket (this increases security somwhat.")
+ITEM_MAP_TO("basic_ini_bool_mapper")
+OPTION("section", "NRPE")
+OPTION("key", "use_ssl")
+OPTION("default", "true")
+OPTION("true_value", "1")
+OPTION("false_value", "0")
+ITEM_END()
+
+PAGE_END()
+ADVANCED_PAGE("Access configuration")
+
+ITEM_EDIT_OPTIONAL_LIST("Allow connection from:", "This is the hosts that will be allowed to poll performance data from the NRPE server.")
+OPTION("disabledCaption", "Use global settings (defined previously)")
+OPTION("enabledCaption", "Specify hosts for NRPE server")
+OPTION("listCaption", "Add all IP addresses (not hosts) which should be able to connect:")
+OPTION("separator", ",")
+OPTION("disabled", "")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "NRPE")
+OPTION("key", "allowed_hosts")
+OPTION("default", "")
+ITEM_END()
+
+PAGE_END()
+MODULE_SETTINGS_END()

@@ -28,14 +28,6 @@ bool CheckHelpers::unloadModule() {
 	return true;
 }
 
-std::string CheckHelpers::getModuleName() {
-	return "CheckHelpers Various helper function to extend other checks.";
-}
-NSCModuleWrapper::module_version CheckHelpers::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 3, 0 };
-	return version;
-}
-
 bool CheckHelpers::hasCommandHandler() {
 	return true;
 }

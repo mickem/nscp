@@ -10,8 +10,9 @@
 //////////////////////////////////////////////////////////////////////
 
 
-CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP(NULL), m_pCurrentM(NULL)
+CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP(NULL), m_pCurrentM(NULL), lpString(NULL)
 {
+	lpString = new CHAR[MAX_FILENAME+1];
 	m_hProcessSnap = INVALID_HANDLE_VALUE;
 	m_hModuleSnap = INVALID_HANDLE_VALUE;
 
@@ -59,6 +60,7 @@ CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP
 
 CEnumProcess::~CEnumProcess()
 {
+	delete [] lpString;
 	if (m_pProcesses) {delete[] m_pProcesses;}
 	if (m_pModules)   {delete[] m_pModules;}
 	if (PSAPI) FreeLibrary(PSAPI);
@@ -110,10 +112,9 @@ BOOL CEnumProcess::GetProcessFirst(CEnumProcess::CProcessEntry *pEntry)
 	{
 		m_hProcessSnap = FCreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 		if (INVALID_HANDLE_VALUE == m_hProcessSnap) return FALSE;
-
 		if (!FProcess32First(m_hProcessSnap, &m_pe)) return FALSE;
 		pEntry->dwPID = m_pe.th32ProcessID;
-		strcpy(pEntry->lpFilename, m_pe.szExeFile);
+		pEntry->sFilename, m_pe.szExeFile;
 	}
 	else
 		// Use PSAPI functions
@@ -154,7 +155,7 @@ BOOL CEnumProcess::GetProcessNext(CEnumProcess::CProcessEntry *pEntry)
 	{
 		if (!FProcess32Next(m_hProcessSnap, &m_pe)) return FALSE;
 		pEntry->dwPID = m_pe.th32ProcessID;
-		strcpy(pEntry->lpFilename, m_pe.szExeFile);
+		pEntry->sFilename = m_pe.szExeFile;
 	}
 	else
 		// Use PSAPI functions
@@ -181,7 +182,7 @@ BOOL CEnumProcess::GetModuleFirst(DWORD dwPID, CEnumProcess::CModuleEntry *pEntr
 		if(!FModule32First(m_hModuleSnap, &m_me)) return FALSE;
 
 		pEntry->pLoadBase = m_me.modBaseAddr;
-		strcpy(pEntry->lpFilename, m_me.szExePath);
+		pEntry->sFilename = m_me.szExePath;
 		pEntry->pPreferredBase = GetModulePreferredBase(dwPID, m_me.modBaseAddr);
 		return TRUE;
 	}
@@ -227,7 +228,7 @@ BOOL CEnumProcess::GetModuleNext(DWORD dwPID, CEnumProcess::CModuleEntry *pEntry
 		if(!FModule32Next(m_hModuleSnap, &m_me)) return FALSE;
 
 		pEntry->pLoadBase = m_me.modBaseAddr;
-		strcpy(pEntry->lpFilename, m_me.szExePath);
+		pEntry->sFilename = m_me.szExePath;
 		pEntry->pPreferredBase = GetModulePreferredBase(dwPID, m_me.modBaseAddr);
 		return TRUE;
 	}
@@ -257,15 +258,17 @@ BOOL CEnumProcess::FillPStructPSAPI(DWORD dwPID, CEnumProcess::CProcessEntry* pE
 		if( FEnumProcessModules(hProc, &hMod, sizeof(hMod), &size) )
 		{
 			//Get filename
-			if( !FGetModuleFileNameEx( hProc, hMod, pEntry->lpFilename, MAX_FILENAME) )
-			{ 
-				strcpy(pEntry->lpFilename, "N/A (error)");  
+
+			if( !FGetModuleFileNameEx( hProc, hMod, lpString, MAX_FILENAME) ) { 
+				pEntry->sFilename = "N/A (error)";
+			} else {
+				pEntry->sFilename = lpString;
 			}
 		}
 		CloseHandle(hProc);
 	}
 	else
-		strcpy(pEntry->lpFilename, "N/A (security restriction)");
+		pEntry->sFilename = "N/A (security restriction)";
 
 	return TRUE;
 }
@@ -276,10 +279,12 @@ BOOL CEnumProcess::FillMStructPSAPI(DWORD dwPID, HMODULE mMod, CEnumProcess::CMo
 	HANDLE hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, dwPID);
 	if (hProc)
 	{
-		if( !FGetModuleFileNameEx( hProc, mMod, pEntry->lpFilename, MAX_FILENAME) )
+		if( !FGetModuleFileNameEx( hProc, mMod, lpString, MAX_FILENAME) )
 		{
-			strcpy(pEntry->lpFilename, "N/A (error)");  
-		}  
+			pEntry->sFilename = "N/A (error)";
+		} else {
+			pEntry->sFilename = lpString;
+		}
 		pEntry->pLoadBase = (PVOID) mMod;
 		pEntry->pPreferredBase = GetModulePreferredBase(dwPID, (PVOID)mMod);
 		CloseHandle(hProc);

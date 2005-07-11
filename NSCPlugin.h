@@ -2,6 +2,7 @@
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>
+#include <sstream>
 
 /**
  * @ingroup NSClient++
@@ -90,20 +91,27 @@ private:
 	typedef INT (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
 	typedef INT (*lpLoadModule)();
 	typedef INT (*lpGetName)(char*,unsigned int);
+	typedef INT (*lpGetDescription)(char*,unsigned int);
+	typedef INT (*lpGetVersion)(int*,int*,int*);
 	typedef INT (*lpHasCommandHandler)();
 	typedef INT (*lpHasMessageHandler)();
 	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const char*,const unsigned int, char**,char*,unsigned int,char *,unsigned int);
 	typedef INT (*lpHandleMessage)(int,const char*,const int,const char*);
 	typedef INT (*lpUnLoadModule)();
+	typedef INT (*lpGetConfigurationMeta)(int, char*);
+
 
 	lpModuleHelperInit fModuleHelperInit;
 	lpLoadModule fLoadModule;
 	lpGetName fGetName;
+	lpGetVersion fGetVersion;
+	lpGetDescription fGetDescription;
 	lpHasCommandHandler fHasCommandHandler;
 	lpHasMessageHandler fHasMessageHandler;
 	lpHandleCommand fHandleCommand;
 	lpHandleMessage fHandleMessage;
 	lpUnLoadModule fUnLoadModule;
+	lpGetConfigurationMeta fGetConfigurationMeta;
 
 public:
 	NSCPlugin(const std::string file);
@@ -111,20 +119,25 @@ public:
 	virtual ~NSCPlugin(void);
 
 	std::string getName(void);
-	void load(void);
+	std::string getDescription();
+	void load_dll(void);
+	void load_plugin(void);
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
 	bool hasMessageHandler(void);
 	NSCAPI::nagiosReturn handleCommand(const char *command, const unsigned int argLen, char **arguments, char* returnMessageBuffer, unsigned int returnMessageBufferLen, char* returnPerfBuffer, unsigned int returnPerfBufferLen);
 	void handleMessage(int msgType, const char* file, const int line, const char *message);
 	void unload(void);
+	std::string getCongifurationMeta();
 
 private:
 	bool isLoaded() const {
 		return bLoaded_;
 	}
 	bool getName_(char* buf, unsigned int buflen);
+	bool getDescription_(char* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);
+	bool getConfigurationMeta_(char* buf, unsigned int buflen);
 };
 
 

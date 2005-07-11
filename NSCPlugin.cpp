@@ -16,6 +16,9 @@ NSCPlugin::NSCPlugin(const std::string file)
 	,fUnLoadModule(NULL)
 	,fHasMessageHandler(NULL)
 	,fHandleMessage(NULL)
+	,fGetDescription(NULL)
+	,fGetConfigurationMeta(NULL)
+	,fGetVersion(NULL)
 	,bLoaded_(false)
 {
 }
@@ -28,6 +31,9 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 	,fUnLoadModule(NULL)
 	,fHasMessageHandler(NULL)
 	,fHandleMessage(NULL)
+	,fGetDescription(NULL)
+	,fGetConfigurationMeta(NULL)
+	,fGetVersion(NULL)
 	,bLoaded_(false)
 {
 	if (other.bLoaded_) {
@@ -65,25 +71,40 @@ std::string NSCPlugin::getName() {
 	delete [] buffer;
 	return ret;
 }
+std::string NSCPlugin::getDescription() {
+	char *buffer = new char[4096];
+	if (!getDescription_(buffer, 4095)) {
+		throw NSPluginException(file_, "Could not get description");
+	}
+	std::string ret = buffer;
+	delete [] buffer;
+	return ret;
+}
+
 /**
  * Loads the plug in (DLL) and initializes the plug in by calling NSLoadModule
  *
  * @throws NSPluginException when exceptions occur. 
  * Exceptions include but are not limited to: DLL fails to load, DLL is not a correct plug in.
  */
-void NSCPlugin::load() {
+void NSCPlugin::load_dll() {
 	if (isLoaded())
 		throw NSPluginException(file_, "Module already loaded");
 	hModule_ = LoadLibrary(file_.c_str());
 	if (!hModule_)
 		throw NSPluginException(file_, "Could not load library: ", GetLastError());
 	loadRemoteProcs_();
+	bLoaded_ = true;
+}
+
+void NSCPlugin::load_plugin() {
 	if (!fLoadModule)
 		throw NSPluginException(file_, "Critical error (fLoadModule)");
 	if (!fLoadModule())
 		throw NSPluginException(file_, "Could not load plug in");
-	bLoaded_ = true;
 }
+
+
 /**
  * Get the plug in version.
  *
@@ -95,7 +116,11 @@ void NSCPlugin::load() {
  * @return False
  */
 bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
-	return false;
+	if (!isLoaded())
+		throw NSPluginException(file_, "Library is not loaded");
+	if (!fGetVersion)
+		throw NSPluginException(file_, "Critical error (fGetVersion)");
+	return fGetVersion(major, minor, revision);
 }
 /**
  * Returns true if the plug in has a command handler.
@@ -174,6 +199,11 @@ bool NSCPlugin::getName_(char* buf, unsigned int buflen) {
 		throw NSPluginException(file_, "Critical error (fGetName)");
 	return fGetName(buf, buflen)?true:false;
 }
+bool NSCPlugin::getDescription_(char* buf, unsigned int buflen) {
+	if (fGetDescription == NULL)
+		throw NSPluginException(file_, "Critical error (fGetDescription)");
+	return fGetDescription(buf, buflen)?true:false;
+}
 /**
  * Load all remote function pointers from the loaded module.
  * These pointers are cached for "speed" which might (?) be dangerous if something changes.
@@ -191,10 +221,18 @@ void NSCPlugin::loadRemoteProcs_(void) {
 		throw NSPluginException(file_, "Could not load NSModuleHelperInit");
 
 	fModuleHelperInit(NSAPILoader);
-
+	
 	fGetName = (lpGetName)GetProcAddress(hModule_, "NSGetModuleName");
 	if (!fGetName)
 		throw NSPluginException(file_, "Could not load NSGetModuleName");
+
+	fGetVersion = (lpGetVersion)GetProcAddress(hModule_, "NSGetModuleVersion");
+	if (!fGetVersion)
+		throw NSPluginException(file_, "Could not load NSGetModuleVersion");
+
+	fGetDescription = (lpGetDescription)GetProcAddress(hModule_, "NSGetModuleDescription");
+	if (!fGetDescription)
+		throw NSPluginException(file_, "Could not load NSGetModuleDescription");
 
 	fHasCommandHandler = (lpHasCommandHandler)GetProcAddress(hModule_, "NSHasCommandHandler");
 	if (!fHasCommandHandler)
@@ -215,6 +253,23 @@ void NSCPlugin::loadRemoteProcs_(void) {
 	fUnLoadModule = (lpUnLoadModule)GetProcAddress(hModule_, "NSUnloadModule");
 	if (!fUnLoadModule)
 		throw NSPluginException(file_, "Could not load NSUnloadModule");
+
+	fGetConfigurationMeta = (lpGetConfigurationMeta)GetProcAddress(hModule_, "NSGetConfigurationMeta");
 }
 
 
+std::string NSCPlugin::getCongifurationMeta() 
+{
+	char *buffer = new char[4097];
+	if (!getConfigurationMeta_(buffer, 4096)) {
+		throw NSPluginException(file_, "Could not get metadata");
+	}
+	std::string ret = buffer;
+	delete [] buffer;
+	return ret;
+}
+bool NSCPlugin::getConfigurationMeta_(char* buf, unsigned int buflen) {
+	if (fGetConfigurationMeta == NULL)
+		throw NSPluginException(file_, "Critical error (getCongifurationMeta)");
+	return fGetConfigurationMeta(buflen, buf)?true:false;
+}

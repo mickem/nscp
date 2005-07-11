@@ -3,268 +3,6 @@
 #include <string>
 #include <strEx.h>
 
-namespace checkHolders {
-
-	typedef unsigned __int64 drive_size;
-	template <typename TType = drive_size>
-	class drive_size_handler {
-	public:
-		static TType parse(std::string s) {
-			return strEx::stoi64_as_BKMG(s);
-		}
-		static TType parse_percent(std::string s) {
-			return strEx::stoi64(s);
-		}
-		static std::string print(TType value) {
-			return strEx::itos_as_BKMG(value);
-		}
-		static std::string print_percent(TType value) {
-			return strEx::itos(value) + "%";
-		}
-		static std::string print_unformated(TType value) {
-			return strEx::itos(value);
-		}
-	};
-
-	template <typename TType = __int64>
-	class int64_handler {
-	public:
-		static TType parse(std::string s) {
-			return strEx::stoi64(s);
-		}
-		static TType parse_percent(std::string s) {
-			return strEx::stoi(s);
-		}
-		static std::string print(TType value) {
-			return strEx::itos(value);
-		}
-		static std::string print_unformated(TType value) {
-			return strEx::itos(value);
-		}
-		static std::string print_percent(TType value) {
-			return strEx::itos(value) + "%";
-		}
-	};
-
-	template <typename TType = drive_size, class THandler = drive_size_handler<> >
-	class Size {
-	public:
-		typedef enum {
-			above = 1,
-			below = -1,
-			same = 0,
-		} checkResult;
-
-		bool bHasBounds_;
-		TType value_;
-
-		Size() : bHasBounds_(false), value_(0) {};
-
-		Size(const Size & other) {
-			bHasBounds_ = other.bHasBounds_;
-			value_ = other.value_;
-		}
-
-		void set(std::string s) {
-			value_ = THandler::parse(s);
-			bHasBounds_ = true;
-		}
-		checkResult check(TType value) const {
-			if (value == value_)
-				return same;
-			else if (value > value_)
-				return above;
-			return below;
-		}
-		std::string prettyPrint(std::string name, TType value) const {
-			return name + ": " + THandler::print(value);
-		}
-
-		inline bool hasBounds() const {
-			return bHasBounds_;
-		}
-		inline bool checkMAX(TType value) const {
-			return check(value)==above;
-		}
-		inline bool checkMIN(TType value) const {
-			return check(value)==below;
-		}
-		inline std::string toString() const {
-			return strEx::itos(value_) + (type_==percentage?"%":"");
-		}
-	};
-
-	template <typename TType = drive_size, class THandler = drive_size_handler<> >
-	class SizePercentage {
-	public:
-		typedef enum {
-			none,
-			percentage,
-			size,
-		} checkTypes;
-		typedef enum {
-			above = 1,
-			below = -1,
-			same = 0,
-		} checkResult;
-
-		checkTypes type_;
-		TType value_;
-
-		SizePercentage() : type_(none), value_(0) {};
-
-		SizePercentage(const SizePercentage &other) {
-			type_ = other.type_;
-			value_ = other.value_;
-		};
-		void set(std::string s) {
-			std::string::size_type p = s.find_first_of('%');
-			if (p == std::string::npos) {
-				value_ = THandler::parse(s);
-				type_ = size;
-			} else {
-				value_ = THandler::parse_percent(s);
-				type_ = percentage;
-			}
-		}
-		checkResult check(TType value, TType max) const {
-			unsigned long long p = getValue(value, max);
-			if (p == value_)
-				return same;
-			else if (p > value_)
-				return above;
-			return below;
-		}
-		std::string prettyPrint(std::string name, TType value, TType max) const {
-			if (type_ == percentage)
-				return name + ": " + THandler::print_percent(getValue(value, max));
-			return name + ": " + THandler::print(getValue(value, max));
-		}
-
-		inline bool hasBounds() const {
-			return type_ != none;
-		}
-		inline bool isPercentage() const {
-			return type_ == percentage;
-		}
-		inline bool checkMAX(TType value, TType max) const {
-			return check(value, max)==above;
-		}
-		inline bool checkMIN(TType value, TType max) const {
-			return check(value, max)==below;
-		}
-		inline std::string toString() const {
-			return strEx::itos(value_) + (type_==percentage?"%":"");
-		}
-		inline long long getValue(TType value, TType max) const {
-			if (type_ == percentage) {
-				return static_cast<int>((value*100) / max);
-			} else if (type_ == size) {
-				return value;
-			} else {
-				return 0;
-			}
-		}
-	};
-
-
-	template <typename TType = drive_size, class THandler = drive_size_handler<>, class THolder = Size<TType, THandler> >
-	class SizeMaxMin {
-	public:
-		THolder max;
-		THolder min;
-		typedef SizeMaxMin<TType, THandler, THolder> TMyType;
-
-		SizeMaxMin() {}
-		SizeMaxMin(const SizeMaxMin &other) {
-			max = other.max;
-			min = other.min;
-		}
-
-		std::string printPerfData()
-		{
-			if (max.hasBounds()) {
-				return THandler::print_unformated(max.value_) + ";";
-			} else if (min.hasBounds()) {
-				return THandler::print_unformated(min.value_) + ";";
-			}
-			return "0;";
-		}
-		static std::string printPerf(std::string name, TType value, TMyType &warn, TMyType &crit)
-		{
-			return name + "=" + strEx::itos(value) + ";" + warn.printPerfData() + crit.printPerfData();
-		}
-
-	};
-	template <typename TType = drive_size, class THandler = drive_size_handler<>, class THolder = SizePercentage<TType, THandler> >
-	struct SizeMaxMinPercentage {
-	public:
-		THolder max;
-		THolder min;
-		typedef SizeMaxMinPercentage<TType, THandler, THolder> TMyType;
-
-		SizeMaxMinPercentage() {}
-		SizeMaxMinPercentage(const SizeMaxMinPercentage &other) {
-			max = other.max;
-			min = other.min;
-		}
-
-		bool isPercentage() {
-			if (max.hasBounds())
-				return max.isPercentage();
-			else if (min.hasBounds())
-				return min.isPercentage();
-			return false;
-		}
-		std::string printPerfData(bool bPercentage, TType value, TType total)
-		{
-			if (bPercentage) {
-				if (max.hasBounds()) {
-					if (max.isPercentage()) {
-						return THandler::print_percent(max.value_) + ";";
-					} else {
-						return THandler::print_percent((total*100)/(max.value_==0?1:max.value_)) + ";";
-					}
-				} else if (min.hasBounds()) {
-					if (min.isPercentage()) {
-						return THandler::print_percent(min.value_) + ";";
-					} else {
-						return THandler::print_percent((total*100)/(min.value_==0?1:min.value_)) + ";";
-					}
-				}
-			} else {
-				if (max.hasBounds()) {
-					if (max.isPercentage()) {
-						return THandler::print_unformated((max.value_*total)/100) + ";";
-					} else {
-						return THandler::print_unformated(max.value_) + ";";
-					}
-				} else if (min.hasBounds()) {
-					if (min.isPercentage()) {
-						return THandler::print_unformated((min.value_*total)/100) + ";";
-					} else {
-						return THandler::print_unformated(min.value_) + ";";
-					}
-				}
-			}
-			return "0;";
-		}
-		static std::string printPerf(std::string name, TType value, TType total, TMyType &warn, TMyType &crit)
-		{
-			std::string s;
-			bool percentage = crit.isPercentage()  || warn.isPercentage();
-			if (percentage)
-				s += name + "=" + strEx::itos(value*100/total)+ "% ";
-			else
-				s+= name + "=" + strEx::itos(value) + ";";
-			s += warn.printPerfData(percentage, value, total);
-			s += crit.printPerfData(percentage, value, total);
-			s += " ";
-			return s;
-		}
-
-	};
-}
 void generate_crc32_table(void);
 unsigned long calculate_crc32(const char *buffer, int buffer_size);
 
@@ -293,3 +31,33 @@ namespace socketHelpers {
 
 
 
+
+
+
+
+#define MAP_OPTIONS_BEGIN(args) \
+	for (std::list<std::string>::const_iterator cit__=args.begin();cit__!=args.end();++cit__) { \
+	std::pair<std::string,std::string> p__ = strEx::split(*cit__,"="); if (false) {}
+#define MAP_OPTIONS_STR(value, obj) \
+			else if (p__.first == value) { obj = p__.second; }
+#define MAP_OPTIONS_STR_AND(value, obj, extra) \
+			else if (p__.first == value) { obj = p__.second; extra;}
+#define MAP_OPTIONS_BOOL_TRUE(value, obj) \
+			else if (p__.first == value) { obj = true; }
+#define MAP_OPTIONS_BOOL_FALSE(value, obj) \
+			else if (p__.first == value) { obj = false; }
+#define MAP_OPTIONS_BOOL_EX(value, obj, tStr, fStr) \
+			else if ((p__.first == value)&&(p__.second == tStr)) { obj = true; } \
+			else if ((p__.first == value)&&(p__.second == fStr)) { obj = false; }
+#define MAP_OPTIONS_MISSING(arg, str) \
+		else { arg = str + p__.first; return NSCAPI::returnUNKNOWN; }
+#define MAP_OPTIONS_END() }
+
+#define MAP_OPTIONS_MISSING_EX(opt, arg, str) \
+		else { arg = str + opt.first; return NSCAPI::returnUNKNOWN; }
+
+#define MAP_OPTIONS_SECONDARY_BEGIN(splt, arg) \
+	else if (p__.first.find(splt) != std::string::npos) { \
+	std::pair<std::string,std::string> arg = strEx::split(p__.first,splt); if (false) {}
+
+#define MAP_OPTIONS_SECONDARY_END() }

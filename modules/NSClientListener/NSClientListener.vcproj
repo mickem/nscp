@@ -180,6 +180,9 @@
 				RelativePath=".\NSClientListener.cpp">
 			</File>
 			<File
+				RelativePath=".\NSClientListener.def">
+			</File>
+			<File
 				RelativePath="..\..\include\Socket.cpp">
 			</File>
 			<File

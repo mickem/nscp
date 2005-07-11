@@ -24,8 +24,27 @@ public:
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
-	std::string getModuleName();
-	NSCModuleWrapper::module_version getModuleVersion();
+	std::string getConfigurationMeta();
+
+	/**
+	* Return the module name.
+	* @return The module name
+	*/
+	std::string getModuleName() {
+		return "System Checks Module.";
+	}
+	/**
+	* Module version
+	* @return module version
+	*/
+	NSCModuleWrapper::module_version getModuleVersion() {
+		NSCModuleWrapper::module_version version = {0, 3, 0 };
+		return version;
+	}
+	std::string getModuleDescription() {
+		return "Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.";
+	}
+
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);

@@ -4,10 +4,36 @@
 #include <strEx.h>
 #include <ShellAPI.h>
 
+void IconWidget_::threadProc(LPVOID lpParameter)
+{
+	createDialog();
+}
+
+
+void IconWidget_::createDialog(void) {
+	hDlgWnd = ::CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
+
+	MSG Msg;
+	while(::GetMessage(&Msg, hDlgWnd, 0, 0))
+	{
+		if (Msg.message == WM_MY_CLOSE)
+			break;
+		if (!::IsWindow(hDlgWnd) || !::IsDialogMessage(hDlgWnd, &Msg)) {
+			::TranslateMessage(&Msg); 
+			::DispatchMessage(&Msg); 
+		} 
+	}
+	TrayIcon::removeIcon(hDlgWnd);
+
+	::DestroyWindow(hDlgWnd);
+}
+void IconWidget_::exitThread(void) {
+	::PostMessage(hDlgWnd, WM_MY_CLOSE, NULL, NULL);
+
+}
+
 namespace TrayIcon
 {
-	HWND ghDlgWnd = NULL;
-	HANDLE ghMutex;
 	std::string defaultCommand;
 }
 
@@ -50,8 +76,8 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 			const RECT r = {0, 0, 0, 0};
 			POINT pt;
 			GetCursorPos(&pt);
-			SetForegroundWindow(ghDlgWnd);
-			int cmd = TrackPopupMenu(hSubMenu, TPM_LEFTALIGN|TPM_RETURNCMD, pt.x, pt.y, 0, ghDlgWnd, &r);
+			SetForegroundWindow(hwndDlg);
+			int cmd = TrackPopupMenu(hSubMenu, TPM_LEFTALIGN|TPM_RETURNCMD, pt.x, pt.y, 0, hwndDlg, &r);
 			DestroyMenu(hMenu);
 			switch (cmd) {
 			case ID_POPUP_STOPSERVICE:
@@ -66,7 +92,7 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 				break;
 			case ID_POPUP_SHOWLOG:
 				{
-					long long err = reinterpret_cast<long long>(ShellExecute(ghDlgWnd, "open", 
+					long long err = reinterpret_cast<long long>(ShellExecute(hwndDlg, "open", 
 						(NSCModuleHelper::getBasePath() + NSCModuleHelper::getSettingsString("log", "file", "")).c_str(), 
 						NULL, NULL, SW_SHOWNORMAL));
 					if (err <=32) {
@@ -95,53 +121,10 @@ void TrayIcon::addIcon(HWND hWnd) {
 	Shell_NotifyIcon(NIM_ADD,&ndata);
 }
 
-void TrayIcon::removeIcon(void) {
+void TrayIcon::removeIcon(HWND hWnd) {
 	NOTIFYICONDATA ndata;
-	ndata.hWnd=ghDlgWnd;
+	ndata.cbSize=sizeof(NOTIFYICONDATA);
+	ndata.hWnd=hWnd;
 	ndata.uID=2000;
 	Shell_NotifyIcon(NIM_DELETE,&ndata);
-}
-
-void TrayIcon::createDialog(void) {
-	ghMutex = ::CreateMutex(NULL, TRUE, NULL);
-	if (!ghMutex)
-		throw std::string("Could not create mutex.");
-
-	ghDlgWnd = ::CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,DialogProc);
-
-	MSG Msg;
-	while(::GetMessage(&Msg, ghDlgWnd, 0, 0))
-	{
-		if (Msg.message == WM_MY_CLOSE)
-			break;
-		if (!::IsWindow(ghDlgWnd) || !::IsDialogMessage(ghDlgWnd, &Msg)) {
-			::TranslateMessage(&Msg); 
-			::DispatchMessage(&Msg); 
-		} 
-	}
-	removeIcon();
-
-	::DestroyWindow(ghDlgWnd);
-	::ReleaseMutex(ghMutex);
-}
-void TrayIcon::destroyDialog(void) {
-	::PostMessage(ghDlgWnd, WM_MY_CLOSE, NULL, NULL);
-}
-bool TrayIcon::waitForTermination(DWORD timeout /* = 5000L */) {
-	DWORD dwWaitResult = WaitForSingleObject(ghMutex, timeout);
-	switch (dwWaitResult) {
-		// The thread got mutex ownership.
-	case WAIT_OBJECT_0: 
-		ReleaseMutex(ghMutex);
-		CloseHandle(ghMutex);
-		return true;
-		// Cannot get mutex ownership due to time-out.
-	case WAIT_TIMEOUT: 
-		return false; 
-
-		// Got ownership of the abandoned mutex object.
-	case WAIT_ABANDONED: 
-		return false; 
-	}
-	return false;
 }

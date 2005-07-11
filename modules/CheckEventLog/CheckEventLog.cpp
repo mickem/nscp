@@ -27,14 +27,6 @@ bool CheckEventLog::unloadModule() {
 	return true;
 }
 
-std::string CheckEventLog::getModuleName() {
-	return "Event log Checker.";
-}
-NSCModuleWrapper::module_version CheckEventLog::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 0, 1 };
-	return version;
-}
-
 bool CheckEventLog::hasCommandHandler() {
 	return true;
 }
@@ -43,26 +35,43 @@ bool CheckEventLog::hasMessageHandler() {
 }
 
 
+
 class EventLogRecord {
 	EVENTLOGRECORD *pevlr_;
 public:
 	EventLogRecord(EVENTLOGRECORD *pevlr) : pevlr_(pevlr) {
 	}
-	inline DWORD timeGenerated() {
+	inline DWORD timeGenerated() const {
 		return pevlr_->TimeGenerated;
 	}
-	inline DWORD timeWritten() {
+	inline DWORD timeWritten() const {
 		return pevlr_->TimeWritten;
 	}
-	inline std::string eventSource() {
+	inline std::string eventSource() const {
 		return reinterpret_cast<LPSTR>(reinterpret_cast<LPBYTE>(pevlr_) + sizeof(EVENTLOGRECORD));
 	}
 
-	inline DWORD eventType() {
+	inline DWORD eventType() const {
 		return pevlr_->EventType;
 	}
+/*
+	std::string userSID() const {
+		if (pevlr_->UserSidOffset == 0)
+			return "";
+		PSID p = reinterpret_cast<PSID>(reinterpret_cast<LPBYTE>(pevlr_) + + pevlr_->UserSidOffset);
+		LPSTR user = new CHAR[1025];
+		LPSTR domain = new CHAR[1025];
+		DWORD userLen = 1024;
+		DWORD domainLen = 1024;
+		SID_NAME_USE sidName;
+		LookupAccountSid(NULL, p, user, &userLen, domain, &domainLen, &sidName);
+		user[userLen] = 0;
+		domain[domainLen] = 0;
+		return std::string(domain) + "\\" + std::string(user);
+	}
+	*/
 
-	std::string enumStrings() {
+	std::string enumStrings() const {
 		std::string ret;
 		LPSTR p = reinterpret_cast<LPSTR>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
 		for (unsigned int i =0;i<pevlr_->NumStrings;i++) {
@@ -92,328 +101,304 @@ public:
 			return EVENTLOG_AUDIT_SUCCESS;
 		if (sType == "auditFailure")
 			return EVENTLOG_AUDIT_FAILURE;
-		return 0;
+		return strEx::stoi(sType);
+	}
+	static std::string translateType(DWORD dwType) {
+		if (dwType == EVENTLOG_ERROR_TYPE)
+			return "error";
+		if (dwType == EVENTLOG_WARNING_TYPE)
+			return "warning";
+		if (dwType == EVENTLOG_INFORMATION_TYPE)
+			return "info";
+		if (dwType == EVENTLOG_AUDIT_SUCCESS)
+			return "auditSuccess";
+		if (dwType == EVENTLOG_AUDIT_FAILURE)
+			return "auditFailure";
+		return strEx::itos(dwType);
 	}
 
 };
 
 
 struct searchQuery {
-	struct searchQueryBundle {
 		struct searchQueryItem {
-			DWORD eventType_;
-			std::string eventSource_;
-			boost::regex eventSourceRegExp_;
-			bool notSetValue_;
-			DWORD writtenBeforeDelta_ ;
-			DWORD writtenAfterDelta_ ;
-			DWORD generatedBeforeDelta_;
-			DWORD generatedAfterDelta_;
-			boost::regex regexp_;
 
-			searchQueryItem(bool notSetValue) 
-				: eventType_(0), notSetValue_(notSetValue), 
-				writtenBeforeDelta_(0), writtenAfterDelta_(0) ,
-				generatedBeforeDelta_(0), generatedAfterDelta_(0) 
+			typedef enum {
+				eventType, 
+				eventSource, 
+				timeWritten,
+				timeGenerated,
+				message,
+				none
+			} queryType;
+
+			typedef enum { out, in, undefined } filterType;
+
+			filterType filter_;
+			queryType queryType_;
+			DWORD dwValue_;
+			boost::regex regexp_;
+			
+
+			searchQueryItem() 
+				: queryType_(none), dwValue_(0), filter_(out) 
 			{}
+			searchQueryItem(filterType filter, queryType type, std::string str) 
+				: queryType_(type), dwValue_(0), filter_(filter)
+			{
+				switch (queryType_ ) {
+				case eventType:
+					dwValue_ = EventLogRecord::translateType(str);
+					break;
+
+				case timeGenerated:
+					dwValue_ = strEx::stoui_as_time(str)/1000;
+					break;
+
+				case eventSource:
+				case message:
+					try {
+						regexp_ = str;
+					} catch (const boost::bad_expression e) {
+						throw (std::string)"Invalid syntax in regular expression:" + str;
+					}
+					break;
+				}
+			}
+
 			searchQueryItem& operator=(const searchQueryItem &other) {
-				eventType_ = other.eventType_;
-				eventSource_ = other.eventSource_;
-				notSetValue_ = other.notSetValue_;
-				writtenBeforeDelta_ = other.writtenBeforeDelta_;
-				writtenAfterDelta_ = other.writtenAfterDelta_;
-				generatedBeforeDelta_ = other.generatedBeforeDelta_;
-				generatedAfterDelta_ = other.generatedAfterDelta_;
+				queryType_ = other.queryType_;
+				dwValue_ = other.dwValue_;
+				filter_ = other.filter_;
 				try {
 					regexp_ = other.regexp_;
 				} catch (const boost::bad_expression e) {
 					throw (std::string)"Invalid syntax in regular expression:" + other.toString();
 				}
-				try {
-					eventSourceRegExp_ = other.eventSourceRegExp_;
-				} catch (const boost::bad_expression e) {
-					throw (std::string)"Invalid syntax in event source regular expression:" + other.toString();
-				}
 				return *this;
 			}
 
-			inline bool matchDateWritten(DWORD now, DWORD written) const {
-				if ((writtenAfterDelta_ == 0)&&(writtenBeforeDelta_ == 0))
-					return notSetValue_;
-				bool ret = true;
-				if (writtenAfterDelta_ != 0) {
-					if (writtenAfterDelta_+written <= now)
-						ret = false;
+			bool match(DWORD now, const EventLogRecord &record) const {
+				switch (queryType_) {
+				case eventType:
+					return record.eventType() & dwValue_;
+
+				case eventSource:
+					if (regexp_.empty())
+						return false;
+					return boost::regex_match(record.eventSource(), regexp_);
+
+				case timeWritten:
+					return record.timeWritten() < (now-dwValue_);
+
+				case timeGenerated:
+					return record.timeGenerated() < (now-dwValue_);
+
+				case message:
+					if (regexp_.empty())
+						return false;
+					return boost::regex_match(record.enumStrings(), regexp_);
+
+				default:
+					return false;
 				}
-				if (writtenBeforeDelta_ != 0) {
-					if (writtenBeforeDelta_+written > now)
-						ret = false;
+			}
+			std::string queryType2String(queryType query) const {
+				switch (queryType_) {
+				case eventType:
+					return "eventType";
+				case eventSource:
+					return "eventSource";
+				case timeWritten:
+					return "timeWritten";
+				case timeGenerated:
+					return "timeGenerated";
+				case message:
+					return "message";
+				default:
+					return "unknown";
 				}
-				return ret;
+
 			}
-			inline bool matchDateGenerated(DWORD now, DWORD written) const {
-				if ((generatedAfterDelta_ == 0)&&(generatedBeforeDelta_ == 0))
-					return notSetValue_;
-				bool ret = true;
-				if (generatedAfterDelta_ != 0) {
-					if (generatedAfterDelta_+written <= now)
-						ret = false;
-				}
-				if (generatedBeforeDelta_ != 0) {
-					if (generatedBeforeDelta_+written > now)
-						ret = false;
-				}
-				return ret;
-			}
-			inline bool matchType(DWORD eventType) const {
-				if (eventType_ == 0)
-					return notSetValue_;
-				return eventType_ & eventType;
-			}
-			inline bool matchSource(std::string eventSource) const {
-				if ((eventSource_.empty())&&eventSourceRegExp_.empty())
-					return notSetValue_;
-				else if (eventSource_.empty())
-					return boost::regex_match(eventSource, eventSourceRegExp_);
-				else if (eventSourceRegExp_.empty())
-					return eventSource_ == eventSource;
-				return boost::regex_match(eventSource, eventSourceRegExp_) && (eventSource_ == eventSource);
-			}
-			inline bool matchRegexp(std::string msg) const {
-				if (regexp_.empty())
-					return notSetValue_;
-				return boost::regex_match(msg, regexp_);
-			}
+
 			std::string toString() const {
 				std::stringstream ss;
-				ss << "    Regexp: " << regexp_ << std::endl;
-				ss << "    Event type: " << eventType_ << std::endl;
-				ss << "    Event source: " << eventSource_ << std::endl;
-				ss << "    Event source Regexp: " << eventSourceRegExp_ << std::endl;
-				ss << "    Written delta: " << writtenAfterDelta_ << " > " << writtenBeforeDelta_ << std::endl;
-				ss << "    Generated delta: " << generatedAfterDelta_ << " > " << generatedBeforeDelta_ << std::endl;
+				ss << " Type: " << queryType2String(queryType_) << " = " << dwValue_ << ", '" << regexp_ << "'";
 				return ss.str();
 			}
 		};
-		struct searchQueryItem require;
-		struct searchQueryItem exclude;
-		searchQueryBundle() : require(true), exclude(false) {}
-		std::string toString() {
-			return "  Required:\n" + require.toString()  + "\n  Exclude:\n" + exclude.toString();
-		}
-	};
 
-	searchQueryBundle warn;
-	searchQueryBundle critical;
+
+
 	unsigned int truncate;
+	unsigned warning_count;
+	unsigned critical_count;
 	bool descriptions;
-	searchQuery() : truncate(0), descriptions(false) {}
+	std::list<searchQueryItem> queries;
+
+	searchQuery() : truncate(0), descriptions(false), warning_count(0), critical_count(0) {}
 
 	std::string toString() {
-		return "Warn:\n" + warn.toString()  + "\nCritical:\n" + critical.toString();
+		std::string ret;
+		for (std::list<searchQuery::searchQueryItem>::const_iterator cit = queries.begin(); cit != queries.end(); ++cit ) {
+			ret += (*cit).toString();
+		}
+		return ret;
 	}
 
 };
 
-void addToQueryItem(searchQuery::searchQueryBundle::searchQueryItem &item, std::string arg) {
-	std::pair<std::string,std::string> p = strEx::split(arg, "=");
-	if (p.first == "eventType")
-		item.eventType_ = EventLogRecord::appendType(item.eventType_, p.second);
-	else if (p.first == "eventSource")
-		item.eventSource_ = p.second;
-	else if (p.first == "eventSourceRegexp") {
-		try {
-			std::string s = p.second;
-			item.eventSourceRegExp_ = s;
-		} catch (const boost::bad_expression e) {
-			item.eventSourceRegExp_ = "";
-			throw (std::string)"Invalid syntax in regular expression:" + p.second;
-		}
-	}
-	else if (p.first == "generatedBeforeDelta")
-		item.generatedBeforeDelta_ = strEx::stoi(p.second);
-	else if (p.first == "generatedAfterDelta")
-		item.generatedAfterDelta_ = strEx::stoi(p.second);
-	else if (p.first == "writtenBeforeDelta")
-		item.writtenBeforeDelta_ = strEx::stoi(p.second);
-	else if (p.first == "writtenAfterDelta")
-		item.writtenAfterDelta_ = strEx::stoi(p.second);
-	else if (p.first == "regexp") {
-		try {
-			item.regexp_ = p.second;
-		} catch (const boost::bad_expression e) {
-			item.regexp_ = "";
-			throw (std::string)"Invalid syntax in regular expression:" + p.second;
-		}
-	} else
-		throw (std::string)"Invalid argument: " + p.first;
-	
-}
-void addToQueryBundle(searchQuery::searchQueryBundle &bundle, std::string arg) {
-	std::pair<std::string,std::string> p = strEx::split(arg, ".");
-	if (p.first == "require")
-		addToQueryItem(bundle.require, p.second);
-	else if (p.first == "exclude")
-		addToQueryItem(bundle.exclude, p.second);
-	else
-		throw (std::string)"Invalid require/exclude: " + p.first;
-}
-void addToQuery(searchQuery &q, std::string arg) {
-	std::pair<std::string,std::string> p = strEx::split(arg, ".");
-	if (p.first == "warn")
-		addToQueryBundle(q.warn, p.second);
-	else if (p.first == "critical")
-		addToQueryBundle(q.critical, p.second);
-	else if (p.first == "all") {
-		addToQueryBundle(q.warn, p.second);
-		addToQueryBundle(q.critical, p.second);
-	} else {
-		std::pair<std::string,std::string> p = strEx::split(arg, "=");
-		if (p.first == "truncate")
-			q.truncate = strEx::stoi(p.second);
-		else if (p.first == "descriptions")
-			q.descriptions = true;
-		else
-			throw (std::string)"Invalid argument: " + arg;
-	}
-}
-
-void buildQury(searchQuery &query, std::list<std::string> args) {
-	for (std::list<std::string>::const_iterator it = args.begin(); it!=args.end(); it++) {
-		NSC_DEBUG_MSG_STD("Adding: " + *it);
-		addToQuery(query, *it);
-	}
-}
+// checkEventLog file=application truncate=1024 descriptions filter=[out|in]
+//					warning-count=3 critical-count=10
+// filter type = warning AND generated > 1d
+//
+// match (type, "warning") && match(generated, "1d")
+//					filer-eventType=warning 
+//					filer-eventSource=
+//					filer-date=4d
+//
 // CheckEventLog
 // request: CheckEventLog&<logfile>&<Query strings>
 // Return: <return state>&<log entry 1> - <log entry 2>...
 // <return state>	0 - No errors
 //					1 - Unknown
 //					2 - Errors
+
+// ./nrpe-2.0/src/check_nrpe -H 192.168.167 -p 5666 -c checkEventLog -a file=system file=application filter-eventType=warning filter-generated=1d descriptions filter-eventSource=Cdrom filter-eventSource=NSClient warning-count=3 critical-count=7 filter=in truncate=512
+//
 // Examples:
 // CheckEventLog&Application&1&<type>&<query>&huffa...
 // CheckEventLog&Application&warn.require.eventType=warning&critical.require.eventType=error&truncate=1024&descriptions&all.exclude.eventSourceRegexp=^(Win|Msi|NSClient\+\+|Userenv|ASP\.NET|LoadPerf|Outlook|Application E|NSClient).*
 #define BUFFER_SIZE 1024*64
-
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	if (command != "CheckEventLog")
 		return NSCAPI::returnIgnored;
 	NSCAPI::nagiosReturn rCode = NSCAPI::returnOK;
 	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.size() < 2) {
-		message = "Missing argument";
-		return NSCAPI::returnCRIT;
-	}
 
-	std::list<std::string>::iterator it = args.begin();
-	for (;it != args.end();it++) {
-		NSC_DEBUG_MSG_STD("Arguments: " + (*it));
-	}
 	std::string ret;
-	bool critical = false;
 	searchQuery query;
-	std::string logFile = args.front(); args.pop_front();
-	try {
-		buildQury(query, args);
-	} catch (std::string s) {
-		message = s;
-		return NSCAPI::returnCRIT;
-	}
-	NSC_DEBUG_MSG_STD("Base query: " + query.toString());
+	std::list<std::string> files;
+	searchQuery::searchQueryItem::filterType filter = searchQuery::searchQueryItem::out;
 
-	HANDLE hLog = OpenEventLog(NULL, logFile.c_str());
-	if (hLog == NULL) {
-		message = "Could not open the Application event log.";
+	for (std::list<std::string>::const_iterator it = args.begin(); it!=args.end(); ++it) {
+		try {
+			if ((*it) == "descriptions") {
+				query.descriptions = true;
+			} else {
+				std::pair<std::string,std::string> p = strEx::split((*it), "=");
+				if (p.first == "truncate") {
+					query.truncate = strEx::stoi(p.second);
+				} else if (p.first == "file") {
+					files.push_back(p.second);
+				} else if (p.first == "filter") {
+					if (p.second == "in")
+						filter = searchQuery::searchQueryItem::in;
+					else
+						filter = searchQuery::searchQueryItem::out;
+				} else if (p.first == "warning-count") {
+					query.warning_count = strEx::stoi(p.second);
+				} else if (p.first == "critical-count") {
+					query.critical_count = strEx::stoi(p.second);
+
+				} else if (p.first == "filter-eventType") {
+					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::eventType, p.second));
+				} else if (p.first == "filter-eventSource") {
+					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::eventSource, p.second));
+				} else if (p.first == "filter-generated") {
+					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::timeGenerated, p.second));
+				} else if (p.first == "filter-written") {
+					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::timeWritten, p.second));
+				} else if (p.first == "filter-message") {
+					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::message, p.second));
+				}
+			}
+		} catch (std::string s) {
+			if (message.empty())
+				message += "UNKNOWN: ";
+			else
+				message += ", ";
+			message += s;
+		}
+	}
+	if (!message.empty()) {
 		return NSCAPI::returnUNKNOWN;
 	}
 
-	DWORD dwThisRecord, dwRead, dwNeeded;
-	EVENTLOGRECORD *pevlr;
-	BYTE bBuffer[BUFFER_SIZE]; 
+	unsigned int hit_count = 0;
 
-	pevlr = reinterpret_cast<EVENTLOGRECORD*>(&bBuffer);
+	for (std::list<std::string>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
+		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
+		if (hLog == NULL) {
+			message = "Could not open the '" + (*cit2) + "' event log.";
+			return NSCAPI::returnUNKNOWN;
+		}
 
-	// get time now !!!
-	__time64_t ltime;
-	_time64(&ltime);
-	DWORD currentTime = ltime;
+		DWORD dwThisRecord, dwRead, dwNeeded;
+		EVENTLOGRECORD *pevlr;
+		BYTE bBuffer[BUFFER_SIZE]; 
 
-	GetOldestEventLogRecord(hLog, &dwThisRecord);
+		pevlr = reinterpret_cast<EVENTLOGRECORD*>(&bBuffer);
 
-	while (ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
-		0, pevlr, BUFFER_SIZE, &dwRead, &dwNeeded))
-	{
-		while (dwRead > 0) 
-		{ 
-			bool match = false;
-			bool c = false;
-			EventLogRecord record(pevlr);
+		__time64_t ltime;
+		_time64(&ltime);
+		DWORD currentTime = ltime;
 
-			if ( query.critical.require.matchType(record.eventType()) &&
-				query.critical.require.matchSource(record.eventSource()) &&
-				query.critical.require.matchDateGenerated(currentTime, record.timeGenerated()) &&
-				query.critical.require.matchDateWritten(currentTime, record.timeWritten()) &&
-				query.critical.require.matchRegexp(record.enumStrings())
-				) {
-					match = true;
-					c = true;
+		GetOldestEventLogRecord(hLog, &dwThisRecord);
+
+		while (ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
+			0, pevlr, BUFFER_SIZE, &dwRead, &dwNeeded))
+		{
+			while (dwRead > 0) 
+			{ 
+				bool match = false;
+				bool undefined = true;
+				searchQuery::searchQueryItem::filterType tFilter = searchQuery::searchQueryItem::out;
+				EventLogRecord record(pevlr);
+
+				for (std::list<searchQuery::searchQueryItem>::const_iterator cit3 = query.queries.begin(); cit3 != query.queries.end(); ++cit3 ) {
+					if ((*cit3).match(currentTime, record)) {
+						if ((*cit3).filter_ == searchQuery::searchQueryItem::in)
+							match = true;
+						else {
+							match = false;
+						}
+					}
 				}
-			if ( query.critical.exclude.matchType(record.eventType()) ||
-				query.critical.exclude.matchSource(record.eventSource()) ||
-				query.critical.exclude.matchDateGenerated(currentTime, record.timeGenerated()) ||
-				query.critical.exclude.matchDateWritten(currentTime, record.timeWritten()) ||
-				query.critical.exclude.matchRegexp(record.enumStrings())
-				) {
-					match = false;
-					c = false;
+
+				if (match) {
+					if (!ret.empty())
+						ret += ", ";
+					ret += record.eventSource();
+					if (query.descriptions) {
+						ret += "(" + EventLogRecord::translateType(record.eventType()) + ")";
+						ret += "[" + record.enumStrings() + "]";
+					}
+					hit_count++;
 				}
 
-			if ( query.warn.require.matchType(record.eventType()) &&
-				query.warn.require.matchSource(record.eventSource()) &&
-				query.warn.require.matchDateGenerated(currentTime, record.timeGenerated()) &&
-				query.warn.require.matchDateWritten(currentTime, record.timeWritten()) &&
-				query.warn.require.matchRegexp(record.enumStrings())
-				)
-				match = true;
-			if ( query.warn.exclude.matchType(record.eventType()) ||
-				query.warn.exclude.matchSource(record.eventSource()) ||
-				query.warn.exclude.matchDateGenerated(currentTime, record.timeGenerated()) ||
-				query.warn.exclude.matchDateWritten(currentTime, record.timeWritten()) ||
-				query.warn.exclude.matchRegexp(record.enumStrings())
-				)
-				match = false;
-			
-			if (match) {
-				if (c)
-					critical = true;
-				if (!ret.empty())
-					ret += " - ";
-				ret += record.eventSource();
-				if (query.descriptions) {
-					std::string s = record.enumStrings();
-					if (!s.empty())
-						ret += " [" + s + "]" ;
-				}
-			}
-			dwRead -= pevlr->Length; 
-			pevlr = (EVENTLOGRECORD *) 
-				((LPBYTE) pevlr + pevlr->Length); 
+				dwRead -= pevlr->Length; 
+				pevlr = (EVENTLOGRECORD *) ((LPBYTE) pevlr + pevlr->Length); 
+			} 
+
+			pevlr = (EVENTLOGRECORD *) &bBuffer; 
 		} 
 
-		pevlr = (EVENTLOGRECORD *) &bBuffer; 
-	} 
-
-	CloseEventLog(hLog);
-	if (critical) {
-		ret = "CRITICAL: " + ret;
-		rCode = NSCAPI::returnCRIT;
+		CloseEventLog(hLog);
 	}
-	else if (!ret.empty()) {
-		ret = "WARNING: " + ret;
+
+	if ((query.critical_count > 0) && (hit_count > query.critical_count)) {
+		ret = "CRITICAL: " + strEx::itos(hit_count) + " > critical: " + ret;
+		rCode = NSCAPI::returnCRIT;
+	} else if ((query.warning_count > 0) && (hit_count > query.warning_count)) {
+		ret = "WARNING: " + strEx::itos(hit_count) + " > warning: " + ret;
 		rCode = NSCAPI::returnWARN;
-	} else 
-		ret = "OK: No errors/warnings in event log.";
+	} else {
+		ret = "OK: " + strEx::itos(hit_count) + ": " + ret;
+	}
 	if (query.truncate != 0)
+		ret = ret.substr(0, query.truncate);
+	if ((query.truncate > 0) && (ret.length() > query.truncate))
 		ret = ret.substr(0, query.truncate);
 	message = ret;
 	return rCode;

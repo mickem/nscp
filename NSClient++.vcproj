@@ -46,7 +46,7 @@ cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;
 				Outputs="$(InputDir)\$(OutDir)\msvcp71.dll"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Pdh.lib"
 				OutputFile=".\Release/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -111,7 +111,7 @@ cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Pdh.lib"
 				OutputFile=".\Debug/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -186,7 +186,7 @@ echo Making archive
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Pdh.lib"
 				OutputFile=".\Dist/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -338,6 +338,9 @@ echo Making archive
 				RelativePath="StdAfx.h">
 			</File>
 			<File
+				RelativePath=".\include\strEx.h">
+			</File>
+			<File
 				RelativePath=".\include\thread.h">
 			</File>
 		</Filter>
@@ -358,6 +361,36 @@ echo Making archive
 cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;
 "
 						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\counters.defs">
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;
+"
+						Outputs="$(TargetDir)$(InputFileName)"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;
+"
+						Outputs="$(TargetDir)$(InputFileName)"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;
+"
+						Outputs="$(TargetDir)$(InputFileName)"/>
 				</FileConfiguration>
 			</File>
 			<File
@@ -393,6 +426,18 @@ cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;
 				RelativePath=".\Doc\html\index.html">
 			</File>
 			<File
+				RelativePath=".\files\license.txt">
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;
+"
+						Outputs="$(TargetDir)\$(InputFileName) "/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath=".\NSC.ini">
 				<FileConfiguration
 					Name="Release|Win32">
@@ -421,35 +466,6 @@ cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\$(OutDir)&quot;
 cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;
 "
 						AdditionalDependencies=""
-						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\readme.html">
-			</File>
-			<File
-				RelativePath=".\readme.txt">
-				<FileConfiguration
-					Name="Release|Win32">
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine=""
-						Outputs=""/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32">
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine=""
-						Outputs=""/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Win32">
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...
-cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;
-"
 						Outputs="$(InputDir)\Dist\$(InputFileName)"/>
 				</FileConfiguration>
 			</File>

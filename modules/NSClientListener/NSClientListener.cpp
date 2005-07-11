@@ -18,8 +18,8 @@ NSClientListener gNSClientListener;
 #define REQ_PROCSTATE		6	// Works fine!
 #define REQ_MEMUSE			7	// Works fine!
 #define REQ_COUNTER			8	// ... in the works ...
-//#define REQ_FILEAGE		9	// ! - not implemented Dont know how to use
-//#define REQ_INSTANCES	10	// ! - not implemented Dont know how to use
+//#define REQ_FILEAGE		9	// ! - not implemented Don't know how to use
+//#define REQ_INSTANCES	10	// ! - not implemented Don't know how to use
 
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
@@ -58,14 +58,6 @@ bool NSClientListener::unloadModule() {
 		return false;
 	}
 	return true;
-}
-
-std::string NSClientListener::getModuleName() {
-	return "NSClient Listener.";
-}
-NSCModuleWrapper::module_version NSClientListener::getModuleVersion() {
-	NSCModuleWrapper::module_version version = {0, 0, 1 };
-	return version;
 }
 
 /**
@@ -193,7 +185,7 @@ void NSClientListener::onClose()
 
 void NSClientListener::onAccept(simpleSocket::Socket *client) {
 	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
-		NSC_LOG_ERROR("Unothorized access from: " + client->getAddrString());
+		NSC_LOG_ERROR("Unauthorized access from: " + client->getAddrString());
 		client->close();
 		return;
 	}
@@ -203,7 +195,7 @@ void NSClientListener::onAccept(simpleSocket::Socket *client) {
 
 	for (int i=0;i<100;i++) {
 		client->readAll(db);
-		// @todo Make this check if a pcket is read instead of just if we have data
+		// @todo Make this check if a packet is read instead of just if we have data
 		if (db.getLength() > 0)
 			break;
 		Sleep(100);
@@ -230,3 +222,41 @@ void NSClientListener::onAccept(simpleSocket::Socket *client) {
 NSC_WRAPPERS_MAIN_DEF(gNSClientListener);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();
+NSC_WRAPPERS_HANDLE_CONFIGURATION(gNSClientListener);
+
+
+MODULE_SETTINGS_START(NSClientListener, "NSClient Listener configuration", "...")
+
+PAGE("NSClient Listener configuration")
+
+ITEM_EDIT_TEXT("port", "This is the port the NSClientListener.dll will listen to.")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "NSClient")
+OPTION("key", "port")
+OPTION("default", "12489")
+ITEM_END()
+
+PAGE_END()
+ADVANCED_PAGE("Server settings")
+
+ITEM_EDIT_TEXT("password", "Enter the password used by applications when queriying for data.")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "NSClient")
+OPTION("key", "password")
+OPTION("default", "")
+ITEM_END()
+
+ITEM_EDIT_OPTIONAL_LIST("Allow connection from:", "This is the hosts that will be allowed to poll performance data from the server.")
+OPTION("disabledCaption", "Use global settings (defined previously)")
+OPTION("enabledCaption", "Specify hosts for NSClient server")
+OPTION("listCaption", "Add all IP addresses (not hosts) which should be able to connect:")
+OPTION("separator", ",")
+OPTION("disabled", "")
+ITEM_MAP_TO("basic_ini_text_mapper")
+OPTION("section", "NSClient")
+OPTION("key", "allowed_hosts")
+OPTION("default", "")
+ITEM_END()
+
+PAGE_END()
+MODULE_SETTINGS_END()
