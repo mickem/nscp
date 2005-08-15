@@ -120,7 +120,7 @@ bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
 		throw NSPluginException(file_, "Library is not loaded");
 	if (!fGetVersion)
 		throw NSPluginException(file_, "Critical error (fGetVersion)");
-	return fGetVersion(major, minor, revision);
+	return fGetVersion(major, minor, revision)?true:false;
 }
 /**
  * Returns true if the plug in has a command handler.

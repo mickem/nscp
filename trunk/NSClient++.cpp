@@ -43,6 +43,7 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
+				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
 			} catch (const serviceControll::SCException& e) {
 				LOG_MESSAGE_STD("Service installation failed: " + e.error_);
 				return -1;
@@ -84,11 +85,18 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 
 
 		} else if ( _stricmp( "listpdh", argv[1]+1 ) == 0 ) {
-			PDH::Enumerations::str_lst lst = PDH::Enumerations::EnumObjects();
-			for (PDH::Enumerations::str_lst::iterator it = lst.begin();it!=lst.end();++it) {
-				PDH::Enumerations::str_lst lst = PDH::Enumerations::EnumObjectItems(*it);
-				for (PDH::Enumerations::str_lst::iterator it2 = lst.begin();it2!=lst.end();++it2) {
-					std::cout << "\\" << *it <<"\\" << *it2 << std::endl;;
+			PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+			for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
+				if ((*it).instances.size() > 0) {
+					for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
+						for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
+							std::cout << "\\" << (*it).name << "(" << (*it2).name << ")\\" << (*it3).name << std::endl;;
+						}
+					}
+				} else {
+					for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
+						std::cout << "\\" << (*it).name << "\\" << (*it2).name << std::endl;;
+					}
 				}
 			}
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {

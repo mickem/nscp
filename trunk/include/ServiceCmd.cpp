@@ -46,7 +46,7 @@ namespace serviceControll {
 			TEXT(szDisplayName),		 // name to display
 			SERVICE_ALL_ACCESS,         // desired access
 			SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS ,  // service type
-			SERVICE_DEMAND_START,       // start type
+			SERVICE_AUTO_START,       // start type
 			SERVICE_ERROR_NORMAL,       // error control type
 			szPath,                     // service's binary
 			NULL,                       // no load ordering group
@@ -185,5 +185,27 @@ namespace serviceControll {
 			throw SCException("OpenService failed.");
 		}
 		CloseServiceHandle(schSCManager);
+	}
+
+	void SetDescription(std::string name, std::string desc) {
+		SERVICE_DESCRIPTION descr;
+		SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+		if (!schSCManager)
+			throw SCException("OpenSCManager failed.");
+		SC_HANDLE schService = OpenService(schSCManager, TEXT(name.c_str()), SERVICE_ALL_ACCESS);
+		if (!schService) {
+			CloseServiceHandle(schSCManager);
+			throw SCException("OpenService failed.");
+		}
+
+		LPSTR d = new char[desc.length()+1];
+		strncpy(d, desc.c_str(), desc.length());
+		descr.lpDescription = d;
+		BOOL bResult = ChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
+		delete [] d;
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		if (!bResult)
+			throw SCException("ChangeServiceConfig2 failed.");
 	}
 }

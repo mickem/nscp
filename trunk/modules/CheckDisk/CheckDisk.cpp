@@ -86,7 +86,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	}
 
 	DriveConatiner tmpObject;
-	bool bShowAll = false;
 	bool bFilter = false;
 	bool bFilterRemote = false;
 	bool bFilterRemovable = false;
@@ -98,24 +97,13 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND("Drive", tmpObject.data, drives.push_back(tmpObject))
-		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max)
-		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
-		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
-		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
-		else if (p__.first == "FilterType") {
-			bFilter = true;
-			if (p__.second == "FIXED") {
-				bFilterFixed = true;
-			} else if (p__.second == "CDROM") {
-				bFilterCDROM = true;
-			} else if (p__.second == "REMOVABLE") {
-				bFilterRemovable = true;
-			} else if (p__.second == "REMOTE") {
-				bFilterRemote= true;
-			}
-		}
+		MAP_OPTIONS_DISK_ALL(tmpObject, "", "Free", "Used")
+		MAP_OPTIONS_SHOWALL(tmpObject)
+		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterFixed, "FIXED")
+		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterCDROM, "CDROM")
+		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterRemovable, "REMOVABLE")
+		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterRemote, "REMOTE")
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
 		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 			else if (p2.first == "Drive") {
@@ -125,8 +113,9 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 			}
 			MAP_OPTIONS_MISSING_EX(p2, message, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
-		MAP_OPTIONS_MISSING(message, "Unknown argument: ")
+	MAP_OPTIONS_FALLBACK_AND(tmpObject.data, drives.push_back(tmpObject))
 	MAP_OPTIONS_END()
+	bFilter = bFilterFixed || bFilterCDROM  || bFilterRemote || bFilterRemovable;
 
 	if (bCheckAll) {
 		DWORD dwDrives = GetLogicalDrives();
@@ -181,14 +170,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 			message += "&";
 			message += strEx::itos(totalNumberOfBytes.QuadPart);
 		} else {
+			checkHolders::PercentageValueType<checkHolders::disk_size_type, checkHolders::disk_size_type> value;
 			std::string tstr;
-			checkHolders::disk_size_type size = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
+			value.value = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
+			value.total = totalNumberOfBytes.QuadPart;
 			drive.setDefault(tmpObject);
-			drive.warn.max.setMax(totalNumberOfBytes.QuadPart);
-			drive.warn.min.setMax(totalNumberOfBytes.QuadPart);
-			drive.crit.max.setMax(totalNumberOfBytes.QuadPart);
-			drive.crit.min.setMax(totalNumberOfBytes.QuadPart);
-			drive.runCheck(size, returnCode, message, perf, bShowAll);
+			drive.runCheck(value, returnCode, message, perf);
 		}
 	}
 	if (message.empty())
@@ -208,16 +195,15 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 		return NSCAPI::returnUNKNOWN;
 	}
 	PathConatiner tmpObject;
-	bool bShowAll = false;
 	std::list<PathConatiner> paths;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND("File", tmpObject.data, paths.push_back(tmpObject))
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max)
 		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
 		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
 		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 		else if (p2.first == "File") {
 			tmpObject.data = p__.second;
@@ -238,7 +224,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 		path.setDefault(tmpObject);
 
 		checkHolders::disk_size_type size = sizeFinder.getSize();
-		path.runCheck(size, returnCode, message, perf, bShowAll);
+		path.runCheck(size, returnCode, message, perf);
 	}
 	if (message.empty())
 		message = "OK all file sizes are within bounds.";

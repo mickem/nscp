@@ -147,22 +147,18 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 	}
 	std::list<CPULoadConatiner> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	bool bShowAll = false;
 	bool bNSClient = false;
 	CPULoadConatiner tmpObject;
 
 	tmpObject.data = "cpuload";
 
 	MAP_OPTIONS_BEGIN(stl_args)
-		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max)
+		MAP_OPTIONS_NUMERIC_ALL(tmpObject, "")
 		MAP_OPTIONS_STR("warn", tmpObject.warn.max)
-		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
-		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
 		MAP_OPTIONS_STR("crit", tmpObject.crit.max)
-		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
 		MAP_OPTIONS_STR_AND("time", tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_STR_AND("Time", tmpObject.data, list.push_back(tmpObject))
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 			MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 			else if (p2.first == "Time") {
@@ -172,7 +168,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 			}
 			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 			MAP_OPTIONS_SECONDARY_END()
-		else { tmpObject.data = p__.first, list.push_back(tmpObject); }
+		MAP_OPTIONS_FALLBACK_AND(tmpObject.data, list.push_back(tmpObject))
 	MAP_OPTIONS_END()
 
 	for (std::list<CPULoadConatiner>::const_iterator it = list.begin(); it != list.end(); ++it) {
@@ -197,7 +193,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 				return NSCAPI::returnUNKNOWN;
 			} else {
 				load.setDefault(tmpObject);
-				load.runCheck(value, returnCode, msg, perf, bShowAll);
+				load.runCheck(value, returnCode, msg, perf);
 			}
 		}
 	}
@@ -219,21 +215,17 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
 		return NSCAPI::returnUNKNOWN;
 	}
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	bool bShowAll = false;
 	bool bNSClient = false;
 	UpTimeConatiner bounds;
 
 	bounds.data = "uptime";
 
 	MAP_OPTIONS_BEGIN(stl_args)
-		MAP_OPTIONS_STR("MaxWarn", bounds.warn.max)
+		MAP_OPTIONS_NUMERIC_ALL(bounds, "")
 		MAP_OPTIONS_STR("warn", bounds.warn.min)
-		MAP_OPTIONS_STR("MinWarn", bounds.warn.min)
-		MAP_OPTIONS_STR("MaxCrit", bounds.crit.max)
 		MAP_OPTIONS_STR("crit", bounds.crit.min)
-		MAP_OPTIONS_STR("MinCrit", bounds.crit.min)
 		MAP_OPTIONS_STR("Alias", bounds.data)
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_SHOWALL(bounds)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 	MAP_OPTIONS_END()
@@ -249,7 +241,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
 		msg = strEx::itos(value);
 	} else {
 		value *= 1000;
-		bounds.runCheck(value, returnCode, msg, perf, bShowAll);
+		bounds.runCheck(value, returnCode, msg, perf);
 	}
 
 	if (msg.empty())
@@ -295,7 +287,6 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 	}
 	std::list<StateConatiner> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	bool bShowAll = false;
 	bool bNSClient = false;
 	StateConatiner tmpObject;
 
@@ -303,17 +294,8 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 	tmpObject.warn.state = "started";
 
 	MAP_OPTIONS_BEGIN(stl_args)
-		/*
-		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max)
-		MAP_OPTIONS_STR("warn", tmpObject.warn.min)
-		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
-		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
-		MAP_OPTIONS_STR("crit", tmpObject.crit.min)
-		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
-		*/
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR("Alias", tmpObject.data)
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
-		MAP_OPTIONS_BOOL_FALSE(SHOW_FAIL, bShowAll)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 			else if (p2.first == "Time") {
@@ -344,7 +326,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 				NSCHelper::escalteReturnCodeToWARN(returnCode);
 				continue;
 			}
-			if ((info.m_dwCurrentState == SERVICE_RUNNING) && (bShowAll)) {
+			if ((info.m_dwCurrentState == SERVICE_RUNNING) && (*it).showAll()) {
 				if (!msg.empty()) msg += " - ";
 				msg += (*it).data + ": Started";
 			} else if (info.m_dwCurrentState == SERVICE_RUNNING) {
@@ -372,7 +354,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 				value = checkHolders::state_stopped;
 			else
 				value = checkHolders::state_none;
-			(*it).runCheck(value, returnCode, msg, perf, bShowAll);
+			(*it).runCheck(value, returnCode, msg, perf);
 		}
 
 	}
@@ -397,7 +379,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
  */
 NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinPercentageBoundsInt64 > MemoryConatiner;
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinPercentageBoundsDiskSizei64 > MemoryConatiner;
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
@@ -411,12 +393,9 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	bounds.data = "page";
 
 	MAP_OPTIONS_BEGIN(stl_args)
-		MAP_OPTIONS_STR("MaxWarn", bounds.warn.max)
-		MAP_OPTIONS_STR("MinWarn", bounds.warn.min)
-		MAP_OPTIONS_STR("MaxCrit", bounds.crit.max)
-		MAP_OPTIONS_STR("MinCrit", bounds.crit.min)
+		MAP_OPTIONS_DISK_ALL(bounds, "", "Free", "Used")
 		MAP_OPTIONS_STR("Alias", bounds.data)
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
+		MAP_OPTIONS_SHOWALL(bounds)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 	MAP_OPTIONS_END()
@@ -426,17 +405,14 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 		msg = "ERROR: PDH Collection thread not running.";
 		return NSCAPI::returnUNKNOWN;
 	}
-	long long pageCommit = pObject->getMemCommit(); 
-	long long pageCommitLimit = pObject->getMemCommitLimit(); 
+	checkHolders::PercentageValueType<long long, long long> value;
+	value.value = pObject->getMemCommit();
+	value.total = pObject->getMemCommitLimit();
 	if (bNSClient) {
-		msg = strEx::itos(pageCommitLimit) + "&" + strEx::itos(pageCommit);
+		msg = strEx::itos(value.total) + "&" + strEx::itos(value.value);
 		return NSCAPI::returnOK;
 	} else {
-		bounds.warn.max.setMax(pageCommitLimit);
-		bounds.warn.min.setMax(pageCommitLimit);
-		bounds.crit.max.setMax(pageCommitLimit);
-		bounds.crit.min.setMax(pageCommitLimit);
-		bounds.runCheck(pageCommit, returnCode, msg, perf, bShowAll);
+		bounds.runCheck(value, returnCode, msg, perf);
 	}
 	if (msg.empty())
 		msg = "OK memory within bounds.";
@@ -499,7 +475,6 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 	}
 	std::list<StateConatiner> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	bool bShowAll = false;
 	bool bNSClient = false;
 	StateConatiner tmpObject;
 
@@ -507,13 +482,9 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 	tmpObject.crit.state = "started";
 
 	MAP_OPTIONS_BEGIN(stl_args)
-		MAP_OPTIONS_STR("MaxWarnCount", tmpObject.warn.max)
-		MAP_OPTIONS_STR("MinWarnCount", tmpObject.warn.min)
-		MAP_OPTIONS_STR("MaxCritCount", tmpObject.crit.max)
-		MAP_OPTIONS_STR("MinCritCount", tmpObject.crit.min)
+		MAP_OPTIONS_NUMERIC_ALL(tmpObject, "Count")
 		MAP_OPTIONS_STR("Alias", tmpObject.alias)
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
-		MAP_OPTIONS_BOOL_FALSE(SHOW_FAIL, bShowAll)
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 		else if (p2.first == "Proc") {
@@ -549,7 +520,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 		std::string tmp;
 		TNtServiceInfo info;
 		if (bNSClient) {
-			if (bFound && bShowAll) {
+			if (bFound && (*it).showAll()) {
 				if (!msg.empty()) msg += " - ";
 				msg += (*it).data + ": Started";
 			} else if (bFound) {
@@ -567,7 +538,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 				value.count = 0;
 				value.state = checkHolders::state_stopped;
 			}
-			(*it).runCheck(value, returnCode, msg, perf, bShowAll);
+			(*it).runCheck(value, returnCode, msg, perf);
 		}
 
 	}
@@ -602,7 +573,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 	}
 	std::list<CounterConatiner> counters;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	bool bShowAll = false;
 	bool bNSClient = false;
 	/* average maax */
 	bool bCheckAverages = true; 
@@ -616,8 +586,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
 		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
 		MAP_OPTIONS_STR("Alias", tmpObject.data)
-		MAP_OPTIONS_BOOL_TRUE(SHOW_ALL, bShowAll)
-		MAP_OPTIONS_BOOL_FALSE(SHOW_FAIL, bShowAll)
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_EX("Averages", bCheckAverages, "true", "false")
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
@@ -628,10 +597,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			}
 			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
-		else {
-			tmpObject.data = p__.first;
-			counters.push_back(tmpObject);
-		}
+		MAP_OPTIONS_FALLBACK_AND(tmpObject.data, counters.push_back(tmpObject))
 	MAP_OPTIONS_END()
 
 	for (std::list<CounterConatiner>::const_iterator cit = counters.begin(); cit != counters.end(); ++cit) {
@@ -656,7 +622,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 				msg += strEx::itos(value);
 			} else {
 				counter.setDefault(tmpObject);
-				counter.runCheck(value, returnCode, msg, perf, bShowAll);
+				counter.runCheck(value, returnCode, msg, perf);
 			}
 		} catch (const PDH::PDHException e) {
 			NSC_LOG_ERROR_STD("ERROR: " + e.getError() + " (" + counter.getAlias() + ")");

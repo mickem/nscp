@@ -261,27 +261,89 @@ namespace PDH {
 
 	class Enumerations {
 	public:
-		typedef std::list<std::string> str_lst;
-		static str_lst EnumObjects() {
-			str_lst ret;
-			DWORD bufLen = 4096;
-			LPTSTR buf = new char[bufLen+1];
-			PDH_STATUS status = PdhEnumObjects(NULL, NULL, buf, &bufLen, PERF_DETAIL_EXPERT, FALSE);
-			if (status == ERROR_SUCCESS) {
-				char *cp=buf;
-				while(*cp != '\0') {
-					ret.push_back(std::string(cp));
-					cp += lstrlen(cp)+1;
+
+		struct Counter {
+			std::string name;
+		};
+		typedef std::list<Counter> Counters;
+		struct Instance {
+			std::string name;
+		};
+		typedef std::list<Instance> Instances;
+		struct Object {
+			std::string name;
+			Instances instances;
+			Counters counters;
+		};
+
+		typedef std::list<Object> Objects;
+		static Objects EnumObjects(DWORD dwDetailLevel = PERF_DETAIL_WIZARD) {
+			Objects ret;
+
+			DWORD dwObjectBufLen = 0;
+			LPTSTR szObjectBuffer = NULL;
+			PDH_STATUS status = PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+			if (status != PDH_MORE_DATA)
+				throw PDHException("PdhEnumObjects failed when trying to retrieve size of object buffer", status);
+
+			szObjectBuffer = new char[dwObjectBufLen+1024];
+			status = PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+			if (status != ERROR_SUCCESS)
+				throw PDHException("PdhEnumObjects failed when trying to retrieve object buffer", status);
+
+			char *cp=szObjectBuffer;
+			while(*cp != '\0') {
+				Object o;
+				o.name = cp;
+				ret.push_back(o);
+				cp += lstrlen(cp)+1;
+			}
+			delete [] szObjectBuffer;
+
+			for (Objects::iterator it = ret.begin(); it != ret.end(); ++it) {
+				DWORD dwCounterBufLen = 0;
+				LPTSTR szCounterBuffer = NULL;
+				DWORD dwInstanceBufLen = 0;
+				LPTSTR szInstanceBuffer = NULL;
+				status = PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+				if (status != PDH_MORE_DATA)
+					throw PDHException("PdhEnumObjectItems failed when trying to retrieve size for " + (*it).name, status);
+				szCounterBuffer = new char[dwCounterBufLen+1024];
+				szInstanceBuffer = new char[dwInstanceBufLen+1024];
+				status = PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+				if (status != ERROR_SUCCESS)
+					throw PDHException("PdhEnumObjectItems failed when trying to retrieve buffer for " + (*it).name, status);
+
+				if (dwCounterBufLen > 0) {
+					cp=szCounterBuffer;
+					while(*cp != '\0') {
+						Counter o;
+						o.name = cp;
+						(*it).counters.push_back(o);
+						cp += lstrlen(cp)+1;
+					}
 				}
+				if (dwInstanceBufLen > 0) {
+					cp=szInstanceBuffer;
+					while(*cp != '\0') {
+						Instance o;
+						o.name = cp;
+						(*it).instances.push_back(o);
+						cp += lstrlen(cp)+1;
+					}
+				}
+				delete [] szCounterBuffer;
+				delete [] szInstanceBuffer;
 			}
 			return ret;
 		}
+		/*
 		static str_lst EnumObjectItems(std::string object) {
 			str_lst ret;
 			DWORD bufLen = 4096;
 			DWORD bufLen2 = 0;
 			LPTSTR buf = new char[bufLen+1];
-			PDH_STATUS status = PdhEnumObjectItems(NULL, NULL, object.c_str(), buf, &bufLen, NULL, &bufLen2, PERF_DETAIL_EXPERT, 0);
+			PDH_STATUS status = PdhEnumObjectItems(NULL, NULL, object.c_str(), buf, &bufLen, NULL, &bufLen2, PERF_DETAIL_WIZARD, 0);
 			if (status == ERROR_SUCCESS) {
 				char *cp=buf;
 				while(*cp != '\0') {
@@ -291,6 +353,22 @@ namespace PDH {
 			}
 			return ret;
 		}
+		static str_lst EnumObjectInstances(std::string object) {
+			str_lst ret;
+			DWORD bufLen = 4096;
+			DWORD bufLen2 = 0;
+			LPTSTR buf = new char[bufLen+1];
+			PDH_STATUS status = PdhEnumObjectItems(NULL, NULL, object.c_str(), NULL, &bufLen2, buf, &bufLen, PERF_DETAIL_WIZARD, 0);
+			if (status == ERROR_SUCCESS) {
+				char *cp=buf;
+				while(*cp != '\0') {
+					ret.push_back(std::string(cp));
+					cp += lstrlen(cp)+1;
+				}
+			}
+			return ret;
+		}
+		*/
 		static bool validate(std::string counter, std::string &error) {
 			PDH_STATUS status = PdhValidatePath(counter.c_str());
 			switch (status) {

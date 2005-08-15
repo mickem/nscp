@@ -32,34 +32,31 @@
 	<h1>News</h1>
 	<table id="table17" border="0" cellspacing="0" cellpadding="0" class="MsoNormalTable">
 		<tr>
-			<td valign="top">2005-06-09</td>
-			<td>Update with a lot of nice things that will simplify 
-			configuration (I hope).<p>Enhances/Fixes:</p>
-			<ul>
-				<li>Autodecteds windows version and language. Hopefully this 
-				will reduce configuration problems.</li>
-				<li>Fixed &quot; escapes in nsc.ini (NRPE Copmmands section)</li>
-			</ul>
-			<p>Added:</p>
-			<ul>
-				<li>A decent CheckEventLog (it can now be used, and I think as 
-				soon as I have time to update the docs a bit more might be a 
-				nice and usable addition.</li>
-			</ul>
-			</td>
+			<td valign="top">2005-07-31</td>
+			<td>Mainly fixes some minor issues, also adds support for FreeSpace 
+			checks (in addition to UsedSpace check) as well as &quot;long description 
+			support&quot; and a reworked EventLog checker.<br>
+			<br>
+			No updated documentation yet but hopefully all outstanding issues 
+			has been fixed.<br>
+			<br>
+			Extract from change log:<br>
+			+ /install now sets the serivice to autostart<br>
+			+ Added service description<br>
+			* added /listpdh option added to list all pdh counters<br>
+			* Eventlog reworked (again) this time I hope it is better <br>
+			+ Added support for ShowAll=long (to show more information)<br>
+			+ Extended Drive and memory check syntax to facilitate both Free and 
+			Used space checks: MaxWarnFree / MaxWarnUsed etc)<br>
+			* Changed thread API to use _creatthreadex as opposed to _creatthread 
+			(works better now!)<br>
+			* Fixed UNKNOWN return code (was 4 should have been 3)<br>
+			* Fixed drivechecks from NSClient<br>
+&nbsp;</td>
 		</tr>
 		<tr>
-			<td valign="top">2005-05-29</td>
-			<td>Minor update that fixes a few bugs.<p>Enhances/Fixes:</p>
-			<ul>
-				<li>Fixed PROCSTATE and SERVICESTATE return state.</li>
-				<li>Fixed performance data for drives (and possibly other places)</li>
-			</ul>
-			<p>Added:</p>
-			<ul>
-				<li>Added support for individual size in CheckDriveSize and CheckFileSize 
-				(size has to be specified before a drive/path).</li>
-			</ul>
+			<td valign="top">2005-07-12</td>
+			<td>Update with a lot bugfixes
 			</td>
 		</tr>
 		</table>
@@ -67,8 +64,8 @@
 	<p>NSClient can be found at its source forge page
 	<a href="http://nscplus.sf.net" target="_top">http://nscplus.sf.net</a></p>
 	<p>Latest version is
-	<a href="http://prdownloads.sourceforge.net/nscplus/NSClient++-0.2.2.zip?download">
-	NSClient++ 0.2.2.zip</a></p>
+	<a href="http://prdownloads.sourceforge.net/nscplus/NSClient++-0.2.4d.zip?download">
+	NSClient++ 0.2.4.zip</a></p>
 	<h1>Modules</h1>
 	<p>NSClient++ comes with a few modules out of the box that does various checks. 
 	A list of the modules and there potential use is listed below here click each 

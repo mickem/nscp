@@ -227,6 +227,9 @@
 				RelativePath=".\CheckDisk.h">
 			</File>
 			<File
+				RelativePath="..\..\include\checkHelpers.hpp">
+			</File>
+			<File
 				RelativePath="..\..\include\NSCHelper.h">
 			</File>
 			<File

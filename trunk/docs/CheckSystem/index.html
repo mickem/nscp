@@ -151,14 +151,24 @@
 			<td valign="top">Description</td>
 		</tr>
 		<tr>
-			<td valign="top">warn</td>
+			<td valign="top">MaxCrit</td>
 			<td valign="top">time</td>
-			<td valign="top">Minimum uptime time to not generate a warning state.</td>
+			<td valign="top">Maximum time the system is allowed to be up</td>
 		</tr>
 		<tr>
-			<td valign="top">crit</td>
+			<td valign="top">MinCrit</td>
 			<td valign="top">time</td>
-			<td valign="top">Minimum uptime time to not generate a critical state.</td>
+			<td valign="top">Minimum time the system is allowed to be up</td>
+		</tr>
+		<tr>
+			<td valign="top">MaxWarn</td>
+			<td valign="top">time</td>
+			<td valign="top">Maximum time the system is allowed to be up</td>
+		</tr>
+		<tr>
+			<td valign="top">MinWarn</td>
+			<td valign="top">time</td>
+			<td valign="top">Minimum time the system is allowed to be up</td>
 		</tr>
 		<tr>
 			<td valign="top">nsclient</td>
@@ -172,7 +182,7 @@
 		<ul>
 			<li>
 			<p>Check that the system has been running for at least a day:</p>
-			<p><code>checkUpTime warn=1d crit=12h</code></p>
+			<p><code>checkUpTime MinWarn=1d MinWarn=12h</code></p>
 			<p><code>Client has uptime (19h) &lt; warning (24h)</code></p>
 			</li>
 		</ul>
@@ -315,8 +325,9 @@
 	<p>Used to check performance counters. This is probably where most things 
 	can be check as there are a lot of performance counter. To find performance 
 	counters use the program perfmon that is shipped with windows. An important 
-	note is that performance counters are language and version specific.</p>
-	<p><i><b>This is currently broken and will be fixed in the next version.</b></i></p>
+	note is that performance counters are language and version specific. You can 
+	list all avalible performance counters using the /listpdh command line 
+	option.</p>
 	<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" id="table16">
 		<tr>
 			<td valign="top">Option</td>
@@ -325,33 +336,28 @@
 		</tr>
 		<tr>
 			<td valign="top">MaxWarn</td>
-			<td valign="top">Size GMKB%</td>
-			<td valign="top">The maximum size allowed before a warning state is 
-			returned.</td>
+			<td valign="top">Number</td>
+			<td valign="top">Maximum allowed number</td>
 		</tr>
 		<tr>
 			<td valign="top">MaxCrit</td>
-			<td valign="top">Size GMKB%</td>
-			<td valign="top">The maximum size allowed before a critical state is 
-			returned.</td>
+			<td valign="top">Number</td>
+			<td valign="top">Maximum allowed number</td>
 		</tr>
 		<tr>
 			<td valign="top">MinWarn</td>
-			<td valign="top">Size GMKB%</td>
-			<td valign="top">The minimum size allowed before a warning state is 
-			returned.</td>
+			<td valign="top">Number</td>
+			<td valign="top">Minimum allowed number</td>
 		</tr>
 		<tr>
 			<td valign="top">MinCrit</td>
-			<td valign="top">Size GMKB%</td>
-			<td valign="top">The minimum size allowed before a critical state is 
-			returned.</td>
+			<td valign="top">Number</td>
+			<td valign="top">Minimumallowed number</td>
 		</tr>
 		<tr>
 			<td valign="top">ShowAll</td>
 			<td valign="top"><i>None</i></td>
-			<td valign="top">A Boolean flag to show size even if no state is returned 
-			(?).</td>
+			<td valign="top">A Boolean flag to show value even if no state is returned.</td>
 		</tr>
 		<tr>
 			<td valign="top">Counter</td>
@@ -371,7 +377,7 @@
 			<li>
 			<p>Check that mutex count (on WinXP) is below 500:</p>
 			<p><code>checkCounter "Counter:mutex=\\Objects\\Mutexes" ShowAll MaxWarn=500 MaxCrit=1000</code></p>
-			<p><code>WARNING: mutex: 673 > warning|page=673;500;1000;</code></p>
+			<p><code>WARNING: mutex: 673 > warning|mutex=673;500;1000;</code></p>
 			</li>
 		</ul>
 	</div>

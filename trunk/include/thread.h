@@ -39,12 +39,16 @@ class Thread {
 private:
 	HANDLE hThread_;		// Thread handle
 	T* pObject_;			// Wrapped object
-	HANDLE hStopEvent_;		// Event to signal that the thread has stopped
 	HANDLE hMutex_;			// Mutex to protect internal data
+	unsigned uThreadID;		// THe thread ID
+
+
+	bool bThreadHasTerminated;
+	bool bThreadHasBeenClosed;
+
 
 
 	typedef struct thread_param {
-		HANDLE hStopEvent;	// The stop event to signal when thread dies
 		T *instance;		// The thread instance object
 		LPVOID lpParam;		// The optional argument to the thread
 		Thread *pCore;
@@ -55,7 +59,7 @@ public:
 	 * Default c-tor.
 	 * Sets up default values
 	 */
-	Thread() : hThread_(NULL), pObject_(NULL), hStopEvent_(NULL) {
+	Thread() : hThread_(NULL), pObject_(NULL), uThreadID(-1), bThreadHasTerminated(false), bThreadHasBeenClosed(false) {
 		hMutex_ = CreateMutex(NULL, FALSE, NULL);
 		assert(hMutex_ != NULL);
 	}
@@ -66,6 +70,11 @@ public:
 	 */
 	virtual ~Thread() {
 		{
+			if (bThreadHasBeenClosed && bThreadHasTerminated)
+				;
+			else if (bThreadHasBeenClosed||bThreadHasTerminated)
+				std::cout << "Thread has not terminated correctly..." << std::endl;
+			/*
 			MutexLock mutex(hMutex_, 5000L);
 			if (!mutex.hasMutex()) {
 				throw ThreadException("Could not retrieve mutex when killing thread, we are fucked...");
@@ -75,7 +84,9 @@ public:
 				CloseHandle(hStopEvent_);
 			hStopEvent_ = NULL;
 			delete pObject_;
-			pObject_ = NULL;
+			*/
+//			pObject_ = NULL;
+//			CloseHandle(hThread_);
 		}
 		if (hMutex_)
 			CloseHandle(hMutex_);
@@ -90,18 +101,19 @@ private:
 	 * @param lpParameter thread_param* with arguments for the thread construction
 	 * @return exit status
 	 */
-	static void threadProc(LPVOID lpParameter) {
+	static unsigned __stdcall threadProc(void* lpParameter) {
 		thread_param* param = static_cast<thread_param*>(lpParameter);
 		T* instance = param->instance;
-		HANDLE hStopEvent = param->hStopEvent;
 		LPVOID lpParam = param->lpParam;
 		Thread *pCore = param->pCore;
 		delete param;
 
-		instance->threadProc(lpParam);
+		unsigned returnCode = instance->threadProc(lpParam);
 		pCore->terminate();
-		SetEvent(hStopEvent);
-		_endthread();
+		_endthreadex( 0 );
+		return returnCode;
+
+//		_endthread();
 	}
 
 public:
@@ -124,44 +136,43 @@ public:
 			if (pObject_) {
 				throw ThreadException("Thread already started, thread not started...");
 			}
-			assert(hStopEvent_ == NULL);
+//			assert(hStopEvent_ == NULL);
 			param = new thread_param;
 			param->instance = pObject_ = new T;
-			param->hStopEvent = hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+//			param->hStopEvent = hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
 			param->lpParam = lpParam;
 			param->pCore = this;
 		}
-		hThread_ = reinterpret_cast<HANDLE>(::_beginthread(threadProc, 0, reinterpret_cast<VOID*>(param)));
+		//hThread_ = reinterpret_cast<HANDLE>(::_beginthreadex(threadProc, 0, reinterpret_cast<VOID*>(param)));
+		//hThread = (HANDLE)_beginthreadex( NULL, 0, &SecondThreadFunc, NULL, 0, &threadID );
+		hThread_ = reinterpret_cast<HANDLE>(::_beginthreadex(NULL, 0, threadProc, reinterpret_cast<VOID*>(param), 0, &uThreadID));
 	}
 	/**
 	 * Ask the thread to terminate (within 5 seconds) if not return false.
 	 * @param delay The time to wait for the thread
 	 * @return true if the thread has terminated
 	 */
-	bool exitThread(const unsigned int delay = 5000L) {
+	bool exitThread(const unsigned int delay = 20000L) {
 		DWORD dwWaitResult = -1;
 		{
-			MutexLock mutex(hMutex_, 5000L);
+			MutexLock mutex(hMutex_, delay);
 			if (!mutex.hasMutex()) {
 				throw ThreadException("Could not retrieve mutex, thread not stopped...");
 			}
 			if (!pObject_)
 				return true;
-			assert(hStopEvent_ != NULL);
 			pObject_->exitThread();
 		}
-		dwWaitResult = WaitForSingleObject(hStopEvent_, delay);
-		switch (dwWaitResult) {
-			// The thread got mutex ownership.
-			case WAIT_OBJECT_0:
-				return true;
-				// Did not get a signal due to time-out.
-			case WAIT_TIMEOUT: 
-				return false; 
-				// Never got a signal.
-			case WAIT_ABANDONED: 
-				return false; 
+		dwWaitResult = WaitForSingleObject(hThread_, delay);
+		if (dwWaitResult == WAIT_OBJECT_0) {
+			bThreadHasBeenClosed = true;
+			CloseHandle(hThread_);
+			delete pObject_;
+			pObject_ = NULL;
+			return true;
 		}
+		std::cout << "Failed to terminate thread..." << std::endl;
+		assert(false);
 		return false;
 	}
 	bool hasActiveThread() const {
@@ -187,13 +198,7 @@ public:
 	}
 private:
 	void terminate() {
-		MutexLock mutex(hMutex_, 5000L);
-		if (!mutex.hasMutex()) {
-			throw ThreadException("Could not retrieve mutex, thread not stopped...");
-		}
-		delete pObject_;
-		pObject_ = NULL;
-		hThread_ = NULL;
+		bThreadHasTerminated = true;
 	}
 };
 

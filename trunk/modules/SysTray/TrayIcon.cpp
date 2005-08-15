@@ -4,9 +4,10 @@
 #include <strEx.h>
 #include <ShellAPI.h>
 
-void IconWidget_::threadProc(LPVOID lpParameter)
+unsigned IconWidget_::threadProc(LPVOID lpParameter)
 {
 	createDialog();
+	return 0;
 }
 
 

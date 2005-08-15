@@ -40,30 +40,38 @@
 		</tr>
 		<tr>
 			<td valign="top">filter</td>
-			<td valign="top">in, out</td>
-			<td valign="top">Specify if you want to filter out or in records.</td>
+			<td valign="top">in, out, any, all</td>
+			<td valign="top">Specify the way you want to filter things.<p><b>in</b> 
+			means any thing matching this filter will be included in the result.</p>
+			<p><b>out</b> means any thing matching this filter will be excluded 
+			from the result.</p>
+			<p><b>any</b> means any of the filter rules has to match.</p>
+			<p><b>all</b> means all of the filter rules have to match.</p>
+			<p>Thus filter=all filter=in and filter=any filter=out is the 
+			combinations that makes the most sence depending on your filter 
+			concept.</td>
 		</tr>
 		<tr>
 			<td valign="top">descriptions</td>
 			<td valign="top"><i>None</i></td>
 			<td valign="top">Flag to specify if you want to include string 
-			representationof the error messages.</td>
+			representation of the error messages.</td>
 		</tr>
 		<tr>
 			<td valign="top">truncate</td>
 			<td valign="top">length of the returned set</td>
-			<td valign="top">This wil ltruncate the output after the specified 
+			<td valign="top">This will truncate the output after the specified 
 			length. As NRPE can only handle 1024 chars you need to truncate the 
 			output.</td>
 		</tr>
 		<tr>
-			<td valign="top">warning-count</td>
+			<td valign="top">MaxWarn</td>
 			<td valign="top">number of records</td>
 			<td valign="top">The maximum records to allow before reporting a 
 			warning state.</td>
 		</tr>
 		<tr>
-			<td valign="top">critical-count</td>
+			<td valign="top">MaxCrit</td>
 			<td valign="top">number of records</td>
 			<td valign="top">The maximum records to allow before reporting a 
 			critical state.</td>
@@ -81,15 +89,16 @@
 			<td valign="top">
 			filter-eventSource</td>
 			<td valign="top">
-			regexp</td>
+			string expression</td>
 			<td valign="top">
-			The name of the source of the event.</td>
+			The name of the source of the event. Can be a substring or 
+			regularexpression</td>
 		</tr>
 		<tr>
 			<td valign="top">
 			filter-generated</td>
 			<td valign="top">
-			Time with optional postfix</td>
+			time expression</td>
 			<td valign="top">
 			Time ago the message was generated</td>
 		</tr>
@@ -97,7 +106,7 @@
 			<td valign="top">
 			filter-written</td>
 			<td valign="top">
-			Time with optional postfix</td>
+			time expression</td>
 			<td valign="top">
 			Time ago the message was written to the log</td>
 		</tr>
@@ -105,14 +114,22 @@
 			<td valign="top">
 			filter-message</td>
 			<td valign="top">
-			regexp</td>
+			string expression</td>
 			<td valign="top">
-			Filter strings in the message.</td>
+			Filter strings in the message. Can be a substring or 
+			regularexpression</td>
 		</tr>
 	</table>
-	<p>The “Time with optional postfix” is a way to simply specify large times by 
-	adding unit postfix. The available postfixes are S for Second, M for Minute, 
-	H for Hour, D for Day and W for week. </p>
+	<p>&nbsp;</p>
+	<p>A time expression is a date/time intervall as a number prefixed by a 
+	filter prefix (&lt;, &gt;, =, !=) and followed by a unit postfix (m, s, h, d, w). 
+	A few examples of time expression are: filter-generated=&gt;2d means filter 
+	will match any records older than 2 days, filter-generated=&lt;2h means match 
+	any records newver then 2 hours.</p>
+	<p>A string expression is a key followed by a string that specifies a string 
+	expression. Currently substr and regexp are supported. Thus you enter 
+	filter-message=regexp:(foo|bar) to enter a regular expression and 
+	filter-message=substr:foo to enter a substring patter match.</p>
 	<h3>Examples</h3>
 	<div class="example">
 		<ul>
@@ -121,13 +138,17 @@
 			last 24 hours. Filter out any Cdrom and NSClient errors as well as 
 			all warnings. Allow 3 errors before a warning is issued and 7 before 
 			a critical state.</b></p>
-			<p><code>checkEventLog file=system file=application filter-eventType=warning filter-generated=1d filter-eventSource=Cdrom filter-eventSource=NSClient warning-count=3 critical-count=7</code></p>
+			<p><code>checkEventLog file=system file=application 
+			MaxWarn=1 MaxCrit=1 filter-generated=&gt;2d filter-eventSource=substr:Service 
+			filter-eventSource=substr:Tcpip filter=out filter=any</code></p>
 			<p><code>CRITICAL: 27 > critical: ESENT, ESENT, ESENT, ESENT,...</code></p>
 			<div class="config">
 				<p>define command { </p>
 				<p>&nbsp;&nbsp;&nbsp; command_name check_event_log </p>
 				<p>&nbsp;&nbsp;&nbsp; command_line check_nrpe -H $HOSTADDRESS$ -p 
-				5666 -c checkEventLog -a file=system file=application filter-eventType=warning filter-generated=1d filter-eventSource=Cdrom filter-eventSource=NSClient warning-count=3 critical-count=7 </p>
+				5666 -c checkEventLog -a file=system file=application MaxWarn=1 MaxCrit=1 
+			filter-generated=&gt;2d filter-eventSource=substr:Service 
+			filter-eventSource=substr:Tcpip filter=out filter=any</p>
 				<p>}</p>
 				<p>&nbsp;&nbsp;&nbsp; check_command check_event_log
 				</p>
