@@ -9,6 +9,9 @@
 // internal name of the service
 #define SZSERVICENAME        "NSClient++"
 
+// Description of service
+#define SZSERVICEDESCRIPTION "Nagios Windows Agent (Provides performance data for Nagios server)"
+
 // displayed name of the service
 #define SZSERVICEDISPLAYNAME SZSERVICENAME " (Nagios) " SZVERSION
 
@@ -82,7 +85,7 @@
 // Main Settings
 #define MAIN_SECTION_TITLE "Settings"
 #define MAIN_MASTERKEY "master_key" 
-#define MAIN_MASTERKEY_DEFAULT "This is a secret key thet you should change"
+#define MAIN_MASTERKEY_DEFAULT "This is a secret key that you should change"
 #define MAIN_OBFUSCATED_PASWD "obfuscated_password"
 #define MAIN_OBFUSCATED_PASWD_DEFAULT ""
 #define MAIN_SETTINGS_PWD "password"

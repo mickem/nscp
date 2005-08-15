@@ -155,58 +155,80 @@
 		<tr>
 			<th valign="top">Option </th>
 			<th valign="top">Values </th>
-			<th valign="top">Description </td>
+			<th valign="top" width="690">Description </td>
 			</th>
 		</tr>
 		<tr>
-			<td valign="top">MaxWarn&lt; </td>
+			<td valign="top">MaxWarnFree</td>
 			<td valign="top">Size with optional postfix (g, m, k, b, %)</td>
-			<td valign="top">The maximum size the directory is allowed before a 
-			warning state is returned.</td>
+			<td valign="top" width="690">The maximum allowed free space for the 
+			drive(s).</td>
 		</tr>
 		<tr>
-			<td valign="top">MaxCrit </td>
+			<td valign="top">MaxCritFree</td>
 			<td valign="top">Size with optional postfix (g, m, k, b, %) </td>
-			<td valign="top">The maximum size the directory is allowed before a 
-			critical state is returned. </td>
+			<td valign="top" width="690">The maximum allowed free space for the 
+			drive(s).</td>
 		</tr>
 		<tr>
-			<td valign="top">MinWarn </td>
+			<td valign="top">MinWarnFree</td>
 			<td valign="top">Size with optional postfix (g, m, k, b, %) </td>
-			<td valign="top">The minimum size the directory is allowed before a 
-			warning state is returned. </td>
+			<td valign="top" width="690">The minimum allowed free space for the 
+			drive(s).</td>
 		</tr>
 		<tr>
-			<td valign="top">MinCrit </td>
+			<td valign="top">MinCritFree</td>
 			<td valign="top">Size with optional postfix (g, m, k, b, %) </td>
-			<td valign="top">The minimum size the directory is allowed before a 
-			critical state is returned. </td>
+			<td valign="top" width="690">The minimum allowed free space for the 
+			drive(s).</td>
+		</tr>
+		<tr>
+			<td valign="top">MaxWarnUsed</td>
+			<td valign="top">Size with optional postfix (g, m, k, b, %)</td>
+			<td valign="top" width="690">The maximum allowed used space for the 
+			drive(s).</td>
+		</tr>
+		<tr>
+			<td valign="top">MaxCritUsed</td>
+			<td valign="top">Size with optional postfix (g, m, k, b, %) </td>
+			<td valign="top" width="690">The maximum allowed used space for the 
+			drive(s).</td>
+		</tr>
+		<tr>
+			<td valign="top">MinWarnUsed</td>
+			<td valign="top">Size with optional postfix (g, m, k, b, %) </td>
+			<td valign="top" width="690">The minimum allowed used space for the 
+			drive(s).</td>
+		</tr>
+		<tr>
+			<td valign="top">MinCritUsed</td>
+			<td valign="top">Size with optional postfix (g, m, k, b, %) </td>
+			<td valign="top" width="690">The minimum allowed used space for the 
+			drive(s).</td>
 		</tr>
 		<tr>
 			<td valign="top">ShowAll </td>
-			<td valign="top"><i>None</i> </td>
-			<td valign="top">
-			<p>A Boolean flag to show size of directories that are not in an alarm 
-			state. If this is not specified only drives with an alarm state will 
-			be listed in the resulting string.</p>
+			<td valign="top">Emtpy, long</td>
+			<td valign="top" width="690">
+			<p>If present will display information even if an item is not 
+			reporting a state. If set to long will display more information.</p>
 			</td>
 		</tr>
 		<tr>
 			<td valign="top">Drive </td>
 			<td valign="top">A Drive letter or the path of a mounted Volume </td>
-			<td valign="top">The letter of the drive to check. Notice that the drive 
-			has to be a fixed drive. </td>
+			<td valign="top" width="690">The letter of the drive to check.</td>
 		</tr>
 		<tr>
 			<td valign="top">FilterType</td>
-			<td valign="top">FIXED, CDROM, REMOVABLE</td>
-			<td valign="top">Filter for drive type to prevent checking drives of 
+			<td valign="top">FIXED, CDROM, REMOVABLE, REMOTE</td>
+			<td valign="top" width="690">Filter for drive type to prevent checking drives of 
 			certain kinds (most useful when using CheckAll). The default is FIXED</td>
 		</tr>
 		<tr>
 			<td valign="top">CheckAll</td>
 			<td valign="top"><i>None</i></td>
-			<td valign="top">Check all available drives</td>
+			<td valign="top" width="690">Check all available drives</td>
 		</tr>
 	</table>
 	<p>The “Size with optional postfix” is a way to simply specify large sizes by 
@@ -216,9 +238,9 @@
 	<div class="example">
 		<ul>
 			<li>
-			<p><b>Check the size of C:\ and make sure it has 50% free space:</b></p>
-			<p><code>CheckDriveSize ShowAll MaxWarn=50% MaxCrit=75% Drive=c:\</code></p>
-			<p><code>OK: c:: 63G (68374007808B)|c:=85% 50;75;</code></p>
+			<p><b>Check the size of C:\ and make sure it has 10% free space:</b></p>
+			<p><code>CheckDriveSize ShowAll MinWarnFree=10% MinCritFree=5% Drive=c:\</code></p>
+			<p><code>CRITICAL: C:: Total: 74.5G - Used: 71.2G (95%) - Free: 3.28G (5%) < critical|C:;5%;10;5;</code></p>
 			<div class="config">
 				<p>define command { </p>
 				<p>&nbsp;&nbsp;&nbsp; command_name CheckDriveSize </p>
@@ -240,16 +262,16 @@
 			</li>
 			<li>
 			<p><b>To check the size of all fixed and network drives and make sure they 
-			are at least 50% full</b></p>
+			have atleast 1gig free space</b></p>
 			<p><code>CheckDriveSize -a MinWarn=50% MinCrit=25% CheckAll FilterType=FIXED 
 			FilterType=REMOTE</code></p>
-			<p><code>WARNING: X:\: 28% &lt; warning|C:\=84% 50%;25%; X:\=28% 50%;25%; 
-			Y:\=98% 50%;25%;</code></p>
+			<p><code>CRITICAL: D:\: Total: 186G - Used: 186G (99%) - Free: 709M (1%) < warning, Y:\: Total: 279G - Used: 279G (99%) - Free: 384M (1%) < critical|C:\;76514398208;1073741824;536870912; D:\;199303897088;1073741824;536870912; X:\;35467034624;1073741824;536870912; Y:\;299649466368;1073741824;536870912;
+</code></p>
 			<div class="config">
 				<p>define command { </p>
 				<p>&nbsp;&nbsp;&nbsp; command_name CheckAllDrives </p>
 				<p>&nbsp;&nbsp;&nbsp; command_line check_nrpe -H $HOSTADDRESS$ -p 
-				5666 -c CheckDriveSize -a Drive=$ARG1$ CheckAll FilterType=FIXED 
+				5666 -c CheckDriveSize -a CheckAll FilterType=FIXED 
 			FilterType=REMOTE MinWarn=$ARG1$ MinCrit=$ARG2$ </p>
 				<p>}</p>
 				<p>&nbsp;&nbsp;&nbsp; check_command CheckAllDrives!25%!50%</p>

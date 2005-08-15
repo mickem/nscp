@@ -34,7 +34,15 @@ namespace checkHolders {
 			return str + " (critical)";
 		return str + " (unknown)";
 	}
+	std::string formatNotFound(std::string str, ResultType what) {
+		if (what == warning)
+			return str + "not found (warning)";
+		else if (what == critical)
+			return str + "not found (critical)";
+		return str + "not found (unknown)";
+	}
 
+	typedef enum {showLong, showShort, showProblems, showUnknown} showType;
 	template <class TContents>
 	struct CheckConatiner {
 		typedef CheckConatiner<TContents> TThisType;
@@ -42,13 +50,20 @@ namespace checkHolders {
 		TContents crit;
 		std::string data;
 		std::string alias;
-		CheckConatiner() 
+
+		showType show;
+
+
+		CheckConatiner() : show(showUnknown)
 		{}
 		CheckConatiner(std::string data_, TContents warn_, TContents crit_) 
-			: data(data_), warn(warn_), crit(crit_) 
+			: data(data_), warn(warn_), crit(crit_), show(showUnknown) 
 		{}
 		CheckConatiner(std::string name_, std::string alias_, TContents warn_, TContents crit_) 
-			: data(data_), alias(alias_), warn(warn_), crit(crit_) 
+			: data(data_), alias(alias_), warn(warn_), crit(crit_), show(showUnknown) 
+		{}
+		CheckConatiner(const TThisType &other) 
+			: data(other.data), alias(other.alias), warn(other.warn), crit(other.crit), show(other.show) 
 		{}
 		std::string getAlias() {
 			if (alias.empty())
@@ -60,22 +75,25 @@ namespace checkHolders {
 				warn = def.warn;
 			if (!crit.hasBounds())
 				crit = def.crit;
+			if (show == showUnknown)
+				show = def.show;
 		}
-		void formatString(std::string &message, typename TContents::TValueType &value) {
-			crit.formatString(message, value);
-			message = getAlias() + ": " + message;
+		bool showAll() {
+			return show != showProblems;
 		}
 		std::string gatherPerfData(typename TContents::TValueType &value) {
 			return crit.gatherPerfData(getAlias(), value, warn, crit);
 		}
-		void runCheck(typename TContents::TValueType &value, NSCAPI::nagiosReturn &returnCode, std::string &message, std::string &perf, bool bShowAll) {
+		void runCheck(typename TContents::TValueType &value, NSCAPI::nagiosReturn &returnCode, std::string &message, std::string &perf) {
 			std::string tstr;
 			if (crit.check(value, getAlias(), tstr, critical)) {
 				NSCHelper::escalteReturnCodeToCRIT(returnCode);
 			} else if (warn.check(value, getAlias(), tstr, warning)) {
 				NSCHelper::escalteReturnCodeToWARN(returnCode);
-			}else if (bShowAll) {
-				formatString(tstr, value);
+			}else if (show == showLong) {
+				tstr = getAlias() + ": " + TContents::toStringLong(value);
+			}else if (show == showShort) {
+				tstr = getAlias() + ": " + TContents::toStringShort(value);
 			}
 			perf += gatherPerfData(value);
 			if (!message.empty() && !tstr.empty())
@@ -89,20 +107,30 @@ namespace checkHolders {
 	template <typename TType = disk_size_type>
 	class disk_size_handler {
 	public:
+		static std::string print(TType value) {
+			return strEx::itos_as_BKMG(value);
+		}
 		static TType parse(std::string s) {
 			return strEx::stoi64_as_BKMG(s);
 		}
 		static TType parse_percent(std::string s) {
 			return strEx::stoi64(s);
 		}
-		static std::string print(TType value) {
-			return strEx::itos_as_BKMG(value);
-		}
 		static std::string print_percent(TType value) {
 			return strEx::itos(value) + "%";
 		}
 		static std::string print_unformated(TType value) {
 			return strEx::itos(value);
+		}
+
+		static std::string key_total() {
+			return "Total: ";
+		}
+		static std::string key_lower() {
+			return "Used: ";
+		}
+		static std::string key_upper() {
+			return "Free: ";
 		}
 	};
 
@@ -238,19 +266,16 @@ namespace checkHolders {
 			return below;
 		}
 
-		std::string toString(TType value) const {
+		static std::string toStringLong(TType value) {
+			return THandler::print(value);
+		}
+		static std::string toStringShort(TType value) {
 			return THandler::print(value);
 		}
 		inline bool hasBounds() const {
 			return bHasBounds_;
 		}
 
-		inline bool isAbove(TType value) const {
-			return check(value)==above;
-		}
-		inline bool isBelow(TType value) const {
-			return check(value)==below;
-		}
 		const NumericBounds & operator=(std::string value) {
 			set(value);
 			return *this;
@@ -273,94 +298,162 @@ namespace checkHolders {
 		}
 	};
 
+
+	template <typename TTypeValue, typename TTypeTotal = TTypeValue>
+	struct PercentageValueType {
+		typedef TTypeValue TValueType;
+		TTypeValue value;
+		TTypeTotal total;
+
+		TTypeValue getUpperPercentage() {
+			return 100-(value*100/total);
+		}
+		TTypeValue getLowerPercentage() {
+			return (value*100)/total;
+		}
+	};
+
 	template <typename TType = int, class THandler = int_handler >
 	class NumericPercentageBounds {
 	public:
 		typedef enum {
-			none,
-			percentage,
-			size,
+			none = 0,
+			percentage_upper = 1,
+			percentage_lower = 2,
+			value_upper = 3,
+			value_lower = 4,
 		} checkTypes;
 
+		class InternalValue {
+			NumericPercentageBounds *pParent_;
+			bool isUpper_;
+		public:
+
+			InternalValue(bool isUpper) : pParent_(NULL), isUpper_(isUpper) {}
+			void setParent(NumericPercentageBounds *pParent) {
+				pParent_ = pParent;
+			}
+			const InternalValue & operator=(std::string value) {
+				std::cout << "Setting value: " << value << std::endl;
+				std::string::size_type p = value.find_first_of('%');
+				if (p != std::string::npos) {
+					if (isUpper_)
+						pParent_->setPercentageUpper(value);
+					else
+						pParent_->setPercentageLower(value);
+				} else {
+					if (isUpper_)
+						pParent_->setUpper(value);
+					else
+						pParent_->setLower(value);
+				}
+				return *this;
+			}
+
+		};
+
 		checkTypes type_;
-		TType value_;
-		TType max_;
+		typename TType::TValueType value_;
 		typedef typename TType TValueType;
 		typedef THandler TFormatType;
 		typedef NumericPercentageBounds<TType, THandler> TMyType;
+		InternalValue upper;
+		InternalValue lower;
 
-		NumericPercentageBounds() : type_(none), value_(0), max_(0) {}
+		NumericPercentageBounds() : type_(none), upper(true), lower(false) {
+			upper.setParent(this);
+			lower.setParent(this);
+		}
 
 		NumericPercentageBounds(const NumericPercentageBounds &other) {
 			type_ = other.type_;
 			value_ = other.value_;
-			max_ = other.max_;
 		}
-		void setMax(TType max) { max_ = max; }
-
 		checkResultType check(TType value) const {
-			if (type_ == percentage) {
-				if (((value*100)/max_) == value_)
+			if (type_ == percentage_lower) {
+				std::cout << "Checking: percentage_lower " << value.getLowerPercentage() << " < " << value_ << std::endl;
+				if (value.getLowerPercentage() == value_)
 					return same;
-				else if (((value*100)/max_) > value_)
+				else if (value.getLowerPercentage() > value_)
 					return above;
-				else
-					return below;
+			} else if (type_ == percentage_upper) {
+				std::cout << "Checking: percentage_upper " << value.getUpperPercentage() << " < " << value_ << std::endl;
+				if (value.getUpperPercentage() == value_)
+					return same;
+				else if (value.getUpperPercentage() > value_)
+					return above;
+			} else if (type_ == value_lower) {
+				std::cout << "Checking: value_lower " << value.total << " < " << value_ << std::endl;
+				if (value.value == value_)
+					return same;
+				else if (value.value > value_)
+					return above;
+			} else if (type_ == value_upper) {
+				std::cout << "Checking: value_upper " << (value.total-value.value) << " < " << value_ << std::endl;
+				if ((value.total-value.value) == value_)
+					return same;
+				else if ((value.total-value.value) > value_)
+					return above;
 			} else {
-				if (value == value_)
-					return same;
-				else if (value > value_)
-					return above;
-				return below;
+				std::cout << "Damn...: " << type_ << std::endl;
+				throw "Damn...";
 			}
+			return below;
 		}
-		std::string toString(TType value) const {
-			if (type_ == percentage)
-				return THandler::print_percent((value*100)/max_);
-			return THandler::print(value);
+		static std::string toStringShort(TType value) {
+			return THandler::print(value.value);
+
+		}
+		static std::string toStringLong(TType value) {
+			return 
+				THandler::key_total() + THandler::print(value.total) + 
+				" - " + THandler::key_lower() + THandler::print(value.value) + 
+					" (" + THandler::print_percent(value.getLowerPercentage()) + ")" +
+				" - " + THandler::key_upper() + THandler::print(value.total-value.value) + 
+					" (" + THandler::print_percent(value.getUpperPercentage()) + ")";
 		}
 		inline bool hasBounds() const {
 			return type_ != none;
 		}
-		inline bool isPercentage() const {
-			return type_ == percentage;
-		}
-		inline bool isAbove(TType value, TType max) const {
-			return check(value, max)==above;
-		}
-		inline bool isBelow(TType value, TType max) const {
-			return check(value, max)==below;
-		}
-		TType getPerfBound(TType value) {
+		typename TType::TValueType getPerfBound(TType value) {
 			return value_;
 		}
-		std::string gatherPerfData(std::string alias, TType &value, TType warn, TType crit) {
-			if (isPercentage()) {
+		std::string gatherPerfData(std::string alias, TType &value, typename TType::TValueType warn, typename TType::TValueType crit) {
+			if (type_ == percentage_upper) {
 				return alias + ";"
-					+ THandler::print_unformated((value*100)/max_) + "%;"
+					+ THandler::print_unformated(value.getUpperPercentage()) + "%;"
 					+ THandler::print_unformated(warn) + ";"
 					+ THandler::print_unformated(crit) + "; ";
+			} else if (type_ == percentage_lower) {
+					return alias + ";"
+						+ THandler::print_unformated(value.getLowerPercentage()) + "%;"
+						+ THandler::print_unformated(warn) + ";"
+						+ THandler::print_unformated(crit) + "; ";
 			} else {
 				return alias + ";"
-					+ THandler::print_unformated(value) + ";"
-					+ THandler::print_unformated((warn*max_)/100) + ";"
-					+ THandler::print_unformated((crit*max_)/100) + "; ";
+					+ THandler::print_unformated(value.value) + ";"
+					+ THandler::print_unformated(warn) + ";"
+					+ THandler::print_unformated(crit) + "; ";
 			}
-		}
-		const NumericPercentageBounds & operator=(std::string value) {
-			set(value);
-			return *this;
 		}
 	private:
-		void set(std::string s) {
-			std::string::size_type p = s.find_first_of('%');
-			if (p == std::string::npos) {
-				value_ = THandler::parse(s);
-				type_ = size;
-			} else {
-				value_ = THandler::parse_percent(s);
-				type_ = percentage;
-			}
+		void setUpper(std::string s) {
+			std::cout << "Setting value:U " << s << std::endl;
+			value_ = THandler::parse(s);
+			type_ = value_upper;
+		}
+		void setLower(std::string s) {
+			std::cout << "Setting value:L " << s << std::endl;
+			value_ = THandler::parse(s);
+			type_ = value_lower;
+		}
+		void setPercentageUpper(std::string s) {
+			value_ = THandler::parse_percent(s);
+			type_ = percentage_upper;
+		}
+		void setPercentageLower(std::string s) {
+			value_ = THandler::parse_percent(s);
+			type_ = percentage_lower;
 		}
 	};
 
@@ -378,7 +471,10 @@ namespace checkHolders {
 		bool check(TType value) const {
 			return (value & value_) != 0;
 		}
-		std::string toString(TType value) const {
+		static std::string toStringLong(TType value) {
+			return THandler::print(value);
+		}
+		static std::string toStringShort(TType value) {
 			return THandler::print(value);
 		}
 		inline bool hasBounds() const {
@@ -426,6 +522,14 @@ namespace checkHolders {
 		bool hasBounds() {
 			return state.hasBounds() ||  max.hasBounds() || min.hasBounds();
 		}
+
+		static std::string toStringLong(typename TValueType &value) {
+			return TNumericHolder::toStringLong(value.count) + ", " + TStateHolder::toStringLong(value.state);
+		}
+		static std::string toStringShort(typename TValueType &value) {
+			return TNumericHolder::toStringShort(value.count);
+		}
+/*
 		void formatString(std::string &message, typename TValueType &value) {
 			if (state.hasBounds())
 				message = state.toString(value.state);
@@ -434,6 +538,7 @@ namespace checkHolders {
 			else if (min.hasBounds())
 				message = max.toString(value.count);
 		}
+		*/
 		std::string gatherPerfData(std::string alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
 			if (state.hasBounds()) {
 				// @todo
@@ -446,13 +551,13 @@ namespace checkHolders {
 		}
 		bool check(typename TValueType &value, std::string lable, std::string &message, ResultType type) {
 			if ((state.hasBounds())&&(!state.check(value.state))) {
-				message = lable + ": " + formatState(state.toString(value.state), type);
+				message = lable + ": " + formatState(TStateHolder::toStringShort(value.state), type);
 				return true;
 			} else if ((max.hasBounds())&&(max.check(value.count) != below)) {
-				message = lable + ": " + formatAbove(max.toString(value.count), type);
+				message = lable + ": " + formatAbove(TNumericHolder::toStringShort(value.count), type);
 				return true;
 			} else if ((min.hasBounds())&&(min.check(value.count) != above)) {
-				message = lable + ": " + formatBelow(min.toString(value.count), type);
+				message = lable + ": " + formatBelow(TNumericHolder::toStringShort(value.count), type);
 				return true;
 			} else {
 				//std::cout << "No bounds specified..." << std::endl;
@@ -477,8 +582,11 @@ namespace checkHolders {
 		bool hasBounds() {
 			return state.hasBounds();
 		}
-		void formatString(std::string &message, typename TValueType &value) {
-			message = state.toString(value);
+		static std::string toStringLong(typename TValueType &value) {
+			return TStateHolder::toStringLong(value);
+		}
+		static std::string toStringShort(typename TValueType &value) {
+			return TStateHolder::toStringShort(value);
 		}
 		std::string gatherPerfData(std::string alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
 			if (state.hasBounds()) {
@@ -488,7 +596,7 @@ namespace checkHolders {
 		}
 		bool check(typename TValueType &value, std::string lable, std::string &message, ResultType type) {
 			if ((state.hasBounds())&&(!state.check(value))) {
-				message = lable + ": " + formatState(state.toString(value), type);
+				message = lable + ": " + formatState(TStateHolder::toStringLong(value), type);
 				return true;
 			} else {
 				//std::cout << "No bounds specified..." << std::endl;
@@ -516,8 +624,11 @@ namespace checkHolders {
 		bool hasBounds() {
 			return max.hasBounds() || min.hasBounds();
 		}
-		void formatString(std::string &message, typename THolder::TValueType &value) {
-			message = max.toString(value);
+		static std::string toStringLong(typename THolder::TValueType &value) {
+			return THolder::toStringLong(value);
+		}
+		static std::string toStringShort(typename THolder::TValueType &value) {
+			return THolder::toStringShort(value);
 		}
 		std::string gatherPerfData(std::string alias, typename THolder::TValueType &value, TMyType &warn, TMyType &crit) {
 			if (max.hasBounds()) {
@@ -529,10 +640,10 @@ namespace checkHolders {
 		}
 		bool check(typename THolder::TValueType &value, std::string lable, std::string &message, ResultType type) {
 			if ((max.hasBounds())&&(max.check(value) != below)) {
-				message = lable + ": " + formatAbove(max.toString(value), type);
+				message = lable + ": " + formatAbove(THolder::toStringLong(value), type);
 				return true;
 			} else if ((min.hasBounds())&&(min.check(value) != above)) {
-				message = lable + ": " + formatBelow(min.toString(value), type);
+				message = lable + ": " + formatBelow(THolder::toStringLong(value), type);
 				return true;
 			} else {
 				//std::cout << "No bounds specified..." << std::endl;
@@ -544,14 +655,16 @@ namespace checkHolders {
 	typedef MaxMinBounds<NumericBounds<double, double_handler> > MaxMinBoundsDouble;
 	typedef MaxMinBounds<NumericBounds<__int64, int64_handler> > MaxMinBoundsInt64;
 	typedef MaxMinBounds<NumericBounds<int, int_handler> > MaxMinBoundsInteger;
+	typedef MaxMinBounds<NumericBounds<unsigned int, int_handler> > MaxMinBoundsUInteger;
 	typedef MaxMinBounds<NumericBounds<disk_size_type, disk_size_handler<disk_size_type> > > MaxMinBoundsDiscSize;
 	typedef MaxMinBounds<NumericBounds<time_type, time_handler<time_type> > > MaxMinBoundsTime;
 
 
-	typedef MaxMinBounds<NumericPercentageBounds<int, int_handler> > MaxMinPercentageBoundsInteger;
-	typedef MaxMinBounds<NumericPercentageBounds<__int64, int64_handler> > MaxMinPercentageBoundsInt64;
-	typedef MaxMinBounds<NumericPercentageBounds<double, double_handler> > MaxMinPercentageBoundsDouble;
-	typedef MaxMinBounds<NumericPercentageBounds<disk_size_type, disk_size_handler<> > > MaxMinPercentageBoundsDiskSize;
+	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<int ,int>, int_handler> > MaxMinPercentageBoundsInteger;
+	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<__int64, __int64>, int64_handler> > MaxMinPercentageBoundsInt64;
+	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<double, double>, double_handler> > MaxMinPercentageBoundsDouble;
+	typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<disk_size_type, disk_size_type>, disk_size_handler<> > > MaxMinPercentageBoundsDiskSize;
+	typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<__int64, __int64>, disk_size_handler<__int64> > > MaxMinPercentageBoundsDiskSizei64;
 
 	typedef MaxMinStateBounds<MaxMinStateValueType<int, state_type>, NumericBounds<int, int_handler>, StateBounds<state_type, state_handler> > MaxMinStateBoundsStateBoundsInteger;
 	typedef SimpleStateBounds<StateBounds<state_type, state_handler> > SimpleBoundsStateBoundsInteger;

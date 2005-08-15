@@ -1,6 +1,8 @@
 NSC_WRAPPERS_MAIN();
 
 #include <strEx.h>
+#include <checkHelpers.hpp>
+#include <filter_framework.hpp>
 
 class CheckEventLog {
 private:

@@ -7,7 +7,7 @@
 
 class IconWidget_ {
 public:
-	void threadProc(LPVOID lpParameter);
+	unsigned threadProc(LPVOID lpParameter);
 	void exitThread(void);
 
 private:

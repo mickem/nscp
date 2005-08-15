@@ -7,7 +7,7 @@ namespace NSCAPI {
 		returnCRIT = 2,
 		returnOK = 0,
 		returnWARN = 1,
-		returnUNKNOWN = 4,
+		returnUNKNOWN = 3,
 		returnInvalidBufferLen = -2,
 		returnIgnored = -1
 	} nagiosReturn;
@@ -24,7 +24,7 @@ namespace NSCAPI {
 	const int returnOK = 0;
 	const int returnWARN = 1;
 	const int returnCRIT = 2;
-	const int returnUNKNOWN = 4;
+	const int returnUNKNOWN = 3;
 	const int returnInvalidBufferLen = -2;
 	const int returnIgnored = -1;
 	const int istrue = 1; 

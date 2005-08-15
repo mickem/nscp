@@ -1,3 +1,21 @@
+2005-07-31 MickeM
+ + /install now sets the serive to autostart
+ * Did some cleanup of minor code sctions
+ * (done before but not repported i think) /listpdh option added to list all pdh counters (nsclient++ /listpdh)
+ + Added service description
+ * Eventlog reworked (again) this time I hope it is better (and even usefull, but syntax has changed)
+
+2005-07-26 MickeM
+ + Added support for ShowAll=long (to show long and short info, only applies to some areas, but avalible everywhere)
+ + Extended Drive and memory check syntax to facilitate both Free and Used space checks: MaxWarnFree / MaxWarnUsed etc)
+
+2005-07-19 MickeM
+ * Changed thread API to use _creatthreadex as opposed to _creatthread (works better now!)
+ * Fixed UNKNOWN return code (was 4 should have been 3)
+
+2005-07-16 MickeM
+ * Fixed drivechecks from NSClient
+
 2005-07-11 MickeM
  * *ALOT* of bugfixes and enhancements all checking code has been centralzed and rewritten also my nternal check scripts 
    have been extenden to check alot more things.

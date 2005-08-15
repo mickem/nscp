@@ -332,6 +332,9 @@ echo Making archive
 				RelativePath=".\include\NTService.h">
 			</File>
 			<File
+				RelativePath=".\include\PDHCounter.h">
+			</File>
+			<File
 				RelativePath=".\Settings.h">
 			</File>
 			<File
@@ -438,6 +441,18 @@ cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\NSC.dist">
+				<FileConfiguration
+					Name="Distribution|Win32">
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...
+cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\$(InputName).ini&quot;
+"
+						Outputs="$(InputDir)\Dist\$(InputName).ini"/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath=".\NSC.ini">
 				<FileConfiguration
 					Name="Release|Win32">
@@ -459,7 +474,8 @@ cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\$(OutDir)&quot;
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Distribution|Win32">
+					Name="Distribution|Win32"
+					ExcludedFromBuild="TRUE">
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="echo Copying $(InputFileName)...

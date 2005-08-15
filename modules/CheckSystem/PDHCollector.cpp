@@ -132,7 +132,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		} 
 	}while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));
 	if (waitStatus != WAIT_OBJECT_0) {
-		NSC_LOG_ERROR("Something odd happend, terminating PDH collection thread!");
+		NSC_LOG_ERROR("Something odd happened, terminating PDH collection thread!");
 	}
 
 	{
@@ -141,9 +141,9 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			NSC_LOG_ERROR("Failed to get Mute when closing thread!");
 		}
 
-		if (!CloseHandle(hStopEvent_))
+		if (!CloseHandle(hStopEvent_)) {
 			NSC_LOG_ERROR_STD("Failed to close stopEvent handle: " + strEx::itos(GetLastError()));
-		else
+		} else
 			hStopEvent_ = NULL;
 		try {
 			pdh.close();
@@ -159,13 +159,8 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 * Request termination of the thread (waiting for thread termination is not handled)
 */
 void PDHCollector::exitThread(void) {
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
-		NSC_LOG_ERROR("Failed to get Mute when trying to close thread!");
-		return;
-	}
 	if (hStopEvent_ == NULL)
-		NSC_LOG_ERROR("Failed to get stop event!");
+		NSC_LOG_ERROR("Stop event is not created!");
 	else
 		if (!SetEvent(hStopEvent_)) {
 			NSC_LOG_ERROR_STD("SetStopEvent failed");

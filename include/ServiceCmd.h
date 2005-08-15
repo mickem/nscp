@@ -11,4 +11,5 @@ namespace serviceControll {
 	void Uninstall(std::string);
 	void Start(std::string);
 	void Stop(std::string);
+	void SetDescription(std::string,std::string);
 }

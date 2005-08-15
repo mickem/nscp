@@ -11,6 +11,13 @@
 
 namespace strEx {
 
+	inline void append_list(std::string &lst, std::string &append) {
+		if (!lst.empty())
+			lst += ", ";
+		lst += append;
+	}
+
+
 	inline void replace(std::string &string, std::string replace, std::string with) {
 		std::string::size_type pos = string.find(replace);
 		std::string::size_type len = replace.length();
@@ -80,6 +87,7 @@ namespace strEx {
 			return value * 7 * 24 * 60 * 60 * 1000;
 		return value * smallest_unit;
 	}
+
 	inline unsigned long long stoi64_as_time(std::string time, unsigned int smallest_unit = 1000) {
 		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
 		unsigned long long value = _atoi64(time.c_str());

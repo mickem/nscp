@@ -5,6 +5,7 @@
 #include "CheckEventLog.h"
 #include <strEx.h>
 #include <time.h>
+#include <utils.h>
 
 CheckEventLog gCheckEventLog;
 
@@ -38,14 +39,15 @@ bool CheckEventLog::hasMessageHandler() {
 
 class EventLogRecord {
 	EVENTLOGRECORD *pevlr_;
+	DWORD currentTime_;
 public:
-	EventLogRecord(EVENTLOGRECORD *pevlr) : pevlr_(pevlr) {
+	EventLogRecord(EVENTLOGRECORD *pevlr, DWORD currentTime) : pevlr_(pevlr), currentTime_(currentTime) {
 	}
 	inline DWORD timeGenerated() const {
-		return pevlr_->TimeGenerated;
+		return (currentTime_-pevlr_->TimeGenerated)*1000;
 	}
 	inline DWORD timeWritten() const {
-		return pevlr_->TimeWritten;
+		return (currentTime_-pevlr_->TimeWritten)*1000;
 	}
 	inline std::string eventSource() const {
 		return reinterpret_cast<LPSTR>(reinterpret_cast<LPBYTE>(pevlr_) + sizeof(EVENTLOGRECORD));
@@ -120,208 +122,74 @@ public:
 };
 
 
-struct searchQuery {
-		struct searchQueryItem {
+struct eventlog_filter {
+	filters::filter_all_strings eventSource;
+	filters::filter_all_numeric<unsigned int, filters::handlers::eventtype_handler> eventType;
+	filters::filter_all_strings message;
+	filters::filter_all_times timeWritten;
+	filters::filter_all_times timeGenerated;
 
-			typedef enum {
-				eventType, 
-				eventSource, 
-				timeWritten,
-				timeGenerated,
-				message,
-				none
-			} queryType;
-
-			typedef enum { out, in, undefined } filterType;
-
-			filterType filter_;
-			queryType queryType_;
-			DWORD dwValue_;
-			boost::regex regexp_;
-			
-
-			searchQueryItem() 
-				: queryType_(none), dwValue_(0), filter_(out) 
-			{}
-			searchQueryItem(filterType filter, queryType type, std::string str) 
-				: queryType_(type), dwValue_(0), filter_(filter)
-			{
-				switch (queryType_ ) {
-				case eventType:
-					dwValue_ = EventLogRecord::translateType(str);
-					break;
-
-				case timeGenerated:
-					dwValue_ = strEx::stoui_as_time(str)/1000;
-					break;
-
-				case eventSource:
-				case message:
-					try {
-						regexp_ = str;
-					} catch (const boost::bad_expression e) {
-						throw (std::string)"Invalid syntax in regular expression:" + str;
-					}
-					break;
-				}
-			}
-
-			searchQueryItem& operator=(const searchQueryItem &other) {
-				queryType_ = other.queryType_;
-				dwValue_ = other.dwValue_;
-				filter_ = other.filter_;
-				try {
-					regexp_ = other.regexp_;
-				} catch (const boost::bad_expression e) {
-					throw (std::string)"Invalid syntax in regular expression:" + other.toString();
-				}
-				return *this;
-			}
-
-			bool match(DWORD now, const EventLogRecord &record) const {
-				switch (queryType_) {
-				case eventType:
-					return record.eventType() & dwValue_;
-
-				case eventSource:
-					if (regexp_.empty())
-						return false;
-					return boost::regex_match(record.eventSource(), regexp_);
-
-				case timeWritten:
-					return record.timeWritten() < (now-dwValue_);
-
-				case timeGenerated:
-					return record.timeGenerated() < (now-dwValue_);
-
-				case message:
-					if (regexp_.empty())
-						return false;
-					return boost::regex_match(record.enumStrings(), regexp_);
-
-				default:
-					return false;
-				}
-			}
-			std::string queryType2String(queryType query) const {
-				switch (queryType_) {
-				case eventType:
-					return "eventType";
-				case eventSource:
-					return "eventSource";
-				case timeWritten:
-					return "timeWritten";
-				case timeGenerated:
-					return "timeGenerated";
-				case message:
-					return "message";
-				default:
-					return "unknown";
-				}
-
-			}
-
-			std::string toString() const {
-				std::stringstream ss;
-				ss << " Type: " << queryType2String(queryType_) << " = " << dwValue_ << ", '" << regexp_ << "'";
-				return ss.str();
-			}
-		};
-
-
-
-	unsigned int truncate;
-	unsigned warning_count;
-	unsigned critical_count;
-	bool descriptions;
-	std::list<searchQueryItem> queries;
-
-	searchQuery() : truncate(0), descriptions(false), warning_count(0), critical_count(0) {}
-
-	std::string toString() {
-		std::string ret;
-		for (std::list<searchQuery::searchQueryItem>::const_iterator cit = queries.begin(); cit != queries.end(); ++cit ) {
-			ret += (*cit).toString();
-		}
-		return ret;
+	inline bool hasFilter() {
+		return eventSource.hasFilter() || eventType.hasFilter() || message.hasFilter() || 
+			timeWritten.hasFilter() || timeGenerated.hasFilter();
 	}
-
+	bool matchFilter(const EventLogRecord &value) const {
+		if ((eventSource.hasFilter())&&(eventSource.matchFilter(value.eventSource())))
+			return true;
+		else if ((eventType.hasFilter())&&(eventType.matchFilter(value.eventType())))
+			return true;
+		else if ((message.hasFilter())&&(message.matchFilter(value.enumStrings())))
+			return true;
+		else if ((timeWritten.hasFilter())&&(timeWritten.matchFilter(value.timeWritten())))
+			return true;
+		else if ((timeGenerated.hasFilter())&&(timeGenerated.matchFilter(value.timeGenerated())))
+			return true;
+		return false;
+	}
 };
 
-// checkEventLog file=application truncate=1024 descriptions filter=[out|in]
-//					warning-count=3 critical-count=10
-// filter type = warning AND generated > 1d
-//
-// match (type, "warning") && match(generated, "1d")
-//					filer-eventType=warning 
-//					filer-eventSource=
-//					filer-date=4d
-//
-// CheckEventLog
-// request: CheckEventLog&<logfile>&<Query strings>
-// Return: <return state>&<log entry 1> - <log entry 2>...
-// <return state>	0 - No errors
-//					1 - Unknown
-//					2 - Errors
 
-// ./nrpe-2.0/src/check_nrpe -H 192.168.167 -p 5666 -c checkEventLog -a file=system file=application filter-eventType=warning filter-generated=1d descriptions filter-eventSource=Cdrom filter-eventSource=NSClient warning-count=3 critical-count=7 filter=in truncate=512
-//
-// Examples:
-// CheckEventLog&Application&1&<type>&<query>&huffa...
-// CheckEventLog&Application&warn.require.eventType=warning&critical.require.eventType=error&truncate=1024&descriptions&all.exclude.eventSourceRegexp=^(Win|Msi|NSClient\+\+|Userenv|ASP\.NET|LoadPerf|Outlook|Application E|NSClient).*
+#define MAP_FILTER(value, obj) \
+			else if (p__.first == value) { eventlog_filter filter; filter.obj = p__.second; filter_chain.push_back(filter); }
+
+
 #define BUFFER_SIZE 1024*64
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	if (command != "CheckEventLog")
 		return NSCAPI::returnIgnored;
-	NSCAPI::nagiosReturn rCode = NSCAPI::returnOK;
-	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsUInteger> EventLogQueryConatiner;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 
-	std::string ret;
-	searchQuery query;
 	std::list<std::string> files;
-	searchQuery::searchQueryItem::filterType filter = searchQuery::searchQueryItem::out;
+	std::list<eventlog_filter> filter_chain;
+	EventLogQueryConatiner query;
 
-	for (std::list<std::string>::const_iterator it = args.begin(); it!=args.end(); ++it) {
-		try {
-			if ((*it) == "descriptions") {
-				query.descriptions = true;
-			} else {
-				std::pair<std::string,std::string> p = strEx::split((*it), "=");
-				if (p.first == "truncate") {
-					query.truncate = strEx::stoi(p.second);
-				} else if (p.first == "file") {
-					files.push_back(p.second);
-				} else if (p.first == "filter") {
-					if (p.second == "in")
-						filter = searchQuery::searchQueryItem::in;
-					else
-						filter = searchQuery::searchQueryItem::out;
-				} else if (p.first == "warning-count") {
-					query.warning_count = strEx::stoi(p.second);
-				} else if (p.first == "critical-count") {
-					query.critical_count = strEx::stoi(p.second);
+	bool bFilterIn = true;
+	bool bFilterAll = false;
+	bool bShowDescriptions = false;
+	unsigned int truncate = 0;
 
-				} else if (p.first == "filter-eventType") {
-					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::eventType, p.second));
-				} else if (p.first == "filter-eventSource") {
-					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::eventSource, p.second));
-				} else if (p.first == "filter-generated") {
-					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::timeGenerated, p.second));
-				} else if (p.first == "filter-written") {
-					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::timeWritten, p.second));
-				} else if (p.first == "filter-message") {
-					query.queries.push_back(searchQuery::searchQueryItem(filter, searchQuery::searchQueryItem::message, p.second));
-				}
-			}
-		} catch (std::string s) {
-			if (message.empty())
-				message += "UNKNOWN: ";
-			else
-				message += ", ";
-			message += s;
-		}
-	}
-	if (!message.empty()) {
+	try {
+		MAP_OPTIONS_BEGIN(stl_args)
+			MAP_OPTIONS_NUMERIC_ALL(query, "")
+			MAP_OPTIONS_STR2INT("truncate", truncate)
+			MAP_OPTIONS_BOOL_TRUE("descriptions", bShowDescriptions)
+			MAP_OPTIONS_PUSH("file", files)
+			MAP_OPTIONS_BOOL_EX("filter", bFilterIn, "in", "out")
+			MAP_OPTIONS_BOOL_EX("filter", bFilterAll, "all", "any")
+			MAP_FILTER("filter-eventType", eventType)
+			MAP_FILTER("filter-eventSource", eventSource)
+			MAP_FILTER("filter-generated", timeGenerated)
+			MAP_FILTER("filter-written", timeWritten)
+			MAP_FILTER("filter-message", message)
+			MAP_OPTIONS_MISSING(message, "Unknown argument: ")
+		MAP_OPTIONS_END()
+	} catch (filters::parse_exception e) {
+		message = e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+	} catch (filters::filter_exception e) {
+		message = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
 	}
 
@@ -351,57 +219,45 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		{
 			while (dwRead > 0) 
 			{ 
-				bool match = false;
-				bool undefined = true;
-				searchQuery::searchQueryItem::filterType tFilter = searchQuery::searchQueryItem::out;
-				EventLogRecord record(pevlr);
+				bool bMatch = bFilterAll;
+				EventLogRecord record(pevlr, currentTime);
 
-				for (std::list<searchQuery::searchQueryItem>::const_iterator cit3 = query.queries.begin(); cit3 != query.queries.end(); ++cit3 ) {
-					if ((*cit3).match(currentTime, record)) {
-						if ((*cit3).filter_ == searchQuery::searchQueryItem::in)
-							match = true;
-						else {
-							match = false;
+				for (std::list<eventlog_filter>::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
+					bool bTmpMatched = (*cit3).matchFilter(record);
+					if (bFilterAll) {
+						if (!bTmpMatched) {
+							bMatch = false;
+							break;
+						}
+					} else {
+						if (bTmpMatched) {
+							bMatch = true;
+							break;
 						}
 					}
 				}
 
-				if (match) {
-					if (!ret.empty())
-						ret += ", ";
-					ret += record.eventSource();
-					if (query.descriptions) {
-						ret += "(" + EventLogRecord::translateType(record.eventType()) + ")";
-						ret += "[" + record.enumStrings() + "]";
+				if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
+					strEx::append_list(message, record.eventSource());
+					if (bShowDescriptions) {
+						message += "(" + EventLogRecord::translateType(record.eventType()) + ")";
+						message += "[" + record.enumStrings() + "]";
 					}
 					hit_count++;
 				}
-
 				dwRead -= pevlr->Length; 
 				pevlr = (EVENTLOGRECORD *) ((LPBYTE) pevlr + pevlr->Length); 
 			} 
-
 			pevlr = (EVENTLOGRECORD *) &bBuffer; 
 		} 
-
 		CloseEventLog(hLog);
 	}
-
-	if ((query.critical_count > 0) && (hit_count > query.critical_count)) {
-		ret = "CRITICAL: " + strEx::itos(hit_count) + " > critical: " + ret;
-		rCode = NSCAPI::returnCRIT;
-	} else if ((query.warning_count > 0) && (hit_count > query.warning_count)) {
-		ret = "WARNING: " + strEx::itos(hit_count) + " > warning: " + ret;
-		rCode = NSCAPI::returnWARN;
-	} else {
-		ret = "OK: " + strEx::itos(hit_count) + ": " + ret;
-	}
-	if (query.truncate != 0)
-		ret = ret.substr(0, query.truncate);
-	if ((query.truncate > 0) && (ret.length() > query.truncate))
-		ret = ret.substr(0, query.truncate);
-	message = ret;
-	return rCode;
+	query.runCheck(hit_count, returnCode, message, perf);
+	if ((truncate > 0) && (message.length() > (truncate-4)))
+		message = message.substr(0, truncate-4) + "...";
+	if (message.empty())
+		message = "Eventlog check ok";
+	return returnCode;
 }
 
 
