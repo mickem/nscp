@@ -6,6 +6,7 @@
 #include <utility>
 #include <list>
 #include <functional>
+#include <time.h>
 #ifdef _DEBUG
 #include <iostream>
 #endif
@@ -18,6 +19,14 @@ namespace strEx {
 		lst += append;
 	}
 
+	inline std::string format_date(time_t time, std::string format) {
+		char buf[51];
+		size_t l = strftime(buf, 50, format.c_str(), gmtime(&time));
+		if (l <= 0 || l >= 50)
+			return "";
+		buf[l] = 0;
+		return buf;
+	}
 
 	inline void replace(std::string &string, std::string replace, std::string with) {
 		std::string::size_type pos = string.find(replace);

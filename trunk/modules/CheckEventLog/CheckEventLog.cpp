@@ -146,6 +146,16 @@ public:
 			return "error";
 		return strEx::itos(dwType);
 	}
+	std::string render(std::string syntax) {
+		strEx::replace(syntax, "%source%", eventSource());
+		strEx::replace(syntax, "%generated%", strEx::format_date(pevlr_->TimeGenerated, DATE_FORMAT));
+		strEx::replace(syntax, "%written%", strEx::format_date(pevlr_->TimeWritten, DATE_FORMAT));
+		strEx::replace(syntax, "%type%", translateType(eventType()));
+		strEx::replace(syntax, "%severity%", translateSeverity(severity()));
+		strEx::replace(syntax, "%strings%", enumStrings());
+		strEx::replace(syntax, "%id%", strEx::itos(eventID()));
+		return syntax;
+	}
 };
 
 
@@ -202,6 +212,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	bool bFilterAll = false;
 	bool bShowDescriptions = false;
 	unsigned int truncate = 0;
+	std::string syntax;
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
@@ -211,6 +222,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			MAP_OPTIONS_PUSH("file", files)
 			MAP_OPTIONS_BOOL_EX("filter", bFilterIn, "in", "out")
 			MAP_OPTIONS_BOOL_EX("filter", bFilterAll, "all", "any")
+			MAP_OPTIONS_STR("syntax", syntax)
 			MAP_FILTER("filter-eventType", eventType)
 			MAP_FILTER("filter-severity", eventSeverity)
 			MAP_FILTER("filter-eventID", eventID)
@@ -272,8 +284,12 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				}
 
 				if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
-					strEx::append_list(message, record.eventSource());
-					if (bShowDescriptions) {
+					if (!syntax.empty()) {
+						strEx::append_list(message, record.render(syntax));
+					} else if (bShowDescriptions) {
+						strEx::append_list(message, record.eventSource());
+					} else {
+						strEx::append_list(message, record.eventSource());
 						message += "(" + EventLogRecord::translateType(record.eventType()) + ", " + strEx::itos(record.eventID()) + ", " + EventLogRecord::translateSeverity(record.severity()) + ")";
 						message += "[" + record.enumStrings() + "]";
 					}
