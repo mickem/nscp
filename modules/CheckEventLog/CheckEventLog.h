@@ -4,6 +4,9 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 #include <filter_framework.hpp>
 
+
+#define DATE_FORMAT "%#c"
+
 class CheckEventLog {
 private:
 

@@ -6,16 +6,21 @@ TODO:
  * Service check to use Auto (filter by started setting etc.)
  * Add module for relaying events
  * Check multitasking problems on the sockets.
+ * Add filtering to WMI module
+ * Fix WMI module
+ * Check date/time on eventlogs
+ * Add support for rendering results (eventlog etc) [In progress]
 
 2006-02-12 MickeM
- + Added new Interface for MOdules (NSCommandLineExec that allows modules to execute things give from command line.
-   Syntax is NSClient++ <module name> <command> [arguments] and if a mpodule doesn't support this it is simply ignored.
+ + Added new Interface for Modules (NSCommandLineExec that allows modules to execute things give from command line.
+   Syntax is NSClient++ <module name> <command> [arguments] and if a module doesn't support this it is simply ignored.
  + Added new install/uninstall command to SystemTray module:
    NSClient++.exe SystemTray install 
    NSClient++.exe SystemTray uninstall 
    That will install/uninstall the system tray module this sets the "Allow Service to Interact with Desktop" flag for the service.
  * Removed the "Allow Service to Interact with Desktop" flag from the /install option so that it no longer defaults to on (see commands to set this above).
- * Fixed so checkProcess isn't case sensetive.
+ * Fixed so checkProcess isn't case sensitive.
+ * Added (not finished) syntax option to event log checker to format the outputted data
 
 2006-02-12 MickeM
  + Added support for host name resolve to allowed_hosts
@@ -32,7 +37,7 @@ TODO:
  + Added CheckFile check command
    This new command (in development) will allow various file checks such as age, size, date, etc on single or multiple files.
  + Added FILEAGE support to NSClient
- + Started to convert the webpage to WIKI
+ + Started to convert the web page to WIKI
  
 2006-01-21 MickeM
  + Added WMI Check module (early alpha)
