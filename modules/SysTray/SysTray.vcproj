@@ -171,6 +171,9 @@
 				RelativePath="..\..\include\NSCHelper.cpp">
 			</File>
 			<File
+				RelativePath="..\..\include\ServiceCmd.cpp">
+			</File>
+			<File
 				RelativePath=".\stdafx.cpp">
 				<FileConfiguration
 					Name="Release|Win32">
@@ -213,6 +216,9 @@
 			</File>
 			<File
 				RelativePath=".\resource.h">
+			</File>
+			<File
+				RelativePath="..\..\include\ServiceCmd.h">
 			</File>
 			<File
 				RelativePath=".\stdafx.h">

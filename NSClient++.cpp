@@ -20,6 +20,8 @@
 #include <Socket.h>
 #include <b64/b64.h>
 #include <PDHCounter.h>
+#include <PDHCollectors.h>
+
 
 NSClient mainClient;	// Global core instance.
 bool g_bConsoleLog = false;
@@ -43,10 +45,14 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
-				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
 			} catch (const serviceControll::SCException& e) {
 				LOG_MESSAGE_STD("Service installation failed: " + e.error_);
 				return -1;
+			}
+			try {
+				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
+			} catch (const serviceControll::SCException& e) {
+				LOG_MESSAGE_STD("Couldn't set service description: " + e.error_);
 			}
 			LOG_MESSAGE("Service installed!");
 		} else if ( _stricmp( "uninstall", argv[1]+1 ) == 0 ) {
@@ -99,6 +105,67 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 					}
 				}
 			}
+		} else if ( _stricmp( "debugpdh", argv[1]+1 ) == 0 ) {
+			PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+			for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
+				if ((*it).instances.size() > 0) {
+					for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
+						for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
+							std::string counter = "\\" + (*it).name + "(" + (*it2).name + ")\\" + (*it3).name;
+							std::cout << "testing: " << counter << ": ";
+							std::string error;
+							if (PDH::Enumerations::validate(counter, error)) {
+								std::cout << " found ";
+							} else {
+								std::cout << " *NOT* found (" << error << ") " << std::endl;
+								break;
+							}
+							bool bOpend = false;
+							try {
+								PDH::PDHQuery pdh;
+								PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+								pdh.addCounter(counter, &cDouble);
+								pdh.open();
+								pdh.gatherData();
+								pdh.close();
+								bOpend = true;
+							} catch (const PDH::PDHException e) {
+								std::cout << " could *not* be open (" << e.getError() << ") " << std::endl;
+								break;
+							}
+							std::cout << " open ";
+							std::cout << std::endl;
+						}
+					}
+				} else {
+					for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
+						std::string counter = "\\" + (*it).name + "\\" + (*it2).name;
+						std::cout << "testing: " << counter << ": ";
+						std::string error;
+						if (PDH::Enumerations::validate(counter, error)) {
+							std::cout << " found ";
+						} else {
+							std::cout << " *NOT* found (" << error << ") " << std::endl;
+							break;
+						}
+						bool bOpend = false;
+						try {
+							PDH::PDHQuery pdh;
+							PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+							pdh.addCounter(counter, &cDouble);
+							pdh.open();
+							pdh.gatherData();
+							pdh.close();
+							bOpend = true;
+						} catch (const PDH::PDHException e) {
+							std::cout << " could *not* be open (" << e.getError() << ") " << std::endl;
+							break;
+						}
+						std::cout << " open ";
+						std::cout << std::endl;;
+					}
+				}
+			}
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
 #ifdef _DEBUG
 			/*
@@ -134,8 +201,18 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			mainClient.TerminateService();
 			return 0;
 		} else {
-			LOG_MESSAGE("Usage: -version, -about, -install, -uninstall, -start, -stop");
+			LOG_MESSAGE("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt");
+			LOG_MESSAGE("Usage: <ModuleName> <commnd> [arguments]");
 		}
+		return nRetCode;
+	} else if (argc > 2) {
+		g_bConsoleLog = true;
+		mainClient.InitiateService();
+		if (argc>=3)
+			mainClient.commandLineExec(argv[1], argv[2], argc-3, &argv[3]);
+		else
+			mainClient.commandLineExec(argv[1], argv[2], 0, NULL);
+		mainClient.TerminateService();
 		return nRetCode;
 	}
 	mainClient.StartServiceCtrlDispatcher();
@@ -205,6 +282,27 @@ void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
+int NSClientT::commandLineExec(const char* module, const char* command, const unsigned int argLen, char** args) {
+	std::string sModule = module;
+	ReadLock readLock(&m_mutexRW, true, 10000);
+	if (!readLock.IsLocked()) {
+		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+		return -1;
+	}
+	for (pluginList::size_type i=0;i<plugins_.size();++i) {
+		NSCPlugin *p = plugins_[i];
+		if (p->getName() == sModule) {
+			LOG_DEBUG_STD("Found module: " + p->getName() + "...");
+			try {
+				return p->commandLineExec(command, argLen, args);
+			} catch (NSPluginException e) {
+				LOG_ERROR_STD("Could not execute command: " + e.error_ + " in " + e.file_);
+			}
+		}
+	}
+	LOG_ERROR("Module not found.");
+	return 0;
+}
 
 /**
  * Load a list of plug-ins

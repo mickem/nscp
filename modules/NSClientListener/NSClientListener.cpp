@@ -17,8 +17,8 @@ NSClientListener gNSClientListener;
 #define REQ_SERVICESTATE	5	// Works fine!
 #define REQ_PROCSTATE		6	// Works fine!
 #define REQ_MEMUSE			7	// Works fine!
-#define REQ_COUNTER			8	// ... in the works ...
-//#define REQ_FILEAGE		9	// ! - not implemented Don't know how to use
+#define REQ_COUNTER			8	// Works fine!
+#define REQ_FILEAGE			9	// ... in the works ...
 //#define REQ_INSTANCES	10	// ! - not implemented Don't know how to use
 
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
@@ -151,6 +151,10 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 			cmd.first = "checkCounter";
 			cmd.second += "&nsclient";
 			break;
+		case REQ_FILEAGE:
+			cmd.first = "getFileAge";
+			cmd.second = "path=" + cmd.second;
+			break;
 	}
 
 	std::string message, perf;
@@ -167,6 +171,7 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 		case REQ_CLIENTVERSION:
 		case REQ_USEDDISKSPACE:
 		case REQ_COUNTER:
+		case REQ_FILEAGE:
 			return message;
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
@@ -190,8 +195,6 @@ void NSClientListener::onAccept(simpleSocket::Socket *client) {
 		return;
 	}
 	simpleSocket::DataBuffer db;
-
-
 
 	for (int i=0;i<100;i++) {
 		client->readAll(db);

@@ -100,6 +100,21 @@ namespace simpleSocket {
 			unsigned long NoBlock = 1;
 			this->ioctlsocket(FIONBIO, &NoBlock);
 		}
+		static std::string getHostByName(std::string ip) {
+			hostent* remoteHost;
+			remoteHost = gethostbyname(ip.c_str());
+			if (remoteHost == NULL)
+				throw SocketException("gethostbyname failed for " + ip + ": ", ::WSAGetLastError());
+			// @todo investigate it this is "correct" and dont use before!
+			return inet_ntoa(*reinterpret_cast<in_addr*>(remoteHost->h_addr));
+		}
+		static std::string getHostByAddr(std::string ip) {
+			hostent* remoteHost;
+			remoteHost = gethostbyaddr(ip.c_str(), static_cast<int>(ip.length()), AF_INET);
+			if (remoteHost == NULL)
+				throw SocketException("gethostbyaddr failed for " + ip + ": ", ::WSAGetLastError());
+			return remoteHost->h_name;
+		}
 		virtual void readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
 
 		virtual void socket(int af, int type, int protocol ) {
@@ -395,4 +410,41 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		core->printError(__FILE__, __LINE__, "CloseHandle StopEvent failed: " + strEx::itos(GetLastError()));
 	}
 	return 0;
+}
+
+
+
+namespace socketHelpers {
+	class allowedHosts {
+	public:
+		typedef std::list<std::string> host_list; 
+	private:
+		host_list allowedHosts_;
+	public:
+		void setAllowedHosts(host_list allowedHosts) {
+			if ((!allowedHosts.empty()) && (allowedHosts.front() == "") )
+				allowedHosts.pop_front();
+			allowedHosts_ = allowedHosts;
+			for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
+				if (((*it).length() > 0) && (std::isalpha((*it)[0]))) {
+					std::string s = (*it);
+					try {
+						*it = simpleSocket::Socket::getHostByName(s);
+					} catch (simpleSocket::SocketException e) {
+						e;
+					}
+				}
+			}
+		}
+		bool inAllowedHosts(std::string s) {
+			if (allowedHosts_.empty())
+				return true;
+			host_list::const_iterator cit;
+			for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
+				if ( (*cit) == s)
+					return true;
+			}
+			return false;
+		}
+	};
 }

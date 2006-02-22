@@ -1,12 +1,80 @@
+TODO: 
+ * Process times and similar ?
+ * Add bind_to_address in the socket
+ * Fix configuration GUI (low priority)
+ * Fix installer (low priority)
+ * Service check to use Auto (filter by started setting etc.)
+ * Add module for relaying events
+ * Check multitasking problems on the sockets.
+
+2006-02-12 MickeM
+ + Added new Interface for MOdules (NSCommandLineExec that allows modules to execute things give from command line.
+   Syntax is NSClient++ <module name> <command> [arguments] and if a mpodule doesn't support this it is simply ignored.
+ + Added new install/uninstall command to SystemTray module:
+   NSClient++.exe SystemTray install 
+   NSClient++.exe SystemTray uninstall 
+   That will install/uninstall the system tray module this sets the "Allow Service to Interact with Desktop" flag for the service.
+ * Removed the "Allow Service to Interact with Desktop" flag from the /install option so that it no longer defaults to on (see commands to set this above).
+ * Fixed so checkProcess isn't case sensetive.
+
+2006-02-12 MickeM
+ + Added support for host name resolve to allowed_hosts
+
+2006-02-08 MickeM
+ ! Fixed filter-eventID in EventLog module (now works for all IDs regardless of severity state)
+ + Added new filters to EventLog (filter-severity that can filter based on event severity success, error, warning, informational)
+
+2006-02-07 MickeM
+ + Added new filter option to eventlog filter-eventID
+ + Added new operator to all numeric filters in:number,number,... etc. (for instance filter-eventID=in:123,456,789 to check for lists.
+
+2006-02-05 MickeM
+ + Added CheckFile check command
+   This new command (in development) will allow various file checks such as age, size, date, etc on single or multiple files.
+ + Added FILEAGE support to NSClient
+ + Started to convert the webpage to WIKI
+ 
+2006-01-21 MickeM
+ + Added WMI Check module (early alpha)
+   This is an extremely early alpha more to see if there is an interest and how to progress with it.
+   To use the WMI module enable the WMICheck.dll (nsc.ini) and then run the following check:
+   CheckWMI MaxWarn=10 MaxCrit=15 "Query:load=Select LoadPercentage from win32_Processor"
+   The Max* are as every other check and sets limits. 
+   The Query works similarly to other check commands ie. Query:<name>=<WMI query>
+   So any other WMI query should work (notice this is experimental and not stable and has virtually 
+   no error handling so it is likely to crash nsclient if you ask anything "non working".)
+   I would *really* *really* like to get feedback on how to expand this concept to work better so feel free to come with feedback.
+  * Fixed NT4 /install (should work now!)
+
+2006-01-02 MickeM
+ * Fixed ChangeServiceConfig2 on NT4
+ + Added support for more then 4GB memory (8GB?)
+   Since I don't have this much memory this needs to be verified...
+ * Fixed syntax of performance data
+
+2005-09-24 MickeM
+ * Fixed memory size bug (free and used were swapped)
+
+2005-09-20 MickeM
+ + Added option to debug all PDH counters /debugpdh
+
+2005-09-17 MickeM
+ + Added support for checking service by display name
+
+2005-09-03 MickeM
+ * First off, sorry for lack of updates, but was on vacation :)
+ + Added ShowAll=long to CPULoad
+ + Added several new types to checkMem (type=paged, type=physical, type=page, type=virtual)
+
 2005-07-31 MickeM
- + /install now sets the serive to autostart
- * Did some cleanup of minor code sctions
- * (done before but not repported i think) /listpdh option added to list all pdh counters (nsclient++ /listpdh)
+ + /install now sets the service to autostart
+ * Did some cleanup of minor code sections
+ * (done before but not reported i think) /listpdh option added to list all PDH counters (nsclient++ /listpdh)
  + Added service description
- * Eventlog reworked (again) this time I hope it is better (and even usefull, but syntax has changed)
+ * Event log reworked (again) this time I hope it is better (and even useful, but syntax has changed)
 
 2005-07-26 MickeM
- + Added support for ShowAll=long (to show long and short info, only applies to some areas, but avalible everywhere)
+ + Added support for ShowAll=long (to show long and short info, only applies to some areas, but available everywhere)
  + Extended Drive and memory check syntax to facilitate both Free and Used space checks: MaxWarnFree / MaxWarnUsed etc)
 
 2005-07-19 MickeM
@@ -14,13 +82,13 @@
  * Fixed UNKNOWN return code (was 4 should have been 3)
 
 2005-07-16 MickeM
- * Fixed drivechecks from NSClient
+ * Fixed drive checks from NSClient
 
 2005-07-11 MickeM
- * *ALOT* of bugfixes and enhancements all checking code has been centralzed and rewritten also my nternal check scripts 
-   have been extenden to check alot more things.
+ * *ALOT* of bug fixes and enhancements all checking code has been centralized and rewritten also my internal check scripts 
+   have been extended to check a lot more things.
    *NOTICE* that EventLog has not been upgraded yet neither has the documentation.
- + Added MaxWarnCount / MinWarnCount to checkProcState to checknumber of processes running
+ + Added MaxWarnCount / MinWarnCount to checkProcState to check number of processes running
 
 2005-06-09 MickeM
  * Escapes " in NRPE commands in the NSC.ini

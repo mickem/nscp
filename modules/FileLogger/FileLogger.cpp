@@ -52,7 +52,7 @@ void FileLogger::handleMessage(int msgType, char* file, int line, char* message)
 	_time64( &ltime );
 	struct tm *today = _localtime64( &ltime );
 	if (today) {
-		int len = strftime(buffer, 63, format_.c_str(), today);
+		size_t len = strftime(buffer, 63, format_.c_str(), today);
 		if ((len < 1)||(len > 64))
 			strncpy(buffer, "???", 63);
 		else

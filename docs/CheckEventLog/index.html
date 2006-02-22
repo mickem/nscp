@@ -82,7 +82,7 @@
 			<td valign="top">
 			error, warning, etc</td>
 			<td valign="top">
-			An eventtype to filter out: error, warning, info, auditSuccess or 
+			An event type to filter out: error, warning, info, auditSuccess or 
 			auditFailure.</td>
 		</tr>
 		<tr>
@@ -121,7 +121,7 @@
 		</tr>
 	</table>
 	<p>&nbsp;</p>
-	<p>A time expression is a date/time intervall as a number prefixed by a 
+	<p>A time expression is a date/time interval as a number prefixed by a 
 	filter prefix (&lt;, &gt;, =, !=) and followed by a unit postfix (m, s, h, d, w). 
 	A few examples of time expression are: filter-generated=&gt;2d means filter 
 	will match any records older than 2 days, filter-generated=&lt;2h means match 
@@ -134,8 +134,8 @@
 	<div class="example">
 		<ul>
 			<li>
-			<p><b>Check the Application and System event log for errors in the 
-			last 24 hours. Filter out any Cdrom and NSClient errors as well as 
+			<p><b>Check the Application event log for errors in the 
+			last 48 hours. Filter out any Cdrom and NSClient errors as well as 
 			all warnings. Allow 3 errors before a warning is issued and 7 before 
 			a critical state.</b></p>
 			<p><code>checkEventLog file=system file=application 

@@ -39,18 +39,24 @@ bool CheckEventLog::hasMessageHandler() {
 
 class EventLogRecord {
 	EVENTLOGRECORD *pevlr_;
-	DWORD currentTime_;
+	__int64 currentTime_;
 public:
-	EventLogRecord(EVENTLOGRECORD *pevlr, DWORD currentTime) : pevlr_(pevlr), currentTime_(currentTime) {
+	EventLogRecord(EVENTLOGRECORD *pevlr, __int64 currentTime) : pevlr_(pevlr), currentTime_(currentTime) {
 	}
-	inline DWORD timeGenerated() const {
+	inline __int64 timeGenerated() const {
 		return (currentTime_-pevlr_->TimeGenerated)*1000;
 	}
-	inline DWORD timeWritten() const {
+	inline __int64 timeWritten() const {
 		return (currentTime_-pevlr_->TimeWritten)*1000;
 	}
 	inline std::string eventSource() const {
 		return reinterpret_cast<LPSTR>(reinterpret_cast<LPBYTE>(pevlr_) + sizeof(EVENTLOGRECORD));
+	}
+	inline DWORD eventID() const {
+		return (pevlr_->EventID&0xffff);
+	}
+	inline DWORD severity() const {
+		return (pevlr_->EventID>>30);
 	}
 
 	inline DWORD eventType() const {
@@ -118,25 +124,52 @@ public:
 			return "auditFailure";
 		return strEx::itos(dwType);
 	}
-
+	static DWORD translateSeverity(std::string sType) {
+		if (sType == "success")
+			return 0;
+		if (sType == "informational")
+			return 1;
+		if (sType == "warning")
+			return 2;
+		if (sType == "error")
+			return 3;
+		return strEx::stoi(sType);
+	}
+	static std::string translateSeverity(DWORD dwType) {
+		if (dwType == 0)
+			return "success";
+		if (dwType == 1)
+			return "informational";
+		if (dwType == 2)
+			return "warning";
+		if (dwType == 3)
+			return "error";
+		return strEx::itos(dwType);
+	}
 };
 
 
 struct eventlog_filter {
 	filters::filter_all_strings eventSource;
 	filters::filter_all_numeric<unsigned int, filters::handlers::eventtype_handler> eventType;
+	filters::filter_all_numeric<unsigned int, filters::handlers::eventseverity_handler> eventSeverity;
 	filters::filter_all_strings message;
 	filters::filter_all_times timeWritten;
 	filters::filter_all_times timeGenerated;
+	filters::filter_all_numeric<DWORD, filters::handlers::eventtype_handler> eventID;
 
 	inline bool hasFilter() {
-		return eventSource.hasFilter() || eventType.hasFilter() || message.hasFilter() || 
+		return eventSource.hasFilter() || eventType.hasFilter() || eventID.hasFilter() || eventSeverity.hasFilter() || message.hasFilter() || 
 			timeWritten.hasFilter() || timeGenerated.hasFilter();
 	}
 	bool matchFilter(const EventLogRecord &value) const {
 		if ((eventSource.hasFilter())&&(eventSource.matchFilter(value.eventSource())))
 			return true;
 		else if ((eventType.hasFilter())&&(eventType.matchFilter(value.eventType())))
+			return true;
+		else if ((eventSeverity.hasFilter())&&(eventSeverity.matchFilter(value.severity())))
+			return true;
+		else if ((eventID.hasFilter())&&(eventID.matchFilter(value.eventID()))) 
 			return true;
 		else if ((message.hasFilter())&&(message.matchFilter(value.enumStrings())))
 			return true;
@@ -179,6 +212,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			MAP_OPTIONS_BOOL_EX("filter", bFilterIn, "in", "out")
 			MAP_OPTIONS_BOOL_EX("filter", bFilterAll, "all", "any")
 			MAP_FILTER("filter-eventType", eventType)
+			MAP_FILTER("filter-severity", eventSeverity)
+			MAP_FILTER("filter-eventID", eventID)
 			MAP_FILTER("filter-eventSource", eventSource)
 			MAP_FILTER("filter-generated", timeGenerated)
 			MAP_FILTER("filter-written", timeWritten)
@@ -210,7 +245,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 		__time64_t ltime;
 		_time64(&ltime);
-		DWORD currentTime = ltime;
 
 		GetOldestEventLogRecord(hLog, &dwThisRecord);
 
@@ -220,7 +254,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			while (dwRead > 0) 
 			{ 
 				bool bMatch = bFilterAll;
-				EventLogRecord record(pevlr, currentTime);
+				EventLogRecord record(pevlr, ltime);
 
 				for (std::list<eventlog_filter>::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
 					bool bTmpMatched = (*cit3).matchFilter(record);
@@ -240,7 +274,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
 					strEx::append_list(message, record.eventSource());
 					if (bShowDescriptions) {
-						message += "(" + EventLogRecord::translateType(record.eventType()) + ")";
+						message += "(" + EventLogRecord::translateType(record.eventType()) + ", " + strEx::itos(record.eventID()) + ", " + EventLogRecord::translateSeverity(record.severity()) + ")";
 						message += "[" + record.enumStrings() + "]";
 					}
 					hit_count++;

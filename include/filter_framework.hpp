@@ -1,5 +1,7 @@
 #pragma once
 
+#include <strEx.h>
+
 namespace filters {
 
 	class filter_exception {
@@ -39,13 +41,29 @@ namespace filters {
 		template <typename TType>
 		struct numeric_equals_filter {
 			static bool filter(TType filter, TType value) {
-				return value = filter;
+				return value == filter;
 			}
 		};
 		template <typename TType>
 		struct numeric_nequals_filter {
 			static bool filter(TType filter, TType value) {
 				return value != filter;
+			}
+		};
+		template <typename TType>
+		struct always_true_filter {
+			static bool filter(TType filter, TType value) {
+				return true;
+			}
+		};
+		template <typename TListType, typename TType>
+		struct numeric_inlist_filter {
+			static bool filter(const TListType &filter, const TType value) {
+				for (TListType::const_iterator it = filter.begin(); it != filter.end(); ++it) {
+					if ((*it) == value)
+						return true;
+				}
+				return false;
 			}
 		};
 	}
@@ -58,6 +76,17 @@ namespace filters {
 				return str;
 			}
 		};
+		template<class TType, class TSubHandler>
+		struct numeric_list_handler {
+			static std::list<TType> parse(std::string str) {
+				std::list<TType> ret;
+				std::list<std::string> tmp = strEx::splitEx(str, ",");
+				for (std::list<std::string>::const_iterator it = tmp.begin(); it != tmp.end(); ++it) {
+					ret.push_back(TSubHandler::parse(*it));
+				}
+				return ret;
+			}
+		};
 		struct regexp_handler {
 			static boost::regex parse(std::string str) {
 				try {
@@ -68,7 +97,6 @@ namespace filters {
 			}
 		};
 		struct eventtype_handler {
-
 			static unsigned int parse(std::string str) {
 				if (str == "error")
 					return EVENTLOG_ERROR_TYPE;
@@ -96,19 +124,44 @@ namespace filters {
 				return strEx::itos(dwType);
 			}		
 		};
-	}
+		struct eventseverity_handler {
+			static unsigned int parse(std::string str) {
+				if (str == "success")
+					return 0;
+				if (str == "informational")
+					return 1;
+				if (str == "warning")
+					return 2;
+				if (str == "error")
+					return 3;
+				return strEx::stoi(str);
+			}
+			static std::string toString(unsigned int dwType) {
+				if (dwType == 0)
+					return "success";
+				if (dwType == 1)
+					return "informational";
+				if (dwType == 2)
+					return "warning";
+				if (dwType == 3)
+					return "error";
+				return strEx::itos(dwType);
+			}		
+		};	}
 
 	template <typename TFilterType, typename TValueType, class THandler, class TFilter>
 	struct filter_one {
 		TFilterType filter;
 		bool hasFilter_;
 		filter_one() : hasFilter_(false) {}
+		filter_one(const filter_one &other) : hasFilter_(other.hasFilter_), filter(other.filter) {
+		}
 
 		inline bool hasFilter() const {
 			return hasFilter_;
 		}
-		bool matchFilter(TValueType str) const {
-			return TFilter::filter(filter, str);
+		bool matchFilter(const TValueType value) const {
+			return TFilter::filter(filter, value);
 		}
 		const filter_one & operator=(std::string value) {
 			hasFilter_ = false;
@@ -133,7 +186,7 @@ namespace filters {
 		inline bool hasFilter() const {
 			return sub.hasFilter() || regexp.hasFilter();
 		}
-		bool matchFilter(std::string str) const {
+		bool matchFilter(const std::string str) const {
 			if ((regexp.hasFilter())&&(regexp.matchFilter(str)))
 				return true;
 			else if ((sub.hasFilter())&&(sub.matchFilter(str)))
@@ -160,11 +213,20 @@ namespace filters {
 		filter_one<TType, TType, THandler, filter::numeric_min_filter<TType> > min;
 		filter_one<TType, TType, THandler, filter::numeric_equals_filter<TType> > eq;
 		filter_one<TType, TType, THandler, filter::numeric_nequals_filter<TType> > neq;
+		filter_one<std::list<TType>, TType, handlers::numeric_list_handler<TType, THandler>, filter::numeric_inlist_filter<std::list<TType>, TType> > inList;
 
-		inline bool hasFilter() const {
-			return max.hasFilter() || min.hasFilter() || eq.hasFilter() || neq.hasFilter();
+		filter_all_numeric() {}
+		filter_all_numeric(const filter_all_numeric &other) {
+			max = other.max;
+			min = other.min;
+			eq = other.eq;
+			neq = other.neq;
+			inList = other.inList;
 		}
-		bool matchFilter(TType value) const {
+		inline bool hasFilter() const {
+			return max.hasFilter() || min.hasFilter() || eq.hasFilter() || neq.hasFilter() || inList.hasFilter();
+		}
+		bool matchFilter(const TType value) const {
 			if ((max.hasFilter())&&(max.matchFilter(value)))
 				return true;
 			else if ((min.hasFilter())&&(min.matchFilter(value)))
@@ -172,6 +234,8 @@ namespace filters {
 			else if ((eq.hasFilter())&&(eq.matchFilter(value)))
 				return true;
 			else if ((neq.hasFilter())&&(neq.matchFilter(value)))
+				return true;
+			else if ((inList.hasFilter())&&(inList.matchFilter(value)))
 				return true;
 			return false;
 		}
@@ -184,11 +248,13 @@ namespace filters {
 				eq = value.substr(1);
 			} else if (value.substr(0,2) == "!=") {
 				neq = value.substr(2);
+			} else if (value.substr(0,3) == "in:") {
+				inList = value.substr(3);
 			} else {
 				throw parse_exception("Unknown filter key: " + value);
 			}
 			return *this;
 		}
 	};
-	typedef filter_all_numeric<unsigned int, checkHolders::time_handler<unsigned int> > filter_all_times;
+	typedef filter_all_numeric<unsigned long long, checkHolders::time_handler<unsigned long long> > filter_all_times;
 }

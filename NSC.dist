@@ -15,6 +15,9 @@
 ;SysTray.dll
 ;CheckEventLog.dll
 ;CheckHelpers.dll
+;
+; CheckWMI IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
+;CheckWMI.dll
 
 [Settings]
 ;# OBFUSCATED PASSWORD

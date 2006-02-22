@@ -3,6 +3,7 @@
 #include <string>
 #include <strEx.h>
 
+#define MAKE_PERFDATA(alias, value, unit, warn, crit) "'" + alias + "'=" + value + unit + ";" + warn + ";" + crit + "; "
 
 namespace checkHolders {
 
@@ -132,6 +133,13 @@ namespace checkHolders {
 		static std::string key_upper() {
 			return "Free: ";
 		}
+		static std::string key_prefix() {
+			return "";
+		}
+		static std::string key_postfix() {
+			return "";
+		}
+
 	};
 
 	typedef unsigned __int64 time_type;
@@ -153,6 +161,13 @@ namespace checkHolders {
 		static std::string print_unformated(TType value) {
 			return strEx::itos(value);
 		}
+		static std::string key_prefix() {
+			return "";
+		}
+		static std::string key_postfix() {
+			return "";
+		}
+
 	};
 
 
@@ -172,6 +187,12 @@ namespace checkHolders {
 		}
 		static std::string print_percent(int value) {
 			return strEx::itos(value) + "%";
+		}
+		static std::string key_prefix() {
+			return "";
+		}
+		static std::string key_postfix() {
+			return "";
 		}
 	};
 	class int64_handler {
@@ -208,6 +229,12 @@ namespace checkHolders {
 		}
 		static std::string print_percent(double value) {
 			return strEx::itos(value) + "%";
+		}
+		static std::string key_prefix() {
+			return "";
+		}
+		static std::string key_postfix() {
+			return "";
 		}
 	};
 
@@ -267,7 +294,7 @@ namespace checkHolders {
 		}
 
 		static std::string toStringLong(TType value) {
-			return THandler::print(value);
+			return THandler::key_prefix() + THandler::print(value) + THandler::key_postfix();
 		}
 		static std::string toStringShort(TType value) {
 			return THandler::print(value);
@@ -285,10 +312,7 @@ namespace checkHolders {
 			return value_;
 		}
 		static std::string gatherPerfData(std::string alias, TType &value, TType warn, TType crit) {
-			return alias + ";"
-				+ THandler::print_unformated(value) + ";"
-				+ THandler::print_unformated(warn) + ";"
-				+ THandler::print_unformated(crit) + "; ";
+			return MAKE_PERFDATA(alias, THandler::print_unformated(value), "", THandler::print_unformated(warn), THandler::print_unformated(crit));
 		}
 
 	private:
@@ -334,7 +358,6 @@ namespace checkHolders {
 				pParent_ = pParent;
 			}
 			const InternalValue & operator=(std::string value) {
-				std::cout << "Setting value: " << value << std::endl;
 				std::string::size_type p = value.find_first_of('%');
 				if (p != std::string::npos) {
 					if (isUpper_)
@@ -371,25 +394,21 @@ namespace checkHolders {
 		}
 		checkResultType check(TType value) const {
 			if (type_ == percentage_lower) {
-				std::cout << "Checking: percentage_lower " << value.getLowerPercentage() << " < " << value_ << std::endl;
 				if (value.getLowerPercentage() == value_)
 					return same;
 				else if (value.getLowerPercentage() > value_)
 					return above;
 			} else if (type_ == percentage_upper) {
-				std::cout << "Checking: percentage_upper " << value.getUpperPercentage() << " < " << value_ << std::endl;
 				if (value.getUpperPercentage() == value_)
 					return same;
 				else if (value.getUpperPercentage() > value_)
 					return above;
 			} else if (type_ == value_lower) {
-				std::cout << "Checking: value_lower " << value.total << " < " << value_ << std::endl;
 				if (value.value == value_)
 					return same;
 				else if (value.value > value_)
 					return above;
 			} else if (type_ == value_upper) {
-				std::cout << "Checking: value_upper " << (value.total-value.value) << " < " << value_ << std::endl;
 				if ((value.total-value.value) == value_)
 					return same;
 				else if ((value.total-value.value) > value_)
@@ -420,30 +439,25 @@ namespace checkHolders {
 		}
 		std::string gatherPerfData(std::string alias, TType &value, typename TType::TValueType warn, typename TType::TValueType crit) {
 			if (type_ == percentage_upper) {
-				return alias + ";"
-					+ THandler::print_unformated(value.getUpperPercentage()) + "%;"
-					+ THandler::print_unformated(warn) + ";"
-					+ THandler::print_unformated(crit) + "; ";
+				return 
+					MAKE_PERFDATA(alias, THandler::print_unformated(value.getUpperPercentage()), "%", 
+					THandler::print_unformated(warn), THandler::print_unformated(crit));
 			} else if (type_ == percentage_lower) {
-					return alias + ";"
-						+ THandler::print_unformated(value.getLowerPercentage()) + "%;"
-						+ THandler::print_unformated(warn) + ";"
-						+ THandler::print_unformated(crit) + "; ";
+					return 
+						MAKE_PERFDATA(alias, THandler::print_unformated(value.getLowerPercentage()), "%", 
+						THandler::print_unformated(warn), THandler::print_unformated(crit));
 			} else {
-				return alias + ";"
-					+ THandler::print_unformated(value.value) + ";"
-					+ THandler::print_unformated(warn) + ";"
-					+ THandler::print_unformated(crit) + "; ";
+				return 
+					MAKE_PERFDATA(alias, THandler::print_unformated(value.value), "", 
+					THandler::print_unformated(warn), THandler::print_unformated(crit));
 			}
 		}
 	private:
 		void setUpper(std::string s) {
-			std::cout << "Setting value:U " << s << std::endl;
 			value_ = THandler::parse(s);
 			type_ = value_upper;
 		}
 		void setLower(std::string s) {
-			std::cout << "Setting value:L " << s << std::endl;
 			value_ = THandler::parse(s);
 			type_ = value_lower;
 		}

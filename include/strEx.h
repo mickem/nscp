@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <list>
+#include <functional>
 #ifdef _DEBUG
 #include <iostream>
 #endif
@@ -259,6 +260,12 @@ namespace strEx {
 	//  And here's our case-blind string class.
 	typedef std::basic_string<char, blind_traits<char>, std::allocator<char> >  blindstr;
 
+	struct case_blind_string_compare : public std::binary_function<std::string, std::string, bool>
+	{
+		bool operator() (const std::string& x, const std::string& y) const {
+			return stricmp( x.c_str(), y.c_str() ) < 0;
+		}
+	};
 #ifdef _DEBUG
 	inline void test_getToken(std::string in1, char in2, std::string out1, std::string out2) {
 		token t = getToken(in1, in2);

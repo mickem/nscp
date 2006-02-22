@@ -19,6 +19,7 @@ NSCPlugin::NSCPlugin(const std::string file)
 	,fGetDescription(NULL)
 	,fGetConfigurationMeta(NULL)
 	,fGetVersion(NULL)
+	,fCommandLineExec(NULL)
 	,bLoaded_(false)
 {
 }
@@ -34,6 +35,7 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 	,fGetDescription(NULL)
 	,fGetConfigurationMeta(NULL)
 	,fGetVersion(NULL)
+	,fCommandLineExec(NULL)
 	,bLoaded_(false)
 {
 	if (other.bLoaded_) {
@@ -255,6 +257,7 @@ void NSCPlugin::loadRemoteProcs_(void) {
 		throw NSPluginException(file_, "Could not load NSUnloadModule");
 
 	fGetConfigurationMeta = (lpGetConfigurationMeta)GetProcAddress(hModule_, "NSGetConfigurationMeta");
+	fCommandLineExec = (lpCommandLineExec)GetProcAddress(hModule_, "NSCommandLineExec");
 }
 
 
@@ -272,4 +275,10 @@ bool NSCPlugin::getConfigurationMeta_(char* buf, unsigned int buflen) {
 	if (fGetConfigurationMeta == NULL)
 		throw NSPluginException(file_, "Critical error (getCongifurationMeta)");
 	return fGetConfigurationMeta(buflen, buf)?true:false;
+}
+
+int NSCPlugin::commandLineExec(const char* command, const unsigned int argLen, char **arguments) {
+	if (fCommandLineExec== NULL)
+		throw NSPluginException(file_, "Module does not support CommandLineExec");
+	return fCommandLineExec(command, argLen, arguments);
 }

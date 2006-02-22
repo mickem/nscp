@@ -200,9 +200,6 @@ namespace PDH {
 			counters_.clear();
 		}
 
-		static DWORD lookupCounterByName(std::string count, std::string machine = "") {
-		}
-
 		PDHCounter* addCounter(std::string name, PDHCounterListener *listener) {
 			PDHCounter *counter = new PDHCounter(name, listener);
 			counters_.push_back(counter);
