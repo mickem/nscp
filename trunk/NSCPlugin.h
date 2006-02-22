@@ -96,6 +96,7 @@ private:
 	typedef INT (*lpHasCommandHandler)();
 	typedef INT (*lpHasMessageHandler)();
 	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const char*,const unsigned int, char**,char*,unsigned int,char *,unsigned int);
+	typedef INT (*lpCommandLineExec)(const char*,const unsigned int,char**);
 	typedef INT (*lpHandleMessage)(int,const char*,const int,const char*);
 	typedef INT (*lpUnLoadModule)();
 	typedef INT (*lpGetConfigurationMeta)(int, char*);
@@ -112,6 +113,7 @@ private:
 	lpHandleMessage fHandleMessage;
 	lpUnLoadModule fUnLoadModule;
 	lpGetConfigurationMeta fGetConfigurationMeta;
+	lpCommandLineExec fCommandLineExec;
 
 public:
 	NSCPlugin(const std::string file);
@@ -129,6 +131,7 @@ public:
 	void handleMessage(int msgType, const char* file, const int line, const char *message);
 	void unload(void);
 	std::string getCongifurationMeta();
+	int commandLineExec(const char* command, const unsigned int argLen, char **arguments);
 
 private:
 	bool isLoaded() const {

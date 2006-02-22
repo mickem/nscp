@@ -82,7 +82,7 @@ namespace NSCModuleHelper
 	typedef void (*lpNSAPIMessage)(int, const char*, const int, const char*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int, char *, unsigned int);
-	typedef LPVOID (*lpNSAPILoader)(char*);
+	typedef void* (*lpNSAPILoader)(char*);
 	typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const char*, unsigned int, char*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const char*, unsigned int, char*, unsigned int *);
@@ -143,6 +143,8 @@ namespace NSCModuleWrapper {
 	extern int NSUnloadModule(); \
 	extern int NSGetConfigurationMeta(int IN_retBufLen, char *OUT_retBuf)
 
+#define NSC_WRAPPERS_CLI() \
+	extern int NSCommandLineExec(const char*,const unsigned int,char**)
 
 
 
@@ -222,6 +224,11 @@ namespace NSCModuleWrapper {
 	{ \
 	return NSCModuleWrapper::wrapGetConfigurationMeta(OUT_retBuf, IN_retBufLen, toObject.getConfigurationMeta()); \
 	}
+
+#define NSC_WRAPPERS_CLI_DEF(toObject) \
+	extern int NSCommandLineExec(const char* command,const unsigned int argLen,char** args) { \
+		return toObject.commandLineExec(command, argLen, args); \
+	} \
 
 //////////////////////////////////////////////////////////////////////////
 #define MODULE_SETTINGS_START(class, name, description) \

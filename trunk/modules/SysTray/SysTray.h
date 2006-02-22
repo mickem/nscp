@@ -3,7 +3,10 @@
 #include "TrayIcon.h"
 
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
 
+
+#define MODULE_NAME "SystemTray"
 class SysTray {
 private:
 	IconWidget icon;
@@ -16,7 +19,7 @@ public:
 	bool unloadModule();
 
 	std::string getModuleName() {
-		return "System Tray icon";
+		return MODULE_NAME;
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
@@ -29,4 +32,6 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
+	int commandLineExec(const char* command,const unsigned int argLen,char** args);
+
 };

@@ -6,28 +6,6 @@
 void generate_crc32_table(void);
 unsigned long calculate_crc32(const char *buffer, int buffer_size);
 
-namespace socketHelpers {
-	class allowedHosts {
-	private:
-		strEx::splitList allowedHosts_;
-	public:
-		void setAllowedHosts(strEx::splitList allowedHosts) {
-			if ((!allowedHosts.empty()) && (allowedHosts.front() == "") )
-				allowedHosts.pop_front();
-			allowedHosts_ = allowedHosts;
-		}
-		bool inAllowedHosts(std::string s) {
-			if (allowedHosts_.empty())
-				return true;
-			strEx::splitList::const_iterator cit;
-			for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
-				if ( (*cit) == s)
-					return true;
-			}
-			return false;
-		}
-	};
-}
 
 #define MAP_OPTIONS_BEGIN(args) \
 	for (std::list<std::string>::const_iterator cit__=args.begin();cit__!=args.end();++cit__) { \
@@ -57,6 +35,8 @@ namespace socketHelpers {
 			else if (p__.first == ("MinWarn" postfix)) { obj.warn.min = p__.second; } \
 			else if (p__.first == ("MinCrit" postfix)) { obj.crit.min = p__.second; }
 
+#define MAP_OPTIONS_PUSH_WTYPE(type, value, obj, list) \
+			else if (p__.first == value) { type o; o.obj = p__.second; list.push_back(o); }
 #define MAP_OPTIONS_PUSH(value, list) \
 			else if (p__.first == value) { list.push_back(p__.second); }
 #define MAP_OPTIONS_DO(action) \
@@ -73,11 +53,15 @@ namespace socketHelpers {
 			else if (p__.first == value) { obj = false; }
 #define MAP_OPTIONS_BOOL_VALUE(value, obj, tStr) \
 			else if ((p__.first == value)&&(p__.second == tStr)) { obj = true; } 
+#define MAP_OPTIONS_MODE(value, tStr, obj, oVal) \
+			else if ((p__.first == value)&&(p__.second == tStr)) { obj = oVal; } 
 #define MAP_OPTIONS_BOOL_EX(value, obj, tStr, fStr) \
 			else if ((p__.first == value)&&(p__.second == tStr)) { obj = true; } \
 			else if ((p__.first == value)&&(p__.second == fStr)) { obj = false; }
 #define MAP_OPTIONS_MISSING(arg, str) \
 			else { arg = str + p__.first; return NSCAPI::returnUNKNOWN; }
+#define MAP_OPTIONS_FALLBACK(obj) \
+			else { obj = p__.first;}
 #define MAP_OPTIONS_FALLBACK_AND(obj, extra) \
 			else { obj = p__.first; extra;}
 #define MAP_OPTIONS_END() }

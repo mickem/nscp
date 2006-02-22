@@ -9,6 +9,7 @@
 #include <EnumProcess.h>
 #include <sysinfo.h>
 #include <checkHelpers.hpp>
+#include <map>
 
 CheckSystem gNSClientCompat;
 
@@ -136,9 +137,34 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::blindstr command, c
 	return NSCAPI::returnIgnored;
 }
 
+
+class cpuload_handler {
+public:
+	static int parse(std::string s) {
+		return strEx::stoi(s);
+	}
+	static int parse_percent(std::string s) {
+		return strEx::stoi(s);
+	}
+	static std::string print(int value) {
+		return strEx::itos(value) + "%";
+	}
+	static std::string print_unformated(int value) {
+		return strEx::itos(value);
+	}
+	static std::string print_percent(int value) {
+		return strEx::itos(value) + "%";
+	}
+	static std::string key_prefix() {
+		return "average load ";
+	}
+	static std::string key_postfix() {
+		return "";
+	}
+};
 NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) 
 {
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsInteger> CPULoadConatiner;
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, cpuload_handler> > > CPULoadConatiner;
 
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
@@ -178,23 +204,17 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 			msg = "ERROR: PDH Collection thread not running.";
 			return NSCAPI::returnUNKNOWN;
 		}
+		int value = pObject->getCPUAvrage(load.data + "m");
+		if (value == -1) {
+			msg = "ERROR: We don't collect data this far back: " + load.getAlias();
+			return NSCAPI::returnUNKNOWN;
+		}
 		if (bNSClient) {
-			int value = pObject->getCPUAvrage(load.data + "m");
-			if (value == -1) {
-				msg = "ERROR: We don't collect data this far back: " + load.getAlias();
-				return NSCAPI::returnUNKNOWN;
-			}
 			if (!msg.empty()) msg += "&";
 			msg += strEx::itos(value);
 		} else {
-			int value = pObject->getCPUAvrage(load.data);
-			if (value == -1) {
-				msg = "ERROR: We don't collect data this far back: " + load.getAlias();
-				return NSCAPI::returnUNKNOWN;
-			} else {
-				load.setDefault(tmpObject);
-				load.runCheck(value, returnCode, msg, perf);
-			}
+			load.setDefault(tmpObject);
+			load.runCheck(value, returnCode, msg, perf);
 		}
 	}
 
@@ -379,7 +399,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
  */
 NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf)
 {
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinPercentageBoundsDiskSizei64 > MemoryConatiner;
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBounds<checkHolders::NumericPercentageBounds<checkHolders::PercentageValueType<unsigned __int64, unsigned __int64>, checkHolders::disk_size_handler<unsigned __int64> > > > MemoryConatiner;
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		msg = "ERROR: Missing argument exception.";
@@ -389,25 +409,61 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	bool bShowAll = false;
 	bool bNSClient = false;
 	MemoryConatiner bounds;
-
-	bounds.data = "page";
+	typedef enum { tPaged, tPage, tVirtual, tPhysical } check_type;
+	check_type type = tPaged;
 
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_DISK_ALL(bounds, "", "Free", "Used")
 		MAP_OPTIONS_STR("Alias", bounds.data)
 		MAP_OPTIONS_SHOWALL(bounds)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_MODE("type", "paged", type, tPaged)
+		MAP_OPTIONS_MODE("type", "page", type, tPage)
+		MAP_OPTIONS_MODE("type", "virtual", type, tVirtual)
+		MAP_OPTIONS_MODE("type", "physical", type, tPhysical)
 		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 	MAP_OPTIONS_END()
 
-	PDHCollector *pObject = pdhThread.getThread();
-	if (!pObject) {
-		msg = "ERROR: PDH Collection thread not running.";
-		return NSCAPI::returnUNKNOWN;
+
+	checkHolders::PercentageValueType<unsigned long long, unsigned long long> value;
+	if (type == tPaged) {
+		PDHCollector *pObject = pdhThread.getThread();
+		if (!pObject) {
+			msg = "ERROR: PDH Collection thread not running.";
+			return NSCAPI::returnUNKNOWN;
+		}
+		value.value = pObject->getMemCommit();
+		value.total = pObject->getMemCommitLimit();
+		if (bounds.data.empty())
+			bounds.data = "paged bytes";
+	} else {
+		CheckMemory::memData data;
+		try {
+			data = memoryChecker.getMemoryStatus();
+		} catch (CheckMemoryException e) {
+			msg = e.getError() + ":" + strEx::itos(e.getErrorCode());
+			return NSCAPI::returnCRIT;
+		}
+//		MEMORYSTATUS mem;
+//		GlobalMemoryStatus(&mem);
+		if (type == tPage) {
+			value.value = data.pageFile.total-data.pageFile.avail; // mem.dwTotalPageFile-mem.dwAvailPageFile;
+			value.total = data.pageFile.total; //mem.dwTotalPageFile;
+			if (bounds.data.empty())
+				bounds.data = "page file";
+		} else  if (type == tPhysical) {
+			value.value = data.phys.total-data.phys.avail; //mem.dwTotalPhys-mem.dwAvailPhys;
+			value.total = data.phys.total; //mem.dwTotalPhys;
+			if (bounds.data.empty())
+				bounds.data = "physical memory";
+		} else  if (type == tVirtual) {
+			value.value = data.virtualMem.total-data.virtualMem.avail;//mem.dwTotalVirtual-mem.dwAvailVirtual;
+			value.total = data.virtualMem.total;//mem.dwTotalVirtual;
+			if (bounds.data.empty())
+				bounds.data = "virtual memory";
+		}
 	}
-	checkHolders::PercentageValueType<long long, long long> value;
-	value.value = pObject->getMemCommit();
-	value.total = pObject->getMemCommitLimit();
+
 	if (bNSClient) {
 		msg = strEx::itos(value.total) + "&" + strEx::itos(value.value);
 		return NSCAPI::returnOK;
@@ -430,7 +486,7 @@ typedef struct NSPROCDATA__ {
 	unsigned int count;
 	CEnumProcess::CProcessEntry entry;
 } NSPROCDATA;
-typedef std::hash_map<std::string,NSPROCDATA> NSPROCLST;
+typedef std::map<std::string,NSPROCDATA,strEx::case_blind_string_compare> NSPROCLST;
 /**
 * Get a hash_map with all running processes.
 * @return a hash_map with all running processes
@@ -612,8 +668,10 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
 			pdh.addCounter(counter.data, &cDouble);
 			pdh.open();
-			pdh.collect();
-			Sleep(1000);
+			if (bCheckAverages) {
+				pdh.collect();
+				Sleep(1000);
+			}
 			pdh.gatherData();
 			pdh.close();
 			double value = cDouble.getValue();

@@ -380,10 +380,11 @@ std::string NSCModuleHelper::Encrypt(std::string str, unsigned int algorithm) {
 	if (!fNSAPIEncrypt)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	unsigned int len = 0;
-	fNSAPIEncrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	// @todo investigate potential problems with static_cast<unsigned int>
+	fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
 	char *buf = new char[len+1];
-	NSCAPI::errorReturn ret = fNSAPIEncrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	NSCAPI::errorReturn ret = fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::string ret = buf;
 		delete [] buf;
@@ -395,10 +396,11 @@ std::string NSCModuleHelper::Decrypt(std::string str, unsigned int algorithm) {
 	if (!fNSAPIDecrypt)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
 	unsigned int len = 0;
-	fNSAPIDecrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	// @todo investigate potential problems with: static_cast<unsigned int>(str.size())
+	fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
 	char *buf = new char[len+1];
-	NSCAPI::errorReturn ret = fNSAPIDecrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	NSCAPI::errorReturn ret = fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::string ret = buf;
 		delete [] buf;

@@ -15,6 +15,7 @@
 
 #include "stdafx.h"
 #include "ServiceCmd.h"
+#include <strEx.h>
 
 namespace serviceControll {
 	/**
@@ -29,7 +30,7 @@ namespace serviceControll {
 	 * @date 03-13-2004
 	 *
 	 */
-	void Install(LPCTSTR szName, LPCTSTR szDisplayName, LPCTSTR szDependencies) {
+	void Install(LPCTSTR szName, LPCTSTR szDisplayName, LPCTSTR szDependencies, DWORD dwServiceType) {
 		SC_HANDLE   schService;
 		SC_HANDLE   schSCManager;
 		TCHAR szPath[512];
@@ -45,7 +46,7 @@ namespace serviceControll {
 			TEXT(szName),				// name of service
 			TEXT(szDisplayName),		 // name to display
 			SERVICE_ALL_ACCESS,         // desired access
-			SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS ,  // service type
+			dwServiceType,				// service type
 			SERVICE_AUTO_START,       // start type
 			SERVICE_ERROR_NORMAL,       // error control type
 			szPath,                     // service's binary
@@ -56,11 +57,74 @@ namespace serviceControll {
 			NULL);                      // no password
 
 		if (!schService) {
+			DWORD err = GetLastError();
 			CloseServiceHandle(schSCManager);
-			throw SCException("Unable to install service.");
+			if (err==ERROR_SERVICE_EXISTS) {
+				throw SCException("Service already installed!");
+			}
+			throw SCException("Unable to install service.", err);
 		}
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
+	}
+
+	void ModifyServiceType(LPCTSTR szName, DWORD dwServiceType) {
+		SC_HANDLE   schService;
+		SC_HANDLE   schSCManager;
+		TCHAR szPath[512];
+
+		if ( GetModuleFileName( NULL, szPath, 512 ) == 0 )
+			throw SCException("Could not get module");
+
+		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+		if (!schSCManager)
+			throw SCException("OpenSCManager failed.");
+		schService = OpenService(schSCManager, TEXT(szName), SERVICE_ALL_ACCESS);
+		if (!schService) {
+			DWORD err = GetLastError();
+			CloseServiceHandle(schSCManager);
+			throw SCException("Unable to open service.", err);
+		}
+		BOOL result = ChangeServiceConfig(schService, dwServiceType, SERVICE_NO_CHANGE, SERVICE_NO_CHANGE , NULL, NULL, NULL, 
+			NULL, NULL, NULL, NULL);
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		if (result != TRUE)
+			throw SCException("Could not query service information");
+	}
+
+	DWORD GetServiceType(LPCTSTR szName) {
+		LPQUERY_SERVICE_CONFIG lpqscBuf = (LPQUERY_SERVICE_CONFIG) LocalAlloc(LPTR, 4096); 
+		if (lpqscBuf == NULL) {
+			throw SCException("Could not allocate memory");
+		}
+		SC_HANDLE schService;
+		SC_HANDLE schSCManager;
+		TCHAR szPath[512];
+
+		if ( GetModuleFileName( NULL, szPath, 512 ) == 0 )
+			throw SCException("Could not get module");
+
+		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+		if (!schSCManager)
+			throw SCException("OpenSCManager failed.");
+		schService = OpenService(schSCManager, TEXT(szName), SERVICE_ALL_ACCESS);
+		if (!schService) {
+			DWORD err = GetLastError();
+			CloseServiceHandle(schSCManager);
+			throw SCException("Unable to open service.", err);
+		}
+
+
+		DWORD dwBytesNeeded = 0;
+		BOOL success = QueryServiceConfig(schService, lpqscBuf,  4096, &dwBytesNeeded);
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		if (success != TRUE)
+			throw SCException("Could not query service information");
+		DWORD ret = lpqscBuf->dwServiceType;
+		LocalFree(lpqscBuf);
+		return ret;
 	}
 
 	/**
@@ -187,22 +251,41 @@ namespace serviceControll {
 		CloseServiceHandle(schSCManager);
 	}
 
+
+	typedef BOOL (WINAPI*PFChangeServiceConfig2)(SC_HANDLE hService,DWORD dwInfoLevel,LPVOID lpInfo);
+
 	void SetDescription(std::string name, std::string desc) {
+		PFChangeServiceConfig2 FChangeServiceConfig2;
+		HMODULE ADVAPI= ::LoadLibrary(_TEXT("Advapi32"));
+		if (!ADVAPI) {
+			throw SCException("Couldn't set extended service info (ignore this on NT4).");
+		}
+#ifdef UNICODE
+		FChangeServiceConfig2 = (PFChangeServiceConfig2)::GetProcAddress(ADVAPI, _TEXT("ChangeServiceConfig2W"));
+#else
+		FChangeServiceConfig2 = (PFChangeServiceConfig2)::GetProcAddress(ADVAPI, _TEXT("ChangeServiceConfig2A"));
+#endif
+		if (!FChangeServiceConfig2) {
+			FreeLibrary(ADVAPI);
+			throw SCException("Couldn't set extended service info (ignore this on NT4).");
+		}
 		SERVICE_DESCRIPTION descr;
 		SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 		if (!schSCManager)
 			throw SCException("OpenSCManager failed.");
 		SC_HANDLE schService = OpenService(schSCManager, TEXT(name.c_str()), SERVICE_ALL_ACCESS);
 		if (!schService) {
+			FreeLibrary(ADVAPI);
 			CloseServiceHandle(schSCManager);
 			throw SCException("OpenService failed.");
 		}
 
-		LPSTR d = new char[desc.length()+1];
+		LPSTR d = new char[desc.length()+2];
 		strncpy(d, desc.c_str(), desc.length());
 		descr.lpDescription = d;
-		BOOL bResult = ChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
+		BOOL bResult = FChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
 		delete [] d;
+		FreeLibrary(ADVAPI);
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		if (!bResult)

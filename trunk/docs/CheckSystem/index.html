@@ -104,28 +104,34 @@
 		<tr>
 			<td valign="top">Option</td>
 			<td valign="top">Values</td>
-			<td valign="top">Description</td>
+			<td valign="top" width="743">Description</td>
 		</tr>
 		<tr>
 			<td valign="top">warn</td>
 			<td valign="top">load in %</td>
-			<td valign="top">Load to go above to generate a warning.</td>
+			<td valign="top" width="743">Load to go above to generate a warning.</td>
 		</tr>
 		<tr>
 			<td valign="top">crit</td>
 			<td valign="top">load in %</td>
-			<td valign="top">Load to go above to generate a critical state.</td>
+			<td valign="top" width="743">Load to go above to generate a critical state.</td>
 		</tr>
 		<tr>
-			<td valign="top">time</td>
-			<td valign="top">time</td>
-			<td valign="top">The time to calculate average over.</td>
+			<td valign="top">Time</td>
+			<td valign="top">time with optional prefix</td>
+			<td valign="top" width="743">The time to calculate average over.</td>
 		</tr>
 		<tr>
 			<td valign="top">nsclient</td>
 			<td valign="top">&nbsp;</td>
-			<td valign="top">Flag to make the plug in run in NSClient compatibility 
+			<td valign="top" width="743">Flag to make the plug in run in NSClient compatibility 
 			mode</td>
+		</tr>
+		<tr>
+			<td valign="top">ShowAll</td>
+			<td valign="top">none, long</td>
+			<td valign="top" width="743">Add this option to show info even if no 
+			errors are detected. Set it to long to show detailed information.</td>
 		</tr>
 	</table>
 	<p>Time can use any of the following postfixes. w=week, d=day, h=hour, m=minute 
@@ -176,6 +182,18 @@
 			<td valign="top">Flag to make the plug in run in NSClient compatibility 
 			mode</td>
 		</tr>
+		<tr>
+			<td valign="top">ShowAll</td>
+			<td valign="top">&nbsp;</td>
+			<td valign="top">Add this option to show details even if an error is 
+			not encountered.</td>
+		</tr>
+		<tr>
+			<td valign="top">Alias</td>
+			<td valign="top">string</td>
+			<td valign="top">A string to use as alias for the values (default is 
+			uptime)</td>
+		</tr>
 	</table>
 	<h3>Examples</h3>
 	<div class="example">
@@ -211,7 +229,7 @@
 		<tr>
 			<td valign="top">service=state</td>
 			<td valign="top">&nbsp;</td>
-			<td valign="top">A service name and a state the service should have. 
+			<td valign="top">A service name or service display name and a state the service should have. 
 			The state can be either started or stopped. If no state is given started 
 			is assumed.</td>
 		</tr>
@@ -310,6 +328,12 @@
 			<td valign="top">A Boolean flag to show size even if no state is returned 
 			(?).</td>
 		</tr>
+		<tr>
+			<td valign="top">type</td>
+			<td valign="top">page, paged, virtual, physical</td>
+			<td valign="top">What kind of memory to check (does not yet support 
+			stacking to check multiple kinds)</td>
+		</tr>
 	</table>
 	<h3>Examples</h3>
 	<div class="example">
@@ -318,6 +342,11 @@
 			<p>Check that the page is below 80%:</p>
 			<p><code>checkMem MaxWarn=80% MaxCrit=90% ShowAll</code></p>
 			<p><code>OK: page: 758M (795205632B)|page=30% 80%;90%;</code></p>
+			</li>
+			<li>
+			<p>Check that the physical is below 80%:</p>
+			<p><code>checkMem type=physical MaxWarn=80% MaxCrit=90% ShowAll</code></p>
+			<p><code>OK: physical: 758M (795205632B)|page=30% 80%;90%;</code></p>
 			</li>
 		</ul>
 	</div>
@@ -352,7 +381,7 @@
 		<tr>
 			<td valign="top">MinCrit</td>
 			<td valign="top">Number</td>
-			<td valign="top">Minimumallowed number</td>
+			<td valign="top">Minimum allowed number</td>
 		</tr>
 		<tr>
 			<td valign="top">ShowAll</td>
@@ -369,6 +398,12 @@
 			<td valign="top">Performance Counter</td>
 			<td valign="top">Add a named performance counter. The &lt;name&gt; will be 
 			used as an alias.</td>
+		</tr>
+		<tr>
+			<td valign="top">Averages</td>
+			<td valign="top">true, false</td>
+			<td valign="top">Set this to false to make performance checking 
+			faster of counters that doesn't represent average values.</td>
 		</tr>
 	</table>
 	<h3>Examples</h3>

@@ -176,6 +176,7 @@ TNtServiceInfo *TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, DWORD 
 	return info;
 }
 
+#define SC_BUF_LEN 1024
 TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 {
 	TNtServiceInfo info;
@@ -186,8 +187,22 @@ TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 	}
 	SC_HANDLE sh = ::OpenService(scman,name.c_str(),SERVICE_QUERY_STATUS);
 	if (!sh) {
-		throw NTServiceException(name, "Could not open Service", GetLastError());
-		::CloseServiceHandle(scman);
+		DWORD bufLen = SC_BUF_LEN;
+		TCHAR *buf = new TCHAR[bufLen];
+		if (!GetServiceKeyName(scman, name.c_str(), buf, &bufLen)) {
+			throw NTServiceException(name, "Could not open Service", GetLastError());
+			::CloseServiceHandle(scman);
+		}
+		if (bufLen >= SC_BUF_LEN) {
+			throw NTServiceException(name, "Could not open Service", GetLastError());
+			::CloseServiceHandle(scman);
+		}
+		buf[bufLen] = 0;
+		SC_HANDLE sh = ::OpenService(scman,buf,SERVICE_QUERY_STATUS);
+		if (!sh) {
+			throw NTServiceException(name, "Could not open Service", GetLastError());
+			::CloseServiceHandle(scman);
+		}
 	}
 	SERVICE_STATUS state;
 	if (::QueryServiceStatus(sh, &state)) {

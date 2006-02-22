@@ -64,6 +64,7 @@ public:
 //	std::string inject(const std::string buffer);
 	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
 	void reportMessage(int msgType, const char* file, const int line, std::string message);
+	int commandLineExec(const char* module, const char* command, const unsigned int argLen, char** args);
 
 	void addPlugins(const std::list<std::string> plugins);
 	void loadPlugin(const std::string plugin);

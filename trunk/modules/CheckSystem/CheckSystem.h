@@ -1,10 +1,12 @@
 #pragma once
 #include "PDHCollector.h"
+#include <CheckMemory.h>
 
 NSC_WRAPPERS_MAIN();
 
 class CheckSystem {
 private:
+	CheckMemory memoryChecker;
 	int processMethod_;
 	PDHCollectorThread pdhThread;
 

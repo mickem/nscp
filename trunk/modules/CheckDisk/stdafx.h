@@ -12,6 +12,7 @@
 
 #include <string>
 #include <functional>
+#include <boost/regex.hpp> 
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>

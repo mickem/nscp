@@ -32,7 +32,8 @@ public:
 	// Check commands
 	NSCAPI::nagiosReturn CheckFileSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
 	NSCAPI::nagiosReturn CheckDriveSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
-
+	NSCAPI::nagiosReturn CheckFile(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	NSCAPI::nagiosReturn getFileAge(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
 
 private:
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsDiscSize> PathConatiner;

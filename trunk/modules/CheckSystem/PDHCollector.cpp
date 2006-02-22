@@ -198,7 +198,7 @@ long long PDHCollector::getUptime() {
 * Memory commit limit (your guess is as good as mine to what this is :)
 * @return Some form of memory check
 */
-long long PDHCollector::getMemCommitLimit() {
+unsigned long long PDHCollector::getMemCommitLimit() {
 	MutexLock mutex(mutexHandler);
 	if (!mutex.hasMutex()) {
 		NSC_LOG_ERROR("Failed to get Mutex!");
@@ -211,7 +211,7 @@ long long PDHCollector::getMemCommitLimit() {
 * Memory committed bytes (your guess is as good as mine to what this is :)
 * @return Some form of memory check
 */
-long long PDHCollector::getMemCommit() {
+unsigned long long PDHCollector::getMemCommit() {
 	MutexLock mutex(mutexHandler);
 	if (!mutex.hasMutex()) {
 		NSC_LOG_ERROR("Failed to get Mutex!");
