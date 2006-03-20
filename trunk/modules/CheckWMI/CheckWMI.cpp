@@ -76,12 +76,12 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, char **
 			message = "WMIQuery failed...";
 			return NSCAPI::returnCRIT;
 		}
-		int val = (*vals.begin()).second;
-/*
+		int val = 0; //(*vals.begin()).second;
+
 		for (std::map<std::string,int>::const_iterator it = vals.begin(); it != vals.end(); ++it) {
 			std::cout << "Values: " << (*it).first << " = " << (*it).second << std::endl;
 		}
-		*/
+
 		query.setDefault(tmpObject);
 		query.runCheck(val, returnCode, message, perf);
 	}

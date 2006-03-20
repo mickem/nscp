@@ -40,9 +40,12 @@ std::string getAllowedHosts() {
 
 bool NSClientListener::loadModule() {
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","));
+	unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT);
+	std::string host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR, NSCLIENT_SETTINGS_BINDADDR_DEFAULT);
+	unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
 	try {
 		socket.setHandler(this);
-		socket.StartListener(NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT));
+		socket.StartListener(host, port, backLog);
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
 		return false;
@@ -52,7 +55,8 @@ bool NSClientListener::loadModule() {
 bool NSClientListener::unloadModule() {
 	try {
 		socket.removeHandler(this);
-		socket.StopListener();
+		if (socket.hasListener())
+			socket.StopListener();
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
 		return false;

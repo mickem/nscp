@@ -242,8 +242,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 
 
 struct file_info {
-	file_info() {}
-	file_info(const BY_HANDLE_FILE_INFORMATION info, std::string filename_) : filename(filename_) {
+	file_info() : ullCreationTime(0) {}
+	file_info(const BY_HANDLE_FILE_INFORMATION info, std::string filename_) : filename(filename_), ullCreationTime(0) {
 		ullSize = ((info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow);
 		ullCreationTime = ((info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime);
 		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
@@ -257,6 +257,15 @@ struct file_info {
 	unsigned long long ullNow;
 	std::string filename;
 
+	std::string render(std::string syntax) {
+		strEx::replace(syntax, "%filename%", filename);
+		strEx::replace(syntax, "%creation%", strEx::format_filetime(ullCreationTime, DATE_FORMAT));
+		strEx::replace(syntax, "%access%", strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
+		strEx::replace(syntax, "%write%", strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
+		strEx::replace(syntax, "%size%", strEx::itos_as_BKMG(ullSize));
+		return syntax;
+	}
+
 };
 
 struct file_filter {
@@ -264,6 +273,7 @@ struct file_filter {
 	filters::filter_all_times fileCreation;
 	filters::filter_all_times fileAccessed;
 	filters::filter_all_times fileWritten;
+	static const __int64 MSECS_TO_100NS = 10000;
 
 	inline bool hasFilter() {
 		return fileSize.hasFilter() || fileCreation.hasFilter() || 
@@ -272,11 +282,11 @@ struct file_filter {
 	bool matchFilter(const file_info &value) const {
 		if ((fileSize.hasFilter())&&(fileSize.matchFilter(value.ullSize)))
 			return true;
-		else if ((fileCreation.hasFilter())&&(fileCreation.matchFilter(value.ullNow-value.ullCreationTime)))
+		else if ((fileCreation.hasFilter())&&(fileCreation.matchFilter((value.ullNow-value.ullCreationTime)/MSECS_TO_100NS)))
 			return true;
-		else if ((fileAccessed.hasFilter())&&(fileAccessed.matchFilter(value.ullNow-value.ullLastAccessTime)))
+		else if ((fileAccessed.hasFilter())&&(fileAccessed.matchFilter((value.ullNow-value.ullLastAccessTime)/MSECS_TO_100NS)))
 			return true;
-		else if ((fileWritten.hasFilter())&&(fileWritten.matchFilter(value.ullNow-value.ullLastWriteTime)))
+		else if ((fileWritten.hasFilter())&&(fileWritten.matchFilter((value.ullNow-value.ullLastWriteTime)/MSECS_TO_100NS)))
 			return true;
 		return false;
 	}
@@ -316,6 +326,7 @@ struct file_filter_function : public baseFinderFunction
 	bool bFilterIn;
 	bool bError;
 	std::string message;
+	std::string syntax;
 	unsigned long long now;
 	unsigned int hit_count;
 
@@ -352,7 +363,7 @@ struct file_filter_function : public baseFinderFunction
 				}
 			}
 			if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
-				strEx::append_list(message, info.filename);
+				strEx::append_list(message, info.render(syntax));
 				hit_count++;
 			}
 		}
@@ -410,11 +421,13 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, char **char
 	std::list<std::string> paths;
 	unsigned int truncate = 0;
 	CheckFileConatiner query;
+	std::string syntax = "%filename%";
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
 			MAP_OPTIONS_NUMERIC_ALL(query, "")
 			MAP_OPTIONS_STR2INT("truncate", truncate)
+			MAP_OPTIONS_STR("syntax", syntax)
 			MAP_OPTIONS_PUSH("path", paths)
 			MAP_OPTIONS_PUSH("file", paths)
 			MAP_OPTIONS_BOOL_EX("filter", finder.bFilterIn, "in", "out")
@@ -435,8 +448,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, char **char
 	FILETIME now;
 	GetSystemTimeAsFileTime(&now);
 	finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
-
-
+	finder.syntax = syntax;
 	for (std::list<std::string>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
 		recursive_scan<file_filter_function>((*pit), finder);
 	}
@@ -447,7 +459,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, char **char
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + "...";
 	if (message.empty())
-		message = "CheckFile is ok";
+		message = "CheckFile ok";
 	return returnCode;
 }
 

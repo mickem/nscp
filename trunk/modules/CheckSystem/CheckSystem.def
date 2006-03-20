@@ -12,3 +12,4 @@ EXPORTS
 	NSUnloadModule
 	NSGetConfigurationMeta
 	NSGetModuleDescription
+	NSCommandLineExec

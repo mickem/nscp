@@ -11,7 +11,7 @@
 #include <checkHelpers.hpp>
 #include <map>
 
-CheckSystem gNSClientCompat;
+CheckSystem gCheckSystem;
 
 /**
  * DLL Entry point
@@ -106,8 +106,89 @@ bool CheckSystem::hasCommandHandler() {
 bool CheckSystem::hasMessageHandler() {
 	return false;
 }
-/*
-*/
+
+int CheckSystem::commandLineExec(const char* command,const unsigned int argLen,char** args) {
+	if (stricmp(command, "debugpdh") == 0) {
+		PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
+			if ((*it).instances.size() > 0) {
+				for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
+					for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
+						std::string counter = "\\" + (*it).name + "(" + (*it2).name + ")\\" + (*it3).name;
+						std::cout << "testing: " << counter << ": ";
+						std::string error;
+						if (PDH::Enumerations::validate(counter, error)) {
+							std::cout << " found ";
+						} else {
+							std::cout << " *NOT* found (" << error << ") " << std::endl;
+							break;
+						}
+						bool bOpend = false;
+						try {
+							PDH::PDHQuery pdh;
+							PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+							pdh.addCounter(counter, &cDouble);
+							pdh.open();
+							pdh.gatherData();
+							pdh.close();
+							bOpend = true;
+						} catch (const PDH::PDHException e) {
+							std::cout << " could *not* be open (" << e.getError() << ") " << std::endl;
+							break;
+						}
+						std::cout << " open ";
+						std::cout << std::endl;
+					}
+				}
+			} else {
+				for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
+					std::string counter = "\\" + (*it).name + "\\" + (*it2).name;
+					std::cout << "testing: " << counter << ": ";
+					std::string error;
+					if (PDH::Enumerations::validate(counter, error)) {
+						std::cout << " found ";
+					} else {
+						std::cout << " *NOT* found (" << error << ") " << std::endl;
+						break;
+					}
+					bool bOpend = false;
+					try {
+						PDH::PDHQuery pdh;
+						PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+						pdh.addCounter(counter, &cDouble);
+						pdh.open();
+						pdh.gatherData();
+						pdh.close();
+						bOpend = true;
+					} catch (const PDH::PDHException e) {
+						std::cout << " could *not* be open (" << e.getError() << ") " << std::endl;
+						break;
+					}
+					std::cout << " open ";
+					std::cout << std::endl;;
+				}
+			}
+		}
+	} else if (stricmp(command, "listpdh") == 0) {
+		PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
+			if ((*it).instances.size() > 0) {
+				for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
+					for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
+						std::cout << "\\" << (*it).name << "(" << (*it2).name << ")\\" << (*it3).name << std::endl;;
+					}
+				}
+			} else {
+				for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
+					std::cout << "\\" << (*it).name << "\\" << (*it2).name << std::endl;;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+
 /**
  * Main command parser and delegator.
  * This also handles a lot of the simpler responses (though some are deferred to other helper functions)
@@ -695,10 +776,11 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
-NSC_WRAPPERS_MAIN_DEF(gNSClientCompat);
+NSC_WRAPPERS_MAIN_DEF(gCheckSystem);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gNSClientCompat);
-NSC_WRAPPERS_HANDLE_CONFIGURATION(gNSClientCompat);
+NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckSystem);
+NSC_WRAPPERS_HANDLE_CONFIGURATION(gCheckSystem);
+NSC_WRAPPERS_CLI_DEF(gCheckSystem);
 
 
 

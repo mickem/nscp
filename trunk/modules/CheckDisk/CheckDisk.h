@@ -15,10 +15,10 @@ public:
 	bool unloadModule();
 
 	std::string getModuleName() {
-		return "CheckDisk Various Disk related checks.";
+		return "CheckDisk";
 	}
 	std::string getModuleDescription() {
-		return "CheckDick can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.";
+		return "CheckDisk can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.";
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
