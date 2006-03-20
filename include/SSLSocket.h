@@ -284,7 +284,7 @@ namespace simpleSSL {
 		void setContext(Context c) {
 			context = c;
 		}
-		virtual void StartListener(int port);
+		virtual void StartListener(std::string host, int port, unsigned int listenQue);
 		virtual void StopListener();
 	};
 

@@ -50,9 +50,19 @@
 
 
 [NSClient]
+;# ALLOWED HOST ADDRESSES
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NSClient deamon.
+;  If you leave this blank the global version will be used instead.
+;allowed_hosts=
+;
 ;# NSCLIENT PORT NUMBER
 ;  This is the port the NSClientListener.dll will listen to.
 ;port=12489
+;
+;# BIND TO ADDRESS
+;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Leaving this blank will bind to all avalible IP adresses.
+;bind_to_address=
 
 
 [Check System]
@@ -86,6 +96,17 @@
 ;# USE SSL SOCKET
 ;  This option controls if SSL should be used on the socket.
 ;use_ssl=1
+;
+;# BIND TO ADDRESS
+;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Leaving this blank will bind to all avalible IP adresses.
+; bind_to_address=
+;
+;# ALLOWED HOST ADDRESSES
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NRPE deamon.
+;  If you leave this blank the global version will be used instead.
+;allowed_hosts=
+
 
 [NRPE Handlers]
 ;# COMMAND DEFINITIONS

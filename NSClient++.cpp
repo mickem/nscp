@@ -19,8 +19,6 @@
 #include <charEx.h>
 #include <Socket.h>
 #include <b64/b64.h>
-#include <PDHCounter.h>
-#include <PDHCollectors.h>
 
 
 NSClient mainClient;	// Global core instance.
@@ -88,84 +86,6 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 		} else if ( _stricmp( "version", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME " Version: " SZVERSION);
-
-
-		} else if ( _stricmp( "listpdh", argv[1]+1 ) == 0 ) {
-			PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
-			for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
-				if ((*it).instances.size() > 0) {
-					for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
-						for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
-							std::cout << "\\" << (*it).name << "(" << (*it2).name << ")\\" << (*it3).name << std::endl;;
-						}
-					}
-				} else {
-					for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
-						std::cout << "\\" << (*it).name << "\\" << (*it2).name << std::endl;;
-					}
-				}
-			}
-		} else if ( _stricmp( "debugpdh", argv[1]+1 ) == 0 ) {
-			PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
-			for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
-				if ((*it).instances.size() > 0) {
-					for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
-						for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
-							std::string counter = "\\" + (*it).name + "(" + (*it2).name + ")\\" + (*it3).name;
-							std::cout << "testing: " << counter << ": ";
-							std::string error;
-							if (PDH::Enumerations::validate(counter, error)) {
-								std::cout << " found ";
-							} else {
-								std::cout << " *NOT* found (" << error << ") " << std::endl;
-								break;
-							}
-							bool bOpend = false;
-							try {
-								PDH::PDHQuery pdh;
-								PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
-								pdh.addCounter(counter, &cDouble);
-								pdh.open();
-								pdh.gatherData();
-								pdh.close();
-								bOpend = true;
-							} catch (const PDH::PDHException e) {
-								std::cout << " could *not* be open (" << e.getError() << ") " << std::endl;
-								break;
-							}
-							std::cout << " open ";
-							std::cout << std::endl;
-						}
-					}
-				} else {
-					for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
-						std::string counter = "\\" + (*it).name + "\\" + (*it2).name;
-						std::cout << "testing: " << counter << ": ";
-						std::string error;
-						if (PDH::Enumerations::validate(counter, error)) {
-							std::cout << " found ";
-						} else {
-							std::cout << " *NOT* found (" << error << ") " << std::endl;
-							break;
-						}
-						bool bOpend = false;
-						try {
-							PDH::PDHQuery pdh;
-							PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
-							pdh.addCounter(counter, &cDouble);
-							pdh.open();
-							pdh.gatherData();
-							pdh.close();
-							bOpend = true;
-						} catch (const PDH::PDHException e) {
-							std::cout << " could *not* be open (" << e.getError() << ") " << std::endl;
-							break;
-						}
-						std::cout << " open ";
-						std::cout << std::endl;;
-					}
-				}
-			}
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
 #ifdef _DEBUG
 			/*
@@ -175,7 +95,6 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			arrayBuffer::run_testArrayBuffer();
 			*/
 #endif
-
 			g_bConsoleLog = true;
 			mainClient.InitiateService();
 			LOG_MESSAGE("Enter command to inject or exit to terminate...");
@@ -468,8 +387,6 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 }
 
 bool NSClientT::logDebug() {
-	if (g_bConsoleLog)
-		return true;
 	typedef enum status {unknown, debug, nodebug };
 	static status d = unknown;
 	if (d == unknown) {
@@ -490,20 +407,24 @@ bool NSClientT::logDebug() {
  * @param message The message as a human readable string.
  */
 void NSClientT::reportMessage(int msgType, const char* file, const int line, std::string message) {
-	ReadLock readLock(&m_mutexRW, true, 5000);
-	if (!readLock.IsLocked()) {
-		std::cout << "Message was lost as the core was locked..." << std::endl;
+	if ((msgType == NSCAPI::debug)&&(!logDebug())) {
 		return;
 	}
-	MutexLock lock(messageMutex);
-	if (!lock.hasMutex()) {
-		std::cout << "Message was lost as the core was locked..." << std::endl;
-		std::cout << message << std::endl;
-		return;
-	}
-	if (g_bConsoleLog) {
-		std::string k = "?";
-		switch (msgType) {
+	{
+		ReadLock readLock(&m_mutexRW, true, 5000);
+		if (!readLock.IsLocked()) {
+			std::cout << "Message was lost as the core was locked..." << std::endl;
+			return;
+		}
+		MutexLock lock(messageMutex);
+		if (!lock.hasMutex()) {
+			std::cout << "Message was lost as the core was locked..." << std::endl;
+			std::cout << message << std::endl;
+			return;
+		}
+		if (g_bConsoleLog) {
+			std::string k = "?";
+			switch (msgType) {
 			case NSCAPI::critical:
 				k ="c";
 				break;
@@ -519,19 +440,17 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 			case NSCAPI::debug:
 				k ="d";
 				break;
+			}
+			std::cout << k << " " << file << "(" << line << ") " << message << std::endl;
 		}
-		std::cout << k << " " << file << "(" << line << ") " << message << std::endl;
-	}
-	if ((msgType == NSCAPI::debug)&&(!logDebug())) {
-		return;
-	}
-	for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
-		try {
-			messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
-		} catch(const NSPluginException& e) {
-			// Here we are pretty much fucked! (as logging this might cause a loop :)
-			std::cout << "Caught: " << e.error_ << " when trying to log a message..." << std::endl;
-			std::cout << "This is *really really* bad, now the world is about to end..." << std::endl;
+		for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
+			try {
+				messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
+			} catch(const NSPluginException& e) {
+				// Here we are pretty much fucked! (as logging this might cause a loop :)
+				std::cout << "Caught: " << e.error_ << " when trying to log a message..." << std::endl;
+				std::cout << "This is *really really* bad, now the world is about to end..." << std::endl;
+			}
 		}
 	}
 }

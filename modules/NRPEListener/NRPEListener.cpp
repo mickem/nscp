@@ -49,12 +49,15 @@ bool NRPEListener::loadModule() {
 
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","));
 	try {
+		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
+		std::string host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
+		unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
 		if (bUseSSL_) {
 			socket_ssl_.setHandler(this);
-			socket_ssl_.StartListener(NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT));
+			socket_ssl_.StartListener(host, port, backLog);
 		} else {
 			socket_.setHandler(this);
-			socket_.StartListener(NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT));
+			socket_.StartListener(host, port, backLog);
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
@@ -70,10 +73,12 @@ bool NRPEListener::unloadModule() {
 	try {
 		if (bUseSSL_) {
 			socket_ssl_.removeHandler(this);
-			socket_ssl_.StopListener();
+			if (socket_ssl_.hasListener())
+				socket_ssl_.StopListener();
 		} else {
 			socket_.removeHandler(this);
-			socket_.StopListener();
+			if (socket_.hasListener())
+				socket_.StopListener();
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());

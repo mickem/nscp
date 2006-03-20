@@ -4,19 +4,23 @@
 #include <string>
 #include <map>
 #include <windows.h>
+#include <INISettings.h>
 #define BUFF_LEN 4096
-
-class Section {
-};
 
 class SettingsT
 {
 private:
-	typedef std::map<std::string,std::string> saveKeyList;
+	typedef struct {
+		typedef enum { sType, iType} typeEnum;
+		typeEnum type;
+		std::string sVal;
+		int iVal;
+	} valueStruct;
+	typedef std::map<std::string,valueStruct> saveKeyList;
 	typedef std::map<std::string,saveKeyList> saveSectionList;
-	std::string file_;
 	saveSectionList data_;
 	bool bHasInternalData;
+	INISettings iniManager;
 public:
 	typedef std::list<std::string> sectionList;
 	SettingsT(void) : bHasInternalData(false)
@@ -32,26 +36,29 @@ public:
 	 * @param file A INI-file to use as settings repository
 	 */
 	void setFile(std::string file) {
-		file_ = file;
+		iniManager.setFile(file);
 	}
 
-	sectionList getSections() {
-		sectionList ret;
-		char* buffer = new char[BUFF_LEN+1];
-		unsigned int count = ::GetPrivateProfileSectionNames(buffer, BUFF_LEN, file_.c_str());
-		if (count == BUFF_LEN-2)
-			throw "Fuck...";
-		unsigned int last = 0;
-		for (unsigned int i=0;i<count;i++) {
-			if (buffer[i] == '\0') {
-				std::string s = &buffer[last];
-				ret.push_back(s);
-				last = i+1;
+#define UNLIKELY_VALUE -1234
+	void read() {
+		sectionList sections = getSections();
+		for (sectionList::const_iterator it=sections.begin();it!=sections.end();++it) {
+			sectionList section = getSection(*it);
+			for (sectionList::const_iterator it2=section.begin();it2!=section.end();++it2) {
+				int i = getInt((*it), (*it2), UNLIKELY_VALUE);
+				if (i == UNLIKELY_VALUE) {
+					getString((*it), (*it2));
+				}
 			}
 		}
-		delete [] buffer;
+	}
+
+	sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
+		sectionList ret;
+		ret = iniManager.getSections();
 		if (bHasInternalData) {
-			for (saveSectionList::const_iterator it = data_.begin(); it != data_.end(); ++it) {
+			for (saveSectionList::const_iterator kit = data_.begin(); kit != data_.end(); ++kit) {
+				ret.push_back(kit->first);
 			}
 		}
 		ret.sort();
@@ -64,21 +71,9 @@ public:
 	 * @param section The section to return all keys from
 	 * @return A list with all keys from the section
 	 */
-	sectionList getSection(std::string section) {
+	sectionList getSection(std::string section, unsigned int bufferLength = BUFF_LEN) {
 		sectionList ret;
-		char* buffer = new char[BUFF_LEN+1];
-		unsigned int count = GetPrivateProfileSection(section.c_str(), buffer, BUFF_LEN, file_.c_str());
-		if (count == BUFF_LEN-2)
-			throw "Fuck...";
-		unsigned int last = 0;
-		for (unsigned int i=0;i<count;i++) {
-			if (buffer[i] == '\0') {
-				std::string s = &buffer[last];
-				ret.push_back(s);
-				last = i+1;
-			}
-		}
-		delete [] buffer;
+		ret = iniManager.getSection(section);
 		if (bHasInternalData) {
 			saveSectionList::const_iterator it = data_.find(section);
 			if (it != data_.end()) {
@@ -104,20 +99,21 @@ public:
 			if (it != data_.end()) {
 				saveKeyList::const_iterator kit = it->second.find(key);
 				if (kit != it->second.end()) {
-					return kit->second;
+					if (kit->second.type == valueStruct::sType)
+						return kit->second.sVal;
+					else
+						throw "whoops";
 				}
 			}
 		}
-		char* buffer = new char[1024];
-		GetPrivateProfileString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, 1023, file_.c_str());
-		std::string ret = buffer;
-		delete [] buffer;
+		std::string ret = iniManager.getString(section, key, defaultValue);
 		return ret;
 	}
 
 	void setString(std::string section, std::string key, std::string value) {
 		bHasInternalData = true;
-		(data_[section])[key] = value;
+		(data_[section])[key].sVal = value;
+		(data_[section])[key].type = valueStruct::sType;
 	}
 
 	/**
@@ -128,7 +124,12 @@ public:
 	 * @return The value or defaultValue if the key is not found
 	 */
 	int getInt(std::string section, std::string key, int defaultValue = 0) {
-		return GetPrivateProfileInt(section.c_str(), key.c_str(), defaultValue, file_.c_str());
+		return iniManager.getInt(section, key, defaultValue);
+	}
+	void setInt(std::string section, std::string key, int value) {
+		bHasInternalData = true;
+		(data_[section])[key].iVal = value;
+		(data_[section])[key].type = valueStruct::iType;
 	}
 };
 

@@ -111,7 +111,7 @@ cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Pdh.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
 				OutputFile=".\Debug/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -177,16 +177,13 @@ cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;
 cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;
 echo Removing old archive
 cmd /c &quot;del $(InputDir)\Dist\$(InputName).zip&quot;
-echo Copying documenation
-mkdir $(TargetDir)\docs
-xcopy /s /e /c /q /y $(InputDir)\docs $(TargetDir)\docs
 echo Making archive
 7z.exe a -r -tzip -bd $(InputDir)\Dist\$(InputName).zip $(InputDir)\Dist\*
 "
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Pdh.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
 				OutputFile=".\Dist/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -335,7 +332,7 @@ echo Making archive
 				RelativePath=".\include\PDHCounter.h">
 			</File>
 			<File
-				RelativePath=".\Settings.h">
+				RelativePath=".\include\Settings.h">
 			</File>
 			<File
 				RelativePath="StdAfx.h">

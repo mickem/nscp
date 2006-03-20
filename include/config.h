@@ -4,7 +4,7 @@
 #define SZAPPNAME "NSClient++"
 
 // Version
-#define SZVERSION "0.2.5f 2006-02-14"
+#define SZVERSION "0.2.5h 2006-03-01"
 
 // internal name of the service
 #define SZSERVICENAME        "NSClientpp"
@@ -23,6 +23,8 @@
 
 #define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
 
+#define DATE_FORMAT "%#c"
+ 
 
 // Default Argument string (for consistency)
 #define SHOW_ALL "ShowAll"
@@ -36,6 +38,10 @@
 #define NSCLIENT_SETTINGS_PORT_DEFAULT 12489
 #define NSCLIENT_SETTINGS_VERSION "version"
 #define NSCLIENT_SETTINGS_VERSION_DEFAULT "auto"
+#define NSCLIENT_SETTINGS_BINDADDR "bind_to_address"
+#define NSCLIENT_SETTINGS_BINDADDR_DEFAULT ""
+#define NSCLIENT_SETTINGS_LISTENQUE "socket_back_log"
+#define NSCLIENT_SETTINGS_LISTENQUE_DEFAULT 0
 
 // NRPE Settings headlines
 #define NRPE_SECTION_TITLE "NRPE"
@@ -44,12 +50,16 @@
 #define NRPE_SETTINGS_TIMEOUT_DEFAULT 60
 #define NRPE_SETTINGS_PORT "port"
 #define NRPE_SETTINGS_PORT_DEFAULT 5666
+#define NRPE_SETTINGS_BINDADDR "bind_to_address"
+#define NRPE_SETTINGS_BINDADDR_DEFAULT ""
 #define NRPE_SETTINGS_ALLOW_ARGUMENTS "allow_arguments"
 #define NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT 0
 #define NRPE_SETTINGS_ALLOW_NASTY_META "allow_nasty_meta_chars"
 #define NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT 0
 #define NRPE_SETTINGS_USE_SSL "use_ssl"
 #define NRPE_SETTINGS_USE_SSL_DEFAULT 1
+#define NRPE_SETTINGS_LISTENQUE "socket_back_log"
+#define NRPE_SETTINGS_LISTENQUE_DEFAULT 0
 
 // Check System Settings
 #define C_SYSTEM_SECTION_TITLE "Check System"

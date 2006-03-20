@@ -3,6 +3,7 @@
 #include <CheckMemory.h>
 
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
 
 class CheckSystem {
 private:
@@ -33,7 +34,7 @@ public:
 	* @return The module name
 	*/
 	std::string getModuleName() {
-		return "System Checks Module.";
+		return "CheckSystem";
 	}
 	/**
 	* Module version
@@ -50,7 +51,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
-
+	int commandLineExec(const char* command,const unsigned int argLen,char** args);
 
 	NSCAPI::nagiosReturn checkCPU(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn checkUpTime(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
@@ -58,6 +59,5 @@ public:
 	NSCAPI::nagiosReturn checkMem(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn checkProcState(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn checkCounter(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf);
-
 
 };

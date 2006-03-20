@@ -100,6 +100,9 @@ namespace simpleSocket {
 			unsigned long NoBlock = 1;
 			this->ioctlsocket(FIONBIO, &NoBlock);
 		}
+		static unsigned long inet_addr(std::string addr) {
+			return ::inet_addr(addr.c_str());
+		}
 		static std::string getHostByName(std::string ip) {
 			hostent* remoteHost;
 			remoteHost = gethostbyname(ip.c_str());
@@ -127,7 +130,7 @@ namespace simpleSocket {
 			if (::bind(socket_, (sockaddr*)&from_, fromlen) == SOCKET_ERROR)
 				throw SocketException("bind failed: ", ::WSAGetLastError());
 		}
-		virtual void listen(int backlog = 0) {
+		virtual void listen(int backlog = SOMAXCONN) {
 			assert(socket_);
 			if (::listen(socket_, backlog) == SOCKET_ERROR)
 				throw SocketException("listen failed: ", ::WSAGetLastError());
@@ -214,7 +217,9 @@ namespace simpleSocket {
 		class ListenerThread;
 		typedef Thread<ListenerThread> listenThreadManager;
 
-		u_short port_;
+		u_short bindPort_;
+		u_long bindAddres_;
+		unsigned int listenQue_;
 		listenThreadManager threadManager_;
 		socketResponses responderList_;
 		MutexHandler responderMutex_;
@@ -229,6 +234,9 @@ namespace simpleSocket {
 		public:
 			ListenerThread() : hStopEvent_(NULL) {}
 			DWORD threadProc(LPVOID lpParameter);
+			bool hasThread() const {
+				return hStopEvent_ != NULL;
+			}
 			void exitThread(void) {
 				assert(hStopEvent_ != NULL);
 				if (!SetEvent(hStopEvent_))
@@ -239,7 +247,7 @@ namespace simpleSocket {
 		ListenerHandler *pHandler_;
 
 	public:
-		Listener() : pHandler_(NULL) {};
+		Listener() : pHandler_(NULL), bindPort_(0), bindAddres_(INADDR_ANY), listenQue_(0) {};
 		virtual ~Listener() {
 			if (responderList_.size() > 0) {
 				MutexLock lock(responderMutex_);
@@ -264,15 +272,45 @@ namespace simpleSocket {
 				}
 			}
 		};
-
+/*
 		virtual void StartListener(int port) {
-			port_ = port;
+			bindPort_ = port;
+			threadManager_.createThread(this);
+		}
+		*/
+		bool hasListener() {
+			try {
+				if (threadManager_.hasActiveThread()) {
+					const ListenerThread *t = threadManager_.getThreadConst();
+					if (t!=NULL)
+						return t->hasThread();
+				}
+			} catch (ThreadException e) {
+				printError(__FILE__, __LINE__, "Could not access listener thread!");
+				return false;
+			}
+			return false;
+		}
+		virtual void StartListener(std::string host, int port, int queLength) {
+			bindPort_ = port;
+			if (!host.empty())
+				bindAddres_ = TListenerType::inet_addr(host);
+			if (bindAddres_ == INADDR_NONE)
+				bindAddres_ = INADDR_ANY;
+			listenQue_ = queLength;
 			threadManager_.createThread(this);
 		}
 		virtual void StopListener() {
-			if (threadManager_.hasActiveThread())
-				if (!threadManager_.exitThread())
-					throw new SocketException("Could not terminate thread.");
+			try {
+				if (threadManager_.hasActiveThread())
+					if (!threadManager_.exitThread()) {
+						tBase::close();
+						throw new SocketException("Could not terminate thread.");
+					}
+			} catch (ThreadException e) {
+				tBase::close();
+				throw new SocketException("Could not terminate thread (got exception in thread).");
+			}
 			tBase::close();
 		}
 		void setHandler(ListenerHandler* pHandler) {
@@ -384,9 +422,12 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 
 	try {
 		core->socket(AF_INET,SOCK_STREAM,0);
-		core->setAddr(AF_INET, INADDR_ANY, htons(core->port_));
+		core->setAddr(AF_INET, core->bindAddres_, htons(core->bindPort_));
 		core->bind();
-		core->listen(10);
+		if (core->listenQue_ != 0)
+			core->listen(core->listenQue_);
+		else
+			core->listen();
 		core->setNonBlock();
 		while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
 			try {

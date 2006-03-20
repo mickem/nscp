@@ -117,7 +117,7 @@ void setupDH(simpleSSL::DH &dh) {
 	dh.bin2bn_g(dh512_g, sizeof(dh512_g));
 }
 
-void simpleSSL::Listener::StartListener(int port) {
+void simpleSSL::Listener::StartListener(std::string host, int port, unsigned int listenQue) {
 	// @todo init SSL
 
 	simpleSSL::SSL_init();
@@ -140,8 +140,7 @@ void simpleSSL::Listener::StartListener(int port) {
 		}
 		simpleSSL::Crypto::setLockingCallback(locking_function);
 	}
-
-	tBase::StartListener(port);
+	tBase::StartListener(host, port, listenQue);
 }
 void simpleSSL::Listener::StopListener() {
 	tBase::StopListener();

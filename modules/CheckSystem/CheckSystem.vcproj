@@ -177,6 +177,9 @@
 				RelativePath=".\CheckSystem.cpp">
 			</File>
 			<File
+				RelativePath=".\CheckSystem.def">
+			</File>
+			<File
 				RelativePath="..\..\include\EnumNtSrv.cpp">
 			</File>
 			<File

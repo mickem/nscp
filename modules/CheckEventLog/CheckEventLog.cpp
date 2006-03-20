@@ -290,7 +290,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 						strEx::append_list(message, record.eventSource());
 					} else {
 						strEx::append_list(message, record.eventSource());
-						message += "(" + EventLogRecord::translateType(record.eventType()) + ", " + strEx::itos(record.eventID()) + ", " + EventLogRecord::translateSeverity(record.severity()) + ")";
+						message += "(" + EventLogRecord::translateType(record.eventType()) + ", " + 
+							strEx::itos(record.eventID()) + ", " + EventLogRecord::translateSeverity(record.severity()) + ")";
 						message += "[" + record.enumStrings() + "]";
 					}
 					hit_count++;
