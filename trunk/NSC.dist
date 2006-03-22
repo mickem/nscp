@@ -34,6 +34,10 @@
 ;  This is a comma-delimited list of IP address of hosts that are allowed to talk to the all daemons.
 ;  If leave this blank anyone can access the deamon remotly (NSClient still requires a valid password).
 ;allowed_hosts=127.0.0.1
+;
+;# USE THIS FILE
+;  Use the INI file as opposed to the registry if this is 0 the registry will be used instead.
+use_file=1
 
 [log]
 ;# LOG DEBUG
