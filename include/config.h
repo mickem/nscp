@@ -94,6 +94,8 @@
 
 // Main Settings
 #define MAIN_SECTION_TITLE "Settings"
+#define MAIN_USEFILE "use_file"
+#define MAIN_USEFILE_DEFAULT 0
 #define MAIN_MASTERKEY "master_key" 
 #define MAIN_MASTERKEY_DEFAULT "This is a secret key that you should change"
 #define MAIN_OBFUSCATED_PASWD "obfuscated_password"

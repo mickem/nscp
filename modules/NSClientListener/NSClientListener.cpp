@@ -32,7 +32,7 @@ NSClientListener::NSClientListener() {
 NSClientListener::~NSClientListener() {
 }
 std::string getAllowedHosts() {
-	std::string ret = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS, "");
+	std::string ret = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, MAIN_ALLOWED_HOSTS, "");
 	if (ret.empty())
 		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
 	return ret;
@@ -40,9 +40,9 @@ std::string getAllowedHosts() {
 
 bool NSClientListener::loadModule() {
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","));
-	unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT);
-	std::string host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR, NSCLIENT_SETTINGS_BINDADDR_DEFAULT);
-	unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
+	unsigned short port = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT);
+	std::string host = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR, NSCLIENT_SETTINGS_BINDADDR_DEFAULT);
+	unsigned int backLog = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_LISTENQUE, NSCLIENT_SETTINGS_LISTENQUE_DEFAULT);
 	try {
 		socket.setHandler(this);
 		socket.StartListener(host, port, backLog);
