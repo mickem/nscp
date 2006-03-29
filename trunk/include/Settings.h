@@ -9,8 +9,13 @@
 #define BUFF_LEN 4096
 
 class SettingsException {
+private:
+	std::string err;
 public:
-	SettingsException(std::string str) {}
+	SettingsException(std::string str) : err(str) {}
+	std::string getMessage() {
+		return err;
+	}
 
 };
 
@@ -39,6 +44,11 @@ public:
 	{
 		if (settingsManager)
 			delete settingsManager;
+	}
+	std::string getActiveType() {
+		if (!settingsManager) {
+			return "";
+		} return settingsManager->getActiveType();
 	}
 
 	/**

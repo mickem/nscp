@@ -24,9 +24,11 @@ public:
 	virtual ~INISettings(void)
 	{
 	}
+	std::string getActiveType() {
+		return "INI-file";
+	}
 
 	static bool hasSettings(std::string file) {
-		std::cout << GetPrivateProfileInt(MAIN_SECTION_TITLE, MAIN_USEFILE, MAIN_USEFILE_DEFAULT, file.c_str()) << ":" << file << std::endl;
 		return GetPrivateProfileInt(MAIN_SECTION_TITLE, MAIN_USEFILE, MAIN_USEFILE_DEFAULT, file.c_str()) == 1;
 	}
 
