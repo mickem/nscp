@@ -104,3 +104,8 @@
 #define MAIN_SETTINGS_PWD_DEFAULT ""
 #define MAIN_ALLOWED_HOSTS "allowed_hosts"
 #define MAIN_ALLOWED_HOSTS_DEFAULT "127.0.0.1"
+
+
+// Main Registry ROOT
+#define NS_HKEY_ROOT HKEY_LOCAL_MACHINE
+#define NS_REG_ROOT "SOFTWARE\\NSClient++"

@@ -19,6 +19,7 @@
 #include <charEx.h>
 #include <Socket.h>
 #include <b64/b64.h>
+#include <config.h>
 
 
 NSClient mainClient;	// Global core instance.
@@ -64,7 +65,12 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 		} else if ( _stricmp( "encrypt", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			std::string password;
-			Settings::getInstance()->setFile(mainClient.getBasePath() + "NSC.ini");
+			try {
+				Settings::getInstance()->setFile(mainClient.getBasePath() + "NSC.ini");
+			} catch (SettingsException e) {
+				std::cout << "Could not find settings: " << e.getMessage() << std::endl;;
+				return 1;
+			}
 			std::cout << "Enter password to encrypt (has to be a single word): ";
 			std::cin >> password;
 			std::string xor_pwd = Encrypt(password);
@@ -96,7 +102,11 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			*/
 #endif
 			g_bConsoleLog = true;
-			mainClient.InitiateService();
+			if (!mainClient.InitiateService()) {
+				LOG_ERROR_STD("Service *NOT* started!");
+				return -1;
+			}
+			LOG_MESSAGE_STD("Using settings from: " + Settings::getInstance()->getActiveType());
 			LOG_MESSAGE("Enter command to inject or exit to terminate...");
 			std::string s = "";
 			std::string buff = "";
@@ -145,13 +155,18 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
  * Service control handler startup point.
  * When the program is started as a service this will be the entry point.
  */
-void NSClientT::InitiateService(void) {
-	Settings::getInstance()->setFile(getBasePath() + "NSC.ini");
-
+bool NSClientT::InitiateService(void) {
+	try {
+		Settings::getInstance()->setFile(getBasePath() + "NSC.ini");
+	} catch (SettingsException e) {
+		LOG_ERROR_STD("Could not find settings: " + e.getMessage());
+		return false;
+	}
 	try {
 		simpleSocket::WSAStartup();
 	} catch (simpleSocket::SocketException e) {
 		LOG_ERROR_STD("Uncaught exception: " + e.getMessage());
+		return false;
 	}
 
 	SettingsT::sectionList list = Settings::getInstance()->getSection("modules");
@@ -160,9 +175,11 @@ void NSClientT::InitiateService(void) {
 			loadPlugin(getBasePath() + "modules\\" + (*it));
 		} catch(const NSPluginException& e) {
 			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
+			return false;
 		}
 	}
 	loadPlugins();
+	return true;
 }
 /**
  * Service control handler termination point.

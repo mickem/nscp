@@ -52,7 +52,7 @@ public:
 	virtual ~NSClientT(void) {}
 
 	// Service helper functions
-	void InitiateService(void);
+	bool InitiateService(void);
 	void TerminateService(void);
 	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);

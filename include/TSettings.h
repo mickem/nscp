@@ -15,7 +15,7 @@ public:
 	virtual ~TSettings(void)
 	{
 	}
-
+	virtual std::string getActiveType() = 0;
 	virtual sectionList getSections(unsigned int bufferLength = BUFF_LEN) = 0;
 	virtual sectionList getSection(std::string section, unsigned int bufferLength = BUFF_LEN) = 0;
 	virtual std::string getString(std::string section, std::string key, std::string defaultValue = "") const = 0;
