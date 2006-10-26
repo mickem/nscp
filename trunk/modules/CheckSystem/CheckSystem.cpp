@@ -116,28 +116,80 @@ int CheckSystem::commandLineExec(const char* command,const unsigned int argLen,c
 					for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
 						std::string counter = "\\" + (*it).name + "(" + (*it2).name + ")\\" + (*it3).name;
 						std::cout << "testing: " << counter << ": ";
+						std::list<std::string> errors;
+						std::list<std::string> status;
 						std::string error;
+						bool bStatus = true;
 						if (PDH::Enumerations::validate(counter, error)) {
-							std::cout << " found ";
+							status.push_back("open");
 						} else {
-							std::cout << " *NOT* found (" << error << ") " << std::endl;
-							break;
+							errors.push_back("NOT found: " + error);
+							bStatus = false;
 						}
-						bool bOpend = false;
-						try {
+						if (bStatus) {
+							PDH::PDHCounter *pCounter = NULL;
 							PDH::PDHQuery pdh;
-							PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
-							pdh.addCounter(counter, &cDouble);
-							pdh.open();
-							pdh.gatherData();
-							pdh.close();
-							bOpend = true;
-						} catch (const PDH::PDHException e) {
-							std::cout << " could *not* be open (" << e.getError() << ") " << std::endl;
-							break;
+							try {
+								PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+								pCounter = pdh.addCounter(counter, &cDouble);
+								pdh.open();
+
+								if (pCounter != NULL) {
+									try {
+										PDH::PDHCounterInfo info = pCounter->getCounterInfo();
+										errors.push_back("CounterName: " + info.szCounterName);
+										errors.push_back("ExplainText: " + info.szExplainText);
+										errors.push_back("FullPath: " + info.szFullPath);
+										errors.push_back("InstanceName: " + info.szInstanceName);
+										errors.push_back("MachineName: " + info.szMachineName);
+										errors.push_back("ObjectName: " + info.szObjectName);
+										errors.push_back("ParentInstance: " + info.szParentInstance);
+										errors.push_back("Type: " + strEx::itos(info.dwType));
+										errors.push_back("Scale: " + strEx::itos(info.lScale));
+										errors.push_back("Default Scale: " + strEx::itos(info.lDefaultScale));
+										errors.push_back("Status: " + strEx::itos(info.CStatus));
+										status.push_back("described");
+									} catch (const PDH::PDHException e) {
+										errors.push_back("Describe failed: " + e.getError());
+										bStatus = false;
+									}
+								}
+
+								pdh.gatherData();
+								pdh.close();
+								status.push_back("queried");
+							} catch (const PDH::PDHException e) {
+								errors.push_back("Query failed: " + e.getError());
+								bStatus = false;
+								try {
+									pdh.gatherData();
+									pdh.close();
+									bStatus = true;
+								} catch (const PDH::PDHException e) {
+									errors.push_back("Query failed (again!): " + e.getError());
+								}
+							}
+
 						}
-						std::cout << " open ";
-						std::cout << std::endl;
+						if (!bStatus) {
+							std::list<std::string>::const_iterator cit = status.begin();
+							for (;cit != status.end(); ++cit) {
+								std::cout << *cit << ", ";
+							}
+							std::cout << std::endl;
+							std::cout << "  | Log" << std::endl;
+							std::cout << "--+------  --    -" << std::endl;
+							cit = errors.begin();
+							for (;cit != errors.end(); ++cit) {
+								std::cout << "  | " << *cit << std::endl;
+							}
+						} else {
+							std::list<std::string>::const_iterator cit = status.begin();
+							for (;cit != status.end(); ++cit) {
+								std::cout << *cit << ", ";;
+							}
+							std::cout << std::endl;
+						}
 					}
 				}
 			} else {

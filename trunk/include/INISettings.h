@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <TSettings.h>
 #include <config.h>
+#include <iostream>
 
 #define BUFF_LEN 4096
 
@@ -26,6 +27,12 @@ public:
 	}
 	std::string getActiveType() {
 		return "INI-file";
+	}
+	int getActiveTypeID() {
+		return INISettings::getType();
+	}
+	static int getType() {
+		return 1;
 	}
 
 	static bool hasSettings(std::string file) {
@@ -69,7 +76,11 @@ public:
 		for (unsigned int i=0;i<count;i++) {
 			if (buffer[i] == '\0') {
 				std::string s = &buffer[last];
-				ret.push_back(s);
+				std::size_t p = s.find('=');
+				if (p == std::string::npos)
+					ret.push_back(s);
+				else
+					ret.push_back(s.substr(0,p));
 				last = i+1;
 			}
 		}
@@ -92,7 +103,11 @@ public:
 	}
 
 	void setString(std::string section, std::string key, std::string value) {
+//		if (value.size() > 0)
+		WritePrivateProfileString(section.c_str(), key.c_str(), NULL, file_.c_str());
 		WritePrivateProfileString(section.c_str(), key.c_str(), value.c_str(), file_.c_str());
+//		else
+//			WritePrivateProfileString(section.c_str(), key.c_str(), NULL, file_.c_str());
 	}
 
 	/**

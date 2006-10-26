@@ -608,6 +608,47 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, u
 	return NSCAPI::isSuccess;
 }
 
+NSCAPI::errorReturn NSAPISetSettingsString(const char* section, const char* key, const char* value) {
+	Settings::getInstance()->setString(section, key, value);
+	return NSCAPI::isSuccess;
+}
+NSCAPI::errorReturn NSAPISetSettingsInt(const char* section, const char* key, int value) {
+	Settings::getInstance()->setInt(section, key, value);
+	return NSCAPI::isSuccess;
+}
+NSCAPI::errorReturn NSAPIWriteSettings(int type) {
+	try {
+		if (type == NSCAPI::settings_registry)
+			Settings::getInstance()->write(REGSettings::getType());
+		else if (type == NSCAPI::settings_inifile)
+			Settings::getInstance()->write(INISettings::getType());
+		else
+			Settings::getInstance()->write();
+	} catch (SettingsException e) {
+		LOG_ERROR_STD(e.getMessage());
+		return NSCAPI::hasFailed;
+	}
+	return NSCAPI::isSuccess;
+}
+NSCAPI::errorReturn NSAPIReadSettings(int type) {
+	try {
+		if (type == NSCAPI::settings_registry)
+			Settings::getInstance()->read(REGSettings::getType());
+		else if (type == NSCAPI::settings_inifile)
+			Settings::getInstance()->read(INISettings::getType());
+		else
+			Settings::getInstance()->read();
+	} catch (SettingsException e) {
+		LOG_ERROR_STD(e.getMessage());
+		return NSCAPI::hasFailed;
+	}
+	return NSCAPI::isSuccess;
+}
+NSCAPI::errorReturn NSAPIRehash(int flag) {
+	return NSCAPI::critical;
+}
+
+
 LPVOID NSAPILoader(char*buffer) {
 	if (stricmp(buffer, "NSAPIGetApplicationName") == 0)
 		return &NSAPIGetApplicationName;
@@ -633,5 +674,15 @@ LPVOID NSAPILoader(char*buffer) {
 		return &NSAPIEncrypt;
 	if (stricmp(buffer, "NSAPIDecrypt") == 0)
 		return &NSAPIDecrypt;
+	if (stricmp(buffer, "NSAPISetSettingsString") == 0)
+		return &NSAPISetSettingsString;
+	if (stricmp(buffer, "NSAPISetSettingsInt") == 0)
+		return &NSAPISetSettingsInt;
+	if (stricmp(buffer, "NSAPIWriteSettings") == 0)
+		return &NSAPIWriteSettings;
+	if (stricmp(buffer, "NSAPIReadSettings") == 0)
+		return &NSAPIReadSettings;
+	if (stricmp(buffer, "NSAPIRehash") == 0)
+		return &NSAPIRehash;
 	return NULL;
 }

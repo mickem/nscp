@@ -32,12 +32,19 @@ namespace NSCAPI {
 	const int isSuccess = 1; 
 	const int hasFailed = 0;
 	const int isInvalidBufferLen = -2;
+
+
 	typedef int nagiosReturn;
 	typedef int boolReturn;
 	typedef int errorReturn;
 #endif
 
 	const int xor = 1;
+
+	// Settings types
+	const int settings_default = 0;
+	const int settings_registry = 1;
+	const int settings_inifile = 2;
 
 	// Various message Types
 	const int log = 0;				// Log message

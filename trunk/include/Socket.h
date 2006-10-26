@@ -461,18 +461,23 @@ namespace socketHelpers {
 		typedef std::list<std::string> host_list; 
 	private:
 		host_list allowedHosts_;
+		bool cachedAddresses_;
 	public:
-		void setAllowedHosts(host_list allowedHosts) {
+		allowedHosts() : cachedAddresses_(true) {}
+		void setAllowedHosts(host_list allowedHosts, bool cachedAddresses) {
+			cachedAddresses_ = cachedAddresses;
 			if ((!allowedHosts.empty()) && (allowedHosts.front() == "") )
 				allowedHosts.pop_front();
 			allowedHosts_ = allowedHosts;
-			for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
-				if (((*it).length() > 0) && (std::isalpha((*it)[0]))) {
-					std::string s = (*it);
-					try {
-						*it = simpleSocket::Socket::getHostByName(s);
-					} catch (simpleSocket::SocketException e) {
-						e;
+			if (cachedAddresses_) {
+				for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
+					if (((*it).length() > 0) && (std::isalpha((*it)[0]))) {
+						std::string s = (*it);
+						try {
+							*it = simpleSocket::Socket::getHostByName(s);
+						} catch (simpleSocket::SocketException e) {
+							e;
+						}
 					}
 				}
 			}
@@ -481,6 +486,18 @@ namespace socketHelpers {
 			if (allowedHosts_.empty())
 				return true;
 			host_list::const_iterator cit;
+			if (!cachedAddresses_) {
+				for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
+					if (((*it).length() > 0) && (std::isalpha((*it)[0]))) {
+						std::string s = (*it);
+						try {
+							*it = simpleSocket::Socket::getHostByName(s);
+						} catch (simpleSocket::SocketException e) {
+							e;
+						}
+					}
+				}
+			}
 			for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
 				if ( (*cit) == s)
 					return true;

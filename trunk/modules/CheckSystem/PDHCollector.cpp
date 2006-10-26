@@ -119,6 +119,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 
 
 	DWORD waitStatus = 0;
+	bool first = true;
 	do {
 		MutexLock mutex(mutexHandler);
 		if (!mutex.hasMutex()) 
@@ -127,7 +128,12 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			try {
 				pdh.gatherData();
 			} catch (const PDH::PDHException &e) {
-				NSC_LOG_ERROR_STD("Failed to query performance counters: " + e.getError());
+				if (first) {	// If this is the first run an error will be thrown since the data is not yet avalible
+								// This is "ok" but perhaps another solution would be better, but this works :)
+					first = false;
+				} else {
+					NSC_LOG_ERROR_STD("Failed to query performance counters: " + e.getError());
+				}
 			}
 		} 
 	}while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));

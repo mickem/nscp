@@ -109,6 +109,12 @@ namespace NSCModuleHelper {
 	lpNSAPICheckLogMessages fNSAPICheckLogMessages = NULL;
 	lpNSAPIEncrypt fNSAPIEncrypt = NULL;
 	lpNSAPIDecrypt fNSAPIDecrypt = NULL;
+	lpNSAPISetSettingsString fNSAPISetSettingsString = NULL;
+	lpNSAPISetSettingsInt fNSAPISetSettingsInt = NULL;
+	lpNSAPIWriteSettings fNSAPIWriteSettings = NULL;
+	lpNSAPIReadSettings fNSAPIReadSettings = NULL;
+	lpNSAPIRehash fNSAPIRehash = NULL;
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -373,9 +379,6 @@ bool NSCModuleHelper::logDebug() {
 	return (d == debug);
 }
 
-
-
-
 std::string NSCModuleHelper::Encrypt(std::string str, unsigned int algorithm) {
 	if (!fNSAPIEncrypt)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
@@ -407,6 +410,31 @@ std::string NSCModuleHelper::Decrypt(std::string str, unsigned int algorithm) {
 		return ret;
 	}
 	return "";
+}
+NSCAPI::errorReturn NSCModuleHelper::SetSettingsString(std::string section, std::string key, std::string value) {
+	if (!fNSAPISetSettingsString)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	return fNSAPISetSettingsString(section.c_str(), key.c_str(), value.c_str());
+}
+NSCAPI::errorReturn NSCModuleHelper::SetSettingsInt(std::string section, std::string key, int value) {
+	if (!fNSAPISetSettingsInt)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	return fNSAPISetSettingsInt(section.c_str(), key.c_str(), value);
+}
+NSCAPI::errorReturn NSCModuleHelper::WriteSettings(int type) {
+	if (!fNSAPIWriteSettings)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	return fNSAPIWriteSettings(type);
+}
+NSCAPI::errorReturn NSCModuleHelper::ReadSettings(int type) {
+	if (!fNSAPIReadSettings)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	return fNSAPIReadSettings(type);
+}
+NSCAPI::errorReturn NSCModuleHelper::Rehash(int flag) {
+	if (!fNSAPIRehash)
+		throw NSCMHExcpetion("NSCore has not been initiated...");
+	return fNSAPIRehash(flag);
 }
 
 
@@ -480,6 +508,11 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f("NSAPICheckLogMessages");
 	NSCModuleHelper::fNSAPIDecrypt = (NSCModuleHelper::lpNSAPIDecrypt)f("NSAPIDecrypt");
 	NSCModuleHelper::fNSAPIEncrypt = (NSCModuleHelper::lpNSAPIEncrypt)f("NSAPIEncrypt");
+	NSCModuleHelper::fNSAPISetSettingsString = (NSCModuleHelper::lpNSAPISetSettingsString)f("NSAPISetSettingsString");
+	NSCModuleHelper::fNSAPISetSettingsInt = (NSCModuleHelper::lpNSAPISetSettingsInt)f("NSAPISetSettingsInt");
+	NSCModuleHelper::fNSAPIWriteSettings = (NSCModuleHelper::lpNSAPIWriteSettings)f("NSAPIWriteSettings");
+	NSCModuleHelper::fNSAPIReadSettings = (NSCModuleHelper::lpNSAPIReadSettings)f("NSAPIReadSettings");
+	NSCModuleHelper::fNSAPIRehash = (NSCModuleHelper::lpNSAPIRehash)f("NSAPIRehash");
 	return NSCAPI::isSuccess;
 }
 /**

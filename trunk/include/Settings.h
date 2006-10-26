@@ -31,6 +31,7 @@ private:
 	typedef std::map<std::string,valueStruct> saveKeyList;
 	typedef std::map<std::string,saveKeyList> saveSectionList;
 	saveSectionList data_;
+	std::string file_;
 	bool bHasInternalData;
 	TSettings *settingsManager;
 
@@ -56,6 +57,7 @@ public:
 	 * @param file A INI-file to use as settings repository
 	 */
 	void setFile(std::string file, bool forceini = false) {
+		file_ = file;
 		if (forceini) {
 			if (settingsManager)
 				delete settingsManager;
@@ -77,29 +79,92 @@ public:
 
 #define UNLIKELY_VALUE_1 -1234
 #define UNLIKELY_VALUE_2 -4321
-	void read() {
-		sectionList sections = getSections();
-		for (sectionList::const_iterator it=sections.begin();it!=sections.end();++it) {
-			sectionList section = getSection(*it);
-			for (sectionList::const_iterator it2=section.begin();it2!=section.end();++it2) {
-				int i = getInt((*it), (*it2), UNLIKELY_VALUE_1);
-				if (i == UNLIKELY_VALUE_1) {
-					if (getInt((*it), (*it2), UNLIKELY_VALUE_2)==UNLIKELY_VALUE_2)
-						getString((*it), (*it2));
-				}
+	void read(int type = -1) {
+		bool bNew = false;
+		TSettings *sM = settingsManager;
+		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
+			if (type == REGSettings::getType()) {
+				sM = new REGSettings();
+				bNew = true;
+			} else if (type == INISettings::getType()) {
+				sM = new INISettings(file_);
+				bNew = true;
+			} else {
+				throw SettingsException("Invalid settings subsystem specified");
 			}
 		}
+		if (sM == NULL) {
+			throw SettingsException("Invalid settings subsystem specified");
+		}
+		sectionList sections = sM->getSections();
+		for (sectionList::const_iterator it=sections.begin();it!=sections.end();++it) {
+			sectionList section = sM->getSection(*it);
+			for (sectionList::const_iterator it2=section.begin();it2!=section.end();++it2) {
+				std::string s = sM->getString((*it), (*it2));
+				int i = strEx::stoi(s);
+				std::string s2 = strEx::itos(i);
+				std::cout << "importing: " << (*it) << "/" << (*it2) << "=" << s << std::endl;
+				if (s == s2) {
+					setInt((*it), (*it2), i);
+				} else {
+					setString((*it), (*it2), s);
+				}
+
+/*
+				std::cout << "  Key: " << (*it2) << std::endl;
+				int i = sM->getInt((*it), (*it2), UNLIKELY_VALUE_1);
+				std::cout << "Int vaöl: " << i << std::endl;
+				if (i == UNLIKELY_VALUE_1) {
+					if (sM->getInt((*it), (*it2), UNLIKELY_VALUE_2)==UNLIKELY_VALUE_2) {
+						std::cout << "Writing: " << (*it) << " - " << (*it2) << " - " << sM->getString((*it), (*it2)) << std::endl;
+						setString((*it), (*it2), sM->getString((*it), (*it2)));
+					} else
+						setInt((*it), (*it2), i);
+				} else if (i == 0) {
+					std::string s = sM->getString((*it), (*it2));
+					std::cout << "Size: " << s.size() << " |" << s << "| " << std::endl;
+					if (s.size() == 0)
+						setString((*it), (*it2), s);
+					else
+						setInt((*it), (*it2), i);
+				} else
+					setInt((*it), (*it2), i);
+					*/
+			}
+		}
+		if (bNew) {
+			delete sM;
+		}
 	}
-	void write() {
+	void write(int type = -1) {
+		bool bNew = false;
+		TSettings *sM = settingsManager;
+		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
+			if (type == REGSettings::getType()) {
+				sM = new REGSettings();
+				bNew = true;
+			} else if (type == INISettings::getType()) {
+				sM = new INISettings(file_);
+				bNew = true;
+			} else {
+				throw SettingsException("Invalid settings subsystem specified");
+			}
+		}
+		if (sM == NULL) {
+			throw SettingsException("Invalid settings subsystem specified");
+		}
 		if (bHasInternalData) {
 			for (saveSectionList::const_iterator it=data_.begin();it!=data_.end();++it) {
 				for (saveKeyList::const_iterator kit = it->second.begin(); kit != it->second.end(); ++kit) {
 					if (kit->second.type == valueStruct::sType)
-						setString(it->first, kit->first, kit->second.sVal);
+						sM->setString(it->first, kit->first, kit->second.sVal);
 					else
-						setInt(it->first, kit->first, kit->second.iVal);
+						sM->setInt(it->first, kit->first, kit->second.iVal);
 				}
 			}
+		}
+		if (bNew) {
+			delete sM;
 		}
 	}
 
