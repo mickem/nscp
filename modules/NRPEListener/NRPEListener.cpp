@@ -27,27 +27,36 @@ std::string getAllowedHosts() {
 		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
 	return ret;
 }
+bool getCacheAllowedHosts() {
+	int val = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, -1);
+	if (val == -1)
+		val = NSCModuleHelper::getSettingsInt(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, MAIN_ALLOWED_HOSTS_CACHE_DEFAULT);
+	return val==1?true:false;
+}
 
 bool NRPEListener::loadModule() {
 	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
 	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
 	std::list<std::string> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
-	std::list<std::string>::iterator it;
-	for (it = commands.begin(); it != commands.end(); it++) {
-		strEx::token t = strEx::getToken(*it, '=');
-		if (t.first.substr(0,7) == "command") {
-			strEx::token t2 = strEx::getToken(t.first, '[');
-			t2 = strEx::getToken(t2.second, ']');
-			t.first = t2.first;
+	std::list<std::string>::const_iterator it;
+	for (it = commands.begin(); it != commands.end(); ++it) {
+		std::string command_name;
+		if (((*it).length() > 7)&&((*it).substr(0,7) == "command")) {
+			strEx::token t = strEx::getToken((*it), '[');
+			t = strEx::getToken(t.second, ']');
+			command_name = t.first;
+		} else {
+			command_name = (*it);
 		}
-		if (t.first.empty() || t.second.empty()) {
+		std::string s = NSCModuleHelper::getSettingsString(NRPE_HANDLER_SECTION_TITLE, (*it), "");
+		if (command_name.empty() || s.empty()) {
 			NSC_LOG_ERROR_STD("Invalid command definition: " + (*it));
 		} else {
-			addCommand(t.first.c_str(), t.second);
+			addCommand(command_name.c_str(), s);
 		}
 	}
 
-	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","));
+	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","), getCacheAllowedHosts());
 	try {
 		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
 		std::string host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);

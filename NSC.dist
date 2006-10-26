@@ -18,6 +18,9 @@
 ;
 ; CheckWMI IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
 ;CheckWMI.dll
+;
+; RemoteConfiguration IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
+;RemoteConfiguration.dll
 
 [Settings]
 ;# OBFUSCATED PASSWORD
@@ -36,7 +39,8 @@
 ;allowed_hosts=127.0.0.1
 ;
 ;# USE THIS FILE
-;  Use the INI file as opposed to the registry if this is 0 the registry will be used instead.
+;  Use the INI file as opposed to the registry if this is 0 and the use_reg in the registry is set to 1 
+;  the registry will be used instead.
 use_file=1
 
 [log]

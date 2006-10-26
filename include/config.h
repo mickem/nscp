@@ -95,6 +95,7 @@
 // Main Settings
 #define MAIN_SECTION_TITLE "Settings"
 #define MAIN_USEFILE "use_file"
+#define MAIN_USEREG "use_reg"
 #define MAIN_USEFILE_DEFAULT 0
 #define MAIN_MASTERKEY "master_key" 
 #define MAIN_MASTERKEY_DEFAULT "This is a secret key that you should change"
@@ -104,6 +105,8 @@
 #define MAIN_SETTINGS_PWD_DEFAULT ""
 #define MAIN_ALLOWED_HOSTS "allowed_hosts"
 #define MAIN_ALLOWED_HOSTS_DEFAULT "127.0.0.1"
+#define MAIN_ALLOWED_HOSTS_CACHE "cache_allowed_hosts"
+#define MAIN_ALLOWED_HOSTS_CACHE_DEFAULT 1
 
 
 // Main Registry ROOT

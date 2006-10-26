@@ -22,4 +22,5 @@ public:
 	virtual void setString(std::string section, std::string key, std::string value) = 0;
 	virtual int getInt(std::string section, std::string key, int defaultValue = 0) = 0;
 	virtual void setInt(std::string section, std::string key, int value) = 0;
+	virtual int getActiveTypeID() = 0;
 };

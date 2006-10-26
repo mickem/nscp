@@ -7,6 +7,40 @@ TODO:
  * Add filtering to WMI module
  * Fix WMI module
  * Fix PDH problems
+ * Add API for rehashing the daemon (or implement it the API is there but does nothing)
+ * Add option to recheck DNS in real time
+
+2006-10-05 MickeM
+ * Yayyy!!! (first fix in a looong while :)
+ * Fixed a W2k3 "bug" (actually just an incorrect error) but the:
+   "e .\PDHCollector.cpp(130) Failed to query performance counters..." is no more...
+ + Added option to NRPE/NSClient section to not-cache host names (for dyndns etc.)
+   NOTICE this is "not safe" really in so far as someone might hi-jack your DNS and quickly gain 
+   access to your nagios box (probably only a theoretical problem but hey! :)
+   NOTICE this is "slow" since all hosts in the list are "looked up" each time you get a NRPE/NSClient 
+   request it will be "slow" but I think it is not that much of a problem really.
+   NOTICE I dont have the posibility to test this so feel free to report if it works and if it doesn't.
+   Set cache_allowed_hosts=0 to disable host cache
+
+2006-04-04 MickeM
+ * Fixed a few more bugs to the INI/REG readers
+
+2006-04-02 MickeM
+ * Could all magicians stop trying to kill me? 
+   *Please* i don't like to die!
+
+2006-03-31 MickeM
+ * Damn necromancers! stop 0wning my ass all the time!
+ 
+2006-03-29 MickeM
+ + Added API for saving/reading settings
+ 
+2006-03-28 MickeM
+ + Added REG/INI parsers
+ * *NOTICE* You need to add an option (use_file=1) to your nsc.ini file or new builds wont work.
+
+2006-03-25 MickeM
+ * Oblivion f*cking roxx!
 
 2006-03-02 MickeM
  * Fixed bug in INI-file reader (memory leak)

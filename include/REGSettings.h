@@ -19,7 +19,7 @@ public:
 	}
 
 	static bool hasSettings() {
-		return getInt_(NS_HKEY_ROOT, NS_REG_ROOT, "use_reg", 0) == 1;
+		return getInt_(NS_HKEY_ROOT, NS_REG_ROOT "\\" MAIN_SECTION_TITLE, MAIN_USEREG, 0) == 1;
 	}
 
 	std::string getActiveType() {
@@ -50,6 +50,7 @@ public:
 	}
 
 	void setString(std::string section, std::string key, std::string value) {
+		setString_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str(), key.c_str(), value.c_str());
 	}
 
 	/**
@@ -63,8 +64,39 @@ public:
 		return getInt_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str(), key.c_str(), defaultValue);
 	}
 	void setInt(std::string section, std::string key, int value) {
+		setInt_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str(), key.c_str(), value);
 	}
 
+	static bool setString_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, LPCTSTR value) {
+		HKEY hTemp;
+		if (RegCreateKeyEx(hKey, lpszPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL) != ERROR_SUCCESS) {
+			return false;
+		}
+		DWORD cbData = static_cast<DWORD>(strlen(value));
+		BYTE *bData = new BYTE[cbData+1];
+		strncpy(reinterpret_cast<char*>(bData), value, cbData);
+		BOOL bRet = RegSetValueEx(hTemp, lpszKey, NULL, REG_SZ, bData, cbData);
+		RegCloseKey(hTemp);
+		delete [] bData;
+		return  (bRet == ERROR_SUCCESS);
+	}
+
+	int getActiveTypeID() {
+		return REGSettings::getType();
+	}
+	static int getType() {
+		return 2;
+	}
+
+	static bool setInt_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, DWORD value) {
+		HKEY hTemp;
+		if (RegCreateKeyEx(hKey, lpszPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL) != ERROR_SUCCESS) {
+			return false;
+		}
+		BOOL bRet = RegSetValueEx(hTemp, lpszKey, NULL, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
+		RegCloseKey(hTemp);
+		return  (bRet == ERROR_SUCCESS);
+	}
 
 	static std::string getString_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, std::string def) {
 		std::string ret = def;
@@ -73,16 +105,28 @@ public:
 			return def;
 		}
 		DWORD type;
-		DWORD cbData = 1024;
+		const DWORD data_length = 2048;
+		DWORD cbData = data_length;
 		BYTE *bData = new BYTE[cbData];
-		BOOL bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, bData, &cbData);
-		if (type != REG_SZ) {
-			bRet = false;
+		LONG lRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, bData, &cbData);
+		if (lRet == ERROR_SUCCESS) {
+			if (type == REG_SZ) {
+				if (cbData < data_length-1) {
+					bData[cbData] = 0;
+					ret = reinterpret_cast<LPCTSTR>(bData);
+				} else {
+					std::cout << "getString_::Buffersize to small: " << lpszPath << "." << lpszKey << ": " << type << std::endl;
+				}
+			} else if (type == REG_DWORD) {
+				DWORD dw = *(reinterpret_cast<DWORD*>(bData));
+				ret = strEx::itos(dw);
+			} else {
+				std::cout << "getString_::Unsupported type: " << lpszPath << "." << lpszKey << ": " << type << std::endl;
+			}
+		} else {
+			std::cout << "getString_::Error: " << lpszPath << "." << lpszKey << ": " << lRet << std::endl;
 		}
 		RegCloseKey(hTemp);
-		if (bRet) {
-			ret = (LPCTSTR)bData;
-		}
 		delete [] bData;
 		return ret;
 	}
@@ -94,15 +138,15 @@ public:
 			return def;
 		}
 		DWORD type;
-		DWORD cbData = 1024;
-		BYTE *bData = new BYTE[sizeof(DWORD)];
+		DWORD cbData = sizeof(DWORD);
+		BYTE *bData = new BYTE[cbData+1];
 		bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, bData, &cbData);
 		if (type != REG_DWORD) {
 			bRet = -1;
 		}
 		RegCloseKey(hTemp);
 		if (bRet == ERROR_SUCCESS) {
-			ret = (DWORD)*bData;
+			ret = static_cast<DWORD>(*bData);
 		}
 		delete [] bData;
 		return ret;
@@ -114,17 +158,21 @@ public:
 		if ((bRet = RegOpenKeyEx(hKey, lpszPath, 0, KEY_READ, &hTemp)) != ERROR_SUCCESS) {
 			return ret;
 		}
-		DWORD    cValues=0;
-		DWORD    cMaxValLen;
+		DWORD cValues=0;
+		DWORD cMaxValLen=0;
 		// Get the class name and the value count. 
 		bRet = RegQueryInfoKey(hTemp,NULL,NULL,NULL,NULL,NULL,NULL,&cValues,&cMaxValLen,NULL,NULL,NULL);
+		cMaxValLen++;
 		if ((bRet == ERROR_SUCCESS)&&(cValues>0)) {
 			TCHAR *lpValueName = new TCHAR[cMaxValLen+1];
 			for (unsigned int i=0; i<cValues; i++) {
 				DWORD len = cMaxValLen;
-				bRet = RegEnumValue(hKey, i, lpValueName, &len, NULL, NULL, NULL, NULL);
+				bRet = RegEnumValue(hTemp, i, lpValueName, &len, NULL, NULL, NULL, NULL);
 				if (bRet == ERROR_SUCCESS) {
 					ret.push_back(std::string(lpValueName));
+				} else {
+					std::cout << "getValues_::Error: " << bRet << ": " << lpszPath << "[" << i << "]" << std::endl;
+
 				}
 			}
 			delete [] lpValueName;
@@ -142,13 +190,16 @@ public:
 		DWORD    cMaxKeyLen;
 		// Get the class name and the value count. 
 		bRet = RegQueryInfoKey(hTemp,NULL,NULL,NULL,&cSubKeys,&cMaxKeyLen,NULL,NULL,NULL,NULL,NULL,NULL);
+		cMaxKeyLen++;
 		if ((bRet == ERROR_SUCCESS)&&(cSubKeys>0)) {
 			TCHAR *lpValueName = new TCHAR[cMaxKeyLen+1];
 			for (unsigned int i=0; i<cSubKeys; i++) {
 				DWORD len = cMaxKeyLen;
-				bRet = RegEnumKey(hKey, i, lpValueName, len);
+				bRet = RegEnumKey(hTemp, i, lpValueName, len);
 				if (bRet == ERROR_SUCCESS) {
 					ret.push_back(std::string(lpValueName));
+				} else {
+					std::cout << "getSubKeys_::Error: " << bRet << ": " << lpszPath << "[" << i << "]" << std::endl;
 				}
 			}
 			delete [] lpValueName;

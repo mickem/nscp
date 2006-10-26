@@ -86,6 +86,11 @@ namespace NSCModuleHelper
 	typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const char*, unsigned int, char*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const char*, unsigned int, char*, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPISetSettingsString)(const char*, const char*, const char*);
+	typedef NSCAPI::errorReturn (*lpNSAPISetSettingsInt)(const char*, const char*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPIWriteSettings)(int);
+	typedef NSCAPI::errorReturn (*lpNSAPIReadSettings)(int);
+	typedef NSCAPI::errorReturn (*lpNSAPIRehash)(int);
 
 	// Helper functions for calling into the core
 	std::string getApplicationName(void);
@@ -104,6 +109,11 @@ namespace NSCModuleHelper
 	bool checkLogMessages(int type);
 	std::string Encrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
 	std::string Decrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
+	NSCAPI::errorReturn SetSettingsString(std::string section, std::string key, std::string value);
+	NSCAPI::errorReturn SetSettingsInt(std::string section, std::string key, int value);
+	NSCAPI::errorReturn WriteSettings(int type);
+	NSCAPI::errorReturn ReadSettings(int type);
+	NSCAPI::errorReturn Rehash(int flag);
 };
 
 namespace NSCModuleWrapper {

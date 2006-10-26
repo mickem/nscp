@@ -81,18 +81,20 @@ namespace PDH {
 			dwUserData = info->dwUserData;
 			dwQueryUserData = info->dwQueryUserData;
 			szFullPath = info->szFullPath;
+			if (info->szMachineName)
+				szMachineName = info->szMachineName;
+			if (info->szObjectName)
+				szObjectName = info->szObjectName;
+			if (info->szInstanceName)
+				szInstanceName = info->szInstanceName;
+			if (info->szParentInstance)
+				szParentInstance = info->szParentInstance;
+			dwInstanceIndex = info->dwInstanceIndex;
+			if (info->szCounterName)
+				szCounterName = info->szCounterName;
 			if (explainText) {
-				if (info->szMachineName)
-					szMachineName = info->szMachineName;
-				if (info->szObjectName)
-					szObjectName = info->szObjectName;
-				if (info->szInstanceName)
-					szInstanceName = info->szInstanceName;
-				if (info->szParentInstance)
-					szParentInstance = info->szParentInstance;
-				dwInstanceIndex = info->dwInstanceIndex;
-				if (info->szCounterName)
-					szCounterName = info->szCounterName;
+				if (info->szExplainText)
+					szExplainText = info->szExplainText;
 			}
 		}
 	};
@@ -118,12 +120,12 @@ namespace PDH {
 			listener_ = listener;
 		}
 
-		PDHCounterInfo getCounterInfo() {
+		PDHCounterInfo getCounterInfo(BOOL bExplainText = FALSE) {
 			assert(hCounter_ != NULL);
 			PDH_STATUS status;
 			BYTE *lpBuffer = new BYTE[1025];
 			DWORD bufSize = 1024;
-			if ((status = PdhGetCounterInfo(hCounter_, TRUE, &bufSize, (PDH_COUNTER_INFO*)lpBuffer)) != ERROR_SUCCESS) {
+			if ((status = PdhGetCounterInfo(hCounter_, bExplainText, &bufSize, (PDH_COUNTER_INFO*)lpBuffer)) != ERROR_SUCCESS) {
 				throw PDHException(name_, "getCounterInfo failed (no query)", status);
 			}
 			return PDHCounterInfo(lpBuffer, bufSize, TRUE);

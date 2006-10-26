@@ -103,6 +103,12 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const char*, char***, unsigned int *
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
 NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);
 NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);
+NSCAPI::errorReturn NSAPISetSettingsString(const char* section, const char* key, const char* value);
+NSCAPI::errorReturn NSAPISetSettingsInt(const char* section, const char* key, int value);
+NSCAPI::errorReturn NSAPIWriteSettings(int type);
+NSCAPI::errorReturn NSAPIReadSettings(int type);
+NSCAPI::errorReturn NSAPIRehash(int flag);
+
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging
 // Generally names are of the form LOG_<severity>[_STD] 

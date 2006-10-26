@@ -37,9 +37,15 @@ std::string getAllowedHosts() {
 		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
 	return ret;
 }
+bool getCacheAllowedHosts() {
+	int val = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, -1);
+	if (val == -1)
+		val = NSCModuleHelper::getSettingsInt(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, MAIN_ALLOWED_HOSTS_CACHE_DEFAULT);
+	return val==1?true:false;
+}
 
 bool NSClientListener::loadModule() {
-	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","));
+	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","), getCacheAllowedHosts());
 	unsigned short port = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT);
 	std::string host = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR, NSCLIENT_SETTINGS_BINDADDR_DEFAULT);
 	unsigned int backLog = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_LISTENQUE, NSCLIENT_SETTINGS_LISTENQUE_DEFAULT);
