@@ -279,8 +279,8 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 	}
 	try {
 		simpleSocket::DataBuffer block;
-
-		for (int i=0;i<100;i++) {
+		int i;
+		for (i=0;i<100;i++) {
 			client->readAll(block, 1048);
 			if (block.getLength() >= NRPEPacket::getBufferLength())
 				break;

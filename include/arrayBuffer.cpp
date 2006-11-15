@@ -30,7 +30,8 @@ char ** arrayBuffer::list2arrayBuffer(const arrayList lst, unsigned int &argLen)
 	argLen = static_cast<unsigned int>(lst.size());
 	char **arrayBuffer = new char*[argLen];
 	arrayList::const_iterator it = lst.begin();
-	for (int i=0;it!=lst.end();++it,i++) {
+	int i;
+	for (i=0;it!=lst.end();++it,i++) {
 		std::string::size_type alen = (*it).size();
 		arrayBuffer[i] = new char[alen+2];
 		strncpy(arrayBuffer[i], (*it).c_str(), alen+1);
@@ -87,7 +88,7 @@ char ** arrayBuffer::split2arrayBuffer(const char* buffer, char splitChar, unsig
 	char **arrayBuffer = new char*[argLen];
 	p = buffer;
 	for (unsigned int i=0;i<argLen;i++) {
-		char *q = strchr(p, (i<argLen-1)?splitChar:0);
+		const char *q = strchr(p, (i<argLen-1)?splitChar:0);
 		unsigned int len = static_cast<int>(q-p);
 		arrayBuffer[i] = new char[len+1];
 		strncpy(arrayBuffer[i], p, len);
