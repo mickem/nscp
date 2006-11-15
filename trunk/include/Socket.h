@@ -1,5 +1,4 @@
 #pragma once
-#include "resource.h"
 #include <Thread.h>
 #include <Mutex.h>
 #include <WinSock2.h>
@@ -471,7 +470,7 @@ namespace socketHelpers {
 			allowedHosts_ = allowedHosts;
 			if (cachedAddresses_) {
 				for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
-					if (((*it).length() > 0) && (std::isalpha((*it)[0]))) {
+					if (((*it).length() > 0) && (isalpha((*it)[0]))) {
 						std::string s = (*it);
 						try {
 							*it = simpleSocket::Socket::getHostByName(s);
@@ -488,7 +487,7 @@ namespace socketHelpers {
 			host_list::const_iterator cit;
 			if (!cachedAddresses_) {
 				for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
-					if (((*it).length() > 0) && (std::isalpha((*it)[0]))) {
+					if (((*it).length() > 0) && (isalpha((*it)[0]))) {
 						std::string s = (*it);
 						try {
 							*it = simpleSocket::Socket::getHostByName(s);

@@ -206,7 +206,8 @@ void NSClientListener::onAccept(simpleSocket::Socket *client) {
 	}
 	simpleSocket::DataBuffer db;
 
-	for (int i=0;i<100;i++) {
+	int i;
+	for (i=0;i<100;i++) {
 		client->readAll(db);
 		// @todo Make this check if a packet is read instead of just if we have data
 		if (db.getLength() > 0)
