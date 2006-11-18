@@ -324,6 +324,9 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 		throw NRPEException("Invalid checksum");
 	}
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
+	if (cmd.first == "_NRPE_CHECK") {
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, "I ("SZVERSION") seem to be doing fine...");
+	}
 	std::string msg, perf;
 
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {

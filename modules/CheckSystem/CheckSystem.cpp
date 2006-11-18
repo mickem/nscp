@@ -30,7 +30,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
  * Default c-tor
  * @return 
  */
-CheckSystem::CheckSystem() : processMethod_(0) {}
+CheckSystem::CheckSystem() : processMethod_(0), pdhThread("pdhThread") {}
 /**
  * Default d-tor
  * @return 
@@ -795,6 +795,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			std::string tstr;
 			if (!PDH::Enumerations::validate(counter.data, tstr)) {
 				msg = tstr;
+				msg += " (" + counter.getAlias() + "|" + counter.data + ")";
 				return NSCAPI::returnUNKNOWN;
 			}
 			PDH::PDHQuery pdh;
@@ -816,8 +817,8 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 				counter.runCheck(value, returnCode, msg, perf);
 			}
 		} catch (const PDH::PDHException e) {
-			NSC_LOG_ERROR_STD("ERROR: " + e.getError() + " (" + counter.getAlias() + ")");
-			msg = static_cast<std::string>("ERROR: ") + e.getError();
+			NSC_LOG_ERROR_STD("ERROR: " + e.getError() + " (" + counter.getAlias() + "|" + counter.data + ")");
+			msg = static_cast<std::string>("ERROR: ") + e.getError()+ " (" + counter.getAlias() + "|" + counter.data + ")";
 			return NSCAPI::returnUNKNOWN;
 		}
 	}

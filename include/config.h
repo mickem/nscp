@@ -4,7 +4,7 @@
 #define SZAPPNAME "NSClient++"
 
 // Version
-#define SZVERSION "0.2.5h 2006-03-01"
+#define SZVERSION "0.2.6 2006-11-18"
 
 // internal name of the service
 #define SZSERVICENAME        "NSClientpp"
@@ -31,6 +31,7 @@
 #define SHOW_FAIL "ShowFail"
 #define NSCLIENT "nsclient"
 #define CHECK_ALL "CheckAll"
+#define CHECK_ALL_OTHERS "CheckAllOthers"
 
 // NSClient Setting headlines
 #define NSCLIENT_SECTION_TITLE "NSClient"
