@@ -1,6 +1,5 @@
 #pragma once
 
-#include "resource.h"
 #include <ServiceCmd.h>
 #include <NTService.h>
 #include "NSCPlugin.h"

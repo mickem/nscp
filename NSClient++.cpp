@@ -15,7 +15,7 @@
 #include "stdafx.h"
 #include <winsvc.h>
 #include "NSClient++.h"
-#include "Settings.h"
+#include <Settings.h>
 #include <charEx.h>
 #include <Socket.h>
 #include <b64/b64.h>
