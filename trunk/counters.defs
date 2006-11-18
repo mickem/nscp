@@ -1,0 +1,68 @@
+[FileInfo]
+Purpose = "NSClient counters definitions"
+Version = 1.02
+ReleaseDate = "10.02.2002"
+
+[0x0409]
+Description = "English US"
+NT4_SystemTotalProcessorTime = "\System\% Total Processor Time"
+NT4_SystemSystemUpTime = "\System\System Up Time"
+NT4_MemoryCommitLimit = "\Memory\Commit Limit"
+NT4_MemoryCommitByte = "\Memory\Committed Bytes"
+
+W2K_SystemTotalProcessorTime = "\Processor(_total)\% Processor Time"
+W2K_SystemSystemUpTime = "\System\System Up Time"
+W2K_MemoryCommitLimit = "\Memory\Commit Limit"
+W2K_MemoryCommitByte = "\Memory\Committed Bytes"
+
+[0x0407]
+Description = "German"
+NT4_SystemTotalProcessorTime = "\System\% Gesamtprozessorzeit"
+NT4_SystemSystemUpTime = "\System\Systemarbeitszeit"
+NT4_MemoryCommitLimit = "\Speicher\Zusagegrenze"
+NT4_MemoryCommitByte = "\Speicher\Bytes verfügbar"
+
+W2K_SystemTotalProcessorTime = "\Prozessor(_Total)\Prozessorzeit (%)"
+W2K_SystemSystemUpTime = "\System\Systembetriebszeit"
+W2K_MemoryCommitLimit = "\Speicher\Zusagegrenze"
+W2K_MemoryCommitByte = "\Speicher\Zugesicherte Bytes"
+
+[0x0410]
+Description = "Italian"
+W2K_SystemTotalProcessorTime = "\Processore(_total)\% Tempo processore"
+W2K_SystemSystemUpTime = "\Sistema\Tempo di funzionamento sistema"
+W2K_MemoryCommitLimit = "\Memoria\Limite memoria vincolata"
+W2K_MemoryCommitByte = "\Memoria\Byte vincolati"
+
+NT4_SystemTotalProcessorTime = "\Processore(_total)\% Tempo processore"
+NT4_SystemSystemUpTime = "\Sistema\Tempo di funzionamento sistema"
+NT4_MemoryCommitLimit = "\Memoria\Limite memoria vincolata"
+NT4_MemoryCommitByte = "\Memoria\Byte vincolati"
+
+[0x040c]
+Description = "French (France)"
+NT4_SystemTotalProcessorTime = "\Système\% Temps total du processeur"
+NT4_SystemSystemUpTime = "\Système\Temps d'activité système"
+NT4_MemoryCommitLimit = "\Mémoire\Limite de mémoire dédiée"
+NT4_MemoryCommitByte = "\Mémoire\Octets dédiés"
+
+W2K_SystemTotalProcessorTime = "\Processeur(_Total)\% Temps processeur"
+W2K_SystemSystemUpTime = "\Système\Temps d'activité système"
+W2K_MemoryCommitLimit = "\Mémoire\Limite de mémoire dédiée"
+W2K_MemoryCommitByte = "\Mémoire\Octets dédiés"
+
+[0x0C0A]
+Description = "Spanish"
+NT4_SystemTotalProcessorTime = "\Sistema\% Tiempo total de
+procesador"
+NT4_SystemSystemUpTime = "\Sistema\Tiempo de actividad del sistema"
+NT4_MemoryCommitLimit = "\Memoria\Límite comprometido"
+NT4_MemoryCommitByte = "\Memoria\Bytes comprometidos"
+
+[0x0416]
+Description = "Portuguese_BR"
+NT4_SystemTotalProcessorTime = "\Sistema\% tempo total do processador"
+NT4_SystemSystemUpTime = "\Sistema\Tempo de atividade do sistema"
+NT4_MemoryCommitLimit = "\Memória\Limite confirmado"
+NT4_MemoryCommitByte = "\Memória\Bytes confirmados"
+
