@@ -159,7 +159,7 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 			break;
 		case REQ_COUNTER:
 			cmd.first = "checkCounter";
-			cmd.second += "&nsclient";
+			cmd.second = "Counter=" + cmd.second + "&nsclient";
 			break;
 		case REQ_FILEAGE:
 			cmd.first = "getFileAge";

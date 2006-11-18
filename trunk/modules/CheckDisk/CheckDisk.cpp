@@ -99,6 +99,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	bool bFilterFixed = false;
 	bool bFilterCDROM = false;
 	bool bCheckAll = false;
+	bool bCheckAllOthers = false;
 	bool bNSClient = false;
 	std::list<DriveConatiner> drives;
 
@@ -112,6 +113,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterRemote, "REMOTE")
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
+		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL_OTHERS, bCheckAllOthers)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 			else if (p2.first == "Drive") {
 				tmpObject.data = p__.second;
@@ -142,6 +144,36 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 			idx++;
 			dwDrives >>= 1;
 		}
+	}
+	if (bCheckAllOthers) {
+		std::list<DriveConatiner> checkdrives;
+		DWORD dwDrives = GetLogicalDrives();
+		int idx = 0;
+		while (dwDrives != 0) {
+			if (dwDrives & 0x1) {
+				std::string drv;
+				drv += static_cast<char>('A' + idx); drv += ":\\";
+				UINT drvType = GetDriveType(drv.c_str());
+				if ( ((!bFilter)&&(drvType == DRIVE_FIXED))  ||
+					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
+					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
+					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
+					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) )  
+				{
+					bool bFound = false;
+					for (std::list<DriveConatiner>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
+						DriveConatiner drive = (*pit);
+						if (drive.data == drv)
+							bFound = true;
+					}
+					if (!bFound)
+						checkdrives.push_back(DriveConatiner(drv, tmpObject.warn, tmpObject.crit));
+				}
+			}
+			idx++;
+			dwDrives >>= 1;
+		}
+		drives = checkdrives;
 	}
 
 

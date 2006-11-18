@@ -246,7 +246,7 @@ namespace simpleSocket {
 		ListenerHandler *pHandler_;
 
 	public:
-		Listener() : pHandler_(NULL), bindPort_(0), bindAddres_(INADDR_ANY), listenQue_(0) {};
+		Listener() : pHandler_(NULL), bindPort_(0), bindAddres_(INADDR_ANY), listenQue_(0), threadManager_("listenThreadManager") {};
 		virtual ~Listener() {
 			if (responderList_.size() > 0) {
 				MutexLock lock(responderMutex_);

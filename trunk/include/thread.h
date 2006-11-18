@@ -7,7 +7,7 @@ class ThreadException {
 public:
 	std::string e_;
 	ThreadException(std::string e) : e_(e) {
-		std::cout << e << std::endl;
+		std::cerr << e << std::endl;
 	}
 };
 
@@ -37,6 +37,7 @@ public:
 template <class T> 
 class Thread {
 private:
+	std::string threadid_;
 	HANDLE hThread_;		// Thread handle
 	T* pObject_;			// Wrapped object
 	HANDLE hMutex_;			// Mutex to protect internal data
@@ -59,7 +60,7 @@ public:
 	 * Default c-tor.
 	 * Sets up default values
 	 */
-	Thread() : hThread_(NULL), pObject_(NULL), uThreadID(-1), bThreadHasTerminated(false), bThreadHasBeenClosed(false) {
+	Thread(std::string threadid) : threadid_(threadid), hThread_(NULL), pObject_(NULL), uThreadID(-1), bThreadHasTerminated(false), bThreadHasBeenClosed(false) {
 		hMutex_ = CreateMutex(NULL, FALSE, NULL);
 		assert(hMutex_ != NULL);
 	}
@@ -73,7 +74,7 @@ public:
 			if (bThreadHasBeenClosed && bThreadHasTerminated)
 				;
 			else if (bThreadHasBeenClosed||bThreadHasTerminated)
-				std::cout << "Thread has not terminated correctly..." << std::endl;
+				std::cout << "Thread has not terminated correctly: " << threadid_ << "..." << std::endl;
 			/*
 			MutexLock mutex(hMutex_, 5000L);
 			if (!mutex.hasMutex()) {
@@ -131,10 +132,10 @@ public:
 		{
 			MutexLock mutex(hMutex_, 5000L);
 			if (!mutex.hasMutex()) {
-				throw ThreadException("Could not retrieve mutex, thread not started...");
+				throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not started...");
 			}
 			if (pObject_) {
-				throw ThreadException("Thread already started, thread not started...");
+				throw ThreadException("Thread already started, thread (" + threadid_ + ") not started...");
 			}
 //			assert(hStopEvent_ == NULL);
 			param = new thread_param;
@@ -157,7 +158,7 @@ public:
 		{
 			MutexLock mutex(hMutex_, delay);
 			if (!mutex.hasMutex()) {
-				throw ThreadException("Could not retrieve mutex, thread not stopped...");
+				throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not stopped...");
 			}
 			if (!pObject_)
 				return true;
@@ -171,28 +172,28 @@ public:
 			pObject_ = NULL;
 			return true;
 		}
-		std::cout << "Failed to terminate thread..." << std::endl;
+		std::cerr << "Failed to terminate thread: " << threadid_ << "..." << std::endl;
 		assert(false);
 		return false;
 	}
 	bool hasActiveThread() const {
 		MutexLock mutex(hMutex_, 5000L);
 		if (!mutex.hasMutex()) {
-			throw ThreadException("Could not retrieve mutex, thread not stopped...");
+			throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not stopped...");
 		}
 		return pObject_ != NULL;
 	}
 	const T* getThreadConst() const {
 		MutexLock mutex(hMutex_, 5000L);
 		if (!mutex.hasMutex()) {
-			throw ThreadException("Could not retrieve mutex, thread not stopped...");
+			throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not stopped...");
 		}
 		return pObject_;
 	}
 	T* getThread() {
 		MutexLock mutex(hMutex_, 5000L);
 		if (!mutex.hasMutex()) {
-			throw ThreadException("Could not retrieve mutex, thread not stopped...");
+			throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not stopped...");
 		}
 		return pObject_;
 	}

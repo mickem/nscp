@@ -10,6 +10,13 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Add option to recheck DNS in real time
 
+2006-11-18 MickeM
+ + Added support for empty NRPE checking (i.e.. chec_nrpe without a -c argument)
+ * Added error message when detected language is missing from counters.defs
+ + Added Swedish locale to counters.defs (yes, I switched to Swedish XP on my computer :)
+ * Fixed : (and possibly other problems) in counters when checking from check_nt (via NSCLient protocol)
+ + Added CheckAllExcept to CheckDrive to check all except the specified drives.
+
 2006-10-05 MickeM
  * Yayyy!!! (first fix in a looong while :)
  * Fixed a W2k3 "bug" (actually just an incorrect error) but the:
@@ -19,7 +26,7 @@ TODO:
    access to your nagios box (probably only a theoretical problem but hey! :)
    NOTICE this is "slow" since all hosts in the list are "looked up" each time you get a NRPE/NSClient 
    request it will be "slow" but I think it is not that much of a problem really.
-   NOTICE I dont have the posibility to test this so feel free to report if it works and if it doesn't.
+   NOTICE I don't have the possibility to test this so feel free to report if it works and if it doesn't.
    Set cache_allowed_hosts=0 to disable host cache
 
 2006-04-04 MickeM
@@ -99,7 +106,7 @@ TODO:
    To use the WMI module enable the WMICheck.dll (nsc.ini) and then run the following check:
    CheckWMI MaxWarn=10 MaxCrit=15 "Query:load=Select LoadPercentage from win32_Processor"
    The Max* are as every other check and sets limits. 
-   The Query works similarly to other check commands ie. Query:<name>=<WMI query>
+   The Query works similarly to other check commands i.e.. Query:<name>=<WMI query>
    So any other WMI query should work (notice this is experimental and not stable and has virtually 
    no error handling so it is likely to crash nsclient if you ask anything "non working".)
    I would *really* *really* like to get feedback on how to expand this concept to work better so feel free to come with feedback.
@@ -251,7 +258,7 @@ TODO:
  * A lot of rewrite to the NSC API
 
 2005-03-19 MickeM
- * Refactored out NSCLient Listener as a separate module
+ * Re factored out NSCLient Listener as a separate module
  + Added initial NRPE listener module (not yet implemented only a shell)
  * Changed Module API (Inject function has new syntax)
  + Added some tokenizer function to charEx

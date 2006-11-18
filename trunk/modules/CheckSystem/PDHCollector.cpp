@@ -66,6 +66,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		std::string section;
 		settings.setFile(NSCModuleHelper::getBasePath() + "\\counters.defs", true);
 
+		NSC_LOG_ERROR_STD("Getting counter info...");
 
 		try {
 			OSVERSIONINFO osVer = systemInfo::getOSVersion();
@@ -92,6 +93,11 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 
 			section = "0000" + strEx::ihextos(langId);
 			section = "0x" + section.substr(section.length()-4);
+			if (settings.getString(section, "Description", "_NOT_FOUND") == "_NOT_FOUND") {
+				NSC_LOG_ERROR_STD("Detected language: " + section + " but it could not be found in: counters.defs");
+				NSC_LOG_ERROR_STD("You need to manually configure performance counters!");
+				return 0;
+			}
 			NSC_DEBUG_MSG_STD("Detected language: " + settings.getString(section, "Description", "Not found") + " (" + section + ")");
 		} catch (systemInfo::SystemInfoException e) {
 			NSC_LOG_ERROR_STD("System detection failed, PDH will be disabled: " + e.error_);
@@ -110,8 +116,10 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
 	}
 
+	NSC_LOG_ERROR_STD("Attempting to open counter...");
 	try {
 		pdh.open();
+		NSC_LOG_ERROR_STD("Counters opend...");
 	} catch (const PDH::PDHException &e) {
 		NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.getError());
 		return 0;
