@@ -1,12 +1,18 @@
 #pragma once
 
-#include <windows.h>
 #include <string>
 
 namespace systemInfo {
-	struct SystemInfoException {
+	class SystemInfoException {
 		std::string error_;
-		SystemInfoException(std::string error, DWORD code) : error_(error){}
+	public:
+		SystemInfoException(std::string error, DWORD code) : error_(error)
+		{}
+		/*
+		std::string getError() const {
+			return error_;
+		}
+		*/
 
 	};
 	typedef LANGID (*tGetSystemDefaultUILanguage)(void);

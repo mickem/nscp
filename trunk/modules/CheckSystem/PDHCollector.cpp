@@ -99,8 +99,8 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 				return 0;
 			}
 			NSC_DEBUG_MSG_STD("Detected language: " + settings.getString(section, "Description", "Not found") + " (" + section + ")");
-		} catch (systemInfo::SystemInfoException e) {
-			NSC_LOG_ERROR_STD("System detection failed, PDH will be disabled: " + e.error_);
+		} catch (const systemInfo::SystemInfoException &e) {
+			//NSC_LOG_ERROR_STD("System detection failed, PDH will be disabled: " + e.getError());
 			NSC_LOG_ERROR_STD("To manual set performance counters you need to first set " C_SYSTEM_AUTODETECT_PDH "=0 in the config file, and then you also need to configure the various counter.");
 			return -1;
 		}

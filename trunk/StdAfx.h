@@ -10,10 +10,17 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
+#define _WINSOCKAPI_
+
+
+//#include <WinSock2.h>
+
 #define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
-#include <WinSock2.h>
 #include <windows.h>
 
+#define COMPILE_NEWAPIS_STUBS
+#define WANT_GETLONGPATHNAME_WRAPPER
+#include <NewAPIs.h>
 
 #include <iostream>
 #include <tchar.h>

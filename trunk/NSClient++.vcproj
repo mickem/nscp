@@ -49,9 +49,9 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE; _CRT_SECURE_NO_DEPRECATE"
 				StringPooling="true"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="stdafx.h"
@@ -83,7 +83,7 @@
 				IgnoreAllDefaultLibraries="false"
 				IgnoreDefaultLibraryNames=""
 				ModuleDefinitionFile=""
-				ProgramDatabaseFile=".\Release/IconService.pdb"
+				ProgramDatabaseFile=""
 				SubSystem="1"
 				OptimizeForWindows98="1"
 				TargetMachine="1"
@@ -221,7 +221,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\$(InputName).zip&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(InputDir)\Dist\$(InputName).zip $(InputDir)\Dist\*&#x0D;&#x0A;"
+				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\modules\*.pdb&quot;&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\*.zip&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
 			/>
 			<Tool
@@ -243,6 +243,104 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				StringPooling="true"
 				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="stdafx.h"
+				PrecompiledHeaderFile=".\Release/IconService.pch"
+				AssemblerListingLocation=".\Release/"
+				ObjectFile=".\Release/"
+				ProgramDataBaseFileName=".\Release/"
+				WarningLevel="3"
+				SuppressStartupBanner="true"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1036"
+				AdditionalIncludeDirectories="./res/"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				OutputFile=".\Dist/NSClient++.exe"
+				LinkIncremental="1"
+				SuppressStartupBanner="true"
+				IgnoreAllDefaultLibraries="false"
+				IgnoreDefaultLibraryNames=""
+				ModuleDefinitionFile=""
+				ProgramDatabaseFile=".\Release/IconService.pdb"
+				SubSystem="1"
+				OptimizeForWindows98="1"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Nightly|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\modules\*.pdb&quot;&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\*.zip&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
+				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TypeLibraryName=".\Release/IconService.tlb"
+				HeaderFileName=""
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				StringPooling="true"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="stdafx.h"
@@ -343,6 +441,14 @@
 						UsePrecompiledHeader="0"
 					/>
 				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\include\NSCHelper.cpp"
@@ -390,6 +496,16 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Distribution|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						Optimization="2"
+						PreprocessorDefinitions=""
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -485,6 +601,15 @@
 						Outputs="$(InputDir)\Dist\$(InputFileName)"
 					/>
 				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;&#x0D;&#x0A;"
+						Outputs="$(InputDir)\Dist\$(InputFileName)"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\counters.defs"
@@ -509,6 +634,15 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Distribution|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
 					>
 					<Tool
 						Name="VCCustomBuildTool"
@@ -549,10 +683,16 @@
 						Outputs=".\Doc"
 					/>
 				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\Doc\html\index.html"
-				>
+				<FileConfiguration
+					Name="Nightly|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
+						Outputs=".\Doc"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\files\license.txt"
@@ -566,12 +706,30 @@
 						Outputs="$(TargetDir)\$(InputFileName) "
 					/>
 				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName) "
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\NSC.dist"
 				>
 				<FileConfiguration
 					Name="Distribution|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\$(InputName).ini&quot;&#x0D;&#x0A;"
+						Outputs="$(InputDir)\Dist\$(InputName).ini"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
 					>
 					<Tool
 						Name="VCCustomBuildTool"
@@ -604,6 +762,17 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Distribution|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;&#x0D;&#x0A;"
+						AdditionalDependencies=""
+						Outputs="$(InputDir)\Dist\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool

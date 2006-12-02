@@ -113,7 +113,7 @@ std::string getPassword() {
 std::string NSClientListener::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');
 	std::string rPwd = getPassword();
-	if ((pwd.first != rPwd) && ((pwd.first == "None") && (!rPwd.empty())) ) {
+	if ((pwd.first != rPwd) || ((pwd.first == "None") && (!rPwd.empty())) ) {
 		NSC_LOG_ERROR_STD("Invalid password (" + pwd.first + ").");
 		return "ERROR: Invalid password."; 
 	} if (pwd.second.empty())

@@ -7,9 +7,9 @@
 #include <tlhelp32.h>
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
-#include <sysinfo.h>
 #include <checkHelpers.hpp>
 #include <map>
+#include <sysinfo.h>
 
 CheckSystem gCheckSystem;
 
@@ -78,6 +78,7 @@ bool CheckSystem::loadModule() {
 			NSC_LOG_ERROR_STD("TOOLHELP method not avalible, check " C_SYSTEM_ENUMPROC_METHOD " option.");
 		}
 	}
+	
 	return true;
 }
 /**

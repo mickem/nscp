@@ -120,20 +120,20 @@ NSCAPI::nagiosReturn RemoteConfiguration::getVariable(const unsigned int argLen,
 }
 int RemoteConfiguration::commandLineExec(const char* command,const unsigned int argLen,char** args) {
 	std::string str;
-	if (stricmp(command, "setVariable") == 0) {
+	if (_stricmp(command, "setVariable") == 0) {
 		setVariable(argLen, args, str);
-	} else if (stricmp(command, "writeConf") == 0) {
+	} else if (_stricmp(command, "writeConf") == 0) {
 		writeConf(argLen, args, str);
-	} else if (stricmp(command, "getVariable") == 0) {
+	} else if (_stricmp(command, "getVariable") == 0) {
 		setVariable(argLen, args, str);
-	} else if (stricmp(command, "ini2reg") == 0) {
+	} else if (_stricmp(command, "ini2reg") == 0) {
 		std::cout << "Migrating to registry settings..."<< std::endl;
 		NSCModuleHelper::ReadSettings(NSCAPI::settings_inifile);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEFILE, 0);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_inifile);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEREG, 1);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_registry);
-	} else if (stricmp(command, "reg2ini") == 0) {
+	} else if (_stricmp(command, "reg2ini") == 0) {
 		std::cout << "Migrating to INI file settings..."<< std::endl;
 		NSCModuleHelper::ReadSettings(NSCAPI::settings_registry);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEREG, 0);
