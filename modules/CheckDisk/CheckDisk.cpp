@@ -8,6 +8,7 @@
 #include <filter_framework.hpp>
 
 
+
 CheckDisk gCheckDisk;
 
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
@@ -429,7 +430,7 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, char **cha
 	time_t value = (now-finder.info.ullLastWriteTime)/10000000;
 
 	char buf[51];
-	int l = strftime(buf, 50, dstr.c_str(), gmtime(&value));
+	size_t l = strftime(buf, 50, dstr.c_str(), gmtime(&value));
 	if (l <= 0 || l >= 50) {
 		message = "ERROR: could format time.";
 		return NSCAPI::returnUNKNOWN;
@@ -494,7 +495,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, char **char
 		message = "CheckFile ok";
 	return returnCode;
 }
-
 
 NSCAPI::nagiosReturn CheckDisk::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	if (command == "CheckFileSize") {

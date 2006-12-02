@@ -1,4 +1,5 @@
 #pragma once
+
 #include "PDHCollector.h"
 #include <CheckMemory.h>
 

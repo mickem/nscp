@@ -21,7 +21,10 @@ namespace strEx {
 
 	inline std::string format_date(time_t time, std::string format) {
 		char buf[51];
-		size_t l = strftime(buf, 50, format.c_str(), gmtime(&time));
+		struct tm nt;
+		if (gmtime_s(&nt, &time) != 0)
+			return "";
+		size_t l = strftime(buf, 50, format.c_str(), &nt);
 		if (l <= 0 || l >= 50)
 			return "";
 		buf[l] = 0;
@@ -178,7 +181,7 @@ namespace strEx {
 		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
-		while ((cpy > 1024)&&(idx<BKMG_SIZE)) {
+		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
 			cpy/=1024;
 			idx++;
 		}
@@ -249,7 +252,7 @@ namespace strEx {
 		}
 
 		static int compare(const _E *x, const _E *y, size_t n) { 
-			return strnicmp( x, y, n );
+			return _strnicmp( x, y, n );
 		}
 
 		//  There's no memichr(), so we roll our own.  It ain't rocket science.
@@ -280,7 +283,7 @@ namespace strEx {
 	struct case_blind_string_compare : public std::binary_function<std::string, std::string, bool>
 	{
 		bool operator() (const std::string& x, const std::string& y) const {
-			return stricmp( x.c_str(), y.c_str() ) < 0;
+			return _stricmp( x.c_str(), y.c_str() ) < 0;
 		}
 	};
 #ifdef _DEBUG

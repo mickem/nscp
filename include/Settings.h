@@ -3,7 +3,6 @@
 #include <Singleton.h>
 #include <string>
 #include <map>
-#include <windows.h>
 #include <INISettings.h>
 #include <REGSettings.h>
 #define BUFF_LEN 4096
