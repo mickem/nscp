@@ -379,7 +379,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 			NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 			switch (c) {
 				case NSCAPI::returnInvalidBufferLen:
-					LOG_ERROR("Return buffer to small to handle this command.");
+					LOG_ERROR("UNKNOWN: Return buffer to small to handle this command.");
 					return c;
 				case NSCAPI::returnIgnored:
 					break;
@@ -520,6 +520,12 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const char* section, char*** aBuffer
 	*bufLen = len;
 	return NSCAPI::isSuccess;
 }
+NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(char*** aBuffer, unsigned int * bufLen) {
+	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
+	*bufLen = 0;
+	*aBuffer = NULL;
+	return NSCAPI::isSuccess;
+}
 
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 	if (mainClient.logDebug())
@@ -650,39 +656,41 @@ NSCAPI::errorReturn NSAPIRehash(int flag) {
 
 
 LPVOID NSAPILoader(char*buffer) {
-	if (stricmp(buffer, "NSAPIGetApplicationName") == 0)
+	if (_stricmp(buffer, "NSAPIGetApplicationName") == 0)
 		return &NSAPIGetApplicationName;
-	if (stricmp(buffer, "NSAPIGetApplicationVersionStr") == 0)
+	if (_stricmp(buffer, "NSAPIGetApplicationVersionStr") == 0)
 		return &NSAPIGetApplicationVersionStr;
-	if (stricmp(buffer, "NSAPIGetSettingsSection") == 0)
-		return &NSAPIGetSettingsSection;
-	if (stricmp(buffer, "NSAPIGetSettingsString") == 0)
+	if (_stricmp(buffer, "NSAPIGetSettingsString") == 0)
 		return &NSAPIGetSettingsString;
-	if (stricmp(buffer, "NSAPIGetSettingsInt") == 0)
+	if (_stricmp(buffer, "NSAPIGetSettingsSection") == 0)
+		return &NSAPIGetSettingsSection;
+	if (_stricmp(buffer, "NSAPIReleaseSettingsSectionBuffer") == 0)
+		return &NSAPIReleaseSettingsSectionBuffer;
+	if (_stricmp(buffer, "NSAPIGetSettingsInt") == 0)
 		return &NSAPIGetSettingsInt;
-	if (stricmp(buffer, "NSAPIMessage") == 0)
+	if (_stricmp(buffer, "NSAPIMessage") == 0)
 		return &NSAPIMessage;
-	if (stricmp(buffer, "NSAPIStopServer") == 0)
+	if (_stricmp(buffer, "NSAPIStopServer") == 0)
 		return &NSAPIStopServer;
-	if (stricmp(buffer, "NSAPIInject") == 0)
+	if (_stricmp(buffer, "NSAPIInject") == 0)
 		return &NSAPIInject;
-	if (stricmp(buffer, "NSAPIGetBasePath") == 0)
+	if (_stricmp(buffer, "NSAPIGetBasePath") == 0)
 		return &NSAPIGetBasePath;
-	if (stricmp(buffer, "NSAPICheckLogMessages") == 0)
+	if (_stricmp(buffer, "NSAPICheckLogMessages") == 0)
 		return &NSAPICheckLogMessages;
-	if (stricmp(buffer, "NSAPIEncrypt") == 0)
+	if (_stricmp(buffer, "NSAPIEncrypt") == 0)
 		return &NSAPIEncrypt;
-	if (stricmp(buffer, "NSAPIDecrypt") == 0)
+	if (_stricmp(buffer, "NSAPIDecrypt") == 0)
 		return &NSAPIDecrypt;
-	if (stricmp(buffer, "NSAPISetSettingsString") == 0)
+	if (_stricmp(buffer, "NSAPISetSettingsString") == 0)
 		return &NSAPISetSettingsString;
-	if (stricmp(buffer, "NSAPISetSettingsInt") == 0)
+	if (_stricmp(buffer, "NSAPISetSettingsInt") == 0)
 		return &NSAPISetSettingsInt;
-	if (stricmp(buffer, "NSAPIWriteSettings") == 0)
+	if (_stricmp(buffer, "NSAPIWriteSettings") == 0)
 		return &NSAPIWriteSettings;
-	if (stricmp(buffer, "NSAPIReadSettings") == 0)
+	if (_stricmp(buffer, "NSAPIReadSettings") == 0)
 		return &NSAPIReadSettings;
-	if (stricmp(buffer, "NSAPIRehash") == 0)
+	if (_stricmp(buffer, "NSAPIRehash") == 0)
 		return &NSAPIRehash;
 	return NULL;
 }

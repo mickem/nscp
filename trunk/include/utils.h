@@ -39,6 +39,8 @@ unsigned long calculate_crc32(const char *buffer, int buffer_size);
 			else if (p__.first == value) { type o; o.obj = p__.second; list.push_back(o); }
 #define MAP_OPTIONS_PUSH(value, list) \
 			else if (p__.first == value) { list.push_back(p__.second); }
+#define MAP_OPTIONS_INSERT(value, list) \
+			else if (p__.first == value) { list.insert(p__.second); }
 #define MAP_OPTIONS_DO(action) \
 			else if (p__.first == value) { action; }
 #define MAP_OPTIONS_STR(value, obj) \

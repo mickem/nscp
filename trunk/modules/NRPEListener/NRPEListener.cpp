@@ -16,7 +16,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	return TRUE;
 }
 
-NRPEListener::NRPEListener() {
+NRPEListener::NRPEListener() : noPerfData_(false) {
 }
 NRPEListener::~NRPEListener() {
 }
@@ -36,6 +36,7 @@ bool getCacheAllowedHosts() {
 
 bool NRPEListener::loadModule() {
 	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
+	noPerfData_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA,NRPE_SETTINGS_PERFDATA_DEFAULT)==1;
 	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
 	std::list<std::string> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::string>::const_iterator it;
@@ -130,7 +131,7 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 		}
 	}
 
-	if ((str.substr(0,6) == "inject")&&(str.length() > 7)) {
+	if ((str.length() > 7)&&(str.substr(0,6) == "inject")) {
 		strEx::token t = strEx::getToken(str.substr(7), ' ');
 		std::string s = t.second;
 		std::string sTarget;
@@ -152,9 +153,14 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 					pEnd = p-1;
 				else
 					pEnd = s.length()-1;
-
+				if (p != std::string::npos) {
+					p++;
+				}
 			} else {
 				pEnd = p = s.find(' ', ++p);
+				if (p != std::string::npos) {
+					p = s.find_first_not_of(' ', p);
+				}
 			}
 			if (!sTarget.empty())
 				sTarget += "!";
@@ -166,7 +172,7 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 				break;
 			}
 			sTarget += s.substr(pStart,pEnd-pStart);
-			p++;
+			//p++;
 		}
 		return NSCModuleHelper::InjectSplitAndCommand(t.first, sTarget, '!', message, perf);
 	}
@@ -331,8 +337,8 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
 		if (!cmd.second.empty()) {
-			NSC_LOG_ERROR("Request contained arguments (not currently allowed).");
-			throw NRPEException("Request contained arguments (not currently allowed).");
+			NSC_LOG_ERROR("Request contained arguments (not currently allowed, check the allow_arguments option).");
+			throw NRPEException("Request contained arguments (not currently allowed, check the allow_arguments option).");
 		}
 	}
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
@@ -347,7 +353,25 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	}
 
 	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
-	if (perf.empty()) {
+	switch (ret) {
+		case NSCAPI::returnInvalidBufferLen:
+			msg = "UNKNOWN: Return buffer to small to handle this command.";
+			ret = NSCAPI::returnUNKNOWN;
+			break;
+		case NSCAPI::returnIgnored:
+			msg = "UNKNOWN: No handler for that command";
+			ret = NSCAPI::returnUNKNOWN;
+			break;
+		case NSCAPI::returnOK:
+		case NSCAPI::returnWARN:
+		case NSCAPI::returnCRIT:
+		case NSCAPI::returnUNKNOWN:
+			break;
+		default:
+			msg = "UNKNOWN: Internal error.";
+			ret = NSCAPI::returnUNKNOWN;
+	}
+	if (perf.empty()||noPerfData_) {
 		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg);
 	} else {
 		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + "|" + perf);

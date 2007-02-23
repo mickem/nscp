@@ -102,6 +102,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	bool bCheckAll = false;
 	bool bCheckAllOthers = false;
 	bool bNSClient = false;
+	bool bPerfData = true;
 	std::list<DriveConatiner> drives;
 
 	MAP_OPTIONS_BEGIN(args)
@@ -112,6 +113,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterCDROM, "CDROM")
 		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterRemovable, "REMOVABLE")
 		MAP_OPTIONS_BOOL_VALUE("FilterType", bFilterRemote, "REMOTE")
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
 		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL_OTHERS, bCheckAllOthers)
@@ -182,6 +184,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		DriveConatiner drive = (*pit);
 		if (drive.data.length() == 1)
 			drive.data += ":";
+		if (!bPerfData)
+			drive.perfData = false;
 		UINT drvType = GetDriveType(drive.data.c_str());
 
 		if ((!bFilter)&&!((drvType == DRIVE_FIXED)||(drvType == DRIVE_NO_ROOT_DIR))) {
@@ -230,6 +234,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	bool bPerfData = true;
 	if (args.empty()) {
 		message = "Missing argument(s).";
 		return NSCAPI::returnUNKNOWN;
@@ -244,6 +249,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
 		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
 		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 		else if (p2.first == "File") {
 			tmpObject.data = p__.second;
@@ -262,6 +268,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 		get_size sizeFinder;
 		recursive_scan<get_size>(path.data, sizeFinder);
 		path.setDefault(tmpObject);
+		if (!bPerfData)
+			path.perfData = false;
 
 		checkHolders::disk_size_type size = sizeFinder.getSize();
 		path.runCheck(size, returnCode, message, perf);
@@ -455,11 +463,13 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, char **char
 	unsigned int truncate = 0;
 	CheckFileConatiner query;
 	std::string syntax = "%filename%";
+	bool bPerfData = true;
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
 			MAP_OPTIONS_NUMERIC_ALL(query, "")
 			MAP_OPTIONS_STR2INT("truncate", truncate)
+			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_STR("syntax", syntax)
 			MAP_OPTIONS_PUSH("path", paths)
 			MAP_OPTIONS_PUSH("file", paths)

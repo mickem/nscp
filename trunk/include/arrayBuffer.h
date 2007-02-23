@@ -25,14 +25,16 @@
  *
  */
 namespace arrayBuffer {
+	typedef char* arrayBufferItem;
+	typedef arrayBufferItem* arrayBuffer;
 	typedef std::list<std::string> arrayList;
 	arrayList arrayBuffer2list(const unsigned int argLen, char **argument);
-	char ** list2arrayBuffer(const arrayList lst, unsigned int &argLen);
-	char ** split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen);
-	char ** split2arrayBuffer(const std::string buffer, char splitChar, unsigned int &argLen);
+	arrayBuffer list2arrayBuffer(const arrayList lst, unsigned int &argLen);
+	arrayBuffer split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen);
+	arrayBuffer split2arrayBuffer(const std::string buffer, char splitChar, unsigned int &argLen);
 	std::string arrayBuffer2string(char **argument, const unsigned int argLen, std::string join);
-	char ** createEmptyArrayBuffer(unsigned int &argLen);
-	void destroyArrayBuffer(char **argument, const unsigned int argLen);
+	arrayBuffer createEmptyArrayBuffer(unsigned int &argLen);
+	void destroyArrayBuffer(arrayBuffer argument, const unsigned int argLen);
 
 #ifdef _DEBUG
 	void test_createEmptyArrayBuffer();

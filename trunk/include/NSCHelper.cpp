@@ -101,6 +101,7 @@ namespace NSCModuleHelper {
 	lpNSAPIGetApplicationName fNSAPIGetApplicationName = NULL;
 	lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr = NULL;
 	lpNSAPIGetSettingsSection fNSAPIGetSettingsSection = NULL;
+	lpNSAPIReleaseSettingsSectionBuffer fNSAPIReleaseSettingsSectionBuffer = NULL;
 	lpNSAPIGetSettingsString fNSAPIGetSettingsString = NULL;
 	lpNSAPIGetSettingsInt fNSAPIGetSettingsInt = NULL;
 	lpNSAPIMessage fNSAPIMessage = NULL;
@@ -288,13 +289,16 @@ std::string NSCModuleHelper::getSettingsString(std::string section, std::string 
 std::list<std::string> NSCModuleHelper::getSettingsSection(std::string section) {
 	if (!fNSAPIGetSettingsSection)
 		throw NSCMHExcpetion("NSCore has not been initiated...");
-	char ** aBuffer = NULL;
+	arrayBuffer::arrayBuffer aBuffer = NULL;
 	unsigned int argLen = 0;
 	if (fNSAPIGetSettingsSection(section.c_str(), &aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw NSCMHExcpetion("Settings could not be retrieved.");
 	}
 	std::list<std::string> ret = arrayBuffer::arrayBuffer2list(argLen, aBuffer);
-	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
+	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
+		throw NSCMHExcpetion("Settings could not be destroyed.");
+	}
+	assert(aBuffer == NULL);
 	return ret;
 }
 /**
@@ -501,6 +505,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIGetSettingsInt = (NSCModuleHelper::lpNSAPIGetSettingsInt)f("NSAPIGetSettingsInt");
 	NSCModuleHelper::fNSAPIGetSettingsString = (NSCModuleHelper::lpNSAPIGetSettingsString)f("NSAPIGetSettingsString");
 	NSCModuleHelper::fNSAPIGetSettingsSection = (NSCModuleHelper::lpNSAPIGetSettingsSection)f("NSAPIGetSettingsSection");
+	NSCModuleHelper::fNSAPIReleaseSettingsSectionBuffer = (NSCModuleHelper::lpNSAPIReleaseSettingsSectionBuffer)f("NSAPIReleaseSettingsSectionBuffer");
 	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f("NSAPIMessage");
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f("NSAPIStopServer");
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f("NSAPIInject");
@@ -520,7 +525,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 * @param buf Buffer to store the module name
 * @param bufLen Length of buffer
 * @param str String to store inside the buffer
-* @return buffer copy status
+* @	 copy status
 */
 NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleName(char* buf, unsigned int bufLen, std::string str) {
 	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);

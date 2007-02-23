@@ -78,7 +78,8 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(char*,unsigned int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const char*,const char*,const char*,char*,unsigned int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const char*, const char*, int);
-	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const char*, char***, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const char*, arrayBuffer::arrayBuffer*, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef void (*lpNSAPIMessage)(int, const char*, const int, const char*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const unsigned int, char **, char *, unsigned int, char *, unsigned int);

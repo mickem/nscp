@@ -4,7 +4,7 @@
 #define SZAPPNAME "NSClient++"
 
 // Version
-#define SZVERSION "0.2.6 2006-11-18"
+#define SZVERSION "0.2.7 2007-02-22"
 
 // internal name of the service
 #define SZSERVICENAME        "NSClientpp"
@@ -30,6 +30,7 @@
 #define SHOW_ALL "ShowAll"
 #define SHOW_FAIL "ShowFail"
 #define NSCLIENT "nsclient"
+#define IGNORE_PERFDATA "ignore-perf-data"
 #define CHECK_ALL "CheckAll"
 #define CHECK_ALL_OTHERS "CheckAllOthers"
 
@@ -61,6 +62,8 @@
 #define NRPE_SETTINGS_USE_SSL_DEFAULT 1
 #define NRPE_SETTINGS_LISTENQUE "socket_back_log"
 #define NRPE_SETTINGS_LISTENQUE_DEFAULT 0
+#define NRPE_SETTINGS_PERFDATA "performance_data"
+#define NRPE_SETTINGS_PERFDATA_DEFAULT 1
 
 // Check System Settings
 #define C_SYSTEM_SECTION_TITLE "Check System"
