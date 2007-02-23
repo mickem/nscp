@@ -53,9 +53,10 @@ namespace checkHolders {
 		std::string alias;
 
 		showType show;
+		bool perfData;
 
 
-		CheckConatiner() : show(showUnknown)
+		CheckConatiner() : show(showUnknown), perfData(true)
 		{}
 		CheckConatiner(std::string data_, TContents warn_, TContents crit_) 
 			: data(data_), warn(warn_), crit(crit_), show(showUnknown) 
@@ -96,7 +97,8 @@ namespace checkHolders {
 			}else if (show == showShort) {
 				tstr = getAlias() + ": " + TContents::toStringShort(value);
 			}
-			perf += gatherPerfData(value);
+			if (perfData)
+				perf += gatherPerfData(value);
 			if (!message.empty() && !tstr.empty())
 				message += ", ";
 			if (!tstr.empty())
@@ -670,6 +672,7 @@ namespace checkHolders {
 	typedef MaxMinBounds<NumericBounds<__int64, int64_handler> > MaxMinBoundsInt64;
 	typedef MaxMinBounds<NumericBounds<int, int_handler> > MaxMinBoundsInteger;
 	typedef MaxMinBounds<NumericBounds<unsigned int, int_handler> > MaxMinBoundsUInteger;
+	typedef MaxMinBounds<NumericBounds<unsigned long int, int_handler> > MaxMinBoundsULongInteger;
 	typedef MaxMinBounds<NumericBounds<disk_size_type, disk_size_handler<disk_size_type> > > MaxMinBoundsDiscSize;
 	typedef MaxMinBounds<NumericBounds<time_type, time_handler<time_type> > > MaxMinBoundsTime;
 

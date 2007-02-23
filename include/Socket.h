@@ -102,13 +102,18 @@ namespace simpleSocket {
 		static unsigned long inet_addr(std::string addr) {
 			return ::inet_addr(addr.c_str());
 		}
+		static std::string inet_ntoa(unsigned long addr) {
+			struct in_addr a;
+			a.S_un.S_addr = addr;
+			return ::inet_ntoa(a);
+		}
 		static std::string getHostByName(std::string ip) {
 			hostent* remoteHost;
 			remoteHost = gethostbyname(ip.c_str());
 			if (remoteHost == NULL)
 				throw SocketException("gethostbyname failed for " + ip + ": ", ::WSAGetLastError());
 			// @todo investigate it this is "correct" and dont use before!
-			return inet_ntoa(*reinterpret_cast<in_addr*>(remoteHost->h_addr));
+			return ::inet_ntoa(*reinterpret_cast<in_addr*>(remoteHost->h_addr));
 		}
 		static std::string getHostByAddr(std::string ip) {
 			hostent* remoteHost;
@@ -164,7 +169,7 @@ namespace simpleSocket {
 				throw SocketException("ioctlsocket failed: ", ::WSAGetLastError());
 		}
 		virtual std::string getAddrString() {
-			return inet_ntoa(from_.sin_addr);
+			return ::inet_ntoa(from_.sin_addr);
 		}
 		virtual void printError(std::string file, int line, std::string error);
 	};
@@ -423,11 +428,13 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		core->socket(AF_INET,SOCK_STREAM,0);
 		core->setAddr(AF_INET, core->bindAddres_, htons(core->bindPort_));
 		core->bind();
+		NSC_DEBUG_MSG_STD("Bound to: " + TListenerType::inet_ntoa(core->bindAddres_) + ":" + strEx::itos(core->bindPort_));
 		if (core->listenQue_ != 0)
 			core->listen(core->listenQue_);
 		else
 			core->listen();
 		core->setNonBlock();
+		NSC_DEBUG_MSG_STD("Socket ready...");
 		while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
 			try {
 				tSocket client;
@@ -441,6 +448,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 	} catch (SocketException e) {
 		core->printError(__FILE__, __LINE__, e.getMessage());
 	}
+	NSC_DEBUG_MSG_STD("Listener is preparing to shutdown...");
 	core->shutdown(SD_BOTH);
 	core->close();
 	core->onClose();

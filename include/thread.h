@@ -181,6 +181,8 @@ public:
 		if (!mutex.hasMutex()) {
 			throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not stopped...");
 		}
+		if (bThreadHasTerminated||bThreadHasBeenClosed)
+			return false;
 		return pObject_ != NULL;
 	}
 	const T* getThreadConst() const {
@@ -188,6 +190,8 @@ public:
 		if (!mutex.hasMutex()) {
 			throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not stopped...");
 		}
+		if (bThreadHasTerminated||bThreadHasBeenClosed)
+			return NULL;
 		return pObject_;
 	}
 	T* getThread() {
@@ -195,6 +199,8 @@ public:
 		if (!mutex.hasMutex()) {
 			throw ThreadException("Could not retrieve mutex, thread (" + threadid_ + ") not stopped...");
 		}
+		if (bThreadHasTerminated||bThreadHasBeenClosed)
+			return NULL;
 		return pObject_;
 	}
 private:

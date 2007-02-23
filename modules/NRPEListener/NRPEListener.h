@@ -13,6 +13,7 @@ private:
 	commandList commands;
 	unsigned int timeout;
 	socketHelpers::allowedHosts allowedHosts;
+	bool noPerfData_;
 
 public:
 	NRPEListener();

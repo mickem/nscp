@@ -2,13 +2,26 @@ TODO:
  * Process times and similar ?
  * Fix configuration GUI (low priority)
  * Fix installer (after configuration UI)
- * Service check to use Auto (filter by started setting etc.)
  * Add module for relaying events
  * Add filtering to WMI module
  * Fix WMI module
  * Fix PDH problems
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Add option to recheck DNS in real time
+
+2006-02-22 MickeM
+ + Added debug output to see if the socket is bound and/or has shutdown.
+ * Fixed a potential bug in the threadmanager.
+ + Added configuration option for suppressing performance datat to the NRPE section.
+   Set performance_data=0 to stop sendoing performancedata to nagios
+ + New (better?) (simpler?) eventlog checking
+ + Added option to most commands (ignore-perf-data) to suppres performance data
+ + Added option CheckAll for checking all auto-start services to checkServiceState.
+   Also an exclude=<service> to exclude checking that.
+ * Fixed return syntax for PROCSTATE nsclient
+
+2006-02-21 MickeM
+ * Fixed "broken password check" (again) in NSClient listener (this time it is correct! :)
 
 2006-12-02 MickeM
  + Managed to build so it works on NT 4.0 (SP6a) and W2K3

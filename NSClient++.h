@@ -99,6 +99,7 @@ void NSAPIMessage(int msgType, const char* file, const int line, const char* mes
 void NSAPIStopServer(void);
 NSCAPI::nagiosReturn NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
 NSCAPI::errorReturn NSAPIGetSettingsSection(const char*, char***, unsigned int *);
+NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(char*** aBuffer, unsigned int * bufLen);
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
 NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);
 NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);

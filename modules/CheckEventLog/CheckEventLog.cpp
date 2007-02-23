@@ -192,27 +192,35 @@ struct eventlog_filter {
 };
 
 
-#define MAP_FILTER(value, obj) \
-			else if (p__.first == value) { eventlog_filter filter; filter.obj = p__.second; filter_chain.push_back(filter); }
+#define MAP_FILTER(value, obj, filtermode) \
+			else if (p__.first == value) { eventlog_filter filter; filter.obj = p__.second; filter_chain.push_back(filteritem_type(filtermode, filter)); }
 
 
 #define BUFFER_SIZE 1024*64
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	if (command != "CheckEventLog")
 		return NSCAPI::returnIgnored;
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsUInteger> EventLogQueryConatiner;
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsULongInteger> EventLogQueryConatiner;
+	typedef std::pair<int,eventlog_filter> filteritem_type;
+	typedef std::list<filteritem_type > filterlist_type;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 
 	std::list<std::string> files;
-	std::list<eventlog_filter> filter_chain;
+	filterlist_type filter_chain;
 	EventLogQueryConatiner query;
 
+	bool bPerfData = true;
 	bool bFilterIn = true;
 	bool bFilterAll = false;
+	bool bFilterNew = false;
 	bool bShowDescriptions = false;
 	unsigned int truncate = 0;
 	std::string syntax;
+	const int filter_plus = 1;
+	const int filter_minus = 2;
+	const int filter_normal = 3;
+	const int filter_compat = 3;
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
@@ -220,16 +228,44 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			MAP_OPTIONS_STR2INT("truncate", truncate)
 			MAP_OPTIONS_BOOL_TRUE("descriptions", bShowDescriptions)
 			MAP_OPTIONS_PUSH("file", files)
+			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
+			MAP_OPTIONS_BOOL_EX("filter", bFilterNew, "new", "old")
 			MAP_OPTIONS_BOOL_EX("filter", bFilterIn, "in", "out")
 			MAP_OPTIONS_BOOL_EX("filter", bFilterAll, "all", "any")
 			MAP_OPTIONS_STR("syntax", syntax)
-			MAP_FILTER("filter-eventType", eventType)
-			MAP_FILTER("filter-severity", eventSeverity)
-			MAP_FILTER("filter-eventID", eventID)
-			MAP_FILTER("filter-eventSource", eventSource)
-			MAP_FILTER("filter-generated", timeGenerated)
-			MAP_FILTER("filter-written", timeWritten)
-			MAP_FILTER("filter-message", message)
+/*
+			MAP_FILTER_OLD("filter-eventType", eventType)
+			MAP_FILTER_OLD("filter-severity", eventSeverity)
+			MAP_FILTER_OLD("filter-eventID", eventID)
+			MAP_FILTER_OLD("filter-eventSource", eventSource)
+			MAP_FILTER_OLD("filter-generated", timeGenerated)
+			MAP_FILTER_OLD("filter-written", timeWritten)
+			MAP_FILTER_OLD("filter-message", message)
+*/
+			MAP_FILTER("filter+eventType", eventType, filter_plus)
+			MAP_FILTER("filter+severity", eventSeverity, filter_plus)
+			MAP_FILTER("filter+eventID", eventID, filter_plus)
+			MAP_FILTER("filter+eventSource", eventSource, filter_plus)
+			MAP_FILTER("filter+generated", timeGenerated, filter_plus)
+			MAP_FILTER("filter+written", timeWritten, filter_plus)
+			MAP_FILTER("filter+message", message, filter_plus)
+
+			MAP_FILTER("filter.eventType", eventType, filter_normal)
+			MAP_FILTER("filter.severity", eventSeverity, filter_normal)
+			MAP_FILTER("filter.eventID", eventID, filter_normal)
+			MAP_FILTER("filter.eventSource", eventSource, filter_normal)
+			MAP_FILTER("filter.generated", timeGenerated, filter_normal)
+			MAP_FILTER("filter.written", timeWritten, filter_normal)
+			MAP_FILTER("filter.message", message, filter_normal)
+
+			MAP_FILTER("filter-eventType", eventType, filter_minus)
+			MAP_FILTER("filter-severity", eventSeverity, filter_minus)
+			MAP_FILTER("filter-eventID", eventID, filter_minus)
+			MAP_FILTER("filter-eventSource", eventSource, filter_minus)
+			MAP_FILTER("filter-generated", timeGenerated, filter_minus)
+			MAP_FILTER("filter-written", timeWritten, filter_minus)
+			MAP_FILTER("filter-message", message, filter_minus)
+
 			MAP_OPTIONS_MISSING(message, "Unknown argument: ")
 		MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
@@ -240,7 +276,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		return NSCAPI::returnUNKNOWN;
 	}
 
-	unsigned int hit_count = 0;
+	unsigned long int hit_count = 0;
 
 	for (std::list<std::string>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
 		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
@@ -249,7 +285,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			return NSCAPI::returnUNKNOWN;
 		}
 
-		DWORD dwThisRecord, dwRead, dwNeeded;
+		//DWORD dwThisRecord;
+		DWORD dwRead, dwNeeded;
 		EVENTLOGRECORD *pevlr;
 		BYTE bBuffer[BUFFER_SIZE]; 
 
@@ -258,7 +295,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		__time64_t ltime;
 		_time64(&ltime);
 
-		GetOldestEventLogRecord(hLog, &dwThisRecord);
+		//GetOldestEventLogRecord(hLog, &dwThisRecord);
 
 		while (ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
 			0, pevlr, BUFFER_SIZE, &dwRead, &dwNeeded))
@@ -268,25 +305,46 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				bool bMatch = bFilterAll;
 				EventLogRecord record(pevlr, ltime);
 
-				for (std::list<eventlog_filter>::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
-					bool bTmpMatched = (*cit3).matchFilter(record);
-					if (bFilterAll) {
-						if (!bTmpMatched) {
-							bMatch = false;
-							break;
+				for (filterlist_type::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
+					int mode = (*cit3).first;
+					bool bTmpMatched = (*cit3).second.matchFilter(record);
+					if (!bFilterNew) {
+						if (bFilterAll) {
+							if (!bTmpMatched) {
+								bMatch = false;
+								break;
+							}
+						} else {
+							if (bTmpMatched) {
+								bMatch = true;
+								break;
+							}
 						}
 					} else {
-						if (bTmpMatched) {
-							bMatch = true;
+						if ((mode == filter_minus)&&(bTmpMatched)) {
+							// a -<filter> hit so thrash item and bail out!
+							bMatch = false;
 							break;
+						} else if ((mode == filter_plus)&&(!bTmpMatched)) {
+								// a +<filter> missed hit so thrash item and bail out!
+								bMatch = false;
+								break;
+						} else if (bTmpMatched) {
+							bMatch = true;
 						}
 					}
 				}
+				bool match = false;
+				if ((!bFilterNew)&&((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch))) {
+					match = true;
+				} else if (bFilterNew&&bMatch) {
+					match = true;
+				}
 
-				if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
+				if (match) {
 					if (!syntax.empty()) {
 						strEx::append_list(message, record.render(syntax));
-					} else if (bShowDescriptions) {
+					} else if (!bShowDescriptions) {
 						strEx::append_list(message, record.eventSource());
 					} else {
 						strEx::append_list(message, record.eventSource());
@@ -303,6 +361,9 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		} 
 		CloseEventLog(hLog);
 	}
+
+	if (!bPerfData)
+		query.perfData = false;
 	query.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + "...";

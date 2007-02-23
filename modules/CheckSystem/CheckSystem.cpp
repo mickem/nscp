@@ -9,6 +9,7 @@
 #include <EnumProcess.h>
 #include <checkHelpers.hpp>
 #include <map>
+#include <set>
 #include <sysinfo.h>
 
 CheckSystem gCheckSystem;
@@ -308,6 +309,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 	std::list<CPULoadConatiner> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bNSClient = false;
+	bool bPerfData = true;
 	CPULoadConatiner tmpObject;
 
 	tmpObject.data = "cpuload";
@@ -316,6 +318,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 		MAP_OPTIONS_NUMERIC_ALL(tmpObject, "")
 		MAP_OPTIONS_STR("warn", tmpObject.warn.max)
 		MAP_OPTIONS_STR("crit", tmpObject.crit.max)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_STR_AND("time", tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_STR_AND("Time", tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_SHOWALL(tmpObject)
@@ -348,6 +351,8 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 			msg += strEx::itos(value);
 		} else {
 			load.setDefault(tmpObject);
+			if (!bPerfData)
+				load.perfData = false;
 			load.runCheck(value, returnCode, msg, perf);
 		}
 	}
@@ -370,6 +375,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
 	}
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bNSClient = false;
+	bool bPerfData = true;
 	UpTimeConatiner bounds;
 
 	bounds.data = "uptime";
@@ -378,6 +384,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
 		MAP_OPTIONS_NUMERIC_ALL(bounds, "")
 		MAP_OPTIONS_STR("warn", bounds.warn.min)
 		MAP_OPTIONS_STR("crit", bounds.crit.min)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_STR("Alias", bounds.data)
 		MAP_OPTIONS_SHOWALL(bounds)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
@@ -395,6 +402,8 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
 		msg = strEx::itos(value);
 	} else {
 		value *= 1000;
+		if (!bPerfData)
+			bounds.perfData = false;
 		bounds.runCheck(value, returnCode, msg, perf);
 	}
 
@@ -440,23 +449,24 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<StateConatiner> list;
+	std::set<std::string> excludeList;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bNSClient = false;
 	StateConatiner tmpObject;
+	bool bPerfData = true;
+	bool bAutoStart = false;
 
-	tmpObject.data = "uptime";
-	tmpObject.warn.state = "started";
-
+	tmpObject.data = "service";
+	tmpObject.crit.state = "started";
+	//{{
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_BOOL_TRUE("CheckAll", bAutoStart)
+		MAP_OPTIONS_INSERT("exclude", excludeList)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
-			else if (p2.first == "Time") {
-				tmpObject.data = p__.second;
-				tmpObject.alias = p2.second;
-				list.push_back(tmpObject);
-			}
 			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
 		else { 
@@ -468,7 +478,27 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 			list.push_back(tmpObject); 
 		}
 	MAP_OPTIONS_END()
-
+	//}}
+	if (bAutoStart) {
+		// get a list of all service with startup type Automatic 
+		std::list<TNtServiceInfo> service_list_automatic;
+		TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE,&service_list_automatic); 
+		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
+			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
+				if((*service).m_dwStartType == 2 ) {
+					tmpObject.data = (*service).m_strServiceName;
+					tmpObject.crit.state = "started"; 
+					list.push_back(tmpObject); 
+					//stl_forward.push_back((*service).m_strServiceName); 
+				}
+				else if((*service).m_dwStartType == 4 ) {
+					tmpObject.data = (*service).m_strServiceName;
+					tmpObject.crit.state = "stopped"; 
+					list.push_back(tmpObject); 
+				}
+			}
+		} 
+	}
 	for (std::list<StateConatiner>::iterator it = list.begin(); it != list.end(); ++it) {
 		TNtServiceInfo info;
 		if (bNSClient) {
@@ -508,6 +538,8 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 				value = checkHolders::state_stopped;
 			else
 				value = checkHolders::state_none;
+			if (!bPerfData)
+				(*it).perfData = false;
 			(*it).runCheck(value, returnCode, msg, perf);
 		}
 
@@ -541,6 +573,7 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	}
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
+	bool bPerfData = true;
 	bool bNSClient = false;
 	MemoryConatiner bounds;
 	typedef enum { tPaged, tPage, tVirtual, tPhysical } check_type;
@@ -550,6 +583,7 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 		MAP_OPTIONS_DISK_ALL(bounds, "", "Free", "Used")
 		MAP_OPTIONS_STR("Alias", bounds.data)
 		MAP_OPTIONS_SHOWALL(bounds)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_MODE("type", "paged", type, tPaged)
 		MAP_OPTIONS_MODE("type", "page", type, tPage)
@@ -602,6 +636,8 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 		msg = strEx::itos(value.total) + "&" + strEx::itos(value.value);
 		return NSCAPI::returnOK;
 	} else {
+		if (!bPerfData)
+			bounds.perfData = false;
 		bounds.runCheck(value, returnCode, msg, perf);
 	}
 	if (msg.empty())
@@ -667,6 +703,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bNSClient = false;
 	StateConatiner tmpObject;
+	bool bPerfData = true;
 
 	tmpObject.data = "uptime";
 	tmpObject.crit.state = "started";
@@ -675,6 +712,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 		MAP_OPTIONS_NUMERIC_ALL(tmpObject, "Count")
 		MAP_OPTIONS_STR("Alias", tmpObject.alias)
 		MAP_OPTIONS_SHOWALL(tmpObject)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 		else if (p2.first == "Proc") {
@@ -712,11 +750,11 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 		if (bNSClient) {
 			if (bFound && (*it).showAll()) {
 				if (!msg.empty()) msg += " - ";
-				msg += (*it).data + ": Started";
+				msg += (*it).data + ": Running";
 			} else if (bFound) {
 			} else {
 				if (!msg.empty()) msg += " - ";
-				msg += (*it).data + ": Stopped";
+				msg += (*it).data + ": not running";
 				NSCHelper::escalteReturnCodeToCRIT(returnCode);
 			}
 		} else {
@@ -728,6 +766,8 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 				value.count = 0;
 				value.state = checkHolders::state_stopped;
 			}
+			if (!bPerfData)
+				(*it).perfData = false;
 			(*it).runCheck(value, returnCode, msg, perf);
 		}
 
@@ -764,6 +804,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 	std::list<CounterConatiner> counters;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bNSClient = false;
+	bool bPerfData = true;
 	/* average maax */
 	bool bCheckAverages = true; 
 	unsigned int averageDelay = 1000;
@@ -775,6 +816,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min)
 		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max)
 		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_STR("Alias", tmpObject.data)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_EX("Averages", bCheckAverages, "true", "false")
@@ -814,6 +856,8 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			if (bNSClient) {
 				msg += strEx::itos(value);
 			} else {
+				if (!bPerfData)
+					counter.perfData = false;
 				counter.setDefault(tmpObject);
 				counter.runCheck(value, returnCode, msg, perf);
 			}

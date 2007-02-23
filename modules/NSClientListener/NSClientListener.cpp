@@ -109,14 +109,24 @@ std::string getPassword() {
 	}
 	return password;
 }
+bool NSClientListener::isPasswordOk(std::string remotePassword)  {
+	std::string localPassword = getPassword();
+	if (localPassword == remotePassword) {
+		return true;
+	}
+	if ((remotePassword == "None") && (localPassword.empty())) {
+		return true;
+	}
+	return false;
+}
 
 std::string NSClientListener::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');
-	std::string rPwd = getPassword();
-	if ((pwd.first != rPwd) || ((pwd.first == "None") && (!rPwd.empty())) ) {
-		NSC_LOG_ERROR_STD("Invalid password (" + pwd.first + ").");
+	if (!isPasswordOk(pwd.first)) {
+		NSC_LOG_ERROR_STD("Invalid password (" + pwd.first +").");
 		return "ERROR: Invalid password."; 
-	} if (pwd.second.empty())
+	}
+	if (pwd.second.empty())
 		return "ERRRO: No command specified.";
 	strEx::token cmd = strEx::getToken(pwd.second, '&');
 	if (cmd.first.empty())

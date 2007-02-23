@@ -26,9 +26,9 @@ arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, 
 * @param &argLen Write the length to this argument.
 * @return A pointer that is managed by the caller.
 */
-char ** arrayBuffer::list2arrayBuffer(const arrayList lst, unsigned int &argLen) {
+arrayBuffer::arrayBuffer arrayBuffer::list2arrayBuffer(const arrayList lst, unsigned int &argLen) {
 	argLen = static_cast<unsigned int>(lst.size());
-	char **arrayBuffer = new char*[argLen];
+	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[argLen];
 	arrayList::const_iterator it = lst.begin();
 	int i;
 	for (i=0;it!=lst.end();++it,i++) {
@@ -44,9 +44,9 @@ char ** arrayBuffer::list2arrayBuffer(const arrayList lst, unsigned int &argLen)
 * @param &argLen [OUT] The length (items) of the arrayBuffer
 * @return The arrayBuffer
 */
-char ** arrayBuffer::createEmptyArrayBuffer(unsigned int &argLen) {
+arrayBuffer::arrayBuffer arrayBuffer::createEmptyArrayBuffer(unsigned int &argLen) {
 	argLen = 0;
-	char **arrayBuffer = new char*[0];
+	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[0];
 	return arrayBuffer;
 }
 /**
@@ -56,7 +56,7 @@ char ** arrayBuffer::createEmptyArrayBuffer(unsigned int &argLen) {
 * @param join The char to use as separators when joining
 * @return The joined arrayBuffer
 */
-std::string arrayBuffer::arrayBuffer2string(char **argument, const unsigned int argLen, std::string join) {
+std::string arrayBuffer::arrayBuffer2string(arrayBuffer::arrayBuffer argument, const unsigned int argLen, std::string join) {
 	std::string ret;
 	for (unsigned int i=0;i<argLen;i++) {
 		ret += argument[i];
@@ -72,7 +72,7 @@ std::string arrayBuffer::arrayBuffer2string(char **argument, const unsigned int 
 * @param &argLen [OUT] The length of the Array
 * @return The arrayBuffer
 */
-char ** arrayBuffer::split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen) {
+arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen) {
 	assert(buffer);
 	argLen = 0;
 	const char *p = buffer;
@@ -104,7 +104,7 @@ char ** arrayBuffer::split2arrayBuffer(const char* buffer, char splitChar, unsig
  * @param &argLen [OUT] The length of the Array
  * @return The arrayBuffer
  */
-char ** arrayBuffer::split2arrayBuffer(const std::string inBuf, char splitChar, unsigned int &argLen) {
+arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::string inBuf, char splitChar, unsigned int &argLen) {
 	if (inBuf.empty())
 		return createEmptyArrayBuffer(argLen);
 
@@ -114,7 +114,7 @@ char ** arrayBuffer::split2arrayBuffer(const std::string inBuf, char splitChar, 
 		argLen++;
 		p = inBuf.find(splitChar, p+1);
 	}
-	char **arrayBuffer = new char*[argLen];
+	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[argLen];
 	p = inBuf.find(splitChar);
 	std::string::size_type l = 0;
 	for (unsigned int i=0;i<argLen;i++) {
@@ -138,7 +138,7 @@ char ** arrayBuffer::split2arrayBuffer(const std::string inBuf, char splitChar, 
 * @param **argument 
 * @param argLen 
 */
-void arrayBuffer::destroyArrayBuffer(char **argument, const unsigned int argLen) {
+void arrayBuffer::destroyArrayBuffer(arrayBuffer::arrayBuffer argument, const unsigned int argLen) {
 	for (unsigned int i=0;i<argLen;i++) {
 		delete [] argument[i];
 	}

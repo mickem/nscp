@@ -44,7 +44,7 @@ PDHCollector::~PDHCollector()
 *
 * @author mickem
 *
-* @date 03-13-2004
+* @date 03-13-2004               
 *
 * @bug If we have "custom named" counters ?
 * @bug This whole concept needs work I think.

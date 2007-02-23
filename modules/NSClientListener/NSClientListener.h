@@ -29,6 +29,7 @@ public:
 	}
 
 	std::string parseRequest(std::string buffer);
+	bool isPasswordOk(std::string remotePassword);
 
 	// simpleSocket::ListenerHandler implementation
 	void onAccept(simpleSocket::Socket *client);
