@@ -651,6 +651,8 @@ namespace checkHolders {
 				return max.gatherPerfData(alias, value, warn.max.getPerfBound(value), crit.max.getPerfBound(value));
 			} else if (min.hasBounds()) {
 				return min.gatherPerfData(alias, value, warn.min.getPerfBound(value), crit.min.getPerfBound(value));
+			} else {
+				NSC_DEBUG_MSG_STD("Missing bounds for maxmin-bounds check: " + alias);
 			}
 			return "";
 		}

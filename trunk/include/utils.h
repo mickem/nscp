@@ -75,4 +75,7 @@ unsigned long calculate_crc32(const char *buffer, int buffer_size);
 	else if (p__.first.find(splt) != std::string::npos) { \
 	std::pair<std::string,std::string> arg = strEx::split(p__.first,splt); if (false) {}
 
+#define MAP_OPTIONS_SECONDARY_STR_AND(opt, value, objfirst, objsecond, extra) \
+			else if (opt.first == value) { objfirst = p__.second; objsecond = opt.second; extra;}
+
 #define MAP_OPTIONS_SECONDARY_END() }

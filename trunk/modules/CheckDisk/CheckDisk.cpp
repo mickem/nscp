@@ -43,9 +43,11 @@ struct file_finder_data {
 	const std::string path;
 };
 typedef std::unary_function<const file_finder_data&, bool> baseFinderFunction;
+
 struct get_size : public baseFinderFunction
 {
-	get_size() : size(0) { }
+	bool error;
+	get_size() : size(0), error(false) { }
 	result_type operator()(argument_type ffd) {
 		if (!(ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)) {
 			size += (ffd.wfd.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)ffd.wfd.nFileSizeLow;
@@ -54,6 +56,12 @@ struct get_size : public baseFinderFunction
 	}
 	inline unsigned long long getSize() {
 		return size;
+	}
+	inline const bool hasError() const {
+		return error;
+	}
+	inline void setError(std::string) {
+		error = true;
 	}
 private:  
 	unsigned long long size;
@@ -79,6 +87,8 @@ void recursive_scan(std::string dir, finder_function & f) {
 					recursive_scan<finder_function>(baseDir + "\\" + wfd.cFileName + "\\*.*", f);
 			}
 		} while (FindNextFile(hFind, &wfd));
+	} else {
+		f.setError("File not found");
 	}
 	FindClose(hFind);
 }
@@ -184,8 +194,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		DriveConatiner drive = (*pit);
 		if (drive.data.length() == 1)
 			drive.data += ":";
-		if (!bPerfData)
-			drive.perfData = false;
+		drive.perfData = bPerfData;
 		UINT drvType = GetDriveType(drive.data.c_str());
 
 		if ((!bFilter)&&!((drvType == DRIVE_FIXED)||(drvType == DRIVE_NO_ROOT_DIR))) {
@@ -267,9 +276,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, char **
 		std::string sName = path.getAlias();
 		get_size sizeFinder;
 		recursive_scan<get_size>(path.data, sizeFinder);
+		if (sizeFinder.hasError()) {
+			message = "File not found";
+			return NSCAPI::returnUNKNOWN;
+		}
 		path.setDefault(tmpObject);
-		if (!bPerfData)
-			path.perfData = false;
+		path.perfData = bPerfData;
 
 		checkHolders::disk_size_type size = sizeFinder.getSize();
 		path.runCheck(size, returnCode, message, perf);
@@ -336,11 +348,10 @@ struct file_filter {
 
 struct find_first_file_info : public baseFinderFunction
 {
-
 	file_info info;
-	bool bError;
-	std::string message;
-	find_first_file_info() : bError(false) {}
+	bool error;
+//	std::string message;
+	find_first_file_info() : error(false) {}
 	result_type operator()(argument_type ffd) {
 		if ((ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
 			return true;
@@ -349,14 +360,19 @@ struct find_first_file_info : public baseFinderFunction
 		HANDLE hFile = CreateFile((ffd.path + "\\" + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			message = "Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + strEx::itos(GetLastError());
-			bError = true;
+			setError("Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + strEx::itos(GetLastError()));
 			return false;
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
 		info = file_info(_info, ffd.wfd.cFileName);
 		return false;
+	}
+	inline const bool hasError() const {
+		return error;
+	}
+	inline void setError(std::string) {
+		error = true;
 	}
 };
 
@@ -365,13 +381,13 @@ struct file_filter_function : public baseFinderFunction
 	std::list<file_filter> filter_chain;
 	bool bFilterAll;
 	bool bFilterIn;
-	bool bError;
+	bool error;
 	std::string message;
 	std::string syntax;
 	unsigned long long now;
 	unsigned int hit_count;
 
-	file_filter_function() : hit_count(0), bError(false), bFilterIn(true), bFilterAll(true) {}
+	file_filter_function() : hit_count(0), error(false), bFilterIn(true), bFilterAll(true) {}
 	result_type operator()(argument_type ffd) {
 		if ((ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
 			return true;
@@ -380,9 +396,7 @@ struct file_filter_function : public baseFinderFunction
 		HANDLE hFile = CreateFile((ffd.path + "\\" + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			message = "Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + strEx::itos(GetLastError());
-			bError = true;
-			return false;
+			setError("Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + strEx::itos(GetLastError()));
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
@@ -410,6 +424,12 @@ struct file_filter_function : public baseFinderFunction
 		}
 		return true;
 	}
+	inline const bool hasError() const {
+		return error;
+	}
+	inline void setError(std::string) {
+		error = true;
+	}
 };
 
 NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
@@ -420,16 +440,22 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, char **cha
 		message = "Missing argument(s).";
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::string dstr, path;
+	std::string dstr = "%#c";
+	std::string path;
 	find_first_file_info finder;
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_STR("path", path)
 		MAP_OPTIONS_FALLBACK(dstr)
 	MAP_OPTIONS_END()
 
+	if (path.empty()) {
+		message = "ERROR: no file specified.";
+		return NSCAPI::returnUNKNOWN;
+	}
+
 	recursive_scan<find_first_file_info>(path, finder);
-	if (finder.bError) {
-		message = "ERROR: could not find file.";
+	if (finder.hasError()) {
+		message = "File not found";
 		return NSCAPI::returnUNKNOWN;
 	}
 	FILETIME now_;
@@ -494,9 +520,13 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, char **char
 	finder.syntax = syntax;
 	for (std::list<std::string>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
 		recursive_scan<file_filter_function>((*pit), finder);
+		if (finder.hasError()) {
+			message = "File not found: " + (*pit);
+			return NSCAPI::returnUNKNOWN;
+		}
 	}
 	message = finder.message;
-	if (finder.bError)
+	if (finder.error)
 		return NSCAPI::returnUNKNOWN;
 	query.runCheck(finder.hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))

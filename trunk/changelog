@@ -9,6 +9,13 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Add option to recheck DNS in real time
 
+2006-02-25 MickeM
+ + Added possibility to check many memory checks in one go, just stack type options.
+     type=paged type=physical etc...
+ * Fixed a performance check bug in the last nightly.
+ * Fixed a potential crash when a maleformed check-file-age command was issued.
+ + Added support for more then and NSClient command
+ 
 2006-02-22 MickeM
  + Added debug output to see if the socket is bound and/or has shutdown.
  * Fixed a potential bug in the threadmanager.

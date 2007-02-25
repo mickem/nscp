@@ -44,14 +44,9 @@ CheckSystem::~CheckSystem() {}
  */
 bool CheckSystem::loadModule() {
 	pdhThread.createThread();
-
 	std::string wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
-
 	CEnumProcess tmp;
 	int method = tmp.GetAvailableMethods();
-
-
-
 	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_AUTO) {
 		OSVERSIONINFO osVer = systemInfo::getOSVersion();
 		if (systemInfo::isBelowNT4(osVer)) {
@@ -110,7 +105,7 @@ bool CheckSystem::hasMessageHandler() {
 }
 
 int CheckSystem::commandLineExec(const char* command,const unsigned int argLen,char** args) {
-	if (stricmp(command, "debugpdh") == 0) {
+	if (_stricmp(command, "debugpdh") == 0) {
 		PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
 		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
 			if ((*it).instances.size() > 0) {
@@ -223,7 +218,7 @@ int CheckSystem::commandLineExec(const char* command,const unsigned int argLen,c
 				}
 			}
 		}
-	} else if (stricmp(command, "listpdh") == 0) {
+	} else if (_stricmp(command, "listpdh") == 0) {
 		PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
 		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
 			if ((*it).instances.size() > 0) {
@@ -351,8 +346,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, char **cha
 			msg += strEx::itos(value);
 		} else {
 			load.setDefault(tmpObject);
-			if (!bPerfData)
-				load.perfData = false;
+			load.perfData = bPerfData;
 			load.runCheck(value, returnCode, msg, perf);
 		}
 	}
@@ -402,8 +396,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, char **
 		msg = strEx::itos(value);
 	} else {
 		value *= 1000;
-		if (!bPerfData)
-			bounds.perfData = false;
+		bounds.perfData = bPerfData;
 		bounds.runCheck(value, returnCode, msg, perf);
 	}
 
@@ -538,8 +531,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 				value = checkHolders::state_stopped;
 			else
 				value = checkHolders::state_none;
-			if (!bPerfData)
-				(*it).perfData = false;
+			(*it).perfData = bPerfData;
 			(*it).runCheck(value, returnCode, msg, perf);
 		}
 
@@ -550,7 +542,6 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 		msg = NSCHelper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
-
 
 /**
  * Check available memory and return various check results
@@ -571,75 +562,91 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
+	std::list<MemoryConatiner> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
 	bool bPerfData = true;
 	bool bNSClient = false;
-	MemoryConatiner bounds;
-	typedef enum { tPaged, tPage, tVirtual, tPhysical } check_type;
-	check_type type = tPaged;
+	MemoryConatiner tmpObject;
 
 	MAP_OPTIONS_BEGIN(stl_args)
-		MAP_OPTIONS_DISK_ALL(bounds, "", "Free", "Used")
-		MAP_OPTIONS_STR("Alias", bounds.data)
-		MAP_OPTIONS_SHOWALL(bounds)
+		MAP_OPTIONS_STR_AND("type", tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_STR_AND("Type", tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_DISK_ALL(tmpObject, "", "Free", "Used")
+		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_MODE("type", "paged", type, tPaged)
-		MAP_OPTIONS_MODE("type", "page", type, tPage)
-		MAP_OPTIONS_MODE("type", "virtual", type, tVirtual)
-		MAP_OPTIONS_MODE("type", "physical", type, tPhysical)
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+			MAP_OPTIONS_SECONDARY_STR_AND(p2,"type", tmpObject.data, tmpObject.alias, list.push_back(tmpObject))
+			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
+		MAP_OPTIONS_SECONDARY_END()
 		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 	MAP_OPTIONS_END()
+	if (bNSClient) {
+		tmpObject.data = "paged";
+		list.push_back(tmpObject);
+	}
 
+	checkHolders::PercentageValueType<unsigned long long, unsigned long long> dataPaged;
+	CheckMemory::memData data;
+	bool firstPaged = true;
+	bool firstMem = true;
+	for (std::list<MemoryConatiner>::const_iterator pit = list.begin(); pit != list.end(); ++pit) {
+		MemoryConatiner check = (*pit);
+		checkHolders::PercentageValueType<unsigned long long, unsigned long long> value;
+		if (firstPaged && (check.data == "paged")) {
+			firstPaged = false;
+			PDHCollector *pObject = pdhThread.getThread();
+			if (!pObject) {
+				msg = "ERROR: PDH Collection thread not running.";
+				return NSCAPI::returnUNKNOWN;
+			}
+			dataPaged.value = pObject->getMemCommit();
+			dataPaged.total = pObject->getMemCommitLimit();
+		} else if (firstMem) {
+			try {
+				data = memoryChecker.getMemoryStatus();
+			} catch (CheckMemoryException e) {
+				msg = e.getError() + ":" + strEx::itos(e.getErrorCode());
+				return NSCAPI::returnCRIT;
+			}
+		}
 
-	checkHolders::PercentageValueType<unsigned long long, unsigned long long> value;
-	if (type == tPaged) {
-		PDHCollector *pObject = pdhThread.getThread();
-		if (!pObject) {
-			msg = "ERROR: PDH Collection thread not running.";
-			return NSCAPI::returnUNKNOWN;
-		}
-		value.value = pObject->getMemCommit();
-		value.total = pObject->getMemCommitLimit();
-		if (bounds.data.empty())
-			bounds.data = "paged bytes";
-	} else {
-		CheckMemory::memData data;
-		try {
-			data = memoryChecker.getMemoryStatus();
-		} catch (CheckMemoryException e) {
-			msg = e.getError() + ":" + strEx::itos(e.getErrorCode());
-			return NSCAPI::returnCRIT;
-		}
-//		MEMORYSTATUS mem;
-//		GlobalMemoryStatus(&mem);
-		if (type == tPage) {
+		if (check.data == "page") {
 			value.value = data.pageFile.total-data.pageFile.avail; // mem.dwTotalPageFile-mem.dwAvailPageFile;
 			value.total = data.pageFile.total; //mem.dwTotalPageFile;
-			if (bounds.data.empty())
-				bounds.data = "page file";
-		} else  if (type == tPhysical) {
+			if (check.alias.empty())
+				check.alias = "page file";
+		} else if (check.data == "physical") {
 			value.value = data.phys.total-data.phys.avail; //mem.dwTotalPhys-mem.dwAvailPhys;
 			value.total = data.phys.total; //mem.dwTotalPhys;
-			if (bounds.data.empty())
-				bounds.data = "physical memory";
-		} else  if (type == tVirtual) {
+			if (check.alias.empty())
+				check.alias = "physical memory";
+		} else if (check.data == "virtual") {
 			value.value = data.virtualMem.total-data.virtualMem.avail;//mem.dwTotalVirtual-mem.dwAvailVirtual;
 			value.total = data.virtualMem.total;//mem.dwTotalVirtual;
-			if (bounds.data.empty())
-				bounds.data = "virtual memory";
+			if (check.alias.empty())
+				check.alias = "virtual memory";
+		} else  if (check.data == "paged") {
+			value.value = dataPaged.value;
+			value.total = dataPaged.total;
+			if (check.alias.empty())
+				check.alias = "paged bytes";
+		} else {
+			msg = check.data + " is not a known check...";
+			return NSCAPI::returnCRIT;
+		}
+		if (bNSClient) {
+			msg = strEx::itos(value.total) + "&" + strEx::itos(value.value);
+			return NSCAPI::returnOK;
+		} else {
+			check.perfData = bPerfData;
+			check.runCheck(value, returnCode, msg, perf);
 		}
 	}
+	NSC_DEBUG_MSG_STD("Perf data: " + strEx::itos(bPerfData) + ":" + perf);
 
-	if (bNSClient) {
-		msg = strEx::itos(value.total) + "&" + strEx::itos(value.value);
-		return NSCAPI::returnOK;
-	} else {
-		if (!bPerfData)
-			bounds.perfData = false;
-		bounds.runCheck(value, returnCode, msg, perf);
-	}
 	if (msg.empty())
 		msg = "OK memory within bounds.";
 	else
@@ -766,8 +773,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, char
 				value.count = 0;
 				value.state = checkHolders::state_stopped;
 			}
-			if (!bPerfData)
-				(*it).perfData = false;
+			(*it).perfData = bPerfData;
 			(*it).runCheck(value, returnCode, msg, perf);
 		}
 
@@ -856,8 +862,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			if (bNSClient) {
 				msg += strEx::itos(value);
 			} else {
-				if (!bPerfData)
-					counter.perfData = false;
+				counter.perfData = bPerfData;
 				counter.setDefault(tmpObject);
 				counter.runCheck(value, returnCode, msg, perf);
 			}
