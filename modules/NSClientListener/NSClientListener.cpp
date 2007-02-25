@@ -121,6 +121,18 @@ bool NSClientListener::isPasswordOk(std::string remotePassword)  {
 }
 
 std::string NSClientListener::parseRequest(std::string buffer)  {
+	NSC_DEBUG_MSG_STD("Data: " + buffer);
+
+	std::string::size_type pos = buffer.find_first_of("\n\r");
+	if (pos != std::string::npos) {
+		std::string::size_type pos2 = buffer.find_first_not_of("\n\r", pos);
+		if (pos2 != std::string::npos) {
+			std::string rest = buffer.substr(pos2);
+			NSC_DEBUG_MSG_STD("Ignoring datat: " + rest);
+		}
+		buffer = buffer.substr(0, pos);
+	}
+
 	strEx::token pwd = strEx::getToken(buffer, '&');
 	if (!isPasswordOk(pwd.first)) {
 		NSC_LOG_ERROR_STD("Invalid password (" + pwd.first +").");
@@ -133,6 +145,9 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 		return "ERRRO: No command specified.";
 
 	int c = atoi(cmd.first.c_str());
+
+	NSC_DEBUG_MSG_STD("Data: " + cmd.second);
+
 
 	// prefix various commands
 	switch (c) {
@@ -208,38 +223,61 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 void NSClientListener::onClose()
 {}
 
-void NSClientListener::onAccept(simpleSocket::Socket *client) {
-	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
-		NSC_LOG_ERROR("Unauthorized access from: " + client->getAddrString());
-		client->close();
-		return;
-	}
+void NSClientListener::sendTheResponse(simpleSocket::Socket *client, std::string response) {
+	client->send(response.c_str(), static_cast<int>(response.length()), 0);
+}
+
+void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 	simpleSocket::DataBuffer db;
 
 	int i;
-	for (i=0;i<100;i++) {
+	for (i=0;i<30;i++) {
 		client->readAll(db);
-		// @todo Make this check if a packet is read instead of just if we have data
-		if (db.getLength() > 0)
-			break;
-		Sleep(100);
+
+		if (db.getLength() > 0) {
+			unsigned long long pos = db.find('\n');
+			if (pos==0) {
+				std::string incoming(db.getBuffer(), db.getLength());
+				sendTheResponse(client, parseRequest(incoming));
+				break;
+			} else if (pos!=0) {
+				simpleSocket::DataBuffer buffer = db.unshift(pos);
+				std::string bstr(buffer.getBuffer(), buffer.getLength());
+				db.nibble(1);
+				std::string rstr(db.getBuffer(), db.getLength());
+				std::string incoming(buffer.getBuffer(), buffer.getLength());
+				sendTheResponse(client, parseRequest(incoming) + "\n");
+			}
+		} else {
+			Sleep(100);
+		}
 	}
 	if (i == 100) {
 		NSC_LOG_ERROR_STD("Could not retrieve NSClient packet.");
 		client->close();
 		return;
 	}
+}
+
+
+void NSClientListener::onAccept(simpleSocket::Socket *client) {
+	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
+		NSC_LOG_ERROR("Unauthorized access from: " + client->getAddrString());
+		client->close();
+		return;
+	}
+	retrivePacket(client);
 
 
 
 //	client->readAll(db);
-	if (db.getLength() > 0) {
-		std::string incoming(db.getBuffer(), db.getLength());
+//	if (db.getLength() > 0) {
+//		std::string incoming(db.getBuffer(), db.getLength());
 //		NSC_DEBUG_MSG_STD("Incoming data: " + incoming);
-		std::string response = parseRequest(incoming);
+//		std::string response = parseRequest(incoming);
 //		NSC_DEBUG_MSG("Outgoing data: " + response);
-		client->send(response.c_str(), static_cast<int>(response.length()), 0);
-	}
+//		client->send(response.c_str(), static_cast<int>(response.length()), 0);
+//	}
 	client->close();
 }
 

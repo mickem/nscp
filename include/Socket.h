@@ -48,6 +48,42 @@ namespace simpleSocket {
 		unsigned int getLength() const {
 			return length_;
 		}
+		void nibble(const unsigned int length) {
+			if (length > length_)
+				return;
+			unsigned int newLen = length_-length;
+			char *tBuf = new char[newLen+1];
+			memcpy(tBuf, &buffer_[length], newLen);
+			char *oldBuf = buffer_;
+			buffer_ = tBuf;
+			length_ = newLen;
+			delete [] oldBuf;
+		}
+
+		DataBuffer unshift(const unsigned int length) {
+			DataBuffer ret;
+			if (length > length_)
+				return ret;
+			ret.copyFrom(buffer_, length);
+			unsigned int newLen = length_-length;
+			char *tBuf = new char[newLen+1];
+			memcpy(tBuf, &buffer_[length], newLen);
+			char *oldBuf = buffer_;
+			buffer_ = tBuf;
+			length_ = newLen;
+			delete [] oldBuf;
+			return ret;
+		}
+		const unsigned long long find(char c) {
+			if (buffer_ == NULL)
+				return 0;
+			if (length_ == 0)
+				return 0;
+			const char *pos = strchr(buffer_, c);
+			if (pos == NULL)
+				return 0;
+			return pos-buffer_;
+		}
 		void copyFrom(const char* buffer, const unsigned int length) {
 			delete [] buffer_;
 			buffer_ = new char[length+1];

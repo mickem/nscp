@@ -29,6 +29,8 @@ public:
 	}
 
 	std::string parseRequest(std::string buffer);
+	void sendTheResponse(simpleSocket::Socket *client, std::string response);
+	void retrivePacket(simpleSocket::Socket *client);
 	bool isPasswordOk(std::string remotePassword);
 
 	// simpleSocket::ListenerHandler implementation
