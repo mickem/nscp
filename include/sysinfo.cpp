@@ -18,4 +18,21 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "stdafx.h"
+#include "StdAfx.h"
+
+#include <sysinfo.h>
+#include <tchar.h>
+
+namespace systemInfo {
+		LANGID GetSystemDefaultUILanguage() {
+				HMODULE hKernel = ::LoadLibrary(_TEXT("KERNEL32"));
+				if (!hKernel) 
+						throw SystemInfoException("Could not load kernel32.dll", GetLastError());
+				tGetSystemDefaultUILanguage fGetSystemDefaultUILanguage;
+				fGetSystemDefaultUILanguage = (tGetSystemDefaultUILanguage)::GetProcAddress(hKernel, _TEXT("GetSystemDefaultUILanguage"));
+				if (!fGetSystemDefaultUILanguage)
+						throw SystemInfoException("Could not load GetSystemDefaultUILanguage", GetLastError());
+				return fGetSystemDefaultUILanguage();
+			}
+	}
+

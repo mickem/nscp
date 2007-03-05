@@ -66,11 +66,16 @@ NT4_SystemSystemUpTime = "\Sistema\Tempo de atividade do sistema"
 NT4_MemoryCommitLimit = "\Memória\Limite confirmado"
 NT4_MemoryCommitByte = "\Memória\Bytes confirmados"
 
-
 [0x041d]
 Description = "Swedish SE"
-
 W2K_SystemTotalProcessorTime = "\Processor(_Total)\% processortid"
 W2K_SystemSystemUpTime = "\System\Tid sedan systemstart"
 W2K_MemoryCommitLimit = "\Minne\Dedikationsgräns"
 W2K_MemoryCommitByte = "\Minne\Dedicerade byte"
+
+[0x0411]
+Description = "Japanese"
+W2K_SystemTotalProcessorTime = "\Processor(_total)\% Processor Time"
+W2K_SystemSystemUpTime = "\System\System Up Time"
+W2K_MemoryCommitLimit = "\Memory\Commit Limit"
+W2K_MemoryCommitByte = "\Memory\Committed Bytes" 
