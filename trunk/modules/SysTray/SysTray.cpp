@@ -1,6 +1,23 @@
-// SysTray.cpp : Defines the entry point for the DLL application.
-//
-
+/**************************************************************************
+*   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
+*                                                                         *
+*   This code is part of NSClient++ - http://trac.nakednuns.org/nscp      *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+***************************************************************************/
 #include "stdafx.h"
 #include "SysTray.h"
 #include "TrayIcon.h"
@@ -40,7 +57,7 @@ bool SysTray::unloadModule() {
 }
 
 int SysTray::commandLineExec(const char* command,const unsigned int argLen,char** args) {
-	if (stricmp(command, "install") == 0) {
+	if (_stricmp(command, "install") == 0) {
 		try {
 			serviceControll::ModifyServiceType(SZSERVICENAME, SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS);
 			NSC_LOG_MESSAGE(MODULE_NAME " is now able to run as the SERVICE_INTERACTIVE_PROCESS flag has been set.");
@@ -48,7 +65,7 @@ int SysTray::commandLineExec(const char* command,const unsigned int argLen,char*
 			NSC_LOG_ERROR("Could not modify service: " + e.error_);
 			return -1;
 		}
-	} else if (stricmp(command, "uninstall") == 0) {
+	} else if (_stricmp(command, "uninstall") == 0) {
 		try {
 			serviceControll::ModifyServiceType(SZSERVICENAME, SERVICE_WIN32_OWN_PROCESS);
 			NSC_LOG_MESSAGE(MODULE_NAME " is now not able to run as the SERVICE_INTERACTIVE_PROCESS flag has been reset.");

@@ -1,3 +1,23 @@
+/**************************************************************************
+*   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
+*                                                                         *
+*   This code is part of NSClient++ - http://trac.nakednuns.org/nscp      *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+***************************************************************************/
 #pragma once
 
 #include <strEx.h>
@@ -19,6 +39,11 @@ namespace filters {
 		struct sub_string_filter {
 			static bool filter(std::string filter, std::string str) {
 				return str.find(filter) != std::string::npos;
+			}
+		};
+		struct exact_string_filter {
+			static bool filter(std::string filter, std::string str) {
+				return str == filter;
 			}
 		};
 		struct regexp_string_filter {
@@ -177,19 +202,23 @@ namespace filters {
 
 	typedef filter_one<std::string, std::string, handlers::string_handler, filter::sub_string_filter> sub_string_filter;
 	typedef filter_one<boost::regex, std::string, handlers::regexp_handler, filter::regexp_string_filter> regexp_string_filter;
+	typedef filter_one<std::string, std::string, handlers::string_handler, filter::exact_string_filter> exact_string_filter;
 
 	struct filter_all_strings {
 		sub_string_filter sub;
+		exact_string_filter exact;
 		regexp_string_filter regexp;
 		filter_all_strings() {}
 
 		inline bool hasFilter() const {
-			return sub.hasFilter() || regexp.hasFilter();
+			return sub.hasFilter() || regexp.hasFilter() || exact.hasFilter();
 		}
 		bool matchFilter(const std::string str) const {
 			if ((regexp.hasFilter())&&(regexp.matchFilter(str)))
 				return true;
 			else if ((sub.hasFilter())&&(sub.matchFilter(str)))
+				return true;
+			else if ((exact.hasFilter())&&(exact.matchFilter(str)))
 				return true;
 			return false;
 		}
@@ -200,7 +229,7 @@ namespace filters {
 			} else if (t.first == "substr") {
 				sub = t.second;
 			} else {
-				sub = t.second;
+				exact = t.first;
 			}
 			return *this;
 		}

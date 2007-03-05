@@ -1,3 +1,23 @@
+/**************************************************************************
+*   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
+*                                                                         *
+*   This code is part of NSClient++ - http://trac.nakednuns.org/nscp      *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+***************************************************************************/
 #pragma once
 #include <Thread.h>
 #include <Mutex.h>
@@ -151,12 +171,37 @@ namespace simpleSocket {
 			// @todo investigate it this is "correct" and dont use before!
 			return ::inet_ntoa(*reinterpret_cast<in_addr*>(remoteHost->h_addr));
 		}
+		static struct in_addr getHostByNameAsIN(std::string ip) {
+			hostent* remoteHost;
+			remoteHost = gethostbyname(ip.c_str());
+			if (remoteHost == NULL)
+				throw SocketException("gethostbyname failed for " + ip + ": ", ::WSAGetLastError());
+			if (remoteHost->h_addrtype != AF_INET) {
+				throw SocketException("gethostbyname failed for " + ip + ": ", ::WSAGetLastError());
+			}
+			struct in_addr ret;
+			ret.S_un.S_addr = (reinterpret_cast<in_addr*>(remoteHost->h_addr_list[0]))->S_un.S_addr;
+			return ret;
+		}
 		static std::string getHostByAddr(std::string ip) {
 			hostent* remoteHost;
 			remoteHost = gethostbyaddr(ip.c_str(), static_cast<int>(ip.length()), AF_INET);
 			if (remoteHost == NULL)
 				throw SocketException("gethostbyaddr failed for " + ip + ": ", ::WSAGetLastError());
 			return remoteHost->h_name;
+		}
+		static struct in_addr getHostByAddrAsIN(std::string ip) {
+			hostent* remoteHost;
+			unsigned int addr = ::inet_addr(ip.c_str());
+			std::cerr << "addr: " << addr << std::endl;
+			remoteHost = ::gethostbyaddr(reinterpret_cast<char*>(&addr), 4, AF_INET);
+			if (remoteHost == NULL)
+				throw SocketException("gethostbyaddr failed for " + ip + ": ", ::WSAGetLastError());
+			if (remoteHost->h_addrtype != AF_INET)
+				throw SocketException("gethostbyname returned the wrong type " + ip + ": ", ::WSAGetLastError());
+			struct in_addr ret;
+			ret.S_un.S_addr = (reinterpret_cast<in_addr*>(remoteHost->h_addr_list[0]))->S_un.S_addr;
+			return ret;
 		}
 		virtual void readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
 
@@ -206,6 +251,9 @@ namespace simpleSocket {
 		}
 		virtual std::string getAddrString() {
 			return ::inet_ntoa(from_.sin_addr);
+		}
+		virtual struct in_addr getAddr() {
+			return from_.sin_addr;
 		}
 		virtual void printError(std::string file, int line, std::string error);
 	};
@@ -500,49 +548,95 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 
 namespace socketHelpers {
 	class allowedHosts {
+		struct host_record {
+			host_record() : mask(0) {}
+			host_record(std::string r) : mask(0), record(r) {}
+			std::string record;
+			std::string host;
+			u_long in_addr;
+			unsigned long mask;
+		};
 	public:
-		typedef std::list<std::string> host_list; 
+		typedef std::list<host_record> host_list; 
 	private:
 		host_list allowedHosts_;
 		bool cachedAddresses_;
 	public:
 		allowedHosts() : cachedAddresses_(true) {}
-		void setAllowedHosts(host_list allowedHosts, bool cachedAddresses) {
-			cachedAddresses_ = cachedAddresses;
-			if ((!allowedHosts.empty()) && (allowedHosts.front() == "") )
-				allowedHosts.pop_front();
-			allowedHosts_ = allowedHosts;
-			if (cachedAddresses_) {
-				for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
-					if (((*it).length() > 0) && (isalpha((*it)[0]))) {
-						std::string s = (*it);
-						try {
-							*it = simpleSocket::Socket::getHostByName(s);
-						} catch (simpleSocket::SocketException e) {
-							e;
+
+		unsigned int lookupMask(std::string mask) {
+			unsigned int masklen = 32;
+			if (!mask.empty()) {
+				std::string::size_type pos = mask.find_first_of("0123456789");
+				if (pos != std::string::npos) {
+					masklen = strEx::stoi(mask.substr(pos));
+				}
+			}
+			if (masklen > 32)
+				masklen = 32;
+			return (~((unsigned int)0))>>(32-masklen);
+		}
+		void lookupList() {
+			for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
+				std::string record = (*it).record;
+				if (record.length() > 0) {
+					try {
+						std::string::size_type pos = record.find('/');
+						if (pos == std::string::npos) {
+							(*it).host = record;
+							(*it).mask = lookupMask("");
+						} else {
+							(*it).host = record.substr(0, pos);
+							(*it).mask = lookupMask(record.substr(pos));
 						}
+						if (isalpha((*it).host[0]))
+							(*it).in_addr = simpleSocket::Socket::getHostByNameAsIN((*it).host).S_un.S_addr;
+						else
+							(*it).in_addr = ::inet_addr((*it).host.c_str()); // simpleSocket::Socket::getHostByAddrAsIN((*it).host);
+						/*
+						std::cerr << "Added: " 
+							+ simpleSocket::Socket::inet_ntoa((*it).in_addr)
+							+ " with mask "
+							+ simpleSocket::Socket::inet_ntoa((*it).mask)
+							+ " from "
+							+ (*it).record <<
+							std::endl;
+							*/
+					} catch (simpleSocket::SocketException e) {
+						std::cerr << "Filed to lokup host: " << e.getMessage() << std::endl;
 					}
 				}
 			}
 		}
-		bool inAllowedHosts(std::string s) {
+
+		void setAllowedHosts(const std::list<std::string> list, bool cachedAddresses) {
+			for (std::list<std::string>::const_iterator it = list.begin(); it != list.end(); ++it) {
+				allowedHosts_.push_back(host_record(*it));
+			}
+			cachedAddresses_ = cachedAddresses;
+//			if ((!allowedHosts.empty()) && (allowedHosts.front() == "") )
+//				allowedHosts.pop_front();
+			//allowedHosts_ = allowedHosts;
+			lookupList();
+		}
+		bool matchHost(host_record allowed, struct in_addr remote) {
+			/*
+			if ((allowed.in_addr&allowed.mask)==(remote.S_un.S_addr&allowed.mask)) {
+				std::cerr << "Matched: " << simpleSocket::Socket::inet_ntoa(allowed.in_addr)  << " with " << 
+					simpleSocket::Socket::inet_ntoa(remote.S_un.S_addr) << std::endl;
+			}
+			*/
+			return ((allowed.in_addr&allowed.mask)==(remote.S_un.S_addr&allowed.mask));
+		}
+		bool inAllowedHosts(struct in_addr remote) {
 			if (allowedHosts_.empty())
 				return true;
 			host_list::const_iterator cit;
 			if (!cachedAddresses_) {
-				for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
-					if (((*it).length() > 0) && (isalpha((*it)[0]))) {
-						std::string s = (*it);
-						try {
-							*it = simpleSocket::Socket::getHostByName(s);
-						} catch (simpleSocket::SocketException e) {
-							e;
-						}
-					}
-				}
+				lookupList();
 			}
 			for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
-				if ( (*cit) == s)
+				if (matchHost((*cit), remote))
 					return true;
 			}
 			return false;

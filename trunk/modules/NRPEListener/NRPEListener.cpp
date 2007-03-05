@@ -1,6 +1,23 @@
-// CheckEventLog.cpp : Defines the entry point for the DLL application.
-//
-
+/**************************************************************************
+*   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
+*                                                                         *
+*   This code is part of NSClient++ - http://trac.nakednuns.org/nscp      *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+***************************************************************************/
 #include "stdafx.h"
 #include "NRPEListener.h"
 #include <strEx.h>
@@ -34,10 +51,33 @@ bool getCacheAllowedHosts() {
 	return val==1?true:false;
 }
 
+
+void NRPEListener::addAllScriptsFrom(std::string path) {
+	std::string baseDir;
+	std::string::size_type pos = path.find_last_of('*');
+	if (pos == std::string::npos) {
+		path += "*.*";
+	}
+	WIN32_FIND_DATA wfd;
+	HANDLE hFind = FindFirstFile(path.c_str(), &wfd);
+	if (hFind != INVALID_HANDLE_VALUE) {
+		do {
+			if ((wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY) {
+				addCommand(script_dir, wfd.cFileName);
+			}
+		} while (FindNextFile(hFind, &wfd));
+	} else {
+		NSC_LOG_ERROR_STD("No scripts found in path: " + path);
+		return;
+	}
+	FindClose(hFind);
+}
+
 bool NRPEListener::loadModule() {
 	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
 	noPerfData_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA,NRPE_SETTINGS_PERFDATA_DEFAULT)==0;
 	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
+	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
 	std::list<std::string> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::string>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
@@ -53,8 +93,16 @@ bool NRPEListener::loadModule() {
 		if (command_name.empty() || s.empty()) {
 			NSC_LOG_ERROR_STD("Invalid command definition: " + (*it));
 		} else {
-			addCommand(command_name.c_str(), s);
+			if ((s.length() > 7)&&(s.substr(0,6) == "inject")) {
+				addCommand(inject, command_name.c_str(), s.substr(7));
+			} else {
+				addCommand(script, command_name.c_str(), s);
+			}
 		}
+	}
+
+	if (!scriptDirectory_.empty()) {
+		addAllScriptsFrom(scriptDirectory_);
 	}
 
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","), getCacheAllowedHosts());
@@ -110,29 +158,29 @@ bool NRPEListener::hasMessageHandler() {
 
 
 NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
-	commandList::iterator it = commands.find(command);
-	if (it == commands.end())
+	command_list::const_iterator cit = commands.find(command);
+	if (cit == commands.end())
 		return NSCAPI::returnIgnored;
 
-	std::string str = (*it).second;
+	const command_data cd = (*cit).second;
+	std::string args = cd.arguments;
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 1) {
 		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
-		arrayBuffer::arrayList::const_iterator cit = arr.begin();
+		arrayBuffer::arrayList::const_iterator cit2 = arr.begin();
 		int i=1;
 
-		for (;cit!=arr.end();cit++,i++) {
+		for (;cit2!=arr.end();cit2++,i++) {
 			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
-				if ((*cit).find_first_of(NASTY_METACHARS) != std::string::npos) {
+				if ((*cit2).find_first_of(NASTY_METACHARS) != std::string::npos) {
 					NSC_LOG_ERROR("Request string contained illegal metachars!");
 					return NSCAPI::returnIgnored;
 				}
 			}
-			strEx::replace(str, "$ARG" + strEx::itos(i) + "$", (*cit));
+			strEx::replace(args, "$ARG" + strEx::itos(i) + "$", (*cit2));
 		}
 	}
-
-	if ((str.length() > 7)&&(str.substr(0,6) == "inject")) {
-		strEx::token t = strEx::getToken(str.substr(7), ' ');
+	if (cd.type == inject) {
+		strEx::token t = strEx::getToken(args, ' ');
 		std::string s = t.second;
 		std::string sTarget;
 
@@ -175,9 +223,17 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 			//p++;
 		}
 		return NSCModuleHelper::InjectSplitAndCommand(t.first, sTarget, '!', message, perf);
+	} else if (cd.type == script) {
+		return executeNRPECommand(args, message, perf);
+	} else if (cd.type == script_dir) {
+		std::string args = arrayBuffer::arrayBuffer2string(char_args, argLen, " ");
+		std::string cmd = scriptDirectory_ + command.c_str() + " " +args;
+		return executeNRPECommand(cmd, message, perf);
+	} else {
+		NSC_LOG_ERROR_STD("Unknown script type: " + command.c_str());
+		return NSCAPI::critical;
 	}
 
-	return executeNRPECommand(str, message, perf);
 }
 #define MAX_INPUT_BUFFER 1024
 
@@ -278,7 +334,7 @@ void NRPEListener::onClose()
 
 void NRPEListener::onAccept(simpleSocket::Socket *client) 
 {
-	if (!allowedHosts.inAllowedHosts(client->getAddrString())) {
+	if (!allowedHosts.inAllowedHosts(client->getAddr())) {
 		NSC_LOG_ERROR("Unothorized access from: " + client->getAddrString());
 		client->close();
 		return;

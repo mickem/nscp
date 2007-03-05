@@ -36,7 +36,8 @@
 ;# ALLOWED HOST ADDRESSES
 ;  This is a comma-delimited list of IP address of hosts that are allowed to talk to the all daemons.
 ;  If leave this blank anyone can access the deamon remotly (NSClient still requires a valid password).
-;allowed_hosts=127.0.0.1
+;  The syntax is host or ip/mask so 192.168.0.0/24 will allow anyone on that subnet access
+;allowed_hosts=127.0.0.1/32
 ;
 ;# USE THIS FILE
 ;  Use the INI file as opposed to the registry if this is 0 and the use_reg in the registry is set to 1 
@@ -114,6 +115,11 @@ use_file=1
 ;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NRPE deamon.
 ;  If you leave this blank the global version will be used instead.
 ;allowed_hosts=
+;
+;# SCRIPT DIRECTORY
+;  All files in this directory will become check commands.
+;  *WARNING* This is undoubtedly dangerous so use with care!
+;script_dir=scripts\
 
 
 [NRPE Handlers]
@@ -133,3 +139,6 @@ use_file=1
 ; dont_check=inject dont_check This will "loop forever" so be careful with the inject command...
 ;# Check some escapings...
 ; check_escape=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M "File: foo \" WIN=c:\\WINDOWS\\*.*"
+;# Some real world samples
+;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
+;nrpe_ok=scripts\ok.bat

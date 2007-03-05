@@ -10,7 +10,7 @@
 // Copyright (c) 2004 MySolutions NORDIC (http://www.medin.nu)
 //
 // Date: 2004-03-13
-// Author: Michael Medin (mickem@medin.nu)
+// Author: Michael Medin - <michael@medin.name>
 //
 // This software is provided "AS IS", without a warranty of any kind.
 // You are free to use/modify this code but leave this header intact.
