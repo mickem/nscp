@@ -8,6 +8,9 @@ TODO:
  * Fix PDH problems
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2006-03-06 MickeM
+ ! 0.2.7 released
+
 2006-03-05 MickeM
  * Fixed -v FILEAGE check_nt (NSClient) check.
  * Added licence agreement header to all files

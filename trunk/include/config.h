@@ -24,7 +24,7 @@
 #define SZAPPNAME "NSClient++"
 
 // Version
-#define SZVERSION "0.2.7 2007-02-22"
+#define SZVERSION "0.2.7 2007-03-06"
 
 // internal name of the service
 #define SZSERVICENAME        "NSClientpp"
