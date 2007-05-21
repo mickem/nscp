@@ -1,6 +1,6 @@
 <testcase>
   <id>install-service</id>
-  <component>core</component>
+  <component>Core</component>
   <summary>
     Test to see that the service can be instlled.
   </summary>
