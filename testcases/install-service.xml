@@ -1,0 +1,19 @@
+<testcase>
+  <id>install-service</id>
+  <component>core</component>
+  <summary>
+    Test to see that the service can be instlled.
+  </summary>
+  <description>
+    Steps:
+    1. Check that the service is not installed
+    2.  run:
+      {{{
+      nsclient++ /install
+      }}}
+    3.  check that the service is installed
+  </description>
+  <expectedresult>
+    The service should be listed under installed services
+  </expectedresult>
+</testcase>
