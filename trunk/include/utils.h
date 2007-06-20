@@ -88,6 +88,8 @@ unsigned long calculate_crc32(const char *buffer, int buffer_size);
 			else { obj = p__.first; extra;}
 #define MAP_OPTIONS_END() }
 
+#define MAP_OPTIONS_USELESS_IF_LAST(lst) \
+			else if (cit__ == --lst.end()) { NSC_LOG_MESSAGE_STD("Warning: Useless last argument: " + p__.first); }
 #define MAP_OPTIONS_MISSING_EX(opt, arg, str) \
 		else { arg = str + opt.first; return NSCAPI::returnUNKNOWN; }
 
