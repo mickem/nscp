@@ -62,7 +62,7 @@ namespace simpleSocket {
 			delete [] buffer_;
 			buffer_ = tBuf;
 			length_ += length;
-			buffer_[length_+1] = 0;
+			buffer_[length_] = 0;
 		}
 		/**
 		 * returns a const reference to the internal buffer
@@ -126,7 +126,7 @@ namespace simpleSocket {
 			buffer_ = new char[length+2];
 			memcpy(buffer_, buffer, length);
 			length_ = length;
-			buffer_[length_+1] = 0;
+			buffer_[length_] = 0;
 		}
 	};
 
