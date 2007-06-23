@@ -10,6 +10,8 @@ TODO:
 
 2006-06-23 MickeM
  * Might have fixed #53 I was not able to get the problem locally but I have fixed the problem ias at op5 discovered atleast...
+ * Fixed the "check memory" issues for real this time.
+ * Fixed problem with : in counter names #50 (anything starts with \ is considerd a counter so if you use aliases with \ this will break things for you.
 
 2006-06-20 MickeM
  * Fixed #24 crash in NSClient++.exe CheckSystem listpdh | debugpdh
