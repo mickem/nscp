@@ -788,6 +788,15 @@
 				</FileConfiguration>
 			</File>
 		</Filter>
+		<Filter
+			Name="Testcases"
+			Filter="testcases/*.xml"
+			>
+			<File
+				RelativePath=".\testcases\install-service.xml"
+				>
+			</File>
+		</Filter>
 	</Files>
 	<Globals>
 	</Globals>

@@ -124,7 +124,13 @@ bool CheckSystem::hasMessageHandler() {
 
 int CheckSystem::commandLineExec(const char* command,const unsigned int argLen,char** args) {
 	if (_stricmp(command, "debugpdh") == 0) {
-		PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+		PDH::Enumerations::Objects lst;
+		try {
+			lst = PDH::Enumerations::EnumObjects();
+		} catch (const PDH::PDHException e) {
+			std::cout << "Service enumeration failed: " << e.getError();
+			return 0;
+		}
 		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
 			if ((*it).instances.size() > 0) {
 				for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
@@ -237,7 +243,13 @@ int CheckSystem::commandLineExec(const char* command,const unsigned int argLen,c
 			}
 		}
 	} else if (_stricmp(command, "listpdh") == 0) {
-		PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+		PDH::Enumerations::Objects lst;
+		try {
+			lst = PDH::Enumerations::EnumObjects();
+		} catch (const PDH::PDHException e) {
+			std::cout << "Service enumeration failed: " << e.getError();
+			return 0;
+		}
 		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
 			if ((*it).instances.size() > 0) {
 				for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
@@ -590,17 +602,21 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_STR_AND("type", tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_STR_AND("Type", tmpObject.data, list.push_back(tmpObject))
-		MAP_OPTIONS_DISK_ALL(tmpObject, "", "Free", "Used")
-		MAP_OPTIONS_STR("Alias", tmpObject.data)
-		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 			MAP_OPTIONS_SECONDARY_STR_AND(p2,"type", tmpObject.data, tmpObject.alias, list.push_back(tmpObject))
 			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
+		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+
+		MAP_OPTIONS_USELESS_IF_LAST(stl_args)
+		MAP_OPTIONS_DISK_ALL(tmpObject, "", "Free", "Used")
+		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 	MAP_OPTIONS_END()
+
+	
 	if (bNSClient) {
 		tmpObject.data = "paged";
 		list.push_back(tmpObject);

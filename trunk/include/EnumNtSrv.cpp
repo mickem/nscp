@@ -176,7 +176,7 @@ TNtServiceInfo *TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, DWORD 
 	return info;
 }
 
-#define SC_BUF_LEN 1024
+#define SC_BUF_LEN 4096
 TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 {
 	TNtServiceInfo info;
@@ -188,20 +188,24 @@ TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 	SC_HANDLE sh = ::OpenService(scman,name.c_str(),SERVICE_QUERY_STATUS);
 	if (!sh) {
 		DWORD bufLen = SC_BUF_LEN;
-		TCHAR *buf = new TCHAR[bufLen];
-		if (!GetServiceKeyName(scman, name.c_str(), buf, &bufLen)) {
-			throw NTServiceException(name, "Could not open Service", GetLastError());
+		TCHAR *buf = new TCHAR[bufLen+1];
+		std::cout << "name: '" << name << "'" << std::endl;
+		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
 			::CloseServiceHandle(scman);
+			throw NTServiceException(name, "GetServiceKeyName: Could not translate service name", GetLastError());
 		}
+		/*
+		Why does this not work? (a bug in the API? says it should return the correct size?)
 		if (bufLen >= SC_BUF_LEN) {
-			throw NTServiceException(name, "Could not open Service", GetLastError());
 			::CloseServiceHandle(scman);
+			throw NTServiceException(name, "Service name to long to handle", GetLastError());
 		}
 		buf[bufLen] = 0;
-		SC_HANDLE sh = ::OpenService(scman,buf,SERVICE_QUERY_STATUS);
-		if (!sh) {
-			throw NTServiceException(name, "Could not open Service", GetLastError());
+		*/
+		sh = ::OpenService(scman,buf,SERVICE_QUERY_STATUS);
+		if (sh == NULL) {
 			::CloseServiceHandle(scman);
+			throw NTServiceException(name, "OpenService: Could not open Service", GetLastError());
 		}
 	}
 	SERVICE_STATUS state;
@@ -209,8 +213,9 @@ TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 		info.m_dwCurrentState = state.dwCurrentState;
 		info.m_dwServiceType = state.dwServiceType;
 	} else {
-		info.m_dwCurrentState = -1;
-		info.m_dwServiceType = -1;
+		::CloseServiceHandle(sh);
+		::CloseServiceHandle(scman);
+		throw NTServiceException(name, "QueryServiceStatus: Could not query service status", GetLastError());
 	}
 	// TODO: Get more info here 
 	::CloseServiceHandle(sh);
