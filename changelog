@@ -8,6 +8,10 @@ TODO:
  * Fix PDH problems
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2006-06-20 MickeM
+ * Fixed #24 crash in NSClient++.exe CheckSystem listpdh | debugpdh
+ * Fixed #62 Problems with CheckServiceState and services with spaces.
+
 2006-03-06 MickeM
  ! 0.2.7 released
 

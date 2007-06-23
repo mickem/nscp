@@ -46,34 +46,51 @@ namespace simpleSocket {
 		DataBuffer() : buffer_(NULL), length_(0){
 		}
 		DataBuffer(const DataBuffer &other) {
-			buffer_ = new char[other.getLength()];
-			memcpy(buffer_, other.getBuffer(), other.getLength());
+			buffer_ = new char[other.getLength()+2];
+			memcpy(buffer_, other.getBuffer(), other.getLength()+1);
 			length_ = other.getLength();
 		}
 		virtual ~DataBuffer() {
 			delete [] buffer_;
 			length_ = 0;
+			buffer_ = NULL;
 		}
 		void append(const char* buffer, const unsigned int length) {
-			char *tBuf = new char[length_+length+1];
+			char *tBuf = new char[length_+length+2];
 			memcpy(tBuf, buffer_, length_);
 			memcpy(&tBuf[length_], buffer, length);
 			delete [] buffer_;
 			buffer_ = tBuf;
 			length_ += length;
+			buffer_[length_+1] = 0;
 		}
+		/**
+		 * returns a const reference to the internal buffer
+		 * Use with care!
+		 *
+		 * @access public 
+		 * @returns const char *
+		 * @qualifier const
+		 */
 		const char * getBuffer() const {
 			return buffer_;
 		}
 		unsigned int getLength() const {
 			return length_;
 		}
+		/**
+		 * Eats a specified number of bytes from the beginning of the buffer
+		 * @access public 
+		 * @returns void
+		 * @qualifier
+		 * @param const unsigned int length the amount of bytes to eat
+		 */
 		void nibble(const unsigned int length) {
 			if (length > length_)
 				return;
 			unsigned int newLen = length_-length;
-			char *tBuf = new char[newLen+1];
-			memcpy(tBuf, &buffer_[length], newLen);
+			char *tBuf = new char[newLen+2];
+			memcpy(tBuf, &buffer_[length], newLen+1);
 			char *oldBuf = buffer_;
 			buffer_ = tBuf;
 			length_ = newLen;
@@ -86,8 +103,8 @@ namespace simpleSocket {
 				return ret;
 			ret.copyFrom(buffer_, length);
 			unsigned int newLen = length_-length;
-			char *tBuf = new char[newLen+1];
-			memcpy(tBuf, &buffer_[length], newLen);
+			char *tBuf = new char[newLen+2];
+			memcpy(tBuf, &buffer_[length], newLen+1);
 			char *oldBuf = buffer_;
 			buffer_ = tBuf;
 			length_ = newLen;
@@ -106,9 +123,10 @@ namespace simpleSocket {
 		}
 		void copyFrom(const char* buffer, const unsigned int length) {
 			delete [] buffer_;
-			buffer_ = new char[length+1];
+			buffer_ = new char[length+2];
 			memcpy(buffer_, buffer, length);
 			length_ = length;
+			buffer_[length_+1] = 0;
 		}
 	};
 

@@ -325,34 +325,35 @@ namespace PDH {
 				DWORD dwInstanceBufLen = 0;
 				LPTSTR szInstanceBuffer = NULL;
 				status = PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-				if (status != PDH_MORE_DATA)
-					throw PDHException("PdhEnumObjectItems failed when trying to retrieve size for " + (*it).name, status);
-				szCounterBuffer = new char[dwCounterBufLen+1024];
-				szInstanceBuffer = new char[dwInstanceBufLen+1024];
-				status = PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-				if (status != ERROR_SUCCESS)
-					throw PDHException("PdhEnumObjectItems failed when trying to retrieve buffer for " + (*it).name, status);
+				if (status == PDH_MORE_DATA) {
+					szCounterBuffer = new char[dwCounterBufLen+1024];
+					szInstanceBuffer = new char[dwInstanceBufLen+1024];
+					status = PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+					if (status != ERROR_SUCCESS)
+						throw PDHException("PdhEnumObjectItems failed when trying to retrieve buffer for " + (*it).name, status);
 
-				if (dwCounterBufLen > 0) {
-					cp=szCounterBuffer;
-					while(*cp != '\0') {
-						Counter o;
-						o.name = cp;
-						(*it).counters.push_back(o);
-						cp += lstrlen(cp)+1;
+					if (dwCounterBufLen > 0) {
+						cp=szCounterBuffer;
+						while(*cp != '\0') {
+							Counter o;
+							o.name = cp;
+							(*it).counters.push_back(o);
+							cp += lstrlen(cp)+1;
+						}
 					}
-				}
-				if (dwInstanceBufLen > 0) {
-					cp=szInstanceBuffer;
-					while(*cp != '\0') {
-						Instance o;
-						o.name = cp;
-						(*it).instances.push_back(o);
-						cp += lstrlen(cp)+1;
+					if (dwInstanceBufLen > 0) {
+						cp=szInstanceBuffer;
+						while(*cp != '\0') {
+							Instance o;
+							o.name = cp;
+							(*it).instances.push_back(o);
+							cp += lstrlen(cp)+1;
+						}
 					}
+					delete [] szCounterBuffer;
+					delete [] szInstanceBuffer;
+					//throw PDHException("PdhEnumObjectItems failed when trying to retrieve size for " + (*it).name, status);
 				}
-				delete [] szCounterBuffer;
-				delete [] szInstanceBuffer;
 			}
 			return ret;
 		}

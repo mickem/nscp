@@ -24,6 +24,7 @@
 
 #include <list>
 #include <string>
+#include <strEx.h>
 
 class TNtServiceInfo;
 
@@ -43,7 +44,7 @@ public:
 	NTServiceException(std::string name,std::string msg,unsigned int error) : name_(name), error_(error), msg_(msg) {};
 
 	std::string getError() {
-		return "Service: " + name_ + " caused: " + msg_;
+		return "Service: " + name_ + " caused: " + msg_ + "(" + strEx::itos(error_) + ")";
 	}
 };
 
