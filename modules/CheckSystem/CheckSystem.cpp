@@ -600,6 +600,7 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	MemoryConatiner tmpObject;
 
 	MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR_AND("type", tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_STR_AND("Type", tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
@@ -608,15 +609,12 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 		MAP_OPTIONS_SECONDARY_END()
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-
-		MAP_OPTIONS_USELESS_IF_LAST(stl_args)
 		MAP_OPTIONS_DISK_ALL(tmpObject, "", "Free", "Used")
 		MAP_OPTIONS_STR("Alias", tmpObject.data)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 	MAP_OPTIONS_END()
 
-	
 	if (bNSClient) {
 		tmpObject.data = "paged";
 		list.push_back(tmpObject);
@@ -628,6 +626,7 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, char **cha
 	bool firstMem = true;
 	for (std::list<MemoryConatiner>::const_iterator pit = list.begin(); pit != list.end(); ++pit) {
 		MemoryConatiner check = (*pit);
+		check.setDefault(tmpObject);
 		checkHolders::PercentageValueType<unsigned long long, unsigned long long> value;
 		if (firstPaged && (check.data == "paged")) {
 			firstPaged = false;
@@ -861,6 +860,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_EX("Averages", bCheckAverages, "true", "false")
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_FIRST_CHAR('\\', tmpObject.data, counters.push_back(tmpObject))
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
 			else if (p2.first == "Counter") {
 				tmpObject.data = p__.second;
@@ -871,7 +871,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 		MAP_OPTIONS_SECONDARY_END()
 		MAP_OPTIONS_FALLBACK_AND(tmpObject.data, counters.push_back(tmpObject))
 	MAP_OPTIONS_END()
-
 	for (std::list<CounterConatiner>::const_iterator cit = counters.begin(); cit != counters.end(); ++cit) {
 		CounterConatiner counter = (*cit);
 		try {

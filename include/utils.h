@@ -100,4 +100,8 @@ unsigned long calculate_crc32(const char *buffer, int buffer_size);
 #define MAP_OPTIONS_SECONDARY_STR_AND(opt, value, objfirst, objsecond, extra) \
 			else if (opt.first == value) { objfirst = p__.second; objsecond = opt.second; extra;}
 
+#define MAP_OPTIONS_FIRST_CHAR(splt, obj, extra) \
+	else if (p__.first.size() > 1 && p__.first[0] == splt) { \
+			obj = p__.first; extra;}
+
 #define MAP_OPTIONS_SECONDARY_END() }
