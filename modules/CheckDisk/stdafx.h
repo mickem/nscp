@@ -26,7 +26,9 @@
 
 #include <string>
 #include <functional>
+#ifndef NO_BOOST_DEP
 #include <boost/regex.hpp> 
+#endif
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>

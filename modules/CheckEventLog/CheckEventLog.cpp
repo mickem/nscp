@@ -297,9 +297,10 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	unsigned long int hit_count = 0;
 
 	for (std::list<std::string>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
+		std::cout << "Opening: " << (*cit2) << std::endl;
 		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
 		if (hLog == NULL) {
-			message = "Could not open the '" + (*cit2) + "' event log.";
+			message = "Could not open the '" + (*cit2) + "' event log: " + strEx::itos(GetLastError());
 			return NSCAPI::returnUNKNOWN;
 		}
 
@@ -322,6 +323,12 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			{ 
 				bool bMatch = bFilterAll;
 				EventLogRecord record(pevlr, ltime);
+
+				if (filter_chain.empty()) {
+					message = "No filters specified.";
+					return NSCAPI::returnUNKNOWN;
+				}
+
 
 				for (filterlist_type::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
 					int mode = (*cit3).first;

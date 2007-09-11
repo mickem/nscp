@@ -64,7 +64,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		SettingsT settings;
 		std::string prefix;
 		std::string section;
-		settings.setFile(NSCModuleHelper::getBasePath() + "\\counters.defs", true);
+		settings.setFile(NSCModuleHelper::getBasePath(),  "counters.defs", true);
 
 		NSC_LOG_ERROR_STD("Getting counter info...");
 

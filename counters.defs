@@ -53,11 +53,15 @@ W2K_MemoryCommitByte = "\Mémoire\Octets dédiés"
 
 [0x0C0A]
 Description = "Spanish"
-NT4_SystemTotalProcessorTime = "\Sistema\% Tiempo total de
-procesador"
+NT4_SystemTotalProcessorTime = "\Procesador(_Total)\% de tiempo de procesador"
 NT4_SystemSystemUpTime = "\Sistema\Tiempo de actividad del sistema"
 NT4_MemoryCommitLimit = "\Memoria\Límite comprometido"
 NT4_MemoryCommitByte = "\Memoria\Bytes comprometidos"
+
+W2K_SystemTotalProcessorTime = "\Procesador(_Total)\% de tiempo de procesador"
+W2K_SystemSystemUpTime = "\Sistema\Tiempo de actividad del sistema"
+W2K_MemoryCommitLimit = "\Memoria\Límite comprometido"
+W2K_MemoryCommitByte = "\Memoria\Bytes comprometidos"
 
 [0x0416]
 Description = "Portuguese_BR"
@@ -79,3 +83,10 @@ W2K_SystemTotalProcessorTime = "\Processor(_total)\% Processor Time"
 W2K_SystemSystemUpTime = "\System\System Up Time"
 W2K_MemoryCommitLimit = "\Memory\Commit Limit"
 W2K_MemoryCommitByte = "\Memory\Committed Bytes" 
+
+[0x0413]
+Description = "Dutch"
+W2K_SystemTotalProcessorTime = "\Processor(_total)\Percentage processortijd"
+W2K_SystemSystemUpTime = "\Systeem\Systeem ingeschakeld"
+W2K_MemoryCommitLimit = "\Geheugen\Toewijzingslimiet"
+W2K_MemoryCommitByte = "\Geheugen\Toegewezen bytes" 
