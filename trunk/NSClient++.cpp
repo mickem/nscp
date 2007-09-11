@@ -66,7 +66,7 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			g_bConsoleLog = true;
 			std::string password;
 			try {
-				Settings::getInstance()->setFile(mainClient.getBasePath() + "NSC.ini");
+				Settings::getInstance()->setFile(mainClient.getBasePath(), "NSC.ini");
 			} catch (SettingsException e) {
 				std::cout << "Could not find settings: " << e.getMessage() << std::endl;;
 				return 1;
@@ -157,7 +157,7 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
  */
 bool NSClientT::InitiateService(void) {
 	try {
-		Settings::getInstance()->setFile(getBasePath() + "NSC.ini");
+		Settings::getInstance()->setFile(getBasePath(), "NSC.ini");
 	} catch (SettingsException e) {
 		LOG_ERROR_STD("Could not find settings: " + e.getMessage());
 		return false;
@@ -485,7 +485,7 @@ std::string NSClientT::getBasePath(void) {
 	std::string::size_type pos = path.rfind('\\');
 	basePath = path.substr(0, pos) + "\\";
 	delete [] buffer;
-	Settings::getInstance()->setFile(basePath + "NSC.ini");
+	Settings::getInstance()->setFile(basePath, "NSC.ini");
 	return basePath;
 }
 

@@ -46,11 +46,13 @@ namespace filters {
 				return str == filter;
 			}
 		};
+#ifndef NO_BOOST_DEP
 		struct regexp_string_filter {
 			static bool filter(boost::regex filter, std::string str) {
 				return  boost::regex_match(str, filter);
 			}
 		};
+#endif
 		template <typename TType>
 		struct numeric_max_filter {
 			static bool filter(TType filter, TType value) {
@@ -112,6 +114,7 @@ namespace filters {
 				return ret;
 			}
 		};
+#ifndef NO_BOOST_DEP
 		struct regexp_handler {
 			static boost::regex parse(std::string str) {
 				try {
@@ -121,6 +124,7 @@ namespace filters {
 				}
 			}
 		};
+#endif
 		struct eventtype_handler {
 			static unsigned int parse(std::string str) {
 				if (str == "error")
@@ -201,33 +205,45 @@ namespace filters {
 	};
 
 	typedef filter_one<std::string, std::string, handlers::string_handler, filter::sub_string_filter> sub_string_filter;
+#ifndef NO_BOOST_DEP
 	typedef filter_one<boost::regex, std::string, handlers::regexp_handler, filter::regexp_string_filter> regexp_string_filter;
+#endif
 	typedef filter_one<std::string, std::string, handlers::string_handler, filter::exact_string_filter> exact_string_filter;
 
 	struct filter_all_strings {
 		sub_string_filter sub;
 		exact_string_filter exact;
+#ifndef NO_BOOST_DEP
 		regexp_string_filter regexp;
+#endif
 		filter_all_strings() {}
 
 		inline bool hasFilter() const {
-			return sub.hasFilter() || regexp.hasFilter() || exact.hasFilter();
+			return sub.hasFilter() 
+#ifndef NO_BOOST_DEP
+				|| regexp.hasFilter() 
+#endif
+				|| exact.hasFilter();
 		}
 		bool matchFilter(const std::string str) const {
-			if ((regexp.hasFilter())&&(regexp.matchFilter(str)))
+			if ((sub.hasFilter())&&(sub.matchFilter(str)))
 				return true;
-			else if ((sub.hasFilter())&&(sub.matchFilter(str)))
+#ifndef NO_BOOST_DEP
+			else if ((regexp.hasFilter())&&(regexp.matchFilter(str)))
 				return true;
+#endif
 			else if ((exact.hasFilter())&&(exact.matchFilter(str)))
 				return true;
 			return false;
 		}
 		const filter_all_strings & operator=(std::string value) {
 			strEx::token t = strEx::getToken(value, ':', false);
-			if (t.first == "regexp") {
-				regexp = t.second;
-			} else if (t.first == "substr") {
+			if (t.first == "substr") {
 				sub = t.second;
+#ifndef NO_BOOST_DEP
+			} else if (t.first == "regexp") {
+				regexp = t.second;
+#endif
 			} else {
 				exact = t.first;
 			}

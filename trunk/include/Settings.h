@@ -51,6 +51,7 @@ private:
 	typedef std::map<std::string,saveKeyList> saveSectionList;
 	saveSectionList data_;
 	std::string file_;
+	std::string basepath_;
 	bool bHasInternalData;
 	TSettings *settingsManager;
 
@@ -75,22 +76,23 @@ public:
 	 * Set the file to read from
 	 * @param file A INI-file to use as settings repository
 	 */
-	void setFile(std::string file, bool forceini = false) {
+	void setFile(std::string basepath, std::string file, bool forceini = false) {
 		file_ = file;
+		basepath_ = basepath;
 		if (forceini) {
 			if (settingsManager)
 				delete settingsManager;
-			settingsManager = new INISettings(file);
+			settingsManager = new INISettings(basepath, file);
 			return;
 		}
 		if (REGSettings::hasSettings()) {
 			if (settingsManager)
 				delete settingsManager;
 			settingsManager = new REGSettings();
-		} else if (INISettings::hasSettings(file)) {
+		} else if (INISettings::hasSettings(basepath, file)) {
 			if (settingsManager)
 				delete settingsManager;
-			settingsManager = new INISettings(file);
+			settingsManager = new INISettings(basepath, file);
 		} else {
 			throw SettingsException("No settings method specified, cannot start");
 		}
@@ -106,7 +108,7 @@ public:
 				sM = new REGSettings();
 				bNew = true;
 			} else if (type == INISettings::getType()) {
-				sM = new INISettings(file_);
+				sM = new INISettings(basepath_, file_);
 				bNew = true;
 			} else {
 				throw SettingsException("Invalid settings subsystem specified");
@@ -163,7 +165,7 @@ public:
 				sM = new REGSettings();
 				bNew = true;
 			} else if (type == INISettings::getType()) {
-				sM = new INISettings(file_);
+				sM = new INISettings(basepath_, file_);
 				bNew = true;
 			} else {
 				throw SettingsException("Invalid settings subsystem specified");

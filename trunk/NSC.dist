@@ -142,3 +142,10 @@ use_file=1
 ;# Some real world samples
 ;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
 ;nrpe_ok=scripts\ok.bat
+
+; [includes]
+;# The order when used is "reversed" thus the last included file will be "first"
+;# Included files can include other files (be carefull only do basic recursive checking)
+;
+; myotherfile.ini
+; real.ini

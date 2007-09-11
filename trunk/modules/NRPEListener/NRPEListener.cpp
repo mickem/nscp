@@ -293,7 +293,7 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 
 		if (dwstate == WAIT_TIMEOUT) {
 			TerminateProcess(pi.hProcess, 5);
-			msg = "The check didn't respond within the timeout period!";
+			msg = "The check (" + command + ") didn't respond within the timeout period (" + strEx::itos(timeout) + "s)!";
 			result = NSCAPI::returnUNKNOWN;
 		} else {
 			DWORD dwread;
@@ -335,7 +335,7 @@ void NRPEListener::onClose()
 void NRPEListener::onAccept(simpleSocket::Socket *client) 
 {
 	if (!allowedHosts.inAllowedHosts(client->getAddr())) {
-		NSC_LOG_ERROR("Unothorized access from: " + client->getAddrString());
+		NSC_LOG_ERROR("Unauthorize access from: " + client->getAddrString());
 		client->close();
 		return;
 	}
