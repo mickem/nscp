@@ -53,7 +53,7 @@ PDHCollector::~PDHCollector()
 DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!hStopEvent_) {
-		NSC_LOG_ERROR_STD("Create StopEvent failed: " + strEx::itos(GetLastError()));
+		NSC_LOG_ERROR_STD("Create StopEvent failed: " + error::lookup::last_error());
 		return 0;
 	}
 	PDH::PDHQuery pdh;
@@ -156,7 +156,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		}
 
 		if (!CloseHandle(hStopEvent_)) {
-			NSC_LOG_ERROR_STD("Failed to close stopEvent handle: " + strEx::itos(GetLastError()));
+			NSC_LOG_ERROR_STD("Failed to close stopEvent handle: " + error::lookup::last_error());
 		} else
 			hStopEvent_ = NULL;
 		try {

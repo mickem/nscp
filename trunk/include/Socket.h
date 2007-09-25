@@ -22,7 +22,7 @@
 #include <Thread.h>
 #include <Mutex.h>
 #include <WinSock2.h>
-
+#include <error.hpp>
 
 namespace simpleSocket {
 	class SocketException {
@@ -522,7 +522,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 
 	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!hStopEvent_) {
-		core->printError(__FILE__, __LINE__, "Create StopEvent failed: " + strEx::itos(GetLastError()));
+		core->printError(__FILE__, __LINE__, "Create StopEvent failed: " + error::lookup::last_error());
 		return 0;
 	}
 
@@ -557,7 +557,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 	HANDLE hTmp = hStopEvent_;
 	hStopEvent_ = NULL;
 	if (!CloseHandle(hTmp)) {
-		core->printError(__FILE__, __LINE__, "CloseHandle StopEvent failed: " + strEx::itos(GetLastError()));
+		core->printError(__FILE__, __LINE__, "CloseHandle StopEvent failed: " + error::lookup::last_error());
 	}
 	return 0;
 }
