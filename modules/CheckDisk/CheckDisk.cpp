@@ -23,6 +23,7 @@
 #include <strEx.h>
 #include <time.h>
 #include <filter_framework.hpp>
+#include <error.hpp>
 
 
 
@@ -229,7 +230,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		ULARGE_INTEGER totalNumberOfBytes;
 		ULARGE_INTEGER totalNumberOfFreeBytes;
 		if (!GetDiskFreeSpaceEx(drive.data.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
-			message = "UNKNOWN: Could not get free space for: " + drive.getAlias() + + " \"" + drive.data + "\" reason: " + strEx::itos(GetLastError());
+			message = "UNKNOWN: Could not get free space for: " + drive.getAlias() + + " \"" + drive.data + "\" reason: " + error::lookup::last_error();
 			return NSCAPI::returnUNKNOWN;
 		}
 
@@ -377,7 +378,7 @@ struct find_first_file_info : public baseFinderFunction
 		HANDLE hFile = CreateFile((ffd.path + "\\" + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			setError("Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + strEx::itos(GetLastError()));
+			setError("Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + error::lookup::last_error());
 			return false;
 		}
 		GetFileInformationByHandle(hFile, &_info);
@@ -413,7 +414,7 @@ struct file_filter_function : public baseFinderFunction
 		HANDLE hFile = CreateFile((ffd.path + "\\" + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			setError("Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + strEx::itos(GetLastError()));
+			setError("Could not open file: " + ffd.path + "\\" + ffd.wfd.cFileName + ": " + error::lookup::last_error());
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);

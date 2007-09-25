@@ -8,10 +8,13 @@ TODO:
  * Fix PDH problems
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-09-15 MickeM
+ + Added better error messages (now returncodes are displayed as text). Not implemented all over yet but the infrastructure is there.
+
 2007-09-11 MickeM
- * Added Dutch performance counters to counters.defs
- * Added Spanish performance counters to counters.defs
- * Added #69 [includes] directive to INI-file to include other files
+ + Added Dutch performance counters to counters.defs
+ + Added Spanish performance counters to counters.defs
+ + Added #69 [includes] directive to INI-file to include other files
  * Fixed #75 (spelling issue)
 
 2007-06-23 MickeM

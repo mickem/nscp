@@ -42,21 +42,7 @@ namespace PDH {
 				ret += name_ + ": ";
 			ret += str_;
 			if (pdhStatus_ != 0) {
-				ret += ": ";
-				LPSTR szMessage = NULL;
-				FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-					FORMAT_MESSAGE_FROM_HMODULE,
-					GetModuleHandle("PDH.DLL"), pdhStatus_,
-					MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-					szMessage, 0, NULL);
-				if (szMessage)
-					ret += ": " + std::string(szMessage);
-				else {
-					std::stringstream ss;
-					ss << pdhStatus_;
-					ret += ": " + ss.str();
-				}
-				LocalFree(szMessage);
+				ret += ": " + error::format::from_module("PDH.DLL", pdhStatus_);
 			}
 			return ret;
 		}

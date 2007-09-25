@@ -24,6 +24,7 @@
 #include <strEx.h>
 #include <time.h>
 #include <utils.h>
+#include <error.hpp>
 
 CheckEventLog gCheckEventLog;
 
@@ -300,7 +301,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		std::cout << "Opening: " << (*cit2) << std::endl;
 		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
 		if (hLog == NULL) {
-			message = "Could not open the '" + (*cit2) + "' event log: " + strEx::itos(GetLastError());
+			message = "Could not open the '" + (*cit2) + "' event log: " + error::lookup::last_error();
 			return NSCAPI::returnUNKNOWN;
 		}
 

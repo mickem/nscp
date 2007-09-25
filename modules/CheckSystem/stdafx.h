@@ -36,3 +36,5 @@
 #include <NSCAPI.h>
 #include <NSCHelper.h>
 #include <config.h>
+#include <utils.h>
+#include <error.hpp>

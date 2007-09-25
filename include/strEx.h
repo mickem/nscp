@@ -306,6 +306,7 @@ namespace strEx {
 			return _stricmp( x.c_str(), y.c_str() ) < 0;
 		}
 	};
+
 #ifdef _DEBUG
 	inline void test_getToken(std::string in1, char in2, std::string out1, std::string out2) {
 		token t = getToken(in1, in2);
