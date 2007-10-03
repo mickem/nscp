@@ -24,7 +24,12 @@
 #define SZAPPNAME "NSClient++"
 
 // Version
-#define SZVERSION "0.2.7 2007-03-06"
+#define SZVERSION "0.2.7 2007-10-03"
+#ifdef ARCH_x64
+#define SZARCH "x64"
+#else
+#define SZARCH "w32"
+#endif
 
 // internal name of the service
 #define SZSERVICENAME        "NSClientpp"
@@ -33,7 +38,7 @@
 #define SZSERVICEDESCRIPTION "Nagios Windows Agent (Provides performance data for Nagios server)"
 
 // displayed name of the service
-#define SZSERVICEDISPLAYNAME SZSERVICENAME " (Nagios) " SZVERSION
+#define SZSERVICEDISPLAYNAME SZSERVICENAME " (Nagios) " SZVERSION " " SZARCH
 
 // list of service dependencies - "dep1\0dep2\0\0"
 #define SZDEPENDENCIES       ""

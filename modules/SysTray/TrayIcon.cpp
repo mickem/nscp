@@ -58,7 +58,14 @@ namespace TrayIcon
 	std::string defaultCommand;
 }
 
-BOOL CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam) {
+/*
+INT_PTR CALLBACK DialogProc(          HWND hwndDlg,
+    UINT uMsg,
+    WPARAM wParam,
+    LPARAM lParam
+);
+*/
+INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam) {
 	switch (uMsg) 
 	{
 	case WM_INITDIALOG:
