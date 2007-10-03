@@ -20,10 +20,10 @@
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
 
-#include <strEx.h>
 #include <config.h>
+#include <strEx.h>
+#include <utils.h>
 #include <checkHelpers.hpp>
-#include <filter_framework.hpp>
 
 
 class CheckEventLog {

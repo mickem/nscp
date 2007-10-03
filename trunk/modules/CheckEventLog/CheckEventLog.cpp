@@ -21,6 +21,8 @@
 
 #include "stdafx.h"
 #include "CheckEventLog.h"
+#include <filter_framework.hpp>
+
 #include <strEx.h>
 #include <time.h>
 #include <utils.h>

@@ -25,12 +25,15 @@
 // Windows Header Files:
 #include <windows.h>
 
-#define COMPILE_NEWAPIS_STUBS
-#define WANT_GETLONGPATHNAME_WRAPPER
+//#define COMPILE_NEWAPIS_STUBS
+//#define WANT_GETLONGPATHNAME_WRAPPER
 #include <NewAPIs.h>
 
-#include <boost/regex.hpp> 
 #include <string>
+#include <functional>
+#ifndef NO_BOOST_DEP
+#include <boost/regex.hpp> 
+#endif
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>

@@ -113,12 +113,12 @@ namespace simpleSocket {
 		}
 		const unsigned long long find(char c) {
 			if (buffer_ == NULL)
-				return 0;
+				return -1;
 			if (length_ == 0)
-				return 0;
+				return -1;
 			const char *pos = strchr(buffer_, c);
 			if (pos == NULL)
-				return 0;
+				return -1;
 			return pos-buffer_;
 		}
 		void copyFrom(const char* buffer, const unsigned int length) {

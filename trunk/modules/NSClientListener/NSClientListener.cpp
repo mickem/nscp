@@ -145,7 +145,7 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 		std::string::size_type pos2 = buffer.find_first_not_of("\n\r", pos);
 		if (pos2 != std::string::npos) {
 			std::string rest = buffer.substr(pos2);
-			NSC_DEBUG_MSG_STD("Ignoring datat: " + rest);
+			NSC_DEBUG_MSG_STD("Ignoring data: " + rest);
 		}
 		buffer = buffer.substr(0, pos);
 	}
@@ -156,10 +156,10 @@ std::string NSClientListener::parseRequest(std::string buffer)  {
 		return "ERROR: Invalid password."; 
 	}
 	if (pwd.second.empty())
-		return "ERRRO: No command specified.";
+		return "ERROR: No command specified.";
 	strEx::token cmd = strEx::getToken(pwd.second, '&');
 	if (cmd.first.empty())
-		return "ERRRO: No command specified.";
+		return "ERROR: No command specified.";
 
 	int c = atoi(cmd.first.c_str());
 
@@ -253,17 +253,19 @@ void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 
 		if (db.getLength() > 0) {
 			unsigned long long pos = db.find('\n');
-			if (pos==0) {
+			if (pos==-1) {
 				std::string incoming(db.getBuffer(), db.getLength());
 				sendTheResponse(client, parseRequest(incoming));
 				break;
-			} else if (pos!=0) {
+			} else if (pos>0) {
 				simpleSocket::DataBuffer buffer = db.unshift(static_cast<const unsigned int>(pos));
 				std::string bstr(buffer.getBuffer(), buffer.getLength());
 				db.nibble(1);
 				std::string rstr(db.getBuffer(), db.getLength());
 				std::string incoming(buffer.getBuffer(), buffer.getLength());
 				sendTheResponse(client, parseRequest(incoming) + "\n");
+			} else {
+				NSC_LOG_ERROR_STD("First char should (i think) not be a \\n :(");
 			}
 		} else {
 			Sleep(100);
