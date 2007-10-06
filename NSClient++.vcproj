@@ -30,6 +30,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine=""
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -96,6 +97,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="NSClient++.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -414,10 +416,11 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="XAutobuild.exe -f $(ProjectDir)"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\modules\*.pdb&quot;&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\*.zip&quot;&#x0D;&#x0A;echo Making archive: 7z.exe a -r -tzip -bd $(TargetDir)\$(InputName).zip $(TargetDir)\*&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
+				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\modules\*.pdb&quot;&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\*.zip&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName)-$(PlatformName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
 			/>
 			<Tool
@@ -438,7 +441,7 @@
 				AdditionalIncludeDirectories="include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				StringPooling="true"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="stdafx.h"
@@ -481,6 +484,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="NSClient++.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -513,6 +517,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="XAutobuild.exe -f $(ProjectDir)"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -581,6 +586,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="NSClient++.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -992,6 +998,10 @@
 			>
 			<File
 				RelativePath=".\include\arrayBuffer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\AutoBuild.h"
 				>
 			</File>
 			<File
@@ -1441,6 +1451,10 @@
 				>
 			</File>
 		</Filter>
+		<File
+			RelativePath=".\NSClient++.manifest"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

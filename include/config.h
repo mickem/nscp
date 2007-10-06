@@ -20,11 +20,13 @@
 ***************************************************************************/
 #pragma once
 
+#include "../AutoBuild.h"
 // Application Name
 #define SZAPPNAME "NSClient++"
 
 // Version
-#define SZVERSION "0.2.7 2007-10-03"
+#define SZVERSION STRPRODUCTVER " " STRPRODUCTDATE
+//FILEVER[0]
 #ifdef ARCH_x64
 #define SZARCH "x64"
 #else
