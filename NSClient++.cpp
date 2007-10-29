@@ -651,7 +651,7 @@ NSCAPI::errorReturn NSAPIReadSettings(int type) {
 	return NSCAPI::isSuccess;
 }
 NSCAPI::errorReturn NSAPIRehash(int flag) {
-	return NSCAPI::critical;
+	return NSCAPI::hasFailed;
 }
 
 

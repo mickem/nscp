@@ -23,6 +23,8 @@
 #include "Singleton.h"
 #include "strEx.h"
 #include <assert.h>
+#include <windows.h>
+#include <iostream>
 
 /**
  * @ingroup NSClient++

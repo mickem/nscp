@@ -15,7 +15,8 @@
 #
 #############################################################################*/
 
-#include "stdafx.h"
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+#include <windows.h>
 #include <WinSvc.h>
 #include "EnumNtSrv.h"
 
@@ -189,7 +190,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 	if (!sh) {
 		DWORD bufLen = SC_BUF_LEN;
 		TCHAR *buf = new TCHAR[bufLen+1];
-		std::cout << "name: '" << name << "'" << std::endl;
+		//std::cout << "name: '" << name << "'" << std::endl;
 		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
 			::CloseServiceHandle(scman);
 			throw NTServiceException(name, "GetServiceKeyName: Could not translate service name", GetLastError());

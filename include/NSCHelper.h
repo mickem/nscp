@@ -26,6 +26,8 @@
 #include <iostream>
 #include <charEx.h>
 #include <arrayBuffer.h>
+#include <windows.h>
+
 
 namespace NSCHelper
 {

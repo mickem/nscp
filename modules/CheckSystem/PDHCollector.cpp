@@ -116,10 +116,8 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
 	}
 
-	NSC_LOG_ERROR_STD("Attempting to open counter...");
 	try {
 		pdh.open();
-		NSC_LOG_ERROR_STD("Counters opend...");
 	} catch (const PDH::PDHException &e) {
 		NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.getError());
 		return 0;

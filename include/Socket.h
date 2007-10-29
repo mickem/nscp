@@ -19,10 +19,14 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
+#define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
+//#include <windows.h>
+#include <WinSock2.h>
 #include <Thread.h>
 #include <Mutex.h>
-#include <WinSock2.h>
 #include <error.hpp>
+#include <NSCHelper.h>
+
 
 namespace simpleSocket {
 	class SocketException {

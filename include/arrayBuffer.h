@@ -20,6 +20,10 @@
 ***************************************************************************/
 #pragma once
 
+#include <string>
+#include <list>
+#include <assert.h>
+#include <iostream>
 /**
  * @ingroup NSClient++
  *
