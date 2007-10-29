@@ -97,6 +97,11 @@ namespace strEx {
 		ss << i;
 		return ss.str();
 	}
+	inline std::string itos(float i) {
+		std::stringstream ss;
+		ss << i;
+		return ss.str();
+	}
 	inline std::string ihextos(unsigned int i) {
 		std::stringstream ss;
 		ss << std::hex << i;

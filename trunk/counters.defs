@@ -90,3 +90,11 @@ W2K_SystemTotalProcessorTime = "\Processor(_total)\Percentage processortijd"
 W2K_SystemSystemUpTime = "\Systeem\Systeem ingeschakeld"
 W2K_MemoryCommitLimit = "\Geheugen\Toewijzingslimiet"
 W2K_MemoryCommitByte = "\Geheugen\Toegewezen bytes" 
+
+
+[0x040b]
+Description = "Suomi"
+W2K_SystemTotalProcessorTime = "\Suoritin(_Total)\Suoritinaika prosentteina"
+W2K_SystemSystemUpTime = "\Järjestelmä\Järjestelmän toiminta-aika"
+W2K_MemoryCommitLimit = "\Muisti\Varausraja"
+W2K_MemoryCommitByte = "\Muisti\Varatut tavut"

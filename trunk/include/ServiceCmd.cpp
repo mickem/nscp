@@ -13,9 +13,11 @@
 //
 //////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
+#include <windows.h>
+#include <tchar.h>
 #include "ServiceCmd.h"
 #include <strEx.h>
+#include <iostream>
 
 namespace serviceControll {
 	/**

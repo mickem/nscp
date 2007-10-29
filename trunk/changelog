@@ -8,6 +8,12 @@ TODO:
  * Fix PDH problems
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-10-29 MickeM
+ * Restructured build and include to work from CLI
+ + Started to add makefiles to build from CLI
+ + Added finnish counters (#98)
+ * Fixed performance counter issue with check_nt (#99)
+ 
 2007-10-06 MickeM
  + Added auto-upda-te of versions and dates on build to make versions better updated.
  + Fixed x64 build and cleanup a bit.

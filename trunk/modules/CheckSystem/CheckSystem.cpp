@@ -891,9 +891,9 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, char *
 			pdh.gatherData();
 			pdh.close();
 			double value = cDouble.getValue();
-			std::cout << "Collected double data: " << value << std::endl;
+			//std::cout << "Collected double data: " << value << std::endl;
 			if (bNSClient) {
-				msg += strEx::itos(value);
+				msg += strEx::itos(static_cast<float>(value));
 			} else {
 				counter.perfData = bPerfData;
 				counter.setDefault(tmpObject);
