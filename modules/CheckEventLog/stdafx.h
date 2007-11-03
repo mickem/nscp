@@ -27,7 +27,7 @@
 
 //#define COMPILE_NEWAPIS_STUBS
 //#define WANT_GETLONGPATHNAME_WRAPPER
-#include <NewAPIs.h>
+//#include <NewAPIs.h>
 
 #include <string>
 #include <functional>
