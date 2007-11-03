@@ -31,11 +31,11 @@
 
 #define _WIN32_DCOM
 #include <objbase.h>
+#include <NSCAPI.h>
+#include <NSCHelper.h>
 
 #include <atlbase.h>
 #include <atlcom.h>
 #include <atlstr.h>
 #include <atlsafe.h>
-#include <NSCAPI.h>
-#include <NSCHelper.h>
 

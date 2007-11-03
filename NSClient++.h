@@ -20,6 +20,7 @@
 ***************************************************************************/
 #pragma once
 
+#include <config.h>
 #include <ServiceCmd.h>
 #include <NTService.h>
 #include "NSCPlugin.h"

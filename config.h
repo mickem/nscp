@@ -1,7 +1,7 @@
 
 
 #pragma once
-
+/*
 // Application Name
 #define SZAPPNAME "NSClient++"
 
@@ -20,3 +20,6 @@
 // Buffer size of incoming data (noteice this is the maximum request length!)
 #define RECV_BUFFER_LEN		1024
 
+*/
+// internal name of the service
+//#define SZSERVICENAME        "NSClient++"

@@ -66,7 +66,7 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -166,7 +166,7 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -260,7 +260,7 @@
 				ProgramDataBaseFileName=".\Debug/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 				DebugInformationFormat="4"
 			/>
 			<Tool
@@ -354,7 +354,7 @@
 				ProgramDataBaseFileName=".\Debug/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -452,7 +452,7 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -554,7 +554,7 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -620,10 +620,11 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="XAutobuild.exe -f &quot;$(ProjectDir)&quot;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;cmd /c &quot;mkdir $(InputDir)\Dist\scripts\&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\scripts\*.bat $(InputDir)\Dist\scripts\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\modules\*.pdb&quot;&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\*.zip&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName)-$(PlatformName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
+				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir $(InputDir)\Dist\scripts\&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\scripts\*.bat $(InputDir)\Dist\scripts\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\modules\*.pdb&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName)-$(PlatformName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
 			/>
 			<Tool
@@ -642,7 +643,7 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -654,7 +655,7 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -753,7 +754,7 @@
 				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -1407,7 +1408,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\Dist\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1447,7 +1448,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1456,7 +1457,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1483,7 +1484,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1605,7 +1606,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputFileName) "
 					/>
 				</FileConfiguration>
@@ -1645,7 +1646,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\$(InputName).ini&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\Dist\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\Dist\$(InputName).ini"
 					/>
 				</FileConfiguration>
@@ -1687,7 +1688,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\$(OutDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;"
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1696,7 +1697,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\$(OutDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;"
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1728,7 +1729,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
 						AdditionalDependencies=""
 						Outputs="$(InputDir)\Dist\$(InputFileName)"
 					/>
