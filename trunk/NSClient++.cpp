@@ -81,10 +81,20 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			return 0;
 		} else if ( _stricmp( "start", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			serviceControll::Start(SZSERVICENAME);
+			try {
+				serviceControll::Start(SZSERVICENAME);
+			} catch (const serviceControll::SCException& e) {
+				LOG_MESSAGE_STD("Service failed to start: " + e.error_);
+				return -1;
+			}
 		} else if ( _stricmp( "stop", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			serviceControll::Stop(SZSERVICENAME);
+			try {
+				serviceControll::Stop(SZSERVICENAME);
+			} catch (const serviceControll::SCException& e) {
+				LOG_MESSAGE_STD("Service failed to stop: " + e.error_);
+				return -1;
+			}
 		} else if ( _stricmp( "about", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME " (C) Michael Medin");
