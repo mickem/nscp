@@ -65,14 +65,18 @@ private:
 	MutexHandler internalVariables;
 	MutexHandler messageMutex;
 	MutexRW  m_mutexRW;
+	bool debug_;
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) {}
+	NSClientT(void) : debug_(false) {}
 	virtual ~NSClientT(void) {}
+	void enableDebug(bool debug = true) {
+		debug_ = debug;
+	}
 
 	// Service helper functions
-	bool InitiateService(void);
+	bool InitiateService();
 	void TerminateService(void);
 	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);

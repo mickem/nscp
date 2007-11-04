@@ -112,6 +112,7 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			*/
 #endif
 			g_bConsoleLog = true;
+			mainClient.enableDebug(true);
 			if (!mainClient.InitiateService()) {
 				LOG_ERROR_STD("Service *NOT* started!");
 				return -1;
@@ -165,13 +166,17 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
  * Service control handler startup point.
  * When the program is started as a service this will be the entry point.
  */
-bool NSClientT::InitiateService(void) {
+bool NSClientT::InitiateService() {
 	try {
 		Settings::getInstance()->setFile(getBasePath(), "NSC.ini");
 	} catch (SettingsException e) {
 		LOG_ERROR_STD("Could not find settings: " + e.getMessage());
 		return false;
 	}
+	if (debug_) {
+		Settings::getInstance()->setInt("log", "debug", 1);
+	}
+
 	try {
 		simpleSocket::WSAStartup();
 	} catch (simpleSocket::SocketException e) {

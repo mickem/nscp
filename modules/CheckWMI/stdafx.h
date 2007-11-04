@@ -31,11 +31,15 @@
 
 #define _WIN32_DCOM
 #include <objbase.h>
+
 #include <NSCAPI.h>
 #include <NSCHelper.h>
+#define NO_BOOST_DEP
+#include <checkHelpers.hpp>
+#include <filter_framework.hpp>
 
 #include <atlbase.h>
-#include <atlcom.h>
-#include <atlstr.h>
+//#include <atlcom.h>
+//#include <atlstr.h>
 #include <atlsafe.h>
 

@@ -17,6 +17,7 @@
 #include <tchar.h>
 #include "ServiceCmd.h"
 #include <strEx.h>
+#include <tchar.h>
 #include <iostream>
 
 namespace serviceControll {
