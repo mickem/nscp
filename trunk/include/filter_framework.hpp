@@ -21,6 +21,7 @@
 #pragma once
 
 #include <strEx.h>
+#include <checkHelpers.hpp>
 
 namespace filters {
 
@@ -296,10 +297,65 @@ namespace filters {
 			} else if (value.substr(0,3) == "in:") {
 				inList = value.substr(3);
 			} else {
-				throw parse_exception("Unknown filter key: " + value);
+				throw parse_exception("Unknown filter key: " + value + " (numeric filters have to have an operator as well ie. foo=>5 or bar==5)");
 			}
 			return *this;
 		}
 	};
 	typedef filter_all_numeric<unsigned long long, checkHolders::time_handler<unsigned long long> > filter_all_times;
+
+	template <typename TFilterType, typename TValueType>
+	struct chained_filter {
+		enum filter_mode {
+			plus = 1,
+			minus = 2,
+			normal = 3,
+		};
+		typedef std::pair<filter_mode,TFilterType> filteritem_type;
+		typedef std::list<filteritem_type> filterlist_type;
+
+		filterlist_type chain;
+		bool filterAll;
+		
+		chained_filter() : filterAll(false) {}
+
+		void push_filter(std::string key, TFilterType filter) {
+			filter_mode mode = normal;
+			if (key.substr(0,1) == "+")
+				mode = plus;
+			if (key.substr(0,1) == "-")
+				mode = minus;
+			chain.push_back(filteritem_type(mode, filter));
+		}
+
+		bool hasFilter() {
+			return !chain.empty();
+		}
+		bool get_inital_state() {
+			return filterAll;
+		}
+
+		bool match(bool state, const TValueType item) {
+			bool matched = state;
+			for (filterlist_type::const_iterator cit = chain.begin(); cit != chain.end(); ++cit ) {
+				int mode = (*cit).first;
+				bool bTmpMatched = (*cit).second.matchFilter(item);
+				if ((mode == minus)&&(bTmpMatched)) {
+					// a -<filter> hit so thrash result!
+					matched = false;
+					break;
+				} else if ((mode == plus)&&(!bTmpMatched)) {
+					// a +<filter> missed hit so thrash result!
+					matched = false;
+					break;
+				} else if (bTmpMatched) {
+					matched = true;
+				}
+			}
+			return matched;
+		}
+
+	};
+
+
 }

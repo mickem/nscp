@@ -34,8 +34,8 @@ namespace simpleSocket {
 		std::string error_;
 	public:
 		SocketException(std::string error) : error_(error) {}
-		SocketException(std::string error, int errorCode) : error_(error) {
-			error_ += strEx::itos(errorCode);
+		SocketException(std::string error, unsigned int errorCode) : error_(error) {
+			error_ += error::format::from_system(errorCode);
 		}
 		std::string getMessage() const {
 			return error_;

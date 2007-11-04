@@ -33,7 +33,7 @@ namespace checkHolders {
 
 
 
-	std::string formatAbove(std::string str, ResultType what) {
+	static std::string formatAbove(std::string str, ResultType what) {
 		if (what == warning)
 			return str + " > warning";
 		else if (what == critical)
@@ -41,7 +41,7 @@ namespace checkHolders {
 		return str + " > unknown";
 	}
 
-	std::string formatBelow(std::string str, ResultType what) {
+	static std::string formatBelow(std::string str, ResultType what) {
 		if (what == warning)
 			return str + " < warning";
 		else if (what == critical)

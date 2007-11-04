@@ -1148,6 +1148,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\error.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\NRPEListener.h"
 				>
 			</File>

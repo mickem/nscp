@@ -56,63 +56,101 @@ bool CheckWMI::hasMessageHandler() {
 }
 
 
+#define MAP_CHAINED_FILTER(value, obj) \
+			else if (p__.first.length() > 8 && p__.first.substr(1,6) == "filter" && p__.first.substr(7,1) == "-" && p__.first.substr(8) == value) { \
+				WMIQuery::wmi_filter filter; filter.obj = p__.second; chain.push_filter(p__.first, filter); }
+
+#define MAP_SECONDARY_CHAINED_FILTER(value, obj) \
+			else if (p2.first.length() > 8 && p2.first.substr(1,6) == "filter" && p2.first.substr(7,1) == "-" && p2.first.substr(8) == value) { \
+			WMIQuery::wmi_filter filter; filter.obj = p__.second; filter.alias = p2.second; chain.push_filter(p__.first, filter); }
+
+#define MAP_CHAINED_FILTER_STRING(value) \
+	MAP_CHAINED_FILTER(value, string)
+
+#define MAP_CHAINED_FILTER_NUMERIC(value) \
+	MAP_CHAINED_FILTER(value, numeric)
 
 NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIConatiner;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	typedef filters::chained_filter<WMIQuery::wmi_filter,WMIQuery::wmi_row> filter_chain;
+	filter_chain chain;
 	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.empty()) {
 		message = "Missing argument(s).";
 		return NSCAPI::returnCRIT;
 	}
+	unsigned int truncate = 0;
+	std::string query, alias;
+	bool bPerfData = true;
 
-	WMIConatiner tmpObject;
-	std::list<WMIConatiner> queries;
-
-	MAP_OPTIONS_BEGIN(args)
-		MAP_OPTIONS_STR_AND("Query", tmpObject.data, queries.push_back(tmpObject))
-		MAP_OPTIONS_NUMERIC_ALL(tmpObject, "")
-		MAP_OPTIONS_SHOWALL(tmpObject)
+	WMIConatiner result_query;
+	try {
+		MAP_OPTIONS_BEGIN(args)
+		MAP_OPTIONS_STR("Query", query)
+		MAP_OPTIONS_STR2INT("truncate", truncate)
+		MAP_OPTIONS_STR("Alias", alias)
+		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
+		MAP_OPTIONS_NUMERIC_ALL(result_query, "")
+		MAP_OPTIONS_SHOWALL(result_query)
+		MAP_CHAINED_FILTER("string",string)
+		MAP_CHAINED_FILTER("numeric",numeric)
 		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
-			else if (p2.first == "Query") {
-				tmpObject.data = p__.second;
-				tmpObject.alias = p2.second;
-				queries.push_back(tmpObject);
-			}
+		MAP_SECONDARY_CHAINED_FILTER("string",string)
+		MAP_SECONDARY_CHAINED_FILTER("numeric",numeric)
+				else if (p2.first == "Query") {
+					query = p__.second;
+					alias = p2.second;
+				}
 			MAP_OPTIONS_MISSING_EX(p2, message, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
-	MAP_OPTIONS_FALLBACK_AND(tmpObject.data, queries.push_back(tmpObject))
-	MAP_OPTIONS_END()
-
-	for (std::list<WMIConatiner>::const_iterator pit = queries.begin();pit!=queries.end();++pit) {
-		WMIConatiner query = (*pit);
-		std::map<std::string,int> vals;
-		try {
-			vals = wmiQuery.execute(query.data);
-		} catch (WMIException e) {
-			message = "WMIQuery failed...";
-			return NSCAPI::returnCRIT;
-		}
-		int val = 0; //(*vals.begin()).second;
-
-		for (std::map<std::string,int>::const_iterator it = vals.begin(); it != vals.end(); ++it) {
-			std::cout << "Values: " << (*it).first << " = " << (*it).second << std::endl;
-		}
-
-		query.setDefault(tmpObject);
-		query.runCheck(val, returnCode, message, perf);
+		MAP_OPTIONS_END()
+	} catch (filters::parse_exception e) {
+		message = "WMIQuery failed: " + e.getMessage();
+		return NSCAPI::returnCRIT;
 	}
+
+	WMIQuery::result_type rows;
+	try {
+		rows = wmiQuery.execute(query);
+	} catch (WMIException e) {
+		message = "WMIQuery failed: " + e.getMessage();
+		return NSCAPI::returnCRIT;
+	}
+	int hit_count = 0;
+
+	bool match = chain.get_inital_state();
+	for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+		WMIQuery::wmi_row vals = *citRow;
+		match = chain.match(match, vals);
+		if (match) {
+			strEx::append_list(message, vals.render());
+			hit_count++;
+		}
+	}
+
+	if (!bPerfData)
+		result_query.perfData = false;
+	result_query.runCheck(hit_count, returnCode, message, perf);
+	if ((truncate > 0) && (message.length() > (truncate-4)))
+		message = message.substr(0, truncate-4) + "...";
 	if (message.empty())
-		message = "OK: Queries within bounds.";
+		message = "OK: WMI Query returned no results.";
 	return returnCode;
 }
 
+NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
+	message = "Not yet implemented :(";
+	return NSCAPI::returnCRIT;
+}
 
 
 NSCAPI::nagiosReturn CheckWMI::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
 	if (command == "CheckWMI") {
 		return CheckSimpleWMI(argLen, char_args, msg, perf);
+	} else if (command == "CheckWMIValue") {
+		return CheckSimpleWMIValue(argLen, char_args, msg, perf);
 	}	
 	return NSCAPI::returnIgnored;
 }

@@ -38,12 +38,21 @@ WMIQuery::~WMIQuery(void)
 
 bool WMIQuery::initialize()
 {
-	if (CoInitialize(NULL) != S_OK)
-		return false;
-	bInitialized = true;
-	if(CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,0,0) != S_OK) {
+	NSC_LOG_ERROR_STD("Attempting Inialized WMI component");
+
+	HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	if (FAILED(hRes)) {
+		NSC_LOG_ERROR_STD("CoInitialize failed: " + error::format::from_system(hRes));
 		return false;
 	}
+	bInitialized = true;
+	hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
+	if (FAILED(hRes)) {
+		NSC_LOG_ERROR_STD("CoInitializeSecurity failed: " + error::format::from_system(hRes));
+		return false;
+	}
+
+	NSC_LOG_ERROR_STD("Inialized WMI component");
 	return true;
 }
 void WMIQuery::unInitialize()
@@ -53,90 +62,83 @@ void WMIQuery::unInitialize()
 }
 
 
-std::map<std::string,int> WMIQuery::execute(std::string query)
+WMIQuery::result_type WMIQuery::execute(std::string query)
 {
-	std::map<std::string,int> ret;
-	IWbemLocator * pIWbemLocator = NULL;
-	BSTR bstrNamespace = (L"root\\cimv2");
-	//BSTR bstrNamespace = (L"root\\default");
-	HRESULT hRes = CoCreateInstance(CLSID_WbemAdministrativeLocator,NULL,CLSCTX_INPROC_SERVER|CLSCTX_LOCAL_SERVER, 
-		IID_IUnknown,(void**)&pIWbemLocator);
-	if (FAILED(hRes)) {
-		throw WMIException("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!", hRes);
+	if (!bInitialized) {
+		initialize();
 	}
-	IWbemServices * pWbemServices = NULL;
-	hRes = pIWbemLocator->ConnectServer(bstrNamespace,NULL,NULL,NULL,0,NULL,NULL,&pWbemServices);
-	if (FAILED(hRes)) {
-		pIWbemLocator->Release();
-		pIWbemLocator = NULL;
-		throw WMIException("ConnectServer failed!", hRes);
+	result_type ret;
+
+	CComPtr< IWbemLocator > locator;
+	HRESULT hr = CoCreateInstance( CLSID_WbemAdministrativeLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast< void** >( &locator ) );
+	if (FAILED(hr)) {
+		throw WMIException("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!", hr);
+	}
+
+	BSTR bstrNamespace = (L"root\\cimv2");
+	CComPtr< IWbemServices > service;
+	hr = locator->ConnectServer( bstrNamespace, NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL, &service );
+	if (FAILED(hr)) {
+		throw WMIException("ConnectServer failed!", hr);
 	}
 	CComBSTR strQuery(query.c_str());
 	BSTR strQL = (L"WQL");
-	IEnumWbemClassObject * pEnumObject = NULL;
-	hRes = pWbemServices->ExecQuery(strQL, strQuery,WBEM_FLAG_RETURN_IMMEDIATELY,NULL,&pEnumObject);
-	if (FAILED(hRes)) {
-		pWbemServices->Release();
-		pIWbemLocator->Release();
-		pIWbemLocator = NULL;
-		throw WMIException("ExecQuery failed:" + query, hRes);
-	}
-	hRes = pEnumObject->Reset();
-	if (FAILED(hRes)) {
-		pWbemServices->Release();
-		pIWbemLocator->Release();
-		pIWbemLocator = NULL;
-		throw WMIException("ExecQuery failed:" + query, hRes);
-	}
-	ULONG uCount = 1, uReturned;
-	IWbemClassObject * pClassObject = NULL;
-	hRes = pEnumObject->Next(WBEM_INFINITE,uCount, &pClassObject, &uReturned);
-	if (FAILED(hRes)) {
-		pWbemServices->Release();
-		pIWbemLocator->Release();
-		pIWbemLocator = NULL;
-		throw WMIException("ExecQuery failed!" + query, hRes);
+
+	CComPtr< IEnumWbemClassObject > enumerator;
+	hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator );
+	if (FAILED(hr)) {
+		throw WMIException("ExecQuery failed:" + query + " (reason is: " + ComError::getComError() + ")", hr);
 	}
 
+	CComPtr< IWbemClassObject > row = NULL;
+	ULONG retcnt;
+	int i=0;
+	while (hr = enumerator->Next( WBEM_INFINITE, 1L, &row, &retcnt ) == WBEM_S_NO_ERROR) {
+		if (SUCCEEDED(hr)) {
+			if (retcnt > 0) {
+				SAFEARRAY* pstrNames;
+				wmi_row returnRow;
+				hr = row->GetNames(NULL,WBEM_FLAG_ALWAYS|WBEM_FLAG_NONSYSTEM_ONLY,NULL,&pstrNames);
+				if (FAILED(hr)) {
+					throw WMIException("GetNames failed:" + query, hr);
+				}
 
-	SAFEARRAY* pstrNames;
-	hRes = pClassObject->GetNames(NULL,WBEM_FLAG_ALWAYS|WBEM_FLAG_NONSYSTEM_ONLY,NULL,&pstrNames);
-	if (FAILED(hRes)) {
-		pClassObject->Release();
-		pWbemServices->Release();
-		pIWbemLocator->Release();
-		throw WMIException("GetNames failed!" + query, hRes);
-	}
-	CComSafeArray<BSTR> arr = pstrNames;
-	long index = 0, begin, end;
-	begin = arr.GetLowerBound();
-	end = arr.GetUpperBound();
-	for ( index = begin; index <= end; index++ ) {
-		BSTR bStr = arr.GetAt(index);
-		CString str = bStr;
-		std::string std_str = str;
-		CComVariant vValue;
-		hRes = pClassObject->Get(bStr, 0, &vValue, 0, 0);
-		if (vValue.vt == VT_INT) {
-			ret[std_str] = vValue.intVal;
-			//std::cout << (LPCTSTR)str << " = (INT) " << vValue.intVal << std::endl;
-		} else if (vValue.vt == VT_I4) {
-			ret[std_str] = vValue.lVal;
-			//std::cout << (LPCTSTR)str << " = (I4) " << vValue.lVal << std::endl;
-		} else if (vValue.vt == VT_UINT) {
-			ret[std_str] = vValue.uintVal;
-			//std::cout << (LPCTSTR)str << " = (UINT) " << vValue.uintVal << std::endl;
-		} else if (vValue.vt == VT_BSTR) {
-			std::cout << (LPCTSTR)str << " = UNSUPPORTED (BSTR)" << std::endl;
-			CString val = vValue;
-			//ret[std_str] = std::string(val);
-		} else {
-			std::cout << (LPCTSTR)str << " = UNSUPPORTED" << vValue.vt << std::endl;
+				long index = 0, begin, end;
+				CComSafeArray<BSTR> arr = pstrNames;
+				begin = arr.GetLowerBound();
+				end = arr.GetUpperBound();
+				for ( index = begin; index <= end; index++ ) {
+					USES_CONVERSION;
+					CComBSTR bColumn = arr.GetAt(index);
+					std::string column = OLE2T(bColumn);
+					CComVariant vValue;
+					hr = row->Get(bColumn, 0, &vValue, 0, 0);
+					if (FAILED(hr)) {
+						throw WMIException("Failed to get value for " + column + " in query: " + query, hr);
+					}
+					WMIResult value;
+
+					if (vValue.vt == VT_INT) {
+						value.setNumeric(column, vValue.intVal);
+					} else if (vValue.vt == VT_I4) {
+						value.setNumeric(column, vValue.lVal);
+					} else if (vValue.vt == VT_UINT) {
+						value.setNumeric(column, vValue.uintVal);
+					} else if (vValue.vt == VT_BSTR) {
+						value.setString(column, OLE2T(vValue.bstrVal));
+					} else if (vValue.vt == VT_NULL) {
+						value.setString(column, "NULL");
+					} else if (vValue.vt == VT_BOOL) {
+						value.setBoth(column, vValue.iVal, vValue.iVal?"TRUE":"FALSE");
+					} else {
+						NSC_LOG_ERROR_STD(column + " is not supported (type-id: " + strEx::itos(vValue.vt) + ")");
+					}
+					returnRow.addValue(column, value);
+				}
+				ret.push_back(returnRow);
+			}
 		}
+		row.Release();
 	}
-	pIWbemLocator->Release();
-	pWbemServices->Release();
-	pEnumObject->Release();
-	pClassObject->Release();
 	return ret;
 }

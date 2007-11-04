@@ -300,7 +300,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	unsigned long int hit_count = 0;
 
 	for (std::list<std::string>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
-		std::cout << "Opening: " << (*cit2) << std::endl;
 		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
 		if (hLog == NULL) {
 			message = "Could not open the '" + (*cit2) + "' event log: " + error::lookup::last_error();

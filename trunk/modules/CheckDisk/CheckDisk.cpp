@@ -216,13 +216,13 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 		UINT drvType = GetDriveType(drive.data.c_str());
 
 		if ((!bFilter)&&!((drvType == DRIVE_FIXED)||(drvType == DRIVE_NO_ROOT_DIR))) {
-			message = "UNKNOWN: Drive is not a fixed drive: " + drive.getAlias() + " (it is a: " + strEx::itos(drvType) + ")";
+			message = "UNKNOWN: Drive is not a fixed drive: " + drive.getAlias() + " (it is a " + get_filter(drvType) + " drive)";
 			return NSCAPI::returnUNKNOWN;
 		} else if ( (bFilter)&&( (!bFilterFixed)&&((drvType==DRIVE_FIXED)||(drvType==DRIVE_NO_ROOT_DIR))) ||
 			((!bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
 			((!bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
 			((!bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ) {
-			message = "UNKNOWN: Drive does not match the current filter: " + drive.getAlias() + " (it is a: " + strEx::itos(drvType) + ")";
+			message = "UNKNOWN: Drive does not match the current filter: " + drive.getAlias() + " (it is a " + get_filter(drvType) + " drive)";
 			return NSCAPI::returnUNKNOWN;
 		}
 
@@ -254,6 +254,20 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, char *
 	else if (!bNSClient)
 		message = NSCHelper::translateReturn(returnCode) + ": " + message;
 	return returnCode;
+}
+
+std::string CheckDisk::get_filter(unsigned int drvType) {
+	if (drvType==DRIVE_FIXED)
+		return "fixed";
+	if (drvType==DRIVE_NO_ROOT_DIR)
+		return "no_root";
+	if (drvType==DRIVE_CDROM)
+		return "cdrom";
+	if (drvType==DRIVE_REMOTE)
+		return "remote";
+	if (drvType==DRIVE_REMOVABLE)
+		return "removable";
+	return "unknown: " + strEx::itos(drvType);
 }
 
 

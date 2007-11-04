@@ -53,6 +53,8 @@ public:
 
 	// Check commands
 	NSCAPI::nagiosReturn CheckSimpleWMI(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	NSCAPI::nagiosReturn CheckSimpleWMIValue(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+
 
 
 private:

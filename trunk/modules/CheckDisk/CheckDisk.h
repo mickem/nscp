@@ -47,6 +47,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
+	std::string get_filter(unsigned int drvType);
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
 
 	// Check commands
