@@ -240,18 +240,23 @@ int NSClientT::commandLineExec(const char* module, const char* command, const un
 		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
 		return -1;
 	}
+	std::string moduleList = "";
 	for (pluginList::size_type i=0;i<plugins_.size();++i) {
 		NSCPlugin *p = plugins_[i];
-		if (p->getName() == sModule) {
+		if (!moduleList.empty())
+			moduleList += ", ";
+		moduleList += p->getModule();
+		if (p->getModule() == sModule) {
 			LOG_DEBUG_STD("Found module: " + p->getName() + "...");
 			try {
 				return p->commandLineExec(command, argLen, args);
 			} catch (NSPluginException e) {
 				LOG_ERROR_STD("Could not execute command: " + e.error_ + " in " + e.file_);
+				return -1;
 			}
 		}
 	}
-	LOG_ERROR("Module not found.");
+	LOG_ERROR_STD("Module not found: " + module + " available modules are: " + moduleList);
 	return 0;
 }
 

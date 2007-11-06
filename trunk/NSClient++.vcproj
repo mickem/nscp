@@ -417,11 +417,11 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="XAutobuild.exe -f $(ProjectDir)"
+				CommandLine="XAutobuild.exe -f &quot;$(ProjectDir)&quot;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\modules\*.pdb&quot;&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\*.zip&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName)-$(PlatformName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
+				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\modules\*.pdb&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive: 7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
 			/>
 			<Tool
@@ -1390,7 +1390,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputName) $(InputDir)\Dist\&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\Dist\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1466,7 +1466,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1588,7 +1588,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputFileName) "
 					/>
 				</FileConfiguration>
@@ -1628,7 +1628,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\$(InputName).ini&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\Dist\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\Dist\$(InputName).ini"
 					/>
 				</FileConfiguration>
@@ -1688,7 +1688,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -1697,7 +1697,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>

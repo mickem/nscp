@@ -757,6 +757,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\CheckWMI.def"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\NSCHelper.cpp"
 				>
 				<FileConfiguration

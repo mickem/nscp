@@ -19,6 +19,8 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
+
 #include <config.h>
 #include <strEx.h>
 #include <utils.h>
@@ -37,7 +39,7 @@ public:
 	bool unloadModule();
 
 	std::string getModuleName() {
-		return "CheckWMI Various Disk related checks.";
+		return "CheckWMI";
 	}
 	std::string getModuleDescription() {
 		return "CheckWMI can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.";
@@ -50,6 +52,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	int CheckWMI::commandLineExec(const char* command,const unsigned int argLen,char** args);
 
 	// Check commands
 	NSCAPI::nagiosReturn CheckSimpleWMI(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);

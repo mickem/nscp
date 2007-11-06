@@ -3,10 +3,12 @@ TODO:
  * Fix configuration GUI (low priority)
  * Fix installer (after configuration UI)
  * Add module for relaying events
- * Add filtering to WMI module
  * Fix WMI module
  * Fix PDH problems
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
+
+2007-11-06 MickeM
+ + Added CLI interface to CheckWMI to check queries
 
 2007-11-04 MickeM
  * Rewritten WMI handling as well as checks so things should be more usefull now (cf. the wiki page for details)

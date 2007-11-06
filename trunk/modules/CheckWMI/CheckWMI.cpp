@@ -24,6 +24,7 @@
 #include <strEx.h>
 #include <time.h>
 #include <map>
+#include <vector>
 
 
 CheckWMI gCheckWMI;
@@ -154,8 +155,63 @@ NSCAPI::nagiosReturn CheckWMI::handleCommand(const strEx::blindstr command, cons
 	}	
 	return NSCAPI::returnIgnored;
 }
+int CheckWMI::commandLineExec(const char* command, const unsigned int argLen, char** char_args) {
+	//WMIQuery wmiQuery;
+	std::string query = command;
+	query += " " + arrayBuffer::arrayBuffer2string(char_args, argLen, " ");
+	WMIQuery::result_type rows;
+	try {
+		rows = wmiQuery.execute(query);
+	} catch (WMIException e) {
+		std::cout << "WMIQuery failed: " + e.getMessage() << std::endl;
+		return -1;
+	}
+	std::vector<int> widths;
+	for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+		const WMIQuery::wmi_row vals = *citRow;
+		if (citRow == rows.begin()) {
+			for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol) {
+				widths.push_back( (*citCol).first.length()+1 );
+			}
+		}
+		int i=0;
+		for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
+			widths[i] = max(widths[i], (*citCol).second.string.length()+1);
+		}
+	}
+
+	std::string row2 = "|";
+	for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+		const WMIQuery::wmi_row vals = *citRow;
+		if (citRow == rows.begin()) {
+			int i=0;
+			std::string row1 = "|";
+			for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
+				int w = widths[i]-(*citCol).first.length();
+				if (w<0) w=0;
+				row1 += std::string(w, ' ') + (*citCol).first + " |";
+				row2 += std::string(widths[i], '-') + "-+";
+
+			}
+			NSC_LOG_MESSAGE(row2);
+			NSC_LOG_MESSAGE(row1);
+			NSC_LOG_MESSAGE(row2);
+		}
+		int i=0;
+		std::string row = "|";
+		for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
+			int w = widths[i]-(*citCol).second.string.length();
+			if (w<0) w=0;
+			row += std::string(w, ' ') + (*citCol).second.string + " |";
+		}
+		NSC_LOG_MESSAGE(row);
+	}
+	NSC_LOG_MESSAGE(row2);
+	return 0;
+}
 
 
 NSC_WRAPPERS_MAIN_DEF(gCheckWMI);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckWMI);
+NSC_WRAPPERS_CLI_DEF(gCheckWMI);

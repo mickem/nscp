@@ -152,6 +152,20 @@ public:
 	void unload(void);
 	std::string getCongifurationMeta();
 	int commandLineExec(const char* command, const unsigned int argLen, char **arguments);
+	std::string getModule() {
+		if (file_.empty())
+			return "";
+		std::string ret = file_;
+		int pos = ret.find_last_of("\\");
+		if (pos != std::string::npos && ++pos < ret.length()) {
+			ret = ret.substr(pos);
+		}
+		pos = ret.find_last_of(".");
+		if (pos != std::string::npos) {
+			ret = ret.substr(0, pos);
+		}
+		return ret;
+	}
 
 private:
 	bool isLoaded() const {
