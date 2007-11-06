@@ -61,6 +61,15 @@ void WMIQuery::unInitialize()
 	bInitialized = false;
 }
 
+std::string WMIQuery::sanitize_string(LPTSTR in) {
+	TCHAR *p = in;
+	while (*p) {
+		if (p[0] < ' ' || p[0] > '}')
+			p[0] = '.';
+		p++;
+	} 
+	return in;
+}
 
 WMIQuery::result_type WMIQuery::execute(std::string query)
 {

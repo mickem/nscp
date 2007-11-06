@@ -151,6 +151,7 @@ public:
 	~WMIQuery(void);
 
 	result_type  execute(std::string query);
+	std::string sanitize_string(LPTSTR in);
 
 	bool initialize();
 	void unInitialize();
