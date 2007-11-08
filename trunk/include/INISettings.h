@@ -171,7 +171,7 @@ public:
 		INIFile::sectionList ret;
 		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
 			INIFile::sectionList tmp = (*cit)->getSection(section, bufferLength);
-			std::cout << "<<< Reading: " << section << " from: " << (*cit)->getFile() << std::endl;
+			std::cout << "< Reading: " << section << " from: " << (*cit)->getFile() << std::endl;
 			ret.insert(ret.begin(), tmp.begin(), tmp.end());
 		}
 		return ret;

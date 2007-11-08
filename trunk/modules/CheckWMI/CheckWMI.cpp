@@ -142,8 +142,84 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, char **
 }
 
 NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
-	message = "Not yet implemented :(";
-	return NSCAPI::returnCRIT;
+	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBounds<checkHolders::NumericBounds<long long, checkHolders::int64_handler> > > WMIConatiner;
+	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (stl_args.empty()) {
+		message = "ERROR: Missing argument exception.";
+		return NSCAPI::returnUNKNOWN;
+	}
+	std::list<WMIConatiner> list;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	WMIConatiner tmpObject;
+	bool bPerfData = true;
+	unsigned int truncate = 0;
+	std::string query;
+
+	// Query=Select ... MaxWarn=5 MaxCrit=12 Check=Col1 --(later)-- Match==test Check=Col2
+	// MaxWarnNumeric:ID=>5
+	try {
+		MAP_OPTIONS_BEGIN(stl_args)
+			MAP_OPTIONS_SHOWALL(tmpObject)
+			MAP_OPTIONS_NUMERIC_ALL(tmpObject, "")
+			MAP_OPTIONS_STR("Alias", tmpObject.data)
+			MAP_OPTIONS_STR("Query", query)
+			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
+			MAP_OPTIONS_STR_AND("Check", tmpObject.data, list.push_back(tmpObject))
+			MAP_OPTIONS_STR("Alias", tmpObject.data)
+			MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+				MAP_OPTIONS_SECONDARY_STR_AND(p2,"Check", tmpObject.data, tmpObject.alias, list.push_back(tmpObject))
+				MAP_OPTIONS_MISSING_EX(p2, message, "Unknown argument: ")
+			MAP_OPTIONS_SECONDARY_END()
+			MAP_OPTIONS_MISSING(message, "Unknown argument: ")
+		MAP_OPTIONS_END()
+
+	} catch (filters::parse_exception e) {
+		message = "WMIQuery failed: " + e.getMessage();
+		return NSCAPI::returnCRIT;
+	}
+
+	WMIQuery::result_type rows;
+	try {
+		rows = wmiQuery.execute(query);
+	} catch (WMIException e) {
+		message = "WMIQuery failed: " + e.getMessage();
+		return NSCAPI::returnCRIT;
+	}
+	int hit_count = 0;
+
+	for (std::list<WMIConatiner>::const_iterator it = list.begin(); it != list.end(); ++it) {
+		WMIConatiner itm = (*it);
+		itm.setDefault(tmpObject);
+		itm.perfData = bPerfData;
+		if (itm.data == "*") {
+			for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+				for (WMIQuery::wmi_row::list_type::const_iterator citCol = (*citRow).results.begin(); citCol != (*citRow).results.end(); ++citCol) {
+					long long value = (*citCol).second.numeric;
+					itm.runCheck(value, returnCode, message, perf);
+				}
+			}
+		} else {
+			for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+				bool found = false;
+				for (WMIQuery::wmi_row::list_type::const_iterator citCol = (*citRow).results.begin(); citCol != (*citRow).results.end(); ++citCol) {
+					if ((*citCol).first == itm.data) {
+						found = true;
+						long long value = (*citCol).second.numeric;
+						itm.runCheck(value, returnCode, message, perf);
+					}
+				}
+				if (!found) {
+					NSC_LOG_ERROR_STD("Column: " + itm.data + " was not found!");
+				}
+			}
+		}
+	}
+
+	if ((truncate > 0) && (message.length() > (truncate-4)))
+		message = message.substr(0, truncate-4) + "...";
+	if (message.empty())
+		message = "OK: WMI Query returned no results.";
+	return returnCode;
 }
 
 
@@ -167,7 +243,7 @@ int CheckWMI::commandLineExec(const char* command, const unsigned int argLen, ch
 		return -1;
 	}
 	std::vector<int> widths;
-	for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+	for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
 		const WMIQuery::wmi_row vals = *citRow;
 		if (citRow == rows.begin()) {
 			for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol) {

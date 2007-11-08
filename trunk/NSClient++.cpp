@@ -447,6 +447,10 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 	if ((msgType == NSCAPI::debug)&&(!logDebug())) {
 		return;
 	}
+	std::string file_stl = file;
+	std::string::size_type pos = file_stl.find_last_of("\\");
+	if (pos != std::string::npos)
+		file_stl = file_stl.substr(pos);
 	{
 		ReadLock readLock(&m_mutexRW, true, 5000);
 		if (!readLock.IsLocked()) {
@@ -478,7 +482,7 @@ void NSClientT::reportMessage(int msgType, const char* file, const int line, std
 				k ="d";
 				break;
 			}
-			std::cout << k << " " << file << "(" << line << ") " << message << std::endl;
+			std::cout << k << " " << file_stl << "(" << line << ") " << message << std::endl;
 		}
 		for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
 			try {

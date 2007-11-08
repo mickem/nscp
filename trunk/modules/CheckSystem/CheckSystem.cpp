@@ -312,6 +312,9 @@ public:
 	static std::string print_unformated(int value) {
 		return strEx::itos(value);
 	}
+	static std::string print_perf(int value) {
+		return strEx::itos(value);
+	}
 	static std::string print_percent(int value) {
 		return strEx::itos(value) + "%";
 	}

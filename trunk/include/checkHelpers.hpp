@@ -133,6 +133,9 @@ namespace checkHolders {
 		static std::string print(TType value) {
 			return strEx::itos_as_BKMG(value);
 		}
+		static std::string print_perf(TType value) {
+			return strEx::itos_as_BKMG(value);
+		}
 		static TType parse(std::string s) {
 			return strEx::stoi64_as_BKMG(s);
 		}
@@ -183,6 +186,9 @@ namespace checkHolders {
 		static std::string print_unformated(TType value) {
 			return strEx::itos(value);
 		}
+		static std::string print_perf(TType value) {
+			return strEx::itos(value);
+		}
 		static std::string key_prefix() {
 			return "";
 		}
@@ -202,6 +208,9 @@ namespace checkHolders {
 			return strEx::stoi(s);
 		}
 		static std::string print(int value) {
+			return strEx::itos(value);
+		}
+		static std::string print_perf(int value) {
 			return strEx::itos(value);
 		}
 		static std::string print_unformated(int value) {
@@ -228,11 +237,20 @@ namespace checkHolders {
 		static std::string print(__int64 value) {
 			return strEx::itos(value);
 		}
+		static std::string print_perf(__int64 value) {
+			return strEx::itos(value);
+		}
 		static std::string print_unformated(__int64 value) {
 			return strEx::itos(value);
 		}
 		static std::string print_percent(__int64 value) {
 			return strEx::itos(value) + "%";
+		}
+		static std::string key_prefix() {
+			return "";
+		}
+		static std::string key_postfix() {
+			return "";
 		}
 	};
 	class double_handler {
@@ -242,6 +260,9 @@ namespace checkHolders {
 		}
 		static double parse_percent(std::string s) {
 			return strEx::stod(s);
+		}
+		static std::string print_perf(double value) {
+			return strEx::itos(value);
 		}
 		static std::string print(double value) {
 			return strEx::itos(value);
@@ -334,7 +355,7 @@ namespace checkHolders {
 			return value_;
 		}
 		static std::string gatherPerfData(std::string alias, TType &value, TType warn, TType crit) {
-			return MAKE_PERFDATA(alias, THandler::print_unformated(value), "", THandler::print_unformated(warn), THandler::print_unformated(crit));
+			return MAKE_PERFDATA(alias, THandler::print_perf(value), "", THandler::print_perf(warn), THandler::print_perf(crit));
 		}
 
 	private:
@@ -470,8 +491,8 @@ namespace checkHolders {
 						THandler::print_unformated(warn), THandler::print_unformated(crit));
 			} else {
 				return 
-					MAKE_PERFDATA(alias, THandler::print_unformated(value.value), "", 
-					THandler::print_unformated(warn), THandler::print_unformated(crit));
+					MAKE_PERFDATA(alias, THandler::print_perf(value.value), "", 
+					THandler::print_perf(warn), THandler::print_perf(crit));
 			}
 		}
 	private:

@@ -155,9 +155,11 @@ void NSCModuleHelper::Message(int msgType, std::string file, int line, std::stri
 	if (fNSAPIMessage) {
 		if ((msgType == NSCAPI::debug) && (!logDebug()))
 			return;
+		/*
 		std::string::size_type pos = file.find_last_of("\\");
 		if (pos != std::string::npos)
 			file = file.substr(pos);
+			*/
 		return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
 	}
 	else
