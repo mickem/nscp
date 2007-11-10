@@ -156,7 +156,7 @@ public:
 		if (file_.empty())
 			return "";
 		std::string ret = file_;
-		int pos = ret.find_last_of("\\");
+		std::string::size_type pos = ret.find_last_of("\\");
 		if (pos != std::string::npos && ++pos < ret.length()) {
 			ret = ret.substr(pos);
 		}

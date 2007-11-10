@@ -3,7 +3,9 @@
 #include <string>
 #include <windows.h>
 #include <TSettings.h>
+#include <msvc_wrappers.h>
 #define BUFF_LEN 4096
+
 
 #include <iostream>
 class REGSettings : public TSettings
@@ -74,7 +76,7 @@ public:
 		}
 		DWORD cbData = static_cast<DWORD>(strlen(value));
 		BYTE *bData = new BYTE[cbData+1];
-		strncpy(reinterpret_cast<char*>(bData), value, cbData);
+		strncpy_s(reinterpret_cast<char*>(bData), cbData+1, value, cbData);
 		BOOL bRet = RegSetValueEx(hTemp, lpszKey, NULL, REG_SZ, bData, cbData);
 		RegCloseKey(hTemp);
 		delete [] bData;

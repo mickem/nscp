@@ -20,6 +20,7 @@
 #include <Socket.h>
 #include <b64/b64.h>
 #include <config.h>
+#include <msvc_wrappers.h>
 
 
 NSClient mainClient;	// Global core instance.
@@ -306,7 +307,7 @@ void NSClientT::unloadPlugins() {
 			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
 			return;
 		}
-		for (unsigned int i=plugins_.size();i>0;i--) {
+		for (pluginList::size_type i=plugins_.size();i>0;i--) {
 			NSCPlugin *p = plugins_[i-1];
 			plugins_[i-1] = NULL;
 			delete p;
@@ -559,10 +560,10 @@ NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 
 std::string Encrypt(std::string str, unsigned int algorithm) {
 	unsigned int len = 0;
-	NSAPIEncrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	NSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
 	char *buf = new char[len+1];
-	NSCAPI::errorReturn ret = NSAPIEncrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	NSCAPI::errorReturn ret = NSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::string ret = buf;
 		delete [] buf;
@@ -572,10 +573,10 @@ std::string Encrypt(std::string str, unsigned int algorithm) {
 }
 std::string Decrypt(std::string str, unsigned int algorithm) {
 	unsigned int len = 0;
-	NSAPIDecrypt(algorithm, str.c_str(), str.size(), NULL, &len);
+	NSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
 	char *buf = new char[len+1];
-	NSCAPI::errorReturn ret = NSAPIDecrypt(algorithm, str.c_str(), str.size(), buf, &len);
+	NSCAPI::errorReturn ret = NSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::string ret = buf;
 		delete [] buf;
@@ -592,13 +593,13 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, u
 	std::string s = inBuffer;
 	std::string key = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT);
 	char *c = new char[inBufLen+1];
-	strncpy(c, inBuffer, inBufLen);
+	strncpy_s(c, inBufLen+1, inBuffer, inBufLen);
 	for (unsigned int i=0,j=0;i<inBufLen;i++,j++) {
 		if (j > key.size())
 			j = 0;
 		c[i] ^= key[j];
 	}
-	unsigned int len = b64::b64_encode(reinterpret_cast<void*>(c), inBufLen, outBuf, *outBufLen);
+	size_t len = b64::b64_encode(reinterpret_cast<void*>(c), inBufLen, outBuf, *outBufLen);
 	delete [] c;
 	if (outBuf) {
 		if ((len == 0)||(len >= *outBufLen)) {
@@ -606,9 +607,9 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, u
 			return NSCAPI::isInvalidBufferLen;
 		}
 		outBuf[len] = 0;
-		*outBufLen = len;
+		*outBufLen = static_cast<unsigned int>(len);
 	} else {
-		*outBufLen = len;
+		*outBufLen = static_cast<unsigned int>(len);
 	}
 	return NSCAPI::isSuccess;
 }
@@ -618,7 +619,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, u
 		LOG_ERROR("Unknown algortihm requested.");
 		return NSCAPI::hasFailed;
 	}
-	unsigned int len =  b64::b64_decode(inBuffer, inBufLen, reinterpret_cast<void*>(outBuf), *outBufLen);
+	size_t len =  b64::b64_decode(inBuffer, inBufLen, reinterpret_cast<void*>(outBuf), *outBufLen);
 	if (outBuf) {
 		if ((len == 0)||(len >= *outBufLen)) {
 			LOG_ERROR("Invalid out buffer length.");
@@ -631,9 +632,9 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, u
 			outBuf[i] ^= key[j];
 		}
 		outBuf[len] = 0;
-		*outBufLen = len;
+		*outBufLen = static_cast<unsigned int>(len);
 	} else {
-		*outBufLen = len;
+		*outBufLen = static_cast<unsigned int>(len);
 	}
 	return NSCAPI::isSuccess;
 }
