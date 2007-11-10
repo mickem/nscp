@@ -68,8 +68,13 @@ public:
 		delete [] dispatchTable;
 	}
 
-	void StartServiceCtrlDispatcher() {
-		::StartServiceCtrlDispatcher(dispatchTable);
+	boolean StartServiceCtrlDispatcher() {
+		BOOL ret = ::StartServiceCtrlDispatcher(dispatchTable);
+		if (ret == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
+			std::cout << "We are running in console mode, terminating..." << std::endl;
+			return false;
+		}
+		return ret != 0;
 	}
 
 	void service_main(DWORD dwArgc, LPTSTR *lpszArgv)

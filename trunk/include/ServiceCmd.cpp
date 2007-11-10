@@ -19,6 +19,7 @@
 #include <strEx.h>
 #include <tchar.h>
 #include <iostream>
+#include <msvc_wrappers.h>
 
 namespace serviceControll {
 	/**
@@ -284,7 +285,7 @@ namespace serviceControll {
 		}
 
 		LPSTR d = new char[desc.length()+2];
-		strncpy(d, desc.c_str(), desc.length());
+		strncpy_s(d, desc.length()+2, desc.c_str(), desc.length());
 		descr.lpDescription = d;
 		BOOL bResult = FChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
 		delete [] d;

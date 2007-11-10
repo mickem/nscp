@@ -19,6 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include <arrayBuffer.h>
+#include <msvc_wrappers.h>
 
 /**
  * Make a list out of a array of char arrays (arguments type)
@@ -52,7 +53,7 @@ arrayBuffer::arrayBuffer arrayBuffer::list2arrayBuffer(const arrayList lst, unsi
 	for (i=0;it!=lst.end();++it,i++) {
 		std::string::size_type alen = (*it).size();
 		arrayBuffer[i] = new char[alen+2];
-		strncpy(arrayBuffer[i], (*it).c_str(), alen+1);
+		strncpy_s(arrayBuffer[i], alen+2, (*it).c_str(), alen+1);
 	}
 	assert(i == argLen);
 	return arrayBuffer;
@@ -109,7 +110,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const char* buffer, char
 		const char *q = strchr(p, (i<argLen-1)?splitChar:0);
 		unsigned int len = static_cast<int>(q-p);
 		arrayBuffer[i] = new char[len+1];
-		strncpy(arrayBuffer[i], p, len);
+		strncpy_s(arrayBuffer[i], len+1, p, len);
 		arrayBuffer[i][len] = 0;
 		p = ++q;
 	}
@@ -141,7 +142,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::string inBuf,
 		//		char *q = strchr(p, (i<argLen-1)?splitChar:0);
 		unsigned int len = static_cast<int>(p-l);
 		arrayBuffer[i] = new char[len+1];
-		strncpy(arrayBuffer[i], inBuf.substr(l,p).c_str(), len);
+		strncpy_s(arrayBuffer[i], len+1, inBuf.substr(l,p).c_str(), len);
 		arrayBuffer[i][len] = 0;
 		l = ++p;
 		p = inBuf.find(splitChar, p);
