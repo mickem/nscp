@@ -41,10 +41,16 @@ namespace strEx {
 
 	inline std::string format_date(time_t time, std::string format) {
 		char buf[51];
-		struct tm nt;
-		if (gmtime_s(&nt, &time) != 0)
+		struct tm *nt = new struct tm;
+#if (_MSC_VER < 1300)  // 1300 == VC++ 7.0
+		if (gmtime_s(nt, &time) != 0)
 			return "";
-		size_t l = strftime(buf, 50, format.c_str(), &nt);
+#else
+		nt = gmtime(&time);
+		if (nt == NULL)
+			return "";
+#endif
+		size_t l = strftime(buf, 50, format.c_str(), nt);
 		if (l <= 0 || l >= 50)
 			return "";
 		buf[l] = 0;
