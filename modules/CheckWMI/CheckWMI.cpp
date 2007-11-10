@@ -242,7 +242,7 @@ int CheckWMI::commandLineExec(const char* command, const unsigned int argLen, ch
 		std::cout << "WMIQuery failed: " + e.getMessage() << std::endl;
 		return -1;
 	}
-	std::vector<int> widths;
+	std::vector<std::string::size_type> widths;
 	for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
 		const WMIQuery::wmi_row vals = *citRow;
 		if (citRow == rows.begin()) {
@@ -263,7 +263,7 @@ int CheckWMI::commandLineExec(const char* command, const unsigned int argLen, ch
 			int i=0;
 			std::string row1 = "|";
 			for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
-				int w = widths[i]-(*citCol).first.length();
+				std::string::size_type w = widths[i]-(*citCol).first.length();
 				if (w<0) w=0;
 				row1 += std::string(w, ' ') + (*citCol).first + " |";
 				row2 += std::string(widths[i], '-') + "-+";
@@ -276,7 +276,7 @@ int CheckWMI::commandLineExec(const char* command, const unsigned int argLen, ch
 		int i=0;
 		std::string row = "|";
 		for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
-			int w = widths[i]-(*citCol).second.string.length();
+			std::string::size_type w = widths[i]-(*citCol).second.string.length();
 			if (w<0) w=0;
 			row += std::string(w, ' ') + (*citCol).second.string + " |";
 		}

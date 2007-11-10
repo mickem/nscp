@@ -156,7 +156,9 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 		mainClient.TerminateService();
 		return nRetCode;
 	}
-	mainClient.StartServiceCtrlDispatcher();
+	if (!mainClient.StartServiceCtrlDispatcher()) {
+		LOG_MESSAGE("We failed to start the service");
+	}
 	return nRetCode;
 }
 

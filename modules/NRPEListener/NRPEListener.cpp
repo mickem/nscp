@@ -24,6 +24,7 @@
 #include <time.h>
 #include <config.h>
 #include "NRPEPacket.h"
+#include <msvc_wrappers.h>
 
 NRPEListener gNRPEListener;
 
@@ -270,7 +271,7 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 
 	// CreateProcess doesn't work with a const command
 	char *cmd = new char[command.length()+1];
-	strncpy(cmd, command.c_str(), command.length());
+	strncpy_s(cmd, command.length()+1, command.c_str(), command.length());
 	cmd[command.length()] = 0;
 
 	// Create the child process. 

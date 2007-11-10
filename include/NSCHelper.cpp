@@ -21,6 +21,7 @@
 
 #include <NSCHelper.h>
 #include <assert.h>
+#include <msvc_wrappers.h>
 
 #define BUFF_LEN 4096
 
@@ -71,7 +72,7 @@ int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string s
 	// @todo deprecate this
 	if (str.length() >= bufLen)
 		return NSCAPI::isInvalidBufferLen;
-	strncpy(buffer, str.c_str(), bufLen);
+	strncpy_s(buffer, bufLen, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
 #endif
