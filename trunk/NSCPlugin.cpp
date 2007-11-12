@@ -20,6 +20,7 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "NSClient++.h"
+#include <error.hpp>
 /**
  * Default c-tor
  * Initializes the plug in name but does not load the actual plug in.<br>
@@ -62,7 +63,7 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 		file_ = other.file_;
 		hModule_ = LoadLibrary(file_.c_str());
 		if (!hModule_)
-			throw NSPluginException(file_, "Could not load library: ", GetLastError());
+			throw NSPluginException(file_, "Could not load library: " + error::lookup::last_error());
 		loadRemoteProcs_();
 		if (!fLoadModule)
 			throw NSPluginException(file_, "Critical error (fLoadModule)");
@@ -114,7 +115,7 @@ void NSCPlugin::load_dll() {
 		throw NSPluginException(file_, "Module already loaded");
 	hModule_ = LoadLibrary(file_.c_str());
 	if (!hModule_)
-		throw NSPluginException(file_, "Could not load library: ", GetLastError());
+		throw NSPluginException(file_, "Could not load library: " + error::lookup::last_error());
 	loadRemoteProcs_();
 	bLoaded_ = true;
 }

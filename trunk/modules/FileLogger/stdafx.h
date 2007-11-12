@@ -31,3 +31,7 @@
 #include <fstream>
 
 #include <config.h>
+
+#ifdef _DEBUG
+#include <vld.h>
+#endif

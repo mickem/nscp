@@ -27,3 +27,7 @@
 #include <string>
 #include <NSCHelper.h>
 #include <assert.h>
+
+#ifdef _DEBUG
+#include <vld.h>
+#endif

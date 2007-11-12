@@ -78,6 +78,7 @@ bool NRPEListener::loadModule() {
 	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
 	noPerfData_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA,NRPE_SETTINGS_PERFDATA_DEFAULT)==0;
 	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
+	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
 	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
 	std::list<std::string> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::string>::const_iterator it;
@@ -343,14 +344,15 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 	try {
 		simpleSocket::DataBuffer block;
 		int i;
-		for (i=0;i<100;i++) {
+		int maxWait = socketTimeout_*10;
+		for (i=0;i<maxWait;i++) {
 			client->readAll(block, 1048);
 			if (block.getLength() >= NRPEPacket::getBufferLength())
 				break;
 			Sleep(100);
 		}
-		if (i == 100) {
-			NSC_LOG_ERROR_STD("Could not retrieve NRPE packet.");
+		if (i >= maxWait) {
+			NSC_LOG_ERROR_STD("Timeout reading NRPE-packet (increase socket_timeout)");
 			client->close();
 			return;
 		}
@@ -409,7 +411,12 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 		}
 	}
 
-	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
+	NSCAPI::nagiosReturn ret = -3;
+	try {
+		ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
+	} catch (...) {
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, "UNKNOWN: Internal exception");
+	}
 	switch (ret) {
 		case NSCAPI::returnInvalidBufferLen:
 			msg = "UNKNOWN: Return buffer to small to handle this command.";

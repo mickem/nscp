@@ -5,21 +5,27 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-11-12 MickeM
+ + Added option to configure socket_timeouts (default is now 30 seconds) should (I hope) fix issue #85
+
+2007-11-11 MickeM
+ + Added option to configure the behavior of CheckService CheckAll (#64)
+
 2007-11-08 MickeM
  + Added CheckWMIValue to check result-values from a WMI Query
- * Changed so performance values are "collapsed" ie 75362115584 = 70.0G (#89)
-    If anyone dont want this let me know and I will make an option for it.
+ * Changed so performance values are "collapsed" i.e. 75362115584 = 70.0G (#89)
+    If anyone don't want this let me know and I will make an option for it.
 
 2007-11-06 MickeM
  + Added CLI interface to CheckWMI to check queries
 
 2007-11-04 MickeM
- * Rewritten WMI handling as well as checks so things should be more usefull now (cf. the wiki page for details)
+ * Rewritten WMI handling as well as checks so things should be more useful now (cf. the wiki page for details)
 
 2007-10-29 MickeM
  * Restructured build and include to work from CLI
  + Started to add makefiles to build from CLI
- + Added finnish counters (#98)
+ + Added Finnish counters (#98)
  * Fixed performance counter issue with check_nt (#99)
  
 2007-10-06 MickeM
@@ -27,7 +33,7 @@ TODO:
  + Fixed x64 build and cleanup a bit.
 
 2007-09-15 MickeM
- + Added better error messages (now returncodes are displayed as text). Not implemented all over yet but the infrastructure is there.
+ + Added better error messages (now return codes are displayed as text). Not implemented all over yet but the infrastructure is there.
 
 2007-09-11 MickeM
  + Added Dutch performance counters to counters.defs
@@ -36,9 +42,9 @@ TODO:
  * Fixed #75 (spelling issue)
 
 2007-06-23 MickeM
- * Might have fixed #53 I was not able to get the problem locally but I have fixed the problem ias at op5 discovered atleast...
+ * Might have fixed #53 I was not able to get the problem locally but I have fixed the problem ias at op5 discovered at least...
  * Fixed the "check memory" issues for real this time.
- * Fixed problem with : in counter names #50 (anything starts with \ is considerd a counter so if you use aliases with \ this will break things for you.
+ * Fixed problem with : in counter names #50 (anything starts with \ is considered a counter so if you use aliases with \ this will break things for you.
 
 2007-06-20 MickeM
  * Fixed #24 crash in NSClient++.exe CheckSystem listpdh | debugpdh
@@ -49,28 +55,28 @@ TODO:
 
 2007-03-05 MickeM
  * Fixed -v FILEAGE check_nt (NSClient) check.
- * Added licence agreement header to all files
+ * Added license agreement header to all files
 
 2007-03-04 MickeM
- + Added script_dir option to NRPE scetion as well as some sample scripts in the scripts/
+ + Added script_dir option to NRPE section as well as some sample scripts in the scripts/
    subdirectory. The script_dir will use all files in this directory as scripts for NRPE
- + Added japanese counters to counters.defs from patch (thanx!!!)
+ + Added Japanese counters to counters.defs from patch (thanx!!!)
 
 2007-02-25 MickeM
  + Added possibility to check many memory checks in one go, just stack type options.
      type=paged type=physical etc...
  * Fixed a performance check bug in the last nightly.
- * Fixed a potential crash when a maleformed check-file-age command was issued.
+ * Fixed a potential crash when a malformed check-file-age command was issued.
  + Added support for more then and NSClient command
- + Added netmask support to allowed_hosts (try with 192.168.0.1/24 and such)
+ + Added net mask support to allowed_hosts (try with 192.168.0.1/24 and such)
  
 2007-02-22 MickeM
  + Added debug output to see if the socket is bound and/or has shutdown.
- * Fixed a potential bug in the threadmanager.
- + Added configuration option for suppressing performance datat to the NRPE section.
-   Set performance_data=0 to stop sendoing performancedata to nagios
- + New (better?) (simpler?) eventlog checking
- + Added option to most commands (ignore-perf-data) to suppres performance data
+ * Fixed a potential bug in the thread manager.
+ + Added configuration option for suppressing performance data to the NRPE section.
+   Set performance_data=0 to stop sending performance data to nagios
+ + New (better?) (simpler?) event log checking
+ + Added option to most commands (ignore-perf-data) to suppress performance data
  + Added option CheckAll for checking all auto-start services to checkServiceState.
    Also an exclude=<service> to exclude checking that.
  * Fixed return syntax for PROCSTATE nsclient
@@ -88,7 +94,7 @@ TODO:
  + Added Swedish locale to counters.defs (yes, I switched to Swedish XP on my computer :)
  * Fixed : (and possibly other problems) in counters when checking from check_nt (via NSCLient protocol)
  + Added CheckAllExcept to CheckDrive to check all except the specified drives.
- * Fixed a display error in the variouse size functions (1000-1024 byte was displayed incorrectly)
+ * Fixed a display error in the various size functions (1000-1024 byte was displayed incorrectly)
 
 2006-10-05 MickeM
  * Yayyy!!! (first fix in a looong while :)

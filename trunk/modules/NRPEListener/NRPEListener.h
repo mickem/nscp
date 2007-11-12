@@ -42,6 +42,7 @@ private:
 	typedef std::map<strEx::blindstr, command_data> command_list;
 	command_list commands;
 	unsigned int timeout;
+	unsigned int socketTimeout_;
 	socketHelpers::allowedHosts allowedHosts;
 	bool noPerfData_;
 	std::string scriptDirectory_;

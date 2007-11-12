@@ -193,7 +193,8 @@ namespace NSCModuleWrapper {
 #define NSC_LOG_MESSAGE(msg) \
 	NSCModuleHelper::Message(NSCAPI::log, __FILE__, __LINE__, msg)
 
-#define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG(((std::string)msg).c_str())
+//#define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG(((std::string)msg).c_str())
+#define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG((std::string)msg)
 #define NSC_DEBUG_MSG(msg) \
 	NSCModuleHelper::Message(NSCAPI::debug, __FILE__, __LINE__, msg)
 

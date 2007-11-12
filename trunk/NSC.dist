@@ -15,8 +15,6 @@
 ;SysTray.dll
 ;CheckEventLog.dll
 ;CheckHelpers.dll
-;
-; CheckWMI IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
 ;CheckWMI.dll
 ;
 ; RemoteConfiguration IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
@@ -72,6 +70,10 @@ use_file=1
 ;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
 ;  Leaving this blank will bind to all avalible IP adresses.
 ;bind_to_address=
+;
+;# SOCKET TIMEOUT
+;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
+;socket_timeout=30
 
 
 [Check System]
@@ -84,6 +86,18 @@ use_file=1
 ;  The resolution to check values (currently only CPU).
 ;  The value is entered in 1/10:th of a second and the default is 10 (which means ones every second)
 ;CheckResolution=10
+;
+;# CHECK ALL SERVICES
+;  Configure how to check services when a CheckAll is performed.
+;  ...=started means services in that class *has* to be running.
+;  ...=stopped means services in that class has to be stopped.
+;  ...=ignored means services in this class will be ignored.
+;check_all_services[SERVICE_BOOT_START]=ignored
+;check_all_services[SERVICE_SYSTEM_START]=ignored
+;check_all_services[SERVICE_AUTO_START]=started
+;check_all_services[SERVICE_DEMAND_START]=ignored
+;check_all_services[SERVICE_DISABLED]=stopped
+
 
 [NRPE]
 ;# NRPE PORT NUMBER
@@ -120,6 +134,11 @@ use_file=1
 ;  All files in this directory will become check commands.
 ;  *WARNING* This is undoubtedly dangerous so use with care!
 ;script_dir=scripts\
+;
+;# SOCKET TIMEOUT
+;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
+;socket_timeout=30
+
 
 
 [NRPE Handlers]

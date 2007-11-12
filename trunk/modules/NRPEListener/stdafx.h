@@ -32,3 +32,7 @@
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>
+
+#ifdef _DEBUG
+#include <vld.h>
+#endif

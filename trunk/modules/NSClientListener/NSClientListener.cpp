@@ -66,6 +66,7 @@ bool NSClientListener::loadModule() {
 	unsigned short port = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT);
 	std::string host = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR, NSCLIENT_SETTINGS_BINDADDR_DEFAULT);
 	unsigned int backLog = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_LISTENQUE, NSCLIENT_SETTINGS_LISTENQUE_DEFAULT);
+	socketTimeout_ = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_READ_TIMEOUT, NSCLIENT_SETTINGS_READ_TIMEOUT_DEFAULT);
 	try {
 		socket.setHandler(this);
 		socket.StartListener(host, port, backLog);
@@ -246,11 +247,10 @@ void NSClientListener::sendTheResponse(simpleSocket::Socket *client, std::string
 
 void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 	simpleSocket::DataBuffer db;
-
-	int i;
-	for (i=0;i<30;i++) {
+	unsigned int i;
+	unsigned int maxWait = socketTimeout_*10;
+	for (i=0;i<maxWait;i++) {
 		client->readAll(db);
-
 		if (db.getLength() > 0) {
 			unsigned long long pos = db.find('\n');
 			if (pos==-1) {
@@ -271,8 +271,8 @@ void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 			Sleep(100);
 		}
 	}
-	if (i == 100) {
-		NSC_LOG_ERROR_STD("Could not retrieve NSClient packet.");
+	if (i >= maxWait) {
+		NSC_LOG_ERROR_STD("Timeout reading NS-client packet (increase socket_timeout).");
 		client->close();
 		return;
 	}

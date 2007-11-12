@@ -23,7 +23,7 @@
 
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 // Windows Header Files:
-#include <windows.h>
+//#include <windows.h>
 
 //#define COMPILE_NEWAPIS_STUBS
 //#define WANT_GETLONGPATHNAME_WRAPPER
@@ -31,9 +31,10 @@
 
 #include <string>
 #include <functional>
-#ifndef NO_BOOST_DEP
-#include <boost/regex.hpp> 
-#endif
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>
+
+#ifdef _DEBUG
+#include <vld.h>
+#endif

@@ -59,20 +59,6 @@ public:
 	 */
 	NSPluginException(std::string file, std::string error) : file_(file), error_(error) {
 	}
-	/**
-	 *
-	 * @param file DLL filename (for which the exception is thrown)
-	 * @param sError An error message (human readable format)
-	 * @param nError Error code to be appended at the end of the string
-	 * @todo Change this to be some form of standard error code and merge with above.
-	 */
-	NSPluginException(std::string file, std::string sError, int nError) : file_(file) {
-		std::stringstream s;
-		s << sError;
-		s << nError;
-		error_ = s.str();
-
-	}
 };
 
 /**

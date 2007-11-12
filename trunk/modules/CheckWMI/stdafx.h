@@ -34,7 +34,6 @@
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>
-#define NO_BOOST_DEP
 #include <checkHelpers.hpp>
 #include <filter_framework.hpp>
 
@@ -43,3 +42,6 @@
 //#include <atlstr.h>
 #include <atlsafe.h>
 
+#ifdef _DEBUG
+#include <vld.h>
+#endif

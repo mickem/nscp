@@ -47,4 +47,9 @@
 #include <charEx.h>
 #include <memory>
 
+#ifdef _DEBUG
+#include <vld.h>
+#endif
+
+
 #endif // !defined(AFX_STDAFX_H__6B96F953_C431_11D3_BCD2_00A0D21A1A22__INCLUDED_)

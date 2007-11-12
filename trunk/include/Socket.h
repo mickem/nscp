@@ -472,6 +472,7 @@ namespace simpleSocket {
 					return true;
 				}
 			}
+			printError(__FILE__, __LINE__, "Failed to remove soket-responder.");
 			return false;
 		}
 
@@ -540,7 +541,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		else
 			core->listen();
 		core->setNonBlock();
-		NSC_DEBUG_MSG_STD("Socket ready...");
+		//NSC_DEBUG_MSG_STD("Socket ready...");
 		while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
 			try {
 				tSocket client;

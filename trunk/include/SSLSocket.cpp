@@ -42,10 +42,16 @@ void simpleSSL::Crypto::setIDCallback(unsigned long (*id_function)(void)) {
 }
 
 void simpleSSL::SSL_init() {
-	SSL_library_init();
 	SSL_load_error_strings();
+	SSL_library_init();
 }
 void simpleSSL::SSL_deinit() {
+	/*
+	SSL_library_init, leaks memory but apparently OPEN-SSL is crap, so there is not much to do AFAIK! :)
+	EVP_cleanup(); 
+	CRYPTO_cleanup_all_ex_data();
+	ERR_remove_state(0);
+	*/
 	ERR_free_strings();
 }
 
@@ -139,7 +145,6 @@ void setupDH(simpleSSL::DH &dh) {
 
 void simpleSSL::Listener::StartListener(std::string host, int port, unsigned int listenQue) {
 	// @todo init SSL
-
 	simpleSSL::SSL_init();
 
 	context.createSSLv23();
@@ -166,13 +171,12 @@ void simpleSSL::Listener::StopListener() {
 	tBase::StopListener();
 
 	context.destroy();
-	if (!lock_cs)
-		return;
+	if (lock_cs) {
+		simpleSSL::Crypto::setLockingCallback(NULL);
 
-	simpleSSL::Crypto::setLockingCallback(NULL);
-
-	for (int i = 0; i < lock_cs_count; i++)
-		CloseHandle(lock_cs[i]);
-	simpleSSL::Crypto::free(lock_cs);
+		for (int i = 0; i < lock_cs_count; i++)
+			CloseHandle(lock_cs[i]);
+		simpleSSL::Crypto::free(lock_cs);
+	}
 	simpleSSL::SSL_deinit();
 }
