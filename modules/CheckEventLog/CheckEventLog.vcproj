@@ -631,7 +631,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="libboost_regex-vc80-mt.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="CheckEventLog.def"
