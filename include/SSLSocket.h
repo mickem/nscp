@@ -200,6 +200,7 @@ namespace simpleSSL {
 				return;
 			int i = 0;
 			int rc = 0;
+			SSL_shutdown(ssl_);
 			// @bug This will break but I don't know how to fix it...
 //			SSL_shutdown(ssl_); @bug this leaks memory!
 			/*

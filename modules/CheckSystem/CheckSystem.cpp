@@ -507,21 +507,29 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, c
 	//}}
 	if (bAutoStart) {
 		// get a list of all service with startup type Automatic 
+		/*
+		;check_all_services[SERVICE_BOOT_START]=ignored
+		;check_all_services[SERVICE_SYSTEM_START]=ignored
+		;check_all_services[SERVICE_AUTO_START]=started
+		;check_all_services[SERVICE_DEMAND_START]=ignored
+		;check_all_services[SERVICE_DISABLED]=stopped
+		std::string wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
+		*/
+		std::map<DWORD,std::string> lookups;
+		lookups[SERVICE_BOOT_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_0, C_SYSTEM_SVC_ALL_0_DEFAULT);
+		lookups[SERVICE_SYSTEM_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_1, C_SYSTEM_SVC_ALL_1_DEFAULT);
+		lookups[SERVICE_AUTO_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_2, C_SYSTEM_SVC_ALL_2_DEFAULT);
+		lookups[SERVICE_DEMAND_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_3, C_SYSTEM_SVC_ALL_3_DEFAULT);
+		lookups[SERVICE_DISABLED] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_4, C_SYSTEM_SVC_ALL_4_DEFAULT);
+
+
 		std::list<TNtServiceInfo> service_list_automatic;
 		TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE,&service_list_automatic); 
 		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
 			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
-				if((*service).m_dwStartType == 2 ) {
-					tmpObject.data = (*service).m_strServiceName;
-					tmpObject.crit.state = "started"; 
-					list.push_back(tmpObject); 
-					//stl_forward.push_back((*service).m_strServiceName); 
-				}
-				else if((*service).m_dwStartType == 4 ) {
-					tmpObject.data = (*service).m_strServiceName;
-					tmpObject.crit.state = "stopped"; 
-					list.push_back(tmpObject); 
-				}
+				tmpObject.data = (*service).m_strServiceName;
+				tmpObject.crit.state = lookups[(*service).m_dwStartType]; 
+				list.push_back(tmpObject); 
 			}
 		} 
 	}

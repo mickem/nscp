@@ -24,7 +24,6 @@
 #include <map>
 #include <strEx.h>
 #include <error.hpp>
-#define NO_BOOST_DEP
 #include <filter_framework.hpp>
 
 class ComError {

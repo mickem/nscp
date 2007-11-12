@@ -38,3 +38,8 @@
 #include <config.h>
 #include <utils.h>
 #include <error.hpp>
+
+
+#ifdef _DEBUG
+#include <vld.h>
+#endif

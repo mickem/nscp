@@ -296,6 +296,8 @@ namespace checkHolders {
 					ret |= state_started;
 				else if (*it == "stopped")
 					ret |= state_stopped;
+				else if (*it == "ignored")
+					ret |= state_none;
 			}
 			return ret;
 		}
@@ -304,6 +306,8 @@ namespace checkHolders {
 				return "started";
 			else if (value == state_stopped)
 				return "stopped";
+			else if (value == state_none)
+				return "none";
 			return "unknown";
 		}
 		static std::string print_unformated(state_type value) {

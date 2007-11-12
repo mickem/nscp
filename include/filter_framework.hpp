@@ -22,6 +22,9 @@
 
 #include <strEx.h>
 #include <checkHelpers.hpp>
+#ifndef NO_BOOST_DEP
+#include <boost/regex.hpp>
+#endif
 
 namespace filters {
 

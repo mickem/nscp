@@ -175,6 +175,9 @@ bool NSClientT::InitiateService() {
 	} catch (SettingsException e) {
 		LOG_ERROR_STD("Could not find settings: " + e.getMessage());
 		return false;
+	} catch (...) {
+		LOG_ERROR_STD("Unknown exception reading settings...");
+		return false;
 	}
 	if (debug_) {
 		Settings::getInstance()->setInt("log", "debug", 1);
@@ -185,6 +188,9 @@ bool NSClientT::InitiateService() {
 	} catch (simpleSocket::SocketException e) {
 		LOG_ERROR_STD("Uncaught exception: " + e.getMessage());
 		return false;
+	} catch (...) {
+		LOG_ERROR_STD("Unknown exception iniating socket...");
+		return false;
 	}
 
 	SettingsT::sectionList list = Settings::getInstance()->getSection("modules");
@@ -194,9 +200,17 @@ bool NSClientT::InitiateService() {
 		} catch(const NSPluginException& e) {
 			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
 			return false;
+		} catch (...) {
+			LOG_ERROR_STD("Unknown exception loading plugin: " + (*it));
+			return false;
 		}
 	}
-	loadPlugins();
+	try {
+		loadPlugins();
+	} catch (...) {
+		LOG_ERROR_STD("Unknown exception loading plugins");
+		return false;
+	}
 	return true;
 }
 /**

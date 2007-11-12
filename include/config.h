@@ -71,12 +71,16 @@
 #define NSCLIENT_SETTINGS_BINDADDR_DEFAULT ""
 #define NSCLIENT_SETTINGS_LISTENQUE "socket_back_log"
 #define NSCLIENT_SETTINGS_LISTENQUE_DEFAULT 0
+#define NSCLIENT_SETTINGS_READ_TIMEOUT "socket_timeout"
+#define NSCLIENT_SETTINGS_READ_TIMEOUT_DEFAULT 30
 
 // NRPE Settings headlines
 #define NRPE_SECTION_TITLE "NRPE"
 #define NRPE_HANDLER_SECTION_TITLE "NRPE Handlers"
 #define NRPE_SETTINGS_TIMEOUT "command_timeout"
 #define NRPE_SETTINGS_TIMEOUT_DEFAULT 60
+#define NRPE_SETTINGS_READ_TIMEOUT "socket_timeout"
+#define NRPE_SETTINGS_READ_TIMEOUT_DEFAULT 30
 #define NRPE_SETTINGS_PORT "port"
 #define NRPE_SETTINGS_PORT_DEFAULT 5666
 #define NRPE_SETTINGS_BINDADDR "bind_to_address"
@@ -121,6 +125,17 @@
 #define C_NSCA_SECTION_TITLE "NSCA"
 #define C_NSCA_INTERVAL "Interval"
 #define C_NSCA_INTERVAL_DEFAULT 60
+
+#define C_SYSTEM_SVC_ALL_0 "check_all_services[SERVICE_BOOT_START]"
+#define C_SYSTEM_SVC_ALL_0_DEFAULT "ignored"
+#define C_SYSTEM_SVC_ALL_1 "check_all_services[SERVICE_SYSTEM_START]"
+#define C_SYSTEM_SVC_ALL_1_DEFAULT "ignored"
+#define C_SYSTEM_SVC_ALL_2 "check_all_services[SERVICE_AUTO_START]"
+#define C_SYSTEM_SVC_ALL_2_DEFAULT "started"
+#define C_SYSTEM_SVC_ALL_3 "check_all_services[SERVICE_DEMAND_START]"
+#define C_SYSTEM_SVC_ALL_3_DEFAULT "ignored"
+#define C_SYSTEM_SVC_ALL_4 "check_all_services[SERVICE_DISABLED]"
+#define C_SYSTEM_SVC_ALL_4_DEFAULT "stopped"
 
 // Log to File Settings
 #define LOG_SECTION_TITLE "log"

@@ -28,6 +28,7 @@ class NSClientListener  : public simpleSocket::ListenerHandler {
 private:
 	simpleSocket::Listener<> socket;
 	socketHelpers::allowedHosts allowedHosts;
+	unsigned int socketTimeout_;
 
 public:
 	NSClientListener();
