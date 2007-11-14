@@ -428,7 +428,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const char* command, const unsigned in
 					LOG_DEBUG_STD("Injected Performance Result: " +(std::string) returnPerfBuffer);
 					return c;
 				default:
-					LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c));
+					LOG_ERROR_STD("Unknown error from handleCommand: " + strEx::itos(c) + " the injected command was: " + (std::string)command);
 					return c;
 			}
 		} catch(const NSPluginException& e) {

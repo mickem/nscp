@@ -609,8 +609,12 @@ NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn re
 	if (retMessage.empty())
 		return NSCAPI::returnIgnored;
 	NSCAPI::nagiosReturn ret = NSCHelper::wrapReturnString(returnBufferMessage, returnBufferMessageLen, retMessage, retResult);
+	if (!NSCHelper::isMyNagiosReturn(ret)) {
+		NSC_LOG_ERROR("A module returned an invalid return code");
+	}
 	return NSCHelper::wrapReturnString(returnBufferPerf, returnBufferPerfLen, retPerformance, ret);
 }
+
 /**
  * Wrap the NSLoadModule call
  * @param success true if module load was successfully

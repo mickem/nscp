@@ -46,6 +46,10 @@ namespace NSCHelper
 			return true;
 		return false;
 	}
+	inline bool isMyNagiosReturn(NSCAPI::nagiosReturn code) {
+		return code == NSCAPI::returnCRIT || code == NSCAPI::returnOK || code == NSCAPI::returnWARN || code == NSCAPI::returnUNKNOWN 
+			|| code == NSCAPI::returnInvalidBufferLen || code == NSCAPI::returnIgnored;
+	}
 
 #ifdef DEBUG
 	inline NSCAPI::nagiosReturn int2nagios(int code) {

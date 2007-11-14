@@ -40,6 +40,6 @@
 #include <error.hpp>
 
 
-#ifdef _DEBUG
+#ifdef MEMCHECK
 #include <vld.h>
 #endif

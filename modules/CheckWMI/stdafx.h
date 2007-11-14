@@ -42,6 +42,6 @@
 //#include <atlstr.h>
 #include <atlsafe.h>
 
-#ifdef _DEBUG
+#ifdef MEMCHECK
 #include <vld.h>
 #endif

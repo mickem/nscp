@@ -225,7 +225,7 @@ namespace simpleSocket {
 			ret.S_un.S_addr = (reinterpret_cast<in_addr*>(remoteHost->h_addr_list[0]))->S_un.S_addr;
 			return ret;
 		}
-		virtual void readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
+		virtual bool readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
 
 		virtual void socket(int af, int type, int protocol ) {
 			socket_ = ::socket(af, type, protocol);
