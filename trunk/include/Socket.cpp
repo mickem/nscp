@@ -36,7 +36,7 @@ void simpleSocket::Socket::printError(std::string FILE, int LINE, std::string er
  * @param buffer 
  * @param tmpBufferLength Length of temporary buffer to use (generally larger then expected data)
  */
-void simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLength /* = 1024*/) {
+bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLength /* = 1024*/) {
 	// @todo this could be optimized a bit if we want to
 	// If only one buffer is needed we could "reuse" the buffer instead of copying it.
 	char *tmpBuffer = new char[tmpBufferLength+1];
@@ -54,6 +54,7 @@ void simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLen
 		}
 	}
 	delete [] tmpBuffer;
+	return n!=SOCKET_ERROR;
 }
 
 

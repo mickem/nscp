@@ -67,7 +67,7 @@ void simpleSSL::count_socket(bool add) {
 }
 
 
-void simpleSSL::sSSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/) {
+bool simpleSSL::sSSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/) {
 	// @todo this could be optimized a bit if we want to
 	// If only one buffer is needed we could "reuse" the buffer instead of copying it.
 	char *tmpBuffer = new char[tmpBufferLength+1];
@@ -92,6 +92,7 @@ void simpleSSL::sSSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmp
 	}
 	*/
 	delete [] tmpBuffer;
+	return n >= 0;
 	/*
 	if (n <= 0) {
 		int rc = getError(n);

@@ -47,7 +47,7 @@
 #include <charEx.h>
 #include <memory>
 
-#ifdef _DEBUG
+#ifdef MEMCHECK
 #include <vld.h>
 #endif
 

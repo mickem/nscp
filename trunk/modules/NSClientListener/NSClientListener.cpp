@@ -250,7 +250,7 @@ void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 	unsigned int i;
 	unsigned int maxWait = socketTimeout_*10;
 	for (i=0;i<maxWait;i++) {
-		client->readAll(db);
+		bool lastReadRet = client->readAll(db);
 		if (db.getLength() > 0) {
 			unsigned long long pos = db.find('\n');
 			if (pos==-1) {
@@ -267,6 +267,10 @@ void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 			} else {
 				NSC_LOG_ERROR_STD("First char should (i think) not be a \\n :(");
 			}
+		} else if (!lastReadRet) {
+			NSC_LOG_MESSAGE("Could not read NSClient packet from socket :(");
+			client->close();
+			return;
 		} else {
 			Sleep(100);
 		}

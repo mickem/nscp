@@ -32,6 +32,6 @@
 
 #include <config.h>
 
-#ifdef _DEBUG
+#ifdef MEMCHECK
 #include <vld.h>
 #endif

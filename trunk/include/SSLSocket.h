@@ -226,7 +226,7 @@ namespace simpleSSL {
 		void setContext(Context context) {
 			context_ = context;
 		}
-		void readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
+		bool readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
 		void send(const char * buf, unsigned int len);
 	};
 
@@ -256,9 +256,9 @@ namespace simpleSSL {
 				throw simpleSocket::SocketException(e.getMessage());
 			}
 		}
-		virtual void readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024) {
+		virtual bool readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024) {
 			try {
-				ssl.readAll(buffer, tmpBufferLength);
+				return ssl.readAll(buffer, tmpBufferLength);
 			} catch (simpleSSL::SSLException e) {
 				throw simpleSocket::SocketException(e.getMessage());
 			}

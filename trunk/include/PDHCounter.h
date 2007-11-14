@@ -200,12 +200,7 @@ namespace PDH {
 		PDHQuery() : hQuery_(NULL) {
 		}
 		virtual ~PDHQuery(void) {
-			if (hQuery_)
-				close();
-			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
-				delete (*it);
-			}
-			counters_.clear();
+			removeAllCounters();
 		}
 
 		PDHCounter* addCounter(std::string name, PDHCounterListener *listener) {
@@ -218,6 +213,14 @@ namespace PDH {
 			PDHCounter *counter = new PDHCounter(name);
 			counters_.push_back(counter);
 			return counter;
+		}
+		void removeAllCounters() {
+			if (hQuery_)
+				close();
+			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
+				delete (*it);
+			}
+			counters_.clear();
 		}
 
 		void open() {
@@ -232,7 +235,6 @@ namespace PDH {
 
 		void close() {
 			assert(hQuery_ != NULL);
-			DWORD x = PDH_INVALID_HANDLE;
 			PDH_STATUS status;
 			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
 				(*it)->remove();

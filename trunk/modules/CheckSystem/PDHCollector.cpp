@@ -104,25 +104,41 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			NSC_LOG_ERROR_STD("To manual set performance counters you need to first set " C_SYSTEM_AUTODETECT_PDH "=0 in the config file, and then you also need to configure the various counter.");
 			return -1;
 		}
-
 		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
 		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
 		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
 		pdh.addCounter(settings.getString(section, prefix + "_" + C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
+		try {
+			pdh.open();
+		} catch (const PDH::PDHException &e) {
+			NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.getError());
+			NSC_LOG_ERROR_STD("Trying to use default (English) counters");
+			pdh.removeAllCounters();
+			pdh.addCounter(C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT, &memCmtLim);
+			pdh.addCounter(C_SYSTEM_MEM_PAGE_DEFAULT, &memCmt);
+			pdh.addCounter(C_SYSTEM_UPTIME_DEFAULT, &upTime);
+			pdh.addCounter(C_SYSTEM_MEM_CPU_DEFAULT, &cpu);
+			try {
+				pdh.open();
+			} catch (const PDH::PDHException &e) {
+				NSC_LOG_ERROR_STD("Failed to open default (English) performance counters: " + e.getError());
+				NSC_LOG_ERROR_STD("We will now terminate the collection thread!");
+				return 0;
+			}
+		}
 	} else {
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
-	}
 
-	try {
-		pdh.open();
-	} catch (const PDH::PDHException &e) {
-		NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.getError());
-		return 0;
+		try {
+			pdh.open();
+		} catch (const PDH::PDHException &e) {
+			NSC_LOG_ERROR_STD("Failed to open performance counters: " + e.getError());
+			return 0;
+		}
 	}
-
 
 	DWORD waitStatus = 0;
 	bool first = true;

@@ -306,13 +306,20 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 			} else {
 				buf[dwread] = 0;
 				msg = buf;
-				strEx::token t = strEx::getToken(msg, '\n');
-				t = strEx::getToken(t.first, '|');
+				//strEx::token t = strEx::getToken(msg, '\n');
+				strEx::token t = strEx::getToken(msg, '|');
 				msg = t.first;
 				perf = t.second;
 			}
 			delete [] buf;
-			GetExitCodeProcess(pi.hProcess, &dwexitcode);
+			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
+				NSC_LOG_ERROR("Failed to get commands (" + command + ") return code: " + error::lookup::last_error());
+				dwexitcode = NSCAPI::returnUNKNOWN;
+			}
+			if (!NSCHelper::isNagiosReturnCode(dwexitcode)) {
+				NSC_LOG_ERROR("The command (" + command + ") returned an invalid return code: " + strEx::itos(dwexitcode));
+				dwexitcode = NSCAPI::returnUNKNOWN;
+			}
 			result = NSCHelper::int2nagios(dwexitcode);
 		}
 		CloseHandle(pi.hThread);
@@ -346,9 +353,14 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 		int i;
 		int maxWait = socketTimeout_*10;
 		for (i=0;i<maxWait;i++) {
-			client->readAll(block, 1048);
+			bool lastReadRet = client->readAll(block, 1048);
 			if (block.getLength() >= NRPEPacket::getBufferLength())
 				break;
+			if (!lastReadRet) {
+				NSC_LOG_MESSAGE("Could not read NRPE packet from socket :(");
+				client->close();
+				return;
+			}
 			Sleep(100);
 		}
 		if (i >= maxWait) {

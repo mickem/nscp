@@ -35,6 +35,6 @@
 #include <NSCAPI.h>
 #include <NSCHelper.h>
 
-#ifdef _DEBUG
+#ifdef MEMCHECK
 #include <vld.h>
 #endif
