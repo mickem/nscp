@@ -327,7 +327,7 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 		CloseHandle(hChildOutR);
 	}
 	else {
-		msg = "NRPE_NT failed to create process, exiting...";
+		msg = "NRPE_NT failed to create process (" + command + "): " + error::lookup::last_error();
 		result = NSCAPI::returnUNKNOWN;
 		CloseHandle(hChildInR);
 		CloseHandle(hChildInW);

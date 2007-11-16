@@ -162,6 +162,13 @@ use_file=1
 ;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
 ;nrpe_ok=scripts\ok.bat
 ;check_multi_line=scripts\multi_line.bat
+;#
+;# The sample scripts
+;#
+;check_long=scripts\long.bat
+;check_ok=scripts\ok.bat
+;check_nok=scripts\xlong.bat
+;check_vbs=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
 
 
 ; [includes]
