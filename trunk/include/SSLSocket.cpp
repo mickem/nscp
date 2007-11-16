@@ -67,9 +67,7 @@ void simpleSSL::count_socket(bool add) {
 }
 
 
-bool simpleSSL::sSSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/) {
-	// @todo this could be optimized a bit if we want to
-	// If only one buffer is needed we could "reuse" the buffer instead of copying it.
+bool simpleSSL::sSSL::readAll(simpleSocket::Socket *report_to, simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/) {
 	char *tmpBuffer = new char[tmpBufferLength+1];
 	if (!ssl_)
 		create();
@@ -77,29 +75,13 @@ bool simpleSSL::sSSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmp
 	if (n > 0) {
 		buffer.append(tmpBuffer, n);
 	}
-	/*
-	while (n>0) {
-		if (n == tmpBufferLength) {
-			// We filled the buffer (There is more to get)
-//			buffer.append(tmpBuffer, n);
-			n=SSL_read(ssl_,tmpBuffer,tmpBufferLength);
-			break;
-		} else {
-			// Buffer not full, we got it "all"
-//			buffer.append(tmpBuffer, n);
-			break;
-		}
-	}
-	*/
 	delete [] tmpBuffer;
-	return n >= 0;
-	/*
 	if (n <= 0) {
 		int rc = getError(n);
-		if ((rc != SSL_ERROR_WANT_READ) && (rc != SSL_ERROR_WANT_WRITE))
-			throw SSLException("Socket read failed: ", n, rc);
+		report_to->printError(__FILE__, __LINE__, "Could not read from socket: " + strEx::itos(rc));
+		return (rc == SSL_ERROR_WANT_READ) || (rc == SSL_ERROR_WANT_WRITE);
 	}
-	*/
+	return true;
 }
 void simpleSSL::sSSL::send(const char * buf, unsigned int len) {
 	if (!ssl_)

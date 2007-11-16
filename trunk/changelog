@@ -5,10 +5,18 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-11-16 MickeM
+ * Fixed an NRPE issue I added when I improved the sockets_timeout (now SSL works as well :).
+ + Added sample VBS script and defenitions
+
+2007-11-15 MickeM
+ * Improved error message when external NRPE command failes.
+
 2007-11-14 MickeM
  + Added multi-line output support ( issue #91 )
  * Improved error handling for external commands
  * Fixed an issue with NRPE/NSClient socket-reading (introduced by the socket_timeout)
+ + Added an english fallback if "local" language PDH counters fail.
 
 2007-11-12 MickeM
  + Added option to configure socket_timeouts (default is now 30 seconds) should (I hope) fix issue #85
