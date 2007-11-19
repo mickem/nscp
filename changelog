@@ -5,6 +5,13 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-11-19 MickeM
+ * Fixed a minor issue in reading registry keys
+ + Added -noboot option to startup used for running command line utilities without booting the client
+   "nsclient++ -noboot RemoteConfigruation ini2reg" for instance
+ + Added fallback to try <module> and <module>.dll if the module was nhot loaded (when running command lines)
+ * Migrated 2008 project files to new name and backported to 2005 project files.
+
 2007-11-16 MickeM
  * Fixed an NRPE issue I added when I improved the sockets_timeout (now SSL works as well :).
  + Added sample VBS script and defenitions

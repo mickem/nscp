@@ -103,6 +103,14 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 		} else if ( _stricmp( "version", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME " Version: " SZVERSION);
+		} else if ( _stricmp( "noboot", argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
+			int nRetCode = -1;
+			if (argc>=4)
+				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
+			else if (argc>=3)
+				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
+			return nRetCode;
 		} else if ( _stricmp( "test", argv[1]+1 ) == 0 ) {
 #ifdef _DEBUG
 			/*
@@ -143,16 +151,16 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			return 0;
 		} else {
 			LOG_MESSAGE("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt");
-			LOG_MESSAGE("Usage: <ModuleName> <commnd> [arguments]");
+			LOG_MESSAGE("Usage: [-noboot] <ModuleName> <commnd> [arguments]");
 		}
 		return nRetCode;
 	} else if (argc > 2) {
 		g_bConsoleLog = true;
 		mainClient.InitiateService();
 		if (argc>=3)
-			mainClient.commandLineExec(argv[1], argv[2], argc-3, &argv[3]);
+			nRetCode = mainClient.commandLineExec(argv[1], argv[2], argc-3, &argv[3]);
 		else
-			mainClient.commandLineExec(argv[1], argv[2], 0, NULL);
+			nRetCode = mainClient.commandLineExec(argv[1], argv[2], 0, NULL);
 		mainClient.TerminateService();
 		return nRetCode;
 	}
@@ -252,26 +260,45 @@ void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
 
 int NSClientT::commandLineExec(const char* module, const char* command, const unsigned int argLen, char** args) {
 	std::string sModule = module;
-	ReadLock readLock(&m_mutexRW, true, 10000);
-	if (!readLock.IsLocked()) {
-		LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
-		return -1;
-	}
 	std::string moduleList = "";
-	for (pluginList::size_type i=0;i<plugins_.size();++i) {
-		NSCPlugin *p = plugins_[i];
-		if (!moduleList.empty())
-			moduleList += ", ";
-		moduleList += p->getModule();
-		if (p->getModule() == sModule) {
-			LOG_DEBUG_STD("Found module: " + p->getName() + "...");
-			try {
-				return p->commandLineExec(command, argLen, args);
-			} catch (NSPluginException e) {
-				LOG_ERROR_STD("Could not execute command: " + e.error_ + " in " + e.file_);
-				return -1;
+	{
+		ReadLock readLock(&m_mutexRW, true, 10000);
+		if (!readLock.IsLocked()) {
+			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
+			return -1;
+		}
+		for (pluginList::size_type i=0;i<plugins_.size();++i) {
+			NSCPlugin *p = plugins_[i];
+			if (!moduleList.empty())
+				moduleList += ", ";
+			moduleList += p->getModule();
+			if (p->getModule() == sModule) {
+				LOG_DEBUG_STD("Found module: " + p->getName() + "...");
+				try {
+					return p->commandLineExec(command, argLen, args);
+				} catch (NSPluginException e) {
+					LOG_ERROR_STD("Could not execute command: " + e.error_ + " in " + e.file_);
+					return -1;
+				}
 			}
 		}
+	}
+	LOG_MESSAGE_STD("Module was not loaded, attempt to load it");
+	try {
+		plugin_type plugin = loadPlugin(getBasePath() + "modules\\" + module);
+		LOG_DEBUG_STD("Loading plugin: " + plugin->getName() + "...");
+		plugin->load_plugin();
+		return plugin->commandLineExec(command, argLen, args);
+	} catch (NSPluginException e) {
+		LOG_MESSAGE_STD("Module (" + e.file_ + ") was not found: " + e.error_);
+	}
+	try {
+		plugin_type plugin = loadPlugin(getBasePath() + "modules\\" + module + ".dll");
+		LOG_DEBUG_STD("Loading plugin: " + plugin->getName() + "...");
+		plugin->load_plugin();
+		return plugin->commandLineExec(command, argLen, args);
+	} catch (NSPluginException e) {
+		LOG_MESSAGE_STD("Module (" + e.file_ + ") was not found: " + e.error_);
 	}
 	LOG_ERROR_STD("Module not found: " + module + " available modules are: " + moduleList);
 	return 0;
@@ -347,20 +374,20 @@ void NSClientT::loadPlugins() {
  * Load a single plug-in using a DLL filename
  * @param file The DLL file
  */
-void NSClientT::loadPlugin(const std::string file) {
-	addPlugin(new NSCPlugin(file));
+NSClientT::plugin_type NSClientT::loadPlugin(const std::string file) {
+	return addPlugin(new NSCPlugin(file));
 }
 /**
  * Load and add a plugin to various internal structures
  * @param *plugin The plug-ininstance to load. The pointer is managed by the 
  */
-void NSClientT::addPlugin(plugin_type plugin) {
+NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 	plugin->load_dll();
 	{
 		WriteLock writeLock(&m_mutexRW, true, 10000);
 		if (!writeLock.IsLocked()) {
 			LOG_ERROR("FATAL ERROR: Could not get read-mutex.");
-			return;
+			return plugin;
 		}
 		plugins_.insert(plugins_.end(), plugin);
 		if (plugin->hasCommandHandler())
@@ -368,7 +395,7 @@ void NSClientT::addPlugin(plugin_type plugin) {
 		if (plugin->hasMessageHandler())
 			messageHandlers_.insert(messageHandlers_.end(), plugin);
 	}
-
+	return plugin;
 }
 
 NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string arguments, char splitter, std::string &msg, std::string & perf) {

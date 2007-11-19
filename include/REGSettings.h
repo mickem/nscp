@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <TSettings.h>
 #include <msvc_wrappers.h>
+#include <error.hpp>
 #define BUFF_LEN 4096
 
 
@@ -125,8 +126,10 @@ public:
 			} else {
 				std::cout << "getString_::Unsupported type: " << lpszPath << "." << lpszKey << ": " << type << std::endl;
 			}
+		} else if (lRet == ERROR_FILE_NOT_FOUND) {
+			return def;
 		} else {
-			std::cout << "getString_::Error: " << lpszPath << "." << lpszKey << ": " << lRet << std::endl;
+			std::cout << "getString_::Error: " << lpszPath << "." << lpszKey << ": " << error::format::from_system(lRet) << std::endl;
 		}
 		RegCloseKey(hTemp);
 		delete [] bData;
