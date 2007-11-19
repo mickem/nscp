@@ -91,14 +91,14 @@ public:
 	int commandLineExec(const char* module, const char* command, const unsigned int argLen, char** args);
 
 	void addPlugins(const std::list<std::string> plugins);
-	void loadPlugin(const std::string plugin);
+	plugin_type loadPlugin(const std::string plugin);
 	void loadPlugins(void);
 	void unloadPlugins(void);
 
 	bool logDebug();
 
 private:
-	void addPlugin(plugin_type plugin);
+	plugin_type addPlugin(plugin_type plugin);
 
 };
 
