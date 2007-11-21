@@ -11,6 +11,7 @@ TODO:
  + Added "AliasCol" option to CheckWMIValue to allow a column to be used as "alias" for a result set:
      CheckWMIValue -a "Query=select Caption, ThreadCount from Win32_Process" MaxWarn=50 MaxCrit=100 Check:threads=ThreadCount AliasCol=Caption
     will give you: "System threads: 98 > warning, svchost.exe threads: 87 > warning"
+ - Removed documenation from SVN (as it is old and outdated and no longer used)
 
 2007-11-20 MickeM
  + Added new option to CheckSystem to override detected language (force_language=0x0014)
