@@ -5,6 +5,16 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-11-21 MickeM
+ * Fixed process counter so checkProcState  now return the *correct* number (previously it was correct-1)
+ * Fixed som missing exceptions that were not caught
+ + Added "AliasCol" option to CheckWMIValue to allow a column to be used as "alias" for a result set:
+     CheckWMIValue -a "Query=select Caption, ThreadCount from Win32_Process" MaxWarn=50 MaxCrit=100 Check:threads=ThreadCount AliasCol=Caption
+    will give you: "System threads: 98 > warning, svchost.exe threads: 87 > warning"
+
+2007-11-20 MickeM
+ + Added new option to CheckSystem to override detected language (force_language=0x0014)
+
 2007-11-19 MickeM
  * Fixed a minor issue in reading registry keys
  + Added -noboot option to startup used for running command line utilities without booting the client

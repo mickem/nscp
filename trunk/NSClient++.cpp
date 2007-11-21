@@ -105,6 +105,7 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 			LOG_MESSAGE(SZAPPNAME " Version: " SZVERSION);
 		} else if ( _stricmp( "noboot", argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
+			mainClient.enableDebug(true);
 			int nRetCode = -1;
 			if (argc>=4)
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
@@ -180,15 +181,15 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 bool NSClientT::InitiateService() {
 	try {
 		Settings::getInstance()->setFile(getBasePath(), "NSC.ini");
+		if (debug_) {
+			Settings::getInstance()->setInt("log", "debug", 1);
+		}
 	} catch (SettingsException e) {
 		LOG_ERROR_STD("Could not find settings: " + e.getMessage());
 		return false;
 	} catch (...) {
 		LOG_ERROR_STD("Unknown exception reading settings...");
 		return false;
-	}
-	if (debug_) {
-		Settings::getInstance()->setInt("log", "debug", 1);
 	}
 
 	try {
@@ -200,18 +201,21 @@ bool NSClientT::InitiateService() {
 		LOG_ERROR_STD("Unknown exception iniating socket...");
 		return false;
 	}
-
-	SettingsT::sectionList list = Settings::getInstance()->getSection("modules");
-	for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
-		try {
-			loadPlugin(getBasePath() + "modules\\" + (*it));
-		} catch(const NSPluginException& e) {
-			LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
-			return false;
-		} catch (...) {
-			LOG_ERROR_STD("Unknown exception loading plugin: " + (*it));
-			return false;
+	try {
+		SettingsT::sectionList list = Settings::getInstance()->getSection("modules");
+		for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
+			try {
+				loadPlugin(getBasePath() + "modules\\" + (*it));
+			} catch(const NSPluginException& e) {
+				LOG_ERROR_STD("Exception raised: " + e.error_ + " in module: " + e.file_);
+				return false;
+			} catch (...) {
+				LOG_ERROR_STD("Unknown exception loading plugin: " + (*it));
+				return false;
+			}
 		}
+	} catch (SettingsException e) {
+		NSC_LOG_ERROR_STD("Failed to set settings file" + e.getMessage());
 	}
 	try {
 		loadPlugins();
@@ -471,10 +475,14 @@ bool NSClientT::logDebug() {
 	typedef enum status {unknown, debug, nodebug };
 	static status d = unknown;
 	if (d == unknown) {
-		if (Settings::getInstance()->getInt("log", "debug", 0) == 1)
+		try {
+			if (Settings::getInstance()->getInt("log", "debug", 0) == 1)
+				d = debug;
+			else
+				d = nodebug;
+		} catch (SettingsException e) {
 			d = debug;
-		else
-			d = nodebug;
+		}
 	}
 	return (d == debug);
 }
@@ -553,7 +561,11 @@ std::string NSClientT::getBasePath(void) {
 	std::string::size_type pos = path.rfind('\\');
 	basePath = path.substr(0, pos) + "\\";
 	delete [] buffer;
-	Settings::getInstance()->setFile(basePath, "NSC.ini");
+	try {
+		Settings::getInstance()->setFile(basePath, "NSC.ini");
+	} catch (SettingsException e) {
+		NSC_LOG_ERROR_STD("Failed to set settings file" + e.getMessage());
+	}
 	return basePath;
 }
 
@@ -562,7 +574,11 @@ NSCAPI::errorReturn NSAPIGetSettingsString(const char* section, const char* key,
 	return NSCHelper::wrapReturnString(buffer, bufLen, Settings::getInstance()->getString(section, key, defaultValue), NSCAPI::isSuccess);
 }
 int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue) {
-	return Settings::getInstance()->getInt(section, key, defaultValue);
+	try {
+		return Settings::getInstance()->getInt(section, key, defaultValue);
+	} catch (SettingsException e) {
+		NSC_LOG_ERROR_STD("Failed to set settings file" + e.getMessage());
+	}
 }
 NSCAPI::errorReturn NSAPIGetBasePath(char*buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath(), NSCAPI::isSuccess);

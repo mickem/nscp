@@ -63,10 +63,8 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 
 		SettingsT settings;
 		std::string prefix;
-		std::string section;
 		settings.setFile(NSCModuleHelper::getBasePath(),  "counters.defs", true);
-
-		NSC_LOG_ERROR_STD("Getting counter info...");
+		std::string section = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_FORCE_LANGUAGE, C_SYSTEM_FORCE_LANGUAGE_DEFAULT);
 
 		try {
 			OSVERSIONINFO osVer = systemInfo::getOSVersion();
@@ -91,8 +89,12 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 				return 0;
 			}
 
-			section = "0000" + strEx::ihextos(langId);
-			section = "0x" + section.substr(section.length()-4);
+			if (!section.empty()) {
+				NSC_DEBUG_MSG_STD("Overriding language with: " + section);
+			} else {
+				section = "0000" + strEx::ihextos(langId);
+				section = "0x" + section.substr(section.length()-4);
+			}
 			if (settings.getString(section, "Description", "_NOT_FOUND") == "_NOT_FOUND") {
 				NSC_LOG_ERROR_STD("Detected language: " + section + " but it could not be found in: counters.defs");
 				NSC_LOG_ERROR_STD("You need to manually configure performance counters!");
@@ -100,7 +102,6 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			}
 			NSC_DEBUG_MSG_STD("Detected language: " + settings.getString(section, "Description", "Not found") + " (" + section + ")");
 		} catch (const systemInfo::SystemInfoException &e) {
-			//NSC_LOG_ERROR_STD("System detection failed, PDH will be disabled: " + e.getError());
 			NSC_LOG_ERROR_STD("To manual set performance counters you need to first set " C_SYSTEM_AUTODETECT_PDH "=0 in the config file, and then you also need to configure the various counter.");
 			return -1;
 		}

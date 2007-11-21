@@ -154,6 +154,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, ch
 	bool bPerfData = true;
 	unsigned int truncate = 0;
 	std::string query;
+	std::string aliasCol;
 
 	// Query=Select ... MaxWarn=5 MaxCrit=12 Check=Col1 --(later)-- Match==test Check=Col2
 	// MaxWarnNumeric:ID=>5
@@ -162,6 +163,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, ch
 			MAP_OPTIONS_SHOWALL(tmpObject)
 			MAP_OPTIONS_NUMERIC_ALL(tmpObject, "")
 			MAP_OPTIONS_STR("Alias", tmpObject.data)
+			MAP_OPTIONS_STR("AliasCol", aliasCol)
 			MAP_OPTIONS_STR("Query", query)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_STR_AND("Check", tmpObject.data, list.push_back(tmpObject))
@@ -198,20 +200,32 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, ch
 					itm.runCheck(value, returnCode, message, perf);
 				}
 			}
-		} else {
-			for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
-				bool found = false;
-				for (WMIQuery::wmi_row::list_type::const_iterator citCol = (*citRow).results.begin(); citCol != (*citRow).results.end(); ++citCol) {
-					if ((*citCol).first == itm.data) {
-						found = true;
-						long long value = (*citCol).second.numeric;
-						itm.runCheck(value, returnCode, message, perf);
-					}
-				}
-				if (!found) {
-					NSC_LOG_ERROR_STD("Column: " + itm.data + " was not found!");
+		}
+	}
+	for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+		bool found = false;
+		std::string alias;
+		if (!aliasCol.empty()) {
+			alias = (*citRow).get(aliasCol).string;
+		}
+		for (WMIQuery::wmi_row::list_type::const_iterator citCol = (*citRow).results.begin(); citCol != (*citRow).results.end(); ++citCol) {
+			for (std::list<WMIConatiner>::const_iterator it = list.begin(); it != list.end(); ++it) {
+				WMIConatiner itm = (*it);
+				if (itm.data == "*") {
+					found = true;
+				} else if ((*citCol).first == itm.data) {
+					std::string oldAlias = itm.alias;
+					if (!alias.empty())
+						itm.alias = alias + " " + itm.getAlias();
+					found = true;
+					long long value = (*citCol).second.numeric;
+					itm.runCheck(value, returnCode, message, perf);
+					itm.alias = oldAlias;
 				}
 			}
+		}
+		if (!found) {
+			NSC_LOG_ERROR_STD("A column was not found!");
 		}
 	}
 
