@@ -724,9 +724,10 @@ NSPROCLST GetProcessList(int processMethod)
 	CEnumProcess::CProcessEntry entry;
 	for (BOOL OK = enumeration.GetProcessFirst(&entry); OK; OK = enumeration.GetProcessNext(&entry) ) {
 		NSPROCLST::iterator it = ret.find(entry.sFilename);
-		if (it == ret.end())
+		if (it == ret.end()) {
 			ret[entry.sFilename].entry = entry;
-		else
+			ret[entry.sFilename].count = 1;
+		} else
 			(*it).second.count++;
 	}
 	return ret;

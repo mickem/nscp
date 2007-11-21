@@ -107,6 +107,8 @@
 
 #define C_SYSTEM_AUTODETECT_PDH "auto_detect_pdh"
 #define C_SYSTEM_AUTODETECT_PDH_DEFAULT 1
+#define C_SYSTEM_FORCE_LANGUAGE "force_language"
+#define C_SYSTEM_FORCE_LANGUAGE_DEFAULT ""
 
 #define C_SYSTEM_MEM_PAGE_LIMIT "MemoryCommitLimit"
 #define C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT "\\Memory\\Commit Limit"
