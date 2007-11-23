@@ -31,10 +31,10 @@ public:
 	static const short version2 = 2;
 
 	class NRPEPacketException {
-		std::string error_;
+		std::wstring error_;
 	public:
-		NRPEPacketException(std::string error) : error_(error) {}
-		std::string getMessage() {
+		NRPEPacketException(std::wstring error) : error_(error) {}
+		std::wstring getMessage() {
 			return error_;
 		}
 	};
@@ -47,7 +47,7 @@ private:
 		int16_t   result_code;
 		char      buffer[1024];
 	} packet;
-	std::string payload_;
+	std::wstring payload_;
 	short type_;
 	short version_;
 	NSCAPI::nagiosReturn result_;
@@ -59,7 +59,7 @@ public:
 	NRPEPacket(const char *buffer, unsigned int length) : tmpBuffer(NULL) {
 		readFrom(buffer, length);
 	};
-	NRPEPacket(short type, short version, NSCAPI::nagiosReturn result, std::string payLoad) 
+	NRPEPacket(short type, short version, NSCAPI::nagiosReturn result, std::wstring payLoad) 
 		: tmpBuffer(NULL) 
 		,type_(type)
 		,version_(version)
@@ -82,7 +82,7 @@ public:
 	unsigned short getVersion() const { return version_; }
 	unsigned short getType() const { return type_; }
 	unsigned short getResult() const { return result_; }
-	std::string getPayload() const { return payload_; }
+	std::wstring getPayload() const { return payload_; }
 	const char* getBuffer();
 	bool verifyCRC() {
 		return calculatedCRC32_ == crc32_;

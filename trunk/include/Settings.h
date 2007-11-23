@@ -29,10 +29,10 @@
 
 class SettingsException {
 private:
-	std::string err;
+	std::wstring err;
 public:
-	SettingsException(std::string str) : err(str) {}
-	std::string getMessage() {
+	SettingsException(std::wstring str) : err(str) {}
+	std::wstring getMessage() {
 		return err;
 	}
 
@@ -44,19 +44,19 @@ private:
 	typedef struct {
 		typedef enum { sType, iType} typeEnum;
 		typeEnum type;
-		std::string sVal;
+		std::wstring sVal;
 		int iVal;
 	} valueStruct;
-	typedef std::map<std::string,valueStruct> saveKeyList;
-	typedef std::map<std::string,saveKeyList> saveSectionList;
+	typedef std::map<std::wstring,valueStruct> saveKeyList;
+	typedef std::map<std::wstring,saveKeyList> saveSectionList;
 	saveSectionList data_;
-	std::string file_;
-	std::string basepath_;
+	std::wstring file_;
+	std::wstring basepath_;
 	bool bHasInternalData;
 	TSettings *settingsManager;
 
 public:
-	typedef std::list<std::string> sectionList;
+	typedef std::list<std::wstring> sectionList;
 	SettingsT(void) : bHasInternalData(false), settingsManager(NULL)
 	{
 	}
@@ -66,17 +66,17 @@ public:
 		if (settingsManager)
 			delete settingsManager;
 	}
-	std::string getActiveType() {
-		if (!settingsManager) {
-			return "";
-		} return settingsManager->getActiveType();
+	std::wstring getActiveType() {
+		if (!settingsManager)
+			return _T("");
+		return settingsManager->getActiveType();
 	}
 
 	/**
 	 * Set the file to read from
 	 * @param file A INI-file to use as settings repository
 	 */
-	void setFile(std::string basepath, std::string file, bool forceini = false) {
+	void setFile(std::wstring basepath, std::wstring file, bool forceini = false) {
 		file_ = file;
 		basepath_ = basepath;
 		if (forceini) {
@@ -94,7 +94,7 @@ public:
 				delete settingsManager;
 			settingsManager = new INISettings(basepath, file);
 		} else {
-			throw SettingsException("No settings method specified, cannot start");
+			throw SettingsException(_T("No settings method specified, cannot start"));
 		}
 	}
 
@@ -111,20 +111,20 @@ public:
 				sM = new INISettings(basepath_, file_);
 				bNew = true;
 			} else {
-				throw SettingsException("Invalid settings subsystem specified");
+				throw SettingsException(_T("Invalid settings subsystem specified"));
 			}
 		}
 		if (sM == NULL) {
-			throw SettingsException("Invalid settings subsystem specified");
+			throw SettingsException(_T("Invalid settings subsystem specified"));
 		}
 		sectionList sections = sM->getSections();
 		for (sectionList::const_iterator it=sections.begin();it!=sections.end();++it) {
 			sectionList section = sM->getSection(*it);
 			for (sectionList::const_iterator it2=section.begin();it2!=section.end();++it2) {
-				std::string s = sM->getString((*it), (*it2));
+				std::wstring s = sM->getString((*it), (*it2));
 				int i = strEx::stoi(s);
-				std::string s2 = strEx::itos(i);
-				std::cout << "importing: " << (*it) << "/" << (*it2) << "=" << s << std::endl;
+				std::wstring s2 = strEx::itos(i);
+				std::wcout << _T("importing: ") << (*it) << "/" << (*it2) << "=" << s << std::endl;
 				if (s == s2) {
 					setInt((*it), (*it2), i);
 				} else {
@@ -142,7 +142,7 @@ public:
 					} else
 						setInt((*it), (*it2), i);
 				} else if (i == 0) {
-					std::string s = sM->getString((*it), (*it2));
+					std::wstring s = sM->getString((*it), (*it2));
 					std::cout << "Size: " << s.size() << " |" << s << "| " << std::endl;
 					if (s.size() == 0)
 						setString((*it), (*it2), s);
@@ -168,11 +168,11 @@ public:
 				sM = new INISettings(basepath_, file_);
 				bNew = true;
 			} else {
-				throw SettingsException("Invalid settings subsystem specified");
+				throw SettingsException(_T("Invalid settings subsystem specified"));
 			}
 		}
 		if (sM == NULL) {
-			throw SettingsException("Invalid settings subsystem specified");
+			throw SettingsException(_T("Invalid settings subsystem specified"));
 		}
 		if (bHasInternalData) {
 			for (saveSectionList::const_iterator it=data_.begin();it!=data_.end();++it) {
@@ -191,7 +191,7 @@ public:
 
 	sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
 		if (!settingsManager)
-			throw SettingsException("No settings manager found have you configured.");
+			throw SettingsException(_T("No settings manager found have you configured."));
 		sectionList ret;
 		ret = settingsManager->getSections();
 		if (bHasInternalData) {
@@ -209,9 +209,9 @@ public:
 	 * @param section The section to return all keys from
 	 * @return A list with all keys from the section
 	 */
-	sectionList getSection(std::string section, unsigned int bufferLength = BUFF_LEN) {
+	sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
 		if (!settingsManager)
-			throw SettingsException("No settings manager found have you configured.");
+			throw SettingsException(_T("No settings manager found have you configured."));
 		sectionList ret;
 		ret = settingsManager->getSection(section);
 		if (bHasInternalData) {
@@ -233,9 +233,9 @@ public:
 	 * @param defaultValue Default value to return if key is not found
 	 * @return The value or defaultValue if the key is not found
 	 */
-	std::string getString(std::string section, std::string key, std::string defaultValue = "") const {
+	std::wstring getString(std::wstring section, std::wstring key, std::wstring defaultValue = _T("")) const {
 		if (!settingsManager)
-			throw SettingsException("No settings manager found have you configured.");
+			throw SettingsException(_T("No settings manager found have you configured."));
 		if (bHasInternalData) {
 			saveSectionList::const_iterator it = data_.find(section);
 			if (it != data_.end()) {
@@ -248,11 +248,11 @@ public:
 				}
 			}
 		}
-		std::string ret = settingsManager->getString(section, key, defaultValue);
+		std::wstring ret = settingsManager->getString(section, key, defaultValue);
 		return ret;
 	}
 
-	void setString(std::string section, std::string key, std::string value) {
+	void setString(std::wstring section, std::wstring key, std::wstring value) {
 		bHasInternalData = true;
 		(data_[section])[key].sVal = value;
 		(data_[section])[key].type = valueStruct::sType;
@@ -265,9 +265,9 @@ public:
 	 * @param defaultValue Default value to return if key is not found
 	 * @return The value or defaultValue if the key is not found
 	 */
-	int getInt(std::string section, std::string key, int defaultValue = 0) {
+	int getInt(std::wstring section, std::wstring key, int defaultValue = 0) {
 		if (!settingsManager)
-			throw SettingsException("No settings manager found have you configured.");
+			throw SettingsException(_T("No settings manager found have you configured."));
 		if (bHasInternalData) {
 			saveSectionList::const_iterator it = data_.find(section);
 			if (it != data_.end()) {
@@ -282,7 +282,7 @@ public:
 		}
 		return settingsManager->getInt(section, key, defaultValue);
 	}
-	void setInt(std::string section, std::string key, int value) {
+	void setInt(std::wstring section, std::wstring key, int value) {
 		bHasInternalData = true;
 		(data_[section])[key].iVal = value;
 		(data_[section])[key].type = valueStruct::iType;

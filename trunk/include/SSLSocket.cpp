@@ -78,7 +78,7 @@ bool simpleSSL::sSSL::readAll(simpleSocket::Socket *report_to, simpleSocket::Dat
 	delete [] tmpBuffer;
 	if (n <= 0) {
 		int rc = getError(n);
-		report_to->printError(__FILE__, __LINE__, "Could not read from socket: " + strEx::itos(rc));
+		report_to->printError(_T(__FILE__), __LINE__, _T("Could not read from socket: ") + strEx::itos(rc));
 		return (rc == SSL_ERROR_WANT_READ) || (rc == SSL_ERROR_WANT_WRITE);
 	}
 	return true;
@@ -88,7 +88,7 @@ void simpleSSL::sSSL::send(const char * buf, unsigned int len) {
 		create();
 	int rc = SSL_write(ssl_, buf, len);
 	if (rc <= 0)
-		throw SSLException("Socket write failed: ", rc, getError(rc));
+		throw SSLException(_T("Socket write failed: "), rc, getError(rc));
 }
 
 bool simpleSSL::Listener::accept(tSocket &client) {
@@ -126,7 +126,7 @@ void setupDH(simpleSSL::DH &dh) {
 	dh.bin2bn_g(dh512_g, sizeof(dh512_g));
 }
 
-void simpleSSL::Listener::StartListener(std::string host, int port, unsigned int listenQue) {
+void simpleSSL::Listener::StartListener(std::wstring host, int port, unsigned int listenQue) {
 	// @todo init SSL
 	simpleSSL::SSL_init();
 
@@ -142,7 +142,7 @@ void simpleSSL::Listener::StartListener(std::string host, int port, unsigned int
 		lock_cs_count = simpleSSL::Crypto::getNumberOfLocks();
 		lock_cs = reinterpret_cast<HANDLE*>(simpleSSL::Crypto::malloc(lock_cs_count * sizeof(HANDLE)));
 		if (!lock_cs)
-			throw simpleSocket::SocketException("Could not create SSL handles.");
+			throw simpleSocket::SocketException(_T("Could not create SSL handles."));
 		for (int i = 0; i < lock_cs_count; i++) {
 			lock_cs[i] = CreateMutex(NULL, FALSE, NULL);
 		}

@@ -5,6 +5,13 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-11-23 MickeM
+ * Converted to unicode (damn sometimes I **HATE** C++)
+ + Added support for escaping " on the /test syntax so now you can do: CheckWMI MaxCrit=3 "MinWarn=1" "Query:load=Select * from win32_Processor"
+
+2007-11-22 MickeM
+ * Fixed so the "default path" is correct even when running as a service (issue: #96)
+
 2007-11-21 MickeM
  * Fixed process counter so checkProcState  now return the *correct* number (previously it was correct-1)
  * Fixed som missing exceptions that were not caught

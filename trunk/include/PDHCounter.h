@@ -29,20 +29,20 @@
 namespace PDH {
 	class PDHException {
 	private:
-		std::string str_;
-		std::string name_;
+		std::wstring str_;
+		std::wstring name_;
 		PDH_STATUS pdhStatus_;
 	public:
-		PDHException(std::string name, std::string str, PDH_STATUS pdhStatus = 0) : name_(name), str_(str), pdhStatus_(pdhStatus) {}
-		PDHException(std::string str, PDH_STATUS pdhStatus) : str_(str), pdhStatus_(pdhStatus) {}
-		PDHException(std::string str) : str_(str), pdhStatus_(0) {}
-		std::string getError() const {
-			std::string ret;
+		PDHException(std::wstring name, std::wstring str, PDH_STATUS pdhStatus = 0) : name_(name), str_(str), pdhStatus_(pdhStatus) {}
+		PDHException(std::wstring str, PDH_STATUS pdhStatus) : str_(str), pdhStatus_(pdhStatus) {}
+		PDHException(std::wstring str) : str_(str), pdhStatus_(0) {}
+		std::wstring getError() const {
+			std::wstring ret;
 			if (!name_.empty())
-				ret += name_ + ": ";
+				ret += name_ + _T(": ");
 			ret += str_;
 			if (pdhStatus_ != 0) {
-				ret += ": " + error::format::from_module("PDH.DLL", pdhStatus_);
+				ret += _T(": ") + error::format::from_module(_T("PDH.DLL"), pdhStatus_);
 			}
 			return ret;
 		}
@@ -66,16 +66,16 @@ namespace PDH {
 		LONG    lDefaultScale;
 		DWORD_PTR   dwUserData;
 		DWORD_PTR   dwQueryUserData;
-		std::string  szFullPath;
+		std::wstring  szFullPath;
 
-		std::string   szMachineName;
-		std::string   szObjectName;
-		std::string   szInstanceName;
-		std::string   szParentInstance;
+		std::wstring   szMachineName;
+		std::wstring   szObjectName;
+		std::wstring   szInstanceName;
+		std::wstring   szParentInstance;
 		DWORD    dwInstanceIndex;
-		std::string   szCounterName;
+		std::wstring   szCounterName;
 
-		std::string  szExplainText;
+		std::wstring  szExplainText;
 
 		PDHCounterInfo(BYTE *lpBuffer, DWORD dwBufferSize, BOOL explainText) {
 			PDH_COUNTER_INFO *info = (PDH_COUNTER_INFO*)lpBuffer;
@@ -109,14 +109,14 @@ namespace PDH {
 	{
 	private:
 		HCOUNTER hCounter_;
-		std::string name_;
+		std::wstring name_;
 		PDH_FMT_COUNTERVALUE data_;
 		PDHCounterListener *listener_;
 
 	public:
 
-		PDHCounter(std::string name, PDHCounterListener *listener) : name_(name), listener_(listener), hCounter_(NULL){}
-		PDHCounter(std::string name) : name_(name), listener_(NULL), hCounter_(NULL){}
+		PDHCounter(std::wstring name, PDHCounterListener *listener) : name_(name), listener_(listener), hCounter_(NULL){}
+		PDHCounter(std::wstring name) : name_(name), listener_(NULL), hCounter_(NULL){}
 		virtual ~PDHCounter(void) {
 			if (hCounter_ != NULL)
 				remove();
@@ -132,27 +132,28 @@ namespace PDH {
 			BYTE *lpBuffer = new BYTE[1025];
 			DWORD bufSize = 1024;
 			if ((status = PdhGetCounterInfo(hCounter_, bExplainText, &bufSize, (PDH_COUNTER_INFO*)lpBuffer)) != ERROR_SUCCESS) {
-				throw PDHException(name_, "getCounterInfo failed (no query)", status);
+				throw PDHException(name_, _T("getCounterInfo failed (no query)"), status);
 			}
 			return PDHCounterInfo(lpBuffer, bufSize, TRUE);
 		}
 		const HCOUNTER getCounter() const {
 			return hCounter_;
 		}
-		const std::string getName() const {
+		const std::wstring getName() const {
 			return name_;
 		}
 		void addToQuery(HQUERY hQuery) {
 			PDH_STATUS status;
 			if (hQuery == NULL)
-				throw PDHException(name_, "addToQuery failed (no query).");
+				throw PDHException(name_, _T("addToQuery failed (no query)."));
 			if (hCounter_ != NULL)
-				throw PDHException(name_, "addToQuery failed (already opened).");
+				throw PDHException(name_, _T("addToQuery failed (already opened)."));
 			if (listener_)
 				listener_->attach(*this);
-			if ((status = PdhAddCounter(hQuery, name_.c_str(), 0, &hCounter_)) != ERROR_SUCCESS) {
+			LPCWSTR name = name_.c_str();
+			if ((status = PdhAddCounter(hQuery, name, 0, &hCounter_)) != ERROR_SUCCESS) {
 				hCounter_ = NULL;
-				throw PDHException(name_, "PdhOpenQuery failed", status);
+				throw PDHException(name_, _T("PdhAddCounter failed"), status);
 			}
 			assert(hCounter_ != NULL);
 		}
@@ -163,7 +164,7 @@ namespace PDH {
 			if (listener_)
 				listener_->detach(*this);
 			if ((status = PdhRemoveCounter(hCounter_)) != ERROR_SUCCESS)
-				throw PDHException(name_, "PdhRemoveCounter failed", status);
+				throw PDHException(name_, _T("PdhRemoveCounter failed"), status);
 			hCounter_ = NULL;
 		}
 		void collect() {
@@ -173,7 +174,7 @@ namespace PDH {
 			if (!listener_)
 				return;
 			if ((status = PdhGetFormattedCounterValue(hCounter_, listener_->getFormat(), NULL, &data_)) != ERROR_SUCCESS)
-				throw PDHException(name_, "PdhGetFormattedCounterValue failed", status);
+				throw PDHException(name_, _T("PdhGetFormattedCounterValue failed"), status);
 			listener_->collect(*this);
 		}
 		double getDoubleValue() const {
@@ -185,8 +186,8 @@ namespace PDH {
 		long getIntValue() const {
 			return data_.longValue;
 		}
-		std::string getStringValue() const {
-			return data_.AnsiStringValue;
+		std::wstring getStringValue() const {
+			return data_.WideStringValue;
 		}
 	};
 
@@ -203,13 +204,13 @@ namespace PDH {
 			removeAllCounters();
 		}
 
-		PDHCounter* addCounter(std::string name, PDHCounterListener *listener) {
+		PDHCounter* addCounter(std::wstring name, PDHCounterListener *listener) {
 			//std::cout << "Adding counter: " << name << std::endl;
 			PDHCounter *counter = new PDHCounter(name, listener);
 			counters_.push_back(counter);
 			return counter;
 		}
-		PDHCounter* addCounter(std::string name) {
+		PDHCounter* addCounter(std::wstring name) {
 			PDHCounter *counter = new PDHCounter(name);
 			counters_.push_back(counter);
 			return counter;
@@ -227,7 +228,7 @@ namespace PDH {
 			assert(hQuery_ == NULL);
 			PDH_STATUS status;
 			if( (status = PdhOpenQuery( NULL, 0, &hQuery_ )) != ERROR_SUCCESS)
-				throw PDHException("PdhOpenQuery failed", status);
+				throw PDHException(_T("PdhOpenQuery failed"), status);
 			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
 				(*it)->addToQuery(getQueryHandle());
 			}
@@ -240,7 +241,7 @@ namespace PDH {
 				(*it)->remove();
 			}
 			if( (status = PdhCloseQuery(hQuery_)) != ERROR_SUCCESS)
-				throw PDHException("PdhCloseQuery failed", status);
+				throw PDHException(_T("PdhCloseQuery failed"), status);
 			hQuery_ = NULL;
 			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
 				delete (*it);
@@ -251,7 +252,7 @@ namespace PDH {
 		void gatherData() {
 			PDH_STATUS status;
 			if ((status = PdhCollectQueryData(hQuery_)) != ERROR_SUCCESS)
-				throw PDHException("PdhCollectQueryData failed: ", status);
+				throw PDHException(_T("PdhCollectQueryData failed: "), status);
 			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
 				(*it)->collect();
 			}
@@ -259,7 +260,7 @@ namespace PDH {
 		void collect() {
 			PDH_STATUS status;
 			if ((status = PdhCollectQueryData(hQuery_)) != ERROR_SUCCESS)
-				throw PDHException("PdhCollectQueryData failed: ", status);
+				throw PDHException(_T("PdhCollectQueryData failed: "), status);
 		}
 
 		HQUERY getQueryHandle() const {
@@ -271,15 +272,15 @@ namespace PDH {
 	public:
 
 		struct Counter {
-			std::string name;
+			std::wstring name;
 		};
 		typedef std::list<Counter> Counters;
 		struct Instance {
-			std::string name;
+			std::wstring name;
 		};
 		typedef std::list<Instance> Instances;
 		struct Object {
-			std::string name;
+			std::wstring name;
 			Instances instances;
 			Counters counters;
 		};
@@ -289,17 +290,17 @@ namespace PDH {
 			Objects ret;
 
 			DWORD dwObjectBufLen = 0;
-			LPTSTR szObjectBuffer = NULL;
+			TCHAR* szObjectBuffer = NULL;
 			PDH_STATUS status = PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
 			if (status != PDH_MORE_DATA)
-				throw PDHException("PdhEnumObjects failed when trying to retrieve size of object buffer", status);
+				throw PDHException(_T("PdhEnumObjects failed when trying to retrieve size of object buffer"), status);
 
-			szObjectBuffer = new char[dwObjectBufLen+1024];
+			szObjectBuffer = new TCHAR[dwObjectBufLen+1024];
 			status = PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
 			if (status != ERROR_SUCCESS)
-				throw PDHException("PdhEnumObjects failed when trying to retrieve object buffer", status);
+				throw PDHException(_T("PdhEnumObjects failed when trying to retrieve object buffer"), status);
 
-			char *cp=szObjectBuffer;
+			TCHAR *cp=szObjectBuffer;
 			while(*cp != '\0') {
 				Object o;
 				o.name = cp;
@@ -310,16 +311,16 @@ namespace PDH {
 
 			for (Objects::iterator it = ret.begin(); it != ret.end(); ++it) {
 				DWORD dwCounterBufLen = 0;
-				LPTSTR szCounterBuffer = NULL;
+				TCHAR* szCounterBuffer = NULL;
 				DWORD dwInstanceBufLen = 0;
-				LPTSTR szInstanceBuffer = NULL;
+				TCHAR* szInstanceBuffer = NULL;
 				status = PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
 				if (status == PDH_MORE_DATA) {
-					szCounterBuffer = new char[dwCounterBufLen+1024];
-					szInstanceBuffer = new char[dwInstanceBufLen+1024];
+					szCounterBuffer = new TCHAR[dwCounterBufLen+1024];
+					szInstanceBuffer = new TCHAR[dwInstanceBufLen+1024];
 					status = PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
 					if (status != ERROR_SUCCESS)
-						throw PDHException("PdhEnumObjectItems failed when trying to retrieve buffer for " + (*it).name, status);
+						throw PDHException(_T("PdhEnumObjectItems failed when trying to retrieve buffer for ") + (*it).name, status);
 
 					if (dwCounterBufLen > 0) {
 						cp=szCounterBuffer;
@@ -347,7 +348,7 @@ namespace PDH {
 			return ret;
 		}
 		/*
-		static str_lst EnumObjectItems(std::string object) {
+		static str_lst EnumObjectItems(std::wstring object) {
 			str_lst ret;
 			DWORD bufLen = 4096;
 			DWORD bufLen2 = 0;
@@ -356,13 +357,13 @@ namespace PDH {
 			if (status == ERROR_SUCCESS) {
 				char *cp=buf;
 				while(*cp != '\0') {
-					ret.push_back(std::string(cp));
+					ret.push_back(std::wstring(cp));
 					cp += lstrlen(cp)+1;
 				}
 			}
 			return ret;
 		}
-		static str_lst EnumObjectInstances(std::string object) {
+		static str_lst EnumObjectInstances(std::wstring object) {
 			str_lst ret;
 			DWORD bufLen = 4096;
 			DWORD bufLen2 = 0;
@@ -371,32 +372,32 @@ namespace PDH {
 			if (status == ERROR_SUCCESS) {
 				char *cp=buf;
 				while(*cp != '\0') {
-					ret.push_back(std::string(cp));
+					ret.push_back(std::wstring(cp));
 					cp += lstrlen(cp)+1;
 				}
 			}
 			return ret;
 		}
 		*/
-		static bool validate(std::string counter, std::string &error) {
+		static bool validate(std::wstring counter, std::wstring &error) {
 			PDH_STATUS status = PdhValidatePath(counter.c_str());
 			switch (status) {
 				case ERROR_SUCCESS:
 					return true;
 				case PDH_CSTATUS_NO_INSTANCE:
-					error = "The specified instance of the performance object was not found.";
+					error = _T("The specified instance of the performance object was not found.");
 					break;
 				case PDH_CSTATUS_NO_COUNTER:
-					error = "The specified counter was not found in the performance object.";
+					error = _T("The specified counter was not found in the performance object.");
 					break;
 				case PDH_CSTATUS_NO_MACHINE:
-					error = "The specified computer could not be found or connected to.";
+					error = _T("The specified computer could not be found or connected to.");
 					break;
 				case PDH_CSTATUS_BAD_COUNTERNAME:
-					error = "The counter path string could not be parsed.";
+					error = _T("The counter path string could not be parsed.");
 					break;
 				case PDH_MEMORY_ALLOCATION_FAILURE:
-					error = "The function is unable to allocate a required temporary buffer.";
+					error = _T("The function is unable to allocate a required temporary buffer.");
 					break;
 			}
 			return false;

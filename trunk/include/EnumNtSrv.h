@@ -37,22 +37,22 @@ typedef std::list<TNtServiceInfo> TNtServiceInfoList;
 
 class NTServiceException {
 private:
-	std::string name_;
-	std::string msg_;
+	std::wstring name_;
+	std::wstring msg_;
 	unsigned int error_;
 public:
-	NTServiceException(std::string name,std::string msg,unsigned int error) : name_(name), error_(error), msg_(msg) {};
+	NTServiceException(std::wstring name,std::wstring msg,unsigned int error) : name_(name), error_(error), msg_(msg) {};
 
-	std::string getError() {
-		return "Service: " + name_ + " caused: " + msg_ + "(" + strEx::itos(error_) + ")";
+	std::wstring getError() {
+		return _T("Service: ") + name_ + _T(" caused: ") + msg_ + _T("(") + strEx::itos(error_) + _T(")");
 	}
 };
 
 class TNtServiceInfo {
 public:
-	std::string m_strServiceName;
-	std::string m_strDisplayName;
-	std::string m_strBinaryPath;
+	std::wstring m_strServiceName;
+	std::wstring m_strDisplayName;
+	std::wstring m_strBinaryPath;
 	DWORD m_dwServiceType;
 	DWORD m_dwStartType;
 	DWORD m_dwErrorControl;
@@ -64,14 +64,14 @@ public:
 	TNtServiceInfo& operator=(const TNtServiceInfo& source);
 	virtual ~TNtServiceInfo();
 
-	std::string GetServiceType(void);
-	std::string GetStartType(void);
-	std::string GetErrorControl(void);
-	std::string GetCurrentState(void);
+	std::wstring GetServiceType(void);
+	std::wstring GetStartType(void);
+	std::wstring GetErrorControl(void);
+	std::wstring GetCurrentState(void);
 
 	static TNtServiceInfo *EnumServices(DWORD dwType, DWORD dwState, DWORD *pdwCount);
 	static void EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList);
-	static TNtServiceInfo GetService(std::string);
+	static TNtServiceInfo GetService(std::wstring);
 };
 
 #endif

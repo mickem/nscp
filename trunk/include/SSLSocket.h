@@ -30,18 +30,21 @@ namespace simpleSSL {
 
 	class SSLException {
 	private:
-		std::string error_;
+		std::wstring error_;
 	public:
-		SSLException(std::string s) : error_(s) {
+		SSLException(std::wstring s) : error_(s) {
 		}
-		SSLException(std::string s, int err) : error_(s){
+
+		SSLException(std::wstring s, int err) : error_(s){
 			error_ += strEx::itos(err);
 		}
-		SSLException(std::string s, int err1, int err2) : error_(s){
-			error_ += "[" + strEx::itos(err1) + "] ";
+		
+		SSLException(std::wstring s, int err1, int err2) : error_(s){
+			error_ += _T("[") + strEx::itos(err1) + _T("] ");
 			error_ += strEx::itos(err2);
 		}
-		std::string getMessage() {
+		
+		std::wstring getMessage() {
 			return error_;
 		}
 	};
@@ -67,28 +70,28 @@ namespace simpleSSL {
 			if (!internalDH)
 				internalDH = DH_new();
 			if (!internalDH)
-				throw new SSLException("DH_new failed.");
+				throw new SSLException(_T("DH_new failed."));
 		}
 
 		inline void bin2bn_p(const unsigned char *s,int len) {
 			if (!internalDH)
-				throw new SSLException("DH_new failed.");
+				throw new SSLException(_T("DH_new failed."));
 
 			if (internalDH->p)
-				throw new SSLException("internalDH->p already exists.");
+				throw new SSLException(_T("internalDH->p already exists."));
 			internalDH->p = BN_bin2bn(s, len, NULL);
 			if (!internalDH->p)
-				throw new SSLException("internalDH->p failed.");
+				throw new SSLException(_T("internalDH->p failed."));
 		}
 		inline void bin2bn_g(const unsigned char *s,int len) {
 			if (!internalDH)
-				throw new SSLException("DH_new failed.");
+				throw new SSLException(_T("DH_new failed."));
 
 			if (internalDH->g)
-				throw new SSLException("internalDH->g already exists.");
+				throw new SSLException(_T("internalDH->g already exists."));
 			internalDH->g = BN_bin2bn(s, len, NULL);
 			if (!internalDH->g)
-				throw new SSLException("internalDH->g failed.");
+				throw new SSLException(_T("internalDH->g failed."));
 		}
 		inline ::DH* getDH() {
 			return internalDH;
@@ -116,7 +119,7 @@ namespace simpleSSL {
 			assert(ctx_ == NULL);
 			ctx_ = SSL_CTX_new(SSLv23_server_method());
 			if (ctx_ == NULL) {
-				throw SSLException("Error: could not create SSL context.");
+				throw SSLException(_T("Error: could not create SSL context."));
 			}
 		}
 		void setCipherList(std::string s = "ADH") {
@@ -162,13 +165,13 @@ namespace simpleSSL {
 				create();
 			int rc = SSL_clear(ssl_);
 			if (rc == 0)
-				throw SSLException("Error: SSL_clear - failed: ", rc, getError(rc));
+				throw SSLException(_T("Error: SSL_clear - failed: "), rc, getError(rc));
 		}
 		void create() {
 			assert(!ssl_);
 			ssl_ = context_.newSSL();
 			if (ssl_ == NULL) 
-				throw SSLException("Error: Could not create SSL connection structure.");
+				throw SSLException(_T("Error: Could not create SSL connection structure."));
 		}
 		int getError(int errorCode) {
 			if (!ssl_)
@@ -183,14 +186,14 @@ namespace simpleSSL {
 			int i = 0;
 			while ((rc = SSL_accept(ssl_)) != 1) {
 				if (++i >= 100) {
-					throw SSLException("SSL: Could not complete SSL handshake.");
+					throw SSLException(_T("SSL: Could not complete SSL handshake."));
 				}
 				int rc2 = getError(rc);
 				if ((rc2 == SSL_ERROR_WANT_READ) || (rc2 == SSL_ERROR_WANT_WRITE)) {
 					Sleep(100);
 					continue;
 				} else {
-					throw SSLException("Error: Could not complete SSL handshake : ", rc, rc2);
+					throw SSLException(_T("Error: Could not complete SSL handshake : "), rc, rc2);
 				}
 			}
 			/**/
@@ -250,7 +253,7 @@ namespace simpleSSL {
 				tBase::setNonBlock();
 				int rc = ssl.set_fd(static_cast<int>(socket_));
 				if (rc != 1)
-					throw simpleSocket::SocketException("Error: Could not do SSL_set_fd: " + strEx::itos(rc) + ":"  + strEx::itos(rc));
+					throw simpleSocket::SocketException(_T("Error: Could not do SSL_set_fd: ") + strEx::itos(rc) + _T(":")  + strEx::itos(rc));
 				ssl.accept();
 			} catch (simpleSSL::SSLException e) {
 				throw simpleSocket::SocketException(e.getMessage());
@@ -305,7 +308,7 @@ namespace simpleSSL {
 		void setContext(Context c) {
 			context = c;
 		}
-		virtual void StartListener(std::string host, int port, unsigned int listenQue);
+		virtual void StartListener(std::wstring host, int port, unsigned int listenQue);
 		virtual void StopListener();
 	};
 

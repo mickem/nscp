@@ -392,4 +392,5 @@ size_t b64_decode(char const *src, size_t srcLen, void *dest, size_t destSize)
     return b64_decode_(src, srcLen, (unsigned char*)dest, destSize);
 }
 
+
 /* ////////////////////////////////////////////////////////////////////////// */

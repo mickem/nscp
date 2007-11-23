@@ -52,49 +52,49 @@ bool CheckHelpers::hasMessageHandler() {
 	return false;
 }
 
-NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
-	if (command == "CheckAlwaysOK") {
+NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+	if (command == _T("CheckAlwaysOK")) {
 		if (argLen < 2) {
-			msg = "ERROR: Missing arguments.";
+			msg = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
 		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
 		return NSCAPI::returnOK;
-	} else if (command == "CheckAlwaysCRITICAL") {
+	} else if (command == _T("CheckAlwaysCRITICAL")) {
 		if (argLen < 2) {
-			msg = "ERROR: Missing arguments.";
+			msg = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
 		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
 		return NSCAPI::returnCRIT;
-	} else if (command == "CheckAlwaysWARNING") {
+	} else if (command == _T("CheckAlwaysWARNING")) {
 		if (argLen < 2) {
-			msg = "ERROR: Missing arguments.";
+			msg = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
 		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
 		return NSCAPI::returnWARN;
-	} else if (command == "CheckMultiple") {
+	} else if (command == _T("CheckMultiple")) {
 		return checkMultiple(argLen, char_args, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
-NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) 
+NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.empty()) {
-		msg = "Missing argument(s).";
+		msg = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
-	typedef std::pair<std::string, std::list<std::string> > sub_command;
+	typedef std::pair<std::wstring, std::list<std::wstring> > sub_command;
 	std::list<sub_command> commands;
 	sub_command currentCommand;
-	std::list<std::string>::const_iterator cit;
+	std::list<std::wstring>::const_iterator cit;
 	for (cit=args.begin();cit!=args.end();++cit) {
-		std::string arg = *cit;
-		std::pair<std::string,std::string> p = strEx::split(arg,"=");
-		if (p.first == "command") {
+		std::wstring arg = *cit;
+		std::pair<std::wstring,std::wstring> p = strEx::split(arg,_T("="));
+		if (p.first == _T("command")) {
 			if (!currentCommand.first.empty())
 				commands.push_back(currentCommand);
 			currentCommand.first = p.second;
@@ -108,13 +108,13 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, char
 	std::list<sub_command>::iterator cit2;
 	for (cit2 = commands.begin(); cit2 != commands.end(); ++cit2) {
 		unsigned int length = 0;
-		char ** args = arrayBuffer::list2arrayBuffer((*cit2).second, length);
-		std::string tMsg, tPerf;
+		TCHAR ** args = arrayBuffer::list2arrayBuffer((*cit2).second, length);
+		std::wstring tMsg, tPerf;
 		NSCAPI::nagiosReturn tRet = NSCModuleHelper::InjectCommand((*cit2).first.c_str(), length, args, tMsg, tPerf);
 		arrayBuffer::destroyArrayBuffer(args, length);
 		returnCode = NSCHelper::maxState(returnCode, tRet);
 		if (!msg.empty())
-			msg += ", ";
+			msg += _T(", ");
 		msg += tMsg;
 		perf += tPerf;
 	}

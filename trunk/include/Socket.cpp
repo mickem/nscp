@@ -26,7 +26,7 @@
  * Print an error message 
  * @param error 
  */
-void simpleSocket::Socket::printError(std::string FILE, int LINE, std::string error) {
+void simpleSocket::Socket::printError(std::wstring FILE, int LINE, std::wstring error) {
 	NSCModuleHelper::Message(NSCAPI::error, FILE, LINE, error);
 }
 
@@ -67,7 +67,7 @@ WSADATA simpleSocket::WSAStartup(WORD wVersionRequested /* = 0x202 */) {
 	WSADATA wsaData;
 	int wsaret=::WSAStartup(wVersionRequested,&wsaData);
 	if(wsaret != 0)
-		throw SocketException("WSAStartup failed: " + strEx::itos(wsaret));
+		throw SocketException(_T("WSAStartup failed: ") + strEx::itos(wsaret));
 	return wsaData;
 }
 /**
@@ -75,5 +75,5 @@ WSADATA simpleSocket::WSAStartup(WORD wVersionRequested /* = 0x202 */) {
  */
 void simpleSocket::WSACleanup() {
 	if (::WSACleanup() != 0)
-		throw SocketException("WSACleanup failed: ", ::WSAGetLastError());
+		throw SocketException(_T("WSACleanup failed: "), ::WSAGetLastError());
 }

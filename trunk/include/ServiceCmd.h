@@ -25,11 +25,11 @@
 namespace serviceControll {
 	class SCException {
 	public:
-		std::string error_;
-		SCException(std::string error) : error_(error) {
+		std::wstring error_;
+		SCException(std::wstring error) : error_(error) {
 		}
-		SCException(std::string error, int code) : error_(error) {
-			std::stringstream ss;
+		SCException(std::wstring error, int code) : error_(error) {
+			std::wstringstream ss;
 			ss << ": ";
 			ss << code;
 			error += ss.str();
@@ -37,9 +37,9 @@ namespace serviceControll {
 	};
 	void Install(LPCTSTR,LPCTSTR,LPCTSTR,DWORD=SERVICE_WIN32_OWN_PROCESS);
 	void ModifyServiceType(LPCTSTR szName, DWORD dwServiceType);
-	void Uninstall(std::string);
-	void Start(std::string);
-	void Stop(std::string);
-	void SetDescription(std::string,std::string);
+	void Uninstall(std::wstring);
+	void Start(std::wstring);
+	void Stop(std::wstring);
+	void SetDescription(std::wstring,std::wstring);
 	DWORD GetServiceType(LPCTSTR szName);
 }

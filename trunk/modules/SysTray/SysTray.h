@@ -38,20 +38,20 @@ public:
 	bool loadModule();
 	bool unloadModule();
 
-	std::string getModuleName() {
-		return MODULE_NAME;
+	std::wstring getModuleName() {
+		return _T(MODULE_NAME);
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 
-	std::string getModuleDescription() {
-		return "A simple module that only displays a system tray icon when NSClient++ is running.";
+	std::wstring getModuleDescription() {
+		return _T("A simple module that only displays a system tray icon when NSClient++ is running.");
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	int commandLineExec(const char* command,const unsigned int argLen,char** args);
+	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args);
 
 };

@@ -36,7 +36,7 @@
 * @param str Th string to copy
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-NSCAPI::nagiosReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::nagiosReturn defaultReturnCode /* = NSCAPI::success */) {
+NSCAPI::nagiosReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::wstring str, NSCAPI::nagiosReturn defaultReturnCode /* = NSCAPI::success */) {
 	if (str.length() >= bufLen)
 		return NSCAPI::returnInvalidBufferLen;
 	strncpy(buffer, str.c_str(), bufLen);
@@ -51,7 +51,7 @@ NSCAPI::nagiosReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufL
 * @param str Th string to copy
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, NSCAPI::errorReturn defaultReturnCode /* = NSCAPI::success */) {
+NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::wstring str, NSCAPI::errorReturn defaultReturnCode /* = NSCAPI::success */) {
 	if (str.length() >= bufLen)
 		return NSCAPI::isInvalidBufferLen;
 	strncpy(buffer, str.c_str(), bufLen);
@@ -68,11 +68,11 @@ NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLe
 * @param defaultReturnCode The default return code
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode ) {
+int NSCHelper::wrapReturnString(TCHAR *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
 	// @todo deprecate this
 	if (str.length() >= bufLen)
 		return NSCAPI::isInvalidBufferLen;
-	strncpy_s(buffer, bufLen, str.c_str(), bufLen);
+	wcsncpy_s(buffer, bufLen, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
 #endif
@@ -84,35 +84,35 @@ int NSCHelper::wrapReturnString(char *buffer, unsigned int bufLen, std::string s
  * @param msgType The message type
  * @return A string representing the message type
  */
-std::string NSCHelper::translateMessageType(NSCAPI::messageTypes msgType) {
+std::wstring NSCHelper::translateMessageType(NSCAPI::messageTypes msgType) {
 	switch (msgType) {
 		case NSCAPI::error:
-			return "error";
+			return _T("error");
 		case NSCAPI::critical:
-			return "critical";
+			return _T("critical");
 		case NSCAPI::warning:
-			return "warning";
+			return _T("warning");
 		case NSCAPI::log:
-			return "message";
+			return _T("message");
 		case NSCAPI::debug:
-			return "debug";
+			return _T("debug");
 	}
-	return "unknown";
+	return _T("unknown");
 }
 /**
  * Translate a return code into the corresponding string
  * @param returnCode 
  * @return 
  */
-std::string NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
+std::wstring NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 	if (returnCode == NSCAPI::returnOK)
-		return "OK";
+		return _T("OK");
 	else if (returnCode == NSCAPI::returnCRIT)
-		return "CRITICAL";
+		return _T("CRITICAL");
 	else if (returnCode == NSCAPI::returnWARN)
-		return "WARNING";
+		return _T("WARNING");
 	else
-		return "UNKNOWN";
+		return _T("UNKNOWN");
 }
 
 
@@ -152,19 +152,19 @@ namespace NSCModuleHelper {
  * @param message Message in human readable format
  * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
-void NSCModuleHelper::Message(int msgType, std::string file, int line, std::string message) {
+void NSCModuleHelper::Message(int msgType, std::wstring file, int line, std::wstring message) {
 	if (fNSAPIMessage) {
 		if ((msgType == NSCAPI::debug) && (!logDebug()))
 			return;
 		/*
-		std::string::size_type pos = file.find_last_of("\\");
-		if (pos != std::string::npos)
+		std::wstring::size_type pos = file.find_last_of("\\");
+		if (pos != std::wstring::npos)
 			file = file.substr(pos);
 			*/
 		return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
 	}
 	else
-		std::cout << "NSCore not loaded..." << std::endl << message << std::endl;
+		std::wcout << _T("NSCore not loaded...") << std::endl << message << std::endl;
 }
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
@@ -184,10 +184,10 @@ void NSCModuleHelper::Message(int msgType, std::string file, int line, std::stri
  * @param returnPerfBufferLen returnPerfBuffer
  * @return The returned status of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) 
 {
 	if (!fNSAPIInject)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIInject(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
 /**
@@ -199,22 +199,22 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const char* command, cons
  * @param perf The return performance data buffer
  * @return The return of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const unsigned int argLen, char **argument, std::string & message, std::string & perf) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, const unsigned int argLen, TCHAR **argument, std::wstring & message, std::wstring & perf) 
 {
 	if (!fNSAPIInject)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
-	char *msgBuffer = new char[BUFF_LEN+1];
-	char *perfBuffer = new char[BUFF_LEN+1];
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	TCHAR *msgBuffer = new TCHAR[BUFF_LEN+1];
+	TCHAR *perfBuffer = new TCHAR[BUFF_LEN+1];
 	msgBuffer[0] = 0;
 	perfBuffer[0] = 0;
 	// @todo message here !
 	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, msgBuffer, BUFF_LEN, perfBuffer, BUFF_LEN);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
-			NSC_LOG_MESSAGE_STD("No handler for command '" + command + "'.");
+			NSC_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
 			break;
 		case NSCAPI::returnInvalidBufferLen:
-			NSC_LOG_ERROR("Inject command resulted in an invalid buffer size.");
+			NSC_LOG_ERROR(_T("Inject command resulted in an invalid buffer size."));
 			break;
 		case NSCAPI::returnOK:
 		case NSCAPI::returnCRIT:
@@ -224,7 +224,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const u
 			perf = perfBuffer;
 			break;
 		default:
-			throw NSCMHExcpetion("Unknown inject error.");
+			throw NSCMHExcpetion(_T("Unknown inject error."));
 	}
 	delete [] msgBuffer;
 	delete [] perfBuffer;
@@ -240,12 +240,12 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const char* command, const u
  * @param perf The return performance data buffer
  * @return The result of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const char* command, char* buffer, char splitChar, std::string & message, std::string & perf)
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const TCHAR* command, TCHAR* buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf)
 {
 	if (!fNSAPIInject)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int argLen = 0;
-	char ** aBuffer;
+	TCHAR ** aBuffer;
 	if (buffer)
 		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen);
 	else
@@ -263,12 +263,12 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const char* command,
  * @param perf The return performance data buffer
  * @return The result of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::string command, const std::string buffer, char splitChar, std::string & message, std::string & perf)
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf)
 {
 	if (!fNSAPIInject)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int argLen = 0;
-	char ** aBuffer;
+	TCHAR ** aBuffer;
 	if (buffer.empty())
 		aBuffer= arrayBuffer::createEmptyArrayBuffer(argLen);
 	else
@@ -295,15 +295,15 @@ void NSCModuleHelper::StopService(void) {
  * @return the current value or defaultValue if no value is set.
  * @throws NSCMHExcpetion When core pointer set is unavailable or an error occurs.
  */
-std::string NSCModuleHelper::getSettingsString(std::string section, std::string key, std::string defaultValue) {
+std::wstring NSCModuleHelper::getSettingsString(std::wstring section, std::wstring key, std::wstring defaultValue) {
 	if (!fNSAPIGetSettingsString)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
-	char *buffer = new char[BUFF_LEN+1];
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
 	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, BUFF_LEN) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw NSCMHExcpetion("Settings could not be retrieved.");
+		throw NSCMHExcpetion(_T("Settings could not be retrieved."));
 	}
-	std::string ret = buffer;
+	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
@@ -312,17 +312,17 @@ std::string NSCModuleHelper::getSettingsString(std::string section, std::string 
  * @param section The section to retrieve
  * @return The keys in the section
  */
-std::list<std::string> NSCModuleHelper::getSettingsSection(std::string section) {
+std::list<std::wstring> NSCModuleHelper::getSettingsSection(std::wstring section) {
 	if (!fNSAPIGetSettingsSection)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	arrayBuffer::arrayBuffer aBuffer = NULL;
 	unsigned int argLen = 0;
 	if (fNSAPIGetSettingsSection(section.c_str(), &aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw NSCMHExcpetion("Settings could not be retrieved.");
+		throw NSCMHExcpetion(_T("Settings could not be retrieved."));
 	}
-	std::list<std::string> ret = arrayBuffer::arrayBuffer2list(argLen, aBuffer);
+	std::list<std::wstring> ret = arrayBuffer::arrayBuffer2list(argLen, aBuffer);
 	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw NSCMHExcpetion("Settings could not be destroyed.");
+		throw NSCMHExcpetion(_T("Settings could not be destroyed."));
 	}
 	assert(aBuffer == NULL);
 	return ret;
@@ -337,9 +337,9 @@ std::list<std::string> NSCModuleHelper::getSettingsSection(std::string section) 
  * @return the current value or defaultValue if no value is set.
  * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
-int NSCModuleHelper::getSettingsInt(std::string section, std::string key, int defaultValue) {
+int NSCModuleHelper::getSettingsInt(std::wstring section, std::wstring key, int defaultValue) {
 	if (!fNSAPIGetSettingsInt)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
 /**
@@ -366,15 +366,15 @@ NSCAPI::nagiosReturn NSCHelper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosR
  * @return A string representing the application name.
  * @throws NSCMHExcpetion When core pointer set is unavailable or an unexpected error occurs.
  */
-std::string NSCModuleHelper::getApplicationName() {
+std::wstring NSCModuleHelper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
-	char *buffer = new char[BUFF_LEN+1];
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
 	if (fNSAPIGetApplicationName(buffer, BUFF_LEN) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw NSCMHExcpetion("Application name could not be retrieved");
+		throw NSCMHExcpetion(_T("Application name could not be retrieved"));
 	}
-	std::string ret = buffer;
+	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
@@ -383,15 +383,15 @@ std::string NSCModuleHelper::getApplicationName() {
  * @return A string representing the base path.
  * @throws NSCMHExcpetion When core pointer set is unavailable or an unexpected error occurs.
  */
-std::string NSCModuleHelper::getBasePath() {
+std::wstring NSCModuleHelper::getBasePath() {
 	if (!fNSAPIGetBasePath)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
-	char *buffer = new char[BUFF_LEN+1];
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
 	if (fNSAPIGetBasePath(buffer, BUFF_LEN) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw NSCMHExcpetion("Base path could not be retrieved");
+		throw NSCMHExcpetion(_T("Base path could not be retrieved"));
 	}
-	std::string ret = buffer;
+	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
@@ -409,68 +409,68 @@ bool NSCModuleHelper::logDebug() {
 	return (d == debug);
 }
 
-std::string NSCModuleHelper::Encrypt(std::string str, unsigned int algorithm) {
+std::wstring NSCModuleHelper::Encrypt(std::wstring str, unsigned int algorithm) {
 	if (!fNSAPIEncrypt)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int len = 0;
 	// @todo investigate potential problems with static_cast<unsigned int>
 	fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
-	char *buf = new char[len+1];
+	TCHAR *buf = new TCHAR[len+1];
 	NSCAPI::errorReturn ret = fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
-		std::string ret = buf;
+		std::wstring ret = buf;
 		delete [] buf;
 		return ret;
 	}
-	return "";
+	return _T("");
 }
-std::string NSCModuleHelper::Decrypt(std::string str, unsigned int algorithm) {
+std::wstring NSCModuleHelper::Decrypt(std::wstring str, unsigned int algorithm) {
 	if (!fNSAPIDecrypt)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int len = 0;
 	// @todo investigate potential problems with: static_cast<unsigned int>(str.size())
 	fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
-	char *buf = new char[len+1];
+	TCHAR *buf = new TCHAR[len+1];
 	NSCAPI::errorReturn ret = fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
-		std::string ret = buf;
+		std::wstring ret = buf;
 		delete [] buf;
 		return ret;
 	}
-	return "";
+	return _T("");
 }
-NSCAPI::errorReturn NSCModuleHelper::SetSettingsString(std::string section, std::string key, std::string value) {
+NSCAPI::errorReturn NSCModuleHelper::SetSettingsString(std::wstring section, std::wstring key, std::wstring value) {
 	if (!fNSAPISetSettingsString)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPISetSettingsString(section.c_str(), key.c_str(), value.c_str());
 }
-NSCAPI::errorReturn NSCModuleHelper::SetSettingsInt(std::string section, std::string key, int value) {
+NSCAPI::errorReturn NSCModuleHelper::SetSettingsInt(std::wstring section, std::wstring key, int value) {
 	if (!fNSAPISetSettingsInt)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPISetSettingsInt(section.c_str(), key.c_str(), value);
 }
 NSCAPI::errorReturn NSCModuleHelper::WriteSettings(int type) {
 	if (!fNSAPIWriteSettings)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIWriteSettings(type);
 }
 NSCAPI::errorReturn NSCModuleHelper::ReadSettings(int type) {
 	if (!fNSAPIReadSettings)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIReadSettings(type);
 }
 NSCAPI::errorReturn NSCModuleHelper::Rehash(int flag) {
 	if (!fNSAPIRehash)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIRehash(flag);
 }
 
 
 bool NSCModuleHelper::checkLogMessages(int type) {
 	if (!fNSAPICheckLogMessages)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPICheckLogMessages(type) == NSCAPI::istrue;
 }
 /**
@@ -478,12 +478,12 @@ bool NSCModuleHelper::checkLogMessages(int type) {
  * @return A string representing the application version.
  * @throws NSCMHExcpetion When core pointer set is unavailable.
  */
-std::string NSCModuleHelper::getApplicationVersionString() {
+std::wstring NSCModuleHelper::getApplicationVersionString() {
 	if (!fNSAPIGetApplicationVersionStr)
-		throw NSCMHExcpetion("NSCore has not been initiated...");
-	char *buffer = new char[BUFF_LEN+1];
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
 	int x = fNSAPIGetApplicationVersionStr(buffer, BUFF_LEN);
-	std::string ret = buffer;
+	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
@@ -526,24 +526,24 @@ HINSTANCE NSCModuleWrapper::getModule() {
  * @return NSCAPI::success or NSCAPI::failure
  */
 int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
-	NSCModuleHelper::fNSAPIGetApplicationName = (NSCModuleHelper::lpNSAPIGetApplicationName)f("NSAPIGetApplicationName");
-	NSCModuleHelper::fNSAPIGetApplicationVersionStr = (NSCModuleHelper::lpNSAPIGetApplicationVersionStr)f("NSAPIGetApplicationVersionStr");
-	NSCModuleHelper::fNSAPIGetSettingsInt = (NSCModuleHelper::lpNSAPIGetSettingsInt)f("NSAPIGetSettingsInt");
-	NSCModuleHelper::fNSAPIGetSettingsString = (NSCModuleHelper::lpNSAPIGetSettingsString)f("NSAPIGetSettingsString");
-	NSCModuleHelper::fNSAPIGetSettingsSection = (NSCModuleHelper::lpNSAPIGetSettingsSection)f("NSAPIGetSettingsSection");
-	NSCModuleHelper::fNSAPIReleaseSettingsSectionBuffer = (NSCModuleHelper::lpNSAPIReleaseSettingsSectionBuffer)f("NSAPIReleaseSettingsSectionBuffer");
-	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f("NSAPIMessage");
-	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f("NSAPIStopServer");
-	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f("NSAPIInject");
-	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f("NSAPIGetBasePath");
-	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f("NSAPICheckLogMessages");
-	NSCModuleHelper::fNSAPIDecrypt = (NSCModuleHelper::lpNSAPIDecrypt)f("NSAPIDecrypt");
-	NSCModuleHelper::fNSAPIEncrypt = (NSCModuleHelper::lpNSAPIEncrypt)f("NSAPIEncrypt");
-	NSCModuleHelper::fNSAPISetSettingsString = (NSCModuleHelper::lpNSAPISetSettingsString)f("NSAPISetSettingsString");
-	NSCModuleHelper::fNSAPISetSettingsInt = (NSCModuleHelper::lpNSAPISetSettingsInt)f("NSAPISetSettingsInt");
-	NSCModuleHelper::fNSAPIWriteSettings = (NSCModuleHelper::lpNSAPIWriteSettings)f("NSAPIWriteSettings");
-	NSCModuleHelper::fNSAPIReadSettings = (NSCModuleHelper::lpNSAPIReadSettings)f("NSAPIReadSettings");
-	NSCModuleHelper::fNSAPIRehash = (NSCModuleHelper::lpNSAPIRehash)f("NSAPIRehash");
+	NSCModuleHelper::fNSAPIGetApplicationName = (NSCModuleHelper::lpNSAPIGetApplicationName)f(_T("NSAPIGetApplicationName"));
+	NSCModuleHelper::fNSAPIGetApplicationVersionStr = (NSCModuleHelper::lpNSAPIGetApplicationVersionStr)f(_T("NSAPIGetApplicationVersionStr"));
+	NSCModuleHelper::fNSAPIGetSettingsInt = (NSCModuleHelper::lpNSAPIGetSettingsInt)f(_T("NSAPIGetSettingsInt"));
+	NSCModuleHelper::fNSAPIGetSettingsString = (NSCModuleHelper::lpNSAPIGetSettingsString)f(_T("NSAPIGetSettingsString"));
+	NSCModuleHelper::fNSAPIGetSettingsSection = (NSCModuleHelper::lpNSAPIGetSettingsSection)f(_T("NSAPIGetSettingsSection"));
+	NSCModuleHelper::fNSAPIReleaseSettingsSectionBuffer = (NSCModuleHelper::lpNSAPIReleaseSettingsSectionBuffer)f(_T("NSAPIReleaseSettingsSectionBuffer"));
+	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f(_T("NSAPIMessage"));
+	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
+	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f(_T("NSAPIInject"));
+	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f(_T("NSAPIGetBasePath"));
+	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f(_T("NSAPICheckLogMessages"));
+	NSCModuleHelper::fNSAPIDecrypt = (NSCModuleHelper::lpNSAPIDecrypt)f(_T("NSAPIDecrypt"));
+	NSCModuleHelper::fNSAPIEncrypt = (NSCModuleHelper::lpNSAPIEncrypt)f(_T("NSAPIEncrypt"));
+	NSCModuleHelper::fNSAPISetSettingsString = (NSCModuleHelper::lpNSAPISetSettingsString)f(_T("NSAPISetSettingsString"));
+	NSCModuleHelper::fNSAPISetSettingsInt = (NSCModuleHelper::lpNSAPISetSettingsInt)f(_T("NSAPISetSettingsInt"));
+	NSCModuleHelper::fNSAPIWriteSettings = (NSCModuleHelper::lpNSAPIWriteSettings)f(_T("NSAPIWriteSettings"));
+	NSCModuleHelper::fNSAPIReadSettings = (NSCModuleHelper::lpNSAPIReadSettings)f(_T("NSAPIReadSettings"));
+	NSCModuleHelper::fNSAPIRehash = (NSCModuleHelper::lpNSAPIRehash)f(_T("NSAPIRehash"));
 	return NSCAPI::isSuccess;
 }
 /**
@@ -553,11 +553,11 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 * @param str String to store inside the buffer
 * @	 copy status
 */
-NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleName(char* buf, unsigned int bufLen, std::string str) {
+NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleName(TCHAR* buf, unsigned int bufLen, std::wstring str) {
 	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);
 }
 
-NSCAPI::errorReturn NSCModuleWrapper::wrapGetConfigurationMeta(char* buf, unsigned int bufLen, std::string str) {
+NSCAPI::errorReturn NSCModuleWrapper::wrapGetConfigurationMeta(TCHAR* buf, unsigned int bufLen, std::wstring str) {
 	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);
 }
 /**
@@ -605,12 +605,12 @@ NSCAPI::boolReturn NSCModuleWrapper::wrapHasMessageHandler(bool has) {
  * @param returnBufferPerfLen The return perfomance data buffer length
  * @return the return code
  */
-NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string retMessage, const std::string retPerformance, char *returnBufferMessage, unsigned int returnBufferMessageLen, char *returnBufferPerf, unsigned int returnBufferPerfLen) {
+NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::wstring retMessage, const std::wstring retPerformance, TCHAR *returnBufferMessage, unsigned int returnBufferMessageLen, TCHAR *returnBufferPerf, unsigned int returnBufferPerfLen) {
 	if (retMessage.empty())
 		return NSCAPI::returnIgnored;
 	NSCAPI::nagiosReturn ret = NSCHelper::wrapReturnString(returnBufferMessage, returnBufferMessageLen, retMessage, retResult);
 	if (!NSCHelper::isMyNagiosReturn(ret)) {
-		NSC_LOG_ERROR("A module returned an invalid return code");
+		NSC_LOG_ERROR(_T("A module returned an invalid return code"));
 	}
 	return NSCHelper::wrapReturnString(returnBufferPerf, returnBufferPerfLen, retPerformance, ret);
 }

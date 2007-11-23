@@ -34,11 +34,11 @@ public:
 	bool loadModule();
 	bool unloadModule();
 
-	std::string getModuleName() {
-		return "RemoteConfiguration";
+	std::wstring getModuleName() {
+		return _T("RemoteConfiguration");
 	}
-	std::string getModuleDescription() {
-		return "RemoteConfiguration Allows remote configuration and administration of NSCP.";
+	std::wstring getModuleDescription() {
+		return _T("RemoteConfiguration Allows remote configuration and administration of NSCP.");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
@@ -47,14 +47,14 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
-	int commandLineExec(const char* command,const unsigned int argLen,char** args);
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
 	// Check commands
-	NSCAPI::nagiosReturn writeConf(const unsigned int argLen, char **char_args, std::string &message);
-	NSCAPI::nagiosReturn readConf(const unsigned int argLen, char **char_args, std::string &message);
-	NSCAPI::nagiosReturn setVariable(const unsigned int argLen, char **char_args, std::string &message);
-	NSCAPI::nagiosReturn getVariable(const unsigned int argLen, char **char_args, std::string &message);
+	NSCAPI::nagiosReturn writeConf(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
+	NSCAPI::nagiosReturn readConf(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
+	NSCAPI::nagiosReturn setVariable(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
+	NSCAPI::nagiosReturn getVariable(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
 
 private:
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsDiscSize> PathConatiner;

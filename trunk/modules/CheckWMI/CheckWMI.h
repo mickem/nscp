@@ -38,11 +38,11 @@ public:
 	bool loadModule();
 	bool unloadModule();
 
-	std::string getModuleName() {
-		return "CheckWMI";
+	std::wstring getModuleName() {
+		return _T("CheckWMI");
 	}
-	std::string getModuleDescription() {
-		return "CheckWMI can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.";
+	std::wstring getModuleDescription() {
+		return _T("CheckWMI can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
@@ -51,12 +51,12 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
-	int CheckWMI::commandLineExec(const char* command,const unsigned int argLen,char** args);
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	int CheckWMI::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
 	// Check commands
-	NSCAPI::nagiosReturn CheckSimpleWMI(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
-	NSCAPI::nagiosReturn CheckSimpleWMIValue(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	NSCAPI::nagiosReturn CheckSimpleWMI(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn CheckSimpleWMIValue(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 
 
 

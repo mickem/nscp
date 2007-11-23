@@ -53,105 +53,105 @@ bool RemoteConfiguration::hasMessageHandler() {
 }
 
 // set writeConf type
-NSCAPI::nagiosReturn RemoteConfiguration::writeConf(const unsigned int argLen, char **char_args, std::string &message) {
-	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+NSCAPI::nagiosReturn RemoteConfiguration::writeConf(const unsigned int argLen, TCHAR **char_args, std::wstring &message) {
+	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 
 	if (args.size() > 0) {
-		if (args.front() == "reg") {
+		if (args.front() == _T("reg")) {
 			if (NSCModuleHelper::WriteSettings(NSCAPI::settings_registry) == NSCAPI::isSuccess) {
-				message = "Settings written successfully.";
+				message = _T("Settings written successfully.");
 				return NSCAPI::returnOK;
 			}
-			message = "ERROR could not write settings.";
+			message = _T("ERROR could not write settings.");
 			return NSCAPI::returnCRIT;
 		}
 	}
 	if (NSCModuleHelper::WriteSettings(NSCAPI::settings_inifile) == NSCAPI::isSuccess) {
-		message = "Settings written successfully.";
+		message = _T("Settings written successfully.");
 		return NSCAPI::returnOK;
 	}
-	message = "ERROR could not write settings.";
+	message = _T("ERROR could not write settings.");
 	return NSCAPI::returnCRIT;
 }
 
-NSCAPI::nagiosReturn RemoteConfiguration::readConf(const unsigned int argLen, char **char_args, std::string &message) {
-	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+NSCAPI::nagiosReturn RemoteConfiguration::readConf(const unsigned int argLen, TCHAR **char_args, std::wstring &message) {
+	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 
 	if (args.size() > 0) {
-		if (args.front() == "reg") {
+		if (args.front() == _T("reg")) {
 			if (NSCModuleHelper::ReadSettings(NSCAPI::settings_registry) == NSCAPI::isSuccess) {
-				message = "Settings written successfully.";
+				message = _T("Settings written successfully.");
 				return NSCAPI::returnOK;
 			}
-			message = "ERROR could not write settings.";
+			message = _T("ERROR could not write settings.");
 			return NSCAPI::returnCRIT;
 		}
 	}
 	if (NSCModuleHelper::ReadSettings(NSCAPI::settings_inifile) == NSCAPI::isSuccess) {
-		message = "Settings written successfully.";
+		message = _T("Settings written successfully.");
 		return NSCAPI::returnOK;
 	}
-	message = "ERROR could not write settings.";
+	message = _T("ERROR could not write settings.");
 	return NSCAPI::returnCRIT;
 }
 // set setVariable int <section> <variable> <value>
-NSCAPI::nagiosReturn RemoteConfiguration::setVariable(const unsigned int argLen, char **char_args, std::string &message) {
-	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+NSCAPI::nagiosReturn RemoteConfiguration::setVariable(const unsigned int argLen, TCHAR **char_args, std::wstring &message) {
+	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.size() < 3) {
-		message = "Invalid syntax.";
+		message = _T("Invalid syntax.");
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::string type = args.front(); args.pop_front();
-	std::string section = args.front(); args.pop_front();
-	std::string key = args.front(); args.pop_front();
-	std::string value;
+	std::wstring type = args.front(); args.pop_front();
+	std::wstring section = args.front(); args.pop_front();
+	std::wstring key = args.front(); args.pop_front();
+	std::wstring value;
 	if (args.size() >= 1) {
 		value = args.front();
 	}
-	if (type == "int") {
+	if (type == _T("int")) {
 		NSCModuleHelper::SetSettingsInt(section, key, strEx::stoi(value));
-		message = "Settings " + key + " saved successfully.";
+		message = _T("Settings ") + key + _T(" saved successfully.");
 		return NSCAPI::returnOK;
-	} else if (type == "string") {
+	} else if (type == _T("string")) {
 		NSCModuleHelper::SetSettingsString(section, key, value);
-		message = "Settings " + key + " saved successfully.";
+		message = _T("Settings ") + key + _T(" saved successfully.");
 		return NSCAPI::returnOK;
 	} else {
 		NSCModuleHelper::SetSettingsString(type, section, key);
-		message = "Settings " + section + " saved successfully.";
+		message = _T("Settings ") + section + _T(" saved successfully.");
 		return NSCAPI::returnOK;
 	}
 }
-NSCAPI::nagiosReturn RemoteConfiguration::getVariable(const unsigned int argLen, char **char_args, std::string &message) {
-	std::list<std::string> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+NSCAPI::nagiosReturn RemoteConfiguration::getVariable(const unsigned int argLen, TCHAR **char_args, std::wstring &message) {
+	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (args.size() < 2) {
-		message = "Invalid syntax.";
+		message = _T("Invalid syntax.");
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::string section = args.front(); args.pop_front();
-	std::string key = args.front(); args.pop_front();
-	std::string value;
-	value = NSCModuleHelper::getSettingsString(section, key, "");
-	message = section+"/"+key+"="+value;
+	std::wstring section = args.front(); args.pop_front();
+	std::wstring key = args.front(); args.pop_front();
+	std::wstring value;
+	value = NSCModuleHelper::getSettingsString(section, key, _T(""));
+	message = section+_T("/")+key+_T("=")+value;
 	return NSCAPI::returnOK;
 }
-int RemoteConfiguration::commandLineExec(const char* command,const unsigned int argLen,char** args) {
-	std::string str;
-	if (_stricmp(command, "setVariable") == 0) {
+int RemoteConfiguration::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args) {
+	std::wstring str;
+	if (_wcsicmp(command, _T("setVariable")) == 0) {
 		setVariable(argLen, args, str);
-	} else if (_stricmp(command, "writeConf") == 0) {
+	} else if (_wcsicmp(command, _T("writeConf")) == 0) {
 		writeConf(argLen, args, str);
-	} else if (_stricmp(command, "getVariable") == 0) {
+	} else if (_wcsicmp(command, _T("getVariable")) == 0) {
 		setVariable(argLen, args, str);
-	} else if (_stricmp(command, "ini2reg") == 0) {
-		std::cout << "Migrating to registry settings..."<< std::endl;
+	} else if (_wcsicmp(command, _T("ini2reg")) == 0) {
+		std::cout << _T("Migrating to registry settings...")<< std::endl;
 		NSCModuleHelper::ReadSettings(NSCAPI::settings_inifile);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEFILE, 0);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_inifile);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEREG, 1);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_registry);
-	} else if (_stricmp(command, "reg2ini") == 0) {
-		std::cout << "Migrating to INI file settings..."<< std::endl;
+	} else if (_wcsicmp(command, _T("reg2ini")) == 0) {
+		std::cout << _T("Migrating to INI file settings...")<< std::endl;
 		NSCModuleHelper::ReadSettings(NSCAPI::settings_registry);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEREG, 0);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_registry);
@@ -162,16 +162,16 @@ int RemoteConfiguration::commandLineExec(const char* command,const unsigned int 
 }
 
 
-NSCAPI::nagiosReturn RemoteConfiguration::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &msg, std::string &perf) {
-	if (command == "setVariable") {
+NSCAPI::nagiosReturn RemoteConfiguration::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+	if (command == _T("setVariable")) {
 		setVariable(argLen, char_args, msg);
 		return NSCAPI::returnOK;
-	} else if (command == "getVariable") {
+	} else if (command == _T("getVariable")) {
 		getVariable(argLen, char_args, msg);
 		return NSCAPI::returnOK;
-	} else if (command == "readConf") {
+	} else if (command == _T("readConf")) {
 		return readConf(argLen, char_args, msg);
-	} else if (command == "writeConf") {
+	} else if (command == _T("writeConf")) {
 		return writeConf(argLen, char_args, msg);
 	}	
 	return NSCAPI::returnIgnored;

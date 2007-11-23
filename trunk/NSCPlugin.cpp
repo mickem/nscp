@@ -28,7 +28,7 @@
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-NSCPlugin::NSCPlugin(const std::string file)
+NSCPlugin::NSCPlugin(const std::wstring file)
 	: file_(file)
 	,hModule_(NULL)
 	,fLoadModule(NULL)
@@ -63,10 +63,10 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 		file_ = other.file_;
 		hModule_ = LoadLibrary(file_.c_str());
 		if (!hModule_)
-			throw NSPluginException(file_, "Could not load library: " + error::lookup::last_error());
+			throw NSPluginException(file_, _T("Could not load library: ") + error::lookup::last_error());
 		loadRemoteProcs_();
 		if (!fLoadModule)
-			throw NSPluginException(file_, "Critical error (fLoadModule)");
+			throw NSPluginException(file_, _T("Critical error (fLoadModule)"));
 		bLoaded_ = other.bLoaded_;
 	}
 }
@@ -85,21 +85,21 @@ NSCPlugin::~NSCPlugin() {
  *
  * @throws NSPluginException if the module is not loaded.
  */
-std::string NSCPlugin::getName() {
-	char *buffer = new char[1024];
+std::wstring NSCPlugin::getName() {
+	TCHAR *buffer = new TCHAR[1024];
 	if (!getName_(buffer, 1023)) {
-		throw NSPluginException(file_, "Could not get name");
+		throw NSPluginException(file_, _T("Could not get name"));
 	}
-	std::string ret = buffer;
+	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
-std::string NSCPlugin::getDescription() {
-	char *buffer = new char[4096];
+std::wstring NSCPlugin::getDescription() {
+	TCHAR *buffer = new TCHAR[4096];
 	if (!getDescription_(buffer, 4095)) {
-		throw NSPluginException(file_, "Could not get description");
+		throw NSPluginException(file_, _T("Could not get description"));
 	}
-	std::string ret = buffer;
+	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
@@ -112,19 +112,19 @@ std::string NSCPlugin::getDescription() {
  */
 void NSCPlugin::load_dll() {
 	if (isLoaded())
-		throw NSPluginException(file_, "Module already loaded");
+		throw NSPluginException(file_, _T("Module already loaded"));
 	hModule_ = LoadLibrary(file_.c_str());
 	if (!hModule_)
-		throw NSPluginException(file_, "Could not load library: " + error::lookup::last_error());
+		throw NSPluginException(file_, _T("Could not load library: ") + error::lookup::last_error());
 	loadRemoteProcs_();
 	bLoaded_ = true;
 }
 
 void NSCPlugin::load_plugin() {
 	if (!fLoadModule)
-		throw NSPluginException(file_, "Critical error (fLoadModule)");
+		throw NSPluginException(file_, _T("Critical error (fLoadModule)"));
 	if (!fLoadModule())
-		throw NSPluginException(file_, "Could not load plug in");
+		throw NSPluginException(file_, _T("Could not load plug in"));
 }
 
 
@@ -140,9 +140,9 @@ void NSCPlugin::load_plugin() {
  */
 bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
 	if (!isLoaded())
-		throw NSPluginException(file_, "Library is not loaded");
+		throw NSPluginException(file_, _T("Library is not loaded"));
 	if (!fGetVersion)
-		throw NSPluginException(file_, "Critical error (fGetVersion)");
+		throw NSPluginException(file_, _T("Critical error (fGetVersion)"));
 	return fGetVersion(major, minor, revision)?true:false;
 }
 /**
@@ -152,7 +152,7 @@ bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
  */
 bool NSCPlugin::hasCommandHandler() {
 	if (!isLoaded())
-		throw NSPluginException(file_, "Module not loaded");
+		throw NSPluginException(file_, _T("Module not loaded"));
 	if (fHasCommandHandler())
 		return true;
 	return false;
@@ -164,7 +164,7 @@ bool NSCPlugin::hasCommandHandler() {
 */
 bool NSCPlugin::hasMessageHandler() {
 	if (!isLoaded())
-		throw NSPluginException(file_, "Module not loaded");
+		throw NSPluginException(file_, _T("Module not loaded"));
 	if (fHasMessageHandler())
 		return true;
 	return false;
@@ -184,9 +184,9 @@ bool NSCPlugin::hasMessageHandler() {
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
  */
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char* command, const unsigned int argLen, char **arguments, char* returnMessageBuffer, unsigned int returnMessageBufferLen, char* returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const TCHAR* command, const unsigned int argLen, TCHAR **arguments, TCHAR* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	if (!isLoaded())
-		throw NSPluginException(file_, "Library is not loaded");
+		throw NSPluginException(file_, _T("Library is not loaded"));
 	return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
 /**
@@ -198,9 +198,9 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char* command, const unsigne
  * @param line The line in the file that generated the message generally __LINE__
  * @throws NSPluginException if the module is not loaded.
  */
-void NSCPlugin::handleMessage(int msgType, const char* file, const int line, const char *message) {
+void NSCPlugin::handleMessage(int msgType, const TCHAR* file, const int line, const TCHAR *message) {
 	if (!fHandleMessage)
-		throw NSPluginException(file_, "Library is not loaded");
+		throw NSPluginException(file_, _T("Library is not loaded"));
 	fHandleMessage(msgType, file, line, message);
 }
 /**
@@ -209,22 +209,22 @@ void NSCPlugin::handleMessage(int msgType, const char* file, const int line, con
  */
 void NSCPlugin::unload() {
 	if (!isLoaded())
-		throw NSPluginException(file_, "Library is not loaded");
+		throw NSPluginException(file_, _T("Library is not loaded"));
 	if (!fUnLoadModule)
-		throw NSPluginException(file_, "Critical error (fUnLoadModule)");
+		throw NSPluginException(file_, _T("Critical error (fUnLoadModule)"));
 	fUnLoadModule();
 	FreeLibrary(hModule_);
 	hModule_ = NULL;
 	bLoaded_ = false;
 }
-bool NSCPlugin::getName_(char* buf, unsigned int buflen) {
+bool NSCPlugin::getName_(TCHAR* buf, unsigned int buflen) {
 	if (fGetName == NULL)
-		throw NSPluginException(file_, "Critical error (fGetName)");
+		throw NSPluginException(file_, _T("Critical error (fGetName)"));
 	return fGetName(buf, buflen)?true:false;
 }
-bool NSCPlugin::getDescription_(char* buf, unsigned int buflen) {
+bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
 	if (fGetDescription == NULL)
-		throw NSPluginException(file_, "Critical error (fGetDescription)");
+		throw NSPluginException(file_, _T("Critical error (fGetDescription)"));
 	return fGetDescription(buf, buflen)?true:false;
 }
 /**
@@ -237,69 +237,69 @@ void NSCPlugin::loadRemoteProcs_(void) {
 
 	fLoadModule = (lpLoadModule)GetProcAddress(hModule_, "NSLoadModule");
 	if (!fLoadModule)
-		throw NSPluginException(file_, "Could not load NSLoadModule");
+		throw NSPluginException(file_, _T("Could not load NSLoadModule"));
 
 	fModuleHelperInit = (lpModuleHelperInit)GetProcAddress(hModule_, "NSModuleHelperInit");
 	if (!fModuleHelperInit)
-		throw NSPluginException(file_, "Could not load NSModuleHelperInit");
+		throw NSPluginException(file_, _T("Could not load NSModuleHelperInit"));
 
 	fModuleHelperInit(NSAPILoader);
 	
 	fGetName = (lpGetName)GetProcAddress(hModule_, "NSGetModuleName");
 	if (!fGetName)
-		throw NSPluginException(file_, "Could not load NSGetModuleName");
+		throw NSPluginException(file_, _T("Could not load NSGetModuleName"));
 
 	fGetVersion = (lpGetVersion)GetProcAddress(hModule_, "NSGetModuleVersion");
 	if (!fGetVersion)
-		throw NSPluginException(file_, "Could not load NSGetModuleVersion");
+		throw NSPluginException(file_, _T("Could not load NSGetModuleVersion"));
 
 	fGetDescription = (lpGetDescription)GetProcAddress(hModule_, "NSGetModuleDescription");
 	if (!fGetDescription)
-		throw NSPluginException(file_, "Could not load NSGetModuleDescription");
+		throw NSPluginException(file_, _T("Could not load NSGetModuleDescription"));
 
 	fHasCommandHandler = (lpHasCommandHandler)GetProcAddress(hModule_, "NSHasCommandHandler");
 	if (!fHasCommandHandler)
-		throw NSPluginException(file_, "Could not load NSHasCommandHandler");
+		throw NSPluginException(file_, _T("Could not load NSHasCommandHandler"));
 
 	fHasMessageHandler = (lpHasMessageHandler)GetProcAddress(hModule_, "NSHasMessageHandler");
 	if (!fHasMessageHandler)
-		throw NSPluginException(file_, "Could not load NSHasMessageHandler");
+		throw NSPluginException(file_, _T("Could not load NSHasMessageHandler"));
 
 	fHandleCommand = (lpHandleCommand)GetProcAddress(hModule_, "NSHandleCommand");
 	if (!fHandleCommand)
-		throw NSPluginException(file_, "Could not load NSHandleCommand");
+		throw NSPluginException(file_, _T("Could not load NSHandleCommand"));
 
 	fHandleMessage = (lpHandleMessage)GetProcAddress(hModule_, "NSHandleMessage");
 	if (!fHandleMessage)
-		throw NSPluginException(file_, "Could not load NSHandleMessage");
+		throw NSPluginException(file_, _T("Could not load NSHandleMessage"));
 
 	fUnLoadModule = (lpUnLoadModule)GetProcAddress(hModule_, "NSUnloadModule");
 	if (!fUnLoadModule)
-		throw NSPluginException(file_, "Could not load NSUnloadModule");
+		throw NSPluginException(file_, _T("Could not load NSUnloadModule"));
 
 	fGetConfigurationMeta = (lpGetConfigurationMeta)GetProcAddress(hModule_, "NSGetConfigurationMeta");
 	fCommandLineExec = (lpCommandLineExec)GetProcAddress(hModule_, "NSCommandLineExec");
 }
 
 
-std::string NSCPlugin::getCongifurationMeta() 
+std::wstring NSCPlugin::getCongifurationMeta() 
 {
-	char *buffer = new char[4097];
+	TCHAR *buffer = new TCHAR[4097];
 	if (!getConfigurationMeta_(buffer, 4096)) {
-		throw NSPluginException(file_, "Could not get metadata");
+		throw NSPluginException(file_, _T("Could not get metadata"));
 	}
-	std::string ret = buffer;
+	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
-bool NSCPlugin::getConfigurationMeta_(char* buf, unsigned int buflen) {
+bool NSCPlugin::getConfigurationMeta_(TCHAR* buf, unsigned int buflen) {
 	if (fGetConfigurationMeta == NULL)
-		throw NSPluginException(file_, "Critical error (getCongifurationMeta)");
+		throw NSPluginException(file_, _T("Critical error (getCongifurationMeta)"));
 	return fGetConfigurationMeta(buflen, buf)?true:false;
 }
 
-int NSCPlugin::commandLineExec(const char* command, const unsigned int argLen, char **arguments) {
+int NSCPlugin::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments) {
 	if (fCommandLineExec== NULL)
-		throw NSPluginException(file_, "Module does not support CommandLineExec");
+		throw NSPluginException(file_, _T("Module does not support CommandLineExec"));
 	return fCommandLineExec(command, argLen, arguments);
 }

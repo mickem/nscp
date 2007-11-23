@@ -61,7 +61,7 @@ public:
 	void exitThread(void);
 
 	// Retrieve values
-	int getCPUAvrage(std::string time);
+	int getCPUAvrage(std::wstring time);
 	long long getUptime();
 	unsigned long long getMemCommitLimit();
 	unsigned long long getMemCommit();

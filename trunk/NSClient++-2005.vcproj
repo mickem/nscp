@@ -29,7 +29,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -231,7 +231,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -254,7 +254,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="include"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;_STLP_USE_NEWALLOC;_STLP_DEBUG=1;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="2"
@@ -288,7 +288,7 @@
 				SuppressStartupBanner="true"
 				ModuleDefinitionFile=""
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile=".\Debug/IconService.pdb"
+				ProgramDatabaseFile=".\Debug/NSClient++.pdb"
 				SubSystem="1"
 				TargetMachine="1"
 			/>
@@ -428,7 +428,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Copying scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts&quot; &quot;$(TargetDir)\scripts&quot;&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\modules\*.pdb&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive: 7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
+				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;echo Copying scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts&quot; &quot;$(TargetDir)\scripts&quot;&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\modules\*.pdb&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive: 7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ParentName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ParentName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ParentName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
 			/>
 			<Tool

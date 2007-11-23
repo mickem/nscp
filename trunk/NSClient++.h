@@ -61,7 +61,7 @@ private:
 	pluginList plugins_;
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
-	std::string basePath;
+	std::wstring basePath;
 	MutexHandler internalVariables;
 	MutexHandler messageMutex;
 	MutexRW  m_mutexRW;
@@ -82,16 +82,16 @@ public:
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);
 
 	// Member functions
-	std::string getBasePath(void);
-	NSCAPI::nagiosReturn injectRAW(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
-	NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string arguments, char splitter, std::string &msg, std::string & perf);
-//	std::string inject(const std::string buffer);
-	std::string execute(std::string password, std::string cmd, std::list<std::string> args);
-	void reportMessage(int msgType, const char* file, const int line, std::string message);
-	int commandLineExec(const char* module, const char* command, const unsigned int argLen, char** args);
+	std::wstring getBasePath(void);
+	NSCAPI::nagiosReturn injectRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen);
+	NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf);
+//	std::wstring inject(const std::wstring buffer);
+	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
+	void reportMessage(int msgType, const TCHAR* file, const int line, std::wstring message);
+	int commandLineExec(const TCHAR* module, const TCHAR* command, const unsigned int argLen, TCHAR** args);
 
-	void addPlugins(const std::list<std::string> plugins);
-	plugin_type loadPlugin(const std::string plugin);
+	void addPlugins(const std::list<std::wstring> plugins);
+	plugin_type loadPlugin(const std::wstring plugin);
 	void loadPlugins(void);
 	void unloadPlugins(void);
 
@@ -105,8 +105,8 @@ private:
 typedef NTService<NSClientT> NSClient;
 
 
-std::string Encrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
-std::string Decrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
+std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
+std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
 
 //////////////////////////////////////////////////////////////////////////
 // Various NSAPI callback functions (available for plug-ins to make calls back to the core.
@@ -114,22 +114,22 @@ std::string Decrypt(std::string str, unsigned int algorithm = NSCAPI::xor);
 // Though I think this is not the case at the moment.
 //
 
-LPVOID NSAPILoader(char*buffer);
-NSCAPI::errorReturn NSAPIGetApplicationName(char*buffer, unsigned int bufLen);
-NSCAPI::errorReturn NSAPIGetBasePath(char*buffer, unsigned int bufLen);
-NSCAPI::errorReturn NSAPIGetApplicationVersionStr(char*buffer, unsigned int bufLen);
-NSCAPI::errorReturn NSAPIGetSettingsString(const char* section, const char* key, const char* defaultValue, char* buffer, unsigned int bufLen);
-int NSAPIGetSettingsInt(const char* section, const char* key, int defaultValue);
-void NSAPIMessage(int msgType, const char* file, const int line, const char* message);
+LPVOID NSAPILoader(TCHAR*buffer);
+NSCAPI::errorReturn NSAPIGetApplicationName(TCHAR*buffer, unsigned int bufLen);
+NSCAPI::errorReturn NSAPIGetBasePath(TCHAR*buffer, unsigned int bufLen);
+NSCAPI::errorReturn NSAPIGetApplicationVersionStr(TCHAR*buffer, unsigned int bufLen);
+NSCAPI::errorReturn NSAPIGetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* defaultValue, TCHAR* buffer, unsigned int bufLen);
+int NSAPIGetSettingsInt(const TCHAR* section, const TCHAR* key, int defaultValue);
+void NSAPIMessage(int msgType, const TCHAR* file, const int line, const TCHAR* message);
 void NSAPIStopServer(void);
-NSCAPI::nagiosReturn NSAPIInject(const char* command, const unsigned int argLen, char **argument, char *returnMessageBuffer, unsigned int returnMessageBufferLen, char *returnPerfBuffer, unsigned int returnPerfBufferLen);
-NSCAPI::errorReturn NSAPIGetSettingsSection(const char*, char***, unsigned int *);
-NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(char*** aBuffer, unsigned int * bufLen);
+NSCAPI::nagiosReturn NSAPIInject(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen);
+NSCAPI::errorReturn NSAPIGetSettingsSection(const TCHAR*, TCHAR***, unsigned int *);
+NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(TCHAR*** aBuffer, unsigned int * bufLen);
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
-NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);
-NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const char* inBuffer, unsigned int inBufLen, char* outBuf, unsigned int *outBufLen);
-NSCAPI::errorReturn NSAPISetSettingsString(const char* section, const char* key, const char* value);
-NSCAPI::errorReturn NSAPISetSettingsInt(const char* section, const char* key, int value);
+NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen);
+NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen);
+NSCAPI::errorReturn NSAPISetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* value);
+NSCAPI::errorReturn NSAPISetSettingsInt(const TCHAR* section, const TCHAR* key, int value);
 NSCAPI::errorReturn NSAPIWriteSettings(int type);
 NSCAPI::errorReturn NSAPIReadSettings(int type);
 NSCAPI::errorReturn NSAPIRehash(int flag);
@@ -137,21 +137,21 @@ NSCAPI::errorReturn NSAPIRehash(int flag);
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging
 // Generally names are of the form LOG_<severity>[_STD] 
-// Where _STD indicates that strings are force wrapped inside a std::string
+// Where _STD indicates that strings are force wrapped inside a std::wstring
 //
-#define LOG_ERROR_STD(msg) LOG_ERROR(((std::string)msg).c_str())
+#define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
 #define LOG_ERROR(msg) \
-	NSAPIMessage(NSCAPI::error, __FILE__, __LINE__, msg)
-#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::string)msg).c_str())
+	NSAPIMessage(NSCAPI::error, _T(__FILE__), __LINE__, msg)
+#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
 #define LOG_CRITICAL(msg) \
-	NSAPIMessage(NSCAPI::critical, __FILE__, __LINE__, msg)
-#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::string)msg).c_str())
+	NSAPIMessage(NSCAPI::critical, _T(__FILE__), __LINE__, msg)
+#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
 #define LOG_MESSAGE(msg) \
-	NSAPIMessage(NSCAPI::log, __FILE__, __LINE__, msg)
+	NSAPIMessage(NSCAPI::log, _T(__FILE__), __LINE__, msg)
 
-#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::string)msg).c_str())
+#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
 #define LOG_DEBUG(msg) \
-	NSAPIMessage(NSCAPI::debug, __FILE__, __LINE__, msg)
+	NSAPIMessage(NSCAPI::debug, _T(__FILE__), __LINE__, msg)
 /*
 #define LOG_DEBUG_STD(msg)
 #define LOG_DEBUG(msg)

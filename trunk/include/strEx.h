@@ -20,6 +20,8 @@
 ***************************************************************************/
 #pragma once
 
+#include <tchar.h>
+#include <windows.h>
 #include <sstream>
 #include <iomanip>
 #include <string>
@@ -33,99 +35,146 @@
 
 namespace strEx {
 
-	inline void append_list(std::string &lst, std::string &append) {
+	inline void append_list(std::wstring &lst, std::wstring &append) {
 		if (!lst.empty())
-			lst += ", ";
+			lst += _T(", ");
 		lst += append;
 	}
 
-	inline std::string format_date(time_t time, std::string format) {
-		char buf[51];
+	inline std::string wstring_to_string( const wchar_t* pStr, int len) {
+		//ASSERT_PTR( pStr ) ; 
+		//ASSERT( len >= 0 || len == -1 , _T("Invalid string length: ") << len ) ; 
+
+		// figure out how many narrow characters we are going to get 
+		int nChars = WideCharToMultiByte( CP_ACP , 0 , pStr , len , NULL , 0 , NULL , NULL ) ; 
+		if ( len == -1 )
+			-- nChars ; 
+		if ( nChars == 0 )
+			return "" ;
+
+		// convert the wide string to a narrow string
+		// nb: slightly naughty to write directly into the string like this
+		std::string buf ;
+		buf.resize( nChars ) ;
+		WideCharToMultiByte( CP_ACP , 0 , pStr , len , 
+			const_cast<char*>(buf.c_str()) , nChars , NULL , NULL ) ; 
+
+		return buf ; 
+	}
+	inline std::string wstring_to_string( const std::wstring& str ) {
+		return wstring_to_string(str.c_str(), str.length());
+	}
+
+	inline std::wstring string_to_wstring( const char* pStr , int len ) {
+		//ASSERT_PTR( pStr ) ; 
+		//ASSERT( len >= 0 || len == -1 , _T("Invalid string length: ") << len ) ; 
+
+		// figure out how many wide characters we are going to get 
+		int nChars = MultiByteToWideChar( CP_ACP , 0 , pStr , len , NULL , 0 ) ; 
+		if ( len == -1 )
+			-- nChars ; 
+		if ( nChars == 0 )
+			return L"" ;
+
+		// convert the narrow string to a wide string 
+		// nb: slightly naughty to write directly into the string like this
+		std::wstring buf ;
+		buf.resize( nChars ) ; 
+		MultiByteToWideChar( CP_ACP , 0 , pStr , len , const_cast<wchar_t*>(buf.c_str()) , nChars ) ; 
+
+		return buf ;
+	}
+	inline std::wstring string_to_wstring( const std::string& str ) {
+		return string_to_wstring(str.c_str(),str.length()) ;
+	}
+
+	inline std::wstring format_date(time_t time, std::wstring format) {
+		TCHAR buf[51];
 		struct tm *nt = new struct tm;
 #if (_MSC_VER > 1300)  // 1300 == VC++ 7.0
 		if (gmtime_s(nt, &time) != 0)
-			return "";
+			return _T("");
 #else
 		nt = gmtime(&time);
 		if (nt == NULL)
 			return "";
 #endif
-		size_t l = strftime(buf, 50, format.c_str(), nt);
+		size_t l = wcsftime(buf, 50, format.c_str(), nt);
 		if (l <= 0 || l >= 50)
-			return "";
+			return _T("");
 		buf[l] = 0;
 		return buf;
 	}
 
 	static const __int64 SECS_BETWEEN_EPOCHS = 11644473600;
 	static const __int64 SECS_TO_100NS = 10000000;
-	inline std::string format_filetime(unsigned long long filetime, std::string format) {
+	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format) {
 		filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
 		filetime /= SECS_TO_100NS;
 		return format_date(static_cast<time_t>(filetime), format);
 	}
 
-	inline void replace(std::string &string, std::string replace, std::string with) {
-		std::string::size_type pos = string.find(replace);
-		std::string::size_type len = replace.length();
-		while (pos != std::string::npos) {
+	inline void replace(std::wstring &string, std::wstring replace, std::wstring with) {
+		std::wstring::size_type pos = string.find(replace);
+		std::wstring::size_type len = replace.length();
+		while (pos != std::wstring::npos) {
 			string = string.substr(0,pos)+with+string.substr(pos+len);
 			pos = string.find(replace, pos+1);
 		}
 	}
-	inline std::string itos(unsigned int i) {
-		std::stringstream ss;
+	inline std::wstring itos(unsigned int i) {
+		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string itos(int i) {
-		std::stringstream ss;
+	inline std::wstring itos(int i) {
+		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string itos(unsigned long long i) {
-		std::stringstream ss;
+	inline std::wstring itos(unsigned long long i) {
+		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string itos(__int64 i) {
-		std::stringstream ss;
+	inline std::wstring itos(__int64 i) {
+		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string itos(unsigned long i) {
-		std::stringstream ss;
+	inline std::wstring itos(unsigned long i) {
+		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string itos(double i) {
-		std::stringstream ss;
+	inline std::wstring itos(double i) {
+		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string itos(float i) {
-		std::stringstream ss;
+	inline std::wstring itos(float i) {
+		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
-	inline std::string ihextos(unsigned int i) {
-		std::stringstream ss;
+	inline std::wstring ihextos(unsigned int i) {
+		std::wstringstream ss;
 		ss << std::hex << i;
 		return ss.str();
 	}
-	inline int stoi(std::string s) {
-		return atoi(s.c_str());
+	inline int stoi(std::wstring s) {
+		return _wtoi(s.c_str());
 	}
-	inline double stod(std::string s) {
-		return atof(s.c_str());
+	inline double stod(std::wstring s) {
+		return _wtof(s.c_str());
 	}
-	inline long long stoi64(std::string s) {
-		return _atoi64(s.c_str());
+	inline long long stoi64(std::wstring s) {
+		return _wtoi64(s.c_str());
 	}
-	inline unsigned stoui_as_time(std::string time, unsigned int smallest_unit = 1000) {
-		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
-		unsigned int value = atoi(time.c_str());
-		if (p == std::string::npos)
+	inline unsigned stoui_as_time(std::wstring time, unsigned int smallest_unit = 1000) {
+		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
+		unsigned int value = _wtoi(time.c_str());
+		if (p == std::wstring::npos)
 			return value * smallest_unit;
 		else if ( (time[p] == 's') || (time[p] == 'S') )
 			return value * 1000;
@@ -140,10 +189,10 @@ namespace strEx {
 		return value * smallest_unit;
 	}
 
-	inline unsigned long long stoi64_as_time(std::string time, unsigned int smallest_unit = 1000) {
-		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
-		unsigned long long value = _atoi64(time.c_str());
-		if (p == std::string::npos)
+	inline unsigned long long stoi64_as_time(std::wstring time, unsigned int smallest_unit = 1000) {
+		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
+		unsigned long long value = _wtoi64(time.c_str());
+		if (p == std::wstring::npos)
 			return value * smallest_unit;
 		else if ( (time[p] == 's') || (time[p] == 'S') )
 			return value * 1000;
@@ -163,72 +212,72 @@ namespace strEx {
 #define HOUR	(60 * 60 * 1000)
 #define MIN		(60 * 1000)
 #define SEC		(1000)
-	inline std::string itos_as_time(unsigned long long time) {
+	inline std::wstring itos_as_time(unsigned long long time) {
 		if (time > WEEK) {
 			unsigned int w = static_cast<unsigned int>(time/WEEK);
 			unsigned int d = static_cast<unsigned int>((time-(w*WEEK))/DAY);
 			unsigned int h = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY))/HOUR);
 			unsigned int m = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN);
-			return itos(w) + "w " + itos(d) + "d " + itos(h) + ":" + itos(m);
+			return itos(w) + _T("w ") + itos(d) + _T("d ") + itos(h) + _T(":") + itos(m);
 		}
 		else if (time > DAY) {
 			unsigned int d = static_cast<unsigned int>((time)/DAY);
 			unsigned int h = static_cast<unsigned int>((time-(d*DAY))/HOUR);
 			unsigned int m = static_cast<unsigned int>((time-(d*DAY)-(h*HOUR))/MIN);
-			return itos(d) + "d " + itos(h) + ":" + itos(m);
+			return itos(d) + _T("d ") + itos(h) + _T(":") + itos(m);
 		}
 		else if (time > HOUR) {
 			unsigned int h = static_cast<unsigned int>((time)/HOUR);
 			unsigned int m = static_cast<unsigned int>((time-(h*HOUR))/MIN);
-			return itos(h) + ":" + itos(m);
+			return itos(h) + _T(":") + itos(m);
 		} else if (time > MIN) {
-			return "0:" + itos(static_cast<unsigned int>(time/(60 * 1000)));
+			return _T("0:") + itos(static_cast<unsigned int>(time/(60 * 1000)));
 		} else if (time > SEC)
-			return itos(static_cast<unsigned int>(time/(1000))) + "s";
+			return itos(static_cast<unsigned int>(time/(1000))) + _T("s");
 		return itos(static_cast<unsigned int>(time));
 	}
 
-	inline long long stoi64_as_BKMG(std::string s) {
-		std::string::size_type p = s.find_first_of("BMKGT");
-		if (p == std::string::npos)
-			return _atoi64(s.c_str());
+	inline long long stoi64_as_BKMG(std::wstring s) {
+		std::wstring::size_type p = s.find_first_of(_T("BMKGT"));
+		if (p == std::wstring::npos)
+			return _wtoi64(s.c_str());
 		else if (s[p] == 'B') 
-			return _atoi64(s.c_str());
+			return _wtoi64(s.c_str());
 		else if (s[p] == 'K') 
-			return _atoi64(s.c_str())*1024;
+			return _wtoi64(s.c_str())*1024;
 		else if (s[p] == 'M') 
-			return _atoi64(s.c_str())*1024*1024;
+			return _wtoi64(s.c_str())*1024*1024;
 		else if (s[p] == 'G') 
-			return _atoi64(s.c_str())*1024*1024*1024;
+			return _wtoi64(s.c_str())*1024*1024*1024;
 		else if (s[p] == 'T') 
-			return _atoi64(s.c_str())*1024*1024*1024*1024;
+			return _wtoi64(s.c_str())*1024*1024*1024*1024;
 		else
-			return _atoi64(s.c_str());
+			return _wtoi64(s.c_str());
 	}
 #define BKMG_RANGE "BKMGTP"
 #define BKMG_SIZE 5
 
-	inline std::string itos_as_BKMG(unsigned __int64 i) {
+	inline std::wstring itos_as_BKMG(unsigned __int64 i) {
 		double cpy = static_cast<double>(i);
-		char postfix[] = BKMG_RANGE;
+		TCHAR postfix[] = _T(BKMG_RANGE);
 		int idx = 0;
 		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
 			cpy/=1024;
 			idx++;
 		}
-		std::stringstream ss;
+		std::wstringstream ss;
 		ss << std::setprecision(3);
 		ss << cpy;
-		std::string ret = ss.str(); // itos(cpy);
+		std::wstring ret = ss.str(); // itos(cpy);
 		ret += postfix[idx];
 		return ret;
 	}
 
-	typedef std::list<std::string> splitList;
-	inline splitList splitEx(std::string str, std::string key) {
+	typedef std::list<std::wstring> splitList;
+	inline splitList splitEx(std::wstring str, std::wstring key) {
 		splitList ret;
-		std::string::size_type pos = 0, lpos = 0;
-		while ((pos = str.find(key, pos)) !=  std::string::npos) {
+		std::wstring::size_type pos = 0, lpos = 0;
+		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {
 			ret.push_back(str.substr(lpos, pos-lpos));
 			lpos = ++pos;
 		}
@@ -236,8 +285,8 @@ namespace strEx {
 			ret.push_back(str.substr(lpos));
 		return ret;
 	}
-	inline std::string joinEx(splitList lst, std::string key) {
-		std::string ret;
+	inline std::wstring joinEx(splitList lst, std::wstring key) {
+		std::wstring ret;
 		for (splitList::const_iterator it = lst.begin(); it != lst.end(); ++it) {
 			if (!ret.empty())
 				ret += key;
@@ -246,28 +295,28 @@ namespace strEx {
 		return ret;
 	}
 
-	inline std::pair<std::string,std::string> split(std::string str, std::string key) {
-		std::string::size_type pos = str.find(key);
-		if (pos == std::string::npos)
-			return std::pair<std::string,std::string>(str, "");
-		return std::pair<std::string,std::string>(str.substr(0, pos), str.substr(pos+key.length()));
+	inline std::pair<std::wstring,std::wstring> split(std::wstring str, std::wstring key) {
+		std::wstring::size_type pos = str.find(key);
+		if (pos == std::wstring::npos)
+			return std::pair<std::wstring,std::wstring>(str, _T(""));
+		return std::pair<std::wstring,std::wstring>(str.substr(0, pos), str.substr(pos+key.length()));
 	}
-	typedef std::pair<std::string,std::string> token;
+	typedef std::pair<std::wstring,std::wstring> token;
 	// foo bar "foo \" bar" foo -> foo, bar "foo \" bar" foo -> bar, "foo \" bar" foo -> 
 	// 
-	inline token getToken(std::string buffer, char split, bool escape = false) {
-		std::string::size_type pos = std::string::npos;
+	inline token getToken(std::wstring buffer, char split, bool escape = false) {
+		std::wstring::size_type pos = std::wstring::npos;
 		if ((escape) && (buffer[0] == '\"')) {
 			do {
 				pos = buffer.find('\"');
 			}
-			while (((pos != std::string::npos)&&(pos > 1))&&(buffer[pos-1] == '\\'));
+			while (((pos != std::wstring::npos)&&(pos > 1))&&(buffer[pos-1] == '\\'));
 		} else
 			pos = buffer.find(split);
-		if (pos == std::string::npos)
-			return token(buffer, "");
+		if (pos == std::wstring::npos)
+			return token(buffer, _T(""));
 		if (pos == buffer.length()-1)
-			return token(buffer.substr(0, pos), "");
+			return token(buffer.substr(0, pos), _T(""));
 		return token(buffer.substr(0, pos-1), buffer.substr(++pos));
 	}
 
@@ -283,7 +332,7 @@ namespace strEx {
 		}
 
 		static int compare(const _E *x, const _E *y, size_t n) { 
-			return _strnicmp( x, y, n );
+			return _wcsnicmp( x, y, n );
 		}
 
 		//  There's no memichr(), so we roll our own.  It ain't rocket science.
@@ -309,48 +358,49 @@ namespace strEx {
 	};
 
 	//  And here's our case-blind string class.
-	typedef std::basic_string<char, blind_traits<char>, std::allocator<char> >  blindstr;
+	//typedef std::basic_string<char, blind_traits<char>, std::allocator<char> >  blindstr;
+	typedef std::basic_string<wchar_t, blind_traits<wchar_t>, std::allocator<wchar_t> >  blindstr;
 
-	struct case_blind_string_compare : public std::binary_function<std::string, std::string, bool>
+	struct case_blind_string_compare : public std::binary_function<std::wstring, std::wstring, bool>
 	{
-		bool operator() (const std::string& x, const std::string& y) const {
-			return _stricmp( x.c_str(), y.c_str() ) < 0;
+		bool operator() (const std::wstring& x, const std::wstring& y) const {
+			return _wcsicmp( x.c_str(), y.c_str() ) < 0;
 		}
 	};
 
 #ifdef _DEBUG
-	inline void test_getToken(std::string in1, char in2, std::string out1, std::string out2) {
+	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {
 		token t = getToken(in1, in2);
-		std::cout << "strEx::test_getToken(" << in1 << ", " << in2 << ") : ";
+		std::wcout << _T("strEx::test_getToken(") << in1 << _T(", ") << in2 << _T(") : ");
 		if ((t.first == out1) && (t.second == out2))
-			std::cout << "Succeeded" << std::endl;
+			std::wcout << _T("Succeeded") << std::endl;
 		else
-			std::cout << "Failed [" << out1 << "=" << t.first << ", " << out2 << "=" << t.second << "]" << std::endl;
+			std::wcout << _T("Failed [") << out1 << _T("=") << t.first << _T(", ") << out2 << _T("=") << t.second << _T("]") << std::endl;
 	}
 	inline void run_test_getToken() {
-		test_getToken("", '&', "", "");
-		test_getToken("&", '&', "", "");
-		test_getToken("&&", '&', "", "&");
-		test_getToken("foo", '&', "foo", "");
-		test_getToken("foo&", '&', "foo", "");
-		test_getToken("foo&bar", '&', "foo", "bar");
-		test_getToken("foo&bar&test", '&', "foo", "bar&test");
+		test_getToken(_T(""), '&', _T(""), _T(""));
+		test_getToken(_T("&"), '&', _T(""), _T(""));
+		test_getToken(_T("&&"), '&', _T(""), _T("&"));
+		test_getToken(_T("foo"), '&', _T("foo"), _T(""));
+		test_getToken(_T("foo&"), '&', _T("foo"), _T(""));
+		test_getToken(_T("foo&bar"), '&', _T("foo"), _T("bar"));
+		test_getToken(_T("foo&bar&test"), '&', _T("foo"), _T("bar&test"));
 	}
 
-	inline void test_replace(std::string source, std::string replace, std::string with, std::string out) {
-		std::cout << "strEx::test_replace(" << source << ", " << replace << ", " << with << ") : ";
-		std::string s = source;
+	inline void test_replace(std::wstring source, std::wstring replace, std::wstring with, std::wstring out) {
+		std::wcout << _T("strEx::test_replace(") << source << _T(", ") << replace << _T(", ") << with << _T(") : ");
+		std::wstring s = source;
 		strEx::replace(s, replace, with);
 		if (s == out)
-			std::cout << "Succeeded" << std::endl;
+			std::wcout << _T("Succeeded") << std::endl;
 		else
-			std::cout << "Failed [" << s << "=" << out << "]" << std::endl;
+			std::wcout << _T("Failed [") << s << _T("=") << out << _T("]") << std::endl;
 	}
 	inline void run_test_replace() {
-		test_replace("", "", "", "");
-		test_replace("foo", "", "", "foo");
-		test_replace("foobar", "foo", "", "bar");
-		test_replace("foobar", "foo", "bar", "barbar");
+		test_replace(_T(""), _T(""), _T(""), _T(""));
+		test_replace(_T("foo"), _T(""), _T(""), _T("foo"));
+		test_replace(_T("foobar"), _T("foo"), _T(""), _T("bar"));
+		test_replace(_T("foobar"), _T("foo"), _T("bar"), _T("barbar"));
 	}
 
 #endif

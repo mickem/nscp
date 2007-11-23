@@ -31,7 +31,7 @@ const char* NRPEPacket::getBuffer() {
 	p->packet_type = htons(type_);
 	p->packet_version = htons(version_);
 	p->crc32_value = 0;
-	strncpy_s(p->buffer, 1024, payload_.c_str(), 1023);
+	strncpy_s(p->buffer, 1024, strEx::wstring_to_string(payload_).c_str(), 1023);
 	p->buffer[1024] = 0;
 	p->crc32_value = htonl(calculate_crc32(tmpBuffer, getBufferLength()));
 	return tmpBuffer;
@@ -39,16 +39,16 @@ const char* NRPEPacket::getBuffer() {
 
 void NRPEPacket::readFrom(const char *buffer, unsigned int length) {
 	if (buffer == NULL)
-		throw NRPEPacketException("No buffer.");
+		throw NRPEPacketException(_T("No buffer."));
 	if (length != sizeof(packet))
-		throw NRPEPacketException("Invalid length.");
+		throw NRPEPacketException(_T("Invalid length."));
 	const packet *p = reinterpret_cast<const packet*>(buffer);
 	type_ = ntohs(p->packet_type);
 	if ((type_ != queryPacket)&&(type_ != responsePacket))
-		throw NRPEPacketException("Invalid packet type.");
+		throw NRPEPacketException(_T("Invalid packet type."));
 	version_ = ntohs(p->packet_version);
 	if (version_ != version2)
-		throw NRPEPacketException("Invalid packet version.");
+		throw NRPEPacketException(_T("Invalid packet version."));
 	crc32_ = ntohl(p->crc32_value);
 	// Verify CRC32
 	// @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
@@ -60,7 +60,7 @@ void NRPEPacket::readFrom(const char *buffer, unsigned int length) {
 	delete [] tb;
 	// Verify CRC32 end
 	result_ = NSCHelper::int2nagios(ntohs(p->result_code));
-	payload_ = std::string(p->buffer);
+	payload_ = strEx::string_to_wstring(std::string(p->buffer));
 }
 
 

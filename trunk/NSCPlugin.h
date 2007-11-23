@@ -51,13 +51,13 @@
  */
 class NSPluginException {
 public:
-	std::string file_;	// DLL filename (for which the exception was thrown)
-	std::string error_;	// An error message (human readable format)
+	std::wstring file_;	// DLL filename (for which the exception was thrown)
+	std::wstring error_;	// An error message (human readable format)
 	/**
 	 * @param file DLL filename (for which the exception is thrown)
 	 * @param error An error message (human readable format)
 	 */
-	NSPluginException(std::string file, std::string error) : file_(file), error_(error) {
+	NSPluginException(std::wstring file, std::wstring error) : file_(file), error_(error) {
 	}
 };
 
@@ -92,20 +92,20 @@ class NSCPlugin {
 private:
 	bool bLoaded_;			// Status of plug in
 	HMODULE hModule_;		// module handle to the DLL (once it is loaded)
-	std::string file_;		// Name of the DLL file
+	std::wstring file_;		// Name of the DLL file
 
 	typedef INT (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
 	typedef INT (*lpLoadModule)();
-	typedef INT (*lpGetName)(char*,unsigned int);
-	typedef INT (*lpGetDescription)(char*,unsigned int);
+	typedef INT (*lpGetName)(TCHAR*,unsigned int);
+	typedef INT (*lpGetDescription)(TCHAR*,unsigned int);
 	typedef INT (*lpGetVersion)(int*,int*,int*);
 	typedef INT (*lpHasCommandHandler)();
 	typedef INT (*lpHasMessageHandler)();
-	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const char*,const unsigned int, char**,char*,unsigned int,char *,unsigned int);
-	typedef INT (*lpCommandLineExec)(const char*,const unsigned int,char**);
-	typedef INT (*lpHandleMessage)(int,const char*,const int,const char*);
+	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const TCHAR*,const unsigned int, TCHAR**,TCHAR*,unsigned int,TCHAR *,unsigned int);
+	typedef INT (*lpCommandLineExec)(const TCHAR*,const unsigned int,TCHAR**);
+	typedef INT (*lpHandleMessage)(int,const TCHAR*,const int,const TCHAR*);
 	typedef INT (*lpUnLoadModule)();
-	typedef INT (*lpGetConfigurationMeta)(int, char*);
+	typedef INT (*lpGetConfigurationMeta)(int, TCHAR*);
 
 
 	lpModuleHelperInit fModuleHelperInit;
@@ -122,32 +122,32 @@ private:
 	lpCommandLineExec fCommandLineExec;
 
 public:
-	NSCPlugin(const std::string file);
+	NSCPlugin(const std::wstring file);
 	NSCPlugin(NSCPlugin &other);
 	virtual ~NSCPlugin(void);
 
-	std::string getName(void);
-	std::string getDescription();
+	std::wstring getName(void);
+	std::wstring getDescription();
 	void load_dll(void);
 	void load_plugin(void);
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
 	bool hasMessageHandler(void);
-	NSCAPI::nagiosReturn handleCommand(const char *command, const unsigned int argLen, char **arguments, char* returnMessageBuffer, unsigned int returnMessageBufferLen, char* returnPerfBuffer, unsigned int returnPerfBufferLen);
-	void handleMessage(int msgType, const char* file, const int line, const char *message);
+	NSCAPI::nagiosReturn handleCommand(const TCHAR *command, const unsigned int argLen, TCHAR **arguments, TCHAR* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen);
+	void handleMessage(int msgType, const TCHAR* file, const int line, const TCHAR *message);
 	void unload(void);
-	std::string getCongifurationMeta();
-	int commandLineExec(const char* command, const unsigned int argLen, char **arguments);
-	std::string getModule() {
+	std::wstring getCongifurationMeta();
+	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments);
+	std::wstring getModule() {
 		if (file_.empty())
-			return "";
-		std::string ret = file_;
-		std::string::size_type pos = ret.find_last_of("\\");
-		if (pos != std::string::npos && ++pos < ret.length()) {
+			return _T("");
+		std::wstring ret = file_;
+		std::wstring::size_type pos = ret.find_last_of(_T("\\"));
+		if (pos != std::wstring::npos && ++pos < ret.length()) {
 			ret = ret.substr(pos);
 		}
-		pos = ret.find_last_of(".");
-		if (pos != std::string::npos) {
+		pos = ret.find_last_of(_T("."));
+		if (pos != std::wstring::npos) {
 			ret = ret.substr(0, pos);
 		}
 		return ret;
@@ -157,10 +157,10 @@ private:
 	bool isLoaded() const {
 		return bLoaded_;
 	}
-	bool getName_(char* buf, unsigned int buflen);
-	bool getDescription_(char* buf, unsigned int buflen);
+	bool getName_(TCHAR* buf, unsigned int buflen);
+	bool getDescription_(TCHAR* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);
-	bool getConfigurationMeta_(char* buf, unsigned int buflen);
+	bool getConfigurationMeta_(TCHAR* buf, unsigned int buflen);
 };
 
 
