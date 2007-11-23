@@ -38,12 +38,12 @@ FileLogger::FileLogger() {
 FileLogger::~FileLogger() {
 }
 
-std::string FileLogger::getFileName()
+std::wstring FileLogger::getFileName()
 {
 	if (file_.empty()) {
 		file_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_FILENAME, LOG_FILENAME_DEFAULT);
-		if (file_.find("\\") == std::string::npos)
-			file_ = NSCModuleHelper::getBasePath() + "\\" + file_;
+		if (file_.find(_T("\\")) == std::wstring::npos)
+			file_ = NSCModuleHelper::getBasePath() + _T("\\") + file_;
 	}
 	return file_;
 }
@@ -63,22 +63,22 @@ bool FileLogger::hasCommandHandler() {
 bool FileLogger::hasMessageHandler() {
 	return true;
 }
-void FileLogger::handleMessage(int msgType, char* file, int line, char* message) {
-	char buffer[64];
-	std::ofstream stream(file_.c_str(), std::ios::app);
+void FileLogger::handleMessage(int msgType, TCHAR* file, int line, TCHAR* message) {
+	TCHAR buffer[64];
+	std::wofstream stream(file_.c_str(), std::ios::app);
 	__time64_t ltime;
 	_time64( &ltime );
 	struct tm *today = _localtime64( &ltime );
 	if (today) {
-		size_t len = strftime(buffer, 63, format_.c_str(), today);
+		size_t len = wcsftime(buffer, 63, format_.c_str(), today);
 		if ((len < 1)||(len > 64))
-			strncpy(buffer, "???", 63);
+			wcsncpy(buffer, _T("???"), 63);
 		else
 			buffer[len] = 0;
 	} else {
-		strncpy(buffer, "???", 63);
+		wcsncpy(buffer, _T("???"), 63);
 	}
-	stream << buffer << ": " << NSCHelper::translateMessageType(msgType) << ":" << file << ":" << line << ": " << message << std::endl;
+	stream << buffer << _T(": ") << NSCHelper::translateMessageType(msgType) << _T(":") << file << _T(":") << line << _T(": ") << message << std::endl;
 }
 
 NSC_WRAPPERS_MAIN_DEF(gFileLogger);
@@ -89,31 +89,30 @@ NSC_WRAPPERS_HANDLE_CONFIGURATION(gFileLogger);
 
 
 
-MODULE_SETTINGS_START(FileLogger, "File logger configuration", "...")
-PAGE("Filelogger")
+MODULE_SETTINGS_START(FileLogger, _T("File logger configuration")),PAGE(_T("Filelogger"))
 
-ITEM_CHECK_BOOL("Log debug messages", "Enable this to log debug messages (when running with /test debuglog is always enabled)")
-ITEM_MAP_TO("basic_ini_text_mapper")
-OPTION("section", "log")
-OPTION("key", "debug")
-OPTION("default", "false")
-OPTION("true_value", "1")
-OPTION("false_value", "0")
+ITEM_CHECK_BOOL(_T("Log debug messages"), _T("Enable this to log debug messages (when running with /test debuglog is always enabled)"))
+ITEM_MAP_TO(_T("basic_ini_text_mapper"))
+OPTION(_T("section"), _T("log"))
+OPTION(_T("key"), _T("debug"))
+OPTION(_T("default"), _T("false"))
+OPTION(_T("true_value"), _T("1"))
+OPTION(_T("false_value"), _T("0"))
 ITEM_END()
 
-ITEM_EDIT_TEXT("Log file", "This is the size of the buffer that stores CPU history.")
-OPTION("unit", "(relative to NSClient++ binary")
-ITEM_MAP_TO("basic_ini_text_mapper")
-OPTION("section", "log")
-OPTION("key", "file")
-OPTION("default", "NSC.log")
+ITEM_EDIT_TEXT(_T("Log file"), _T("This is the size of the buffer that stores CPU history."))
+OPTION(_T("unit"), _T("(relative to NSClient++ binary"))
+ITEM_MAP_TO(_T("basic_ini_text_mapper"))
+OPTION(_T("section"), _T("log"))
+OPTION(_T("key"), _T("file"))
+OPTION(_T("default"), _T("NSC.log"))
 ITEM_END()
 
-ITEM_EDIT_TEXT("Date mask", "The date/timeformat in the log file.")
-ITEM_MAP_TO("basic_ini_text_mapper")
-OPTION("section", "log")
-OPTION("key", "date_mask")
-OPTION("default", "%Y-%m-%d %H:%M:%S")
+ITEM_EDIT_TEXT(_T("Date mask"), _T("The date/timeformat in the log file."))
+ITEM_MAP_TO(_T("basic_ini_text_mapper"))
+OPTION(_T("section"), _T("log"))
+OPTION(_T("key"), _T("date_mask"))
+OPTION(_T("default"), _T("%Y-%m-%d %H:%M:%S"))
 ITEM_END()
 
 PAGE_END()

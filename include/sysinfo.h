@@ -24,12 +24,12 @@
 
 namespace systemInfo {
 	class SystemInfoException {
-		std::string error_;
+		std::wstring error_;
 	public:
-		SystemInfoException(std::string error, DWORD code) : error_(error)
+		SystemInfoException(std::wstring error) : error_(error)
 		{}
 		/*
-		std::string getError() const {
+		std::wstring getError() const {
 			return error_;
 		}
 		*/

@@ -39,8 +39,8 @@ NRPEListener::NRPEListener() : noPerfData_(false) {
 NRPEListener::~NRPEListener() {
 }
 
-std::string getAllowedHosts() {
-	std::string ret = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS, "");
+std::wstring getAllowedHosts() {
+	std::wstring ret = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS, _T(""));
 	if (ret.empty())
 		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
 	return ret;
@@ -53,11 +53,11 @@ bool getCacheAllowedHosts() {
 }
 
 
-void NRPEListener::addAllScriptsFrom(std::string path) {
-	std::string baseDir;
-	std::string::size_type pos = path.find_last_of('*');
-	if (pos == std::string::npos) {
-		path += "*.*";
+void NRPEListener::addAllScriptsFrom(std::wstring path) {
+	std::wstring baseDir;
+	std::wstring::size_type pos = path.find_last_of('*');
+	if (pos == std::wstring::npos) {
+		path += _T("*.*");
 	}
 	WIN32_FIND_DATA wfd;
 	HANDLE hFind = FindFirstFile(path.c_str(), &wfd);
@@ -68,7 +68,7 @@ void NRPEListener::addAllScriptsFrom(std::string path) {
 			}
 		} while (FindNextFile(hFind, &wfd));
 	} else {
-		NSC_LOG_ERROR_STD("No scripts found in path: " + path);
+		NSC_LOG_ERROR_STD(_T("No scripts found in path: ") + path);
 		return;
 	}
 	FindClose(hFind);
@@ -80,22 +80,22 @@ bool NRPEListener::loadModule() {
 	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
 	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
 	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
-	std::list<std::string> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
-	std::list<std::string>::const_iterator it;
+	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
+	std::list<std::wstring>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
-		std::string command_name;
-		if (((*it).length() > 7)&&((*it).substr(0,7) == "command")) {
+		std::wstring command_name;
+		if (((*it).length() > 7)&&((*it).substr(0,7) == _T("command"))) {
 			strEx::token t = strEx::getToken((*it), '[');
 			t = strEx::getToken(t.second, ']');
 			command_name = t.first;
 		} else {
 			command_name = (*it);
 		}
-		std::string s = NSCModuleHelper::getSettingsString(NRPE_HANDLER_SECTION_TITLE, (*it), "");
+		std::wstring s = NSCModuleHelper::getSettingsString(NRPE_HANDLER_SECTION_TITLE, (*it), _T(""));
 		if (command_name.empty() || s.empty()) {
-			NSC_LOG_ERROR_STD("Invalid command definition: " + (*it));
+			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
 		} else {
-			if ((s.length() > 7)&&(s.substr(0,6) == "inject")) {
+			if ((s.length() > 7)&&(s.substr(0,6) == _T("inject"))) {
 				addCommand(inject, command_name.c_str(), s.substr(7));
 			} else {
 				addCommand(script, command_name.c_str(), s);
@@ -107,10 +107,10 @@ bool NRPEListener::loadModule() {
 		addAllScriptsFrom(scriptDirectory_);
 	}
 
-	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), ","), getCacheAllowedHosts());
+	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
 	try {
 		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
-		std::string host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
+		std::wstring host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
 		unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
 		if (bUseSSL_) {
 			socket_ssl_.setHandler(this);
@@ -120,10 +120,10 @@ bool NRPEListener::loadModule() {
 			socket_.StartListener(host, port, backLog);
 		}
 	} catch (simpleSocket::SocketException e) {
-		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
 	} catch (simpleSSL::SSLException e) {
-		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
 	}
 
@@ -141,10 +141,10 @@ bool NRPEListener::unloadModule() {
 				socket_.StopListener();
 		}
 	} catch (simpleSocket::SocketException e) {
-		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
 	} catch (simpleSSL::SSLException e) {
-		NSC_LOG_ERROR_STD("Exception caught: " + e.getMessage());
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
 	}
 	return true;
@@ -159,13 +159,13 @@ bool NRPEListener::hasMessageHandler() {
 }
 
 
-NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
+NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	command_list::const_iterator cit = commands.find(command);
 	if (cit == commands.end())
 		return NSCAPI::returnIgnored;
 
 	const command_data cd = (*cit).second;
-	std::string args = cd.arguments;
+	std::wstring args = cd.arguments;
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 1) {
 		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
 		arrayBuffer::arrayList::const_iterator cit2 = arr.begin();
@@ -173,49 +173,49 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 
 		for (;cit2!=arr.end();cit2++,i++) {
 			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
-				if ((*cit2).find_first_of(NASTY_METACHARS) != std::string::npos) {
-					NSC_LOG_ERROR("Request string contained illegal metachars!");
+				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;
 				}
 			}
-			strEx::replace(args, "$ARG" + strEx::itos(i) + "$", (*cit2));
+			strEx::replace(args, _T("$ARG") + strEx::itos(i) + _T("$"), (*cit2));
 		}
 	}
 	if (cd.type == inject) {
 		strEx::token t = strEx::getToken(args, ' ');
-		std::string s = t.second;
-		std::string sTarget;
+		std::wstring s = t.second;
+		std::wstring sTarget;
 
-		std::string::size_type p = 0;
+		std::wstring::size_type p = 0;
 		while(true) {
-			std::string::size_type pStart = p;
-			std::string::size_type pEnd = std::string::npos;
+			std::wstring::size_type pStart = p;
+			std::wstring::size_type pEnd = std::wstring::npos;
 			if (s[p] == '\"') {
 				pStart++;
 				while (true) {
 					p = s.find(' ', ++p);
-					if (p == std::string::npos)
+					if (p == std::wstring::npos)
 						break;
 					if ((p>1)&&(s[p-1]=='\"')&&(((p>2)&&(s[p-2]!='\\'))||(p==2)))
 						break;
 				}
-				if (p != std::string::npos)
+				if (p != std::wstring::npos)
 					pEnd = p-1;
 				else
 					pEnd = s.length()-1;
-				if (p != std::string::npos) {
+				if (p != std::wstring::npos) {
 					p++;
 				}
 			} else {
 				pEnd = p = s.find(' ', ++p);
-				if (p != std::string::npos) {
+				if (p != std::wstring::npos) {
 					p = s.find_first_not_of(' ', p);
 				}
 			}
 			if (!sTarget.empty())
-				sTarget += "!";
-			if (p == std::string::npos) {
-				if (pEnd == std::string::npos)
+				sTarget += _T("!");
+			if (p == std::wstring::npos) {
+				if (pEnd == std::wstring::npos)
 					sTarget += s.substr(pStart);
 				else
 					sTarget += s.substr(pStart, pEnd-pStart);
@@ -228,18 +228,18 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 	} else if (cd.type == script) {
 		return executeNRPECommand(args, message, perf);
 	} else if (cd.type == script_dir) {
-		std::string args = arrayBuffer::arrayBuffer2string(char_args, argLen, " ");
-		std::string cmd = scriptDirectory_ + command.c_str() + " " +args;
+		std::wstring args = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
+		std::wstring cmd = scriptDirectory_ + command.c_str() + _T(" ") +args;
 		return executeNRPECommand(cmd, message, perf);
 	} else {
-		NSC_LOG_ERROR_STD("Unknown script type: " + command.c_str());
+		NSC_LOG_ERROR_STD(_T("Unknown script type: ") + command.c_str());
 		return NSCAPI::critical;
 	}
 
 }
 #define MAX_INPUT_BUFFER 1024
 
-int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std::string &perf)
+int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, std::wstring &perf)
 {
 	NSCAPI::nagiosReturn result;
 	PROCESS_INFORMATION pi;
@@ -271,9 +271,10 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 
 
 	// CreateProcess doesn't work with a const command
-	char *cmd = new char[command.length()+1];
-	strncpy_s(cmd, command.length()+1, command.c_str(), command.length());
+	TCHAR *cmd = new TCHAR[command.length()+1];
+	wcsncpy_s(cmd, command.length()+1, command.c_str(), command.length());
 	cmd[command.length()] = 0;
+	std::wstring root = NSCModuleHelper::getBasePath();
 
 	// Create the child process. 
 	BOOL processOK = CreateProcess(NULL, cmd,        // command line 
@@ -282,7 +283,7 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 		TRUE, // handles are inherited 
 		0,    // creation flags 
 		NULL, // use parent's environment 
-		NULL, // use parent's current directory 
+		root.c_str(), // use parent's current directory 
 		&si,  // STARTUPINFO pointer 
 		&pi); // receives PROCESS_INFORMATION 
 	delete [] cmd;
@@ -295,14 +296,14 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 
 		if (dwstate == WAIT_TIMEOUT) {
 			TerminateProcess(pi.hProcess, 5);
-			msg = "The check (" + command + ") didn't respond within the timeout period (" + strEx::itos(timeout) + "s)!";
+			msg = _T("The check (") + command + _T(") didn't respond within the timeout period (") + strEx::itos(timeout) + _T("s)!");
 			result = NSCAPI::returnUNKNOWN;
 		} else {
 			DWORD dwread;
-			char *buf = new char[MAX_INPUT_BUFFER+1];
+			TCHAR *buf = new TCHAR[MAX_INPUT_BUFFER+1];
 			retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER, &dwread, NULL);
 			if (!retval || dwread == 0) {
-				msg = "No output available from command...";
+				msg = _T("No output available from command...");
 			} else {
 				buf[dwread] = 0;
 				msg = buf;
@@ -313,11 +314,11 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 			}
 			delete [] buf;
 			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
-				NSC_LOG_ERROR("Failed to get commands (" + command + ") return code: " + error::lookup::last_error());
+				NSC_LOG_ERROR(_T("Failed to get commands (") + command + _T(") return code: ") + error::lookup::last_error());
 				dwexitcode = NSCAPI::returnUNKNOWN;
 			}
 			if (!NSCHelper::isNagiosReturnCode(dwexitcode)) {
-				NSC_LOG_ERROR("The command (" + command + ") returned an invalid return code: " + strEx::itos(dwexitcode));
+				NSC_LOG_ERROR(_T("The command (") + command + _T(") returned an invalid return code: ") + strEx::itos(dwexitcode));
 				dwexitcode = NSCAPI::returnUNKNOWN;
 			}
 			result = NSCHelper::int2nagios(dwexitcode);
@@ -327,7 +328,7 @@ int NRPEListener::executeNRPECommand(std::string command, std::string &msg, std:
 		CloseHandle(hChildOutR);
 	}
 	else {
-		msg = "NRPE_NT failed to create process (" + command + "): " + error::lookup::last_error();
+		msg = _T("NRPE_NT failed to create process (") + command + _T("): ") + error::lookup::last_error();
 		result = NSCAPI::returnUNKNOWN;
 		CloseHandle(hChildInR);
 		CloseHandle(hChildInW);
@@ -344,7 +345,7 @@ void NRPEListener::onClose()
 void NRPEListener::onAccept(simpleSocket::Socket *client) 
 {
 	if (!allowedHosts.inAllowedHosts(client->getAddr())) {
-		NSC_LOG_ERROR("Unauthorize access from: " + client->getAddrString());
+		NSC_LOG_ERROR(_T("Unauthorize access from: ") + client->getAddrString());
 		client->close();
 		return;
 	}
@@ -357,14 +358,14 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 			if (block.getLength() >= NRPEPacket::getBufferLength())
 				break;
 			if (!lastReadRet) {
-				NSC_LOG_MESSAGE("Could not read NRPE packet from socket :(");
+				NSC_LOG_MESSAGE(_T("Could not read NRPE packet from socket :("));
 				client->close();
 				return;
 			}
 			Sleep(100);
 		}
 		if (i >= maxWait) {
-			NSC_LOG_ERROR_STD("Timeout reading NRPE-packet (increase socket_timeout)");
+			NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout)"));
 			client->close();
 			return;
 		}
@@ -373,53 +374,53 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 				NRPEPacket out = handlePacket(NRPEPacket(block.getBuffer(), block.getLength()));
 				block.copyFrom(out.getBuffer(), out.getBufferLength());
 			} catch (NRPEPacket::NRPEPacketException e) {
-				NSC_LOG_ERROR_STD("NRPESocketException: " + e.getMessage());
+				NSC_LOG_ERROR_STD(_T("NRPESocketException: ") + e.getMessage());
 				client->close();
 				return;
 			}
 			client->send(block);
 		}
 	} catch (simpleSocket::SocketException e) {
-		NSC_LOG_ERROR_STD("SocketException: " + e.getMessage());
+		NSC_LOG_ERROR_STD(_T("SocketException: ") + e.getMessage());
 	} catch (NRPEException e) {
-		NSC_LOG_ERROR_STD("NRPEException: " + e.getMessage());
+		NSC_LOG_ERROR_STD(_T("NRPEException: ") + e.getMessage());
 	}
 	client->close();
 }
 
 NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	if (p.getType() != NRPEPacket::queryPacket) {
-		NSC_LOG_ERROR("Request is not a query.");
-		throw NRPEException("Invalid query type");
+		NSC_LOG_ERROR(_T("Request is not a query."));
+		throw NRPEException(_T("Invalid query type"));
 	}
 	if (p.getVersion() != NRPEPacket::version2) {
-		NSC_LOG_ERROR("Request had unsupported version.");
-		throw NRPEException("Invalid version");
+		NSC_LOG_ERROR(_T("Request had unsupported version."));
+		throw NRPEException(_T("Invalid version"));
 	}
 	if (!p.verifyCRC()) {
-		NSC_LOG_ERROR("Request had invalid checksum.");
-		throw NRPEException("Invalid checksum");
+		NSC_LOG_ERROR(_T("Request had invalid checksum."));
+		throw NRPEException(_T("Invalid checksum"));
 	}
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
-	if (cmd.first == "_NRPE_CHECK") {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, "I ("SZVERSION") seem to be doing fine...");
+	if (cmd.first == _T("_NRPE_CHECK")) {
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") SZVERSION _T(") seem to be doing fine..."));
 	}
-	std::string msg, perf;
+	std::wstring msg, perf;
 
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
 		if (!cmd.second.empty()) {
-			NSC_LOG_ERROR("Request contained arguments (not currently allowed, check the allow_arguments option).");
-			throw NRPEException("Request contained arguments (not currently allowed, check the allow_arguments option).");
+			NSC_LOG_ERROR(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
+			throw NRPEException(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
 		}
 	}
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
-		if (cmd.first.find_first_of(NASTY_METACHARS) != std::string::npos) {
-			NSC_LOG_ERROR("Request command contained illegal metachars!");
-			throw NRPEException("Request command contained illegal metachars!");
+		if (cmd.first.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+			NSC_LOG_ERROR(_T("Request command contained illegal metachars!"));
+			throw NRPEException(_T("Request command contained illegal metachars!"));
 		}
-		if (cmd.second.find_first_of(NASTY_METACHARS) != std::string::npos) {
-			NSC_LOG_ERROR("Request arguments contained illegal metachars!");
-			throw NRPEException("Request command contained illegal metachars!");
+		if (cmd.second.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+			NSC_LOG_ERROR(_T("Request arguments contained illegal metachars!"));
+			throw NRPEException(_T("Request command contained illegal metachars!"));
 		}
 	}
 
@@ -427,15 +428,15 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	try {
 		ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
 	} catch (...) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, "UNKNOWN: Internal exception");
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"));
 	}
 	switch (ret) {
 		case NSCAPI::returnInvalidBufferLen:
-			msg = "UNKNOWN: Return buffer to small to handle this command.";
+			msg = _T("UNKNOWN: Return buffer to small to handle this command.");
 			ret = NSCAPI::returnUNKNOWN;
 			break;
 		case NSCAPI::returnIgnored:
-			msg = "UNKNOWN: No handler for that command";
+			msg = _T("UNKNOWN: No handler for that command");
 			ret = NSCAPI::returnUNKNOWN;
 			break;
 		case NSCAPI::returnOK:
@@ -444,13 +445,13 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 		case NSCAPI::returnUNKNOWN:
 			break;
 		default:
-			msg = "UNKNOWN: Internal error.";
+			msg = _T("UNKNOWN: Internal error.");
 			ret = NSCAPI::returnUNKNOWN;
 	}
 	if (perf.empty()||noPerfData_) {
 		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg);
 	} else {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + "|" + perf);
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + _T("|") + perf);
 	}
 }
 
@@ -460,57 +461,57 @@ NSC_WRAPPERS_HANDLE_CMD_DEF(gNRPEListener);
 NSC_WRAPPERS_HANDLE_CONFIGURATION(gNRPEListener);
 
 
-MODULE_SETTINGS_START(NRPEListener, "NRPE Listsner configuration", "...")
+MODULE_SETTINGS_START(NRPEListener, _T("NRPE Listener configuration"), _T("...")) 
 
-PAGE("NRPE Listsner configuration")
+PAGE(_T("NRPE Listsner configuration")) 
 
-ITEM_EDIT_TEXT("port", "This is the port the NRPEListener.dll will listen to.")
-ITEM_MAP_TO("basic_ini_text_mapper")
-OPTION("section", "NRPE")
-OPTION("key", "port")
-OPTION("default", "5666")
+ITEM_EDIT_TEXT(_T("port"), _T("This is the port the NRPEListener.dll will listen to.")) 
+ITEM_MAP_TO(_T("basic_ini_text_mapper")) 
+OPTION(_T("section"), _T("NRPE")) 
+OPTION(_T("key"), _T("port")) 
+OPTION(_T("default"), _T("5666")) 
 ITEM_END()
 
-ITEM_CHECK_BOOL("allow_arguments", "This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.")
-ITEM_MAP_TO("basic_ini_bool_mapper")
-OPTION("section", "NRPE")
-OPTION("key", "allow_arguments")
-OPTION("default", "false")
-OPTION("true_value", "1")
-OPTION("false_value", "0")
+ITEM_CHECK_BOOL(_T("allow_arguments"), _T("This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.")) 
+ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
+OPTION(_T("section"), _T("NRPE")) 
+OPTION(_T("key"), _T("allow_arguments")) 
+OPTION(_T("default"), _T("false")) 
+OPTION(_T("true_value"), _T("1")) 
+OPTION(_T("false_value"), _T("0")) 
 ITEM_END()
 
-ITEM_CHECK_BOOL("allow_nasty_meta_chars", "This might have security implications (depending on what you do with the options)")
-ITEM_MAP_TO("basic_ini_bool_mapper")
-OPTION("section", "NRPE")
-OPTION("key", "allow_nasty_meta_chars")
-OPTION("default", "false")
-OPTION("true_value", "1")
-OPTION("false_value", "0")
+ITEM_CHECK_BOOL(_T("allow_nasty_meta_chars"), _T("This might have security implications (depending on what you do with the options)")) 
+ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
+OPTION(_T("section"), _T("NRPE")) 
+OPTION(_T("key"), _T("allow_nasty_meta_chars")) 
+OPTION(_T("default"), _T("false")) 
+OPTION(_T("true_value"), _T("1")) 
+OPTION(_T("false_value"), _T("0")) 
 ITEM_END()
 
-ITEM_CHECK_BOOL("use_ssl", "This option will enable SSL encryption on the NRPE data socket (this increases security somwhat.")
-ITEM_MAP_TO("basic_ini_bool_mapper")
-OPTION("section", "NRPE")
-OPTION("key", "use_ssl")
-OPTION("default", "true")
-OPTION("true_value", "1")
-OPTION("false_value", "0")
+ITEM_CHECK_BOOL(_T("use_ssl"), _T("This option will enable SSL encryption on the NRPE data socket (this increases security somwhat.")) 
+ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
+OPTION(_T("section"), _T("NRPE")) 
+OPTION(_T("key"), _T("use_ssl")) 
+OPTION(_T("default"), _T("true")) 
+OPTION(_T("true_value"), _T("1")) 
+OPTION(_T("false_value"), _T("0")) 
 ITEM_END()
 
 PAGE_END()
-ADVANCED_PAGE("Access configuration")
+ADVANCED_PAGE(_T("Access configuration")) 
 
-ITEM_EDIT_OPTIONAL_LIST("Allow connection from:", "This is the hosts that will be allowed to poll performance data from the NRPE server.")
-OPTION("disabledCaption", "Use global settings (defined previously)")
-OPTION("enabledCaption", "Specify hosts for NRPE server")
-OPTION("listCaption", "Add all IP addresses (not hosts) which should be able to connect:")
-OPTION("separator", ",")
-OPTION("disabled", "")
-ITEM_MAP_TO("basic_ini_text_mapper")
-OPTION("section", "NRPE")
-OPTION("key", "allowed_hosts")
-OPTION("default", "")
+ITEM_EDIT_OPTIONAL_LIST(_T("Allow connection from:"), _T("This is the hosts that will be allowed to poll performance data from the NRPE server.")) 
+OPTION(_T("disabledCaption"), _T("Use global settings (defined previously)")) 
+OPTION(_T("enabledCaption"), _T("Specify hosts for NRPE server")) 
+OPTION(_T("listCaption"), _T("Add all IP addresses (not hosts) which should be able to connect:")) 
+OPTION(_T("separator"), _T(",")) 
+OPTION(_T("disabled"), _T("")) 
+ITEM_MAP_TO(_T("basic_ini_text_mapper")) 
+OPTION(_T("section"), _T("NRPE")) 
+OPTION(_T("key"), _T("allowed_hosts")) 
+OPTION(_T("default"), _T("")) 
 ITEM_END()
 
 PAGE_END()

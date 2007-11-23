@@ -55,7 +55,7 @@ void IconWidget_::exitThread(void) {
 
 namespace TrayIcon
 {
-	std::string defaultCommand;
+	std::wstring defaultCommand;
 }
 
 /*
@@ -75,7 +75,7 @@ INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam
 		{
 		case IDOK: 
 			{
-				char *c=new char[1024];
+				TCHAR *c=new TCHAR[1024];
 				if (GetDlgItemText(hwndDlg, IDC_COMMAND, c, 1023))
 					TrayIcon::defaultCommand = c;
 				delete [] c;
@@ -113,18 +113,18 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 				break;
 			case ID_POPUP_INJECTCOMMAND:
 				if (TrayIcon::defaultCommand.empty())
-					TrayIcon::defaultCommand = NSCModuleHelper::getSettingsString("systray", "defaultCommand", "");
+					TrayIcon::defaultCommand = NSCModuleHelper::getSettingsString(_T("systray"), _T("defaultCommand"), _T(""));
 				if (DialogBox(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_INJECTDIALOG),NULL,InjectDialogProc) == IDOK) {
 					// @todo NSCModuleHelper::InjectCommand(TrayIcon::defaultCommand);
 				}
 				break;
 			case ID_POPUP_SHOWLOG:
 				{
-					long long err = reinterpret_cast<long long>(ShellExecute(hwndDlg, "open", 
-						(NSCModuleHelper::getBasePath() + NSCModuleHelper::getSettingsString("log", "file", "")).c_str(), 
+					long long err = reinterpret_cast<long long>(ShellExecute(hwndDlg, _T("open"), 
+						(NSCModuleHelper::getBasePath() + NSCModuleHelper::getSettingsString(_T("log"), _T("file"), _T(""))).c_str(), 
 						NULL, NULL, SW_SHOWNORMAL));
 					if (err <=32) {
-							NSC_LOG_ERROR("ShellExecute failed : " + strEx::itos(err));
+							NSC_LOG_ERROR_STD(_T("ShellExecute failed : ") + strEx::itos(err));
 						}
 				}
 			}
@@ -145,7 +145,7 @@ void TrayIcon::addIcon(HWND hWnd) {
 	ndata.uFlags=NIF_ICON|NIF_MESSAGE|NIF_TIP;
 	ndata.uCallbackMessage=WM_ICON_NOTIFY;
 	ndata.hIcon=::LoadIcon(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDI_STANDBY));
-	strncpy(ndata.szTip,(NSCModuleHelper::getApplicationName() + " - " + NSCModuleHelper::getApplicationVersionString()).c_str(), 63);
+	wcsncpy(ndata.szTip,(NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString()).c_str(), 63);
 	Shell_NotifyIcon(NIM_ADD,&ndata);
 }
 

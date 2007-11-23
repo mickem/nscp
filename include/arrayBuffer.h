@@ -20,6 +20,7 @@
 ***************************************************************************/
 #pragma once
 
+#include <tchar.h>
 #include <string>
 #include <list>
 #include <assert.h>
@@ -49,21 +50,21 @@
  *
  */
 namespace arrayBuffer {
-	typedef char* arrayBufferItem;
+	typedef TCHAR* arrayBufferItem;
 	typedef arrayBufferItem* arrayBuffer;
-	typedef std::list<std::string> arrayList;
-	arrayList arrayBuffer2list(const unsigned int argLen, char **argument);
+	typedef std::list<std::wstring> arrayList;
+	arrayList arrayBuffer2list(const unsigned int argLen, TCHAR **argument);
 	arrayBuffer list2arrayBuffer(const arrayList lst, unsigned int &argLen);
-	arrayBuffer split2arrayBuffer(const char* buffer, char splitChar, unsigned int &argLen);
-	arrayBuffer split2arrayBuffer(const std::string buffer, char splitChar, unsigned int &argLen);
-	std::string arrayBuffer2string(char **argument, const unsigned int argLen, std::string join);
+	arrayBuffer split2arrayBuffer(const TCHAR* buffer, TCHAR splitChar, unsigned int &argLen);
+	arrayBuffer split2arrayBuffer(const std::wstring inBuf, TCHAR splitChar, unsigned int &argLen, bool escape = false);
+	std::wstring arrayBuffer2string(TCHAR **argument, const unsigned int argLen, std::wstring join);
 	arrayBuffer createEmptyArrayBuffer(unsigned int &argLen);
 	void destroyArrayBuffer(arrayBuffer argument, const unsigned int argLen);
 
 #ifdef _DEBUG
 	void test_createEmptyArrayBuffer();
-	void test_split2arrayBuffer_str(std::string buffer, char splitter, int OUT_argLen);
-	void test_split2arrayBuffer_char(char* buffer, char splitter, int OUT_argLen);
+	void test_split2arrayBuffer_str(std::wstring buffer, TCHAR splitter, int OUT_argLen);
+	void test_split2arrayBuffer_char(TCHAR* buffer, TCHAR splitter, int OUT_argLen);
 	void run_testArrayBuffer();
 #endif
 }

@@ -80,7 +80,7 @@ public:
 	void service_main(DWORD dwArgc, LPTSTR *lpszArgv)
 	{
 		// register our service control handler:
-		sshStatusHandle = RegisterServiceCtrlHandler( TEXT(SZSERVICENAME), TBase::service_ctrl_dispatch);
+		sshStatusHandle = RegisterServiceCtrlHandler( SZSERVICENAME, TBase::service_ctrl_dispatch);
 
 		// SERVICE_STATUS members that don't change in example
 		ssStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;

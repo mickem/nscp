@@ -38,25 +38,25 @@ public:
 	bool unloadModule();
 
 
-	std::string getModuleName() {
-		return "NSClient server";
+	std::wstring getModuleName() {
+		return _T("NSClient server");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::string getModuleDescription() {
-		return "A simple server that listens for incoming NSClient (check_nt) connection and handles them.\nAlthough NRPE is the preferred method NSClient is fully supported and can be used for simplicity or for compatibility.";
+	std::wstring getModuleDescription() {
+		return _T("A simple server that listens for incoming NSClient (check_nt) connection and handles them.\nAlthough NRPE is the preferred method NSClient is fully supported and can be used for simplicity or for compatibility.");
 	}
 
 	std::string parseRequest(std::string buffer);
 	void sendTheResponse(simpleSocket::Socket *client, std::string response);
 	void retrivePacket(simpleSocket::Socket *client);
-	bool isPasswordOk(std::string remotePassword);
+	bool isPasswordOk(std::wstring remotePassword);
 
 	// simpleSocket::ListenerHandler implementation
 	void onAccept(simpleSocket::Socket *client);
 	void onClose();
-	std::string getConfigurationMeta();
+	std::wstring getConfigurationMeta();
 
 };

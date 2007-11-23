@@ -32,9 +32,9 @@ private:
 	} command_type;
 	struct command_data {
 		command_data() : type(inject) {}
-		command_data(command_type type_, std::string arguments_) : type(type_), arguments(arguments_) {}
+		command_data(command_type type_, std::wstring arguments_) : type(type_), arguments(arguments_) {}
 		command_type type;
-		std::string arguments;
+		std::wstring arguments;
 	};
 	bool bUseSSL_;
 	simpleSSL::Listener socket_ssl_;
@@ -45,7 +45,7 @@ private:
 	unsigned int socketTimeout_;
 	socketHelpers::allowedHosts allowedHosts;
 	bool noPerfData_;
-	std::string scriptDirectory_;
+	std::wstring scriptDirectory_;
 
 public:
 	NRPEListener();
@@ -55,25 +55,25 @@ public:
 	bool unloadModule();
 
 
-	std::string getModuleName() {
-		return "NRPE server";
+	std::wstring getModuleName() {
+		return _T("NRPE server");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::string getModuleDescription() {
-		return "A simple server that listens for incoming NRPE connection and handles them.\nNRPE is preferred over NSClient as it is more flexible. You can of cource use both NSClient and NRPE.";
+	std::wstring getModuleDescription() {
+		return _T("A simple server that listens for incoming NRPE connection and handles them.\nNRPE is preferred over NSClient as it is more flexible. You can of cource use both NSClient and NRPE.");
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
-	std::string getConfigurationMeta();
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	std::wstring getConfigurationMeta();
 
 private:
 	class NRPEException {
-		std::string error_;
+		std::wstring error_;
 	public:
 /*		NRPESocketException(simpleSSL::SSLException e) {
 			error_ = e.getMessage();
@@ -82,10 +82,10 @@ private:
 			error_ = e.getMessage();
 		}
 		*/
-		NRPEException(std::string s) {
+		NRPEException(std::wstring s) {
 			error_ = s;
 		}
-		std::string getMessage() {
+		std::wstring getMessage() {
 			return error_;
 		}
 	};
@@ -97,9 +97,9 @@ private:
 
 
 	NRPEPacket handlePacket(NRPEPacket p);
-	int executeNRPECommand(std::string command, std::string &msg, std::string &perf);
-	void addAllScriptsFrom(std::string path);
-	void addCommand(command_type type, strEx::blindstr key, std::string args = "") {
+	int executeNRPECommand(std::wstring command, std::wstring &msg, std::wstring &perf);
+	void addAllScriptsFrom(std::wstring path);
+	void addCommand(command_type type, strEx::blindstr key, std::wstring args = _T("")) {
 		addCommand(key, command_data(type, args));
 	}
 	void addCommand(strEx::blindstr key, command_data args) {

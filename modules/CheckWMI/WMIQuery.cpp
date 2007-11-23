@@ -38,21 +38,17 @@ WMIQuery::~WMIQuery(void)
 
 bool WMIQuery::initialize()
 {
-	NSC_LOG_ERROR_STD("Attempting Inialized WMI component");
-
 	HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	if (FAILED(hRes)) {
-		NSC_LOG_ERROR_STD("CoInitialize failed: " + error::format::from_system(hRes));
+		NSC_LOG_ERROR_STD(_T("CoInitialize failed: ") + error::format::from_system(hRes));
 		return false;
 	}
 	bInitialized = true;
 	hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
 	if (FAILED(hRes)) {
-		NSC_LOG_ERROR_STD("CoInitializeSecurity failed: " + error::format::from_system(hRes));
+		NSC_LOG_ERROR_STD(_T("CoInitializeSecurity failed: ") + error::format::from_system(hRes));
 		return false;
 	}
-
-	NSC_LOG_ERROR_STD("Inialized WMI component");
 	return true;
 }
 void WMIQuery::unInitialize()
@@ -61,7 +57,7 @@ void WMIQuery::unInitialize()
 	bInitialized = false;
 }
 
-std::string WMIQuery::sanitize_string(LPTSTR in) {
+std::wstring WMIQuery::sanitize_string(LPTSTR in) {
 	TCHAR *p = in;
 	while (*p) {
 		if (p[0] < ' ' || p[0] > '}')
@@ -71,7 +67,7 @@ std::string WMIQuery::sanitize_string(LPTSTR in) {
 	return in;
 }
 
-WMIQuery::result_type WMIQuery::execute(std::string query)
+WMIQuery::result_type WMIQuery::execute(std::wstring query)
 {
 	if (!bInitialized) {
 		initialize();
@@ -81,22 +77,22 @@ WMIQuery::result_type WMIQuery::execute(std::string query)
 	CComPtr< IWbemLocator > locator;
 	HRESULT hr = CoCreateInstance( CLSID_WbemAdministrativeLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast< void** >( &locator ) );
 	if (FAILED(hr)) {
-		throw WMIException("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!", hr);
+		throw WMIException(_T("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!"), hr);
 	}
 
-	BSTR bstrNamespace = (L"root\\cimv2");
+	BSTR bstrNamespace = (_T("root\\cimv2"));
 	CComPtr< IWbemServices > service;
 	hr = locator->ConnectServer( bstrNamespace, NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL, &service );
 	if (FAILED(hr)) {
-		throw WMIException("ConnectServer failed!", hr);
+		throw WMIException(_T("ConnectServer failed!"), hr);
 	}
 	CComBSTR strQuery(query.c_str());
-	BSTR strQL = (L"WQL");
+	BSTR strQL = _T("WQL");
 
 	CComPtr< IEnumWbemClassObject > enumerator;
 	hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator );
 	if (FAILED(hr)) {
-		throw WMIException("ExecQuery failed:" + query + " (reason is: " + ComError::getComError() + ")", hr);
+		throw WMIException(_T("ExecQuery failed:") + query + _T(" (reason is: ") + ComError::getComError() + _T(")"), hr);
 	}
 
 	CComPtr< IWbemClassObject > row = NULL;
@@ -109,7 +105,7 @@ WMIQuery::result_type WMIQuery::execute(std::string query)
 				wmi_row returnRow;
 				hr = row->GetNames(NULL,WBEM_FLAG_ALWAYS|WBEM_FLAG_NONSYSTEM_ONLY,NULL,&pstrNames);
 				if (FAILED(hr)) {
-					throw WMIException("GetNames failed:" + query, hr);
+					throw WMIException(_T("GetNames failed:") + query, hr);
 				}
 
 				long index = 0, begin, end;
@@ -119,11 +115,11 @@ WMIQuery::result_type WMIQuery::execute(std::string query)
 				for ( index = begin; index <= end; index++ ) {
 					USES_CONVERSION;
 					CComBSTR bColumn = arr.GetAt(index);
-					std::string column = OLE2T(bColumn);
+					std::wstring column = OLE2T(bColumn);
 					CComVariant vValue;
 					hr = row->Get(bColumn, 0, &vValue, 0, 0);
 					if (FAILED(hr)) {
-						throw WMIException("Failed to get value for " + column + " in query: " + query, hr);
+						throw WMIException(_T("Failed to get value for ") + column + _T(" in query: ") + query, hr);
 					}
 					WMIResult value;
 
@@ -136,11 +132,11 @@ WMIQuery::result_type WMIQuery::execute(std::string query)
 					} else if (vValue.vt == VT_BSTR) {
 						value.setString(column, OLE2T(vValue.bstrVal));
 					} else if (vValue.vt == VT_NULL) {
-						value.setString(column, "NULL");
+						value.setString(column, _T("NULL"));
 					} else if (vValue.vt == VT_BOOL) {
-						value.setBoth(column, vValue.iVal, vValue.iVal?"TRUE":"FALSE");
+						value.setBoth(column, vValue.iVal, vValue.iVal?_T("TRUE"):_T("FALSE"));
 					} else {
-						NSC_LOG_ERROR_STD(column + " is not supported (type-id: " + strEx::itos(vValue.vt) + ")");
+						NSC_LOG_ERROR_STD(column + _T(" is not supported (type-id: ") + strEx::itos(vValue.vt) + _T(")"));
 					}
 					returnRow.addValue(column, value);
 				}

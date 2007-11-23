@@ -24,8 +24,8 @@ NSC_WRAPPERS_MAIN();
 
 class FileLogger {
 private:
-	std::string file_;
-	std::string format_;
+	std::wstring file_;
+	std::wstring format_;
 
 public:
 	FileLogger();
@@ -33,25 +33,25 @@ public:
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
-	std::string getConfigurationMeta();
+	std::wstring getConfigurationMeta();
 
 
-	std::string getModuleName() {
-		return "File logger";
+	std::wstring getModuleName() {
+		return _T("File logger");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::string getModuleDescription() {
-		return "Writes errors and (if configured) debug info to a text file.";
+	std::wstring getModuleDescription() {
+		return _T("Writes errors and (if configured) debug info to a text file.");
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	void handleMessage(int msgType, char* file, int line, char* message);
-	int handleCommand(char* command, char **argument, char *returnBuffer, int returnBufferLen);
+	void handleMessage(int msgType, TCHAR* file, int line, TCHAR* message);
+	int handleCommand(TCHAR* command, TCHAR **argument, TCHAR *returnBuffer, int returnBufferLen);
 
 
-	std::string getFileName();
+	std::wstring getFileName();
 };

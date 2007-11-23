@@ -31,7 +31,7 @@
 
 CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP(NULL), m_pCurrentM(NULL), lpString(NULL)
 {
-	lpString = new CHAR[MAX_FILENAME+1];
+	lpString = new TCHAR[MAX_FILENAME+1];
 	m_hProcessSnap = INVALID_HANDLE_VALUE;
 	m_hModuleSnap = INVALID_HANDLE_VALUE;
 
@@ -44,12 +44,12 @@ CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP
 		m_cModules   = 0;
 
 		// Find PSAPI functions
-		FEnumProcesses = (PFEnumProcesses)::GetProcAddress(PSAPI, _TEXT("EnumProcesses"));
-		FEnumProcessModules = (PFEnumProcessModules)::GetProcAddress(PSAPI, _TEXT("EnumProcessModules"));
+		FEnumProcesses = (PFEnumProcesses)::GetProcAddress(PSAPI, "EnumProcesses");
+		FEnumProcessModules = (PFEnumProcessModules)::GetProcAddress(PSAPI, "EnumProcessModules");
 #ifdef UNICODE
-		FGetModuleFileNameEx = (PFGetModuleFileNameEx)::GetProcAddress(PSAPI, _TEXT("GetModuleFileNameExW"));
+		FGetModuleFileNameEx = (PFGetModuleFileNameEx)::GetProcAddress(PSAPI, "GetModuleFileNameExW");
 #else
-		FGetModuleFileNameEx = (PFGetModuleFileNameEx)::GetProcAddress(PSAPI, _TEXT("GetModuleFileNameExA"));
+		FGetModuleFileNameEx = (PFGetModuleFileNameEx)::GetProcAddress(PSAPI, "GetModuleFileNameExA");
 #endif
 	}
 
@@ -61,11 +61,11 @@ CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP
 		m_me.dwSize = sizeof(m_me);
 		// Find ToolHelp functions
 
-		FCreateToolhelp32Snapshot = (PFCreateToolhelp32Snapshot)::GetProcAddress(TOOLHELP, _TEXT("CreateToolhelp32Snapshot"));
-		FProcess32First = (PFProcess32First)::GetProcAddress(TOOLHELP, _TEXT("Process32First"));
-		FProcess32Next = (PFProcess32Next)::GetProcAddress(TOOLHELP, _TEXT("Process32Next"));
-		FModule32First = (PFModule32First)::GetProcAddress(TOOLHELP, _TEXT("Module32First"));
-		FModule32Next = (PFModule32Next)::GetProcAddress(TOOLHELP, _TEXT("Module32Next"));
+		FCreateToolhelp32Snapshot = (PFCreateToolhelp32Snapshot)::GetProcAddress(TOOLHELP, "CreateToolhelp32Snapshot");
+		FProcess32First = (PFProcess32First)::GetProcAddress(TOOLHELP, "Process32First");
+		FProcess32Next = (PFProcess32Next)::GetProcAddress(TOOLHELP, "Process32Next");
+		FModule32First = (PFModule32First)::GetProcAddress(TOOLHELP, "Module32First");
+		FModule32Next = (PFModule32Next)::GetProcAddress(TOOLHELP, "Module32Next");
 	}
 
 	// Find the preferred method of enumeration
@@ -279,7 +279,7 @@ BOOL CEnumProcess::FillPStructPSAPI(DWORD dwPID, CEnumProcess::CProcessEntry* pE
 			//Get filename
 
 			if( !FGetModuleFileNameEx( hProc, hMod, lpString, MAX_FILENAME) ) { 
-				pEntry->sFilename = "N/A (error)";
+				pEntry->sFilename = _T("N/A (error)");
 			} else {
 				pEntry->sFilename = lpString;
 			}
@@ -287,7 +287,7 @@ BOOL CEnumProcess::FillPStructPSAPI(DWORD dwPID, CEnumProcess::CProcessEntry* pE
 		CloseHandle(hProc);
 	}
 	else
-		pEntry->sFilename = "N/A (security restriction)";
+		pEntry->sFilename = _T("N/A (security restriction)");
 
 	return TRUE;
 }
@@ -300,7 +300,7 @@ BOOL CEnumProcess::FillMStructPSAPI(DWORD dwPID, HMODULE mMod, CEnumProcess::CMo
 	{
 		if( !FGetModuleFileNameEx( hProc, mMod, lpString, MAX_FILENAME) )
 		{
-			pEntry->sFilename = "N/A (error)";
+			pEntry->sFilename = _T("N/A (error)");
 		} else {
 			pEntry->sFilename = lpString;
 		}

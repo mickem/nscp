@@ -33,21 +33,21 @@ public:
 	bool unloadModule();
 
 
-	std::string getModuleName() {
-		return "Helper function";
+	std::wstring getModuleName() {
+		return _T("Helper function");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
-	std::string getModuleDescription() {
-		return "Various helper function to extend other checks.\nThis is also only supported through NRPE.";
+	std::wstring getModuleDescription() {
+		return _T("Various helper function to extend other checks.\nThis is also only supported through NRPE.");
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 
 	// Check commands
-	NSCAPI::nagiosReturn checkMultiple(const unsigned int argLen, char **char_args, std::string &message, std::string &perf);
+	NSCAPI::nagiosReturn checkMultiple(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 };

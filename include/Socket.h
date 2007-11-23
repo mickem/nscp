@@ -31,13 +31,13 @@
 namespace simpleSocket {
 	class SocketException {
 	private:
-		std::string error_;
+		std::wstring error_;
 	public:
-		SocketException(std::string error) : error_(error) {}
-		SocketException(std::string error, unsigned int errorCode) : error_(error) {
+		SocketException(std::wstring error) : error_(error) {}
+		SocketException(std::wstring error, unsigned int errorCode) : error_(error) {
 			error_ += error::format::from_system(errorCode);
 		}
-		std::string getMessage() const {
+		std::wstring getMessage() const {
 			return error_;
 		}
 
@@ -177,50 +177,50 @@ namespace simpleSocket {
 			unsigned long NoBlock = 1;
 			this->ioctlsocket(FIONBIO, &NoBlock);
 		}
-		static unsigned long inet_addr(std::string addr) {
-			return ::inet_addr(addr.c_str());
+		static unsigned long inet_addr(std::wstring addr) {
+			return ::inet_addr(strEx::wstring_to_string(addr).c_str());
 		}
-		static std::string inet_ntoa(unsigned long addr) {
+		static std::wstring inet_ntoa(unsigned long addr) {
 			struct in_addr a;
 			a.S_un.S_addr = addr;
-			return ::inet_ntoa(a);
+			return strEx::string_to_wstring(::inet_ntoa(a));
 		}
-		static std::string getHostByName(std::string ip) {
+		static std::wstring getHostByName(std::wstring ip) {
 			hostent* remoteHost;
-			remoteHost = gethostbyname(ip.c_str());
+			remoteHost = gethostbyname(strEx::wstring_to_string(ip).c_str());
 			if (remoteHost == NULL)
-				throw SocketException("gethostbyname failed for " + ip + ": ", ::WSAGetLastError());
+				throw SocketException(_T("gethostbyname failed for ") + ip + _T(": "), ::WSAGetLastError());
 			// @todo investigate it this is "correct" and dont use before!
-			return ::inet_ntoa(*reinterpret_cast<in_addr*>(remoteHost->h_addr));
+			return strEx::string_to_wstring(::inet_ntoa(*reinterpret_cast<in_addr*>(remoteHost->h_addr)));
 		}
-		static struct in_addr getHostByNameAsIN(std::string ip) {
+		static struct in_addr getHostByNameAsIN(std::wstring ip) {
 			hostent* remoteHost;
-			remoteHost = gethostbyname(ip.c_str());
+			remoteHost = gethostbyname(strEx::wstring_to_string(ip).c_str());
 			if (remoteHost == NULL)
-				throw SocketException("gethostbyname failed for " + ip + ": ", ::WSAGetLastError());
+				throw SocketException(_T("gethostbyname failed for ") + ip + _T(": "), ::WSAGetLastError());
 			if (remoteHost->h_addrtype != AF_INET) {
-				throw SocketException("gethostbyname failed for " + ip + ": ", ::WSAGetLastError());
+				throw SocketException(_T("gethostbyname failed for ") + ip + _T(": "), ::WSAGetLastError());
 			}
 			struct in_addr ret;
 			ret.S_un.S_addr = (reinterpret_cast<in_addr*>(remoteHost->h_addr_list[0]))->S_un.S_addr;
 			return ret;
 		}
-		static std::string getHostByAddr(std::string ip) {
+		static std::wstring getHostByAddr(std::wstring ip) {
 			hostent* remoteHost;
-			remoteHost = gethostbyaddr(ip.c_str(), static_cast<int>(ip.length()), AF_INET);
+			remoteHost = gethostbyaddr(strEx::wstring_to_string(ip).c_str(), static_cast<int>(ip.length()), AF_INET);
 			if (remoteHost == NULL)
-				throw SocketException("gethostbyaddr failed for " + ip + ": ", ::WSAGetLastError());
-			return remoteHost->h_name;
+				throw SocketException(_T("gethostbyaddr failed for ") + ip + _T(": "), ::WSAGetLastError());
+			return strEx::string_to_wstring(remoteHost->h_name);
 		}
-		static struct in_addr getHostByAddrAsIN(std::string ip) {
+		static struct in_addr getHostByAddrAsIN(std::wstring ip) {
 			hostent* remoteHost;
-			unsigned int addr = ::inet_addr(ip.c_str());
+			unsigned int addr = ::inet_addr(strEx::wstring_to_string(ip).c_str());
 			std::cerr << "addr: " << addr << std::endl;
 			remoteHost = ::gethostbyaddr(reinterpret_cast<char*>(&addr), 4, AF_INET);
 			if (remoteHost == NULL)
-				throw SocketException("gethostbyaddr failed for " + ip + ": ", ::WSAGetLastError());
+				throw SocketException(_T("gethostbyaddr failed for ") + ip + _T(": "), ::WSAGetLastError());
 			if (remoteHost->h_addrtype != AF_INET)
-				throw SocketException("gethostbyname returned the wrong type " + ip + ": ", ::WSAGetLastError());
+				throw SocketException(_T("gethostbyname returned the wrong type ") + ip + _T(": "), ::WSAGetLastError());
 			struct in_addr ret;
 			ret.S_un.S_addr = (reinterpret_cast<in_addr*>(remoteHost->h_addr_list[0]))->S_un.S_addr;
 			return ret;
@@ -235,12 +235,12 @@ namespace simpleSocket {
 			assert(socket_);
 			int fromlen=sizeof(from_);
 			if (::bind(socket_, (sockaddr*)&from_, fromlen) == SOCKET_ERROR)
-				throw SocketException("bind failed: ", ::WSAGetLastError());
+				throw SocketException(_T("bind failed: "), ::WSAGetLastError());
 		}
 		virtual void listen(int backlog = SOMAXCONN) {
 			assert(socket_);
 			if (::listen(socket_, backlog) == SOCKET_ERROR)
-				throw SocketException("listen failed: ", ::WSAGetLastError());
+				throw SocketException(_T("listen failed: "), ::WSAGetLastError());
 		}
 		virtual bool accept(Socket &client) {
 			int fromlen=sizeof(client.from_);
@@ -249,7 +249,7 @@ namespace simpleSocket {
 				int err = ::WSAGetLastError();
 				if (err == WSAEWOULDBLOCK)
 					return false;
-				throw SocketException("accept failed: ", ::WSAGetLastError());
+				throw SocketException(_T("accept failed: "), ::WSAGetLastError());
 			}
 			client.attach(s);
 			return true;
@@ -269,15 +269,15 @@ namespace simpleSocket {
 		virtual void ioctlsocket(long cmd, u_long *argp) {
 			assert(socket_);
 			if (::ioctlsocket(socket_, cmd, argp) == SOCKET_ERROR)
-				throw SocketException("ioctlsocket failed: ", ::WSAGetLastError());
+				throw SocketException(_T("ioctlsocket failed: "), ::WSAGetLastError());
 		}
-		virtual std::string getAddrString() {
-			return ::inet_ntoa(from_.sin_addr);
+		virtual std::wstring getAddrString() {
+			return strEx::string_to_wstring(::inet_ntoa(from_.sin_addr));
 		}
 		virtual struct in_addr getAddr() {
 			return from_.sin_addr;
 		}
-		virtual void printError(std::string file, int line, std::string error);
+		virtual void printError(std::wstring file, int line, std::wstring error);
 	};
 
 	class ListenerHandler {
@@ -350,30 +350,30 @@ namespace simpleSocket {
 			void exitThread(void) {
 				assert(hStopEvent_ != NULL);
 				if (!SetEvent(hStopEvent_))
-					throw new SocketException("SetEvent failed.");
+					throw new SocketException(_T("SetEvent failed."));
 			}
 		};
 	private:
 		ListenerHandler *pHandler_;
 
 	public:
-		Listener() : pHandler_(NULL), bindPort_(0), bindAddres_(INADDR_ANY), listenQue_(0), threadManager_("listenThreadManager") {};
+		Listener() : pHandler_(NULL), bindPort_(0), bindAddres_(INADDR_ANY), listenQue_(0), threadManager_(_T("listenThreadManager")) {};
 		virtual ~Listener() {
 			if (responderList_.size() > 0) {
 				MutexLock lock(responderMutex_);
 				if (!lock.hasMutex()) {
-					printError(__FILE__, __LINE__, "Failed to get responder mutex (cannot terminate socket threads).");
+					printError(_T(__FILE__), __LINE__, _T("Failed to get responder mutex (cannot terminate socket threads)."));
 				} else {
 					for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end(); ++it) {
 						if (WaitForSingleObject( (*it).hThread, 1000) == WAIT_OBJECT_0) {
 						} else {
 							if (!TerminateThread((*it).hThread, -1)) {
-								printError(__FILE__, __LINE__, "We failed to terminate check thread.");
+								printError(_T(__FILE__), __LINE__, _T("We failed to terminate check thread."));
 							} else {
 								if (WaitForSingleObject( (*it).hThread, 5000) == WAIT_OBJECT_0) {
 									CloseHandle((*it).hThread);
 								} else {
-									printError(__FILE__, __LINE__, "We failed to terminate check thread (wait timed out).");
+									printError(_T(__FILE__), __LINE__, _T("We failed to terminate check thread (wait timed out)."));
 								}
 							}
 						}
@@ -396,12 +396,12 @@ namespace simpleSocket {
 						return t->hasThread();
 				}
 			} catch (ThreadException e) {
-				printError(__FILE__, __LINE__, "Could not access listener thread!");
+				printError(_T(__FILE__), __LINE__, _T("Could not access listener thread!"));
 				return false;
 			}
 			return false;
 		}
-		virtual void StartListener(std::string host, int port, int queLength) {
+		virtual void StartListener(std::wstring host, int port, int queLength) {
 			bindPort_ = port;
 			if (!host.empty())
 				bindAddres_ = TListenerType::inet_addr(host);
@@ -415,11 +415,11 @@ namespace simpleSocket {
 				if (threadManager_.hasActiveThread())
 					if (!threadManager_.exitThread()) {
 						tBase::close();
-						throw new SocketException("Could not terminate thread.");
+						throw new SocketException(_T("Could not terminate thread."));
 					}
 			} catch (ThreadException e) {
 				tBase::close();
-				throw new SocketException("Could not terminate thread (got exception in thread).");
+				throw new SocketException(_T("Could not terminate thread (got exception in thread)."));
 			}
 			tBase::close();
 		}
@@ -428,7 +428,7 @@ namespace simpleSocket {
 		}
 		void removeHandler(ListenerHandler* pHandler) {
 			if (pHandler != pHandler_)
-				throw SocketException("Not a registered handler!");
+				throw SocketException(_T("Not a registered handler!"));
 			pHandler_ = NULL;
 		}
 		static unsigned __stdcall socketResponceProc(void* lpParameter);
@@ -439,7 +439,7 @@ namespace simpleSocket {
 		void addResponder(tSocket *client) {
 			MutexLock lock(responderMutex_);
 			if (!lock.hasMutex()) {
-				printError(__FILE__, __LINE__, "Failed to get responder mutex.");
+				printError(_T(__FILE__), __LINE__, _T("Failed to get responder mutex."));
 				return;
 			}
 			for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end();) {
@@ -463,7 +463,7 @@ namespace simpleSocket {
 		bool removeResponder(DWORD dwThreadID) {
 			MutexLock lock(responderMutex_);
 			if (!lock.hasMutex()) {
-				printError(__FILE__, __LINE__, "Failed to get responder mutex when trying to free thread.");
+				printError(_T(__FILE__), __LINE__, _T("Failed to get responder mutex when trying to free thread."));
 				return false;
 			}
 			for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end(); ++it) {
@@ -472,7 +472,7 @@ namespace simpleSocket {
 					return true;
 				}
 			}
-			printError(__FILE__, __LINE__, "Failed to remove soket-responder.");
+			printError(_T(__FILE__), __LINE__, _T("Failed to remove socket-responder."));
 			return false;
 		}
 
@@ -508,12 +508,12 @@ unsigned simpleSocket::Listener<TListenerType, TSocketType>::socketResponceProc(
 	try {
 		pCore->onAccept(client);
 	} catch (SocketException e) {
-		pCore->printError(__FILE__, __LINE__, e.getMessage() + " killing socket...");
+		pCore->printError(_T(__FILE__), __LINE__, e.getMessage() + _T(" killing socket..."));
 	}
 	client->close();
 	delete client;
 	if (!pCore->removeResponder(GetCurrentThreadId())) {
-		pCore->printError(__FILE__, __LINE__, "Could not remove thread: " + strEx::itos(GetCurrentThreadId()));
+		pCore->printError(_T(__FILE__), __LINE__, _T("Could not remove thread: ") + strEx::itos(GetCurrentThreadId()));
 	}
 	_endthreadex(0);
 	return 0;
@@ -527,7 +527,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 
 	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!hStopEvent_) {
-		core->printError(__FILE__, __LINE__, "Create StopEvent failed: " + error::lookup::last_error());
+		core->printError(_T(__FILE__), __LINE__, _T("Create StopEvent failed: ") + error::lookup::last_error());
 		return 0;
 	}
 
@@ -535,7 +535,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		core->socket(AF_INET,SOCK_STREAM,0);
 		core->setAddr(AF_INET, core->bindAddres_, htons(core->bindPort_));
 		core->bind();
-		NSC_DEBUG_MSG_STD("Bound to: " + TListenerType::inet_ntoa(core->bindAddres_) + ":" + strEx::itos(core->bindPort_));
+		NSC_DEBUG_MSG_STD(_T("Bound to: ") + TListenerType::inet_ntoa(core->bindAddres_) + _T(":") + strEx::itos(core->bindPort_));
 		if (core->listenQue_ != 0)
 			core->listen(core->listenQue_);
 		else
@@ -549,20 +549,20 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 					core->addResponder(new tSocket(client));
 				}
 			} catch (SocketException e) {
-				core->printError(__FILE__, __LINE__, e.getMessage() + ", attempting to resume...");
+				core->printError(_T(__FILE__), __LINE__, e.getMessage() + _T(", attempting to resume..."));
 			}
 		}
 	} catch (SocketException e) {
-		core->printError(__FILE__, __LINE__, e.getMessage());
+		core->printError(_T(__FILE__), __LINE__, e.getMessage());
 	}
-	NSC_DEBUG_MSG_STD("Listener is preparing to shutdown...");
+	NSC_DEBUG_MSG_STD(_T("Listener is preparing to shutdown..."));
 	core->shutdown(SD_BOTH);
 	core->close();
 	core->onClose();
 	HANDLE hTmp = hStopEvent_;
 	hStopEvent_ = NULL;
 	if (!CloseHandle(hTmp)) {
-		core->printError(__FILE__, __LINE__, "CloseHandle StopEvent failed: " + error::lookup::last_error());
+		core->printError(_T(__FILE__), __LINE__, _T("CloseHandle StopEvent failed: ") + error::lookup::last_error());
 	}
 	return 0;
 }
@@ -573,9 +573,9 @@ namespace socketHelpers {
 	class allowedHosts {
 		struct host_record {
 			host_record() : mask(0) {}
-			host_record(std::string r) : mask(0), record(r) {}
-			std::string record;
-			std::string host;
+			host_record(std::wstring r) : mask(0), record(r) {}
+			std::wstring record;
+			std::wstring host;
 			u_long in_addr;
 			unsigned long mask;
 		};
@@ -587,11 +587,11 @@ namespace socketHelpers {
 	public:
 		allowedHosts() : cachedAddresses_(true) {}
 
-		unsigned int lookupMask(std::string mask) {
+		unsigned int lookupMask(std::wstring mask) {
 			unsigned int masklen = 32;
 			if (!mask.empty()) {
-				std::string::size_type pos = mask.find_first_of("0123456789");
-				if (pos != std::string::npos) {
+				std::wstring::size_type pos = mask.find_first_of(_T("0123456789"));
+				if (pos != std::wstring::npos) {
 					masklen = strEx::stoi(mask.substr(pos));
 				}
 			}
@@ -601,13 +601,13 @@ namespace socketHelpers {
 		}
 		void lookupList() {
 			for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
-				std::string record = (*it).record;
+				std::wstring record = (*it).record;
 				if (record.length() > 0) {
 					try {
-						std::string::size_type pos = record.find('/');
-						if (pos == std::string::npos) {
+						std::wstring::size_type pos = record.find('/');
+						if (pos == std::wstring::npos) {
 							(*it).host = record;
-							(*it).mask = lookupMask("");
+							(*it).mask = lookupMask(_T(""));
 						} else {
 							(*it).host = record.substr(0, pos);
 							(*it).mask = lookupMask(record.substr(pos));
@@ -615,7 +615,7 @@ namespace socketHelpers {
 						if (isalpha((*it).host[0]))
 							(*it).in_addr = simpleSocket::Socket::getHostByNameAsIN((*it).host).S_un.S_addr;
 						else
-							(*it).in_addr = ::inet_addr((*it).host.c_str()); // simpleSocket::Socket::getHostByAddrAsIN((*it).host);
+							(*it).in_addr = ::inet_addr(strEx::wstring_to_string((*it).host).c_str()); // simpleSocket::Socket::getHostByAddrAsIN((*it).host);
 						/*
 						std::cerr << "Added: " 
 							+ simpleSocket::Socket::inet_ntoa((*it).in_addr)
@@ -626,14 +626,14 @@ namespace socketHelpers {
 							std::endl;
 							*/
 					} catch (simpleSocket::SocketException e) {
-						std::cerr << "Filed to lokup host: " << e.getMessage() << std::endl;
+						std::wcerr << _T("Filed to lookup host: ") << e.getMessage() << std::endl;
 					}
 				}
 			}
 		}
 
-		void setAllowedHosts(const std::list<std::string> list, bool cachedAddresses) {
-			for (std::list<std::string>::const_iterator it = list.begin(); it != list.end(); ++it) {
+		void setAllowedHosts(const std::list<std::wstring> list, bool cachedAddresses) {
+			for (std::list<std::wstring>::const_iterator it = list.begin(); it != list.end(); ++it) {
 				allowedHosts_.push_back(host_record(*it));
 			}
 			cachedAddresses_ = cachedAddresses;

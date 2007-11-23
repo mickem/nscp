@@ -54,7 +54,7 @@ public:
 
 	struct CProcessEntry
 	{
-		std::string sFilename;
+		std::wstring sFilename;
 		DWORD  dwPID;
 		WORD   hTask16;
 		// Constructors/Destructors
@@ -65,7 +65,7 @@ public:
 
 	struct CModuleEntry
 	{
-		std::string sFilename;
+		std::wstring sFilename;
 		PVOID pLoadBase;
 		PVOID pPreferredBase;
 		// Constructors/Destructors
@@ -118,7 +118,7 @@ protected:
 	PFProcess32Next  FProcess32Next;
 	PFModule32First  FModule32First;
 	PFModule32Next   FModule32Next;   
-	LPSTR lpString;
+	LPTSTR lpString;
 
 };
 

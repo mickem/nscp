@@ -12,7 +12,7 @@
 class REGSettings : public TSettings
 {
 public:
-	typedef std::list<std::string> sectionList;
+	typedef std::list<std::wstring> sectionList;
 	REGSettings(void)
 	{
 	}
@@ -22,11 +22,11 @@ public:
 	}
 
 	static bool hasSettings() {
-		return getInt_(NS_HKEY_ROOT, NS_REG_ROOT "\\" MAIN_SECTION_TITLE, MAIN_USEREG, 0) == 1;
+		return getInt_(NS_HKEY_ROOT, NS_REG_ROOT _T("\\") MAIN_SECTION_TITLE, MAIN_USEREG, 0) == 1;
 	}
 
-	std::string getActiveType() {
-		return "registry";
+	std::wstring getActiveType() {
+		return _T("registry");
 	}
 
 	sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
@@ -38,8 +38,8 @@ public:
 	* @param section The section to return all keys from
 	* @return A list with all keys from the section
 	*/
-	sectionList getSection(std::string section, unsigned int bufferLength = BUFF_LEN) {
-		return getValues_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str());
+	sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
+		return getValues_(NS_HKEY_ROOT, std::wstring((std::wstring)NS_REG_ROOT + _T("\\") + section).c_str());
 	}
 	/**
 	* Get a string from the settings file
@@ -48,12 +48,12 @@ public:
 	* @param defaultValue Default value to return if key is not found
 	* @return The value or defaultValue if the key is not found
 	*/
-	std::string getString(std::string section, std::string key, std::string defaultValue = "") const {
-		return getString_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str(), key.c_str(), defaultValue);
+	std::wstring getString(std::wstring section, std::wstring key, std::wstring defaultValue = _T("")) const {
+		return getString_(NS_HKEY_ROOT, std::wstring((std::wstring)NS_REG_ROOT + _T("\\") + section).c_str(), key.c_str(), defaultValue);
 	}
 
-	void setString(std::string section, std::string key, std::string value) {
-		setString_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str(), key.c_str(), value.c_str());
+	void setString(std::wstring section, std::wstring key, std::wstring value) {
+		setString_(NS_HKEY_ROOT, std::wstring((std::wstring)NS_REG_ROOT + _T("\\") + section).c_str(), key.c_str(), value.c_str());
 	}
 
 	/**
@@ -63,11 +63,11 @@ public:
 	* @param defaultValue Default value to return if key is not found
 	* @return The value or defaultValue if the key is not found
 	*/
-	int getInt(std::string section, std::string key, int defaultValue = 0) {
-		return getInt_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str(), key.c_str(), defaultValue);
+	int getInt(std::wstring section, std::wstring key, int defaultValue = 0) {
+		return getInt_(NS_HKEY_ROOT, std::wstring((std::wstring)NS_REG_ROOT + _T("\\") + section).c_str(), key.c_str(), defaultValue);
 	}
-	void setInt(std::string section, std::string key, int value) {
-		setInt_(NS_HKEY_ROOT, std::string((std::string)NS_REG_ROOT + "\\" + section).c_str(), key.c_str(), value);
+	void setInt(std::wstring section, std::wstring key, int value) {
+		setInt_(NS_HKEY_ROOT, std::wstring((std::wstring)NS_REG_ROOT + _T("\\") + section).c_str(), key.c_str(), value);
 	}
 
 	static bool setString_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, LPCTSTR value) {
@@ -75,9 +75,9 @@ public:
 		if (RegCreateKeyEx(hKey, lpszPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL) != ERROR_SUCCESS) {
 			return false;
 		}
-		DWORD cbData = static_cast<DWORD>(strlen(value));
+		DWORD cbData = static_cast<DWORD>(wcslen(value));
 		BYTE *bData = new BYTE[cbData+1];
-		strncpy_s(reinterpret_cast<char*>(bData), cbData+1, value, cbData);
+		wcsncpy_s(reinterpret_cast<TCHAR*>(bData), cbData+1, value, cbData);
 		BOOL bRet = RegSetValueEx(hTemp, lpszKey, NULL, REG_SZ, bData, cbData);
 		RegCloseKey(hTemp);
 		delete [] bData;
@@ -101,8 +101,8 @@ public:
 		return  (bRet == ERROR_SUCCESS);
 	}
 
-	static std::string getString_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, std::string def) {
-		std::string ret = def;
+	static std::wstring getString_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, std::wstring def) {
+		std::wstring ret = def;
 		HKEY hTemp;
 		if (RegOpenKeyEx(hKey, lpszPath, 0, KEY_QUERY_VALUE, &hTemp) != ERROR_SUCCESS) {
 			return def;
@@ -118,18 +118,18 @@ public:
 					bData[cbData] = 0;
 					ret = reinterpret_cast<LPCTSTR>(bData);
 				} else {
-					std::cout << "getString_::Buffersize to small: " << lpszPath << "." << lpszKey << ": " << type << std::endl;
+					std::cout << _T("getString_::Buffersize to small: ") << lpszPath << "." << lpszKey << ": " << type << std::endl;
 				}
 			} else if (type == REG_DWORD) {
 				DWORD dw = *(reinterpret_cast<DWORD*>(bData));
 				ret = strEx::itos(dw);
 			} else {
-				std::cout << "getString_::Unsupported type: " << lpszPath << "." << lpszKey << ": " << type << std::endl;
+				std::cout << _T("getString_::Unsupported type: ") << lpszPath << "." << lpszKey << ": " << type << std::endl;
 			}
 		} else if (lRet == ERROR_FILE_NOT_FOUND) {
 			return def;
 		} else {
-			std::cout << "getString_::Error: " << lpszPath << "." << lpszKey << ": " << error::format::from_system(lRet) << std::endl;
+			std::wcout << _T("getString_::Error: ") << lpszPath << _T(".") << lpszKey << _T(": ") << error::format::from_system(lRet) << std::endl;
 		}
 		RegCloseKey(hTemp);
 		delete [] bData;
@@ -174,9 +174,9 @@ public:
 				DWORD len = cMaxValLen;
 				bRet = RegEnumValue(hTemp, i, lpValueName, &len, NULL, NULL, NULL, NULL);
 				if (bRet == ERROR_SUCCESS) {
-					ret.push_back(std::string(lpValueName));
+					ret.push_back(std::wstring(lpValueName));
 				} else {
-					std::cout << "getValues_::Error: " << bRet << ": " << lpszPath << "[" << i << "]" << std::endl;
+					std::cout << _T("getValues_::Error: ") << bRet << ": " << lpszPath << _T("[") << i << _T("]") << std::endl;
 
 				}
 			}
@@ -202,9 +202,9 @@ public:
 				DWORD len = cMaxKeyLen;
 				bRet = RegEnumKey(hTemp, i, lpValueName, len);
 				if (bRet == ERROR_SUCCESS) {
-					ret.push_back(std::string(lpValueName));
+					ret.push_back(std::wstring(lpValueName));
 				} else {
-					std::cout << "getSubKeys_::Error: " << bRet << ": " << lpszPath << "[" << i << "]" << std::endl;
+					std::cout << _T("getSubKeys_::Error: ") << bRet << _T(": ") << lpszPath << _T("[") << i << _T("]") << std::endl;
 				}
 			}
 			delete [] lpValueName;

@@ -70,8 +70,8 @@ public:
 	inline __int64 timeWritten() const {
 		return (currentTime_-pevlr_->TimeWritten)*1000;
 	}
-	inline std::string eventSource() const {
-		return reinterpret_cast<LPSTR>(reinterpret_cast<LPBYTE>(pevlr_) + sizeof(EVENTLOGRECORD));
+	inline std::wstring eventSource() const {
+		return reinterpret_cast<WCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + sizeof(EVENTLOGRECORD));
 	}
 	inline DWORD eventID() const {
 		return (pevlr_->EventID&0xffff);
@@ -84,7 +84,7 @@ public:
 		return pevlr_->EventType;
 	}
 /*
-	std::string userSID() const {
+	std::wstring userSID() const {
 		if (pevlr_->UserSidOffset == 0)
 			return "";
 		PSID p = reinterpret_cast<PSID>(reinterpret_cast<LPBYTE>(pevlr_) + + pevlr_->UserSidOffset);
@@ -96,85 +96,85 @@ public:
 		LookupAccountSid(NULL, p, user, &userLen, domain, &domainLen, &sidName);
 		user[userLen] = 0;
 		domain[domainLen] = 0;
-		return std::string(domain) + "\\" + std::string(user);
+		return std::wstring(domain) + "\\" + std::wstring(user);
 	}
 	*/
 
-	std::string enumStrings() const {
-		std::string ret;
-		LPSTR p = reinterpret_cast<LPSTR>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
+	std::wstring enumStrings() const {
+		std::wstring ret;
+		TCHAR* p = reinterpret_cast<TCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
 		for (unsigned int i =0;i<pevlr_->NumStrings;i++) {
-			std::string s = p;
+			std::wstring s = p;
 			if (!s.empty())
-				s += ", ";
+				s += _T(", ");
 			ret += s;
-			p+= strlen(p)+1;
+			p+= wcslen(p)+1;
 		}
 		return ret;
 	}
 
-	static DWORD appendType(DWORD dwType, std::string sType) {
+	static DWORD appendType(DWORD dwType, std::wstring sType) {
 		return dwType | translateType(sType);
 	}
-	static DWORD subtractType(DWORD dwType, std::string sType) {
+	static DWORD subtractType(DWORD dwType, std::wstring sType) {
 		return dwType & (!translateType(sType));
 	}
-	static DWORD translateType(std::string sType) {
-		if (sType == "error")
+	static DWORD translateType(std::wstring sType) {
+		if (sType == _T("error"))
 			return EVENTLOG_ERROR_TYPE;
-		if (sType == "warning")
+		if (sType == _T("warning"))
 			return EVENTLOG_WARNING_TYPE;
-		if (sType == "info")
+		if (sType == _T("info"))
 			return EVENTLOG_INFORMATION_TYPE;
-		if (sType == "auditSuccess")
+		if (sType == _T("auditSuccess"))
 			return EVENTLOG_AUDIT_SUCCESS;
-		if (sType == "auditFailure")
+		if (sType == _T("auditFailure"))
 			return EVENTLOG_AUDIT_FAILURE;
 		return strEx::stoi(sType);
 	}
-	static std::string translateType(DWORD dwType) {
+	static std::wstring translateType(DWORD dwType) {
 		if (dwType == EVENTLOG_ERROR_TYPE)
-			return "error";
+			return _T("error");
 		if (dwType == EVENTLOG_WARNING_TYPE)
-			return "warning";
+			return _T("warning");
 		if (dwType == EVENTLOG_INFORMATION_TYPE)
-			return "info";
+			return _T("info");
 		if (dwType == EVENTLOG_AUDIT_SUCCESS)
-			return "auditSuccess";
+			return _T("auditSuccess");
 		if (dwType == EVENTLOG_AUDIT_FAILURE)
-			return "auditFailure";
+			return _T("auditFailure");
 		return strEx::itos(dwType);
 	}
-	static DWORD translateSeverity(std::string sType) {
-		if (sType == "success")
+	static DWORD translateSeverity(std::wstring sType) {
+		if (sType == _T("success"))
 			return 0;
-		if (sType == "informational")
+		if (sType == _T("informational"))
 			return 1;
-		if (sType == "warning")
+		if (sType == _T("warning"))
 			return 2;
-		if (sType == "error")
+		if (sType == _T("error"))
 			return 3;
 		return strEx::stoi(sType);
 	}
-	static std::string translateSeverity(DWORD dwType) {
+	static std::wstring translateSeverity(DWORD dwType) {
 		if (dwType == 0)
-			return "success";
+			return _T("success");
 		if (dwType == 1)
-			return "informational";
+			return _T("informational");
 		if (dwType == 2)
-			return "warning";
+			return _T("warning");
 		if (dwType == 3)
-			return "error";
+			return _T("error");
 		return strEx::itos(dwType);
 	}
-	std::string render(std::string syntax) {
-		strEx::replace(syntax, "%source%", eventSource());
-		strEx::replace(syntax, "%generated%", strEx::format_date(pevlr_->TimeGenerated, DATE_FORMAT));
-		strEx::replace(syntax, "%written%", strEx::format_date(pevlr_->TimeWritten, DATE_FORMAT));
-		strEx::replace(syntax, "%type%", translateType(eventType()));
-		strEx::replace(syntax, "%severity%", translateSeverity(severity()));
-		strEx::replace(syntax, "%strings%", enumStrings());
-		strEx::replace(syntax, "%id%", strEx::itos(eventID()));
+	std::wstring render(std::wstring syntax) {
+		strEx::replace(syntax, _T("%source%"), eventSource());
+		strEx::replace(syntax, _T("%generated%"), strEx::format_date(pevlr_->TimeGenerated, DATE_FORMAT));
+		strEx::replace(syntax, _T("%written%"), strEx::format_date(pevlr_->TimeWritten, DATE_FORMAT));
+		strEx::replace(syntax, _T("%type%"), translateType(eventType()));
+		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
+		strEx::replace(syntax, _T("%strings%"), enumStrings());
+		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));
 		return syntax;
 	}
 };
@@ -218,16 +218,17 @@ struct eventlog_filter {
 
 
 #define BUFFER_SIZE 1024*64
-NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, char **char_args, std::string &message, std::string &perf) {
-	if (command != "CheckEventLog")
+NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+	NSC_DEBUG_MSG_STD(_T("000-1")) ;
+	if (command != _T("CheckEventLog"))
 		return NSCAPI::returnIgnored;
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsULongInteger> EventLogQueryConatiner;
 	typedef std::pair<int,eventlog_filter> filteritem_type;
 	typedef std::list<filteritem_type > filterlist_type;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::string> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 
-	std::list<std::string> files;
+	std::list<std::wstring> files;
 	filterlist_type filter_chain;
 	EventLogQueryConatiner query;
 
@@ -237,24 +238,25 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	bool bFilterNew = false;
 	bool bShowDescriptions = false;
 	unsigned int truncate = 0;
-	std::string syntax;
+	std::wstring syntax;
 	const int filter_plus = 1;
 	const int filter_minus = 2;
 	const int filter_normal = 3;
 	const int filter_compat = 3;
+	NSC_DEBUG_MSG_STD(_T("000") + message) ;
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
-			MAP_OPTIONS_NUMERIC_ALL(query, "")
-			MAP_OPTIONS_STR2INT("truncate", truncate)
-			MAP_OPTIONS_BOOL_TRUE("descriptions", bShowDescriptions)
-			MAP_OPTIONS_PUSH("file", files)
+			MAP_OPTIONS_NUMERIC_ALL(query, _T(""))
+			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
+			MAP_OPTIONS_BOOL_TRUE(_T("descriptions"), bShowDescriptions)
+			MAP_OPTIONS_PUSH(_T("file"), files)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_BOOL_EX("filter", bFilterNew, "new", "old")
-			MAP_OPTIONS_BOOL_EX("filter", bFilterIn, "in", "out")
-			MAP_OPTIONS_BOOL_EX("filter", bFilterAll, "all", "any")
-			MAP_OPTIONS_STR("syntax", syntax)
-/*
+			MAP_OPTIONS_BOOL_EX(_T("filter"), bFilterNew, _T("new"), _T("old"))
+			MAP_OPTIONS_BOOL_EX(_T("filter"), bFilterIn, _T("in"), _T("out"))
+			MAP_OPTIONS_BOOL_EX(_T("filter"), bFilterAll, _T("all"), _T("any"))
+			MAP_OPTIONS_STR(_T("syntax"), syntax)
+			/*
 			MAP_FILTER_OLD("filter-eventType", eventType)
 			MAP_FILTER_OLD("filter-severity", eventSeverity)
 			MAP_FILTER_OLD("filter-eventID", eventID)
@@ -263,32 +265,32 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			MAP_FILTER_OLD("filter-written", timeWritten)
 			MAP_FILTER_OLD("filter-message", message)
 */
-			MAP_FILTER("filter+eventType", eventType, filter_plus)
-			MAP_FILTER("filter+severity", eventSeverity, filter_plus)
-			MAP_FILTER("filter+eventID", eventID, filter_plus)
-			MAP_FILTER("filter+eventSource", eventSource, filter_plus)
-			MAP_FILTER("filter+generated", timeGenerated, filter_plus)
-			MAP_FILTER("filter+written", timeWritten, filter_plus)
-			MAP_FILTER("filter+message", message, filter_plus)
+			MAP_FILTER(_T("filter+eventType"), eventType, filter_plus)
+			MAP_FILTER(_T("filter+severity"), eventSeverity, filter_plus)
+			MAP_FILTER(_T("filter+eventID"), eventID, filter_plus)
+			MAP_FILTER(_T("filter+eventSource"), eventSource, filter_plus)
+			MAP_FILTER(_T("filter+generated"), timeGenerated, filter_plus)
+			MAP_FILTER(_T("filter+written"), timeWritten, filter_plus)
+			MAP_FILTER(_T("filter+message"), message, filter_plus)
 
-			MAP_FILTER("filter.eventType", eventType, filter_normal)
-			MAP_FILTER("filter.severity", eventSeverity, filter_normal)
-			MAP_FILTER("filter.eventID", eventID, filter_normal)
-			MAP_FILTER("filter.eventSource", eventSource, filter_normal)
-			MAP_FILTER("filter.generated", timeGenerated, filter_normal)
-			MAP_FILTER("filter.written", timeWritten, filter_normal)
-			MAP_FILTER("filter.message", message, filter_normal)
+			MAP_FILTER(_T("filter.eventType"), eventType, filter_normal)
+			MAP_FILTER(_T("filter.severity"), eventSeverity, filter_normal)
+			MAP_FILTER(_T("filter.eventID"), eventID, filter_normal)
+			MAP_FILTER(_T("filter.eventSource"), eventSource, filter_normal)
+			MAP_FILTER(_T("filter.generated"), timeGenerated, filter_normal)
+			MAP_FILTER(_T("filter.written"), timeWritten, filter_normal)
+			MAP_FILTER(_T("filter.message"), message, filter_normal)
 
-			MAP_FILTER("filter-eventType", eventType, filter_minus)
-			MAP_FILTER("filter-severity", eventSeverity, filter_minus)
-			MAP_FILTER("filter-eventID", eventID, filter_minus)
-			MAP_FILTER("filter-eventSource", eventSource, filter_minus)
-			MAP_FILTER("filter-generated", timeGenerated, filter_minus)
-			MAP_FILTER("filter-written", timeWritten, filter_minus)
-			MAP_FILTER("filter-message", message, filter_minus)
+			MAP_FILTER(_T("filter-eventType"), eventType, filter_minus)
+			MAP_FILTER(_T("filter-severity"), eventSeverity, filter_minus)
+			MAP_FILTER(_T("filter-eventID"), eventID, filter_minus)
+			MAP_FILTER(_T("filter-eventSource"), eventSource, filter_minus)
+			MAP_FILTER(_T("filter-generated"), timeGenerated, filter_minus)
+			MAP_FILTER(_T("filter-written"), timeWritten, filter_minus)
+			MAP_FILTER(_T("filter-message"), message, filter_minus)
 
-			MAP_OPTIONS_MISSING(message, "Unknown argument: ")
-		MAP_OPTIONS_END()
+			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
+			MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
 		message = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
@@ -296,13 +298,14 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		message = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
 	}
+		NSC_DEBUG_MSG_STD(_T("001") + message) ;
 
 	unsigned long int hit_count = 0;
 
-	for (std::list<std::string>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
+	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
 		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
 		if (hLog == NULL) {
-			message = "Could not open the '" + (*cit2) + "' event log: " + error::lookup::last_error();
+			message = _T("Could not open the '") + (*cit2) + _T("' event log: ") + error::lookup::last_error();
 			return NSCAPI::returnUNKNOWN;
 		}
 
@@ -327,7 +330,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				EventLogRecord record(pevlr, ltime);
 
 				if (filter_chain.empty()) {
-					message = "No filters specified.";
+					message = _T("No filters specified.");
 					return NSCAPI::returnUNKNOWN;
 				}
 
@@ -375,9 +378,9 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 						strEx::append_list(message, record.eventSource());
 					} else {
 						strEx::append_list(message, record.eventSource());
-						message += "(" + EventLogRecord::translateType(record.eventType()) + ", " + 
-							strEx::itos(record.eventID()) + ", " + EventLogRecord::translateSeverity(record.severity()) + ")";
-						message += "[" + record.enumStrings() + "]";
+						message += _T("(") + EventLogRecord::translateType(record.eventType()) + _T(", ") + 
+							strEx::itos(record.eventID()) + _T(", ") + EventLogRecord::translateSeverity(record.severity()) + _T(")");
+						message += _T("[") + record.enumStrings() + _T("]");
 					}
 					hit_count++;
 				}
@@ -393,9 +396,10 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		query.perfData = false;
 	query.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
-		message = message.substr(0, truncate-4) + "...";
+		message = message.substr(0, truncate-4) + _T("...");
 	if (message.empty())
-		message = "Eventlog check ok";
+		message = _T("Eventlog check ok");
+	NSC_DEBUG_MSG_STD(_T("Result: ") + message) ;
 	return returnCode;
 }
 
