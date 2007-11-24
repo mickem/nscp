@@ -164,7 +164,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[token_list.size()];
 	argLen=0;
 	for (std::list<std::wstring>::const_iterator cit=token_list.begin();cit!=token_list.end();++cit) {
-		unsigned int len = (*cit).size();
+		size_t len = (*cit).size();
 		TCHAR* token = new TCHAR[len+1];
 		wcsncpy_s(token, len+1, (*cit).c_str(), len);
 		arrayBuffer[argLen++] = token;

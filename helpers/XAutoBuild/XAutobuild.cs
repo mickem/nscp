@@ -160,9 +160,9 @@ namespace XAutoBuild
 			xabfile.WriteLine("#define INCREMENT_VERSION {0}", auto);
 			xabfile.WriteLine("#define FILEVER        {0},{1},{2},{3}", _filever[0], _filever[1], _filever[2], _filever[3]);
 			xabfile.WriteLine("#define PRODUCTVER     {0},{1},{2},{3}", _productver[0], _productver[1], _productver[2], _productver[3]);
-			xabfile.WriteLine("#define STRFILEVER     \"{0}.{1}.{2}.{3}\"", _filever[0], _filever[1], _filever[2], _filever[3]);
-			xabfile.WriteLine("#define STRPRODUCTVER  \"{0}.{1}.{2}.{3}\"", _productver[0], _productver[1], _productver[2], _productver[3]);
-            xabfile.WriteLine("#define STRPRODUCTDATE  \"{0}\"", DateTime.Now.ToString("yyyy-MM-dd"));
+            xabfile.WriteLine("#define STRFILEVER     _T(\"{0}.{1}.{2}.{3}\")", _filever[0], _filever[1], _filever[2], _filever[3]);
+            xabfile.WriteLine("#define STRPRODUCTVER  _T(\"{0}.{1}.{2}.{3}\")", _productver[0], _productver[1], _productver[2], _productver[3]);
+            xabfile.WriteLine("#define STRPRODUCTDATE  _T(\"{0}\")", DateTime.Now.ToString("yyyy-MM-dd"));
 			xabfile.WriteLine("#endif // AUTOBUILD_H");
 
 			xabfile.Close();

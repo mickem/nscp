@@ -64,7 +64,7 @@ bool FileLogger::hasMessageHandler() {
 	return true;
 }
 void FileLogger::handleMessage(int msgType, TCHAR* file, int line, TCHAR* message) {
-	TCHAR buffer[64];
+	TCHAR buffer[65];
 	std::wofstream stream(file_.c_str(), std::ios::app);
 	__time64_t ltime;
 	_time64( &ltime );
@@ -72,11 +72,11 @@ void FileLogger::handleMessage(int msgType, TCHAR* file, int line, TCHAR* messag
 	if (today) {
 		size_t len = wcsftime(buffer, 63, format_.c_str(), today);
 		if ((len < 1)||(len > 64))
-			wcsncpy(buffer, _T("???"), 63);
+			wcsncpy_s(buffer, 64, _T("???"), 63);
 		else
 			buffer[len] = 0;
 	} else {
-		wcsncpy(buffer, _T("???"), 63);
+		wcsncpy_s(buffer, 64, _T("???"), 63);
 	}
 	stream << buffer << _T(": ") << NSCHelper::translateMessageType(msgType) << _T(":") << file << _T(":") << line << _T(": ") << message << std::endl;
 }
@@ -89,7 +89,8 @@ NSC_WRAPPERS_HANDLE_CONFIGURATION(gFileLogger);
 
 
 
-MODULE_SETTINGS_START(FileLogger, _T("File logger configuration")),PAGE(_T("Filelogger"))
+MODULE_SETTINGS_START(FileLogger, _T("File logger configuration"),_T("..."))
+PAGE(_T("Filelogger"))
 
 ITEM_CHECK_BOOL(_T("Log debug messages"), _T("Enable this to log debug messages (when running with /test debuglog is always enabled)"))
 ITEM_MAP_TO(_T("basic_ini_text_mapper"))

@@ -62,7 +62,7 @@ namespace strEx {
 		return buf ; 
 	}
 	inline std::string wstring_to_string( const std::wstring& str ) {
-		return wstring_to_string(str.c_str(), str.length());
+		return wstring_to_string(str.c_str(), static_cast<int>(str.length()));
 	}
 
 	inline std::wstring string_to_wstring( const char* pStr , int len ) {
@@ -85,7 +85,7 @@ namespace strEx {
 		return buf ;
 	}
 	inline std::wstring string_to_wstring( const std::string& str ) {
-		return string_to_wstring(str.c_str(),str.length()) ;
+		return string_to_wstring(str.c_str(), static_cast<int>(str.length())) ;
 	}
 
 	inline std::wstring format_date(time_t time, std::wstring format) {

@@ -131,7 +131,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -325,7 +325,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -420,7 +420,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -522,7 +522,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -619,13 +619,13 @@
 		</Configuration>
 		<Configuration
 			Name="Nightly|Win32"
-			OutputDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -633,8 +633,8 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(InputDir)\Dist\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(InputDir)\Dist\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\modules\*.pdb&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(InputDir)\Dist\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
-				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
+				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/"
+				Outputs="$(TargetDir)\$(ProjectName)-$(PlatformName).zip"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -649,22 +649,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
-				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS"
-				StringPooling="true"
-				RuntimeLibrary="0"
-				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Release/IconService.pch"
-				AssemblerListingLocation=".\Release/"
-				ObjectFile=".\Release/"
-				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -681,15 +669,15 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
-				OutputFile=".\Dist/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
 				IgnoreDefaultLibraryNames=""
 				ModuleDefinitionFile=""
-				ProgramDatabaseFile=".\Release/IconService.pdb"
+				ProgramDatabaseFile=""
 				SubSystem="1"
-				OptimizeForWindows98="1"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -719,21 +707,21 @@
 		</Configuration>
 		<Configuration
 			Name="Nightly|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\dist_dll\*.dll $(InputDir)\Dist\&quot;&#x0D;&#x0A;cmd /c &quot;mkdir $(InputDir)\Dist\scripts\&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y $(InputDir)\scripts\*.bat $(InputDir)\Dist\scripts\&quot;&#x0D;&#x0A;echo Removing old archive&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\modules\*.pdb&quot;&#x0D;&#x0A;cmd /c &quot;del $(InputDir)\Dist\*.zip&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd $(TargetDir)\$(InputName)-$(PlatformName).zip $(TargetDir)\*&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(InputName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe $(TargetDir)\*.zip mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
-				Outputs="$(InputDir)\Dist\$(ProjectName).zip"
+				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/"
+				Outputs="$(TargetDir)\$(ProjectName)-$(PlatformName).zip"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -749,22 +737,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
-				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="include"
 				PreprocessorDefinitions="ARCH_x64"
-				StringPooling="true"
-				RuntimeLibrary="0"
-				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Release/IconService.pch"
-				AssemblerListingLocation=".\Release/"
-				ObjectFile=".\Release/"
-				ProgramDataBaseFileName=".\Release/"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				Detect64BitPortabilityProblems="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -781,15 +757,15 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
-				OutputFile=".\Dist/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
 				IgnoreDefaultLibraryNames=""
 				ModuleDefinitionFile=""
-				ProgramDatabaseFile=".\Release/IconService.pdb"
+				ProgramDatabaseFile=""
 				SubSystem="1"
-				OptimizeForWindows98="1"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -825,7 +801,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -919,7 +895,7 @@
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -2510,8 +2486,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
-						Outputs="$(InputDir)\Dist\$(InputFileName)"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2519,8 +2495,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
-						Outputs="$(InputDir)\Dist\$(InputFileName)"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2864,7 +2840,8 @@
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
-						Outputs="$(TargetDir)\$(InputFileName) "
+						AdditionalDependencies=""
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2872,8 +2849,9 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(TargetDir)&quot;&#x0D;&#x0A;"
-						Outputs="$(TargetDir)\$(InputFileName) "
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						AdditionalDependencies=""
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2921,8 +2899,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\Dist\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
-						Outputs="$(InputDir)\Dist\$(InputName).ini"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputName).ini"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2930,8 +2908,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\$(InputName).ini&quot;&#x0D;&#x0A;"
-						Outputs="$(InputDir)\Dist\$(InputName).ini"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputName).ini"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -3024,9 +3002,9 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Skipping $(InputFileName)...&#x0D;&#x0A;"
 						AdditionalDependencies=""
-						Outputs="$(InputDir)\Dist\$(InputFileName)"
+						Outputs=""
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -3035,9 +3013,9 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\$(InputFileName) $(InputDir)\Dist\&quot;&#x0D;&#x0A;"
+						CommandLine="echo Skipping $(InputFileName)...&#x0D;&#x0A;"
 						AdditionalDependencies=""
-						Outputs="$(InputDir)\Dist\$(InputFileName)"
+						Outputs=""
 					/>
 				</FileConfiguration>
 				<FileConfiguration
