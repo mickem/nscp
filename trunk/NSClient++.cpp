@@ -709,7 +709,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 		}
 		outBufferC[len] = 0;
 
-		int neededLen = MultiByteToWideChar(CP_ACP, 0, outBufferC, len, NULL, 0 );
+		int neededLen = MultiByteToWideChar(CP_ACP, 0, outBufferC, static_cast<int>(len), NULL, 0 );
 		if (neededLen == 0 || neededLen < 0) {
 			LOG_ERROR_STD(_T("Could not convert string: ") + error::lookup::last_error());
 			delete [] inBufferC;
@@ -719,7 +719,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 			LOG_ERROR_STD(_T("Invalid out buffer length."));
 			return NSCAPI::isInvalidBufferLen;
 		}
-		*outBufLen = static_cast<unsigned int>(MultiByteToWideChar(CP_ACP, 0, outBufferC, len, outBuf, neededLen ));
+		*outBufLen = static_cast<unsigned int>(MultiByteToWideChar(CP_ACP, 0, outBufferC, static_cast<int>(len), outBuf, neededLen ));
 		delete [] inBufferC;
 		if (*outBufLen == 0) {
 			LOG_ERROR_STD(_T("Could not convert string: ") + error::lookup::last_error());

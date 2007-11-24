@@ -103,6 +103,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			NSC_DEBUG_MSG_STD(_T("Detected language: ") + settings.getString(section, _T("Description"), _T("Not found")) + _T(" (") + section + _T(")"));
 		} catch (const systemInfo::SystemInfoException &e) {
 			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+			NSC_LOG_ERROR_STD(_T("The Error: ") + e.getError());
 			return -1;
 		}
 		pdh.addCounter(settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);

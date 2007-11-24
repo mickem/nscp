@@ -7,7 +7,7 @@
 class TSettings
 {
 public:
-	typedef std::list<std::string> sectionList;
+	typedef std::list<std::wstring> sectionList;
 	TSettings(void)
 	{
 	}
@@ -15,12 +15,12 @@ public:
 	virtual ~TSettings(void)
 	{
 	}
-	virtual std::string getActiveType() = 0;
+	virtual std::wstring getActiveType() = 0;
 	virtual sectionList getSections(unsigned int bufferLength = BUFF_LEN) = 0;
-	virtual sectionList getSection(std::string section, unsigned int bufferLength = BUFF_LEN) = 0;
-	virtual std::string getString(std::string section, std::string key, std::string defaultValue = "") const = 0;
-	virtual void setString(std::string section, std::string key, std::string value) = 0;
-	virtual int getInt(std::string section, std::string key, int defaultValue = 0) = 0;
-	virtual void setInt(std::string section, std::string key, int value) = 0;
+	virtual sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) = 0;
+	virtual std::wstring getString(std::wstring section, std::wstring key, std::wstring defaultValue = _T("")) const = 0;
+	virtual void setString(std::wstring section, std::wstring key, std::wstring value) = 0;
+	virtual int getInt(std::wstring section, std::wstring key, int defaultValue = 0) = 0;
+	virtual void setInt(std::wstring section, std::wstring key, int value) = 0;
 	virtual int getActiveTypeID() = 0;
 };

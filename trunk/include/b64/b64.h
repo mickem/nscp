@@ -147,6 +147,7 @@ size_t b64_encode(void const *src, size_t srcSize, char *dest, size_t destLen);
  * \note Threading: The function is fully re-entrant.
  */
 size_t b64_decode(char const *src, size_t srcLen, void *dest, size_t destSize);
+//std::wstring b64_decode(std::wstring);
 
 #ifdef __cplusplus
 } /* extern "C" */

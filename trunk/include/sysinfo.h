@@ -28,11 +28,9 @@ namespace systemInfo {
 	public:
 		SystemInfoException(std::wstring error) : error_(error)
 		{}
-		/*
 		std::wstring getError() const {
 			return error_;
 		}
-		*/
 
 	};
 	typedef LANGID (*tGetSystemDefaultUILanguage)(void);
