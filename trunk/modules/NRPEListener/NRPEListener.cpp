@@ -354,11 +354,17 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 		int i;
 		int maxWait = socketTimeout_*10;
 		for (i=0;i<maxWait;i++) {
-			bool lastReadRet = client->readAll(block, 1048);
+			bool lastReadHasMore = false;
+			try {
+				lastReadHasMore = client->readAll(block, 1048);
+			} catch (simpleSocket::SocketException e) {
+				NSC_LOG_MESSAGE(_T("Could not read NRPE packet from socket :") + e.getMessage());
+				client->close();
+				return;
+			}
 			if (block.getLength() >= NRPEPacket::getBufferLength())
 				break;
-			if (!lastReadRet) {
-				NSC_LOG_MESSAGE(_T("Could not read NRPE packet from socket :("));
+			if (!lastReadHasMore) {
 				client->close();
 				return;
 			}

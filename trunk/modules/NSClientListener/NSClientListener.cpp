@@ -251,7 +251,14 @@ void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 	unsigned int i;
 	unsigned int maxWait = socketTimeout_*10;
 	for (i=0;i<maxWait;i++) {
-		bool lastReadRet = client->readAll(db);
+		bool lastReadHasMore = false;
+		try {
+			lastReadHasMore = client->readAll(db);
+		} catch (simpleSocket::SocketException e) {
+			NSC_LOG_ERROR_STD(_T("Read on socket failed: ") + e.getMessage());
+			client->close();
+			return;
+		}
 		if (db.getLength() > 0) {
 			unsigned long long pos = db.find('\n');
 			if (pos==-1) {
@@ -266,10 +273,10 @@ void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 				std::string incoming(buffer.getBuffer(), buffer.getLength());
 				sendTheResponse(client, parseRequest(incoming) + "\n");
 			} else {
+				db.nibble(1);
 				NSC_LOG_ERROR_STD(_T("First char should (i think) not be a \\n :("));
 			}
-		} else if (!lastReadRet) {
-			NSC_LOG_MESSAGE(_T("Could not read NSClient packet from socket :("));
+		} else if (!lastReadHasMore) {
 			client->close();
 			return;
 		} else {
@@ -290,6 +297,7 @@ void NSClientListener::onAccept(simpleSocket::Socket *client) {
 		client->close();
 		return;
 	}
+	//client->setNonBlock();
 	retrivePacket(client);
 
 

@@ -219,7 +219,6 @@ struct eventlog_filter {
 
 #define BUFFER_SIZE 1024*64
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
-	NSC_DEBUG_MSG_STD(_T("000-1")) ;
 	if (command != _T("CheckEventLog"))
 		return NSCAPI::returnIgnored;
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsULongInteger> EventLogQueryConatiner;
@@ -298,7 +297,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		message = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
 	}
-		NSC_DEBUG_MSG_STD(_T("001") + message) ;
 
 	unsigned long int hit_count = 0;
 
