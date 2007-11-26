@@ -231,7 +231,7 @@ namespace serviceControll {
 		if (schService) {
 			// try to stop the service
 			if ( ControlService( schService, SERVICE_CONTROL_STOP, &ssStatus ) ) {
-				std::cout << _T("Stopping service.");
+				std::wcout << _T("Stopping service.");
 				Sleep( 1000 );
 				while( QueryServiceStatus( schService, &ssStatus ) ) {
 					if ( ssStatus.dwCurrentState == SERVICE_STOP_PENDING ) {
@@ -240,7 +240,7 @@ namespace serviceControll {
 					} else
 						break;
 				}
-				std::cout << std::endl;
+				std::wcout << std::endl;
 				if ( ssStatus.dwCurrentState != SERVICE_STOPPED ) {
 					CloseServiceHandle(schService);
 					CloseServiceHandle(schSCManager);

@@ -23,8 +23,8 @@
 	<Configurations>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -125,8 +125,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -620,7 +620,7 @@
 		<Configuration
 			Name="Nightly|Win32"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -633,7 +633,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/"
+				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="$(TargetDir)\$(ProjectName)-$(PlatformName).zip"
 			/>
 			<Tool
@@ -720,7 +720,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/"
+				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\$(ProjectName)-$(PlatformName).zip&quot;&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="$(TargetDir)\$(ProjectName)-$(PlatformName).zip"
 			/>
 			<Tool
@@ -2452,7 +2452,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2460,7 +2461,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2877,6 +2879,24 @@
 				RelativePath=".\NSC.dist"
 				>
 				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputName).ini"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputName).ini"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Distribution|Win32"
 					>
 					<Tool
@@ -2899,7 +2919,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputName).ini"
 					/>
 				</FileConfiguration>
@@ -2908,7 +2928,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputName).ini"
 					/>
 				</FileConfiguration>

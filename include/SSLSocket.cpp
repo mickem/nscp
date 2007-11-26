@@ -59,10 +59,10 @@ void simpleSSL::count_socket(bool add) {
 	static int count = 0;
 	if (add) {
 		count++;
-		std::cout << "+++SSSL::Socket" << count << std::endl;
+		std::wcout << "+++SSSL::Socket" << count << std::endl;
 	} else {
 		count--;
-		std::cout << "---SSSL::Socket" << count << std::endl;
+		std::wcout << "---SSSL::Socket" << count << std::endl;
 	}
 }
 
@@ -78,10 +78,12 @@ bool simpleSSL::sSSL::readAll(simpleSocket::Socket *report_to, simpleSocket::Dat
 	delete [] tmpBuffer;
 	if (n <= 0) {
 		int rc = getError(n);
+		if ((rc == SSL_ERROR_WANT_READ) || (rc == SSL_ERROR_WANT_WRITE))
+			return true;
 		report_to->printError(_T(__FILE__), __LINE__, _T("Could not read from socket: ") + strEx::itos(rc));
-		return (rc == SSL_ERROR_WANT_READ) || (rc == SSL_ERROR_WANT_WRITE);
+		throw simpleSocket::SocketException(_T("Could not read from socket: ") + strEx::itos(rc));
 	}
-	return true;
+	return n>0;
 }
 void simpleSSL::sSSL::send(const char * buf, unsigned int len) {
 	if (!ssl_)

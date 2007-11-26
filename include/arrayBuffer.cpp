@@ -143,7 +143,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 			p2 = inBuf.size();
 		// p1 = start of "this token"
 		// p2 = end of "this token" (next split char)
-		std::wcout << _T("found token: ") << p1 << _T(":") << p2;
+		//std::wcout << _T("found token: ") << p1 << _T(":") << p2;
 
 		assert(p2>p1);
 		std::wstring token = inBuf.substr(p1,p2-p1);
@@ -152,7 +152,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		if (escape && token[token.size()-1] == '\"')
 			token = token.substr(0, token.size()-1);
 
-		std::wcout << _T(" -- ") << token << std::endl;
+		//std::wcout << _T(" -- ") << token << std::endl;
 
 		token_list.push_back(token);
 		if (p2 < inBuf.size())
@@ -256,13 +256,13 @@ void arrayBuffer::destroyArrayBuffer(arrayBuffer::arrayBuffer argument, const un
  * Test function for createEmptyArrayBuffer
  */
 void arrayBuffer::test_createEmptyArrayBuffer() {
-	std::cout << "arrayBuffer::test_createEmptyArrayBuffer() : ";
+	std::wcout << "arrayBuffer::test_createEmptyArrayBuffer() : ";
 	unsigned int argLen;
 	TCHAR ** c = createEmptyArrayBuffer(argLen);
 	if ((c) && (argLen == 0))
-		std::cout << "Succeeded" << std::endl;
+		std::wcout << "Succeeded" << std::endl;
 	else
-		std::cout << "Failed" << std::endl;
+		std::wcout << "Failed" << std::endl;
 	destroyArrayBuffer(c, argLen);
 }
 /**

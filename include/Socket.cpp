@@ -46,15 +46,21 @@ bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLen
 			// We filled the buffer (There is more to get)
 			buffer.append(tmpBuffer, n);
 			n=recv(socket_,tmpBuffer,tmpBufferLength,0);
-
 		} else {
 			// Buffer not full, we got it "all"
 			buffer.append(tmpBuffer, n);
 			break;
+
 		}
 	}
 	delete [] tmpBuffer;
-	return n!=SOCKET_ERROR;
+	if (n == SOCKET_ERROR) {
+		int ret = ::WSAGetLastError();
+		if (ret == WSAEWOULDBLOCK)
+			return true;
+		throw SocketException(_T("recv returned SOCKET_ERROR: "), ret);
+	}
+	return n>0;
 }
 
 
