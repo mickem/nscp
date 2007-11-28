@@ -25,7 +25,7 @@
 #define SZAPPNAME _T("NSClient++")
 
 // Version
-#define SZVERSION STRPRODUCTVER _T(" ") STRPRODUCTDATE
+#define SZVERSION STRPRODUCTVER _T(" RC ") STRPRODUCTDATE
 //FILEVER[0]
 #ifdef ARCH_x64
 #define SZARCH _T("x64")
