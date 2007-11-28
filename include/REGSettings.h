@@ -118,13 +118,13 @@ public:
 					bData[cbData] = 0;
 					ret = reinterpret_cast<LPCTSTR>(bData);
 				} else {
-					std::cout << _T("getString_::Buffersize to small: ") << lpszPath << "." << lpszKey << ": " << type << std::endl;
+					std::wcout << _T("getString_::Buffersize to small: ") << lpszPath << "." << lpszKey << ": " << type << std::endl;
 				}
 			} else if (type == REG_DWORD) {
 				DWORD dw = *(reinterpret_cast<DWORD*>(bData));
 				ret = strEx::itos(dw);
 			} else {
-				std::cout << _T("getString_::Unsupported type: ") << lpszPath << "." << lpszKey << ": " << type << std::endl;
+				std::wcout << _T("getString_::Unsupported type: ") << lpszPath << "." << lpszKey << ": " << type << std::endl;
 			}
 		} else if (lRet == ERROR_FILE_NOT_FOUND) {
 			return def;
@@ -176,7 +176,7 @@ public:
 				if (bRet == ERROR_SUCCESS) {
 					ret.push_back(std::wstring(lpValueName));
 				} else {
-					std::cout << _T("getValues_::Error: ") << bRet << ": " << lpszPath << _T("[") << i << _T("]") << std::endl;
+					std::wcout << _T("getValues_::Error: ") << bRet << ": " << lpszPath << _T("[") << i << _T("]") << std::endl;
 
 				}
 			}
@@ -204,7 +204,7 @@ public:
 				if (bRet == ERROR_SUCCESS) {
 					ret.push_back(std::wstring(lpValueName));
 				} else {
-					std::cout << _T("getSubKeys_::Error: ") << bRet << _T(": ") << lpszPath << _T("[") << i << _T("]") << std::endl;
+					std::wcout << _T("getSubKeys_::Error: ") << bRet << _T(": ") << lpszPath << _T("[") << i << _T("]") << std::endl;
 				}
 			}
 			delete [] lpValueName;

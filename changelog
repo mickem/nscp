@@ -5,6 +5,16 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-11-28 MickeM
+ * Fixed some UNICODE issues with process-listings
+ + Added an error message if the "detected" process enumeration method is not available.
+ + Fixed some more unicode issues Password encrypt/decrypt: #107
+ * Fixed unicode issues with "external programs" #109
+ * Fixed so default string for check_nt:s FILEAGE command is "delta" is 5 minutes ago (and not absolute ie. 1970...), Issue #39
+ + added support for  <date strings> to check_nt:s FILEAGE command, Issue #39
+    append: .<date string> if you want to use a "custom date" like so: ... -v FILEAGE -l c:\\windows,Date: %Y-%m-%d %H:%M:%S" -w 5 -c 6 ...
+    Only the above listed %<char> works, and default to 0 so might not be to pretty but works...
+
 2007-11-26 MickeM
  + Fixed a socket issue (erroneously reported "Could not read NSClient packet from socket :(")
  * More 2k5 build tweaks

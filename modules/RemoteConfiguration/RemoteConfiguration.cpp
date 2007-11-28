@@ -144,14 +144,14 @@ int RemoteConfiguration::commandLineExec(const TCHAR* command,const unsigned int
 	} else if (_wcsicmp(command, _T("getVariable")) == 0) {
 		setVariable(argLen, args, str);
 	} else if (_wcsicmp(command, _T("ini2reg")) == 0) {
-		std::cout << _T("Migrating to registry settings...")<< std::endl;
+		std::wcout << _T("Migrating to registry settings...")<< std::endl;
 		NSCModuleHelper::ReadSettings(NSCAPI::settings_inifile);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEFILE, 0);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_inifile);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEREG, 1);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_registry);
 	} else if (_wcsicmp(command, _T("reg2ini")) == 0) {
-		std::cout << _T("Migrating to INI file settings...")<< std::endl;
+		std::wcout << _T("Migrating to INI file settings...")<< std::endl;
 		NSCModuleHelper::ReadSettings(NSCAPI::settings_registry);
 		NSCModuleHelper::SetSettingsInt(MAIN_SECTION_TITLE, MAIN_USEREG, 0);
 		NSCModuleHelper::WriteSettings(NSCAPI::settings_registry);

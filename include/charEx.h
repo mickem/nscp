@@ -20,6 +20,8 @@
 ***************************************************************************/
 #pragma once
 #include <assert.h>
+#include <windows.h>
+#include <tchar.h>
 
 namespace charEx {
 	/**
@@ -28,59 +30,100 @@ namespace charEx {
 	 * @param split The char to split by
 	 * @return a list with strings
 	 */
-	inline std::list<std::string> split(const char* buffer, char split) {
-		std::list<std::string> ret;
-		const char *start = buffer;
-		for (const char *p = buffer;*p!='\0';p++) {
+	inline std::list<std::wstring> split(const TCHAR* buffer, TCHAR split) {
+		std::list<std::wstring> ret;
+		const TCHAR *start = buffer;
+		for (const TCHAR *p = buffer;*p!='\0';p++) {
 			if (*p==split) {
-				std::string str(start, p-start);
+				std::wstring str(start, p-start);
 				ret.push_back(str);
 				start = p+1;
 			}
 		}
-		ret.push_back(std::string(start));
+		ret.push_back(std::wstring(start));
+		return ret;
+	}
+
+
+	inline char* tchar_to_char( const wchar_t* pStr, int len, int &nChars) {
+		assert(pStr != NULL);
+		assert(len >= 0 || len == -1);
+
+		// figure out how many narrow characters we are going to get 
+		nChars = WideCharToMultiByte(CP_ACP, 0, pStr, len, NULL, 0, NULL, NULL);
+		if (len == -1)
+			--nChars;
+		if (nChars==0) {
+			char *ret = new char[1];
+			ret[0] = 0;
+			return ret;
+		}
+
+		// convert the wide string to a narrow string
+		char *ret = new char[nChars+1];
+		WideCharToMultiByte(CP_ACP, 0, pStr, len, ret, nChars, NULL, NULL);
+		return ret;
+	}
+
+	inline wchar_t* char_to_tchar(const char* pStr, int len, int &nChars) {
+		assert( pStr != NULL);
+		assert( len >= 0 || len == -1);
+
+		// figure out how many wide characters we are going to get
+		nChars = MultiByteToWideChar( CP_ACP , 0 , pStr , len , NULL , 0 );
+		if (len == -1)
+			--nChars;
+		if (nChars == 0) {
+			TCHAR *ret = new TCHAR[1];
+			ret[0] = 0;
+			return ret;
+		}
+
+		// convert the narrow string to a wide string 
+		TCHAR *ret = new TCHAR[nChars+1];
+		MultiByteToWideChar(CP_ACP, 0 ,pStr ,len, const_cast<wchar_t*>(ret), nChars);
 		return ret;
 	}
 
 
 
-	typedef std::pair<std::string,char*> token;
-	inline token getToken(char *buffer, char split) {
+	typedef std::pair<std::wstring,TCHAR*> token;
+	inline token getToken(TCHAR *buffer, TCHAR split) {
 		assert(buffer != NULL);
-		char *p = strchr(buffer, split);
+		TCHAR *p = wcschr(buffer, split);
 		if (!p)
 			return token(buffer, NULL);
 		if (!p[1])
-			return token(std::string(buffer, p-buffer), NULL);
+			return token(std::wstring(buffer, p-buffer), NULL);
 		p++;
-		return token(std::string(buffer, p-buffer-1), p);
+		return token(std::wstring(buffer, p-buffer-1), p);
 	}
 #ifdef _DEBUG
-	inline void test_getToken(char* in1, char in2, std::string out1, char * out2) {
+	inline void test_getToken(TCHAR* in1, TCHAR in2, std::wstring out1, TCHAR * out2) {
 		token t = getToken(in1, in2);
-		std::cout << "charEx::test_getToken(" << in1 << ", " << in2 << ") : ";
+		std::wcout << _T("charEx::test_getToken(") << in1 << _T(", ") << in2 << _T(") : ");
 		if (t.first == out1)  {
 			if ((t.second == NULL) && (out2 == NULL))
-				std::cout << "Succeeded" << std::endl;
+				std::wcout << _T("Succeeded") << std::endl;
 			else if (t.second == NULL)
-				std::cout << "Failed [NULL=" << out2 << "]" << std::endl;
+				std::wcout << _T("Failed [NULL=") << out2 << _T("]") << std::endl;
 			else if (out2 == NULL)
-				std::cout << "Failed [" << t.second << "=NULL]" << std::endl;
-			else if (strcmp(t.second, out2) == 0)
-				std::cout << "Succeeded" << std::endl;
+				std::wcout << _T("Failed [") << t.second << _T("=NULL]") << std::endl;
+			else if (wcscmp(t.second, out2) == 0)
+				std::wcout << _T("Succeeded") << std::endl;
 			else
-				std::cout << "Failed" << std::endl;
+				std::wcout << _T("Failed") << std::endl;
 		} else
-			std::cout << "Failed [" << out1 << "=" << t.first << "]" << std::endl;
+			std::wcout << _T("Failed [") << out1 << _T("=") << t.first << _T("]") << std::endl;
 	}
 	inline void run_test_getToken() {
-		test_getToken("", '&', "", NULL);
-		test_getToken("&", '&', "", NULL);
-		test_getToken("&&", '&', "", "&");
-		test_getToken("foo", '&', "foo", NULL);
-		test_getToken("foo&", '&', "foo", NULL);
-		test_getToken("foo&bar", '&', "foo", "bar");
-		test_getToken("foo&bar&test", '&', "foo", "bar&test");
+		test_getToken(_T(""), '&', _T(""), NULL);
+		test_getToken(_T("&"), '&', _T(""), NULL);
+		test_getToken(_T("&&"), '&', _T(""), _T("&"));
+		test_getToken(_T("foo"), '&', _T("foo"), NULL);
+		test_getToken(_T("foo&"), '&', _T("foo"), NULL);
+		test_getToken(_T("foo&bar"), '&', _T("foo"), _T("bar"));
+		test_getToken(_T("foo&bar&test"), '&', _T("foo"), _T("bar&test"));
 	}
 #endif
 

@@ -57,7 +57,7 @@ public:
 				0,
 				NULL 
 				);
-			std::cout << "***** ERROR: CreateSemaphore: %s\n" << (LPCTSTR)lpMsgBuf;
+			std::wcout << "***** ERROR: CreateSemaphore: %s\n" << (LPCTSTR)lpMsgBuf;
 			//			  TRACE( "***** ERROR: CreateSemaphore: %s\n", (LPCTSTR)lpMsgBuf );
 			LocalFree( lpMsgBuf );			
 		}

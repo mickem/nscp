@@ -190,7 +190,6 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	if (!sh) {
 		DWORD bufLen = SC_BUF_LEN;
 		TCHAR *buf = new TCHAR[bufLen+1];
-		//std::cout << "name: '" << name << "'" << std::endl;
 		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
 			::CloseServiceHandle(scman);
 			throw NTServiceException(name, _T("GetServiceKeyName: Could not translate service name"), GetLastError());

@@ -205,7 +205,6 @@ namespace PDH {
 		}
 
 		PDHCounter* addCounter(std::wstring name, PDHCounterListener *listener) {
-			//std::cout << "Adding counter: " << name << std::endl;
 			PDHCounter *counter = new PDHCounter(name, listener);
 			counters_.push_back(counter);
 			return counter;

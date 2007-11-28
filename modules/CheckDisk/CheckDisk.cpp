@@ -471,12 +471,13 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::wstring dstr = _T("%#c");
+	std::wstring format = _T("%Y years %m mon %d days %H hours %M min %S sec");
 	std::wstring path;
 	find_first_file_info finder;
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_STR(_T("path"), path)
-		MAP_OPTIONS_FALLBACK(dstr)
+		MAP_OPTIONS_STR(_T("date"), format)
+		MAP_OPTIONS_FALLBACK(format)
 	MAP_OPTIONS_END()
 
 	if (path.empty()) {
@@ -493,15 +494,7 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 	GetSystemTimeAsFileTime(&now_);
 	unsigned long long now = ((now_.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now_.dwLowDateTime);
 	time_t value = (now-finder.info.ullLastWriteTime)/10000000;
-
-	TCHAR buf[51];
-	size_t l = wcsftime(buf, 50, dstr.c_str(), gmtime(&value));
-	if (l <= 0 || l >= 50) {
-		message = _T("ERROR: could format time.");
-		return NSCAPI::returnUNKNOWN;
-	}
-	buf[l] = 0;
-	message = strEx::itos(value/60) + _T("&") + buf;
+	message = strEx::itos(value/60) + _T("&") + strEx::format_time_delta(format, gmtime(&value));
 	return NSCAPI::returnOK;
 }
 

@@ -69,13 +69,28 @@ bool CheckSystem::loadModule() {
 		OSVERSIONINFO osVer = systemInfo::getOSVersion();
 		if (systemInfo::isBelowNT4(osVer)) {
 			NSC_DEBUG_MSG_STD(_T("Autodetected NT4<, using PSAPI process enumeration."));
-			processMethod_ = ENUM_METHOD::PSAPI;
+			if (method == (method|ENUM_METHOD::PSAPI)) {
+				processMethod_ = ENUM_METHOD::PSAPI;
+			} else {
+				NSC_LOG_ERROR_STD(_T("PSAPI method not available, since you are on NT4 you need to install \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
+				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
+			}
 		} else if (systemInfo::isAboveW2K(osVer)) {
 			NSC_DEBUG_MSG_STD(_T("Autodetected W2K>, using TOOLHELP process enumeration."));
-			processMethod_ = ENUM_METHOD::TOOLHELP;
+			if (method == (method|ENUM_METHOD::TOOLHELP)) {
+				processMethod_ = ENUM_METHOD::TOOLHELP;
+			} else {
+				NSC_LOG_ERROR_STD(_T("TOOLHELP was not available, since you are on > W2K you need top manually override the ") C_SYSTEM_ENUMPROC_METHOD _T("option in NSC:ini."));
+			}
 		} else {
 			NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
 			processMethod_ = ENUM_METHOD::PSAPI;
+			if (method == (method|ENUM_METHOD::PSAPI)) {
+				processMethod_ = ENUM_METHOD::PSAPI;
+			} else {
+				NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
+				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
+			}
 		}
 	} else if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
 		NSC_DEBUG_MSG_STD(_T("Using PSAPI method."));
@@ -720,7 +735,10 @@ NSPROCLST GetProcessList(int processMethod)
 		return ret;
 	}
 	CEnumProcess enumeration;
-	enumeration.SetMethod(processMethod);
+	if (enumeration.SetMethod(processMethod) != processMethod) {
+		NSC_LOG_ERROR_STD(_T("Failed to set process enumeration method"));
+		return ret;
+	}
 	CEnumProcess::CProcessEntry entry;
 	for (BOOL OK = enumeration.GetProcessFirst(&entry); OK; OK = enumeration.GetProcessNext(&entry) ) {
 		NSPROCLST::iterator it = ret.find(entry.sFilename);
@@ -796,7 +814,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 
 	for (std::list<StateConatiner>::iterator it = list.begin(); it != list.end(); ++it) {
 		NSPROCLST::iterator proc = runningProcs.find((*it).data);
-		bool bFound = proc != runningProcs.end();
+		bool bFound = (proc != runningProcs.end());
 		std::wstring tmp;
 		TNtServiceInfo info;
 		if (bNSClient) {
@@ -903,7 +921,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 			pdh.gatherData();
 			pdh.close();
 			double value = cDouble.getValue();
-			//std::wcout << "Collected double data: " << value << std::endl;
 			if (bNSClient) {
 				msg += strEx::itos(static_cast<float>(value));
 			} else {

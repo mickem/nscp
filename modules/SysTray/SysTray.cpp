@@ -49,7 +49,7 @@ bool SysTray::loadModule() {
 }
 bool SysTray::unloadModule() {
 	if (!icon.exitThread(20000)) {
-		std::cout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
+		std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
 		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
 		return false;
 	}
