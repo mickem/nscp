@@ -71,7 +71,7 @@ public:
 	boolean StartServiceCtrlDispatcher() {
 		BOOL ret = ::StartServiceCtrlDispatcher(dispatchTable);
 		if (ret == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
-			std::cout << "We are running in console mode, terminating..." << std::endl;
+			std::wcout << "We are running in console mode, terminating..." << std::endl;
 			return false;
 		}
 		return ret != 0;

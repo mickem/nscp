@@ -123,7 +123,7 @@ public:
 	 */
 	MutexLock(HANDLE hMutex, DWORD timeout = 5000L) : bHasMutex(false), hMutex_(hMutex) {
 		if (hMutex_ == NULL)
-			std::cout << "Whops..." << std::endl;
+			std::wcout << "Whops..." << std::endl;
 		assert(hMutex_ != NULL);
 		dwWaitResult = WaitForSingleObject(hMutex_, timeout);
 		switch (dwWaitResult) {

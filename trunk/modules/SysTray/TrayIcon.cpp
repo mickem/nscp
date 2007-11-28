@@ -145,7 +145,8 @@ void TrayIcon::addIcon(HWND hWnd) {
 	ndata.uFlags=NIF_ICON|NIF_MESSAGE|NIF_TIP;
 	ndata.uCallbackMessage=WM_ICON_NOTIFY;
 	ndata.hIcon=::LoadIcon(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDI_STANDBY));
-	wcsncpy_s(ndata.szTip, 128, (NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString()).c_str(), 63);
+	std::wstring title = NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
+	wcsncpy_s(ndata.szTip, 64, title.c_str(), min(64, title.size()));
 	Shell_NotifyIcon(NIM_ADD,&ndata);
 }
 

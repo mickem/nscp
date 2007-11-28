@@ -35,6 +35,19 @@ namespace ENUM_METHOD
 
 const int MAX_FILENAME = 256;
 
+#ifdef UNICODE
+// Functions loaded from PSAPI
+typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
+typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
+typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
+
+//Functions loaded from Kernel32
+typedef HANDLE (WINAPI *PFCreateToolhelp32Snapshot)(DWORD dwFlags, DWORD th32ProcessID);
+typedef BOOL (WINAPI *PFProcess32First)(HANDLE hSnapshot, LPPROCESSENTRY32W lppe);
+typedef BOOL (WINAPI *PFProcess32Next)(HANDLE hSnapshot, LPPROCESSENTRY32W lppe);
+typedef BOOL (WINAPI *PFModule32First)(HANDLE hSnapshot, LPMODULEENTRY32W lpme);
+typedef BOOL (WINAPI *PFModule32Next)(HANDLE hSnapshot, LPMODULEENTRY32W lpme);
+#else
 // Functions loaded from PSAPI
 typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
 typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
@@ -46,7 +59,7 @@ typedef BOOL (WINAPI *PFProcess32First)(HANDLE hSnapshot, LPPROCESSENTRY32 lppe)
 typedef BOOL (WINAPI *PFProcess32Next)(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
 typedef BOOL (WINAPI *PFModule32First)(HANDLE hSnapshot, LPMODULEENTRY32 lpme);
 typedef BOOL (WINAPI *PFModule32Next)(HANDLE hSnapshot, LPMODULEENTRY32 lpme);
-
+#endif
 
 class CEnumProcess  
 {
@@ -110,8 +123,13 @@ protected:
 	// ToolHelp related members
 	HANDLE m_hProcessSnap, m_hModuleSnap;
 	HMODULE TOOLHELP;   //Handle to the module (Kernel32)
+#ifdef UNICODE
+	PROCESSENTRY32W m_pe;
+	MODULEENTRY32W  m_me;
+#else
 	PROCESSENTRY32 m_pe;
 	MODULEENTRY32  m_me;
+#endif
 	// ToolHelp related functions
 	PFCreateToolhelp32Snapshot FCreateToolhelp32Snapshot;
 	PFProcess32First FProcess32First;

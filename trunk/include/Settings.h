@@ -132,18 +132,18 @@ public:
 				}
 
 /*
-				std::cout << "  Key: " << (*it2) << std::endl;
+				std::wcout << "  Key: " << (*it2) << std::endl;
 				int i = sM->getInt((*it), (*it2), UNLIKELY_VALUE_1);
-				std::cout << "Int vaöl: " << i << std::endl;
+				std::wcout << "Int vaöl: " << i << std::endl;
 				if (i == UNLIKELY_VALUE_1) {
 					if (sM->getInt((*it), (*it2), UNLIKELY_VALUE_2)==UNLIKELY_VALUE_2) {
-						std::cout << "Writing: " << (*it) << " - " << (*it2) << " - " << sM->getString((*it), (*it2)) << std::endl;
+						std::wcout << "Writing: " << (*it) << " - " << (*it2) << " - " << sM->getString((*it), (*it2)) << std::endl;
 						setString((*it), (*it2), sM->getString((*it), (*it2)));
 					} else
 						setInt((*it), (*it2), i);
 				} else if (i == 0) {
 					std::wstring s = sM->getString((*it), (*it2));
-					std::cout << "Size: " << s.size() << " |" << s << "| " << std::endl;
+					std::wcout << "Size: " << s.size() << " |" << s << "| " << std::endl;
 					if (s.size() == 0)
 						setString((*it), (*it2), s);
 					else

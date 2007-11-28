@@ -300,16 +300,23 @@ int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, st
 			result = NSCAPI::returnUNKNOWN;
 		} else {
 			DWORD dwread;
-			TCHAR *buf = new TCHAR[MAX_INPUT_BUFFER+1];
-			retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER, &dwread, NULL);
+			//TCHAR *buf = new TCHAR[MAX_INPUT_BUFFER+1];
+			char *buf = new char[MAX_INPUT_BUFFER+1];
+			//retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER*sizeof(WCHAR), &dwread, NULL);
+			retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER*sizeof(char), &dwread, NULL);
 			if (!retval || dwread == 0) {
 				msg = _T("No output available from command...");
 			} else {
 				buf[dwread] = 0;
-				msg = buf;
+				msg = strEx::string_to_wstring(buf);
+				//msg = buf;
 				//strEx::token t = strEx::getToken(msg, '\n');
 				strEx::token t = strEx::getToken(msg, '|');
 				msg = t.first;
+				std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
+				if (pos != std::wstring::npos)
+					msg = msg.substr(0,pos);
+				//if (msg[msg.size()-1] == '\n')
 				perf = t.second;
 			}
 			delete [] buf;

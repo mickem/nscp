@@ -21,6 +21,7 @@
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <tchar.h>
+#include <iostream>
 
 #include "EnumProcess.h"
 
@@ -29,7 +30,7 @@
 //////////////////////////////////////////////////////////////////////
 
 
-CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP(NULL), m_pCurrentM(NULL), lpString(NULL)
+CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP(NULL), m_pCurrentM(NULL), lpString(NULL), PSAPI(NULL)
 {
 	lpString = new TCHAR[MAX_FILENAME+1];
 	m_hProcessSnap = INVALID_HANDLE_VALUE;
@@ -60,12 +61,19 @@ CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP
 		m_pe.dwSize = sizeof(m_pe);
 		m_me.dwSize = sizeof(m_me);
 		// Find ToolHelp functions
-
+#ifdef UNICODE
 		FCreateToolhelp32Snapshot = (PFCreateToolhelp32Snapshot)::GetProcAddress(TOOLHELP, "CreateToolhelp32Snapshot");
-		FProcess32First = (PFProcess32First)::GetProcAddress(TOOLHELP, "Process32First");
-		FProcess32Next = (PFProcess32Next)::GetProcAddress(TOOLHELP, "Process32Next");
-		FModule32First = (PFModule32First)::GetProcAddress(TOOLHELP, "Module32First");
-		FModule32Next = (PFModule32Next)::GetProcAddress(TOOLHELP, "Module32Next");
+		FProcess32First = (PFProcess32First)::GetProcAddress(TOOLHELP, "Process32FirstW");
+		FProcess32Next = (PFProcess32Next)::GetProcAddress(TOOLHELP, "Process32NextW");
+		FModule32First = (PFModule32First)::GetProcAddress(TOOLHELP, "Module32FirstW");
+		FModule32Next = (PFModule32Next)::GetProcAddress(TOOLHELP, "Module32NextW");
+#else
+		FCreateToolhelp32Snapshot = (PFCreateToolhelp32Snapshot)::GetProcAddress(TOOLHELP, "CreateToolhelp32SnapshotA");
+		FProcess32First = (PFProcess32First)::GetProcAddress(TOOLHELP, "Process32FirstA");
+		FProcess32Next = (PFProcess32Next)::GetProcAddress(TOOLHELP, "Process32NextA");
+		FModule32First = (PFModule32First)::GetProcAddress(TOOLHELP, "Module32FirstA");
+		FModule32Next = (PFModule32Next)::GetProcAddress(TOOLHELP, "Module32NextA");
+#endif
 	}
 
 	// Find the preferred method of enumeration
@@ -123,7 +131,6 @@ int CEnumProcess::GetSuggestedMethod()
 BOOL CEnumProcess::GetProcessFirst(CEnumProcess::CProcessEntry *pEntry)
 {
 	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-
 
 	if ((ENUM_METHOD::TOOLHELP|m_method) == m_method)
 		// Use ToolHelp functions
@@ -281,7 +288,12 @@ BOOL CEnumProcess::FillPStructPSAPI(DWORD dwPID, CEnumProcess::CProcessEntry* pE
 			if( !FGetModuleFileNameEx( hProc, hMod, lpString, MAX_FILENAME) ) { 
 				pEntry->sFilename = _T("N/A (error)");
 			} else {
-				pEntry->sFilename = lpString;
+				std::wstring path = lpString;
+				std::wstring::size_type pos = path.find_last_of(_T("\\"));
+				if (pos != std::wstring::npos) {
+					path = path.substr(++pos);
+				}
+				pEntry->sFilename = path;
 			}
 		}
 		CloseHandle(hProc);

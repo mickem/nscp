@@ -207,6 +207,24 @@ namespace strEx {
 		return value * smallest_unit;
 	}
 
+#define MK_FORMAT_FTD(min, key, val) \
+	if (mtm->tm_year > min) \
+		strEx::replace(format, key, strEx::itos(val));  \
+	else  \
+		strEx::replace(format, key, _T("0"));
+
+	inline std::wstring format_time_delta(std::wstring format, struct tm *mtm) {
+		// "Date: %Y-%m-%d %H:%M:%S"
+		MK_FORMAT_FTD(70, _T("%Y"), mtm->tm_year);
+		MK_FORMAT_FTD(0, _T("%m"), mtm->tm_mon);
+		MK_FORMAT_FTD(0, _T("%d"), mtm->tm_mday);
+		MK_FORMAT_FTD(0, _T("%H"), mtm->tm_hour);
+		MK_FORMAT_FTD(0, _T("%M"), mtm->tm_min);
+		MK_FORMAT_FTD(0, _T("%S"), mtm->tm_sec);
+		MK_FORMAT_FTD(0, _T("%Y"), mtm->tm_year);
+		return format;
+	}
+
 #define WEEK	(7 * 24 * 60 * 60 * 1000)
 #define DAY		(24 * 60 * 60 * 1000)
 #define HOUR	(60 * 60 * 1000)

@@ -75,8 +75,9 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			std::wcin >> password;
 			std::wstring xor_pwd = Encrypt(password);
 			std::wcout << _T("obfuscated_password=") << xor_pwd << std::endl;
-			if (password != Decrypt(xor_pwd)) 
-				std::wcout << _T("ERROR: Password did not match!") << std::endl;
+			std::wstring outPasswd = Decrypt(xor_pwd);
+			if (password != outPasswd) 
+				std::wcout << _T("ERROR: Password did not match: ") << outPasswd<< std::endl;
 			Settings::destroyInstance();
 			return 0;
 		} else if ( _wcsicmp( _T("start"), argv[1]+1 ) == 0 ) {
@@ -507,7 +508,7 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 	{
 		ReadLock readLock(&m_mutexRW, true, 5000);
 		if (!readLock.IsLocked()) {
-			std::cout << _T("Message was lost as the core was locked...") << std::endl;
+			std::wcout << _T("Message was lost as the core was locked...") << std::endl;
 			return;
 		}
 		MutexLock lock(messageMutex);
@@ -651,28 +652,37 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 		LOG_ERROR(_T("Unknown algortihm requested."));
 		return NSCAPI::hasFailed;
 	}
-	std::wstring s = inBuffer;
 	std::wstring key = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT);
-	TCHAR *c = new TCHAR[inBufLen+1];
-	wcsncpy_s(c, inBufLen+1, inBuffer, inBufLen);
-	for (unsigned int i=0,j=0;i<inBufLen;i++,j++) {
+	int tcharInBufLen = 0;
+	char *c = charEx::tchar_to_char(inBuffer, inBufLen, tcharInBufLen);
+	std::wstring::size_type j=0;
+	for (int i=0;i<tcharInBufLen;i++,j++) {
 		if (j > key.size())
 			j = 0;
 		c[i] ^= key[j];
 	}
-	LOG_ERROR(_T("DISABLED FOR NOW!!!! REPORT THIS!!!"));
-	size_t len = 0; //b64::b64_encode(reinterpret_cast<void*>(c), inBufLen, outBuf, *outBufLen);
-	delete [] c;
-	if (outBuf) {
-		if ((len == 0)||(len >= *outBufLen)) {
-			LOG_ERROR(_T("Invalid out buffer length."));
-			return NSCAPI::isInvalidBufferLen;
-		}
-		outBuf[len] = 0;
-		*outBufLen = static_cast<unsigned int>(len);
-	} else {
-		*outBufLen = static_cast<unsigned int>(len);
+	size_t cOutBufLen = b64::b64_encode(reinterpret_cast<void*>(c), tcharInBufLen, NULL, NULL);
+	if (!outBuf) {
+		*outBufLen = static_cast<unsigned int>(cOutBufLen*2); // TODO: Guessing wildly here but no proper way to tell without a lot of extra work
+		return NSCAPI::isSuccess;
 	}
+	char *cOutBuf = new char[cOutBufLen+1];
+	size_t len = b64::b64_encode(reinterpret_cast<void*>(c), tcharInBufLen, cOutBuf, cOutBufLen);
+	delete [] c;
+	if (len == 0) {
+		LOG_ERROR(_T("Invalid out buffer length."));
+		return NSCAPI::isInvalidBufferLen;
+	}
+	int realOutLen;
+	TCHAR *realOut = charEx::char_to_tchar(cOutBuf, cOutBufLen, realOutLen);
+	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
+		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
+		return NSCAPI::isInvalidBufferLen;
+	}
+	wcsncpy_s(outBuf, *outBufLen, realOut, realOutLen);
+	delete [] realOut;
+	outBuf[realOutLen] = 0;
+	*outBufLen = static_cast<unsigned int>(realOutLen);
 	return NSCAPI::isSuccess;
 }
 
@@ -681,53 +691,39 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 		LOG_ERROR(_T("Unknown algortihm requested."));
 		return NSCAPI::hasFailed;
 	}
-	int inBufLenC = WideCharToMultiByte(CP_ACP, 0, inBuffer, inBufLen, NULL, 0, NULL, NULL); 
-	if (inBufLenC == 0) {
-		LOG_ERROR_STD(_T("Could not convert string: ") + error::lookup::last_error());
-		return NSCAPI::hasFailed;
+	int inBufLenC = 0;
+	char *inBufferC = charEx::tchar_to_char(inBuffer, inBufLen, inBufLenC);
+	size_t cOutLen =  b64::b64_decode(inBufferC, inBufLenC, NULL, NULL);
+	if (!outBuf) {
+		*outBufLen = static_cast<unsigned int>(cOutLen*2); // TODO: Guessing wildly here but no proper way to tell without a lot of extra work
+		return NSCAPI::isSuccess;
 	}
-	char *inBufferC = new char[inBufLenC+1];
-	inBufLenC = WideCharToMultiByte(CP_ACP, 0, inBuffer, inBufLen, inBufferC, inBufLenC, NULL, NULL); 
-	if (inBufLenC == 0) {
-		LOG_ERROR_STD(_T("Could not convert string: ") + error::lookup::last_error());
-		delete [] inBufferC;
-		return NSCAPI::hasFailed;
+	char *cOutBuf = new char[cOutLen+1];
+	size_t len = b64::b64_decode(inBufferC, inBufLenC, reinterpret_cast<void*>(cOutBuf), cOutLen);
+	delete [] inBufferC;
+	if (len == 0) {
+		LOG_ERROR(_T("Invalid out buffer length."));
+		return NSCAPI::isInvalidBufferLen;
 	}
-	char *outBufferC = new char[*outBufLen];
-	size_t len =  b64::b64_decode(inBufferC, inBufLenC, reinterpret_cast<void*>(outBufferC), *outBufLen);
-	if (outBufferC) {
-		if (len == 0) {
-			delete [] inBufferC;
-			LOG_ERROR_STD(_T("Invalid out buffer length."));
-			return NSCAPI::isInvalidBufferLen;
-		}
-		std::string key = strEx::wstring_to_string(Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT));
-		for (unsigned int i=0,j=0;i<len;i++,j++) {
-			if (j > key.size())
-				j = 0;
-			outBufferC[i] ^= key[j];
-		}
-		outBufferC[len] = 0;
+	int realOutLen;
 
-		int neededLen = MultiByteToWideChar(CP_ACP, 0, outBufferC, static_cast<int>(len), NULL, 0 );
-		if (neededLen == 0 || neededLen < 0) {
-			LOG_ERROR_STD(_T("Could not convert string: ") + error::lookup::last_error());
-			delete [] inBufferC;
-			return NSCAPI::hasFailed;
-		}
-		if (static_cast<unsigned int>(neededLen) > *outBufLen) {
-			LOG_ERROR_STD(_T("Invalid out buffer length."));
-			return NSCAPI::isInvalidBufferLen;
-		}
-		*outBufLen = static_cast<unsigned int>(MultiByteToWideChar(CP_ACP, 0, outBufferC, static_cast<int>(len), outBuf, neededLen ));
-		delete [] inBufferC;
-		if (*outBufLen == 0) {
-			LOG_ERROR_STD(_T("Could not convert string: ") + error::lookup::last_error());
-			return NSCAPI::hasFailed;
-		}
-	} else {
-		*outBufLen = static_cast<unsigned int>(len);
+	std::wstring key = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_MASTERKEY, MAIN_MASTERKEY_DEFAULT);
+	std::wstring::size_type j=0;
+	for (int i=0;i<cOutLen;i++,j++) {
+		if (j > key.size())
+			j = 0;
+		cOutBuf[i] ^= key[j];
 	}
+
+	TCHAR *realOut = charEx::char_to_tchar(cOutBuf, cOutLen, realOutLen);
+	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
+		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
+		return NSCAPI::isInvalidBufferLen;
+	}
+	wcsncpy_s(outBuf, *outBufLen, realOut, realOutLen);
+	delete [] realOut;
+	outBuf[realOutLen] = 0;
+	*outBufLen = static_cast<unsigned int>(realOutLen);
 	return NSCAPI::isSuccess;
 }
 
