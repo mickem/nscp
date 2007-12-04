@@ -217,11 +217,10 @@ namespace strEx {
 		// "Date: %Y-%m-%d %H:%M:%S"
 		MK_FORMAT_FTD(70, _T("%Y"), mtm->tm_year);
 		MK_FORMAT_FTD(0, _T("%m"), mtm->tm_mon);
-		MK_FORMAT_FTD(0, _T("%d"), mtm->tm_mday);
+		MK_FORMAT_FTD(0, _T("%d"), mtm->tm_mday-1);
 		MK_FORMAT_FTD(0, _T("%H"), mtm->tm_hour);
 		MK_FORMAT_FTD(0, _T("%M"), mtm->tm_min);
 		MK_FORMAT_FTD(0, _T("%S"), mtm->tm_sec);
-		MK_FORMAT_FTD(0, _T("%Y"), mtm->tm_year);
 		return format;
 	}
 

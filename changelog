@@ -5,7 +5,17 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-12-04 MickeM
+ ! 0.3.0 Released
+
+2007-12-01 MickeM
+ * Fixed issue with date formating in FILEAGE
+
+2007-11-29 MickeM
+ * Fixed issue with date formating in FILEAGE
+
 2007-11-28 MickeM
+ ! 0.3.0 RC-1
  * Fixed some UNICODE issues with process-listings
  + Added an error message if the "detected" process enumeration method is not available.
  + Fixed some more unicode issues Password encrypt/decrypt: #107
