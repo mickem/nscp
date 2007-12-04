@@ -314,8 +314,12 @@ int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, st
 				strEx::token t = strEx::getToken(msg, '|');
 				msg = t.first;
 				std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
-				if (pos != std::wstring::npos)
-					msg = msg.substr(0,pos);
+				if (pos != std::wstring::npos) {
+					if (pos == msg.size())
+						msg = msg.substr(0,pos);
+					else
+						msg = msg.substr(0,pos+1);
+				}
 				//if (msg[msg.size()-1] == '\n')
 				perf = t.second;
 			}

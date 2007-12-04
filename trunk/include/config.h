@@ -25,12 +25,18 @@
 #define SZAPPNAME _T("NSClient++")
 
 // Version
-#define SZVERSION STRPRODUCTVER _T(" RC ") STRPRODUCTDATE
+#define SZBETATAG _T("") // _T(" RC ")  _T(" BETA ") 
+#define SZVERSION STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
-#ifdef ARCH_x64
-#define SZARCH _T("x64")
-#else
+
+#if defined(_M_IX86)
 #define SZARCH _T("w32")
+#elif defined(_M_X64)
+#define SZARCH _T("x64")
+#elif defined(_M_IA64)
+#define SZARCH _T("ia64")
+#else
+#define SZARCH _T("unknown")
 #endif
 
 // internal name of the service
