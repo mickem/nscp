@@ -160,7 +160,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 				}
 			}
 		} 
-	}while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));
+	} while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));
 	if (waitStatus != WAIT_OBJECT_0) {
 		NSC_LOG_ERROR(_T("Something odd happened, terminating PDH collection thread!"));
 	}

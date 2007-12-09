@@ -36,15 +36,18 @@ void simpleSocket::Socket::printError(std::wstring FILE, int LINE, std::wstring 
  * @param buffer 
  * @param tmpBufferLength Length of temporary buffer to use (generally larger then expected data)
  */
-bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLength /* = 1024*/) {
+bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLength /* = 1024*/, int maxLength /* = -1 */) {
 	// @todo this could be optimized a bit if we want to
 	// If only one buffer is needed we could "reuse" the buffer instead of copying it.
 	char *tmpBuffer = new char[tmpBufferLength+1];
 	int n=recv(socket_,tmpBuffer,tmpBufferLength,0);
+	std::wcout << _T("read: ") << n << std::endl;
 	while ((n!=SOCKET_ERROR )&&(n!=0)) {
 		if (n == tmpBufferLength) {
 			// We filled the buffer (There is more to get)
 			buffer.append(tmpBuffer, n);
+			if ((maxLength!=-1)&&(n >= maxLength))
+				break;
 			n=recv(socket_,tmpBuffer,tmpBufferLength,0);
 		} else {
 			// Buffer not full, we got it "all"

@@ -88,7 +88,7 @@ namespace strEx {
 		return string_to_wstring(str.c_str(), static_cast<int>(str.length())) ;
 	}
 
-	inline std::wstring format_date(time_t time, std::wstring format) {
+	inline std::wstring format_date(time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		TCHAR buf[51];
 		struct tm *nt = new struct tm;
 #if (_MSC_VER > 1300)  // 1300 == VC++ 7.0

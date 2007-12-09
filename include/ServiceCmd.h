@@ -39,6 +39,7 @@ namespace serviceControll {
 	void ModifyServiceType(LPCTSTR szName, DWORD dwServiceType);
 	void Uninstall(std::wstring);
 	void Start(std::wstring);
+	bool isStarted(std::wstring);
 	void Stop(std::wstring);
 	void SetDescription(std::wstring,std::wstring);
 	DWORD GetServiceType(LPCTSTR szName);

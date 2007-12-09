@@ -173,8 +173,9 @@ namespace PDH {
 			PDH_STATUS status;
 			if (!listener_)
 				return;
-			if ((status = PdhGetFormattedCounterValue(hCounter_, listener_->getFormat(), NULL, &data_)) != ERROR_SUCCESS)
+			if ((status = PdhGetFormattedCounterValue(hCounter_, listener_->getFormat(), NULL, &data_)) != ERROR_SUCCESS) {
 				throw PDHException(name_, _T("PdhGetFormattedCounterValue failed"), status);
+			}
 			listener_->collect(*this);
 		}
 		double getDoubleValue() const {

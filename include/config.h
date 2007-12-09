@@ -25,7 +25,7 @@
 #define SZAPPNAME _T("NSClient++")
 
 // Version
-#define SZBETATAG _T("") // _T(" RC ")  _T(" BETA ") 
+#define SZBETATAG _T(" ") // _T(" RC ")  _T(" BETA ") 
 #define SZVERSION STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
 
@@ -131,10 +131,14 @@
 #define C_SYSTEM_ENUMPROC_METHOD_DEFAULT C_SYSTEM_ENUMPROC_METHOD_AUTO
 
 
-#define C_NSCA_CHECKS_SECTION_TITLE _T("NSCA Checks")
-#define C_NSCA_SECTION_TITLE _T("NSCA")
-#define C_NSCA_INTERVAL _T("Interval")
-#define C_NSCA_INTERVAL_DEFAULT 60
+#define NSCA_AGENT_SECTION_TITLE _T("NSCA Agent")
+#define NSCA_CMD_SECTION_TITLE _T("NSCA Commands")
+#define NSCA_INTERVAL _T("interval")
+#define NSCA_INTERVAL_DEFAULT 60
+#define NSCA_HOSTNAME _T("nsca_host")
+#define NSCA_HOSTNAME_DEFAULT _T("unknown-host")
+#define NSCA_PORT _T("nsca_port")
+#define NSCA_PORT_DEFAULT 5667
 
 #define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
 #define C_SYSTEM_SVC_ALL_0_DEFAULT _T("ignored")

@@ -54,6 +54,11 @@ namespace simpleSocket {
 			memcpy(buffer_, other.getBuffer(), other.getLength()+1);
 			length_ = other.getLength();
 		}
+		DataBuffer(const char* buffer, unsigned int length) {
+			buffer_ = new char[length+2];
+			memcpy(buffer_, buffer, length+1);
+			length_ = length;
+		}
 		virtual ~DataBuffer() {
 			delete [] buffer_;
 			length_ = 0;
@@ -138,12 +143,21 @@ namespace simpleSocket {
 	protected:
 		SOCKET socket_;
 		sockaddr_in from_;
+		sockaddr_in to_;
 
 	public:
 		Socket() : socket_(NULL) {
 		}
 		Socket(SOCKET socket) : socket_(socket) {
 		}
+		Socket(int type, int protocol) : socket_(NULL) {
+			socket_ = ::socket(AF_INET, type, protocol);
+		}
+		Socket(bool create) : socket_(NULL) {
+			if (create)
+				socket_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		}
+
 		Socket(Socket &other) {
 			socket_ = other.socket_;
 			from_ = other.from_;
@@ -166,6 +180,15 @@ namespace simpleSocket {
 		virtual void shutdown(int how = SD_BOTH) {
 			if (socket_)
 				::shutdown(socket_, how);
+		}
+		virtual int connect(std::wstring host, u_short port) {
+			if (socket_) {
+				to_.sin_family = AF_INET;
+				to_.sin_port = htons(port);
+				to_.sin_addr.s_addr = inet_addr(host);
+				return ::connect(socket_, (SOCKADDR*) &to_, sizeof(to_));
+			}
+			return SOCKET_ERROR;
 		}
 
 		virtual void close() {
@@ -225,7 +248,7 @@ namespace simpleSocket {
 			ret.S_un.S_addr = (reinterpret_cast<in_addr*>(remoteHost->h_addr_list[0]))->S_un.S_addr;
 			return ret;
 		}
-		virtual bool readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
+		virtual bool readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1);
 
 		virtual void socket(int af, int type, int protocol ) {
 			socket_ = ::socket(af, type, protocol);
@@ -531,6 +554,7 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		return 0;
 	}
 
+	bool socketOk = false;
 	try {
 		core->socket(AF_INET,SOCK_STREAM,0);
 		core->setAddr(AF_INET, core->bindAddres_, htons(core->bindPort_));
@@ -541,21 +565,35 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 		else
 			core->listen();
 		core->setNonBlock();
-		//NSC_DEBUG_MSG_STD("Socket ready...");
-		while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
-			try {
-				tSocket client;
-				if (core->accept(client)) {
-					core->addResponder(new tSocket(client));
-				}
-			} catch (SocketException e) {
-				core->printError(_T(__FILE__), __LINE__, e.getMessage() + _T(", attempting to resume..."));
-			}
-		}
+		socketOk = true;
 	} catch (SocketException e) {
 		core->printError(_T(__FILE__), __LINE__, e.getMessage());
+	} catch (...) {
+		core->printError(_T(__FILE__), __LINE__, _T("Unhandeled exception in the socket thread..."));
 	}
-	NSC_DEBUG_MSG_STD(_T("Listener is preparing to shutdown..."));
+	if (socketOk) {
+		try {
+			//NSC_DEBUG_MSG_STD("Socket ready...");
+			while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
+				try {
+					tSocket client;
+					if (core->accept(client)) {
+						core->addResponder(new tSocket(client));
+					}
+				} catch (SocketException e) {
+					core->printError(_T(__FILE__), __LINE__, e.getMessage() + _T(", attempting to resume..."));
+				}
+			}
+		} catch (SocketException e) {
+			core->printError(_T(__FILE__), __LINE__, e.getMessage());
+		} catch (...) {
+			core->printError(_T(__FILE__), __LINE__, _T("Unhandeled exception in the socket thread..."));
+		}
+	} else {
+		core->printError(_T(__FILE__), __LINE__, _T("Socket did not start properly, we will now do nothing..."));
+		WaitForSingleObject(hStopEvent_, INFINITE);
+	}
+	NSC_DEBUG_MSG_STD(_T("Socket listener is preparing to shutdown..."));
 	core->shutdown(SD_BOTH);
 	core->close();
 	core->onClose();

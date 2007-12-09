@@ -60,6 +60,15 @@ namespace arrayBuffer {
 	std::wstring arrayBuffer2string(TCHAR **argument, const unsigned int argLen, std::wstring join);
 	arrayBuffer createEmptyArrayBuffer(unsigned int &argLen);
 	void destroyArrayBuffer(arrayBuffer argument, const unsigned int argLen);
+	inline arrayBuffer copy(const arrayBuffer &other, const unsigned int argLen) {
+		arrayBufferItem* ret = new arrayBufferItem[argLen];
+		for (unsigned int i=0; i<argLen; i++) {
+			size_t s = wcslen(other[i]);
+			ret[i] = new TCHAR[s+2];
+			wcsncpy_s(ret[i], s+2, other[i], s);
+		}
+		return ret;
+	}
 
 #ifdef _DEBUG
 	void test_createEmptyArrayBuffer();
