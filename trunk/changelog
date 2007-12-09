@@ -5,6 +5,14 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-12-09 MickeM
+ + Added a check if the service is started when running with /test so you get a warning
+ + Improved the socket thread with:
+    * a default-catch
+    * If the socket failes to start we still wait for it to shut down (no error message)
+ + Added first version of the NSCA agent (NSCAgent.dll)
+   (no encryption support as of yet, but will come)
+
 2007-12-04 MickeM
  ! 0.3.0 Released
 

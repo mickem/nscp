@@ -176,6 +176,34 @@ namespace serviceControll {
 		CloseServiceHandle(schSCManager);
 	}
 
+
+	bool isStarted(std::wstring name) {
+		SC_HANDLE   schService;
+		SC_HANDLE   schSCManager;
+		SERVICE_STATUS ssStatus;
+		bool ret = false;
+
+		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS );
+		if (!schSCManager) 
+			throw SCException(_T("OpenSCManager failed."));
+		schService = OpenService(schSCManager, name.c_str(), SERVICE_ALL_ACCESS);
+		if (schService) {
+			if ( QueryServiceStatus( schService, &ssStatus ) ) {
+				if ( ssStatus.dwCurrentState == SERVICE_RUNNING ) {
+					ret = true;
+				} else if ( ssStatus.dwCurrentState == SERVICE_START_PENDING ) {
+					ret = true;
+				}
+			}
+			CloseServiceHandle(schService);
+		} else {
+			CloseServiceHandle(schSCManager);
+			throw SCException(_T("OpenService failed."));
+		}
+		CloseServiceHandle(schSCManager);
+		return ret;
+	}
+
 	/**
 	 * Stops and removes the service
 	 *

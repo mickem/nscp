@@ -102,7 +102,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			LOG_MESSAGE(_T("Version ") SZVERSION);
 		} else if ( _wcsicmp( _T("version"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION);
+			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
@@ -113,7 +113,14 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
 			return nRetCode;
 		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
-			std::wcerr << "Launching test mode..." << std::endl;
+			std::wcout << "Launching test mode..." << std::endl;
+			try {
+				if (serviceControll::isStarted(SZSERVICENAME)) {
+					std::wcerr << "Service seems to be started, this is probably not a good idea..." << std::endl;
+				}
+			} catch (const serviceControll::SCException& e) {
+				// Empty by design
+			}
 			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
 			if (!mainClient.InitiateService()) {
