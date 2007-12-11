@@ -27,6 +27,9 @@
 #include <sstream>
 
 namespace PDH {
+
+
+
 	class PDHException {
 	private:
 		std::wstring str_;
@@ -44,6 +47,53 @@ namespace PDH {
 			if (pdhStatus_ != 0) {
 				ret += _T(": ") + error::format::from_module(_T("PDH.DLL"), pdhStatus_);
 			}
+			return ret;
+		}
+	};
+
+	class PDHResolver {
+	public:
+		//typedef PDH_FUNCTION (*fpPdhLookupPerfNameByIndex)(IN LPCWSTR szMachineName,IN DWORD dwNameIndex,IN LPWSTR szNameBuffer,IN LPDWORD pcchNameBufferSize);
+		typedef PDH_STATUS (WINAPI *fpPdhLookupPerfNameByIndex)(LPCWSTR,DWORD,LPWSTR,LPDWORD);
+		static fpPdhLookupPerfNameByIndex pPdhLookupPerfNameByIndex;
+		static HMODULE PDH_;
+	private:
+		static void lookup_function() {
+			if (pPdhLookupPerfNameByIndex != NULL)
+				return;
+			PDH_ = ::LoadLibrary(_TEXT("PDH"));
+			
+			if (PDH_ == NULL) {
+				throw PDHException(_T("LoadLibrary for PDH failed: ")+ error::lookup::last_error());
+			}
+#ifdef UNICODE
+			//*(FARPROC *)&pPdhLookupPerfNameByIndex
+			pPdhLookupPerfNameByIndex = (fpPdhLookupPerfNameByIndex)::GetProcAddress(PDH_, "PdhLookupPerfNameByIndexW");
+#else
+			pPdhLookupPerfNameByIndex = (fpPdhLookupPerfNameByIndex)::GetProcAddress(PDH_, "PdhLookupPerfNameByIndexA");
+#endif
+			if (pPdhLookupPerfNameByIndex == NULL) {
+				throw PDHException(_T("Failed to find function: PdhLookupPerfNameByIndex!")+ error::lookup::last_error());
+			}
+		}
+	public:
+		static PDH_STATUS PdhLookupPerfNameByIndex(LPCTSTR szMachineName,DWORD dwNameIndex,LPTSTR szNameBuffer,LPDWORD pcchNameBufferSize) {
+			PDHResolver::lookup_function();
+			if (pPdhLookupPerfNameByIndex == NULL)
+				throw PDHException(_T("Failed to initalize PdhLookupPerfNameByIndex :("));
+			return pPdhLookupPerfNameByIndex(szMachineName,dwNameIndex,szNameBuffer,pcchNameBufferSize);
+		}
+#define PDH_INDEX_BUF_LEN 2048
+		static std::wstring PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex) {
+			TCHAR *buffer = new TCHAR[PDH_INDEX_BUF_LEN+1];
+			DWORD bufLen = PDH_INDEX_BUF_LEN;
+			PDH_STATUS status = PDHResolver::PdhLookupPerfNameByIndex(szMachineName,dwNameIndex,buffer,&bufLen);
+			if (status != ERROR_SUCCESS) {
+				delete [] buffer;
+				throw PDHException(_T("RESOLVER"), _T("PdhLookupPerfNameByIndex: Could not find index: ") + strEx::itos(dwNameIndex), status);
+			}
+			std::wstring ret = buffer;
+			delete [] buffer;
 			return ret;
 		}
 	};
@@ -209,6 +259,9 @@ namespace PDH {
 			PDHCounter *counter = new PDHCounter(name, listener);
 			counters_.push_back(counter);
 			return counter;
+		}
+		std::wstring lookupIndex(DWORD index) {
+			return PDHResolver::PdhLookupPerfNameByIndex(NULL, index);
 		}
 		PDHCounter* addCounter(std::wstring name) {
 			PDHCounter *counter = new PDHCounter(name);

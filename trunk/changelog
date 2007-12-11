@@ -5,6 +5,12 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-12-11 MickeM
+ + Added support for index-lookups of PDH counters (hopefully *all* local problems are now fixed (yeah right))
+
+2007-12-10 MickeM
+ + Added intial draft for LUA module
+
 2007-12-09 MickeM
  + Added a check if the service is started when running with /test so you get a warning
  + Improved the socket thread with:
