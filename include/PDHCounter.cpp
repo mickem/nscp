@@ -20,3 +20,6 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "pdhcounter.h"
+
+PDH::PDHResolver::fpPdhLookupPerfNameByIndex PDH::PDHResolver::pPdhLookupPerfNameByIndex = NULL;
+HMODULE PDH::PDHResolver::PDH_ = NULL;

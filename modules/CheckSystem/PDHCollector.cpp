@@ -65,6 +65,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		std::wstring prefix;
 		settings.setFile(NSCModuleHelper::getBasePath(),  _T("counters.defs"), true);
 		std::wstring section = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_FORCE_LANGUAGE, C_SYSTEM_FORCE_LANGUAGE_DEFAULT);
+		bool bUseIndex = false;
 
 		try {
 			OSVERSIONINFO osVer = systemInfo::getOSVersion();
@@ -78,9 +79,11 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			if (systemInfo::isBelowNT4(osVer)) {
 				NSC_DEBUG_MSG_STD(_T("Autodetected NT4, using NT4 PDH counters."));
 				prefix = _T("NT4");
+				bUseIndex = false;
 				langId = systemInfo::GetSystemDefaultLangID();
 			} else if (systemInfo::isAboveW2K(osVer)) {
 				NSC_DEBUG_MSG_STD(_T("Autodetected w2k or later, using w2k PDH counters."));
+				bUseIndex = true;
 				prefix = _T("W2K");
 				langId = systemInfo::GetSystemDefaultUILanguage();
 			} else {
@@ -106,16 +109,38 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			NSC_LOG_ERROR_STD(_T("The Error: ") + e.getError());
 			return -1;
 		}
-		pdh.addCounter(settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
-		pdh.addCounter(settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
-		pdh.addCounter(settings.getString(section, prefix + _T("_") + C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
-		pdh.addCounter(settings.getString(section, prefix + _T("_") + C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
+
 		try {
+			std::wstring proc;
+			std::wstring uptime;
+			std::wstring memCl;
+			std::wstring memCb;
+			if (bUseIndex) {
+				NSC_DEBUG_MSG_STD(_T("Using index to retrive counternames"));
+				proc = _T("\\") + pdh.lookupIndex(238) + _T("(_total)\\") + pdh.lookupIndex(6);
+				uptime = _T("\\") + pdh.lookupIndex(2) + _T("\\") + pdh.lookupIndex(674);
+				memCl = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(30);
+				memCb = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(26);
+			} else {
+				proc = settings.getString(section, prefix + _T("_") + C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT);
+				uptime = settings.getString(section, prefix + _T("_") + C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT);
+				memCl = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT);
+				memCb = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT);
+			}
+			NSC_DEBUG_MSG_STD(_T("Found counternames: CPU:    ") + proc);
+			NSC_DEBUG_MSG_STD(_T("Found counternames: UPTIME: ") + uptime);
+			NSC_DEBUG_MSG_STD(_T("Found counternames: MCL:    ") + memCl);
+			NSC_DEBUG_MSG_STD(_T("Found counternames: MCB:    ") + memCb);
+			pdh.addCounter(proc, &cpu);
+			pdh.addCounter(uptime, &upTime);
+			pdh.addCounter(memCl, &memCmtLim);
+			pdh.addCounter(memCb, &memCmt);
 			pdh.open();
 		} catch (const PDH::PDHException &e) {
 			NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
-			NSC_LOG_ERROR_STD(_T("Trying to use default (English) counters"));
 			pdh.removeAllCounters();
+			NSC_LOG_ERROR_STD(_T("Trying to use default (English) counters"));
+			SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
 			pdh.addCounter(C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT, &memCmtLim);
 			pdh.addCounter(C_SYSTEM_MEM_PAGE_DEFAULT, &memCmt);
 			pdh.addCounter(C_SYSTEM_UPTIME_DEFAULT, &upTime);

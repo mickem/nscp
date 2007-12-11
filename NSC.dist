@@ -19,6 +19,8 @@
 ;
 ; RemoteConfiguration IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
 ;RemoteConfiguration.dll
+; NSCA Agent is a new beta module use with care!
+;NSCAAgent.dll
 
 [Settings]
 ;# OBFUSCATED PASSWORD
@@ -177,3 +179,42 @@ use_file=1
 ;
 ; myotherfile.ini
 ; real.ini
+
+[NSCA Agent]
+;# CHECK INTERVALL (in seconds)
+;   How often we should run the checks and submit the results.
+interval=5
+;
+;# ENCRYPTION METHOD
+;   This option determines the method by which the send_nsca client will encrypt the packets it sends 
+;   to the nsca daemon. The encryption method you choose will be a balance between security and 
+;   performance, as strong encryption methods consume more processor resources.
+;   You should evaluate your security needs when choosing an encryption method.
+;
+; Note: The encryption method you specify here must match the decryption method the nsca daemon uses 
+;       (as specified in the nsca.cfg file)!!
+; Values:
+;	0 = None	(Do NOT use this option)
+; -- only 0 is supported as of now, but will change in the future --
+;encryption_method=0
+;
+;# BIND TO ADDRESS
+;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Leaving this blank will bind to "one" local interface.
+; -- not supported as of now --
+;bind_to_address=
+;
+;# NAGIOS SERVER ADDRESS
+;  The address to the nagios server to submit results to.
+;nsca_host=192.168.0.1
+;
+;# NAGIOS SERVER PORT
+;  The port to the nagios server to submit results to.
+;nsca_port=5667
+
+; The checks to run everytime we submit results back to nagios
+;
+[NSCA Commands]
+my_cpu_check=checkCPU warn=80 crit=90 time=20m time=10s time=4
+my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
+my_svc_check=checkServiceState CheckAll
