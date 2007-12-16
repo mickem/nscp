@@ -25,13 +25,6 @@
 #include <filter_framework.hpp>
 #include <error.hpp>
 
-extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
-
-}
-#include "luna.h"
 
 LUAScript gLUAScript;
 
@@ -48,9 +41,42 @@ LUAScript::~LUAScript() {
 
 
 bool LUAScript::loadModule() {
+	//LUA Scripts
+	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(LUA_SCRIPT_SECTION_TITLE);
+	std::list<std::wstring>::const_iterator it;
+	for (it = commands.begin(); it != commands.end(); ++it) {
+		loadScript((*it));
+	}
 	return true;
 }
+
+void LUAScript::register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function) {
+	NSC_LOG_MESSAGE(_T("Script loading: ") + script->get_script() + _T(": ") + command);
+	strEx::blindstr bstr = command.c_str();
+	commands_[bstr] = lua_func(script, function);
+}
+
+bool LUAScript::loadScript(const std::wstring file) {
+	try {
+		script_wrapper::lua_script *script = new script_wrapper::lua_script(file);
+		script->pre_load(this);
+		scripts_.push_back(script);
+		return true;
+	} catch (script_wrapper::LUAException e) {
+		NSC_LOG_ERROR_STD(_T("Could not load script: ") + file + _T(", ") + e.getMessage());
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);
+		assert(false);
+	}
+	return false;
+}
+
+
 bool LUAScript::unloadModule() {
+	for (script_list::const_iterator cit = scripts_.begin(); cit != scripts_.end() ; ++cit) {
+		delete (*cit);
+	}
+	scripts_.clear();
 	return true;
 }
 
@@ -61,92 +87,38 @@ bool LUAScript::hasMessageHandler() {
 	return false;
 }
 
-class Lua_State
-{
-	lua_State *L;
-public:
-	Lua_State() : L(lua_open()) { }
 
-	~Lua_State() {
-		lua_close(L);
-	}
-
-	// implicitly act as a lua_State pointer
-	inline operator lua_State*() {
-		return L;
-	}
-};
-
-NSCAPI::nagiosReturn LUAScript::RunLUA(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
-	Lua_State L;
-	std::wstring script = _T("scripts\\test.lua");
-	luaL_openlibs(L);
-
-	//Luna<Account>::Register(L);
-
-	if (luaL_loadfile(L, strEx::wstring_to_string(script).c_str()) != 0) {
-		std::wstring err = strEx::string_to_wstring(lua_tostring(L, -1));
-		NSC_LOG_ERROR_STD(_T("Failed to load script: ") + script + _T(": ") + err);
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	if (lua_pcall(L, 0, 0, 0) != 0) {
-		std::wstring err = strEx::string_to_wstring(lua_tostring(L, -1));
-		NSC_LOG_ERROR_STD(_T("Failed to parse script: ") + script + _T(": ") + err);
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	int nargs = lua_gettop( L );
-	lua_getglobal(L, "main");
-	if (!lua_isfunction(L, -1)) {
-		lua_pop(L, 1); // remove function from LUA stack
-		NSC_LOG_ERROR_STD(_T("main was not found in script: ") + script);
-		return NSCAPI::returnUNKNOWN;
-	}
-	lua_pushstring(L, "test"); 
-
-	if (lua_pcall(L, 1, LUA_MULTRET, 0) != 0) {
-		std::wstring err = strEx::string_to_wstring(lua_tostring(L, -1));
-		NSC_LOG_ERROR_STD(_T("Failed to call main function in script: ") + script + _T(": ") + err);
-		lua_pop(L, 1); // remove error message
-		return NSCAPI::returnUNKNOWN;
-	}
-	//extract_args(L, lua_gettop( L )-nargs)
-
-	std::cout << "[C++] These values were returned from the script" << std::endl;
-	while (lua_gettop( L ))
-	{
-		switch (lua_type( L, lua_gettop( L ) ))
-		{
-		case LUA_TNUMBER: std::cout << lua_gettop( L ) << " script returned " << lua_tonumber( L, lua_gettop( L ) ) << std::endl; break;
-		case LUA_TTABLE:  std::cout << lua_gettop( L ) << " script returned a table" << std::endl; break;
-		case LUA_TSTRING: std::cout << lua_gettop( L ) << " script returned " << lua_tostring( L, lua_gettop( L ) ) << std::endl; break;
-		case LUA_TBOOLEAN:std::cout << lua_gettop( L ) << " script returned " << lua_toboolean( L, lua_gettop( L ) ) << std::endl; break;
-		default: std::cout << "script returned unknown param" << std::endl; break;
+bool LUAScript::reload(std::wstring &message) {
+	bool error = false;
+	commands_.clear();
+	for (script_list::const_iterator cit = scripts_.begin(); cit != scripts_.end() ; ++cit) {
+		try {
+			(*cit)->reload(this);
+		} catch (script_wrapper::LUAException e) {
+			error = true;
+			message += _T("Exception when reloading script: ") + (*cit)->get_script() + _T(": ") + e.getMessage();
+			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + (*cit)->get_script() + _T(": ") + e.getMessage());
+		} catch (...) {
+			error = true;
+			message += _T("Unhandeled Exception when reloading script: ") + (*cit)->get_script();
+			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when reloading script: ") + (*cit)->get_script());
 		}
-		lua_pop( L, 1 );
 	}
-	NSC_LOG_ERROR_STD(_T("We got:") + strEx::itos(lua_gettop(L)));
-
-
-/*
-	std::wstring ret1 = strEx::string_to_wstring(lua_tostring(L, -3));
-	NSC_LOG_ERROR_STD(_T("Return values are:") + ret1);
-	std::wstring ret2 = strEx::string_to_wstring(lua_tostring(L, -2));
-	NSC_LOG_ERROR_STD(_T("Return values are:") + ret2);
-	std::wstring ret3 = strEx::string_to_wstring(lua_tostring(L, -1));
-	NSC_LOG_ERROR_STD(_T("Return values are:") + ret3);
-*/
-	//lua_setgcthreshold(L, 0);  // collected garbage
-	std::wcout << _T("humm 001") << std::endl;
-	return 0;
+	if (!error)
+		message = _T("LUA scripts Reloaded...");
+	return !error;
 }
 
+
+
 NSCAPI::nagiosReturn LUAScript::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
-	if (command == _T("RunLUA")) {
-		return RunLUA(argLen, char_args, msg, perf);
-	}	
-	return NSCAPI::returnIgnored;
+	if (command == _T("LuaReload")) {
+		return reload(msg)?NSCAPI::returnOK:NSCAPI::returnCRIT;
+	}
+	cmd_list::const_iterator cit = commands_.find(command);
+	if (cit == commands_.end())
+		return NSCAPI::returnIgnored;
+	return (*cit).second.handleCommand(this, command, argLen, char_args, msg, perf);
 }
 
 

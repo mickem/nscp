@@ -53,12 +53,14 @@ namespace arrayBuffer {
 	typedef TCHAR* arrayBufferItem;
 	typedef arrayBufferItem* arrayBuffer;
 	typedef std::list<std::wstring> arrayList;
+	void set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument);
 	arrayList arrayBuffer2list(const unsigned int argLen, TCHAR **argument);
 	arrayBuffer list2arrayBuffer(const arrayList lst, unsigned int &argLen);
 	arrayBuffer split2arrayBuffer(const TCHAR* buffer, TCHAR splitChar, unsigned int &argLen);
 	arrayBuffer split2arrayBuffer(const std::wstring inBuf, TCHAR splitChar, unsigned int &argLen, bool escape = false);
 	std::wstring arrayBuffer2string(TCHAR **argument, const unsigned int argLen, std::wstring join);
 	arrayBuffer createEmptyArrayBuffer(unsigned int &argLen);
+	arrayBuffer createArrayBuffer(unsigned int &argLen);
 	void destroyArrayBuffer(arrayBuffer argument, const unsigned int argLen);
 	inline arrayBuffer copy(const arrayBuffer &other, const unsigned int argLen) {
 		arrayBufferItem* ret = new arrayBufferItem[argLen];

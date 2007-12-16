@@ -1801,6 +1801,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\script_wrapper.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.h"
 				>
 			</File>

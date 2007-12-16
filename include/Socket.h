@@ -373,7 +373,7 @@ namespace simpleSocket {
 			void exitThread(void) {
 				assert(hStopEvent_ != NULL);
 				if (!SetEvent(hStopEvent_))
-					throw new SocketException(_T("SetEvent failed."));
+					throw SocketException(_T("SetEvent failed."));
 			}
 		};
 	private:
@@ -438,11 +438,11 @@ namespace simpleSocket {
 				if (threadManager_.hasActiveThread())
 					if (!threadManager_.exitThread()) {
 						tBase::close();
-						throw new SocketException(_T("Could not terminate thread."));
+						throw SocketException(_T("Could not terminate thread."));
 					}
 			} catch (ThreadException e) {
 				tBase::close();
-				throw new SocketException(_T("Could not terminate thread (got exception in thread)."));
+				throw SocketException(_T("Could not terminate thread (got exception in thread)."));
 			}
 			tBase::close();
 		}

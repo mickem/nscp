@@ -49,6 +49,7 @@ bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLen
 			if ((maxLength!=-1)&&(n >= maxLength))
 				break;
 			n=recv(socket_,tmpBuffer,tmpBufferLength,0);
+			std::wcout << _T("read (2): ") << n << std::endl;
 		} else {
 			// Buffer not full, we got it "all"
 			buffer.append(tmpBuffer, n);

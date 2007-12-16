@@ -67,7 +67,7 @@ void simpleSSL::count_socket(bool add) {
 }
 
 
-bool simpleSSL::sSSL::readAll(simpleSocket::Socket *report_to, simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/) {
+bool simpleSSL::sSSL::readAll(simpleSocket::Socket *report_to, simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/, int maxLength /*= -1*/) {
 	char *tmpBuffer = new char[tmpBufferLength+1];
 	if (!ssl_)
 		create();

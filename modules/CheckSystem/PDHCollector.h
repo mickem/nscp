@@ -65,6 +65,7 @@ public:
 	long long getUptime();
 	unsigned long long getMemCommitLimit();
 	unsigned long long getMemCommit();
+	bool loadCounter(PDH::PDHQuery &pdh);
 
 
 private:

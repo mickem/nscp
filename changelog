@@ -5,6 +5,10 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2007-12-16 MickeM
+ + A lot of new features in the LUA module only "arguments" missing (as well as exposing more of the API)
+ * Changed some exceptions that were thrown wrong
+
 2007-12-11 MickeM
  + Added support for index-lookups of PDH counters (hopefully *all* local problems are now fixed (yeah right))
 

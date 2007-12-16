@@ -69,6 +69,18 @@ arrayBuffer::arrayBuffer arrayBuffer::createEmptyArrayBuffer(unsigned int &argLe
 	return arrayBuffer;
 }
 /**
+* Creates an arrayBuffer with N-elements
+* @param &argLen [IN OUT] The length (items) of the arrayBuffer
+* @return The arrayBuffer
+*/
+arrayBuffer::arrayBuffer arrayBuffer::createArrayBuffer(unsigned int &argLen) {
+	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[argLen];
+	for (unsigned int i=0;i<argLen;i++) {
+		arrayBuffer[i] = NULL;
+	}
+	return arrayBuffer;
+}
+/**
 * Joins an arrayBuffer back into a string
 * @param **argument The ArrayBuffer
 * @param argLen The length of the ArrayBuffer
@@ -78,9 +90,11 @@ arrayBuffer::arrayBuffer arrayBuffer::createEmptyArrayBuffer(unsigned int &argLe
 std::wstring arrayBuffer::arrayBuffer2string(arrayBuffer::arrayBuffer argument, const unsigned int argLen, std::wstring join) {
 	std::wstring ret;
 	for (unsigned int i=0;i<argLen;i++) {
-		ret += argument[i];
-		if (i != argLen-1)
-			ret += join;
+		if (argument[i] != NULL) {
+			ret += argument[i];
+			if (i != argLen-1)
+				ret += join;
+		}
 	}
 	return ret;
 }
@@ -116,6 +130,18 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const TCHAR* buffer, TCH
 	}
 	return arrayBuffer;
 }
+
+
+void arrayBuffer::set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument) {
+	if (position >= argLen)
+		assert(false);
+	delete [] arrayBuffer[position];
+	size_t len = argument.length();
+	arrayBuffer[position] = new TCHAR[len+2];
+	wcsncpy_s(arrayBuffer[position], len+1, argument.c_str(), len);
+	arrayBuffer[position][len] = 0;
+}
+
 /**
  * Split a string into elements as a newly created arrayBuffer
  * @param inBuf The CharArray to split along

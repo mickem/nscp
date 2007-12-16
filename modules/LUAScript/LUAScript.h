@@ -23,9 +23,28 @@ NSC_WRAPPERS_MAIN();
 #include <strEx.h>
 #include <utils.h>
 #include <checkHelpers.hpp>
+#include "script_wrapper.hpp"
 
-class LUAScript {
+class LUAScript : script_wrapper::lua_handler {
 private:
+
+	class lua_func {
+	public:
+		lua_func(script_wrapper::lua_script* script_, std::wstring function_) : script(script_), function(function_) {}
+		lua_func() : script(NULL) {}
+		script_wrapper::lua_script* script;
+		std::wstring function;
+
+		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) const {
+			return script->handleCommand(handler, function, command, argLen, char_args, msg, perf);
+		}
+	};
+
+	typedef std::map<strEx::blindstr,lua_func> cmd_list;
+	typedef std::list<script_wrapper::lua_script*> script_list;
+
+	cmd_list commands_;
+	script_list scripts_;
 
 public:
 	LUAScript();
@@ -33,6 +52,7 @@ public:
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
+	bool reload(std::wstring &msg);
 
 	std::wstring getModuleName() {
 		return _T("LUAScript");
@@ -47,8 +67,13 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
+	bool loadScript(const std::wstring script);
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);
+
+	//script_wrapper::lua_handler
+	void register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function);
 
 private:
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsDiscSize> PathConatiner;
