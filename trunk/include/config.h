@@ -115,6 +115,8 @@
 #define C_SYSTEM_AUTODETECT_PDH_DEFAULT 1
 #define C_SYSTEM_FORCE_LANGUAGE _T("force_language")
 #define C_SYSTEM_FORCE_LANGUAGE_DEFAULT _T("")
+#define C_SYSTEM_NO_INDEX _T("dont_use_pdh_index")
+#define C_SYSTEM_NO_INDEX_DEFAULT 0
 
 #define C_SYSTEM_MEM_PAGE_LIMIT _T("MemoryCommitLimit")
 #define C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT _T("\\Memory\\Commit Limit")
@@ -173,6 +175,10 @@
 #define MAIN_ALLOWED_HOSTS_DEFAULT _T("127.0.0.1")
 #define MAIN_ALLOWED_HOSTS_CACHE _T("cache_allowed_hosts")
 #define MAIN_ALLOWED_HOSTS_CACHE_DEFAULT 1
+
+
+// LOA Config itemns
+#define LUA_SCRIPT_SECTION_TITLE _T("LUA Scripts")
 
 
 // Main Registry ROOT

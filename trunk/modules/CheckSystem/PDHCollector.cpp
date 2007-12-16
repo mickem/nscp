@@ -36,6 +36,105 @@ PDHCollector::~PDHCollector()
 		CloseHandle(hStopEvent_);
 }
 
+bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
+	if (NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_AUTODETECT_PDH, C_SYSTEM_AUTODETECT_PDH_DEFAULT) != 1) {
+		NSC_DEBUG_MSG_STD(_T("Autodetect disabled from nsc.ini via: ") + C_SYSTEM_AUTODETECT_PDH);
+		return false;
+	}
+	std::wstring prefix;
+	std::wstring section = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_FORCE_LANGUAGE, C_SYSTEM_FORCE_LANGUAGE_DEFAULT);
+	int noIndex = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_NO_INDEX, C_SYSTEM_NO_INDEX_DEFAULT);
+	bool bUseIndex = false;
+
+	// Investigate enviornment and find out what to use
+	try {
+		OSVERSIONINFO osVer = systemInfo::getOSVersion();
+		if (!systemInfo::isNTBased(osVer)) {
+			NSC_LOG_ERROR_STD(_T("Detected Windows 3.x or Windows 9x, PDH will be disabled."));
+			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+			return false;
+		}
+
+		LANGID langId = -1;
+		if (systemInfo::isBelowNT4(osVer)) {
+			NSC_DEBUG_MSG_STD(_T("Autodetected NT4, using NT4 PDH counters."));
+			prefix = _T("NT4");
+			bUseIndex = false;
+			langId = systemInfo::GetSystemDefaultLangID();
+		} else if (systemInfo::isAboveW2K(osVer)) {
+			NSC_DEBUG_MSG_STD(_T("Autodetected w2k or later, using w2k PDH counters."));
+			bUseIndex = true;
+			prefix = _T("W2K");
+			langId = systemInfo::GetSystemDefaultUILanguage();
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unknown OS detected, PDH will be disabled."));
+			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+			return false;
+		}
+
+		if (!section.empty()) {
+			NSC_DEBUG_MSG_STD(_T("Overriding language with: ") + section);
+		} else {
+			section = _T("0000") + strEx::ihextos(langId);
+			section = _T("0x") + section.substr(section.length()-4);
+		}
+		if (bUseIndex&&noIndex==1) {
+			NSC_DEBUG_MSG_STD(_T("We wanted to use index but were forced not to use them due to: ") + C_SYSTEM_NO_INDEX);
+			bUseIndex = false;
+		}
+	} catch (const systemInfo::SystemInfoException &e) {
+		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+		NSC_LOG_ERROR_STD(_T("The Error: ") + e.getError());
+		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+		NSC_LOG_ERROR_STD(_T("The Error: UNKNOWN_EXCEPTION"));
+		return false;
+	}
+
+	// Open counters via .defs file or index.
+	try {
+		std::wstring proc;
+		std::wstring uptime;
+		std::wstring memCl;
+		std::wstring memCb;
+		if (bUseIndex) {
+			NSC_DEBUG_MSG_STD(_T("Using index to retrive counternames"));
+			proc = _T("\\") + pdh.lookupIndex(238) + _T("(_total)\\") + pdh.lookupIndex(6);
+			uptime = _T("\\") + pdh.lookupIndex(2) + _T("\\") + pdh.lookupIndex(674);
+			memCl = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(30);
+			memCb = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(26);
+		} else {
+			SettingsT settings;
+			settings.setFile(NSCModuleHelper::getBasePath(),  _T("counters.defs"), true);
+			NSC_DEBUG_MSG_STD(_T("Detected language: ") + settings.getString(section, _T("Description"), _T("Not found")) + _T(" (") + section + _T(")"));
+			if (settings.getString(section, _T("Description"), _T("_NOT_FOUND")) == _T("_NOT_FOUND")) {
+				NSC_LOG_ERROR_STD(_T("Detected language: ") + section + _T(" but it could not be found in: counters.defs"));
+				NSC_LOG_ERROR_STD(_T("You need to manually configure performance counters!"));
+				return false;
+			}
+			NSC_DEBUG_MSG_STD(_T("Attempting to get localized PDH values from the .defs file"));
+			proc = settings.getString(section, prefix + _T("_") + C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT);
+			uptime = settings.getString(section, prefix + _T("_") + C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT);
+			memCl = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT);
+			memCb = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT);
+		}
+		NSC_DEBUG_MSG_STD(_T("Found countername: CPU:    ") + proc);
+		NSC_DEBUG_MSG_STD(_T("Found countername: UPTIME: ") + uptime);
+		NSC_DEBUG_MSG_STD(_T("Found countername: MCL:    ") + memCl);
+		NSC_DEBUG_MSG_STD(_T("Found countername: MCB:    ") + memCb);
+		pdh.addCounter(proc, &cpu);
+		pdh.addCounter(uptime, &upTime);
+		pdh.addCounter(memCl, &memCmtLim);
+		pdh.addCounter(memCb, &memCmt);
+		pdh.open();
+	} catch (const PDH::PDHException &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
+		return false;
+	}
+	return true;
+}
+
 /**
 * Thread that collects the data every "CHECK_INTERVAL" seconds.
 *
@@ -57,137 +156,50 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		return 0;
 	}
 	PDH::PDHQuery pdh;
+	bool bInit = true;
 
-
-	if (NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_AUTODETECT_PDH, C_SYSTEM_AUTODETECT_PDH_DEFAULT) == 1) {
-
-		SettingsT settings;
-		std::wstring prefix;
-		settings.setFile(NSCModuleHelper::getBasePath(),  _T("counters.defs"), true);
-		std::wstring section = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_FORCE_LANGUAGE, C_SYSTEM_FORCE_LANGUAGE_DEFAULT);
-		bool bUseIndex = false;
-
-		try {
-			OSVERSIONINFO osVer = systemInfo::getOSVersion();
-			if (!systemInfo::isNTBased(osVer)) {
-				NSC_LOG_ERROR_STD(_T("Detected Windows 3.x or Windows 9x, PDH will be disabled."));
-				NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
-				return 0;
-			}
-
-			LANGID langId = -1;
-			if (systemInfo::isBelowNT4(osVer)) {
-				NSC_DEBUG_MSG_STD(_T("Autodetected NT4, using NT4 PDH counters."));
-				prefix = _T("NT4");
-				bUseIndex = false;
-				langId = systemInfo::GetSystemDefaultLangID();
-			} else if (systemInfo::isAboveW2K(osVer)) {
-				NSC_DEBUG_MSG_STD(_T("Autodetected w2k or later, using w2k PDH counters."));
-				bUseIndex = true;
-				prefix = _T("W2K");
-				langId = systemInfo::GetSystemDefaultUILanguage();
-			} else {
-				NSC_LOG_ERROR_STD(_T("Unknown OS detected, PDH will be disabled."));
-				NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
-				return 0;
-			}
-
-			if (!section.empty()) {
-				NSC_DEBUG_MSG_STD(_T("Overriding language with: ") + section);
-			} else {
-				section = _T("0000") + strEx::ihextos(langId);
-				section = _T("0x") + section.substr(section.length()-4);
-			}
-			if (settings.getString(section, _T("Description"), _T("_NOT_FOUND")) == _T("_NOT_FOUND")) {
-				NSC_LOG_ERROR_STD(_T("Detected language: ") + section + _T(" but it could not be found in: counters.defs"));
-				NSC_LOG_ERROR_STD(_T("You need to manually configure performance counters!"));
-				return 0;
-			}
-			NSC_DEBUG_MSG_STD(_T("Detected language: ") + settings.getString(section, _T("Description"), _T("Not found")) + _T(" (") + section + _T(")"));
-		} catch (const systemInfo::SystemInfoException &e) {
-			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
-			NSC_LOG_ERROR_STD(_T("The Error: ") + e.getError());
-			return -1;
-		}
-
-		try {
-			std::wstring proc;
-			std::wstring uptime;
-			std::wstring memCl;
-			std::wstring memCb;
-			if (bUseIndex) {
-				NSC_DEBUG_MSG_STD(_T("Using index to retrive counternames"));
-				proc = _T("\\") + pdh.lookupIndex(238) + _T("(_total)\\") + pdh.lookupIndex(6);
-				uptime = _T("\\") + pdh.lookupIndex(2) + _T("\\") + pdh.lookupIndex(674);
-				memCl = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(30);
-				memCb = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(26);
-			} else {
-				proc = settings.getString(section, prefix + _T("_") + C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT);
-				uptime = settings.getString(section, prefix + _T("_") + C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT);
-				memCl = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT);
-				memCb = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT);
-			}
-			NSC_DEBUG_MSG_STD(_T("Found counternames: CPU:    ") + proc);
-			NSC_DEBUG_MSG_STD(_T("Found counternames: UPTIME: ") + uptime);
-			NSC_DEBUG_MSG_STD(_T("Found counternames: MCL:    ") + memCl);
-			NSC_DEBUG_MSG_STD(_T("Found counternames: MCB:    ") + memCb);
-			pdh.addCounter(proc, &cpu);
-			pdh.addCounter(uptime, &upTime);
-			pdh.addCounter(memCl, &memCmtLim);
-			pdh.addCounter(memCb, &memCmt);
-			pdh.open();
-		} catch (const PDH::PDHException &e) {
-			NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
-			pdh.removeAllCounters();
-			NSC_LOG_ERROR_STD(_T("Trying to use default (English) counters"));
-			SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
-			pdh.addCounter(C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT, &memCmtLim);
-			pdh.addCounter(C_SYSTEM_MEM_PAGE_DEFAULT, &memCmt);
-			pdh.addCounter(C_SYSTEM_UPTIME_DEFAULT, &upTime);
-			pdh.addCounter(C_SYSTEM_MEM_CPU_DEFAULT, &cpu);
-			try {
-				pdh.open();
-			} catch (const PDH::PDHException &e) {
-				NSC_LOG_ERROR_STD(_T("Failed to open default (English) performance counters: ") + e.getError());
-				NSC_LOG_ERROR_STD(_T("We will now terminate the collection thread!"));
-				return 0;
-			}
-		}
-	} else {
+	if (!loadCounter(pdh)) {
+		pdh.removeAllCounters();
+		NSC_DEBUG_MSG_STD(_T("We aparently failed to load counters trying to use default (English) counters or those configured in nsc.ini"));
+		SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
 		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
-
 		try {
 			pdh.open();
 		} catch (const PDH::PDHException &e) {
 			NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
-			return 0;
+			bInit = false;
 		}
 	}
 
 	DWORD waitStatus = 0;
-	bool first = true;
-	do {
-		MutexLock mutex(mutexHandler);
-		if (!mutex.hasMutex()) 
-			NSC_LOG_ERROR(_T("Failed to get Mutex!"));
-		else {
-			try {
-				pdh.gatherData();
-			} catch (const PDH::PDHException &e) {
-				if (first) {	// If this is the first run an error will be thrown since the data is not yet avalible
-								// This is "ok" but perhaps another solution would be better, but this works :)
-					first = false;
-				} else {
-					NSC_LOG_ERROR_STD(_T("Failed to query performance counters: ") + e.getError());
+	if (bInit) {
+		bool first = true;
+		do {
+			MutexLock mutex(mutexHandler);
+			if (!mutex.hasMutex()) 
+				NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+			else {
+				try {
+					pdh.gatherData();
+				} catch (const PDH::PDHException &e) {
+					if (first) {	// If this is the first run an error will be thrown since the data is not yet avalible
+						// This is "ok" but perhaps another solution would be better, but this works :)
+						first = false;
+					} else {
+						NSC_LOG_ERROR_STD(_T("Failed to query performance counters: ") + e.getError());
+					}
 				}
-			}
-		} 
-	} while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));
+			} 
+		} while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));
+	} else {
+		NSC_LOG_ERROR_STD(_T("No performance counters were found we will not wait for the end instead..."));
+		waitStatus = WaitForSingleObject(hStopEvent_, INFINITE);
+	}
 	if (waitStatus != WAIT_OBJECT_0) {
-		NSC_LOG_ERROR(_T("Something odd happened, terminating PDH collection thread!"));
+		NSC_LOG_ERROR(_T("Something odd happened when terminating PDH collection thread!"));
 	}
 
 	{

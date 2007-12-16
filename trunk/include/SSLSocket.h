@@ -70,28 +70,28 @@ namespace simpleSSL {
 			if (!internalDH)
 				internalDH = DH_new();
 			if (!internalDH)
-				throw new SSLException(_T("DH_new failed."));
+				throw SSLException(_T("DH_new failed."));
 		}
 
 		inline void bin2bn_p(const unsigned char *s,int len) {
 			if (!internalDH)
-				throw new SSLException(_T("DH_new failed."));
+				throw SSLException(_T("DH_new failed."));
 
 			if (internalDH->p)
-				throw new SSLException(_T("internalDH->p already exists."));
+				throw SSLException(_T("internalDH->p already exists."));
 			internalDH->p = BN_bin2bn(s, len, NULL);
 			if (!internalDH->p)
-				throw new SSLException(_T("internalDH->p failed."));
+				throw SSLException(_T("internalDH->p failed."));
 		}
 		inline void bin2bn_g(const unsigned char *s,int len) {
 			if (!internalDH)
-				throw new SSLException(_T("DH_new failed."));
+				throw SSLException(_T("DH_new failed."));
 
 			if (internalDH->g)
-				throw new SSLException(_T("internalDH->g already exists."));
+				throw SSLException(_T("internalDH->g already exists."));
 			internalDH->g = BN_bin2bn(s, len, NULL);
 			if (!internalDH->g)
-				throw new SSLException(_T("internalDH->g failed."));
+				throw SSLException(_T("internalDH->g failed."));
 		}
 		inline ::DH* getDH() {
 			return internalDH;
@@ -229,7 +229,7 @@ namespace simpleSSL {
 		void setContext(Context context) {
 			context_ = context;
 		}
-		bool readAll (simpleSocket::Socket *report_to, simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024);
+		bool readAll (simpleSocket::Socket *report_to, simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1);
 		void send(const char * buf, unsigned int len);
 	};
 
@@ -259,9 +259,9 @@ namespace simpleSSL {
 				throw simpleSocket::SocketException(e.getMessage());
 			}
 		}
-		virtual bool readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024) {
+		virtual bool readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1) {
 			try {
-				return ssl.readAll(this, buffer, tmpBufferLength);
+				return ssl.readAll(this, buffer, tmpBufferLength, maxLength);
 			} catch (simpleSSL::SSLException e) {
 				throw simpleSocket::SocketException(e.getMessage());
 			}
