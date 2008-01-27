@@ -61,8 +61,9 @@ bool CheckEventLog::hasMessageHandler() {
 class EventLogRecord {
 	EVENTLOGRECORD *pevlr_;
 	__int64 currentTime_;
+	std::wstring file_;
 public:
-	EventLogRecord(EVENTLOGRECORD *pevlr, __int64 currentTime) : pevlr_(pevlr), currentTime_(currentTime) {
+	EventLogRecord(std::wstring file, EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {
 	}
 	inline __int64 timeGenerated() const {
 		return (currentTime_-pevlr_->TimeGenerated)*1000;
@@ -167,10 +168,104 @@ public:
 			return _T("error");
 		return strEx::itos(dwType);
 	}
-	std::wstring render(std::wstring syntax) {
+	std::wstring get_dll() {
+		HKEY hKey = HKEY_LOCAL_MACHINE;
+		std::wstring path = ((std::wstring)_T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + eventSource()).c_str();
+		std::wstring ret;
+		HKEY hTemp;
+		LONG lRet = ERROR_SUCCESS;
+		if (lRet = RegOpenKeyEx(hKey, path.c_str(), 0, KEY_QUERY_VALUE, &hTemp) != ERROR_SUCCESS) {
+			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + error::format::from_system(lRet));
+			return ret;
+		}
+		DWORD type;
+		const DWORD data_length = 2048;
+		DWORD cbData = data_length;
+		BYTE *bData = new BYTE[cbData];
+		lRet = RegQueryValueEx(hTemp, _T("EventMessageFile"), NULL, &type, bData, &cbData);
+		if (lRet == ERROR_SUCCESS) {
+			if (type == REG_SZ) {
+				if (cbData < data_length-1) {
+					bData[cbData] = 0;
+					ret = reinterpret_cast<LPCTSTR>(bData);
+				} else {
+					NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
+				}
+			} else if (type == REG_EXPAND_SZ) {
+#define EXPAND_BUFFER_SIZE 2048
+				if (cbData < data_length-1) {
+					bData[cbData] = 0;
+					std::wstring s = reinterpret_cast<LPCTSTR>(bData);
+					TCHAR *buffer = new TCHAR[EXPAND_BUFFER_SIZE+1];
+					DWORD expRet = ExpandEnvironmentStrings(s.c_str(), buffer, EXPAND_BUFFER_SIZE);
+					if (expRet >= EXPAND_BUFFER_SIZE)
+						NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
+					else
+						ret = buffer;
+				} else {
+					NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
+				}
+			} else {
+				NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
+			}
+		} else {
+			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + error::format::from_system(lRet));
+		}
+		RegCloseKey(hTemp);
+		delete [] bData;
+		return ret;
+	}
+
+	std::wstring render_message() {
+		DWORD *dwArgs = new DWORD[pevlr_->NumStrings+1];
+		TCHAR* p = reinterpret_cast<TCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
+		for (unsigned int i =0;i<pevlr_->NumStrings;i++) {
+			dwArgs[i] = reinterpret_cast<DWORD>(p);
+			DWORD len = wcslen(p);
+			p += len+1;
+		}
+		std::wstring ret = error::format::message::from_module(get_dll(), eventID(), dwArgs);
+		delete [] dwArgs;
+		std::string::size_type pos = ret.find_last_not_of(_T("\n\t\m"));
+		if (pos != std::string::npos) {
+			ret = ret.substr(0,pos-1);
+		}
+		return ret;
+	}
+	SYSTEMTIME get_time(DWORD time) {
+		FILETIME FileTime, LocalFileTime;
+		SYSTEMTIME SysTime;
+		__int64 lgTemp;
+		__int64 SecsTo1970 = 116444736000000000;
+
+		lgTemp = Int32x32To64(time,10000000) + SecsTo1970;
+
+		FileTime.dwLowDateTime = (DWORD) lgTemp;
+		FileTime.dwHighDateTime = (DWORD)(lgTemp >> 32);
+
+		FileTimeToLocalFileTime(&FileTime, &LocalFileTime);
+		FileTimeToSystemTime(&LocalFileTime, &SysTime);
+		return SysTime;
+	}
+
+	SYSTEMTIME get_time_generated() {
+		return get_time(pevlr_->TimeGenerated);
+	}
+	SYSTEMTIME get_time_written() {
+		return get_time(pevlr_->TimeWritten);
+	}
+
+	std::wstring render(bool propper, std::wstring syntax, std::wstring date_format = DATE_FORMAT) {
+		if (propper) {
+			// To obtain the appropriate message string from the message file, load the message file with the LoadLibrary function and use the FormatMessage function
+			strEx::replace(syntax, _T("%message%"), render_message());
+		} else {
+			strEx::replace(syntax, _T("%message%"), _T("%message% needs the descriptions flag set!"));
+		}
+
 		strEx::replace(syntax, _T("%source%"), eventSource());
-		strEx::replace(syntax, _T("%generated%"), strEx::format_date(pevlr_->TimeGenerated, DATE_FORMAT));
-		strEx::replace(syntax, _T("%written%"), strEx::format_date(pevlr_->TimeWritten, DATE_FORMAT));
+		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), date_format));
+		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), date_format));
 		strEx::replace(syntax, _T("%type%"), translateType(eventType()));
 		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
 		strEx::replace(syntax, _T("%strings%"), enumStrings());
@@ -325,7 +420,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			while (dwRead > 0) 
 			{ 
 				bool bMatch = bFilterAll;
-				EventLogRecord record(pevlr, ltime);
+				EventLogRecord record((*cit2), pevlr, ltime);
 
 				if (filter_chain.empty()) {
 					message = _T("No filters specified.");
@@ -371,7 +466,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 				if (match) {
 					if (!syntax.empty()) {
-						strEx::append_list(message, record.render(syntax));
+						strEx::append_list(message, record.render(bShowDescriptions, syntax));
 					} else if (!bShowDescriptions) {
 						strEx::append_list(message, record.eventSource());
 					} else {
