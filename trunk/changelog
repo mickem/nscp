@@ -5,6 +5,13 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-01-27 MickeM
+ * Fixed a memory-leak in format_time
+ * Fixed so time/date is displayed in "local time" (not UTC) for the eventlog check
+ + Added %message% to evenlog check. Will display the "proper formated eventlog message" as in the eventlog viewer.
+   For this to work you need to have the descriptions flag set
+   In short: /nrpe -H 192.168.0.147 -c checkEventLog -a truncate=1024 "syntax=%generated%: %message%" descriptions=true file=System MaxWarn=1 MaxCrit=1 filter+eventType==error filter+generated=\<12h filter=new filter=all filter=in
+
 2007-12-16 MickeM
  + A lot of new features in the LUA module only "arguments" missing (as well as exposing more of the API)
  * Changed some exceptions that were thrown wrong

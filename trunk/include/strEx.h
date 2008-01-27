@@ -90,16 +90,36 @@ namespace strEx {
 
 	inline std::wstring format_date(time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		TCHAR buf[51];
-		struct tm *nt = new struct tm;
+		struct tm nt; // = new struct tm;
 #if (_MSC_VER > 1300)  // 1300 == VC++ 7.0
-		if (gmtime_s(nt, &time) != 0)
+		if (gmtime_s(&nt, &time) != 0)
 			return _T("");
 #else
 		nt = gmtime(&time);
 		if (nt == NULL)
 			return "";
 #endif
-		size_t l = wcsftime(buf, 50, format.c_str(), nt);
+		size_t l = wcsftime(buf, 50, format.c_str(), &nt);
+		if (l <= 0 || l >= 50)
+			return _T("");
+		buf[l] = 0;
+		return buf;
+	}
+	inline std::wstring format_date(SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+		TCHAR buf[51];
+
+		struct tm tmTime;
+		memset(&tmTime, 0, sizeof(tmTime));
+
+		tmTime.tm_sec = time.wSecond; // seconds after the minute - [0,59]
+		tmTime.tm_min = time.wMinute; // minutes after the hour - [0,59]
+		tmTime.tm_hour = time.wHour;  // hours since midnight - [0,23]
+		tmTime.tm_mday = time.wDay;  // day of the month - [1,31]
+		tmTime.tm_mon = time.wMonth-1; // months since January - [0,11]
+		tmTime.tm_year = time.wYear-1900; // years since 1900
+		tmTime.tm_wday = time.wDayOfWeek; // days since Sunday - [0,6]
+
+		size_t l = wcsftime(buf, 50, format.c_str(), &tmTime);
 		if (l <= 0 || l >= 50)
 			return _T("");
 		buf[l] = 0;

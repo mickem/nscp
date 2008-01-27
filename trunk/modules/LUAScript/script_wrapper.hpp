@@ -109,6 +109,16 @@ namespace script_wrapper {
 		NSC_LOG_ERROR_STD(_T("Incorect return from script: should be error, ok, warning or unknown"));
 		return NSCAPI::returnUNKNOWN;
 	}
+	void push_code(lua_State *L, NSCAPI::nagiosReturn  code) {
+		if (code == NSCAPI::returnOK)
+			lua_pushstring(L, strEx::wstring_to_string(_T("ok")).c_str());
+		else if (code == NSCAPI::returnWARN)
+			lua_pushstring(L, strEx::wstring_to_string(_T("warning")).c_str());
+		else if (code == NSCAPI::returnCRIT)
+			lua_pushstring(L, strEx::wstring_to_string(_T("critical")).c_str());
+		else
+		lua_pushstring(L, strEx::wstring_to_string(_T("unknown")).c_str());
+	}
 
 	static int inject(lua_State *L) {
 		int nargs = lua_gettop( L );
@@ -124,8 +134,8 @@ namespace script_wrapper {
 
 		std::wstring msg;
 		std::wstring perf;
-		NSCModuleHelper::InjectCommand(command.c_str(), argLen, arguments, msg, perf);
-		lua_pushstring(L, strEx::wstring_to_string(_T("ok")).c_str());
+		NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectCommand(command.c_str(), argLen, arguments, msg, perf);
+		push_code(L, ret);
 		lua_pushstring(L, strEx::wstring_to_string(msg).c_str());
 		lua_pushstring(L, strEx::wstring_to_string(perf).c_str());
 		return 3;
@@ -199,10 +209,10 @@ namespace script_wrapper {
 			lua_script *script = lua_manager::get_script(L);
 			int nargs = lua_gettop( L );
 			if (nargs < 2) {
-				return luaL_error(L, "Missing argument for register_command!");
+				return luaL_error(L, "Missing argument for register_command! usage: register_command(<key>, <function>);");
 			}
 			if (nargs > 2) {
-				return luaL_error(L, "To many arguments for register_command!");
+				return luaL_error(L, "To many arguments for register_command! usage: register_command(<key>, <function>);");
 			}
 			handler->register_command(script, pop_string(L), pop_string(L));
 			return 0;
@@ -221,11 +231,9 @@ namespace script_wrapper {
 		}
 		void load() {
 			luaL_openlibs(L);
-
 			//Luna<Account>::Register(L);
 			lua_register(L, "inject", inject);
 			lua_register(L, "register_command", register_command);
-
 
 			if (luaL_loadfile(L, strEx::wstring_to_string(script_).c_str()) != 0) {
 				throw LUAException(_T("Failed to load script: ") + script_ + _T(": ") + s2w(lua_tostring(L, -1)));
