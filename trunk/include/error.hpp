@@ -33,6 +33,9 @@ namespace error {
 		static std::wstring from_module(std::wstring module, unsigned long dwError, DWORD *arguments) {
 			LPVOID lpMsgBuf;
 			HMODULE hevt = LoadLibraryEx(module.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
+			if (hevt == NULL) {
+				return _T("failed to load: ") + module + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
+			}
 			unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hevt,
 				dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(arguments));
 			if (dwRet == 0) {
@@ -49,17 +52,39 @@ namespace error {
 		class message {
 		public:
 			static std::wstring from_module(std::wstring module, unsigned long dwError, DWORD *arguments) {
+				HMODULE hDLL = LoadLibraryEx(module.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
+				if (hDLL == NULL) {
+					return _T("failed to load: ") + module + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
+				}
 				LPVOID lpMsgBuf;
-				HMODULE hevt = LoadLibraryEx(module.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
-				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hevt,
+				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
 					dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(arguments));
 				if (dwRet == 0) {
-					FreeLibrary(hevt);
-					return _T("failed to lookup error code: ") + strEx::itos(dwError) + _T(" from DLL: ") + module + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
+					FreeLibrary(hDLL);
+					DWORD err = GetLastError();
+					if (err == 317) {
+						return _T("");
+					}
+					return _T("failed to lookup error code: ") + strEx::itos(dwError) + _T(" from DLL: ") + module + _T("( reson: ") + strEx::itos(err) + _T(")");
 				}
 				std::wstring str = reinterpret_cast<TCHAR*>(lpMsgBuf);
 				LocalFree(lpMsgBuf);
-				FreeLibrary(hevt);
+				FreeLibrary(hDLL);
+				return str;
+			}
+			static std::wstring from_system(unsigned long dwError, DWORD *arguments) {
+				LPVOID lpMsgBuf;
+				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ARGUMENT_ARRAY,NULL,
+					dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(arguments));
+				if (dwRet == 0) {
+					DWORD err = GetLastError();
+					if (err == 317) {
+						return _T("");
+					}
+					return _T("failed to lookup error code: ") + strEx::itos(dwError) + _T(" from system ( reson: ") + strEx::itos(err) + _T(")");
+				}
+				std::wstring str = reinterpret_cast<TCHAR*>(lpMsgBuf);
+				LocalFree(lpMsgBuf);
 				return str;
 			}
 		};

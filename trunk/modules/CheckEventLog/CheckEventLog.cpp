@@ -27,6 +27,7 @@
 #include <time.h>
 #include <utils.h>
 #include <error.hpp>
+#include <map>
 
 CheckEventLog gCheckEventLog;
 
@@ -55,7 +56,6 @@ bool CheckEventLog::hasCommandHandler() {
 bool CheckEventLog::hasMessageHandler() {
 	return false;
 }
-
 
 
 class EventLogRecord {
@@ -224,12 +224,39 @@ public:
 			DWORD len = wcslen(p);
 			p += len+1;
 		}
-		std::wstring ret = error::format::message::from_module(get_dll(), eventID(), dwArgs);
-		delete [] dwArgs;
-		std::string::size_type pos = ret.find_last_not_of(_T("\n\t\m"));
-		if (pos != std::string::npos) {
-			ret = ret.substr(0,pos-1);
+
+/*
+		TCHAR **_sz = (TCHAR**)GlobalAlloc(GPTR, (pevlr_->NumStrings)*sizeof(TCHAR *));
+		register UINT z;
+		TCHAR* p = reinterpret_cast<TCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
+		for(unsigned int z = 0; z < pevlr_->NumStrings; z++) {
+			DWORD len = wcslen(p);
+			_sz[z] = (TCHAR *)GlobalAlloc(GPTR, (len+1) * sizeof(TCHAR));
+			wcscpy_s(_sz[z], len, p);
+			p += len+1;
 		}
+*/
+		std::wstring ret;
+		strEx::splitList dlls = strEx::splitEx(get_dll(), _T(";"));
+		for (strEx::splitList::const_iterator cit = dlls.begin(); cit != dlls.end(); ++cit) {
+			//std::wstring msg = error::format::message::from_module((*cit), eventID(), _sz);
+			std::wstring msg = error::format::message::from_module((*cit), eventID(), dwArgs);
+			if (msg.empty()) {
+				msg = error::format::message::from_module((*cit), pevlr_->EventID, dwArgs);
+			}
+			strEx::replace(msg, _T("\n"), _T(" "));
+			strEx::replace(msg, _T("\t"), _T(" "));
+			std::string::size_type pos = msg.find_last_not_of(_T("\n\t "));
+			if (pos != std::string::npos) {
+				msg = msg.substr(0,pos);
+			}
+			if (!msg.empty()) {
+				if (!ret.empty())
+					ret += _T(", ");
+				ret += msg;
+			}
+		}
+		delete [] dwArgs;
 		return ret;
 	}
 	SYSTEMTIME get_time(DWORD time) {
@@ -273,6 +300,26 @@ public:
 		return syntax;
 	}
 };
+/*
+return (pevlr_->EventID&0xffff);
+}
+inline DWORD severity() const {
+return (pevlr_->EventID>>30);
+*/
+class uniq_eventlog_record {
+	DWORD ID;
+	WORD type;
+	WORD category;
+public:
+	uniq_eventlog_record(EVENTLOGRECORD *pevlr) : ID(pevlr->EventID&0xffff), type(pevlr->EventType), category(pevlr->EventCategory) {}
+	bool operator< (const uniq_eventlog_record &other) const { 
+		return (ID < other.ID) || ((ID==other.ID)&&(type < other.type)) || (ID==other.ID&&type==other.type)&&(category < other.category);
+	}
+	std::wstring to_string() const {
+		return _T("id=") + strEx::itos(ID) + _T("type=") + strEx::itos(type) + _T("category=") + strEx::itos(category);
+	}
+};
+typedef std::map<uniq_eventlog_record,bool> uniq_eventlog_map;
 
 
 struct eventlog_filter {
@@ -331,18 +378,19 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	bool bFilterAll = false;
 	bool bFilterNew = false;
 	bool bShowDescriptions = false;
+	bool unique = false;
 	unsigned int truncate = 0;
 	std::wstring syntax;
 	const int filter_plus = 1;
 	const int filter_minus = 2;
 	const int filter_normal = 3;
 	const int filter_compat = 3;
-	NSC_DEBUG_MSG_STD(_T("000") + message) ;
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
 			MAP_OPTIONS_NUMERIC_ALL(query, _T(""))
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
+			MAP_OPTIONS_BOOL_TRUE(_T("unique"), unique)
 			MAP_OPTIONS_BOOL_TRUE(_T("descriptions"), bShowDescriptions)
 			MAP_OPTIONS_PUSH(_T("file"), files)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
@@ -401,6 +449,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			message = _T("Could not open the '") + (*cit2) + _T("' event log: ") + error::lookup::last_error();
 			return NSCAPI::returnUNKNOWN;
 		}
+		uniq_eventlog_map uniq_records;
 
 		//DWORD dwThisRecord;
 		DWORD dwRead, dwNeeded;
@@ -462,6 +511,15 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 					match = true;
 				} else if (bFilterNew&&bMatch) {
 					match = true;
+				}
+				if (match&&unique) {
+					uniq_eventlog_record record = pevlr;
+					uniq_eventlog_map::const_iterator cit = uniq_records.find(record);
+					if (cit != uniq_records.end()) {
+						match = false;
+					}
+					else
+						uniq_records[record] = true;
 				}
 
 				if (match) {
