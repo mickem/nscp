@@ -311,6 +311,7 @@ class uniq_eventlog_record {
 	WORD type;
 	WORD category;
 public:
+	std::wstring message;
 	uniq_eventlog_record(EVENTLOGRECORD *pevlr) : ID(pevlr->EventID&0xffff), type(pevlr->EventType), category(pevlr->EventCategory) {}
 	bool operator< (const uniq_eventlog_record &other) const { 
 		return (ID < other.ID) || ((ID==other.ID)&&(type < other.type)) || (ID==other.ID&&type==other.type)&&(category < other.category);
@@ -319,7 +320,7 @@ public:
 		return _T("id=") + strEx::itos(ID) + _T("type=") + strEx::itos(type) + _T("category=") + strEx::itos(category);
 	}
 };
-typedef std::map<uniq_eventlog_record,bool> uniq_eventlog_map;
+typedef std::map<uniq_eventlog_record,unsigned int> uniq_eventlog_map;
 
 
 struct eventlog_filter {
@@ -513,16 +514,29 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 					match = true;
 				}
 				if (match&&unique) {
-					uniq_eventlog_record record = pevlr;
-					uniq_eventlog_map::const_iterator cit = uniq_records.find(record);
-					if (cit != uniq_records.end()) {
-						match = false;
+					match = false;
+					uniq_eventlog_record uniq_record = pevlr;
+					uniq_eventlog_map::iterator it = uniq_records.find(uniq_record);
+					if (it != uniq_records.end()) {
+						(*it).second ++;
+						//match = false;
 					}
-					else
-						uniq_records[record] = true;
-				}
-
-				if (match) {
+					else {
+						if (!syntax.empty()) {
+							uniq_record.message = record.render(bShowDescriptions, syntax);
+						} else if (!bShowDescriptions) {
+							uniq_record.message = record.eventSource();
+						} else {
+							uniq_record.message = record.eventSource();
+							uniq_record.message += _T("(") + EventLogRecord::translateType(record.eventType()) + _T(", ") + 
+								strEx::itos(record.eventID()) + _T(", ") + EventLogRecord::translateSeverity(record.severity()) + _T(")");
+							uniq_record.message += _T("[") + record.enumStrings() + _T("]");
+							uniq_record.message += _T("{%count%}");
+						}
+						uniq_records[uniq_record] = 1;
+					}
+					hit_count++;
+				} else if (match) {
 					if (!syntax.empty()) {
 						strEx::append_list(message, record.render(bShowDescriptions, syntax));
 					} else if (!bShowDescriptions) {
@@ -541,6 +555,11 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			pevlr = (EVENTLOGRECORD *) &bBuffer; 
 		} 
 		CloseEventLog(hLog);
+		for (uniq_eventlog_map::const_iterator cit = uniq_records.begin(); cit != uniq_records.end(); ++cit) {
+			std::wstring msg = (*cit).first.message;
+			strEx::replace(msg, _T("%count%"), strEx::itos((*cit).second));
+			strEx::append_list(message, msg);
+		}
 	}
 
 	if (!bPerfData)
