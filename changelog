@@ -7,6 +7,7 @@ TODO:
 
 2008-02-02 MickeM
  * Might have fixed the "missing eventlog messages" problem.
+ + Added %count% parameter to syntax which (when used with unique) will display the numbe of hits for each message displayed.
 
 2008-01-27 MickeM
  * Fixed a memory-leak in format_time
