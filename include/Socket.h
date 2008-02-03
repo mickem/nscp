@@ -137,6 +137,19 @@ namespace simpleSocket {
 			length_ = length;
 			buffer_[length_] = 0;
 		}
+		std::wstring toString() {
+			std::wstringstream ss;
+			for (unsigned int i =0;i<length_;i++) {
+				if (i%64==0) {
+					ss << std::endl;
+				}
+				if (buffer_[i] < 30 || buffer_[i] > 'z')
+					ss << _T(" ");
+				else
+					ss << buffer_[i];
+			}
+			return ss.str();
+		}
 	};
 
 	class Socket {

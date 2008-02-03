@@ -69,7 +69,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="ws2_32.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="NSCAAgent.def"
 				GenerateDebugInformation="true"
@@ -1900,6 +1900,10 @@
 			</File>
 			<File
 				RelativePath="..\..\include\error.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\nsca_enrypt.hpp"
 				>
 			</File>
 			<File

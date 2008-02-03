@@ -41,7 +41,7 @@ bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLen
 	// If only one buffer is needed we could "reuse" the buffer instead of copying it.
 	char *tmpBuffer = new char[tmpBufferLength+1];
 	int n=recv(socket_,tmpBuffer,tmpBufferLength,0);
-	std::wcout << _T("read: ") << n << std::endl;
+	//std::wcout << _T("read: ") << n << std::endl;
 	while ((n!=SOCKET_ERROR )&&(n!=0)) {
 		if (n == tmpBufferLength) {
 			// We filled the buffer (There is more to get)

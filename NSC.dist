@@ -180,10 +180,11 @@ use_file=1
 ; myotherfile.ini
 ; real.ini
 
+
 [NSCA Agent]
 ;# CHECK INTERVALL (in seconds)
 ;   How often we should run the checks and submit the results.
-interval=5
+;interval=5
 ;
 ;# ENCRYPTION METHOD
 ;   This option determines the method by which the send_nsca client will encrypt the packets it sends 
@@ -195,13 +196,17 @@ interval=5
 ;       (as specified in the nsca.cfg file)!!
 ; Values:
 ;	0 = None	(Do NOT use this option)
-; -- only 0 is supported as of now, but will change in the future --
-;encryption_method=0
+;	1 = Simple XOR  (No security, just obfuscation, but very fast)
+; (no MCRYPT yet, but soon...)
+;encryption_method=1
+;
+;# ENCRYPTION PASSWORD
+;  This is the password/passphrase that should be used to encrypt the sent packets. 
+;password=
 ;
 ;# BIND TO ADDRESS
 ;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
 ;  Leaving this blank will bind to "one" local interface.
-; -- not supported as of now --
 ;bind_to_address=
 ;
 ;# NAGIOS SERVER ADDRESS
@@ -211,10 +216,12 @@ interval=5
 ;# NAGIOS SERVER PORT
 ;  The port to the nagios server to submit results to.
 ;nsca_port=5667
+;
 
-; The checks to run everytime we submit results back to nagios
+;# CHECK COMMAND LIST
+;  The checks to run everytime we submit results back to nagios
 ;
 [NSCA Commands]
 my_cpu_check=checkCPU warn=80 crit=90 time=20m time=10s time=4
 my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
-my_svc_check=checkServiceState CheckAll
+my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService
