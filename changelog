@@ -6,7 +6,7 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
 2008-02-03 MickeM
- + Added encryption subsystem to NSCA module (still no mcrypt support, but atleast you have "xor")
+ + Added encryption subsystem to NSCA module (still no mcrypt support, but atleast you have "xor" and passwords)
 
 2008-02-02 MickeM
  * Might have fixed the "missing eventlog messages" problem.
