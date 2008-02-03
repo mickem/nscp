@@ -230,7 +230,7 @@ size_t b64_decode(char const *src, size_t srcLen, void *dest, size_t destSize);
   int                 ints[]  =   { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
   b64::cpp::string_t  enc =   b64::cpp::encode(&ints[0], sizeof(ints));
 
-  std::cout << enc << endl;
+  std::wcout << enc << endl;
 
   b64::cpp::blob_t    dec =   b64::cpp::decode(enc);
 

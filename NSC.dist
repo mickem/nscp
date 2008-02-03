@@ -210,6 +210,7 @@ use_file=1
 ;# BIND TO ADDRESS
 ;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
 ;  Leaving this blank will bind to "one" local interface.
+; -- not supported as of now -- 
 ;bind_to_address=
 ;
 ;# NAGIOS SERVER ADDRESS

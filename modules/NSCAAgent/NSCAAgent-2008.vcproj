@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9,00"
+	Version="8,00"
 	Name="NSCAAgent"
 	ProjectGUID="{6F55C9BF-57F6-4A15-A058-C83A52F539EE}"
 	RootNamespace="NSCAAgent"
