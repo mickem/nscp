@@ -74,7 +74,7 @@ int SysTray::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHA
 			return -1;
 		}
 	} else {
-		NSC_LOG_ERROR_STD(_T("Undefined command, usgae: install or uninstall"));
+		NSC_LOG_ERROR_STD(_T("Undefined command, usage: install or uninstall"));
 		return -1;
 	}
 	return 0;

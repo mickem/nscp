@@ -411,6 +411,39 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 	return plugin;
 }
 
+
+std::wstring NSClientT::describeCommand(std::wstring command) {
+	ReadLock readLock(&m_mutexRWcmdDescriptions, true, 5000);
+	if (!readLock.IsLocked()) {
+		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex when trying to get command list."));
+		return _T("Failed to get mutex when describing command: ") + command;
+	}
+	cmdMap::const_iterator cit = cmdDescriptions_.find(command);
+	if (cit == cmdDescriptions_.end())
+		return _T("Command not found: ") + command + _T(", maybe it has not been register?");
+	return (*cit).second;
+}
+std::list<std::wstring> NSClientT::getAllCommandNames() {
+	std::list<std::wstring> lst;
+	ReadLock readLock(&m_mutexRWcmdDescriptions, true, 5000);
+	if (!readLock.IsLocked()) {
+		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex when trying to get command list."));
+		return lst;
+	}
+	for (cmdMap::const_iterator cit = cmdDescriptions_.begin(); cit != cmdDescriptions_.end(); ++cit) {
+		lst.push_back((*cit).first);
+	}
+	return lst;
+}
+void NSClientT::registerCommand(std::wstring cmd, std::wstring desc) {
+	WriteLock writeLock(&m_mutexRWcmdDescriptions, true, 10000);
+	if (!writeLock.IsLocked()) {
+		LOG_ERROR_STD(_T("FATAL ERROR: Failed to describe command:") + cmd);
+		return;
+	}
+	cmdDescriptions_[cmd] = desc;
+}
+
 NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 	unsigned int aLen = 0;
 	TCHAR ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
@@ -773,6 +806,25 @@ NSCAPI::errorReturn NSAPIReadSettings(int type) {
 NSCAPI::errorReturn NSAPIRehash(int flag) {
 	return NSCAPI::hasFailed;
 }
+NSCAPI::errorReturn NSAPIDescribeCommand(const TCHAR* command, TCHAR* buffer, unsigned int bufLen) {
+	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.describeCommand(command), NSCAPI::isSuccess);
+}
+NSCAPI::errorReturn NSAPIGetAllCommandNames(arrayBuffer::arrayBuffer* aBuffer, unsigned int *bufLen) {
+	unsigned int len = 0;
+	*aBuffer = arrayBuffer::list2arrayBuffer(mainClient.getAllCommandNames(), len);
+	*bufLen = len;
+	return NSCAPI::isSuccess;
+}
+NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(TCHAR*** aBuffer, unsigned int * bufLen) {
+	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
+	*bufLen = 0;
+	*aBuffer = NULL;
+	return NSCAPI::isSuccess;
+}
+NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR* cmd,const TCHAR* desc) {
+	mainClient.registerCommand(cmd, desc);
+	return NSCAPI::isSuccess;
+}
 
 
 LPVOID NSAPILoader(TCHAR*buffer) {
@@ -812,5 +864,14 @@ LPVOID NSAPILoader(TCHAR*buffer) {
 		return &NSAPIReadSettings;
 	if (_wcsicmp(buffer, _T("NSAPIRehash")) == 0)
 		return &NSAPIRehash;
+	if (_wcsicmp(buffer, _T("NSAPIDescribeCommand")) == 0)
+		return &NSAPIDescribeCommand;
+	if (_wcsicmp(buffer, _T("NSAPIGetAllCommandNames")) == 0)
+		return &NSAPIGetAllCommandNames;
+	if (_wcsicmp(buffer, _T("NSAPIReleaseAllCommandNamessBuffer")) == 0)
+		return &NSAPIReleaseAllCommandNamessBuffer;
+	if (_wcsicmp(buffer, _T("NSAPIRegisterCommand")) == 0)
+		return &NSAPIRegisterCommand;
+
 	return NULL;
 }

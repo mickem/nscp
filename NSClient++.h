@@ -27,6 +27,7 @@
 #include <Mutex.h>
 #include <NSCAPI.h>
 #include <MutexRW.h>
+#include <map>
 
 
 /**
@@ -58,6 +59,7 @@ class NSClientT {
 private:
 	typedef NSCPlugin* plugin_type;
 	typedef std::vector<plugin_type> pluginList;
+	typedef std::map<std::wstring,std::wstring> cmdMap;
 	pluginList plugins_;
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
@@ -65,6 +67,8 @@ private:
 	MutexHandler internalVariables;
 	MutexHandler messageMutex;
 	MutexRW  m_mutexRW;
+	MutexRW  m_mutexRWcmdDescriptions;
+	cmdMap cmdDescriptions_;
 	bool debug_;
 
 public:
@@ -94,6 +98,9 @@ public:
 	plugin_type loadPlugin(const std::wstring plugin);
 	void loadPlugins(void);
 	void unloadPlugins(void);
+	std::wstring describeCommand(std::wstring command);
+	std::list<std::wstring> getAllCommandNames();
+	void registerCommand(std::wstring cmd, std::wstring desc);
 
 	bool logDebug();
 
@@ -133,6 +140,10 @@ NSCAPI::errorReturn NSAPISetSettingsInt(const TCHAR* section, const TCHAR* key, 
 NSCAPI::errorReturn NSAPIWriteSettings(int type);
 NSCAPI::errorReturn NSAPIReadSettings(int type);
 NSCAPI::errorReturn NSAPIRehash(int flag);
+NSCAPI::errorReturn NSAPIDescribeCommand(const TCHAR*,TCHAR*,unsigned int);
+NSCAPI::errorReturn NSAPIGetAllCommandNames(TCHAR***, unsigned int *);
+NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(TCHAR***, unsigned int *);
+NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR*,const TCHAR*);
 
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging

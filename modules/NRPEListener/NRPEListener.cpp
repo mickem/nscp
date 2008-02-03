@@ -264,10 +264,11 @@ int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, st
 
 	ZeroMemory(&si, sizeof(STARTUPINFO));
 	si.cb = sizeof(STARTUPINFO);
-	si.dwFlags = STARTF_USESTDHANDLES;
+	si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
 	si.hStdInput = hChildInR;
 	si.hStdOutput = hChildOutW;
 	si.hStdError = hChildOutW;
+	si.wShowWindow = SW_HIDE;
 
 
 	// CreateProcess doesn't work with a const command

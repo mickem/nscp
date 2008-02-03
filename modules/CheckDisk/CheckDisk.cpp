@@ -39,8 +39,16 @@ CheckDisk::CheckDisk() {
 CheckDisk::~CheckDisk() {
 }
 
-
 bool CheckDisk::loadModule() {
+	try {
+		NSCModuleHelper::registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
+		NSCModuleHelper::registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
+		NSCModuleHelper::registerCommand(_T("CheckFile"), _T("Check various aspects of a file and/or folder."));
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+	}
 	return true;
 }
 bool CheckDisk::unloadModule() {

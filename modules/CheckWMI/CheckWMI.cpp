@@ -42,6 +42,14 @@ CheckWMI::~CheckWMI() {
 
 
 bool CheckWMI::loadModule() {
+	try {
+		NSCModuleHelper::registerCommand(_T("CheckWMIValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
+		NSCModuleHelper::registerCommand(_T("CheckWMI"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+	}
 	return wmiQuery.initialize();
 }
 bool CheckWMI::unloadModule() {

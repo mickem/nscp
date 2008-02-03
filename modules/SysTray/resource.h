@@ -8,6 +8,12 @@
 #define IDD_DIALOG1                     105
 #define IDD_INJECTDIALOG                105
 #define IDC_COMMAND                     1000
+#define IDC_ARG_BOX                     1000
+#define IDC_CMD_BOX                     1001
+#define IDC_MSG                         1003
+#define IDC_PERF                        1004
+#define IDC_DESCRIPTION                 1005
+#define IDC_INJECT                      1006
 #define ID_POPUP_NSCLIENT               40006
 #define ID_POPUP_INJECTCOMMAND          40007
 #define ID_POPUP_SHOWLOG                40008
@@ -20,7 +26,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        106
 #define _APS_NEXT_COMMAND_VALUE         40011
-#define _APS_NEXT_CONTROL_VALUE         1001
+#define _APS_NEXT_CONTROL_VALUE         1007
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
