@@ -21,6 +21,9 @@
 ;RemoteConfiguration.dll
 ; NSCA Agent is a new beta module use with care!
 ;NSCAAgent.dll
+; LUA script module used to write your own "check deamon" (sort of) early beta.
+;LUAScript.dll
+
 
 [Settings]
 ;# OBFUSCATED PASSWORD
