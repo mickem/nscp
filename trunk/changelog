@@ -12,6 +12,8 @@ TODO:
  * Fixed issue in NRPE that displayed a console window when running commands
  * New improved "inject" dialog from the system tray
    Lists avalible commands, and shows command descriptions and a lot of other improvments.
+ + Added an internal log windows that displays log in realtime.
+ + Fixed some issues with the dialog procs (should work smoother now, especially Termination)
 
 2008-02-02 MickeM
  * Might have fixed the "missing eventlog messages" problem.

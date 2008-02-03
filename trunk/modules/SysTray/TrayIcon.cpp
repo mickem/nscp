@@ -19,11 +19,16 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include "stdafx.h"
-#include ".\trayicon.h"
+#include "trayicon.h"
 #include "resource.h"
 #include <commctrl.h>
 #include <strEx.h>
 #include <ShellAPI.h>
+#include "SysTray.h"
+
+
+extern SysTray gSysTray;
+
 
 unsigned IconWidget_::threadProc(LPVOID lpParameter)
 {
@@ -36,22 +41,24 @@ void IconWidget_::createDialog(void) {
 	hDlgWnd = ::CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
 
 	MSG Msg;
-	while(::GetMessage(&Msg, hDlgWnd, 0, 0))
+	BOOL bRet;
+	while((bRet = ::GetMessage(&Msg, NULL, 0, 0)) != 0)
 	{
-		if (Msg.message == WM_MY_CLOSE)
-			break;
-		if (!::IsWindow(hDlgWnd) || !::IsDialogMessage(hDlgWnd, &Msg)) {
+		if (Msg.message == WM_MY_CLOSE) {
+			::DestroyWindow(hDlgWnd);
+		} else if (bRet == -1) {
+			// handle the error and possibly exit
+			NSC_LOG_ERROR_STD(_T("Wonder what this is... please let me know..."));
+			return;
+		} else {
+		//} else if (!::IsWindow(hDlgWnd) || !::IsDialogMessage(hDlgWnd, &Msg)) {
 			::TranslateMessage(&Msg); 
 			::DispatchMessage(&Msg); 
 		} 
 	}
-	TrayIcon::removeIcon(hDlgWnd);
-
-	::DestroyWindow(hDlgWnd);
 }
 void IconWidget_::exitThread(void) {
 	::PostMessage(hDlgWnd, WM_MY_CLOSE, NULL, NULL);
-
 }
 
 namespace TrayIcon
@@ -138,7 +145,6 @@ INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam
 			break;
 		case IDC_INJECT:
 			{
-#define BUFF_LEN 4096
 				std::wstring result = _T("");
 				std::wstring cmd = getDlgItemText(hwndDlg, IDC_CMD_BOX);
 				std::wstring args = getDlgItemText(hwndDlg, IDC_ARG_BOX);
@@ -177,10 +183,89 @@ INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam
 	return FALSE;
 }
 
+void insert_logrecord(HWND hwndLV, const SysTray::log_entry &entry) {
+	LVITEM item;
+	item.mask = LVIF_TEXT;
+	std::wstring msg = NSCHelper::translateMessageType(entry.type);
+	item.pszText = const_cast<TCHAR*>(msg.c_str());
+	item.iSubItem = 0;
+	item.iItem = 0; //ListView_GetItemCount(hwndLV);
+	int id = ListView_InsertItem(hwndLV, &item);
+	msg = entry.file;
+	ListView_SetItemText(hwndLV, id, 1, const_cast<TCHAR*>(msg.c_str()));
+	msg = strEx::itos(entry.line);
+	ListView_SetItemText(hwndLV, id, 2, const_cast<TCHAR*>(msg.c_str()));
+	msg = entry.message;
+	ListView_SetItemText(hwndLV, id, 3, const_cast<TCHAR*>(msg.c_str()));
+}
+
+INT_PTR CALLBACK TrayIcon::LogDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam) {
+	switch (uMsg) 
+	{
+	case WM_INITDIALOG:
+		{
+			gSysTray.setLogWindow(hwndDlg);
+			HWND hwndLV = GetDlgItem(hwndDlg, IDC_LOG);
+			LVCOLUMN col;
+			col.mask = LVCF_TEXT|LVCF_WIDTH;
+			col.cx = 10;
+			col.pszText = _T("Type");
+			ListView_InsertColumn(hwndLV, 1, &col);
+			col.pszText = _T("File");
+			ListView_InsertColumn(hwndLV, 2, &col);
+			col.pszText = _T("Line");
+			ListView_InsertColumn(hwndLV, 3, &col);
+			col.pszText = _T("Message");
+			ListView_InsertColumn(hwndLV, 4, &col);
+
+			SysTray::log_type log = gSysTray.getLog();
+			for (SysTray::log_type::const_iterator cit = log.begin(); cit != log.end(); ++cit) {
+				insert_logrecord(hwndLV, *cit);
+			}
+
+			ListView_SetColumnWidth(hwndLV, 0, LVSCW_AUTOSIZE_USEHEADER);
+			ListView_SetColumnWidth(hwndLV, 1, LVSCW_AUTOSIZE_USEHEADER);
+			ListView_SetColumnWidth(hwndLV, 2, LVSCW_AUTOSIZE_USEHEADER);
+			ListView_SetColumnWidth(hwndLV, 3, LVSCW_AUTOSIZE_USEHEADER);
+		}
+		return TRUE; 
+
+	case WM_USER+1: 
+		{
+			HWND hwndLV = GetDlgItem(hwndDlg, IDC_LOG);
+			const SysTray::log_entry* record = reinterpret_cast<const SysTray::log_entry*>(wParam);
+			insert_logrecord(hwndLV, *record);
+
+		}
+		return TRUE; 
+
+	case WM_SIZE:
+		if (wParam == SIZE_RESTORED) {
+			HWND hwndLV = GetDlgItem(hwndDlg, IDC_LOG);
+			::SetWindowPos(hwndLV, NULL, 0, 0, LOWORD(lParam), HIWORD(lParam), SWP_NOZORDER);
+		}
+		return TRUE; 
+
+	case WM_COMMAND: 
+		case IDOK: 
+		case IDCANCEL: 
+			gSysTray.setLogWindow(NULL);
+			EndDialog(hwndDlg, wParam); 
+			return TRUE; 
+	}
+	return FALSE;
+}
+
+
 INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
 	switch (uMsg) 
 	{
+	case WM_DESTROY:
+		TrayIcon::removeIcon(hwndDlg);
+		PostQuitMessage(0);
+		return 0;
+
 	case WM_INITDIALOG:
 		addIcon(hwndDlg);
 		break;
@@ -200,21 +285,12 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 				NSCModuleHelper::StopService();
 				break;
 			case ID_POPUP_INJECTCOMMAND:
-				if (TrayIcon::defaultCommand.empty())
-					TrayIcon::defaultCommand = NSCModuleHelper::getSettingsString(_T("systray"), _T("defaultCommand"), _T(""));
-				if (DialogBox(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_INJECTDIALOG),NULL,InjectDialogProc) == IDOK) {
-					//NSCModuleHelper::InjectSplitAndCommand(TrayIcon::defaultCommand, buffer);
-				}
+				//if (TrayIcon::defaultCommand.empty())
+				//	TrayIcon::defaultCommand = NSCModuleHelper::getSettingsString(_T("systray"), _T("defaultCommand"), _T(""));
+				CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_INJECTDIALOG),hwndDlg,InjectDialogProc);
 				break;
 			case ID_POPUP_SHOWLOG:
-				{
-					long long err = reinterpret_cast<long long>(ShellExecute(hwndDlg, _T("open"), 
-						(NSCModuleHelper::getBasePath() + _T("\\") + NSCModuleHelper::getSettingsString(_T("log"), _T("file"), _T(""))).c_str(), 
-						NULL, NULL, SW_SHOWNORMAL));
-					if (err <=32) {
-							NSC_LOG_ERROR_STD(_T("ShellExecute failed : ") + strEx::itos(err));
-						}
-				}
+				CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_LOGWINDOW),hwndDlg,LogDialogProc);
 			}
 			return TRUE;
 		}

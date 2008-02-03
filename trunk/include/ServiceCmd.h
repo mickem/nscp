@@ -41,6 +41,7 @@ namespace serviceControll {
 	void Start(std::wstring);
 	bool isStarted(std::wstring);
 	void Stop(std::wstring);
+	void StopNoWait(std::wstring);
 	void SetDescription(std::wstring,std::wstring);
 	DWORD GetServiceType(LPCTSTR szName);
 }

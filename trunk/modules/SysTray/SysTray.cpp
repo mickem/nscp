@@ -84,11 +84,47 @@ bool SysTray::hasCommandHandler() {
 	return false;
 }
 bool SysTray::hasMessageHandler() {
-	return false;
+	return true;
 }
 
+void SysTray::setLogWindow(HWND hWnd) { 
+	MutexLock lock(logLock);
+	if (lock.hasMutex()) {
+		hLogWnd = hWnd; 
+	}
+}
+
+void SysTray::handleMessage(int msgType, TCHAR* file, int line, TCHAR* message) {
+	log_entry record(msgType, file, line, message);
+	HWND hWnd = NULL;
+	{
+		MutexLock lock(logLock);
+		if (lock.hasMutex()) {
+			log.push_back(record);
+			if (log.size() > 50)
+				log.pop_front();
+			hWnd = hLogWnd;
+		} else {
+			std::cout << "Fuck!!!" << std::endl;
+			NSC_LOG_ERROR_STD(_T("Failed to get mutex in logger, message discarded"));
+		}
+	}
+	if (hWnd) {
+		SendMessage(hWnd, WM_USER+1, reinterpret_cast<WPARAM>(&record), NULL);
+	}
+}
+SysTray::log_type SysTray::getLog() {
+	log_type ret;
+	for (log_type::const_iterator cit = log.begin(); cit != log.end(); ++cit)
+		ret.push_back(*cit);
+	return ret;
+}
+
+
+
+
 NSC_WRAPPERS_MAIN_DEF(gSysTray);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
+NSC_WRAPPERS_HANDLE_MSG_DEF(gSysTray);
 NSC_WRAPPERS_IGNORE_CMD_DEF();
 NSC_WRAPPERS_CLI_DEF(gSysTray);
 
