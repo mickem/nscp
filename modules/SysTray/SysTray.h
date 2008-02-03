@@ -21,6 +21,7 @@
 #pragma once
 
 #include "TrayIcon.h"
+#include <list>
 
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
@@ -32,11 +33,28 @@ private:
 	IconWidget icon;
 
 public:
+	struct log_entry {
+		log_entry(int msgType_, std::wstring file_, int line_, std::wstring message_) : type(msgType_), file(file_), line(line_), message(message_) {
+
+		}
+		int type;
+		std::wstring file;
+		int line;
+		std::wstring message;
+	};
+	typedef std::list<log_entry> log_type;
+private:
+	log_type log;
+	MutexHandler logLock;
+	HWND hLogWnd;
+
+public:
 	SysTray();
 	virtual ~SysTray();
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
+	void setLogWindow(HWND hWnd);
 
 	std::wstring getModuleName() {
 		return _T(MODULE_NAME);
@@ -49,9 +67,12 @@ public:
 	std::wstring getModuleDescription() {
 		return _T("A simple module that only displays a system tray icon when NSClient++ is running.");
 	}
+	log_type getLog();
+
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args);
+	void handleMessage(int msgType, TCHAR* file, int line, TCHAR* message);
 
 };

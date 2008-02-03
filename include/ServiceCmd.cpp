@@ -283,6 +283,26 @@ namespace serviceControll {
 		CloseServiceHandle(schSCManager);
 	}
 
+	void StopNoWait(std::wstring name) {
+		SC_HANDLE   schService;
+		SC_HANDLE   schSCManager;
+		SERVICE_STATUS ssStatus;
+
+		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+		if (!schSCManager)
+			throw SCException(_T("OpenSCManager failed."));
+		schService = OpenService(schSCManager, name.c_str(), SERVICE_ALL_ACCESS);
+		if (schService) {
+			// try to stop the service
+			ControlService( schService, SERVICE_CONTROL_STOP, &ssStatus );
+			CloseServiceHandle(schService);
+		} else {
+			CloseServiceHandle(schSCManager);
+			throw SCException(_T("OpenService failed."));
+		}
+		CloseServiceHandle(schSCManager);
+	}
+
 
 	typedef BOOL (WINAPI*PFChangeServiceConfig2)(SC_HANDLE hService,DWORD dwInfoLevel,LPVOID lpInfo);
 

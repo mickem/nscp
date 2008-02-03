@@ -636,7 +636,7 @@ void NSAPIMessage(int msgType, const TCHAR* file, const int line, const TCHAR* m
 	mainClient.reportMessage(msgType, file, line, message);
 }
 void NSAPIStopServer(void) {
-	serviceControll::Stop(SZSERVICENAME);
+	serviceControll::StopNoWait(SZSERVICENAME);
 }
 NSCAPI::nagiosReturn NSAPIInject(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);

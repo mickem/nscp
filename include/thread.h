@@ -193,7 +193,7 @@ public:
 			return true;
 		}
 		std::wcerr << _T("Failed to terminate thread: ") << threadid_ << _T("...") << std::endl;
-		assert(false);
+		//assert(false);
 		return false;
 	}
 	bool hasActiveThread() const {
