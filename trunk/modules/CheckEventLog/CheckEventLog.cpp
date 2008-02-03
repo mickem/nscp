@@ -44,6 +44,13 @@ CheckEventLog::~CheckEventLog() {
 
 
 bool CheckEventLog::loadModule() {
+	try {
+		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+	}
 	return true;
 }
 bool CheckEventLog::unloadModule() {

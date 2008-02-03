@@ -107,7 +107,18 @@ bool CheckSystem::loadModule() {
 			NSC_LOG_ERROR_STD(_T("TOOLHELP method not avalible, check ") C_SYSTEM_ENUMPROC_METHOD _T(" option."));
 		}
 	}
-	
+	try {
+		NSCModuleHelper::registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
+		NSCModuleHelper::registerCommand(_T("checkUpTime"), _T("Check the up-time of the computer."));
+		NSCModuleHelper::registerCommand(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
+		NSCModuleHelper::registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
+		NSCModuleHelper::registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
+		NSCModuleHelper::registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+	}
 	return true;
 }
 /**

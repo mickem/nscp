@@ -21,6 +21,7 @@
 #include "stdafx.h"
 #include ".\trayicon.h"
 #include "resource.h"
+#include <commctrl.h>
 #include <strEx.h>
 #include <ShellAPI.h>
 
@@ -58,6 +59,27 @@ namespace TrayIcon
 	std::wstring defaultCommand;
 }
 
+std::wstring getDlgItemText(HWND hDlg, int nIDDlgItem) {
+#define BUFF_LEN 4096
+	std::wstring ret;
+	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
+	if (!GetDlgItemText(hDlg, nIDDlgItem, buffer, BUFF_LEN))
+		buffer[0]=0;
+	ret = buffer;
+	delete [] buffer;
+	return ret;
+}
+void updateDescFromCmd(HWND hDlg, std::wstring cmd) {
+	std::wstring result = _T("");
+	try {
+		result = NSCModuleHelper::describeCommand(cmd);
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		result = _T("Error: ") + e.msg_;
+	} catch (...) {
+		result = _T("Unknown error!");
+	}
+	SetDlgItemText(hDlg, IDC_DESCRIPTION, result.c_str());
+}
 /*
 INT_PTR CALLBACK DialogProc(          HWND hwndDlg,
     UINT uMsg,
@@ -69,10 +91,76 @@ INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam
 	switch (uMsg) 
 	{
 	case WM_INITDIALOG:
-		SetDlgItemText(hwndDlg, IDC_COMMAND, TrayIcon::defaultCommand.c_str());
+		{
+			SetDlgItemText(hwndDlg, IDC_CMD_BOX, TrayIcon::defaultCommand.c_str());
+			SetDlgItemText(hwndDlg, IDC_DESCRIPTION, _T("Loading commands, please wait..."));
+
+			SendDlgItemMessage(hwndDlg, IDC_CMD_BOX, CB_RESETCONTENT, 0, 0); 
+			std::wstring result = _T("");
+			try {
+				std::list<std::wstring> lst = NSCModuleHelper::getAllCommandNames();
+				for (std::list<std::wstring>::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+					SendDlgItemMessage(hwndDlg, IDC_CMD_BOX, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>( (*cit).c_str() ));
+				}
+			} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+				result = _T("Error: ") + e.msg_;
+			} catch (...) {
+				result = _T("Unknown error!");
+			}
+			SetDlgItemText(hwndDlg, IDC_DESCRIPTION, result.c_str());
+		}
+		break;
 	case WM_COMMAND: 
 		switch (LOWORD(wParam))
 		{
+		case IDC_CMD_BOX: 
+			switch(HIWORD(wParam)) 
+			{
+			case CBN_SELCHANGE:
+				{
+					std::wstring cmd;
+					unsigned int id = SendDlgItemMessage(hwndDlg, IDC_CMD_BOX, CB_GETCURSEL, 0, 0); 
+					unsigned int len = SendDlgItemMessage(hwndDlg, IDC_CMD_BOX, CB_GETLBTEXTLEN, id, 0);
+					TCHAR *buf = new TCHAR[len+2];
+					LRESULT ret;
+					ret = SendDlgItemMessage(hwndDlg, IDC_CMD_BOX, CB_GETLBTEXT, id, reinterpret_cast<LPARAM>(buf));
+					if (ret > 0 && ret <= len) {
+						cmd = buf;
+						updateDescFromCmd(hwndDlg, cmd);
+					}
+					delete [] buf;
+				}
+				break;
+			case CBN_KILLFOCUS:
+				updateDescFromCmd(hwndDlg, getDlgItemText(hwndDlg, IDC_CMD_BOX));
+				break;
+			}
+			break;
+		case IDC_INJECT:
+			{
+#define BUFF_LEN 4096
+				std::wstring result = _T("");
+				std::wstring cmd = getDlgItemText(hwndDlg, IDC_CMD_BOX);
+				std::wstring args = getDlgItemText(hwndDlg, IDC_ARG_BOX);
+				std::wstring msg;
+				std::wstring perf;
+				try {
+					NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd, args, ' ', msg, perf);
+					if (ret == NSCAPI::returnIgnored) {
+						result = _T("Command not found!");
+					} else {
+						result = NSCHelper::translateReturn(ret);
+					}
+				} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+					result = _T("Error: ") + e.msg_;
+				} catch (...) {
+					result = _T("Unknown error!");
+				}
+				SetDlgItemText(hwndDlg, IDC_DESCRIPTION, result.c_str());
+				SetDlgItemText(hwndDlg, IDC_MSG, msg.c_str());
+				SetDlgItemText(hwndDlg, IDC_PERF, perf.c_str());
+			}
+			break;
 		case IDOK: 
 			{
 				TCHAR *c=new TCHAR[1024];
@@ -115,13 +203,13 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 				if (TrayIcon::defaultCommand.empty())
 					TrayIcon::defaultCommand = NSCModuleHelper::getSettingsString(_T("systray"), _T("defaultCommand"), _T(""));
 				if (DialogBox(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_INJECTDIALOG),NULL,InjectDialogProc) == IDOK) {
-					// @todo NSCModuleHelper::InjectCommand(TrayIcon::defaultCommand);
+					//NSCModuleHelper::InjectSplitAndCommand(TrayIcon::defaultCommand, buffer);
 				}
 				break;
 			case ID_POPUP_SHOWLOG:
 				{
 					long long err = reinterpret_cast<long long>(ShellExecute(hwndDlg, _T("open"), 
-						(NSCModuleHelper::getBasePath() + NSCModuleHelper::getSettingsString(_T("log"), _T("file"), _T(""))).c_str(), 
+						(NSCModuleHelper::getBasePath() + _T("\\") + NSCModuleHelper::getSettingsString(_T("log"), _T("file"), _T(""))).c_str(), 
 						NULL, NULL, SW_SHOWNORMAL));
 					if (err <=32) {
 							NSC_LOG_ERROR_STD(_T("ShellExecute failed : ") + strEx::itos(err));

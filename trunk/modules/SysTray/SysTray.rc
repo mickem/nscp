@@ -41,11 +41,19 @@ BEGIN
     IDD_INJECTDIALOG, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 317
-        VERTGUIDE, 207
-        VERTGUIDE, 267
+        RIGHTMARGIN, 351
+        VERTGUIDE, 114
+        VERTGUIDE, 291
         TOPMARGIN, 7
-        BOTTOMMARGIN, 43
+        BOTTOMMARGIN, 144
+        HORZGUIDE, 15
+        HORZGUIDE, 27
+        HORZGUIDE, 47
+        HORZGUIDE, 59
+        HORZGUIDE, 63
+        HORZGUIDE, 77
+        HORZGUIDE, 81
+        HORZGUIDE, 85
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -56,15 +64,23 @@ END
 // Dialog
 //
 
-IDD_INJECTDIALOG DIALOGEX 0, 0, 324, 50
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | 
-    WS_CAPTION | WS_SYSMENU
+IDD_INJECTDIALOG DIALOGEX 0, 0, 358, 151
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Inject command into NSClient++"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "Inject",IDOK,267,29,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,207,29,50,14
-    EDITTEXT        IDC_COMMAND,7,7,310,12,ES_AUTOHSCROLL
+    COMBOBOX        IDC_CMD_BOX,7,15,107,279,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_ARG_BOX,7,35,344,24,ES_MULTILINE | ES_AUTOHSCROLL
+    EDITTEXT        IDC_MSG,7,93,344,12,ES_AUTOHSCROLL | ES_READONLY
+    EDITTEXT        IDC_PERF,7,113,344,12,ES_AUTOHSCROLL | ES_READONLY
+    DEFPUSHBUTTON   "Inject",IDC_INJECT,291,63,60,14
+    PUSHBUTTON      "Done",IDCANCEL,291,130,60,14
+    LTEXT           "Command:",IDC_STATIC,7,7,35,8
+    LTEXT           "Arguments:",IDC_STATIC,7,27,38,8
+    CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDHORZ,7,80,344,1
+    LTEXT           "Result message:",IDC_STATIC,7,85,54,8
+    LTEXT           "Performance data:",IDC_STATIC,7,105,61,8
+    LTEXT           "",IDC_DESCRIPTION,114,15,237,12
 END
 
 
@@ -131,21 +147,6 @@ LANGUAGE LANG_SWEDISH, SUBLANG_DEFAULT
 #pragma code_page(1252)
 #endif //_WIN32
 
-#ifdef APSTUDIO_INVOKED
-/////////////////////////////////////////////////////////////////////////////
-//
-// TEXTINCLUDE
-//
-
-3 TEXTINCLUDE 
-BEGIN
-    "\r\n"
-    "\0"
-END
-
-#endif    // APSTUDIO_INVOKED
-
-
 /////////////////////////////////////////////////////////////////////////////
 //
 // DESIGNINFO
@@ -177,6 +178,21 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,129,7,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,129,24,50,14
 END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
 
 #endif    // Swedish resources
 /////////////////////////////////////////////////////////////////////////////

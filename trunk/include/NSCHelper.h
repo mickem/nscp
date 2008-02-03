@@ -118,6 +118,10 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIWriteSettings)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIReadSettings)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIRehash)(int);
+	typedef NSCAPI::errorReturn (*lpNSAPIDescribeCommand)(const TCHAR*,TCHAR*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetAllCommandNames)(arrayBuffer::arrayBuffer*, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPIReleaseAllCommandNamessBuffer)(arrayBuffer::arrayBuffer*, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(const TCHAR*,const TCHAR*);
 
 	// Helper functions for calling into the core
 	std::wstring getApplicationName(void);
@@ -141,6 +145,9 @@ namespace NSCModuleHelper
 	NSCAPI::errorReturn WriteSettings(int type);
 	NSCAPI::errorReturn ReadSettings(int type);
 	NSCAPI::errorReturn Rehash(int flag);
+	std::list<std::wstring> getAllCommandNames();
+	std::wstring describeCommand(std::wstring command);
+	void registerCommand(std::wstring command, std::wstring description);
 };
 
 namespace NSCModuleWrapper {

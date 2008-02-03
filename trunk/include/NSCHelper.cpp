@@ -136,6 +136,10 @@ namespace NSCModuleHelper {
 	lpNSAPIWriteSettings fNSAPIWriteSettings = NULL;
 	lpNSAPIReadSettings fNSAPIReadSettings = NULL;
 	lpNSAPIRehash fNSAPIRehash = NULL;
+	lpNSAPIDescribeCommand fNSAPIDescribeCommand= NULL;
+	lpNSAPIGetAllCommandNames fNSAPIGetAllCommandNames= NULL;
+	lpNSAPIReleaseAllCommandNamessBuffer fNSAPIReleaseAllCommandNamessBuffer= NULL;
+	lpNSAPIRegisterCommand fNSAPIRegisterCommand= NULL;
 
 }
 
@@ -467,6 +471,39 @@ NSCAPI::errorReturn NSCModuleHelper::Rehash(int flag) {
 	return fNSAPIRehash(flag);
 }
 
+std::list<std::wstring> NSCModuleHelper::getAllCommandNames() {
+	if (!fNSAPIGetAllCommandNames || !fNSAPIReleaseAllCommandNamessBuffer )
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	arrayBuffer::arrayBuffer aBuffer = NULL;
+	unsigned int argLen = 0;
+	if (fNSAPIGetAllCommandNames(&aBuffer, &argLen) != NSCAPI::isSuccess) {
+		throw NSCMHExcpetion(_T("Commands could not be retrieved."));
+	}
+	std::list<std::wstring> ret = arrayBuffer::arrayBuffer2list(argLen, aBuffer);
+	if (fNSAPIReleaseAllCommandNamessBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
+		throw NSCMHExcpetion(_T("Commands could not be destroyed."));
+	}
+	assert(aBuffer == NULL);
+	return ret;
+}
+std::wstring NSCModuleHelper::describeCommand(std::wstring command) {
+	if (!fNSAPIDescribeCommand)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
+	if (fNSAPIDescribeCommand(command.c_str(), buffer, BUFF_LEN) != NSCAPI::isSuccess) {
+		delete [] buffer;
+		throw NSCMHExcpetion(_T("Base path could not be retrieved"));
+	}
+	std::wstring ret = buffer;
+	delete [] buffer;
+	return ret;
+}
+void NSCModuleHelper::registerCommand(std::wstring command, std::wstring description) {
+	if (!fNSAPIRegisterCommand)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	fNSAPIRegisterCommand(command.c_str(), description.c_str());
+}
+
 
 bool NSCModuleHelper::checkLogMessages(int type) {
 	if (!fNSAPICheckLogMessages)
@@ -544,6 +581,12 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIWriteSettings = (NSCModuleHelper::lpNSAPIWriteSettings)f(_T("NSAPIWriteSettings"));
 	NSCModuleHelper::fNSAPIReadSettings = (NSCModuleHelper::lpNSAPIReadSettings)f(_T("NSAPIReadSettings"));
 	NSCModuleHelper::fNSAPIRehash = (NSCModuleHelper::lpNSAPIRehash)f(_T("NSAPIRehash"));
+
+	NSCModuleHelper::fNSAPIDescribeCommand = (NSCModuleHelper::lpNSAPIDescribeCommand)f(_T("NSAPIDescribeCommand"));
+	NSCModuleHelper::fNSAPIGetAllCommandNames = (NSCModuleHelper::lpNSAPIGetAllCommandNames)f(_T("NSAPIGetAllCommandNames"));
+	NSCModuleHelper::fNSAPIReleaseAllCommandNamessBuffer = (NSCModuleHelper::lpNSAPIReleaseAllCommandNamessBuffer)f(_T("NSAPIReleaseAllCommandNamessBuffer"));
+	NSCModuleHelper::fNSAPIRegisterCommand = (NSCModuleHelper::lpNSAPIRegisterCommand)f(_T("NSAPIRegisterCommand"));
+
 	return NSCAPI::isSuccess;
 }
 /**

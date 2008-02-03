@@ -7,6 +7,11 @@ TODO:
 
 2008-02-03 MickeM
  + Added encryption subsystem to NSCA module (still no mcrypt support, but atleast you have "xor" and passwords)
+ + Added API for scripts to register commands
+ + Added command descriptions (for some modules)
+ * Fixed issue in NRPE that displayed a console window when running commands
+ * New improved "inject" dialog from the system tray
+   Lists avalible commands, and shows command descriptions and a lot of other improvments.
 
 2008-02-02 MickeM
  * Might have fixed the "missing eventlog messages" problem.
