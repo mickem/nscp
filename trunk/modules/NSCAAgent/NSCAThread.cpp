@@ -26,6 +26,8 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	checkIntervall_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
 	host_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
 	port_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
+	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
+	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
 	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
@@ -99,9 +101,7 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 			for (std::list<Command>::const_iterator cit = commands_.begin(); cit != commands_.end(); ++cit) {
 				results.push_back((*cit).execute(host_));
 			}
-
 			send(results);
-
 			_time64( &stop );
 			__int64 elapsed = stop-start;
 			remain = checkIntervall_-static_cast<int>(elapsed);
@@ -128,28 +128,46 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 	return 0;
 }
 void NSCAThread::send(const std::list<Command::Result> &results) {
-	NSC_LOG_MESSAGE_STD(_T(">>> Attempting to send results..."));
-	simpleSocket::Socket socket(true);
-	simpleSocket::DataBuffer inc;
-	if (socket.connect(host_, port_) == SOCKET_ERROR) {
-		NSC_LOG_MESSAGE_STD(_T("<<< Could not connect to: ") + host_ + strEx::itos(port_));
+	try {
+		nsca_encrypt crypt_inst;
+		simpleSocket::Socket socket(true);
+		simpleSocket::DataBuffer inc;
+		if (socket.connect(host_, port_) == SOCKET_ERROR) {
+			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + host_ + strEx::itos(port_));
+			return;
+		}
+		if (!socket.readAll(inc, sizeof(NSCAPacket::init_packet_struct), sizeof(NSCAPacket::init_packet_struct))) {
+			NSC_LOG_ERROR_STD(_T("<<< Failed to read header: ") + host_ + strEx::itos(port_));
+			return;
+		}
+		NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();
+		try {
+			crypt_inst.encrypt_init(password_.c_str(),encryption_method_,packet_in->iv);
+		} catch (nsca_encrypt::exception &e) {
+			NSC_LOG_ERROR_STD(_T("<<< Failed to initalize encryption header: ") + e.getMessage());
+			return;
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("<<< Failed to initalize encryption header!"));
+			return;
+		}
+
+		try {
+			for (std::list<Command::Result>::const_iterator cit = results.begin(); cit != results.end(); ++cit) {
+				//NSC_DEBUG_MSG_STD(_T("Sending : ") + (*cit).toString());
+				socket.send((*cit).getBuffer(crypt_inst));
+			}
+		} catch (nsca_encrypt::exception &e) {
+			NSC_LOG_ERROR_STD(_T("<<< Failed to encrypt packet: ") + e.getMessage());
+			return;
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("<<< Failed to encrypt packet!"));
+			return;
+		}
+		socket.close();
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("<<< Failed to initalize encryption header!"));
 		return;
 	}
-	NSC_DEBUG_MSG_STD(_T("... Connected, attempting to read: ") + strEx::itos(sizeof(NSCAPacket::init_packet_struct)));
-	if (!socket.readAll(inc, sizeof(NSCAPacket::init_packet_struct), sizeof(NSCAPacket::init_packet_struct))) {
-		NSC_LOG_MESSAGE_STD(_T("<<< Failed to read header: ") + host_ + strEx::itos(port_));
-		return;
-	}
-	NSC_DEBUG_MSG_STD(_T("... Read..."));
-	NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();
-	NSC_LOG_MESSAGE_STD(_T("Read: ") + strEx::format_date(packet_in->timestamp));
-	for (std::list<Command::Result>::const_iterator cit = results.begin(); cit != results.end(); ++cit) {
-		NSC_LOG_MESSAGE_STD(_T("Sending : ") + (*cit).toString());
-		socket.send((*cit).getBuffer());
-	}
-	NSC_DEBUG_MSG_STD(_T("... Done..."));
-	socket.close();
-	NSC_LOG_MESSAGE_STD(_T("<<< Attempting to send results..."));
 }
 
 

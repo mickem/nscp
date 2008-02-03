@@ -141,6 +141,10 @@
 #define NSCA_HOSTNAME_DEFAULT _T("unknown-host")
 #define NSCA_PORT _T("nsca_port")
 #define NSCA_PORT_DEFAULT 5667
+#define NSCA_ENCRYPTION _T("encryption_method")
+#define NSCA_ENCRYPTION_DEFAULT 1
+#define NSCA_PASSWORD _T("password")
+#define NSCA_PASSWORD_DEFAULT _T("")
 
 #define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
 #define C_SYSTEM_SVC_ALL_0_DEFAULT _T("ignored")

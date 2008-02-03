@@ -24,6 +24,7 @@
 #include <Mutex.h>
 #include <arrayBuffer.h>
 #include <Socket.h>
+#include "nsca_enrypt.hpp"
 
 /**
  * @ingroup NSClientCompat
@@ -138,7 +139,7 @@ public:
 	public:
 		Result(std::wstring _host) : host(_host){
 			_time32(&time);
-			time+=60*60 + 2*60;
+			//time+=60*60 + 2*60;
 		}
 		std::wstring service;
 		std::wstring result;
@@ -152,7 +153,7 @@ public:
 				_T("result: ") + result;
 		}
 
-		simpleSocket::DataBuffer getBuffer() const {
+		simpleSocket::DataBuffer getBuffer(nsca_encrypt &crypt_inst) const {
 			std::string s = strEx::wstring_to_string(service);
 			std::string r = strEx::wstring_to_string(result);
 			std::string h = strEx::wstring_to_string(host);
@@ -169,8 +170,9 @@ public:
 
 			unsigned int calculated_crc32=calculate_crc32(reinterpret_cast<char*>(&data),sizeof(data));
 			data.crc32_value=static_cast<NSCAPacket::u_int32_t>(htonl(calculated_crc32));
-
-			return simpleSocket::DataBuffer(reinterpret_cast<char*>(&data),sizeof(data));
+			char * buffer = reinterpret_cast<char*>(&data);
+			crypt_inst.encrypt_buffer(buffer, sizeof(data));
+			return simpleSocket::DataBuffer(buffer,sizeof(data));
 		}
 
 	};
@@ -206,6 +208,8 @@ private:
 	std::list<Command> commands_;
 	std::wstring host_;
 	unsigned int port_;
+	std::string password_;
+	int encryption_method_;
 
 public:
 	NSCAThread();

@@ -5,6 +5,9 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-02-03 MickeM
+ + Added encryption subsystem to NSCA module (still no mcrypt support, but atleast you have "xor")
+
 2008-02-02 MickeM
  * Might have fixed the "missing eventlog messages" problem.
  + Added %count% parameter to syntax which (when used with unique) will display the numbe of hits for each message displayed.
