@@ -38,8 +38,8 @@ bool ConsoleLogger::hasMessageHandler() {
 	return true;
 }
 void ConsoleLogger::handleMessage(int msgType, char* file, int line, char* message) {
-	std::cout << "Incoming " << NSCHelper::translateMessageType(msgType) << " message (" << file << ":" << line << ")" << std::endl;
-	std::cout << "   -  " << message << std::endl;
+	std::wcout << "Incoming " << NSCHelper::translateMessageType(msgType) << " message (" << file << ":" << line << ")" << std::endl;
+	std::wcout << "   -  " << message << std::endl;
 }
 
 NSC_WRAPPERS_MAIN_DEF(gConsoleLogger);
