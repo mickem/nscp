@@ -309,6 +309,36 @@ namespace strEx {
 		ret += postfix[idx];
 		return ret;
 	}
+	inline std::wstring format_BKMG(unsigned __int64 i, std::wstring unit) {
+		double cpy = static_cast<double>(i);
+		TCHAR postfix[] = _T(BKMG_RANGE);
+		if (unit.length() != 1)
+			return itos(cpy);
+		for (int i=0;i<BKMG_SIZE;i++) {
+			if (unit[0] == postfix[i]) {
+				std::wstringstream ss;
+				ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
+				std::wstring s = ss.str();
+				std::wstring::size_type pos = s.find_last_not_of(_T("0"));
+				if (pos != std::string::npos) {
+					s = s.substr(0,pos);
+				}
+				return s;
+			}
+			cpy/=1024;
+		}
+		return itos(cpy);
+	}
+	inline std::wstring find_proper_unit_BKMG(unsigned __int64 i) {
+		double cpy = static_cast<double>(i);
+		TCHAR postfix[] = _T(BKMG_RANGE);
+		int idx = 0;
+		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
+			cpy/=1024;
+			idx++;
+		}
+		return std::wstring(1, postfix[idx]);
+	}
 
 	typedef std::list<std::wstring> splitList;
 	inline splitList splitEx(std::wstring str, std::wstring key) {

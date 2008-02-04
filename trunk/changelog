@@ -5,6 +5,10 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-02-04 MickeM
+ *** Happy Birthday bogi!! :)
+ * Fixed issues with performance counter rendering (mainly checkDisk)
+
 2008-02-03 MickeM
  + Added encryption subsystem to NSCA module (still no mcrypt support, but atleast you have "xor" and passwords)
  + Added API for scripts to register commands

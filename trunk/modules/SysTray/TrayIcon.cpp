@@ -99,6 +99,8 @@ INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam
 	{
 	case WM_INITDIALOG:
 		{
+			SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)LoadIcon(NSCModuleWrapper::getModule(), MAKEINTRESOURCE(IDI_NSCP)));
+			SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)LoadIcon(NSCModuleWrapper::getModule(), MAKEINTRESOURCE(IDI_NSCP)));
 			SetDlgItemText(hwndDlg, IDC_CMD_BOX, TrayIcon::defaultCommand.c_str());
 			SetDlgItemText(hwndDlg, IDC_DESCRIPTION, _T("Loading commands, please wait..."));
 
@@ -204,6 +206,8 @@ INT_PTR CALLBACK TrayIcon::LogDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LP
 	{
 	case WM_INITDIALOG:
 		{
+			SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)LoadIcon(NSCModuleWrapper::getModule(), MAKEINTRESOURCE(IDI_NSCP)));
+			SendMessage(hwndDlg, WM_SETICON, ICON_BIG, (LPARAM)LoadIcon(NSCModuleWrapper::getModule(), MAKEINTRESOURCE(IDI_NSCP)));
 			gSysTray.setLogWindow(hwndDlg);
 			HWND hwndLV = GetDlgItem(hwndDlg, IDC_LOG);
 			LVCOLUMN col;
@@ -308,7 +312,7 @@ void TrayIcon::addIcon(HWND hWnd) {
 	ndata.uID=2000;
 	ndata.uFlags=NIF_ICON|NIF_MESSAGE|NIF_TIP;
 	ndata.uCallbackMessage=WM_ICON_NOTIFY;
-	ndata.hIcon=::LoadIcon(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDI_STANDBY));
+	ndata.hIcon=::LoadIcon(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDI_NSCP));
 	std::wstring title = NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
 	wcsncpy_s(ndata.szTip, 64, title.c_str(), min(64, title.size()));
 	Shell_NotifyIcon(NIM_ADD,&ndata);
