@@ -4,8 +4,7 @@
 //
 #define IDR_POPUP                       4
 #define IDD_NSTRAYDLG                   102
-#define IDI_STANDBY                     103
-#define IDD_DIALOG1                     105
+#define IDI_NSCP						103
 #define IDD_INJECTDIALOG                105
 #define IDD_LOGWINDOW                   106
 #define IDC_COMMAND                     1000

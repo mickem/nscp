@@ -133,8 +133,11 @@ namespace checkHolders {
 		static std::wstring print(TType value) {
 			return strEx::itos_as_BKMG(value);
 		}
-		static std::wstring print_perf(TType value) {
-			return strEx::itos_as_BKMG(value);
+		static std::wstring get_perf_unit(TType value) {
+			return strEx::find_proper_unit_BKMG(value);
+		}
+		static std::wstring print_perf(TType value, std::wstring unit) {
+			return strEx::format_BKMG(value, unit);
 		}
 		static TType parse(std::wstring s) {
 			return strEx::stoi64_as_BKMG(s);
@@ -186,7 +189,10 @@ namespace checkHolders {
 		static std::wstring print_unformated(TType value) {
 			return strEx::itos(value);
 		}
-		static std::wstring print_perf(TType value) {
+		static std::wstring get_perf_unit(TType value) {
+			return _T("");
+		}
+		static std::wstring print_perf(TType value, std::wstring unit) {
 			return strEx::itos(value);
 		}
 		static std::wstring key_prefix() {
@@ -210,7 +216,10 @@ namespace checkHolders {
 		static std::wstring print(int value) {
 			return strEx::itos(value);
 		}
-		static std::wstring print_perf(int value) {
+		static std::wstring get_perf_unit(int value) {
+			return _T("");
+		}
+		static std::wstring print_perf(int value, std::wstring unit) {
 			return strEx::itos(value);
 		}
 		static std::wstring print_unformated(int value) {
@@ -237,7 +246,10 @@ namespace checkHolders {
 		static std::wstring print(__int64 value) {
 			return strEx::itos(value);
 		}
-		static std::wstring print_perf(__int64 value) {
+		static std::wstring get_perf_unit(__int64 value) {
+			return _T("");
+		}
+		static std::wstring print_perf(__int64 value, std::wstring unit) {
 			return strEx::itos(value);
 		}
 		static std::wstring print_unformated(__int64 value) {
@@ -261,7 +273,10 @@ namespace checkHolders {
 		static double parse_percent(std::wstring s) {
 			return strEx::stod(s);
 		}
-		static std::wstring print_perf(double value) {
+		static std::wstring get_perf_unit(double value) {
+			return _T("");
+		}
+		static std::wstring print_perf(double value, std::wstring unit) {
 			return strEx::itos(value);
 		}
 		static std::wstring print(double value) {
@@ -359,7 +374,8 @@ namespace checkHolders {
 			return value_;
 		}
 		static std::wstring gatherPerfData(std::wstring alias, TType &value, TType warn, TType crit) {
-			return MAKE_PERFDATA(alias, THandler::print_perf(value), _T(""), THandler::print_perf(warn), THandler::print_perf(crit));
+			std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value)));
+			return MAKE_PERFDATA(alias, THandler::print_perf(value, unit), unit, THandler::print_perf(warn, unit), THandler::print_perf(crit, unit));
 		}
 
 	private:
@@ -494,9 +510,10 @@ namespace checkHolders {
 						MAKE_PERFDATA(alias, THandler::print_unformated(value.getLowerPercentage()), _T("%"), 
 						THandler::print_unformated(warn), THandler::print_unformated(crit));
 			} else {
+				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
 				return 
-					MAKE_PERFDATA(alias, THandler::print_perf(value.value), _T(""), 
-					THandler::print_perf(warn), THandler::print_perf(crit));
+					MAKE_PERFDATA(alias, THandler::print_perf(value.value, unit), unit, 
+					THandler::print_perf(warn, unit), THandler::print_perf(crit, unit));
 			}
 		}
 	private:

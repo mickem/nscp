@@ -338,7 +338,11 @@ public:
 	static std::wstring print_unformated(int value) {
 		return strEx::itos(value);
 	}
-	static std::wstring print_perf(int value) {
+
+	static std::wstring get_perf_unit(__int64 value) {
+		return _T("");
+	}
+	static std::wstring print_perf(__int64 value, std::wstring unit) {
 		return strEx::itos(value);
 	}
 	static std::wstring print_percent(int value) {
