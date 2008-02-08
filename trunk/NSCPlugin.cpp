@@ -143,7 +143,11 @@ bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
 		throw NSPluginException(file_, _T("Library is not loaded"));
 	if (!fGetVersion)
 		throw NSPluginException(file_, _T("Critical error (fGetVersion)"));
-	return fGetVersion(major, minor, revision)?true:false;
+	try {
+		return fGetVersion(major, minor, revision)?true:false;
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in getVersion in: ": ) + file_);
+	}
 }
 /**
  * Returns true if the plug in has a command handler.
@@ -153,9 +157,13 @@ bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
 bool NSCPlugin::hasCommandHandler() {
 	if (!isLoaded())
 		throw NSPluginException(file_, _T("Module not loaded"));
-	if (fHasCommandHandler())
-		return true;
-	return false;
+	try {
+		if (fHasCommandHandler())
+			return true;
+		return false;
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in hasCommandHandler in: ": ) + file_);
+	}
 }
 /**
 * Returns true if the plug in has a message (log) handler.
@@ -165,9 +173,13 @@ bool NSCPlugin::hasCommandHandler() {
 bool NSCPlugin::hasMessageHandler() {
 	if (!isLoaded())
 		throw NSPluginException(file_, _T("Module not loaded"));
-	if (fHasMessageHandler())
-		return true;
-	return false;
+	try {
+		if (fHasMessageHandler())
+			return true;
+		return false;
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in hasMessageHandler in: ": ) + file_);
+	}
 }
 /**
  * Allow for the plug in to handle a command from the input core.
@@ -180,14 +192,18 @@ bool NSCPlugin::hasMessageHandler() {
  * @param returnMessageBuffer Return buffer for plug in to store the result of the executed command.
  * @param returnMessageBufferLen Size of returnMessageBuffer
  * @param returnPerfBuffer Return buffer for performance data
- * @param returnPerfBufferLen Sixe of returnPerfBuffer
+ * @param returnPerfBufferLen Size of returnPerfBuffer
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
  */
 NSCAPI::nagiosReturn NSCPlugin::handleCommand(const TCHAR* command, const unsigned int argLen, TCHAR **arguments, TCHAR* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	if (!isLoaded())
 		throw NSPluginException(file_, _T("Library is not loaded"));
-	return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+	try {
+		return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in handleCommand in: ": ) + file_);
+	}
 }
 /**
  * Handle a message from the core (or any other (or even potentially self) plug in).
@@ -201,7 +217,11 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const TCHAR* command, const unsign
 void NSCPlugin::handleMessage(int msgType, const TCHAR* file, const int line, const TCHAR *message) {
 	if (!fHandleMessage)
 		throw NSPluginException(file_, _T("Library is not loaded"));
-	fHandleMessage(msgType, file, line, message);
+	try {
+		fHandleMessage(msgType, file, line, message);
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in handleMessage in: ": ) + file_);
+	}
 }
 /**
  * Unload the plug in
@@ -212,7 +232,11 @@ void NSCPlugin::unload() {
 		throw NSPluginException(file_, _T("Library is not loaded"));
 	if (!fUnLoadModule)
 		throw NSPluginException(file_, _T("Critical error (fUnLoadModule)"));
-	fUnLoadModule();
+	try {
+		fUnLoadModule();
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in handleMessage in: ": ) + file_);
+	}
 	FreeLibrary(hModule_);
 	hModule_ = NULL;
 	bLoaded_ = false;
@@ -220,12 +244,20 @@ void NSCPlugin::unload() {
 bool NSCPlugin::getName_(TCHAR* buf, unsigned int buflen) {
 	if (fGetName == NULL)
 		throw NSPluginException(file_, _T("Critical error (fGetName)"));
-	return fGetName(buf, buflen)?true:false;
+	try {
+		return fGetName(buf, buflen)?true:false;
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in getName in: ": ) + file_);
+	}
 }
 bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
 	if (fGetDescription == NULL)
 		throw NSPluginException(file_, _T("Critical error (fGetDescription)"));
-	return fGetDescription(buf, buflen)?true:false;
+	try {
+		return fGetDescription(buf, buflen)?true:false;
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in getDescription in: ": ) + file_);
+	}
 }
 /**
  * Load all remote function pointers from the loaded module.
@@ -243,7 +275,11 @@ void NSCPlugin::loadRemoteProcs_(void) {
 	if (!fModuleHelperInit)
 		throw NSPluginException(file_, _T("Could not load NSModuleHelperInit"));
 
-	fModuleHelperInit(NSAPILoader);
+	try {
+		fModuleHelperInit(NSAPILoader);
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in getDescription in: ": ) + file_);
+	}
 	
 	fGetName = (lpGetName)GetProcAddress(hModule_, "NSGetModuleName");
 	if (!fGetName)
@@ -295,11 +331,19 @@ std::wstring NSCPlugin::getCongifurationMeta()
 bool NSCPlugin::getConfigurationMeta_(TCHAR* buf, unsigned int buflen) {
 	if (fGetConfigurationMeta == NULL)
 		throw NSPluginException(file_, _T("Critical error (getCongifurationMeta)"));
-	return fGetConfigurationMeta(buflen, buf)?true:false;
+	try {
+		return fGetConfigurationMeta(buflen, buf)?true:false;
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in getConfigurationMeta in: ": ) + file_);
+	}
 }
 
 int NSCPlugin::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments) {
 	if (fCommandLineExec== NULL)
 		throw NSPluginException(file_, _T("Module does not support CommandLineExec"));
-	return fCommandLineExec(command, argLen, arguments);
+	try {
+		return fCommandLineExec(command, argLen, arguments);
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in commandLineExec in: ": ) + file_);
+	}
 }

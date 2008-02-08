@@ -166,7 +166,11 @@ public:
 		}
 		//hThread_ = reinterpret_cast<HANDLE>(::_beginthreadex(threadProc, 0, reinterpret_cast<VOID*>(param)));
 		//hThread = (HANDLE)_beginthreadex( NULL, 0, &SecondThreadFunc, NULL, 0, &threadID );
-		hThread_ = reinterpret_cast<HANDLE>(::_beginthreadex(NULL, 0, threadProc, reinterpret_cast<VOID*>(param), 0, &uThreadID));
+		uintptr_t thread_handle = ::_beginthreadex(NULL, 0, threadProc, reinterpret_cast<VOID*>(param), 0, &uThreadID);
+		if (thread_handle == 0 || thread_handle == 1 || thread_handle == -1) {
+			throw ThreadException(_T("Failed to create the thread (") + threadid_ + _T(")."));
+		}
+		hThread_ = reinterpret_cast<HANDLE>(thread_handle);
 	}
 	/**
 	 * Ask the thread to terminate (within 5 seconds) if not return false.

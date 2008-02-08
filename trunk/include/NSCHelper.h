@@ -218,29 +218,68 @@ namespace NSCModuleWrapper {
 
 #define NSC_WRAPPERS_MAIN_DEF(toObject) \
 	extern int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) { \
-		return NSCModuleWrapper::wrapModuleHelperInit(f); \
+		try { \
+			return NSCModuleWrapper::wrapModuleHelperInit(f); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	} \
 	extern int NSLoadModule() { \
-		return NSCModuleWrapper::wrapLoadModule(toObject.loadModule()); \
+		try { \
+			return NSCModuleWrapper::wrapLoadModule(toObject.loadModule()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	} \
 	extern int NSGetModuleName(TCHAR* buf, int buflen) { \
-	return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
+		try { \
+			return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	} \
 	extern int NSGetModuleDescription(TCHAR* buf, int buflen) { \
-	return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleDescription()); \
+		try { \
+			return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleDescription()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	} \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { \
-		return NSCModuleWrapper::wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
+		try { \
+			return NSCModuleWrapper::wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	} \
 	extern int NSUnloadModule() { \
-		return NSCModuleWrapper::wrapUnloadModule(toObject.unloadModule()); \
+		try { \
+			return NSCModuleWrapper::wrapUnloadModule(toObject.unloadModule()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	}
 #define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
 	extern void NSHandleMessage(int msgType, TCHAR* file, int line, TCHAR* message) { \
-		toObject.handleMessage(msgType, file, line, message); \
+		try { \
+			toObject.handleMessage(msgType, file, line, message); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: handleMessage(...)")); \
+		} \
 	} \
 	extern NSCAPI::boolReturn NSHasMessageHandler() { \
-		return NSCModuleWrapper::wrapHasMessageHandler(toObject.hasMessageHandler()); \
+		try { \
+			return NSCModuleWrapper::wrapHasMessageHandler(toObject.hasMessageHandler()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasMessageHandler(...)")); \
+			return NSCAPI::isfalse; \
+		} \
 	}
 #define NSC_WRAPPERS_IGNORE_MSG_DEF() \
 	extern void NSHandleMessage(int msgType, TCHAR* file, int line, TCHAR* message) {} \
@@ -249,12 +288,22 @@ namespace NSCModuleWrapper {
 	extern NSCAPI::nagiosReturn NSHandleCommand(const TCHAR* IN_cmd, const unsigned int IN_argsLen, TCHAR **IN_args, \
 									TCHAR *OUT_retBufMessage, unsigned int IN_retBufMessageLen, TCHAR *OUT_retBufPerf, unsigned int IN_retBufPerfLen) \
 	{ \
-		std::wstring message, perf; \
-		NSCAPI::nagiosReturn retCode = toObject.handleCommand(IN_cmd, IN_argsLen, IN_args, message, perf); \
-		return NSCModuleWrapper::wrapHandleCommand(retCode, message, perf, OUT_retBufMessage, IN_retBufMessageLen, OUT_retBufPerf, IN_retBufPerfLen); \
+		try { \
+			std::wstring message, perf; \
+			NSCAPI::nagiosReturn retCode = toObject.handleCommand(IN_cmd, IN_argsLen, IN_args, message, perf); \
+			return NSCModuleWrapper::wrapHandleCommand(retCode, message, perf, OUT_retBufMessage, IN_retBufMessageLen, OUT_retBufPerf, IN_retBufPerfLen); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
+			return NSCAPI::returnIgnored; \
+		} \
 	} \
 	extern NSCAPI::boolReturn NSHasCommandHandler() { \
-		return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
+		try { \
+			return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasCommandHandler(...)")); \
+			return NSCAPI::isfalse; \
+		} \
 	}
 #define NSC_WRAPPERS_IGNORE_CMD_DEF() \
 	extern NSCAPI::nagiosReturn NSHandleCommand(const TCHAR* IN_cmd, const unsigned int IN_argsLen, TCHAR **IN_args, \
@@ -267,12 +316,22 @@ namespace NSCModuleWrapper {
 #define NSC_WRAPPERS_HANDLE_CONFIGURATION(toObject) \
 	extern int NSGetConfigurationMeta(int IN_retBufLen, TCHAR *OUT_retBuf) \
 	{ \
-	return NSCModuleWrapper::wrapGetConfigurationMeta(OUT_retBuf, IN_retBufLen, toObject.getConfigurationMeta()); \
+		try { \
+			return NSCModuleWrapper::wrapGetConfigurationMeta(OUT_retBuf, IN_retBufLen, toObject.getConfigurationMeta()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetConfigurationMeta(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	}
 
 #define NSC_WRAPPERS_CLI_DEF(toObject) \
 	extern int NSCommandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args) { \
-		return toObject.commandLineExec(command, argLen, args); \
+		try { \
+			return toObject.commandLineExec(command, argLen, args); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: commandLineExec(...)")); \
+			return NSCAPI::hasFailed; \
+		} \
 	} \
 
 //////////////////////////////////////////////////////////////////////////

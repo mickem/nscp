@@ -5,6 +5,15 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-02-08 MickeM
+ + Added some more default catch handlers (on the "core" side of plugin-calls).
+
+2008-02-07 MickeM
+ + Added default catch handlers to all wrapped plugin calls.
+
+2008-02-05 MickeM
+ * Fixed issue with checkEventLog (sometimes you got the wrong message back)
+
 2008-02-04 MickeM
  *** Happy Birthday bogi!! :)
  * Fixed issues with performance counter rendering (mainly checkDisk)
