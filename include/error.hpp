@@ -57,7 +57,7 @@ namespace error {
 					return _T("failed to load: ") + module + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
 				}
 				LPVOID lpMsgBuf;
-				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
+				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
 					dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(arguments));
 				if (dwRet == 0) {
 					FreeLibrary(hDLL);
