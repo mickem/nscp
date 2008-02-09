@@ -104,6 +104,19 @@
 #define NRPE_SETTINGS_SCRIPTDIR _T("script_dir")
 #define NRPE_SETTINGS_SCRIPTDIR_DEFAULT _T("")
 
+// External Script Settings headlines
+#define EXTSCRIPT_SECTION_TITLE _T("External Script")
+#define EXTSCRIPT_SCRIPT_SECTION_TITLE _T("External Scripts")
+#define EXTSCRIPT_ALIAS_SECTION_TITLE _T("External Alias")
+#define EXTSCRIPT_SETTINGS_TIMEOUT _T("command_timeout")
+#define EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT 60
+#define EXTSCRIPT_SETTINGS_ALLOW_ARGUMENTS _T("allow_arguments")
+#define EXTSCRIPT_SETTINGS_ALLOW_ARGUMENTS_DEFAULT 0
+#define EXTSCRIPT_SETTINGS_ALLOW_NASTY_META _T("allow_nasty_meta_chars")
+#define EXTSCRIPT_SETTINGS_ALLOW_NASTY_META_DEFAULT 0
+#define EXTSCRIPT_SETTINGS_SCRIPTDIR _T("script_dir")
+#define EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT _T("")
+
 // Check System Settings
 #define C_SYSTEM_SECTION_TITLE _T("Check System")
 #define C_SYSTEM_CPU_BUFFER_TIME _T("CPUBufferSize") 

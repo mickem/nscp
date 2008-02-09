@@ -267,7 +267,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const TCHAR* command
  * @param perf The return performance data buffer
  * @return The result of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf)
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf, bool escape)
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
@@ -276,7 +276,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::wstring c
 	if (buffer.empty())
 		aBuffer= arrayBuffer::createEmptyArrayBuffer(argLen);
 	else
-		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen);
+		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen, escape);
 	NSCAPI::nagiosReturn ret = InjectCommand(command.c_str(), argLen, aBuffer, message, perf);
 	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
 	return ret;

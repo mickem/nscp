@@ -22,7 +22,6 @@
 
 #include "Singleton.h"
 #include "strEx.h"
-#include <assert.h>
 #include <windows.h>
 #include <iostream>
 
@@ -61,7 +60,7 @@ public:
 		hMutex = CreateMutex(NULL, FALSE, NULL);
 		if ( GetLastError() == ERROR_ALREADY_EXISTS )
 			hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, NULL);
-		assert(hMutex != NULL);
+		std::wcout << _T("Error in mutex creation: ") << GetLastError()	<< std::endl;
 	}
 	/**
 	 * Default d-tor.
@@ -122,9 +121,11 @@ public:
 	 * @timeout The timeout before abandoning wait
 	 */
 	MutexLock(HANDLE hMutex, DWORD timeout = 5000L) : bHasMutex(false), hMutex_(hMutex) {
-		if (hMutex_ == NULL)
-			std::wcout << "Whops..." << std::endl;
-		assert(hMutex_ != NULL);
+		if (hMutex_ == NULL) {
+			std::wcout << _T("Error in mutex lock: ") << std::endl;
+			bHasMutex = false;
+			return;
+		}
 		dwWaitResult = WaitForSingleObject(hMutex_, timeout);
 		switch (dwWaitResult) {
 			// The thread got mutex ownership.
