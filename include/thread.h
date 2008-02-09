@@ -67,12 +67,13 @@ private:
 	bool bThreadHasTerminated;
 	bool bThreadHasBeenClosed;
 
-
+#define THREAD_MAGIC_ID 123456
 
 	typedef struct thread_param {
 		T *instance;		// The thread instance object
 		LPVOID lpParam;		// The optional argument to the thread
 		Thread *pCore;
+		unsigned int magic_id;
 	} thread_param;
 
 public:
@@ -82,7 +83,9 @@ public:
 	 */
 	Thread(std::wstring threadid) : threadid_(threadid), hThread_(NULL), pObject_(NULL), uThreadID(-1), bThreadHasTerminated(false), bThreadHasBeenClosed(false) {
 		hMutex_ = CreateMutex(NULL, FALSE, NULL);
-		assert(hMutex_ != NULL);
+		if (hMutex_ == NULL) {
+			std::wcerr << _T("Failed to create thread mutec for thread: ") << threadid << _T(": ") << GetLastError() << std::endl;
+		}
 	}
 	/**
 	 * Default d-tor.
@@ -124,17 +127,24 @@ private:
 	 */
 	static unsigned __stdcall threadProc(void* lpParameter) {
 		thread_param* param = static_cast<thread_param*>(lpParameter);
+		if (param->magic_id != THREAD_MAGIC_ID) {
+			std::wcerr << _T("Thread magic ID check failed :(") << std::endl;
+			_endthreadex( 0 );
+			return 0;
+		}
 		T* instance = param->instance;
 		LPVOID lpParam = param->lpParam;
 		Thread *pCore = param->pCore;
 		delete param;
-
-		unsigned returnCode = instance->threadProc(lpParam);
+		unsigned returnCode = 0;
+		try {
+			returnCode = instance->threadProc(lpParam);
+		} catch (...) {
+			std::wcerr << _T("Unhandled exception in thread a :(") << std::endl;
+		}
 		pCore->terminate();
 		_endthreadex( 0 );
 		return returnCode;
-
-//		_endthread();
 	}
 
 public:
@@ -148,6 +158,8 @@ public:
 	 * @bug the object return thing is *unsafe* and should be changed (if the thread is terminated that pointer is invalidated without any signal).
 	 */
 	void createThread(LPVOID lpParam = NULL) {
+		if (hMutex_ == NULL)
+			throw ThreadException(_T("No mutex in createThread (") + threadid_ + _T(") not started..."));
 		thread_param* param = NULL;
 		{
 			MutexLock mutex(hMutex_, 5000L);
@@ -157,15 +169,16 @@ public:
 			if (pObject_) {
 				throw ThreadException(_T("Thread already started, thread (") + threadid_ + _T(") not started..."));
 			}
-//			assert(hStopEvent_ == NULL);
 			param = new thread_param;
+			if (param == NULL)
+				throw ThreadException(_T("Failed to allocate memory for new thread: ") + threadid_);
 			param->instance = pObject_ = new T;
-//			param->hStopEvent = hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+			if (param->instance == NULL)
+				throw ThreadException(_T("Failed to allocate memory for new thread: ") + threadid_);
 			param->lpParam = lpParam;
 			param->pCore = this;
+			param->magic_id = THREAD_MAGIC_ID;
 		}
-		//hThread_ = reinterpret_cast<HANDLE>(::_beginthreadex(threadProc, 0, reinterpret_cast<VOID*>(param)));
-		//hThread = (HANDLE)_beginthreadex( NULL, 0, &SecondThreadFunc, NULL, 0, &threadID );
 		uintptr_t thread_handle = ::_beginthreadex(NULL, 0, threadProc, reinterpret_cast<VOID*>(param), 0, &uThreadID);
 		if (thread_handle == 0 || thread_handle == 1 || thread_handle == -1) {
 			throw ThreadException(_T("Failed to create the thread (") + threadid_ + _T(")."));
@@ -178,6 +191,8 @@ public:
 	 * @return true if the thread has terminated
 	 */
 	bool exitThread(const unsigned int delay = 20000L) {
+		if (hMutex_ == NULL)
+			throw ThreadException(_T("No mutex in createThread (") + threadid_ + _T(") not started..."));
 		DWORD dwWaitResult = -1;
 		{
 			MutexLock mutex(hMutex_, delay);
@@ -197,7 +212,6 @@ public:
 			return true;
 		}
 		std::wcerr << _T("Failed to terminate thread: ") << threadid_ << _T("...") << std::endl;
-		//assert(false);
 		return false;
 	}
 	bool hasActiveThread() const {

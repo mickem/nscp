@@ -46,7 +46,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 	int noIndex = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_NO_INDEX, C_SYSTEM_NO_INDEX_DEFAULT);
 	bool bUseIndex = false;
 
-	// Investigate enviornment and find out what to use
+	// Investigate environment and find out what to use
 	try {
 		OSVERSIONINFO osVer = systemInfo::getOSVersion();
 		if (!systemInfo::isNTBased(osVer)) {

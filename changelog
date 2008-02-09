@@ -5,6 +5,13 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-02-09 MickeM
+ + New module CheckExternalScripts to handle 1, external script (similar to the old NRPE but in its own module)
+   - Can Check batch/vbs/programs/*
+   - Works with NSCA module (if you don't want to have NRPE at the same time)
+   - Simpler syntax (discarded old and added new section for alias)
+   - Started to add "sample alias" to ease initial setup and give some nice ideas (please provide me with feedback on them)
+
 2008-02-08 MickeM
  + Added some more default catch handlers (on the "core" side of plugin-calls).
 
@@ -19,23 +26,23 @@ TODO:
  * Fixed issues with performance counter rendering (mainly checkDisk)
 
 2008-02-03 MickeM
- + Added encryption subsystem to NSCA module (still no mcrypt support, but atleast you have "xor" and passwords)
+ + Added encryption subsystem to NSCA module (still no mcrypt support, but at least you have "xor" and passwords)
  + Added API for scripts to register commands
  + Added command descriptions (for some modules)
  * Fixed issue in NRPE that displayed a console window when running commands
  * New improved "inject" dialog from the system tray
-   Lists avalible commands, and shows command descriptions and a lot of other improvments.
- + Added an internal log windows that displays log in realtime.
+   Lists available commands, and shows command descriptions and a lot of other improvements.
+ + Added an internal log windows that displays log in real-time.
  + Fixed some issues with the dialog procs (should work smoother now, especially Termination)
 
 2008-02-02 MickeM
  * Might have fixed the "missing eventlog messages" problem.
- + Added %count% parameter to syntax which (when used with unique) will display the numbe of hits for each message displayed.
+ + Added %count% parameter to syntax which (when used with unique) will display the number of hits for each message displayed.
 
 2008-01-27 MickeM
  * Fixed a memory-leak in format_time
  * Fixed so time/date is displayed in "local time" (not UTC) for the eventlog check
- + Added %message% to evenlog check. Will display the "proper formated eventlog message" as in the eventlog viewer.
+ + Added %message% to eventlog check. Will display the "proper formated eventlog message" as in the eventlog viewer.
    For this to work you need to have the descriptions flag set
    In short: /nrpe -H 192.168.0.147 -c checkEventLog -a truncate=1024 "syntax=%generated%: %message%" descriptions=true file=System MaxWarn=1 MaxCrit=1 filter+eventType==error filter+generated=\<12h filter=new filter=all filter=in
  + Added option "unique" to CheckEventLog If this is present only unique errors will be returned.
@@ -49,13 +56,13 @@ TODO:
  + Added support for index-lookups of PDH counters (hopefully *all* locale problems are now fixed (yeah right))
 
 2007-12-10 MickeM
- + Added intial draft for LUA module
+ + Added initial draft for LUA module
 
 2007-12-09 MickeM
  + Added a check if the service is started when running with /test so you get a warning
  + Improved the socket thread with:
     * a default-catch
-    * If the socket failes to start we still wait for it to shut down (no error message)
+    * If the socket fails to start we still wait for it to shut down (no error message)
  + Added first version of the NSCA agent (NSCAgent.dll)
    (no encryption support as of yet, but will come)
 
@@ -72,8 +79,8 @@ TODO:
  ! 0.3.0 RC-1
  * Fixed some UNICODE issues with process-listings
  + Added an error message if the "detected" process enumeration method is not available.
- + Fixed some more unicode issues Password encrypt/decrypt: #107
- * Fixed unicode issues with "external programs" #109
+ + Fixed some more Unicode issues Password encrypt/decrypt: #107
+ * Fixed Unicode issues with "external programs" #109
  * Fixed so default string for check_nt:s FILEAGE command is "delta" is 5 minutes ago (and not absolute ie. 1970...), Issue #39
  + added support for  <date strings> to check_nt:s FILEAGE command, Issue #39
     append: .<date string> if you want to use a "custom date" like so: ... -v FILEAGE -l c:\\windows,Date: %Y-%m-%d %H:%M:%S" -w 5 -c 6 ...

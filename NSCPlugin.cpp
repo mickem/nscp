@@ -146,7 +146,7 @@ bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
 	try {
 		return fGetVersion(major, minor, revision)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getVersion in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in getVersion."));
 	}
 }
 /**
@@ -162,7 +162,7 @@ bool NSCPlugin::hasCommandHandler() {
 			return true;
 		return false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in hasCommandHandler in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in hasCommandHandler."));
 	}
 }
 /**
@@ -178,7 +178,7 @@ bool NSCPlugin::hasMessageHandler() {
 			return true;
 		return false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in hasMessageHandler in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in hasMessageHandler."));
 	}
 }
 /**
@@ -202,7 +202,7 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const TCHAR* command, const unsign
 	try {
 		return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in handleCommand in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in handleCommand."));
 	}
 }
 /**
@@ -220,7 +220,7 @@ void NSCPlugin::handleMessage(int msgType, const TCHAR* file, const int line, co
 	try {
 		fHandleMessage(msgType, file, line, message);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in handleMessage in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in handleMessage."));
 	}
 }
 /**
@@ -235,7 +235,7 @@ void NSCPlugin::unload() {
 	try {
 		fUnLoadModule();
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in handleMessage in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in handleMessage."));
 	}
 	FreeLibrary(hModule_);
 	hModule_ = NULL;
@@ -247,7 +247,7 @@ bool NSCPlugin::getName_(TCHAR* buf, unsigned int buflen) {
 	try {
 		return fGetName(buf, buflen)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getName in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in getName."));
 	}
 }
 bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
@@ -256,7 +256,7 @@ bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
 	try {
 		return fGetDescription(buf, buflen)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getDescription in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in getDescription."));
 	}
 }
 /**
@@ -278,7 +278,7 @@ void NSCPlugin::loadRemoteProcs_(void) {
 	try {
 		fModuleHelperInit(NSAPILoader);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getDescription in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in getDescription."));
 	}
 	
 	fGetName = (lpGetName)GetProcAddress(hModule_, "NSGetModuleName");
@@ -334,7 +334,7 @@ bool NSCPlugin::getConfigurationMeta_(TCHAR* buf, unsigned int buflen) {
 	try {
 		return fGetConfigurationMeta(buflen, buf)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getConfigurationMeta in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in getConfigurationMeta."));
 	}
 }
 
@@ -344,6 +344,6 @@ int NSCPlugin::commandLineExec(const TCHAR* command, const unsigned int argLen, 
 	try {
 		return fCommandLineExec(command, argLen, arguments);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in commandLineExec in: ": ) + file_);
+		throw NSPluginException(file_, _T("Unhandled exception in commandLineExec."));
 	}
 }

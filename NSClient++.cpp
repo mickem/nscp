@@ -241,8 +241,8 @@ bool NSClientT::InitiateService() {
 void NSClientT::TerminateService(void) {
 	try {
 		mainClient.unloadPlugins();
-	} catch(NSPluginException *e) {
-		std::wcout << _T("Exception raised: ") << e->error_ << _T(" in module: ") << e->file_ << std::endl;;
+	} catch(NSPluginException &e) {
+		std::wcout << _T("Exception raised: ") << e.error_ << _T(" in module: ") << e.file_ << std::endl;;
 	}
 	try {
 		simpleSocket::WSACleanup();
