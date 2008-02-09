@@ -23,6 +23,8 @@
 ;NSCAAgent.dll
 ; LUA script module used to write your own "check deamon" (sort of) early beta.
 ;LUAScript.dll
+; Script to check external scripts and/or internal aliases, early beta.
+;CheckExternalScripts.dll
 
 
 [Settings]

@@ -58,9 +58,11 @@ public:
 	 */
 	MutexHandler() : hMutex(NULL) {
 		hMutex = CreateMutex(NULL, FALSE, NULL);
-		if ( GetLastError() == ERROR_ALREADY_EXISTS )
+		if (hMutex == NULL && GetLastError() == ERROR_ALREADY_EXISTS )
 			hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, NULL);
-		std::wcout << _T("Error in mutex creation: ") << GetLastError()	<< std::endl;
+		if (hMutex == NULL) {
+			std::wcout << _T("Error in mutex creation: ") << GetLastError()	<< std::endl;
+		}
 	}
 	/**
 	 * Default d-tor.
