@@ -1,3 +1,22 @@
+#define HAVE_LIBCRYPTOPP
+
+#ifdef HAVE_LIBCRYPTOPP
+#include <crypto++/cryptlib.h>
+#include <crypto++/modes.h>
+#include <crypto++/des.h>
+#include <crypto++/aes.h>
+#include <crypto++/cast.h>
+#include <crypto++/tea.h>
+#include <crypto++/3way.h>
+#include <crypto++/blowfish.h>
+#include <crypto++/twofish.h>
+#include <crypto++/rc2.h>
+#include <crypto++/arc4.h>
+#include <crypto++/serpent.h>
+#include <crypto++/gost.h>
+#include <crypto++/filters.h>
+#include <crypto++/osrng.h>
+#endif
 
 #define TRANSMITTED_IV_SIZE     128     /* size of IV to transmit - must be as big as largest IV needed for any crypto algorithm */
 
@@ -6,7 +25,7 @@
 #define ENCRYPT_NONE            0       /* no encryption */
 #define ENCRYPT_XOR             1       /* not really encrypted, just obfuscated */
 
-#ifdef HAVE_LIBMCRYPT
+#ifdef HAVE_LIBCRYPTOPP
 #define ENCRYPT_DES             2       /* DES */
 #define ENCRYPT_3DES            3       /* 3DES or Triple DES */
 #define ENCRYPT_CAST128         4       /* CAST-128 */
@@ -36,46 +55,166 @@
 
 
 class nsca_encrypt {
-private:
-	char transmitted_iv_[TRANSMITTED_IV_SIZE];
-	bool isInialized_;
-	std::string password_;
-	int encryption_method_;
-#ifdef HAVE_LIBMCRYPT
-	MCRYPT td_;
-	char *key_;
-	char *IV_;
-	char block_buffer_;
-	int blocksize_;
-	int keysize_;
-	std::string mcrypt_algorithm_;
-	std::string mcrypt_mode_;
-#endif
 public:
-	class exception {
-		std::wstring error_;
+	class encryption_exception {
+		std::wstring msg_;
 	public:
-		exception(std::wstring error) : error_(error) {}
-		std::wstring getMessage() const { return error_; }
+		encryption_exception() {}
+		encryption_exception(std::wstring msg) : msg_(msg) {}
+		std::wstring getMessage() const { return msg_; }
 
 	};
-
-	nsca_encrypt() : isInialized_(false)
-#ifdef HAVE_LIBMCRYPT
-		, key_(NULL), IV_(NULL) 
-#endif
-	{}
-	~nsca_encrypt() {
-#ifdef HAVE_LIBMCRYPT
-		/* mcrypt cleanup */
-		if(encryption_method!=ENCRYPT_NONE && encryption_method!=ENCRYPT_XOR){
-			mcrypt_generic_end(td);
-			delete [] key;
-			key=NULL;
-			delete [] IV;
-			IV=NULL;
+	class any_encryption {
+	public:
+		virtual void init(std::string password, unsigned char *transmitted_iv, int iv_size) = 0;
+		virtual void encrypt(unsigned char *buffer, int buffer_size) = 0;
+		virtual void decrypt(unsigned char *buffer, int buffer_size) = 0;
+	};
+	template <class TMethod>
+	class cryptopp_encryption : public any_encryption {
+	private:
+		typedef CryptoPP::CFB_Mode_ExternalCipher::Encryption TEncryption;
+		typedef typename TMethod::Encryption TCipher;
+		TEncryption crypto_;
+		TCipher cipher_;
+		int keysize_;
+	public:
+		cryptopp_encryption() : keysize_(TMethod::DEFAULT_KEYLENGTH) {}
+		cryptopp_encryption(int keysize) : keysize_(keysize) {}
+		int get_keySize() {
+			return keysize_;
 		}
-#endif
+		int get_blockSize() {
+			return TMethod::BLOCKSIZE;
+		}
+
+		void init(std::string password, unsigned char *transmitted_iv, int iv_size) {
+			/* generate an encryption/description key using the password */
+			int keysize=get_keySize();
+			std::cout << "keysize: " << keysize << std::endl;
+
+			unsigned char *key = new unsigned char[keysize+1];
+			if (key == NULL){
+				throw encryption_exception(_T("Could not allocate memory for encryption/decryption key"));
+			}
+			ZeroMemory(key,keysize*sizeof(unsigned char));
+			strncpy(reinterpret_cast<char*>(key),password.c_str(),min(keysize,password.length()));
+
+
+			/* determine size of IV buffer for this algorithm */
+			int blocksize = get_blockSize();
+			if(blocksize>iv_size){
+				throw encryption_exception(_T("IV size for crypto algorithm exceeds limits"));
+			}
+
+			/* allocate memory for IV buffer */
+			unsigned char *iv = new unsigned char[blocksize+1];
+			if (iv == NULL){
+				throw encryption_exception(_T("Could not allocate memory for IV buffer"));
+			}
+
+			/* fill IV buffer with first bytes of IV that is going to be used to crypt (determined by server) */
+			memcpy(iv, transmitted_iv, sizeof(unsigned char)*blocksize);
+
+			try {
+				cipher_.SetKey(key, keysize);
+				crypto_.SetCipherWithIV(cipher_, iv, 1);
+			} catch (...) {
+				throw encryption_exception(_T("Unknown exception when trying to setup crypto"));
+			}
+			delete [] iv;
+			delete [] key;
+		}
+		void encrypt(unsigned char *buffer, int buffer_size) {
+			/* encrypt each byte of buffer, one byte at a time (CFB mode) */
+			try {
+				for(int x=0;x<buffer_size;x++)
+					crypto_.ProcessData(&buffer[x], &buffer[x], 1);
+			} catch (...) {
+				throw encryption_exception(_T("Unknown exception when trying to setup crypto"));
+			}
+		}
+		void decrypt(unsigned char *buffer, int buffer_size) {
+			throw encryption_exception(_T("Decryption not supported"));
+		}
+
+	};
+	class no_encryption : public any_encryption {
+	public:
+		static int get_keySize() {
+			return 0;
+		}
+		static int get_blockSize() {
+			return 1;
+		}
+		void init(std::string password, unsigned char *transmitted_iv, int iv_size) {}
+		void encrypt(unsigned char *buffer, int buffer_size) {}
+		void decrypt(unsigned char *buffer, int buffer_size) {}
+	};
+	class xor_encryption : public any_encryption {
+	private:
+		int password_size_;
+		int iv_size_;
+		unsigned char* transmitted_iv_;
+		unsigned char* password_;
+	public:
+		xor_encryption() : transmitted_iv_(NULL), password_(NULL) {}
+		~xor_encryption() {
+			delete [] password_;
+			delete [] transmitted_iv_;
+		}
+		static int get_keySize() {
+			return 0;
+		}
+		static int get_blockSize() {
+			return 1;
+		}
+		void init(std::string password, unsigned char *transmitted_iv, int iv_size) {
+			iv_size_ = iv_size;
+			delete [] transmitted_iv_;
+			transmitted_iv_ = new unsigned char[iv_size_+1];
+			if (transmitted_iv_ == NULL)
+				throw encryption_exception(_T("Failed to allocate memory for iv"));
+			memcpy(transmitted_iv_, transmitted_iv, sizeof(unsigned char)*iv_size_);
+
+			password_size_ = password.length();
+			delete [] password_;
+			password_ = new unsigned char[password_size_+1];
+			if (password_ == NULL)
+				throw encryption_exception(_T("Failed to allocate memory for password"));
+			memcpy(password_, password.c_str(), sizeof(unsigned char)*password_size_);
+
+		}
+		void encrypt(unsigned char *buffer, int buffer_size) {
+			/* rotate over IV we received from the server... */
+			for (int y=0,x=0;y<buffer_size;y++,x++) {
+				/* keep rotating over IV */
+				if (x >= iv_size_)
+					x = 0;
+				buffer[y] ^= transmitted_iv_[x];
+			}
+
+			/* rotate over password... */
+			for(int y=0,x=0; y < buffer_size; y++,x++) {
+				/* keep rotating over password */
+				if (x >= password_size_)
+					x = 0;
+				buffer[y] ^= password_[x];
+			}
+			return;
+		}
+		void decrypt(unsigned char *buffer, int buffer_size) {
+			throw encryption_exception(_T("Decryption not supported"));
+		}
+	};
+
+private:
+	any_encryption *core_;
+public:
+
+	nsca_encrypt() : core_(NULL) {}
+	~nsca_encrypt() {
+		delete core_;
 	}
 
 
@@ -83,36 +222,73 @@ public:
 		switch(encryption_method) {
 			case ENCRYPT_NONE:
 			case ENCRYPT_XOR:
-#ifdef HAVE_LIBMCRYPT
+#ifdef HAVE_LIBCRYPTOPP
 			case ENCRYPT_DES:
 			case ENCRYPT_3DES:
 			case ENCRYPT_CAST128:
-			case ENCRYPT_CAST256:
 			case ENCRYPT_XTEA:
-			case ENCRYPT_3WAY:
 			case ENCRYPT_BLOWFISH:
 			case ENCRYPT_TWOFISH:
-			case ENCRYPT_LOKI97:
 			case ENCRYPT_RC2:
-			case ENCRYPT_ARCFOUR:
 			case ENCRYPT_RIJNDAEL128:
+			case ENCRYPT_SERPENT:
+			case ENCRYPT_GOST:
+#endif
+				return true;
+
+// UNdefined
+			case ENCRYPT_3WAY:
+			case ENCRYPT_ARCFOUR:
+			case ENCRYPT_CAST256:
+			case ENCRYPT_LOKI97:
+			case ENCRYPT_WAKE:
+			case ENCRYPT_ENIGMA:
 			case ENCRYPT_RIJNDAEL192:
 			case ENCRYPT_RIJNDAEL256:
-			case ENCRYPT_WAKE:
-			case ENCRYPT_SERPENT:
-			case ENCRYPT_ENIGMA:
-			case ENCRYPT_GOST:
 			case ENCRYPT_SAFER64:
 			case ENCRYPT_SAFER128:
 			case ENCRYPT_SAFERPLUS:
-#endif
-				return true;
 			default:
 				return false;
 		}
 	}
 
-	static void generate_transmitted_iv(char *transmitted_iv){
+
+	static any_encryption* get_encryption_core(int encryption_method) {
+		switch(encryption_method) {
+	case ENCRYPT_NONE:
+		return new no_encryption();
+	case ENCRYPT_XOR:
+		return new xor_encryption();
+#ifdef HAVE_LIBCRYPTOPP
+	case ENCRYPT_DES:
+		return new cryptopp_encryption<CryptoPP::DES>();
+	case ENCRYPT_3DES:
+		return new cryptopp_encryption<CryptoPP::DES_EDE3>();
+	case ENCRYPT_CAST128:
+		return new cryptopp_encryption<CryptoPP::CAST128>();
+	case ENCRYPT_XTEA:
+		return new cryptopp_encryption<CryptoPP::XTEA>();
+	case ENCRYPT_3WAY:
+		return new cryptopp_encryption<CryptoPP::ThreeWay>();
+	case ENCRYPT_BLOWFISH:
+		return new cryptopp_encryption<CryptoPP::Blowfish>(56);
+	case ENCRYPT_TWOFISH:
+		return new cryptopp_encryption<CryptoPP::Twofish>(32);
+	case ENCRYPT_RC2:
+		return new cryptopp_encryption<CryptoPP::RC2>(128);
+	case ENCRYPT_RIJNDAEL128:
+		return new cryptopp_encryption<CryptoPP::AES>(32);
+	case ENCRYPT_SERPENT:
+		return new cryptopp_encryption<CryptoPP::Serpent>(32);
+	case ENCRYPT_GOST:
+		return new cryptopp_encryption<CryptoPP::GOST>();
+#endif
+	default:
+		return NULL;
+		}
+	}
+	static void generate_transmitted_iv(unsigned char *transmitted_iv){
 		int x;
 		int seed=0;
 
@@ -120,7 +296,7 @@ public:
 		/* fill IV buffer with data that's as random as possible */ 
 		/*********************************************************/
 
-		/* else fallback to using the current time as the seed */
+		/* else fall back to using the current time as the seed */
 		seed=(int)time(NULL);
 
 		/* generate pseudo-random IV */
@@ -131,202 +307,37 @@ public:
 		return;
 	}
 
-
-
 	/* initializes encryption routines */
-	void encrypt_init(std::string password, int encryption_method, char *received_iv){
-#ifdef HAVE_LIBMCRYPT
-		int i;
-		int iv_size;
-#endif
-		if (isInialized_)
-			throw exception(_T("already iniatilized!"));
-		encryption_method_ = encryption_method;
-		password_ = password;
-		isInialized_ = true;
+	void encrypt_init(std::string password, int encryption_method, unsigned char *received_iv){
+		delete core_;
+		core_ = get_encryption_core(encryption_method);
+		if (core_ == NULL)
+			throw encryption_exception(_T("Failed to get encryption core!"));
 
 		/* server generates IV used for encryption */
-		if(received_iv==NULL)
-			generate_transmitted_iv(transmitted_iv_);
-
-		/* client receives IV from server */
-		else
-			memcpy(transmitted_iv_,received_iv,TRANSMITTED_IV_SIZE);
-
-#ifdef HAVE_LIBMCRYPT
-		blocksize=1;                        /* block size = 1 byte w/ CFB mode */
-		keysize=7;                          /* default to 56 bit key length */
-		mcrypt_mode="cfb";                  /* CFB = 8-bit cipher-feedback mode */
-		mcrypt_algorithm="unknown";
-#endif
-
-
-
-		/* get the name of the mcrypt encryption algorithm to use */
-		switch(encryption_method){
-		/* no encryption */
-		case ENCRYPT_NONE:
-			return;
-			/* XOR or no encryption */
-		case ENCRYPT_XOR:
-			return;
-#ifdef HAVE_LIBMCRYPT
-		case ENCRYPT_DES:
-			mcrypt_algorithm=MCRYPT_DES;
-			break;
-		case ENCRYPT_3DES:
-			mcrypt_algorithm=MCRYPT_3DES;
-			break;
-		case ENCRYPT_CAST128:
-			mcrypt_algorithm=MCRYPT_CAST_128;
-			break;
-		case ENCRYPT_CAST256:
-			mcrypt_algorithm=MCRYPT_CAST_256;
-			break;
-		case ENCRYPT_XTEA:
-			mcrypt_algorithm=MCRYPT_XTEA;
-			break;
-		case ENCRYPT_3WAY:
-			mcrypt_algorithm=MCRYPT_3WAY;
-			break;
-		case ENCRYPT_BLOWFISH:
-			mcrypt_algorithm=MCRYPT_BLOWFISH;
-			break;
-		case ENCRYPT_TWOFISH:
-			mcrypt_algorithm=MCRYPT_TWOFISH;
-			break;
-		case ENCRYPT_LOKI97:
-			mcrypt_algorithm=MCRYPT_LOKI97;
-			break;
-		case ENCRYPT_RC2:
-			mcrypt_algorithm=MCRYPT_RC2;
-			break;
-		case ENCRYPT_ARCFOUR:
-			mcrypt_algorithm=MCRYPT_ARCFOUR;
-			break;
-		case ENCRYPT_RIJNDAEL128:
-			mcrypt_algorithm=MCRYPT_RIJNDAEL_128;
-			break;
-		case ENCRYPT_RIJNDAEL192:
-			mcrypt_algorithm=MCRYPT_RIJNDAEL_192;
-			break;
-		case ENCRYPT_RIJNDAEL256:
-			mcrypt_algorithm=MCRYPT_RIJNDAEL_256;
-			break;
-		case ENCRYPT_WAKE:
-			mcrypt_algorithm=MCRYPT_WAKE;
-			break;
-		case ENCRYPT_SERPENT:
-			mcrypt_algorithm=MCRYPT_SERPENT;
-			break;
-		case ENCRYPT_ENIGMA:
-			mcrypt_algorithm=MCRYPT_ENIGMA;
-			break;
-		case ENCRYPT_GOST:
-			mcrypt_algorithm=MCRYPT_GOST;
-			break;
-		case ENCRYPT_SAFER64:
-			mcrypt_algorithm=MCRYPT_SAFER_SK64;
-			break;
-		case ENCRYPT_SAFER128:
-			mcrypt_algorithm=MCRYPT_SAFER_SK128;
-			break;
-		case ENCRYPT_SAFERPLUS:
-			mcrypt_algorithm=MCRYPT_SAFERPLUS;
-			break;
-#endif
-		default:
-			throw exception(_T("Invalid encryption algorithm!"));
-		}
-
-#ifdef HAVE_LIBMCRYPT
-		/* open encryption module */
-		if((td=mcrypt_module_open(mcrypt_algorithm,NULL,mcrypt_mode,NULL))==MCRYPT_FAILED){
-			throw exception(_T("Could not open mcrypt algorithm '") + mcrypt_algorithm + _T("' with mode '") + mcrypt_mode + _T("'"));
-		}
-
-		/* determine size of IV buffer for this algorithm */
-		iv_size=mcrypt_enc_get_iv_size(td);
-		if(iv_size>TRANSMITTED_IV_SIZE){
-			throw exception(_T("IV size for crypto algorithm exceeds limits"));
-		}
-
-		/* allocate memory for IV buffer */
-		if((IV=new char[iv_size])==NULL){
-			throw exception(_T("Could not allocate memory for IV buffer"));
-		}
-
-		/* fill IV buffer with first bytes of IV that is going to be used to crypt (determined by server) */
-		for(i=0;i<iv_size;i++)
-			IV[i]=transmitted_iv[i];
-
-		/* get maximum key size for this algorithm */
-		keysize=mcrypt_enc_get_key_size(td);
-
-		/* generate an encryption/decription key using the password */
-		if((key=new char[keysize])==NULL){
-			throw exception(_T("Could not allocate memory for encryption/decryption key"));
-			return ERROR;
-		}
-		ZeroMemory(key,keysize);
-
-		if(keysize<password.length())
-			strncpy(key,password.c_str(),keysize);
-		else
-			strncpy(key,password.c_str(),password.length());
-
-		/* initialize encryption buffers */
-		mcrypt_generic_init(td,key,keysize,IV);
-#endif
+		if (received_iv==NULL) {
+			unsigned char generated_iv[TRANSMITTED_IV_SIZE];
+			generate_transmitted_iv(generated_iv);
+			core_->init(password, generated_iv, TRANSMITTED_IV_SIZE);
+		} else	/* client receives IV from server */
+			core_->init(password, received_iv, TRANSMITTED_IV_SIZE);
 	}
 
 	/* encrypt a buffer */
-	void encrypt_buffer(char *buffer,int buffer_size){
-		int x;
-		int y;
-		int password_length;
+	void encrypt_buffer(unsigned char *buffer,int buffer_size) {
+		if (core_ == NULL)
+			throw encryption_exception(_T("No encryption core!"));
+		core_->encrypt(buffer, buffer_size);
+	}
 
-		/* no crypt instance */
-		if (!isInialized_)
-			throw new exception(_T("Not initialized!"));
-
-		/* no encryption */
-		if(encryption_method_==ENCRYPT_NONE)
-			return;
-
-		/* simple XOR "encryption" - not meant for any real security, just obfuscates data, but its fast... */
-		else if(encryption_method_==ENCRYPT_XOR){
-
-			/* rotate over IV we received from the server... */
-			for(y=0,x=0;y<buffer_size;y++,x++){
-
-				/* keep rotating over IV */
-				if(x>=TRANSMITTED_IV_SIZE)
-					x=0;
-
-				buffer[y]^=transmitted_iv_[x];
-			}
-
-			/* rotate over password... */
-			password_length=password_.length();
-			for(y=0,x=0;y<buffer_size;y++,x++){
-				/* keep rotating over password */
-				if(x>=password_length)
-					x=0;
-				buffer[y]^=password_[x];
-			}
-			return;
-		}
-
-#ifdef HAVE_LIBMCRYPT
-		/* use mcrypt routines */
-		else{
-			/* encrypt each byte of buffer, one byte at a time (CFB mode) */
-			for(x=0;x<buffer_size;x++)
-				mcrypt_generic(td,&buffer[x],1);
-		}
-#endif
-		return;
+	unsigned char* get_rand_buffer(int length) {
+		CryptoPP::AutoSeededRandomPool rng;
+		unsigned char * buffer = new unsigned char[length+1];
+		rng.GenerateBlock(buffer, length);
+		return buffer;
+	}
+	void destroy_random_buffer(unsigned char* buffer) {
+		delete [] buffer;
 	}
 
 };

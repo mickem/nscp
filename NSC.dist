@@ -129,10 +129,10 @@ use_file=1
 ;check_vbs_sample=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
 
 [External Alias]
-alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
-alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
-alias_service=checkServiceState CheckAll
-alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
+;alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
+;alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
+;alias_service=checkServiceState CheckAll
+;alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
 
 
 [NRPE]
@@ -231,8 +231,16 @@ alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
 ; Values:
 ;	0 = None	(Do NOT use this option)
 ;	1 = Simple XOR  (No security, just obfuscation, but very fast)
-; (no MCRYPT yet, but soon...)
-;encryption_method=1
+;   2 = DES
+;   3 = 3DES (Triple DES)
+;	4 = CAST-128
+;	6 = xTEA
+;	8 = BLOWFISH
+;	9 = TWOFISH
+;	11 = RC2
+;	14 = RIJNDAEL-128 (AES)
+;	20 = SERPENT
+;encryption_method=14
 ;
 ;# ENCRYPTION PASSWORD
 ;  This is the password/passphrase that should be used to encrypt the sent packets. 
@@ -257,6 +265,6 @@ alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
 ;  The checks to run everytime we submit results back to nagios
 ;
 [NSCA Commands]
-my_cpu_check=checkCPU warn=80 crit=90 time=20m time=10s time=4
-my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
-my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService
+;my_cpu_check=checkCPU warn=80 crit=90 time=20m time=10s time=4
+;my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
+;my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService

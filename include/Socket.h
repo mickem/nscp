@@ -59,6 +59,11 @@ namespace simpleSocket {
 			memcpy(buffer_, buffer, length+1);
 			length_ = length;
 		}
+		DataBuffer(const unsigned char* buffer, unsigned int length) {
+			buffer_ = new char[length+2];
+			memcpy(buffer_, buffer, length+1);
+			length_ = length;
+		}
 		virtual ~DataBuffer() {
 			delete [] buffer_;
 			length_ = 0;

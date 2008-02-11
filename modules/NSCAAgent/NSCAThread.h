@@ -158,21 +158,24 @@ public:
 			std::string r = strEx::wstring_to_string(result);
 			std::string h = strEx::wstring_to_string(host);
 
-			NSCAPacket::data_packet data;
-			data.packet_version=static_cast<NSCAPacket::int16_t>(htons(NSCA_PACKET_VERSION_3));
-			data.timestamp=static_cast<NSCAPacket::u_int32_t>(htonl(time));
-			data.return_code = code;
-			data.crc32_value=static_cast<NSCAPacket::u_int32_t>(0L);
+			unsigned int buffer_len = sizeof(NSCAPacket::data_packet);
+			unsigned char* buffer = crypt_inst.get_rand_buffer(buffer_len);
+			NSCAPacket::data_packet *data = reinterpret_cast<NSCAPacket::data_packet*>(buffer);
+			data->packet_version=static_cast<NSCAPacket::int16_t>(htons(NSCA_PACKET_VERSION_3));
+			data->timestamp=static_cast<NSCAPacket::u_int32_t>(htonl(time));
+			data->return_code = code;
+			data->crc32_value=static_cast<NSCAPacket::u_int32_t>(0L);
 
-			strncpy_s(data.host_name, NSCA_MAX_HOSTNAME_LENGTH, h.c_str(), h.length());
-			strncpy_s(data.svc_description, NSCA_MAX_DESCRIPTION_LENGTH, s.c_str(), s.length());
-			strncpy_s(data.plugin_output, NSCA_MAX_PLUGINOUTPUT_LENGTH, r.c_str(), r.length());
+			strncpy_s(data->host_name, NSCA_MAX_HOSTNAME_LENGTH, h.c_str(), h.length());
+			strncpy_s(data->svc_description, NSCA_MAX_DESCRIPTION_LENGTH, s.c_str(), s.length());
+			strncpy_s(data->plugin_output, NSCA_MAX_PLUGINOUTPUT_LENGTH, r.c_str(), r.length());
 
-			unsigned int calculated_crc32=calculate_crc32(reinterpret_cast<char*>(&data),sizeof(data));
-			data.crc32_value=static_cast<NSCAPacket::u_int32_t>(htonl(calculated_crc32));
-			char * buffer = reinterpret_cast<char*>(&data);
-			crypt_inst.encrypt_buffer(buffer, sizeof(data));
-			return simpleSocket::DataBuffer(buffer,sizeof(data));
+			unsigned int calculated_crc32=calculate_crc32(buffer,buffer_len);
+			data->crc32_value=static_cast<NSCAPacket::u_int32_t>(htonl(calculated_crc32));
+			crypt_inst.encrypt_buffer(buffer, buffer_len);
+			simpleSocket::DataBuffer ret(buffer,buffer_len);
+			crypt_inst.destroy_random_buffer(buffer);
+			return ret;
 		}
 
 	};

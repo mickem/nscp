@@ -123,7 +123,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 		int i=1;
 
 		for (;cit2!=arr.end();cit2++,i++) {
-			if (NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+			if (isAlias || NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
 				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;
@@ -135,7 +135,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 	if (isAlias) {
 		return NSCModuleHelper::InjectSplitAndCommand(cd.command, cd.arguments, ' ', message, perf, true);
 	} else {
-		return executeNRPECommand(args, message, perf);
+		return executeNRPECommand(cd.command + _T(" ") + args, message, perf);
 		/*
 	} else if (cd.type == script_dir) {
 		std::wstring args = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
@@ -167,9 +167,25 @@ int CheckExternalScripts::executeNRPECommand(std::wstring command, std::wstring 
 	sec.bInheritHandle = TRUE;
 	sec.lpSecurityDescriptor = NULL;
 
+	// CreateProcess doesn't work with a const command
+	TCHAR *cmd = new TCHAR[command.length()+1];
+	if (cmd == NULL) {
+		NSC_LOG_ERROR(_T("Failed to allocate memory for command buffer (") + command + _T(")."));
+		return NSCAPI::returnUNKNOWN;
+	}
+	wcsncpy_s(cmd, command.length()+1, command.c_str(), command.length());
+	cmd[command.length()] = 0;
+	std::wstring root = NSCModuleHelper::getBasePath();
+
 	// Create Pipes
-	CreatePipe(&hChildInR, &hChildInW, &sec, 0);
-	CreatePipe(&hChildOutR, &hChildOutW, &sec, 0);
+	if (!CreatePipe(&hChildInR, &hChildInW, &sec, 0)) {
+		NSC_LOG_ERROR(_T("Failed to create pipe for (") + command + _T(") return code: ") + error::lookup::last_error());
+		return NSCAPI::returnUNKNOWN;
+	}
+	if (!CreatePipe(&hChildOutR, &hChildOutW, &sec, 0)) {
+		NSC_LOG_ERROR(_T("Failed to create pipe for (") + command + _T(") return code: ") + error::lookup::last_error());
+		return NSCAPI::returnUNKNOWN;
+	}
 
 	// Set up members of STARTUPINFO structure. 
 
@@ -180,13 +196,6 @@ int CheckExternalScripts::executeNRPECommand(std::wstring command, std::wstring 
 	si.hStdOutput = hChildOutW;
 	si.hStdError = hChildOutW;
 	si.wShowWindow = SW_HIDE;
-
-
-	// CreateProcess doesn't work with a const command
-	TCHAR *cmd = new TCHAR[command.length()+1];
-	wcsncpy_s(cmd, command.length()+1, command.c_str(), command.length());
-	cmd[command.length()] = 0;
-	std::wstring root = NSCModuleHelper::getBasePath();
 
 	// Create the child process. 
 	BOOL processOK = CreateProcess(NULL, cmd,        // command line 

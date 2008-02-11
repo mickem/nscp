@@ -56,4 +56,21 @@ unsigned long calculate_crc32(const char *buffer, int buffer_size){
 	return (crc ^ 0xFFFFFFFF);
 }
 
+unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size){
+	if (!hascrc32)
+		generate_crc32_table();
+	register unsigned long crc;
+	int this_char;
+	int current_index;
+
+	crc=0xFFFFFFFF;
+
+	for(current_index=0;current_index<buffer_size;current_index++){
+		this_char=(int)buffer[current_index];
+		crc=((crc>>8) & 0x00FFFFFF) ^ crc32_table[(crc ^ this_char) & 0xFF];
+	}
+
+	return (crc ^ 0xFFFFFFFF);
+}
+
 
