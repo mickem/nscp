@@ -5,6 +5,10 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-02-11 MickeM
+ + Added encryption support for NSCA module (about half of the algorithms are avalible, 
+     if someone wants to use one not available let me know, and I will try to add it)
+
 2008-02-09 MickeM
  + New module CheckExternalScripts to handle 1, external script (similar to the old NRPE but in its own module)
    - Can Check batch/vbs/programs/*

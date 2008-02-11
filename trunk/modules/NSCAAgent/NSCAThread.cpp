@@ -32,8 +32,6 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
 	}
-	//std::string s = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_BUFFER_TIME, C_SYSTEM_CPU_BUFFER_TIME_DEFAULT);
-	//unsigned int i = strEx::stoui_as_time(s, checkIntervall_*100);
 }
 
 NSCAThread::~NSCAThread() 
@@ -142,8 +140,8 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		}
 		NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();
 		try {
-			crypt_inst.encrypt_init(password_.c_str(),encryption_method_,packet_in->iv);
-		} catch (nsca_encrypt::exception &e) {
+			crypt_inst.encrypt_init(password_.c_str(),encryption_method_,reinterpret_cast<unsigned char*>(packet_in->iv));
+		} catch (nsca_encrypt::encryption_exception &e) {
 			NSC_LOG_ERROR_STD(_T("<<< Failed to initalize encryption header: ") + e.getMessage());
 			return;
 		} catch (...) {
@@ -153,10 +151,9 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 
 		try {
 			for (std::list<Command::Result>::const_iterator cit = results.begin(); cit != results.end(); ++cit) {
-				//NSC_DEBUG_MSG_STD(_T("Sending : ") + (*cit).toString());
 				socket.send((*cit).getBuffer(crypt_inst));
 			}
-		} catch (nsca_encrypt::exception &e) {
+		} catch (nsca_encrypt::encryption_exception &e) {
 			NSC_LOG_ERROR_STD(_T("<<< Failed to encrypt packet: ") + e.getMessage());
 			return;
 		} catch (...) {
