@@ -66,6 +66,12 @@ namespace NSCAPacket {
 	typedef unsigned long u_int32_t;
 
 	/* data packet containing service check results */
+	class NSCAException {
+		std::wstring msg_;
+	public:
+		NSCAException(std::wstring msg) : msg_(msg) {}
+		std::wstring getMessage() { return msg_;}
+	};
 	typedef struct data_packet_struct {
 		int16_t   packet_version;
 		u_int32_t crc32_value;
@@ -166,8 +172,14 @@ public:
 			data->return_code = code;
 			data->crc32_value=static_cast<NSCAPacket::u_int32_t>(0L);
 
+			if (h.length() >= NSCA_MAX_HOSTNAME_LENGTH)
+				throw NSCAPacket::NSCAException(_T("Hostname to long"));
 			strncpy_s(data->host_name, NSCA_MAX_HOSTNAME_LENGTH, h.c_str(), h.length());
+			if (s.length() >= NSCA_MAX_DESCRIPTION_LENGTH)
+				throw NSCAPacket::NSCAException(_T("description to long"));
 			strncpy_s(data->svc_description, NSCA_MAX_DESCRIPTION_LENGTH, s.c_str(), s.length());
+			if (r.length() >= NSCA_MAX_PLUGINOUTPUT_LENGTH)
+				throw NSCAPacket::NSCAException(_T("result to long"));
 			strncpy_s(data->plugin_output, NSCA_MAX_PLUGINOUTPUT_LENGTH, r.c_str(), r.length());
 
 			unsigned int calculated_crc32=calculate_crc32(buffer,buffer_len);

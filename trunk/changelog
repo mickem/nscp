@@ -10,6 +10,7 @@ TODO:
  * Fixed issue with scripts result truncated efter 1024 chars 
     (now they return "all" output and thus you can use the NRPE settings I adde yesterday :)
  + Added hostname setting to [NSCA] section (must have been braindead when I did not add it before)
+ + Added to NSCA truncates output when to long.
 
 2008-02-12 MickeM
  + Added new option for the [NRPE] section string_length which is the length of the NRPE strings 
