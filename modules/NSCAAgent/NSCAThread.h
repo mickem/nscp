@@ -209,8 +209,9 @@ private:
 	HANDLE hStopEvent_;
 	int checkIntervall_;
 	std::list<Command> commands_;
-	std::wstring host_;
-	unsigned int port_;
+	std::wstring hostname_;
+	std::wstring nscahost_;
+	unsigned int nscaport_;
 	std::string password_;
 	int encryption_method_;
 
