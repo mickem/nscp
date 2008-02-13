@@ -34,7 +34,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	return TRUE;
 }
 
-NRPEListener::NRPEListener() : noPerfData_(false) {
+NRPEListener::NRPEListener() : noPerfData_(false), buffer_length_(0) {
 }
 NRPEListener::~NRPEListener() {
 }
@@ -80,6 +80,7 @@ bool NRPEListener::loadModule() {
 	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
 	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
 	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
+	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
 	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::wstring>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
@@ -237,8 +238,6 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 	}
 
 }
-#define MAX_INPUT_BUFFER 1024
-
 int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, std::wstring &perf)
 {
 	NSCAPI::nagiosReturn result;
@@ -301,17 +300,23 @@ int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, st
 			result = NSCAPI::returnUNKNOWN;
 		} else {
 			DWORD dwread;
-			//TCHAR *buf = new TCHAR[MAX_INPUT_BUFFER+1];
-			char *buf = new char[MAX_INPUT_BUFFER+1];
-			//retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER*sizeof(WCHAR), &dwread, NULL);
-			retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER*sizeof(char), &dwread, NULL);
-			if (!retval || dwread == 0) {
+			std::string str;
+#define BUFF_SIZE 4096
+			char *buf = new char[BUFF_SIZE+1];
+			do {
+				retval = ReadFile(hChildOutR, buf, BUFF_SIZE, &dwread, NULL);
+				if (retval == 0)
+					break;
+				if (dwread > BUFF_SIZE)
+					break;
+				buf[dwread] = 0;
+				str += buf;
+			} while (dwread == BUFF_SIZE);
+			delete [] buf;
+			if (str.empty()) {
 				msg = _T("No output available from command...");
 			} else {
-				buf[dwread] = 0;
-				msg = strEx::string_to_wstring(buf);
-				//msg = buf;
-				//strEx::token t = strEx::getToken(msg, '\n');
+				msg = strEx::string_to_wstring(str);
 				strEx::token t = strEx::getToken(msg, '|');
 				msg = t.first;
 				std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
@@ -321,10 +326,8 @@ int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, st
 					else
 						msg = msg.substr(0,pos+1);
 				}
-				//if (msg[msg.size()-1] == '\n')
 				perf = t.second;
 			}
-			delete [] buf;
 			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
 				NSC_LOG_ERROR(_T("Failed to get commands (") + command + _T(") return code: ") + error::lookup::last_error());
 				dwexitcode = NSCAPI::returnUNKNOWN;
@@ -374,7 +377,7 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 				client->close();
 				return;
 			}
-			if (block.getLength() >= NRPEPacket::getBufferLength())
+			if (block.getLength() >= NRPEPacket::getBufferLength(buffer_length_))
 				break;
 			if (!lastReadHasMore) {
 				client->close();
@@ -387,9 +390,9 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 			client->close();
 			return;
 		}
-		if (block.getLength() == NRPEPacket::getBufferLength()) {
+		if (block.getLength() == NRPEPacket::getBufferLength(buffer_length_)) {
 			try {
-				NRPEPacket out = handlePacket(NRPEPacket(block.getBuffer(), block.getLength()));
+				NRPEPacket out = handlePacket(NRPEPacket(block.getBuffer(), block.getLength(), buffer_length_));
 				block.copyFrom(out.getBuffer(), out.getBufferLength());
 			} catch (NRPEPacket::NRPEPacketException e) {
 				NSC_LOG_ERROR_STD(_T("NRPESocketException: ") + e.getMessage());
@@ -421,7 +424,7 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	}
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
 	if (cmd.first == _T("_NRPE_CHECK")) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") SZVERSION _T(") seem to be doing fine..."));
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") SZVERSION _T(") seem to be doing fine..."), buffer_length_);
 	}
 	std::wstring msg, perf;
 
@@ -446,7 +449,7 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	try {
 		ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
 	} catch (...) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"));
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), buffer_length_);
 	}
 	switch (ret) {
 		case NSCAPI::returnInvalidBufferLen:
@@ -466,10 +469,14 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 			msg = _T("UNKNOWN: Internal error.");
 			ret = NSCAPI::returnUNKNOWN;
 	}
+	if (msg.length() > buffer_length_) {
+		NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
+		msg = msg.substr(0,buffer_length_-1);
+	}
 	if (perf.empty()||noPerfData_) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg);
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg, buffer_length_);
 	} else {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + _T("|") + perf);
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + _T("|") + perf, buffer_length_);
 	}
 }
 

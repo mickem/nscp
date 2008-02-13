@@ -148,6 +148,7 @@ namespace NSCModuleHelper
 	std::list<std::wstring> getAllCommandNames();
 	std::wstring describeCommand(std::wstring command);
 	void registerCommand(std::wstring command, std::wstring description);
+	unsigned int getBufferLength();
 };
 
 namespace NSCModuleWrapper {

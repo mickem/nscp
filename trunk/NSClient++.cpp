@@ -445,12 +445,29 @@ void NSClientT::registerCommand(std::wstring cmd, std::wstring desc) {
 	cmdDescriptions_[cmd] = desc;
 }
 
+unsigned int NSClientT::getBufferLength() {
+	static unsigned int len = 0;
+	if (len == 0) {
+		try {
+			len = Settings::getInstance()->getInt(MAIN_SECTION_TITLE, MAIN_STRING_LENGTH, MAIN_STRING_LENGTH_DEFAULT);
+		} catch (SettingsException &e) {
+			NSC_DEBUG_MSG(_T("Failed to get length: ") + e.getMessage());
+			return MAIN_STRING_LENGTH_DEFAULT;
+		} catch (...) {
+			NSC_LOG_ERROR(_T("Failed to get length: :("));
+			return MAIN_STRING_LENGTH_DEFAULT;
+		}
+	}
+	return len;
+}
+
 NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 	unsigned int aLen = 0;
 	TCHAR ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
-	TCHAR * mBuf = new TCHAR[1024]; mBuf[0] = '\0';
-	TCHAR * pBuf = new TCHAR[1024]; pBuf[0] = '\0';
-	NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, 1023, pBuf, 1023);
+	unsigned int buf_len = getBufferLength();
+	TCHAR * mBuf = new TCHAR[buf_len+1]; mBuf[0] = '\0';
+	TCHAR * pBuf = new TCHAR[buf_len+1]; pBuf[0] = '\0';
+	NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, buf_len, pBuf, buf_len);
 	arrayBuffer::destroyArrayBuffer(aBuf, aLen);
 	if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
 		delete [] mBuf;
@@ -598,8 +615,9 @@ std::wstring NSClientT::getBasePath(void) {
 	}
 	if (!basePath.empty())
 		return basePath;
-	TCHAR* buffer = new TCHAR[1024];
-	GetModuleFileName(NULL, buffer, 1023);
+	unsigned int buf_len = 4096;
+	TCHAR* buffer = new TCHAR[buf_len+1];
+	GetModuleFileName(NULL, buffer, buf_len);
 	std::wstring path = buffer;
 	std::wstring::size_type pos = path.rfind('\\');
 	basePath = path.substr(0, pos) + _T("\\");
@@ -614,7 +632,12 @@ std::wstring NSClientT::getBasePath(void) {
 
 
 NSCAPI::errorReturn NSAPIGetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* defaultValue, TCHAR* buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, Settings::getInstance()->getString(section, key, defaultValue), NSCAPI::isSuccess);
+	try {
+		return NSCHelper::wrapReturnString(buffer, bufLen, Settings::getInstance()->getString(section, key, defaultValue), NSCAPI::isSuccess);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to getString: ") + key);
+		return NSCAPI::hasFailed;
+	}
 }
 int NSAPIGetSettingsInt(const TCHAR* section, const TCHAR* key, int defaultValue) {
 	try {
@@ -643,10 +666,15 @@ NSCAPI::nagiosReturn NSAPIInject(const TCHAR* command, const unsigned int argLen
 	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
 NSCAPI::errorReturn NSAPIGetSettingsSection(const TCHAR* section, TCHAR*** aBuffer, unsigned int * bufLen) {
-	unsigned int len = 0;
-	*aBuffer = arrayBuffer::list2arrayBuffer(Settings::getInstance()->getSection(section), len);
-	*bufLen = len;
-	return NSCAPI::isSuccess;
+	try {
+		unsigned int len = 0;
+		*aBuffer = arrayBuffer::list2arrayBuffer(Settings::getInstance()->getSection(section), len);
+		*bufLen = len;
+		return NSCAPI::isSuccess;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to getSection: ") + section);
+		return NSCAPI::hasFailed;
+	}
 }
 NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(TCHAR*** aBuffer, unsigned int * bufLen) {
 	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
@@ -769,11 +797,21 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 }
 
 NSCAPI::errorReturn NSAPISetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* value) {
-	Settings::getInstance()->setString(section, key, value);
+	try {
+		Settings::getInstance()->setString(section, key, value);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to setString: ") + key);
+		return NSCAPI::hasFailed;
+	}
 	return NSCAPI::isSuccess;
 }
 NSCAPI::errorReturn NSAPISetSettingsInt(const TCHAR* section, const TCHAR* key, int value) {
-	Settings::getInstance()->setInt(section, key, value);
+	try {
+		Settings::getInstance()->setInt(section, key, value);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to setInt: ") + key);
+		return NSCAPI::hasFailed;
+	}
 	return NSCAPI::isSuccess;
 }
 NSCAPI::errorReturn NSAPIWriteSettings(int type) {
@@ -785,7 +823,10 @@ NSCAPI::errorReturn NSAPIWriteSettings(int type) {
 		else
 			Settings::getInstance()->write();
 	} catch (SettingsException e) {
-		LOG_ERROR_STD(e.getMessage());
+		LOG_ERROR_STD(_T("Failed to write settings: ") + e.getMessage());
+		return NSCAPI::hasFailed;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to write settings"));
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
@@ -799,7 +840,10 @@ NSCAPI::errorReturn NSAPIReadSettings(int type) {
 		else
 			Settings::getInstance()->read();
 	} catch (SettingsException e) {
-		LOG_ERROR_STD(e.getMessage());
+		LOG_ERROR_STD(_T("Failed to read settings: ") + e.getMessage());
+		return NSCAPI::hasFailed;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to read settings"));
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
