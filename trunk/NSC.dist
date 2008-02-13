@@ -252,6 +252,10 @@ use_file=1
 ; -- not supported as of now -- 
 ;bind_to_address=
 ;
+;# LOCAL HOST NAME
+;  The name of this host (if empty "computername" will be used.
+;hostname=
+;
 ;# NAGIOS SERVER ADDRESS
 ;  The address to the nagios server to submit results to.
 ;nsca_host=192.168.0.1

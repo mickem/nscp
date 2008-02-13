@@ -24,13 +24,27 @@
 
 NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	checkIntervall_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
-	host_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
-	port_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
+	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
+	nscahost_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_SERVER, NSCA_SERVER_DEFAULT);
+	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
 	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
 	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
 	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
+	}
+	if (hostname_.empty()) {
+		TCHAR *buf = new TCHAR[MAX_COMPUTERNAME_LENGTH + 2];
+		DWORD size = MAX_COMPUTERNAME_LENGTH+1;
+		if (!GetComputerName(buf, &size)) {
+			NSC_LOG_ERROR(_T("Failed to get computer name: setting it to <unknown>"));
+			hostname_ = _T("<unknown>");
+		} else {
+			buf[size] = 0;
+			hostname_ = buf;
+			NSC_DEBUG_MSG_STD(_T("Autodetected hostname: ") + hostname_);
+		}
+		delete[] buf;
 	}
 }
 
@@ -97,7 +111,7 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 
 			std::list<Command::Result> results;
 			for (std::list<Command>::const_iterator cit = commands_.begin(); cit != commands_.end(); ++cit) {
-				results.push_back((*cit).execute(host_));
+				results.push_back((*cit).execute(hostname_));
 			}
 			send(results);
 			_time64( &stop );
@@ -130,12 +144,12 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		nsca_encrypt crypt_inst;
 		simpleSocket::Socket socket(true);
 		simpleSocket::DataBuffer inc;
-		if (socket.connect(host_, port_) == SOCKET_ERROR) {
-			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + host_ + strEx::itos(port_));
+		if (socket.connect(nscahost_, nscaport_) == SOCKET_ERROR) {
+			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + nscahost_ + _T(":") + strEx::itos(nscaport_));
 			return;
 		}
 		if (!socket.readAll(inc, sizeof(NSCAPacket::init_packet_struct), sizeof(NSCAPacket::init_packet_struct))) {
-			NSC_LOG_ERROR_STD(_T("<<< Failed to read header: ") + host_ + strEx::itos(port_));
+			NSC_LOG_ERROR_STD(_T("<<< Failed to read header from: ") + nscahost_ + _T(":") + strEx::itos(nscaport_));
 			return;
 		}
 		NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();

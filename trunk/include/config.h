@@ -152,8 +152,10 @@
 #define NSCA_CMD_SECTION_TITLE _T("NSCA Commands")
 #define NSCA_INTERVAL _T("interval")
 #define NSCA_INTERVAL_DEFAULT 60
-#define NSCA_HOSTNAME _T("nsca_host")
-#define NSCA_HOSTNAME_DEFAULT _T("unknown-host")
+#define NSCA_HOSTNAME _T("hostname")
+#define NSCA_HOSTNAME_DEFAULT _T("")
+#define NSCA_SERVER _T("nsca_host")
+#define NSCA_SERVER_DEFAULT _T("unknown-host")
 #define NSCA_PORT _T("nsca_port")
 #define NSCA_PORT_DEFAULT 5667
 #define NSCA_ENCRYPTION _T("encryption_method")
