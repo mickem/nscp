@@ -103,6 +103,8 @@
 #define NRPE_SETTINGS_PERFDATA_DEFAULT 1
 #define NRPE_SETTINGS_SCRIPTDIR _T("script_dir")
 #define NRPE_SETTINGS_SCRIPTDIR_DEFAULT _T("")
+#define NRPE_SETTINGS_STRLEN _T("string_length")
+#define NRPE_SETTINGS_STRLEN_DEFAULT 1024
 
 // External Script Settings headlines
 #define EXTSCRIPT_SECTION_TITLE _T("External Script")
@@ -192,6 +194,8 @@
 #define MAIN_ALLOWED_HOSTS_DEFAULT _T("127.0.0.1")
 #define MAIN_ALLOWED_HOSTS_CACHE _T("cache_allowed_hosts")
 #define MAIN_ALLOWED_HOSTS_CACHE_DEFAULT 1
+#define MAIN_STRING_LENGTH _T("string_length")
+#define MAIN_STRING_LENGTH_DEFAULT 4096
 
 
 // LOA Config itemns

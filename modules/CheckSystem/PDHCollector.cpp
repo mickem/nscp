@@ -178,21 +178,27 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 	if (bInit) {
 		bool first = true;
 		do {
-			MutexLock mutex(mutexHandler);
-			if (!mutex.hasMutex()) 
-				NSC_LOG_ERROR(_T("Failed to get Mutex!"));
-			else {
-				try {
-					pdh.gatherData();
-				} catch (const PDH::PDHException &e) {
-					if (first) {	// If this is the first run an error will be thrown since the data is not yet avalible
-						// This is "ok" but perhaps another solution would be better, but this works :)
-						first = false;
-					} else {
-						NSC_LOG_ERROR_STD(_T("Failed to query performance counters: ") + e.getError());
+			std::list<std::wstring>	errors;
+			{
+				MutexLock mutex(mutexHandler);
+				if (!mutex.hasMutex()) 
+					NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+				else {
+					try {
+						pdh.gatherData();
+					} catch (const PDH::PDHException &e) {
+						if (first) {	// If this is the first run an error will be thrown since the data is not yet avalible
+							// This is "ok" but perhaps another solution would be better, but this works :)
+							first = false;
+						} else {
+							errors.push_back(_T("Failed to query performance counters: ") + e.getError());
+						}
 					}
-				}
-			} 
+				} 
+			}
+			for (std::list<std::wstring>::const_iterator cit = errors.begin(); cit != errors.end(); ++cit) {
+				NSC_LOG_ERROR_STD(*cit);
+			}
 		} while (((waitStatus = WaitForSingleObject(hStopEvent_, checkIntervall_*100)) == WAIT_TIMEOUT));
 	} else {
 		NSC_LOG_ERROR_STD(_T("No performance counters were found we will not wait for the end instead..."));

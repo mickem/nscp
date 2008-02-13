@@ -22,9 +22,7 @@
 #include <NSCHelper.h>
 #include <assert.h>
 #include <msvc_wrappers.h>
-
-#define BUFF_LEN 4096
-
+#include <config.h>
 
 #ifdef DEBUG
 /**
@@ -140,6 +138,7 @@ namespace NSCModuleHelper {
 	lpNSAPIGetAllCommandNames fNSAPIGetAllCommandNames= NULL;
 	lpNSAPIReleaseAllCommandNamessBuffer fNSAPIReleaseAllCommandNamessBuffer= NULL;
 	lpNSAPIRegisterCommand fNSAPIRegisterCommand= NULL;
+	unsigned int buffer_length;
 
 }
 
@@ -207,18 +206,18 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, const 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	TCHAR *msgBuffer = new TCHAR[BUFF_LEN+1];
-	TCHAR *perfBuffer = new TCHAR[BUFF_LEN+1];
+	unsigned int buf_len = getBufferLength();
+	TCHAR *msgBuffer = new TCHAR[buf_len+1];
+	TCHAR *perfBuffer = new TCHAR[buf_len+1];
 	msgBuffer[0] = 0;
 	perfBuffer[0] = 0;
-	// @todo message here !
-	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, msgBuffer, BUFF_LEN, perfBuffer, BUFF_LEN);
+	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, msgBuffer, buf_len, perfBuffer, buf_len);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
 			NSC_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
 			break;
 		case NSCAPI::returnInvalidBufferLen:
-			NSC_LOG_ERROR(_T("Inject command resulted in an invalid buffer size."));
+			NSC_LOG_ERROR(_T("Inject buffer to small, increase the value of: string_length."));
 			break;
 		case NSCAPI::returnOK:
 		case NSCAPI::returnCRIT:
@@ -302,8 +301,9 @@ void NSCModuleHelper::StopService(void) {
 std::wstring NSCModuleHelper::getSettingsString(std::wstring section, std::wstring key, std::wstring defaultValue) {
 	if (!fNSAPIGetSettingsString)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
-	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, BUFF_LEN) != NSCAPI::isSuccess) {
+	unsigned int buf_len = getBufferLength();
+	TCHAR *buffer = new TCHAR[buf_len+1];
+	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Settings could not be retrieved."));
 	}
@@ -373,8 +373,9 @@ NSCAPI::nagiosReturn NSCHelper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosR
 std::wstring NSCModuleHelper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
-	if (fNSAPIGetApplicationName(buffer, BUFF_LEN) != NSCAPI::isSuccess) {
+	unsigned int buf_len = getBufferLength();
+	TCHAR *buffer = new TCHAR[buf_len+1];
+	if (fNSAPIGetApplicationName(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Application name could not be retrieved"));
 	}
@@ -390,14 +391,23 @@ std::wstring NSCModuleHelper::getApplicationName() {
 std::wstring NSCModuleHelper::getBasePath() {
 	if (!fNSAPIGetBasePath)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
-	if (fNSAPIGetBasePath(buffer, BUFF_LEN) != NSCAPI::isSuccess) {
+	unsigned int buf_len = getBufferLength();
+	TCHAR *buffer = new TCHAR[buf_len+1];
+	if (fNSAPIGetBasePath(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Base path could not be retrieved"));
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
+}
+
+unsigned int NSCModuleHelper::getBufferLength() {
+	static unsigned int len = 0;
+	if (len == 0) {
+		len = getSettingsInt(MAIN_SECTION_TITLE, MAIN_STRING_LENGTH, MAIN_STRING_LENGTH_DEFAULT);
+	}
+	return len;
 }
 
 
@@ -489,8 +499,9 @@ std::list<std::wstring> NSCModuleHelper::getAllCommandNames() {
 std::wstring NSCModuleHelper::describeCommand(std::wstring command) {
 	if (!fNSAPIDescribeCommand)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
-	if (fNSAPIDescribeCommand(command.c_str(), buffer, BUFF_LEN) != NSCAPI::isSuccess) {
+	unsigned int buf_len = getBufferLength();
+	TCHAR *buffer = new TCHAR[buf_len+1];
+	if (fNSAPIDescribeCommand(command.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Base path could not be retrieved"));
 	}
@@ -518,8 +529,12 @@ bool NSCModuleHelper::checkLogMessages(int type) {
 std::wstring NSCModuleHelper::getApplicationVersionString() {
 	if (!fNSAPIGetApplicationVersionStr)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	TCHAR *buffer = new TCHAR[BUFF_LEN+1];
-	int x = fNSAPIGetApplicationVersionStr(buffer, BUFF_LEN);
+	unsigned int buf_len = getBufferLength();
+	TCHAR *buffer = new TCHAR[buf_len+1];
+	if (fNSAPIGetApplicationVersionStr(buffer, buf_len) != NSCAPI::isSuccess) {
+		delete [] buffer;
+		return _T("");
+	}
 	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;

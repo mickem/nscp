@@ -46,6 +46,7 @@ private:
 	socketHelpers::allowedHosts allowedHosts;
 	bool noPerfData_;
 	std::wstring scriptDirectory_;
+	unsigned int buffer_length_;
 
 public:
 	NRPEListener();

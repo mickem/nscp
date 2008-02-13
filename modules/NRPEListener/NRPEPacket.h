@@ -45,7 +45,7 @@ private:
 		int16_t   packet_type;
 		u_int32_t crc32_value;
 		int16_t   result_code;
-		char      buffer[1024];
+		char      buffer[];
 	} packet;
 	std::wstring payload_;
 	short type_;
@@ -54,17 +54,19 @@ private:
 	unsigned int crc32_;
 	unsigned int calculatedCRC32_;
 	char *tmpBuffer;
+	unsigned int buffer_length_;
 public:
-	NRPEPacket() : tmpBuffer(NULL) {};
-	NRPEPacket(const char *buffer, unsigned int length) : tmpBuffer(NULL) {
+	NRPEPacket(unsigned int buffer_length) : tmpBuffer(NULL), buffer_length_(buffer_length) {};
+	NRPEPacket(const char *buffer, unsigned int length, unsigned int buffer_length) : tmpBuffer(NULL), buffer_length_(buffer_length) {
 		readFrom(buffer, length);
 	};
-	NRPEPacket(short type, short version, NSCAPI::nagiosReturn result, std::wstring payLoad) 
+	NRPEPacket(short type, short version, NSCAPI::nagiosReturn result, std::wstring payLoad, unsigned int buffer_length) 
 		: tmpBuffer(NULL) 
 		,type_(type)
 		,version_(version)
 		,result_(result)
 		,payload_(payLoad)
+		,buffer_length_(buffer_length)
 	{
 	}
 	NRPEPacket(NRPEPacket &other) : tmpBuffer(NULL) {
@@ -74,6 +76,7 @@ public:
 		result_ = other.result_;
 		crc32_ = other.crc32_;
 		calculatedCRC32_ = other.calculatedCRC32_;
+		buffer_length_ = other.buffer_length_;
 	}
 	~NRPEPacket() {
 		delete [] tmpBuffer;
@@ -87,8 +90,11 @@ public:
 	bool verifyCRC() {
 		return calculatedCRC32_ == crc32_;
 	}
-	static unsigned int getBufferLength() {
-		return sizeof(packet);
+	unsigned int getBufferLength() const {
+		return getBufferLength(buffer_length_);
+	}
+	static unsigned int getBufferLength(unsigned int buffer_length) {
+		return sizeof(packet)+buffer_length*sizeof(char);
 	}
 };
 

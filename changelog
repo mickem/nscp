@@ -5,6 +5,16 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-02-13 MickeM
+ + Added string_length to [Settings] as well (used internally) for all "injected" buffers.
+ * Fixed issue with scripts result truncated efter 1024 chars 
+    (now they return "all" output and thus you can use the NRPE settings I adde yesterday :)
+
+2008-02-12 MickeM
+ + Added new option for the [NRPE] section string_length which is the length of the NRPE strings 
+   (notice you need to recompile the check_nrpe to match this value)
+ * Improved exception handling in the PDH collector (hopefully less deadlocks)
+
 2008-02-11 MickeM
  + Added encryption support for NSCA module (about half of the algorithms are avalible, 
      if someone wants to use one not available let me know, and I will try to add it)

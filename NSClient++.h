@@ -101,6 +101,7 @@ public:
 	std::wstring describeCommand(std::wstring command);
 	std::list<std::wstring> getAllCommandNames();
 	void registerCommand(std::wstring cmd, std::wstring desc);
+	unsigned int getBufferLength();
 
 	bool logDebug();
 
