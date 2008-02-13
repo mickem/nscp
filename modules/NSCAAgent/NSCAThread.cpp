@@ -66,6 +66,10 @@ Command::Result Command::execute(std::wstring host) const {
 		result.result = _T("Result was to long: ") + cmd_;
 	} else {
 		result.result = msg + _T("|") + perf;
+		if (result.result.length() >= NSCA_MAX_PLUGINOUTPUT_LENGTH) {
+			NSC_LOG_ERROR(_T("NSCA return data truncated"));
+			result.result = result.result.substr(0, NSCA_MAX_PLUGINOUTPUT_LENGTH-1);
+		}
 	}
 	NSC_LOG_MESSAGE_STD(_T("Result: ") + result.toString());
 	return result;
@@ -165,7 +169,11 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 
 		try {
 			for (std::list<Command::Result>::const_iterator cit = results.begin(); cit != results.end(); ++cit) {
-				socket.send((*cit).getBuffer(crypt_inst));
+				try {
+					socket.send((*cit).getBuffer(crypt_inst));
+				} catch (NSCAPacket::NSCAException &e) {
+					NSC_LOG_ERROR_STD(_T("Failed to make command: ") + e.getMessage() );
+				}
 			}
 		} catch (nsca_encrypt::encryption_exception &e) {
 			NSC_LOG_ERROR_STD(_T("<<< Failed to encrypt packet: ") + e.getMessage());
