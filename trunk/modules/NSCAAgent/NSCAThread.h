@@ -196,6 +196,7 @@ public:
 	Command(const Command & other) {
 		cmd_ = other.cmd_;
 		args_ = other.args_;
+		alias_ = other.alias_;
 
 	}
 	Command(std::wstring alias, std::wstring raw) : alias_(alias) {

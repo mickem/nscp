@@ -267,8 +267,11 @@ use_file=1
 
 ;# CHECK COMMAND LIST
 ;  The checks to run everytime we submit results back to nagios
+;  Any command(alias/key) starting with a host_ is sent as HOST_COMMAND others are sent as SERVICE_COMMANDS
+;  where the alias/key is used as service name.
 ;
 [NSCA Commands]
 ;my_cpu_check=checkCPU warn=80 crit=90 time=20m time=10s time=4
 ;my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
 ;my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService
+;host_check=check_ok
