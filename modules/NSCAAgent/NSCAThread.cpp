@@ -78,7 +78,10 @@ Command::Result Command::execute(std::wstring host) const {
 
 void NSCAThread::addCommand(std::wstring key) {
 	std::wstring value = NSCModuleHelper::getSettingsString(NSCA_CMD_SECTION_TITLE, key, _T(""));
-	commands_.push_back(Command(key, value));
+	if ((key.length() > 4) && (key.substr(0,4) == _T("host")))
+		commands_.push_back(Command(_T(""), value));
+	else
+		commands_.push_back(Command(key, value));
 }
 
 
