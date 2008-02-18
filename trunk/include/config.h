@@ -162,6 +162,8 @@
 #define NSCA_ENCRYPTION_DEFAULT 1
 #define NSCA_PASSWORD _T("password")
 #define NSCA_PASSWORD_DEFAULT _T("")
+#define NSCA_DEBUG_THREADS _T("debug_threads")
+#define NSCA_DEBUG_THREADS_DEFAULT 1
 
 #define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
 #define C_SYSTEM_SVC_ALL_0_DEFAULT _T("ignored")

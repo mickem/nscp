@@ -158,19 +158,25 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 	PDH::PDHQuery pdh;
 	bool bInit = true;
 
-	if (!loadCounter(pdh)) {
-		pdh.removeAllCounters();
-		NSC_DEBUG_MSG_STD(_T("We aparently failed to load counters trying to use default (English) counters or those configured in nsc.ini"));
-		SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
-		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
-		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
-		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
-		pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
-		try {
-			pdh.open();
-		} catch (const PDH::PDHException &e) {
-			NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
+	{
+		WriteLock lock(&mutex_, true, 5000);
+		if (!lock.IsLocked()) {
+			NSC_LOG_ERROR_STD(_T("Failed to get mutex when trying to start thread... thread will now die..."));
 			bInit = false;
+		} else if (!loadCounter(pdh)) {
+			pdh.removeAllCounters();
+			NSC_DEBUG_MSG_STD(_T("We aparently failed to load counters trying to use default (English) counters or those configured in nsc.ini"));
+			SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
+			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
+			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
+			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
+			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
+			try {
+				pdh.open();
+			} catch (const PDH::PDHException &e) {
+				NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
+				bInit = false;
+			}
 		}
 	}
 
@@ -180,8 +186,8 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		do {
 			std::list<std::wstring>	errors;
 			{
-				MutexLock mutex(mutexHandler);
-				if (!mutex.hasMutex()) 
+				ReadLock lock(&mutex_, true, 5000);
+				if (!lock.IsLocked()) 
 					NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 				else {
 					try {
@@ -209,8 +215,8 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 	}
 
 	{
-		MutexLock mutex(mutexHandler);
-		if (!mutex.hasMutex()) {
+		WriteLock lock(&mutex_, true, 5000);
+		if (!lock.IsLocked()) {
 			NSC_LOG_ERROR(_T("Failed to get Mute when closing thread!"));
 		}
 
@@ -234,10 +240,9 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 void PDHCollector::exitThread(void) {
 	if (hStopEvent_ == NULL)
 		NSC_LOG_ERROR(_T("Stop event is not created!"));
-	else
-		if (!SetEvent(hStopEvent_)) {
+	else if (!SetEvent(hStopEvent_)) {
 			NSC_LOG_ERROR_STD(_T("SetStopEvent failed"));
-		}
+	}
 }
 /**
 * Get the average CPU usage for "time"
@@ -246,12 +251,17 @@ void PDHCollector::exitThread(void) {
 */
 int PDHCollector::getCPUAvrage(std::wstring time) {
 	unsigned int mseconds = strEx::stoui_as_time(time, checkIntervall_*100);
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
+	ReadLock lock(&mutex_, true, 5000);
+	if (!lock.IsLocked()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}
-	return static_cast<int>(cpu.getAvrage(mseconds / (checkIntervall_*100)));
+	try {
+		return static_cast<int>(cpu.getAvrage(mseconds / (checkIntervall_*100)));
+	} catch (PDHCollectors::PDHException &e) {
+		NSC_LOG_ERROR(_T("Failed to get (sub) Mutex!"));
+		return -1;
+	}
 }
 /**
 * Get uptime from counter
@@ -260,8 +270,8 @@ int PDHCollector::getCPUAvrage(std::wstring time) {
 * @bug Are we overflow protected here ? (seem to recall some issues with overflow before ?)
 */
 long long PDHCollector::getUptime() {
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
+	ReadLock lock(&mutex_, true, 5000);
+	if (!lock.IsLocked()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}
@@ -272,8 +282,8 @@ long long PDHCollector::getUptime() {
 * @return Some form of memory check
 */
 unsigned long long PDHCollector::getMemCommitLimit() {
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
+	ReadLock lock(&mutex_, true, 5000);
+	if (!lock.IsLocked()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}
@@ -285,8 +295,8 @@ unsigned long long PDHCollector::getMemCommitLimit() {
 * @return Some form of memory check
 */
 unsigned long long PDHCollector::getMemCommit() {
-	MutexLock mutex(mutexHandler);
-	if (!mutex.hasMutex()) {
+	ReadLock lock(&mutex_, true, 5000);
+	if (!lock.IsLocked()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}

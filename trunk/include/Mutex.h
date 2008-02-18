@@ -173,3 +173,81 @@ public:
 		return dwWaitResult;
 	}
 };
+
+class ManualMutexLock {
+private:
+	bool bHasMutex;		// Status: true if we have a mutex lock
+	HANDLE hMutex_;		// Handle to the mutex object.
+	DWORD dwWaitResult;	// Result from the mutex operations
+public:
+	/**
+	* Default c-tor.
+	* Waits for the mutex object.
+	* @param hMutex The mutex to use
+	* @timeout The timeout before abandoning wait
+	*/
+	ManualMutexLock(HANDLE hMutex) : bHasMutex(false), hMutex_(hMutex) {}
+	
+	/**
+	* Waits for the mutex object.
+	* @timeout The timeout before abandoning wait
+	*/
+	void lock(DWORD timeout = 5000L) {
+		if (hMutex_ == NULL) {
+			std::wcout << _T("Error in mutex lock: ") << std::endl;
+			bHasMutex = false;
+			return;
+		}
+		dwWaitResult = WaitForSingleObject(hMutex_, timeout);
+		switch (dwWaitResult) {
+			// The thread got mutex ownership.
+		case WAIT_OBJECT_0:
+			bHasMutex = true;
+			break;
+		case WAIT_TIMEOUT: 
+			bHasMutex = false;
+			break;
+		case WAIT_ABANDONED: 
+			bHasMutex = false;
+			break;
+		}
+	}
+	/**
+	* An attempt to simplify the has mutex thingy (don't know if it works, haven't tried it since I wrote this class a few years ago :)
+	* @return true if we have a mutex lock.
+	*/
+	operator bool () const {
+		return bHasMutex;
+	}
+	/**
+	* Check if we actually got the mutex (might have timed out)
+	* @return 
+	*/
+	bool hasMutex() const {
+		return bHasMutex;
+	}
+	/**
+	* Default d-tor.
+	* Release the mutex
+	*/
+	virtual ~ManualMutexLock() {
+		if (bHasMutex)
+			ReleaseMutex(hMutex_);
+		bHasMutex = false;
+	}
+	/**
+	* Release the mutex
+	*/
+	void release() {
+		if (bHasMutex)
+			ReleaseMutex(hMutex_);
+		bHasMutex = false;
+	}
+	/**
+	* Get the result of the wait operation.
+	* @return Result of the wait operation
+	*/
+	DWORD getWaitResult() const {
+		return dwWaitResult;
+	}
+};

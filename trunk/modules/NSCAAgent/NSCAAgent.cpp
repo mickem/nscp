@@ -44,7 +44,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
  * Default c-tor
  * @return 
  */
-NSCAAgent::NSCAAgent() : pdhThread(_T("NSCAThread")) {}
+NSCAAgent::NSCAAgent() {}
 /**
  * Default d-tor
  * @return 
@@ -56,9 +56,19 @@ NSCAAgent::~NSCAAgent() {}
  * @return true
  */
 bool NSCAAgent::loadModule() {
-	pdhThread.createThread();
-	std::list<std::wstring> checks = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
-	int interval = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
+	//pdhThread.createThread();
+	//std::list<std::wstring> checks = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
+	//int interval = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
+	int e_threads = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_DEBUG_THREADS, NSCA_DEBUG_THREADS_DEFAULT);
+
+	for (int i=1;i<e_threads;i++) {
+		std::wstring id = _T("nsca_t_") + strEx::itos(i);
+		NSCAThreadImpl *thread = new NSCAThreadImpl(id);
+		extra_threads.push_back(thread);
+	}
+	for (std::list<NSCAThreadImpl*>::const_iterator cit=extra_threads.begin();cit != extra_threads.end(); ++cit) {
+		(*cit)->createThread(reinterpret_cast<LPVOID>(rand()));
+	}
 	
 	return true;
 }
@@ -68,9 +78,17 @@ bool NSCAAgent::loadModule() {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool NSCAAgent::unloadModule() {
+	/*
 	if (!pdhThread.exitThread(20000)) {
 		std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
 		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
+	}
+	*/
+	for (std::list<NSCAThreadImpl*>::iterator it=extra_threads.begin();it != extra_threads.end(); ++it) {
+		if (!(*it)->exitThread(20000)) {
+			std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
+			NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
+		}
 	}
 	return true;
 }

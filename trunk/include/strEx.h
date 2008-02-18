@@ -88,6 +88,47 @@ namespace strEx {
 		return string_to_wstring(str.c_str(), static_cast<int>(str.length())) ;
 	}
 
+	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
+		std::wstringstream ss;
+		std::wstring chars;
+		for (unsigned int i=0;i<len;i++) {
+			ss << std::hex << buf[i];
+			ss << _T(", ");
+			if (buf[i] >= ' ' && buf[i] <= 'z')
+				chars += buf[i];
+			else
+				chars += '?';
+			if (i%32==0) {
+				ss << chars;
+				ss << _T("\n");
+				chars = _T("");
+			}
+		}
+		return ss.str();
+	}
+	inline std::string format_buffer(const char* buf, unsigned int len) {
+		std::stringstream ss;
+		std::string chars;
+		for (unsigned int i=0;i<len;i++) {
+			if (i%32==0) {
+				if (i > 0) {
+					ss << chars;
+					ss << "\n";
+				}
+				chars = "";
+				ss << std::hex << std::setw(8) << std::setfill('0') << i;
+				ss << ": ";
+			}
+			ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(buf[i]));
+			ss << ", ";
+			if (buf[i] < 30 || buf[i] == 127)
+				chars += '?';
+			else
+				chars += buf[i];
+		}
+		return ss.str();
+	}
+
 	inline std::wstring format_date(time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		TCHAR buf[51];
 		struct tm nt; // = new struct tm;

@@ -82,6 +82,45 @@ use_file=1
 ;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
 ;socket_timeout=30
 
+[NRPE]
+;# NRPE PORT NUMBER
+;  This is the port the NRPEListener.dll will listen to.
+;port=5666
+;
+;# COMMAND TIMEOUT
+;  This specifies the maximum number of seconds that the NRPE daemon will allow plug-ins to finish executing before killing them off.
+;command_timeout=60
+;
+;# COMMAND ARGUMENT PROCESSING
+;  This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.
+;allow_arguments=0
+;
+;# COMMAND ALLOW NASTY META CHARS
+;  This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'"\[]{}) characters in arguments.
+;allow_nasty_meta_chars=0
+;
+;# USE SSL SOCKET
+;  This option controls if SSL should be used on the socket.
+;use_ssl=1
+;
+;# BIND TO ADDRESS
+;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Leaving this blank will bind to all avalible IP adresses.
+; bind_to_address=
+;
+;# ALLOWED HOST ADDRESSES
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NRPE deamon.
+;  If you leave this blank the global version will be used instead.
+;allowed_hosts=
+;
+;# SCRIPT DIRECTORY
+;  All files in this directory will become check commands.
+;  *WARNING* This is undoubtedly dangerous so use with care!
+;script_dir=scripts\
+;
+;# SOCKET TIMEOUT
+;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
+;socket_timeout=30
 
 [Check System]
 ;# CPU BUFFER SIZE
@@ -135,76 +174,6 @@ use_file=1
 ;alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
 
 
-[NRPE]
-;# NRPE PORT NUMBER
-;  This is the port the NRPEListener.dll will listen to.
-;port=5666
-;
-;# COMMAND TIMEOUT
-;  This specifies the maximum number of seconds that the NRPE daemon will allow plug-ins to finish executing before killing them off.
-;command_timeout=60
-;
-;# COMMAND ARGUMENT PROCESSING
-;  This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.
-;allow_arguments=0
-;
-;# COMMAND ALLOW NASTY META CHARS
-;  This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'"\[]{}) characters in arguments.
-;allow_nasty_meta_chars=0
-;
-;# USE SSL SOCKET
-;  This option controls if SSL should be used on the socket.
-;use_ssl=1
-;
-;# BIND TO ADDRESS
-;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
-;  Leaving this blank will bind to all avalible IP adresses.
-; bind_to_address=
-;
-;# ALLOWED HOST ADDRESSES
-;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NRPE deamon.
-;  If you leave this blank the global version will be used instead.
-;allowed_hosts=
-;
-;# SCRIPT DIRECTORY
-;  All files in this directory will become check commands.
-;  *WARNING* This is undoubtedly dangerous so use with care!
-;script_dir=scripts\
-;
-;# SOCKET TIMEOUT
-;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
-;socket_timeout=30
-
-
-
-[NRPE Handlers]
-;# COMMAND DEFINITIONS
-;# Command definitions that this daemon will run.
-;# Can be either NRPE syntax:
-;command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10
-;# Or simplified syntax:
-;test=c:\test.bat foo $ARG1$ bar
-;check_disk1=/usr/local/nagios/libexec/check_disk -w 5 -c 10
-;# Or even loopback (inject) syntax (to run internal commands)
-;# This is a way to run "NSClient" commands and other internal module commands such as check eventlog etc.
-;check_cpu=inject checkCPU warn=80 crit=90 5 10 15
-;check_eventlog=inject CheckEventLog Application warn.require.eventType=error warn.require.eventType=warning critical.require.eventType=error critical.exclude.eventType=info truncate=1024 descriptions
-;check_disk_c=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\ATI\*.*
-;# But be careful:
-; dont_check=inject dont_check This will "loop forever" so be careful with the inject command...
-;# Check some escapings...
-; check_escape=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M "File: foo \" WIN=c:\\WINDOWS\\*.*"
-;# Some real world samples
-;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
-;nrpe_ok=scripts\ok.bat
-;check_multi_line=scripts\multi_line.bat
-;#
-;# The sample scripts
-;#
-;check_long=scripts\long.bat
-;check_ok=scripts\ok.bat
-;check_nok=scripts\xlong.bat
-;check_vbs=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
 
 
 ; [includes]
@@ -275,3 +244,32 @@ use_file=1
 ;my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
 ;my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService
 ;host_check=check_ok
+
+[NRPE Handlers]
+;# COMMAND DEFINITIONS
+;# Command definitions that this daemon will run.
+;# Can be either NRPE syntax:
+;command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10
+;# Or simplified syntax:
+;test=c:\test.bat foo $ARG1$ bar
+;check_disk1=/usr/local/nagios/libexec/check_disk -w 5 -c 10
+;# Or even loopback (inject) syntax (to run internal commands)
+;# This is a way to run "NSClient" commands and other internal module commands such as check eventlog etc.
+;check_cpu=inject checkCPU warn=80 crit=90 5 10 15
+;check_eventlog=inject CheckEventLog Application warn.require.eventType=error warn.require.eventType=warning critical.require.eventType=error critical.exclude.eventType=info truncate=1024 descriptions
+;check_disk_c=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\ATI\*.*
+;# But be careful:
+; dont_check=inject dont_check This will "loop forever" so be careful with the inject command...
+;# Check some escapings...
+; check_escape=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M "File: foo \" WIN=c:\\WINDOWS\\*.*"
+;# Some real world samples
+;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
+;nrpe_ok=scripts\ok.bat
+;check_multi_line=scripts\multi_line.bat
+;#
+;# The sample scripts
+;#
+;check_long=scripts\long.bat
+;check_ok=scripts\ok.bat
+;check_nok=scripts\xlong.bat
+;check_vbs=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs

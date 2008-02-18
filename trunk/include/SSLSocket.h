@@ -229,7 +229,8 @@ namespace simpleSSL {
 		void setContext(Context context) {
 			context_ = context;
 		}
-		bool readAll (simpleSocket::Socket *report_to, simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1);
+		bool readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1);
+		bool sendAll(const char * buffer, unsigned int len);
 		void send(const char * buf, unsigned int len);
 	};
 
@@ -261,11 +262,24 @@ namespace simpleSSL {
 		}
 		virtual bool readAll (simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1) {
 			try {
-				return ssl.readAll(this, buffer, tmpBufferLength, maxLength);
+				return ssl.readAll(buffer, tmpBufferLength, maxLength);
 			} catch (simpleSSL::SSLException e) {
 				throw simpleSocket::SocketException(e.getMessage());
+			} catch (...) {
+				throw simpleSocket::SocketException(_T("Unhandeled socket exception"));
 			}
 		}
+		virtual bool sendAll(const char * buffer, unsigned int len) {
+			try {
+				return ssl.sendAll(buffer, len);
+			} catch (simpleSSL::SSLException e) {
+				throw simpleSocket::SocketException(e.getMessage());
+			} catch (...) {
+				throw simpleSocket::SocketException(_T("Unhandeled socket exception"));
+			}
+		}
+		/*
+
 		virtual int send(const char * buf, unsigned int len, int flags = 0) {
 			try {
 				ssl.send(buf, len);
@@ -274,6 +288,7 @@ namespace simpleSSL {
 			}
 			return 0;
 		}
+		*/
 		virtual void close() {
 			ssl.shutdown();
 			ssl.free();

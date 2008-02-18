@@ -39,6 +39,7 @@ bool g_bConsoleLog = false;
  */
 int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 {
+	srand( (unsigned)time( NULL ) );
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
@@ -132,9 +133,18 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			LOG_MESSAGE(_T("Enter command to inject or exit to terminate..."));
 			std::wstring s = _T("");
 			std::wstring buff = _T("");
-			std::wcin >> s;
-			while (s != _T("exit")) {
-				if (std::cin.peek() < 15) {
+			while (true) {
+				std::wcin >> s;
+				if (s == _T("exit")) {
+					std::wcout << _T("Exiting...") << std::endl;
+					break;
+				} else if (s == _T("off") && buff == _T("debug ")) {
+					std::wcout << _T("Setting debug log off...") << std::endl;
+					mainClient.enableDebug(false);
+				} else if (s == _T("on") && buff == _T("debug ")) {
+					std::wcout << _T("Setting debug log on...") << std::endl;
+					mainClient.enableDebug(true);
+				} else if (std::cin.peek() < 15) {
 					buff += s;
 					strEx::token t = strEx::getToken(buff, ' ');
 					std::wstring msg, perf;
@@ -147,7 +157,6 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				} else {
 					buff += s + _T(" ");
 				}
-				std::wcin >> s;
 			}
 			mainClient.TerminateService();
 			return 0;
@@ -532,19 +541,17 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 }
 
 bool NSClientT::logDebug() {
-	typedef enum status {unknown, debug, nodebug };
-	static status d = unknown;
-	if (d == unknown) {
+	if (debug_ == log_unknown) {
 		try {
 			if (Settings::getInstance()->getInt(_T("log"), _T("debug"), 0) == 1)
-				d = debug;
+				debug_ = log_debug;
 			else
-				d = nodebug;
+				debug_ = log_nodebug;
 		} catch (SettingsException e) {
-			d = debug;
+			debug_ = log_debug;
 		}
 	}
-	return (d == debug);
+	return (debug_ == log_debug);
 }
 
 /**

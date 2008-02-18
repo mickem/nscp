@@ -20,53 +20,70 @@
 ***************************************************************************/
 
 NSC_WRAPPERS_MAIN();
+#include <Socket.h>
+#include <SSLSocket.h>
 #include <map>
-#include <error.hpp>
-#include <execute_process.hpp>
+#include <nrpe/NRPEPacket.hpp>
 
-class CheckExternalScripts {
+class NRPEClient {
 private:
+	typedef enum {
+		inject, script, script_dir,
+	} command_type;
 	struct command_data {
-		command_data() {}
-		command_data(std::wstring command_, std::wstring arguments_) : command(command_), arguments(arguments_) {}
-		std::wstring command;
+		command_data() : type(inject) {}
+		command_data(command_type type_, std::wstring arguments_) : type(type_), arguments(arguments_) {}
+		command_type type;
 		std::wstring arguments;
 	};
+	bool bUseSSL_;
+	simpleSSL::Listener socket_ssl_;
+	simpleSocket::Listener<> socket_;
 	typedef std::map<strEx::blindstr, command_data> command_list;
 	command_list commands;
-	command_list alias;
 	unsigned int timeout;
+	unsigned int socketTimeout_;
+	socketHelpers::allowedHosts allowedHosts;
+	bool noPerfData_;
 	std::wstring scriptDirectory_;
-	std::wstring root_;
+	unsigned int buffer_length_;
 
 public:
-	CheckExternalScripts();
-	virtual ~CheckExternalScripts();
+	NRPEClient();
+	virtual ~NRPEClient();
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
 
 
 	std::wstring getModuleName() {
-		return _T("Check External Scripts");
+		return _T("NRPE client");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
-		return _T("A simple wrapper to run external scripts and batch files.");
+		return _T("A simple server that listens for incoming NRPE connection and handles them.\nNRPE is preferred over NSClient as it is more flexible. You can of cource use both NSClient and NRPE.");
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 	std::wstring getConfigurationMeta();
 
 private:
 	class NRPEException {
 		std::wstring error_;
 	public:
+/*		NRPESocketException(simpleSSL::SSLException e) {
+			error_ = e.getMessage();
+		}
+		NRPEException(NRPEPacket::NRPEPacketException e) {
+			error_ = e.getMessage();
+		}
+		*/
 		NRPEException(std::wstring s) {
 			error_ = s;
 		}
@@ -77,12 +94,15 @@ private:
 
 
 private:
-	void addAllScriptsFrom(std::wstring path);
-	void addCommand(strEx::blindstr key, std::wstring cmd = _T(""), std::wstring args = _T("")) {
-		commands[key] = command_data(cmd, args);
+
+
+	NRPEPacket handlePacket(NRPEPacket p);
+	void addCommand(command_type type, strEx::blindstr key, std::wstring args = _T("")) {
+		addCommand(key, command_data(type, args));
 	}
-	void addAlias(strEx::blindstr key, std::wstring cmd = _T(""), std::wstring args = _T("")) {
-		alias[key] = command_data(cmd, args);
+	void addCommand(strEx::blindstr key, command_data args) {
+		commands[key] = args;
 	}
+
 };
 

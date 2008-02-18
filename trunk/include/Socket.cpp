@@ -49,7 +49,6 @@ bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLen
 			if ((maxLength!=-1)&&(n >= maxLength))
 				break;
 			n=recv(socket_,tmpBuffer,tmpBufferLength,0);
-			std::wcout << _T("read (2): ") << n << std::endl;
 		} else {
 			// Buffer not full, we got it "all"
 			buffer.append(tmpBuffer, n);
@@ -67,6 +66,16 @@ bool simpleSocket::Socket::readAll(DataBuffer& buffer, unsigned int tmpBufferLen
 	return n>0;
 }
 
+bool simpleSocket::Socket::sendAll(const char * buffer, unsigned int len) {
+	int n = send(buffer, len, 0);
+	if (n == SOCKET_ERROR) {
+		int ret = ::WSAGetLastError();
+		if (ret == WSAEWOULDBLOCK)
+			return false;
+		throw SocketException(_T("recv returned SOCKET_ERROR: "), ret);
+	}
+	return false;
+}
 
 /**
  * Startup WSA

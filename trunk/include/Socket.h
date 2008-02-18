@@ -142,18 +142,8 @@ namespace simpleSocket {
 			length_ = length;
 			buffer_[length_] = 0;
 		}
-		std::wstring toString() {
-			std::wstringstream ss;
-			for (unsigned int i =0;i<length_;i++) {
-				if (i%64==0) {
-					ss << std::endl;
-				}
-				if (buffer_[i] < 30 || buffer_[i] > 'z')
-					ss << _T(" ");
-				else
-					ss << buffer_[i];
-			}
-			return ss.str();
+		std::string toString() {
+			return strEx::format_buffer(buffer_, length_);
 		}
 	};
 
@@ -162,24 +152,40 @@ namespace simpleSocket {
 		SOCKET socket_;
 		sockaddr_in from_;
 		sockaddr_in to_;
+		fd_set read_, write_, excp_;
 
 	public:
 		Socket() : socket_(NULL) {
+			FD_ZERO(&read_);
+			FD_ZERO(&write_);
+			FD_ZERO(&excp_);
 		}
 		Socket(SOCKET socket) : socket_(socket) {
+			FD_ZERO(&read_);
+			FD_ZERO(&write_);
+			FD_ZERO(&excp_);
 		}
 		Socket(int type, int protocol) : socket_(NULL) {
 			socket_ = ::socket(AF_INET, type, protocol);
+			FD_ZERO(&read_);
+			FD_ZERO(&write_);
+			FD_ZERO(&excp_);
 		}
 		Socket(bool create) : socket_(NULL) {
 			if (create)
 				socket_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			FD_ZERO(&read_);
+			FD_ZERO(&write_);
+			FD_ZERO(&excp_);
 		}
 
 		Socket(Socket &other) {
 			socket_ = other.socket_;
 			from_ = other.from_;
 			other.socket_ = NULL;
+			read_ = other.read_;
+			write_ = other.write_;
+			excp_ = other.excp_;
 		}
 		virtual ~Socket() {
 			if (socket_)
@@ -216,8 +222,38 @@ namespace simpleSocket {
 		}
 		virtual void setNonBlock() {
 			unsigned long NoBlock = 1;
+			FD_SET(socket_, &read_);
+			FD_SET(socket_, &write_);
+			FD_SET(socket_, &excp_);
 			this->ioctlsocket(FIONBIO, &NoBlock);
 		}
+		virtual bool canRead(long timeout = -1) {
+			timeval timeout_;
+			timeout_.tv_sec = timeout;
+			FD_SET(socket_, &read_);
+			FD_SET(socket_, &write_);
+			FD_SET(socket_, &excp_);
+			if (timeout == -1)
+				::select(NULL, &read_, &write_, &excp_, NULL);
+			else
+				::select(NULL, &read_, &write_, &excp_, &timeout_);
+			if (FD_ISSET(socket_, &read_))
+				return true;
+			return false;
+		}
+		virtual bool canWrite(long timeout = -1) {
+			timeval timeout_;
+			timeout_.tv_sec = timeout;
+			FD_SET(socket_, &read_);
+			FD_SET(socket_, &write_);
+			FD_SET(socket_, &excp_);
+			if (timeout == -1)
+				::select(NULL, &read_, &write_, &excp_, NULL);
+			else
+				::select(NULL, &read_, &write_, &excp_, &timeout_);
+			return FD_ISSET(socket_, &write_);
+		}
+
 		static unsigned long inet_addr(std::wstring addr) {
 			return ::inet_addr(strEx::wstring_to_string(addr).c_str());
 		}
@@ -267,6 +303,19 @@ namespace simpleSocket {
 			return ret;
 		}
 		virtual bool readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1);
+		virtual bool sendAll(const char * buffer, unsigned int len);
+
+		int inline sendAll(DataBuffer &buffer) {
+			return sendAll(buffer.getBuffer(), buffer.getLength());
+		}
+
+		virtual int send(const char * buf, unsigned int len, int flags = 0) {
+			assert(socket_);
+			return ::send(socket_, buf, len, flags);
+		}
+		int inline send(DataBuffer &buffer, int flags = 0) {
+			return send(buffer.getBuffer(), buffer.getLength(), flags);
+		}
 
 		virtual void socket(int af, int type, int protocol ) {
 			socket_ = ::socket(af, type, protocol);
@@ -299,13 +348,6 @@ namespace simpleSocket {
 			from_.sin_family=family;
 			from_.sin_addr.s_addr=addr;
 			from_.sin_port=port;
-		}
-		virtual int send(const char * buf, unsigned int len, int flags = 0) {
-			assert(socket_);
-			return ::send(socket_, buf, len, flags);
-		}
-		int inline send(DataBuffer &buffer, int flags = 0) {
-			return send(buffer.getBuffer(), buffer.getLength(), flags);
 		}
 		virtual void ioctlsocket(long cmd, u_long *argp) {
 			assert(socket_);

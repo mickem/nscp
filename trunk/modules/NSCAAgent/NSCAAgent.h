@@ -30,7 +30,8 @@ class NSCAAgent {
 private:
 	CheckMemory memoryChecker;
 	int processMethod_;
-	NSCAThreadImpl pdhThread;
+//	NSCAThreadImpl pdhThread;
+	std::list<NSCAThreadImpl*> extra_threads;
 
 public:
 

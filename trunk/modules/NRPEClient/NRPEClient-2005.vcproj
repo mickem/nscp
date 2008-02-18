@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8,00"
-	Name="NRPEListener"
-	ProjectGUID="{2FF60AF6-09AA-49AB-B414-2E8FD01655C6}"
-	RootNamespace="NRPEListener"
+	Name="NRPEClient"
+	ProjectGUID="{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}"
+	RootNamespace="NRPEClient"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -72,11 +72,11 @@
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/NRPEListener.pdb"
+				ProgramDatabaseFile="$(OutDir)/NRPEClient.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -157,11 +157,11 @@
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="MSVCRT"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/NRPEListener.pdb"
+				ProgramDatabaseFile="$(OutDir)/NRPEClient.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -237,12 +237,12 @@
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -319,12 +319,12 @@
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -399,12 +399,12 @@
 				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -480,12 +480,12 @@
 				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -557,7 +557,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				LinkIncremental="1"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -634,7 +634,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				LinkIncremental="1"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -717,11 +717,11 @@
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/NRPEListener.pdb"
+				ProgramDatabaseFile="$(OutDir)/NRPEClient.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -802,11 +802,11 @@
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="MSVCRT"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/NRPEListener.pdb"
+				ProgramDatabaseFile="$(OutDir)/NRPEClient.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -887,13 +887,13 @@
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="MSVCRT"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/NRPEListener.pdb"
+				ProgramDatabaseFile="$(OutDir)/NRPEClient.pdb"
 				SubSystem="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -967,14 +967,14 @@
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1047,14 +1047,14 @@
 				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1127,14 +1127,14 @@
 				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1212,13 +1212,13 @@
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="MSVCRT"
-				ModuleDefinitionFile="NRPEListener.def"
+				ModuleDefinitionFile="NRPEClient.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/NRPEListener.pdb"
+				ProgramDatabaseFile="$(OutDir)/NRPEClient.pdb"
 				SubSystem="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/NRPEListener.lib"
+				ImportLibrary="$(OutDir)/NRPEClient.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1392,11 +1392,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\NRPEListener.cpp"
+				RelativePath=".\NRPEClient.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\NRPEListener.def"
+				RelativePath=".\NRPEClient.def"
 				>
 			</File>
 			<File
@@ -2098,7 +2098,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\NRPEListener.h"
+				RelativePath=".\NRPEClient.h"
 				>
 			</File>
 			<File
