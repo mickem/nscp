@@ -69,14 +69,18 @@ private:
 	MutexRW  m_mutexRW;
 	MutexRW  m_mutexRWcmdDescriptions;
 	cmdMap cmdDescriptions_;
-	bool debug_;
+	typedef enum log_status {log_unknown, log_debug, log_nodebug };
+	log_status debug_;
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) : debug_(false) {}
+	NSClientT(void) : debug_(log_unknown) {}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
-		debug_ = debug;
+		if (debug)
+			debug_ = log_debug;
+		else
+			debug_ = log_nodebug;
 	}
 
 	// Service helper functions

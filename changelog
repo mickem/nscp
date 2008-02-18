@@ -5,6 +5,14 @@ TODO:
  * Add module for relaying events
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
 
+2008-02-18 MickeM
+ + Added propper output handling to process subsystem (now you can execute programs tat return "much" data.
+ + Added select support for SSL_write (now you can send "any amount of data" to the (SSL) socket.
+   Since check_nrpe doesn't do this it wont work in that end, but still...
+
+2008-02-16 MickeM
+ + Refactored ExternalCommand handling so NRPE and new module does the same thing.
+
 2008-02-14 MickeM
  + Added so commands starting in host_ (NSCA Handlers) are sent as host-commands
  * Fixed a copy constructor in NSCA Commands (now service checks are sent as service checks)

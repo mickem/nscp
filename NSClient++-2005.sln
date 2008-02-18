@@ -52,6 +52,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheckExternalScripts", "mod
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Crypt++", "..\Crypt++\Crypt++.vcproj", "{630857C0-6AD8-4CEE-B5F7-CA1DF620CA9A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NRPEClient", "modules\NRPEClient\NRPEClient-2005.vcproj", "{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -719,6 +721,46 @@ Global
 		{630857C0-6AD8-4CEE-B5F7-CA1DF620CA9A}.Release|Win32.ActiveCfg = Release|Win32
 		{630857C0-6AD8-4CEE-B5F7-CA1DF620CA9A}.Release|Win32.Build.0 = Release|Win32
 		{630857C0-6AD8-4CEE-B5F7-CA1DF620CA9A}.Release|x64.ActiveCfg = Release|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|Itanium.ActiveCfg = Debug|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|Mixed Platforms.Build.0 = Debug|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|Win32.Build.0 = Debug|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|x64.ActiveCfg = Debug|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug|x64.Build.0 = Debug|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|Any CPU.ActiveCfg = Debug-MemCheck|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|Itanium.ActiveCfg = Debug-MemCheck|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|Mixed Platforms.ActiveCfg = Debug-MemCheck|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|Mixed Platforms.Build.0 = Debug-MemCheck|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|Win32.ActiveCfg = Debug-MemCheck|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|Win32.Build.0 = Debug-MemCheck|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|x64.ActiveCfg = Debug-MemCheck|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Debug-MemCheck|x64.Build.0 = Debug-MemCheck|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|Any CPU.ActiveCfg = Distribution|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|Itanium.ActiveCfg = Distribution|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|Mixed Platforms.ActiveCfg = Distribution|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|Mixed Platforms.Build.0 = Distribution|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|Win32.ActiveCfg = Distribution|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|Win32.Build.0 = Distribution|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|x64.ActiveCfg = Distribution|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Distribution|x64.Build.0 = Distribution|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|Any CPU.ActiveCfg = Nightly|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|Itanium.ActiveCfg = Nightly|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|Mixed Platforms.ActiveCfg = Nightly|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|Mixed Platforms.Build.0 = Nightly|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|Win32.ActiveCfg = Nightly|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|Win32.Build.0 = Nightly|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|x64.ActiveCfg = Nightly|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Nightly|x64.Build.0 = Nightly|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|Any CPU.ActiveCfg = Release|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|Itanium.ActiveCfg = Release|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|Mixed Platforms.ActiveCfg = Release|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|Mixed Platforms.Build.0 = Release|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|Win32.ActiveCfg = Release|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|Win32.Build.0 = Release|Win32
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|x64.ActiveCfg = Release|x64
+		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

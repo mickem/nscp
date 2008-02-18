@@ -23,7 +23,8 @@ NSC_WRAPPERS_MAIN();
 #include <Socket.h>
 #include <SSLSocket.h>
 #include <map>
-#include "NRPEPacket.h"
+#include <nrpe/NRPEPacket.hpp>
+#include <execute_process.hpp>
 
 class NRPEListener : public simpleSocket::ListenerHandler {
 private:
@@ -47,6 +48,7 @@ private:
 	bool noPerfData_;
 	std::wstring scriptDirectory_;
 	unsigned int buffer_length_;
+	std::wstring root_;
 
 public:
 	NRPEListener();

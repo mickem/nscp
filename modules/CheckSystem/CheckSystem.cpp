@@ -401,7 +401,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, TCHAR **ch
 		}
 		int value = pObject->getCPUAvrage(load.data + _T("m"));
 		if (value == -1) {
-			msg = _T("ERROR: We don't collect data this far back: ") + load.getAlias();
+			msg = _T("ERROR: Could not get data for ") + load.getAlias() + _T(" perhaps we don't collect data this far back?");
 			return NSCAPI::returnUNKNOWN;
 		}
 		if (bNSClient) {
@@ -719,7 +719,6 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, TCHAR **ch
 			check.runCheck(value, returnCode, msg, perf);
 		}
 	}
-	NSC_DEBUG_MSG_STD(_T("Perf data: ") + strEx::itos(bPerfData) + _T(":") + perf);
 
 	if (msg.empty())
 		msg = _T("OK memory within bounds.");

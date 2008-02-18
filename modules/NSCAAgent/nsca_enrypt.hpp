@@ -91,7 +91,6 @@ public:
 		void init(std::string password, unsigned char *transmitted_iv, int iv_size) {
 			/* generate an encryption/description key using the password */
 			int keysize=get_keySize();
-			std::cout << "keysize: " << keysize << std::endl;
 
 			unsigned char *key = new unsigned char[keysize+1];
 			if (key == NULL){

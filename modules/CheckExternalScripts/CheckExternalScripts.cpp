@@ -90,6 +90,7 @@ bool CheckExternalScripts::loadModule() {
 	if (!scriptDirectory_.empty()) {
 		addAllScriptsFrom(scriptDirectory_);
 	}
+	root_ = NSCModuleHelper::getBasePath();
 	return true;
 }
 bool CheckExternalScripts::unloadModule() {
@@ -135,7 +136,12 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 	if (isAlias) {
 		return NSCModuleHelper::InjectSplitAndCommand(cd.command, cd.arguments, ' ', message, perf, true);
 	} else {
-		return executeNRPECommand(cd.command + _T(" ") + args, message, perf);
+		int result = process::executeProcess(root_, cd.command + _T(" ") + args, message, perf, timeout);
+		if (!NSCHelper::isNagiosReturnCode(result)) {
+			NSC_LOG_ERROR_STD(_T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result));
+			return NSCAPI::returnUNKNOWN;
+		}
+		return NSCHelper::int2nagios(result);
 		/*
 	} else if (cd.type == script_dir) {
 		std::wstring args = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
@@ -147,129 +153,6 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 		*/
 	}
 
-}
-#define MAX_INPUT_BUFFER 1024
-
-int CheckExternalScripts::executeNRPECommand(std::wstring command, std::wstring &msg, std::wstring &perf)
-{
-	NSCAPI::nagiosReturn result;
-	PROCESS_INFORMATION pi;
-	STARTUPINFO si;
-	HANDLE hChildOutR, hChildOutW, hChildInR, hChildInW;
-	SECURITY_ATTRIBUTES sec;
-	DWORD dwstate, dwexitcode;
-	int retval;
-
-
-	// Set up members of SECURITY_ATTRIBUTES structure. 
-
-	sec.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sec.bInheritHandle = TRUE;
-	sec.lpSecurityDescriptor = NULL;
-
-	// CreateProcess doesn't work with a const command
-	TCHAR *cmd = new TCHAR[command.length()+1];
-	if (cmd == NULL) {
-		NSC_LOG_ERROR(_T("Failed to allocate memory for command buffer (") + command + _T(")."));
-		return NSCAPI::returnUNKNOWN;
-	}
-	wcsncpy_s(cmd, command.length()+1, command.c_str(), command.length());
-	cmd[command.length()] = 0;
-	std::wstring root = NSCModuleHelper::getBasePath();
-
-	// Create Pipes
-	if (!CreatePipe(&hChildInR, &hChildInW, &sec, 0)) {
-		NSC_LOG_ERROR(_T("Failed to create pipe for (") + command + _T(") return code: ") + error::lookup::last_error());
-		return NSCAPI::returnUNKNOWN;
-	}
-	if (!CreatePipe(&hChildOutR, &hChildOutW, &sec, 0)) {
-		NSC_LOG_ERROR(_T("Failed to create pipe for (") + command + _T(") return code: ") + error::lookup::last_error());
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	// Set up members of STARTUPINFO structure. 
-
-	ZeroMemory(&si, sizeof(STARTUPINFO));
-	si.cb = sizeof(STARTUPINFO);
-	si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
-	si.hStdInput = hChildInR;
-	si.hStdOutput = hChildOutW;
-	si.hStdError = hChildOutW;
-	si.wShowWindow = SW_HIDE;
-
-	// Create the child process. 
-	BOOL processOK = CreateProcess(NULL, cmd,        // command line 
-		NULL, // process security attributes 
-		NULL, // primary thread security attributes 
-		TRUE, // handles are inherited 
-		0,    // creation flags 
-		NULL, // use parent's environment 
-		root.c_str(), // use parent's current directory 
-		&si,  // STARTUPINFO pointer 
-		&pi); // receives PROCESS_INFORMATION 
-	delete [] cmd;
-
-	if (processOK) {
-		dwstate = WaitForSingleObject(pi.hProcess, 1000*timeout);
-		CloseHandle(hChildInR);
-		CloseHandle(hChildInW);
-		CloseHandle(hChildOutW);
-
-		if (dwstate == WAIT_TIMEOUT) {
-			TerminateProcess(pi.hProcess, 5);
-			msg = _T("The check (") + command + _T(") didn't respond within the timeout period (") + strEx::itos(timeout) + _T("s)!");
-			result = NSCAPI::returnUNKNOWN;
-		} else {
-			DWORD dwread;
-			//TCHAR *buf = new TCHAR[MAX_INPUT_BUFFER+1];
-			char *buf = new char[MAX_INPUT_BUFFER+1];
-			//retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER*sizeof(WCHAR), &dwread, NULL);
-			retval = ReadFile(hChildOutR, buf, MAX_INPUT_BUFFER*sizeof(char), &dwread, NULL);
-			if (!retval || dwread == 0) {
-				msg = _T("No output available from command...");
-			} else {
-				buf[dwread] = 0;
-				msg = strEx::string_to_wstring(buf);
-				//msg = buf;
-				//strEx::token t = strEx::getToken(msg, '\n');
-				strEx::token t = strEx::getToken(msg, '|');
-				msg = t.first;
-				std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
-				if (pos != std::wstring::npos) {
-					if (pos == msg.size())
-						msg = msg.substr(0,pos);
-					else
-						msg = msg.substr(0,pos+1);
-				}
-				//if (msg[msg.size()-1] == '\n')
-				perf = t.second;
-			}
-			delete [] buf;
-			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
-				NSC_LOG_ERROR(_T("Failed to get commands (") + command + _T(") return code: ") + error::lookup::last_error());
-				dwexitcode = NSCAPI::returnUNKNOWN;
-			}
-			if (!NSCHelper::isNagiosReturnCode(dwexitcode)) {
-				NSC_LOG_ERROR(_T("The command (") + command + _T(") returned an invalid return code: ") + strEx::itos(dwexitcode));
-				dwexitcode = NSCAPI::returnUNKNOWN;
-			}
-			result = NSCHelper::int2nagios(dwexitcode);
-		}
-		CloseHandle(pi.hThread);
-		CloseHandle(pi.hProcess);
-		CloseHandle(hChildOutR);
-	}
-	else {
-		msg = _T("NSCP failed to create process (") + command + _T("): ") + error::lookup::last_error();
-		result = NSCAPI::returnUNKNOWN;
-		CloseHandle(hChildInR);
-		CloseHandle(hChildInW);
-		CloseHandle(hChildOutW);
-		CloseHandle(pi.hThread);
-		CloseHandle(pi.hProcess);
-		CloseHandle(hChildOutR);
-	}
-	return result;
 }
 
 

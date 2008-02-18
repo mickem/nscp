@@ -23,7 +23,6 @@
 #include <strEx.h>
 #include <time.h>
 #include <config.h>
-#include "NRPEPacket.h"
 #include <msvc_wrappers.h>
 
 NRPEListener gNRPEListener;
@@ -127,6 +126,7 @@ bool NRPEListener::loadModule() {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
 	}
+	root_ = NSCModuleHelper::getBasePath();
 
 	return true;
 }
@@ -227,133 +227,28 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 		}
 		return NSCModuleHelper::InjectSplitAndCommand(t.first, sTarget, '!', message, perf);
 	} else if (cd.type == script) {
-		return executeNRPECommand(args, message, perf);
+		int result = process::executeProcess(root_, args, message, perf, timeout);
+		if (!NSCHelper::isNagiosReturnCode(result)) {
+			NSC_LOG_ERROR_STD(_T("The command (") + command.c_str() + _T(") returned an invalid return code: ") + strEx::itos(result));
+			return NSCAPI::returnUNKNOWN;
+		}
+		return NSCHelper::int2nagios(result);
 	} else if (cd.type == script_dir) {
 		std::wstring args = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
 		std::wstring cmd = scriptDirectory_ + command.c_str() + _T(" ") +args;
-		return executeNRPECommand(cmd, message, perf);
+		int result = process::executeProcess(root_, cmd, message, perf, timeout);
+		if (!NSCHelper::isNagiosReturnCode(result)) {
+			NSC_LOG_ERROR_STD(_T("The command (") + command.c_str() + _T(") returned an invalid return code: ") + strEx::itos(result));
+			return NSCAPI::returnUNKNOWN;
+		}
+		return NSCHelper::int2nagios(result);
 	} else {
 		NSC_LOG_ERROR_STD(_T("Unknown script type: ") + command.c_str());
 		return NSCAPI::critical;
 	}
 
 }
-int NRPEListener::executeNRPECommand(std::wstring command, std::wstring &msg, std::wstring &perf)
-{
-	NSCAPI::nagiosReturn result;
-	PROCESS_INFORMATION pi;
-	STARTUPINFO si;
-	HANDLE hChildOutR, hChildOutW, hChildInR, hChildInW;
-	SECURITY_ATTRIBUTES sec;
-	DWORD dwstate, dwexitcode;
-	int retval;
 
-
-	// Set up members of SECURITY_ATTRIBUTES structure. 
-
-	sec.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sec.bInheritHandle = TRUE;
-	sec.lpSecurityDescriptor = NULL;
-
-	// Create Pipes
-	CreatePipe(&hChildInR, &hChildInW, &sec, 0);
-	CreatePipe(&hChildOutR, &hChildOutW, &sec, 0);
-
-	// Set up members of STARTUPINFO structure. 
-
-	ZeroMemory(&si, sizeof(STARTUPINFO));
-	si.cb = sizeof(STARTUPINFO);
-	si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
-	si.hStdInput = hChildInR;
-	si.hStdOutput = hChildOutW;
-	si.hStdError = hChildOutW;
-	si.wShowWindow = SW_HIDE;
-
-
-	// CreateProcess doesn't work with a const command
-	TCHAR *cmd = new TCHAR[command.length()+1];
-	wcsncpy_s(cmd, command.length()+1, command.c_str(), command.length());
-	cmd[command.length()] = 0;
-	std::wstring root = NSCModuleHelper::getBasePath();
-
-	// Create the child process. 
-	BOOL processOK = CreateProcess(NULL, cmd,        // command line 
-		NULL, // process security attributes 
-		NULL, // primary thread security attributes 
-		TRUE, // handles are inherited 
-		0,    // creation flags 
-		NULL, // use parent's environment 
-		root.c_str(), // use parent's current directory 
-		&si,  // STARTUPINFO pointer 
-		&pi); // receives PROCESS_INFORMATION 
-	delete [] cmd;
-
-	if (processOK) {
-		dwstate = WaitForSingleObject(pi.hProcess, 1000*timeout);
-		CloseHandle(hChildInR);
-		CloseHandle(hChildInW);
-		CloseHandle(hChildOutW);
-
-		if (dwstate == WAIT_TIMEOUT) {
-			TerminateProcess(pi.hProcess, 5);
-			msg = _T("The check (") + command + _T(") didn't respond within the timeout period (") + strEx::itos(timeout) + _T("s)!");
-			result = NSCAPI::returnUNKNOWN;
-		} else {
-			DWORD dwread;
-			std::string str;
-#define BUFF_SIZE 4096
-			char *buf = new char[BUFF_SIZE+1];
-			do {
-				retval = ReadFile(hChildOutR, buf, BUFF_SIZE, &dwread, NULL);
-				if (retval == 0)
-					break;
-				if (dwread > BUFF_SIZE)
-					break;
-				buf[dwread] = 0;
-				str += buf;
-			} while (dwread == BUFF_SIZE);
-			delete [] buf;
-			if (str.empty()) {
-				msg = _T("No output available from command...");
-			} else {
-				msg = strEx::string_to_wstring(str);
-				strEx::token t = strEx::getToken(msg, '|');
-				msg = t.first;
-				std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
-				if (pos != std::wstring::npos) {
-					if (pos == msg.size())
-						msg = msg.substr(0,pos);
-					else
-						msg = msg.substr(0,pos+1);
-				}
-				perf = t.second;
-			}
-			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
-				NSC_LOG_ERROR(_T("Failed to get commands (") + command + _T(") return code: ") + error::lookup::last_error());
-				dwexitcode = NSCAPI::returnUNKNOWN;
-			}
-			if (!NSCHelper::isNagiosReturnCode(dwexitcode)) {
-				NSC_LOG_ERROR(_T("The command (") + command + _T(") returned an invalid return code: ") + strEx::itos(dwexitcode));
-				dwexitcode = NSCAPI::returnUNKNOWN;
-			}
-			result = NSCHelper::int2nagios(dwexitcode);
-		}
-		CloseHandle(pi.hThread);
-		CloseHandle(pi.hProcess);
-		CloseHandle(hChildOutR);
-	}
-	else {
-		msg = _T("NRPE_NT failed to create process (") + command + _T("): ") + error::lookup::last_error();
-		result = NSCAPI::returnUNKNOWN;
-		CloseHandle(hChildInR);
-		CloseHandle(hChildInW);
-		CloseHandle(hChildOutW);
-		CloseHandle(pi.hThread);
-		CloseHandle(pi.hProcess);
-		CloseHandle(hChildOutR);
-	}
-	return result;
-}
 void NRPEListener::onClose()
 {}
 
@@ -399,12 +294,35 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 				client->close();
 				return;
 			}
-			client->send(block);
+			int maxWait = socketTimeout_*10;
+			for (i=0;i<maxWait;i++) {
+				bool lastReadHasMore = false;
+				try {
+					if (client->canWrite())
+						lastReadHasMore = client->sendAll(block);
+				} catch (simpleSocket::SocketException e) {
+					NSC_LOG_MESSAGE(_T("Could not send NRPE packet from socket :") + e.getMessage());
+					client->close();
+					return;
+				}
+				if (!lastReadHasMore) {
+					client->close();
+					return;
+				}
+				Sleep(100);
+			}
+			if (i >= maxWait) {
+				NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout)"));
+				client->close();
+				return;
+			}
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("SocketException: ") + e.getMessage());
 	} catch (NRPEException e) {
 		NSC_LOG_ERROR_STD(_T("NRPEException: ") + e.getMessage());
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Unhandled Exception in NRPE listner..."));
 	}
 	client->close();
 }
@@ -412,7 +330,7 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	if (p.getType() != NRPEPacket::queryPacket) {
 		NSC_LOG_ERROR(_T("Request is not a query."));
-		throw NRPEException(_T("Invalid query type"));
+		throw NRPEException(_T("Invalid query type: ") + strEx::itos(p.getType()));
 	}
 	if (p.getVersion() != NRPEPacket::version2) {
 		NSC_LOG_ERROR(_T("Request had unsupported version."));
@@ -469,7 +387,7 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 			msg = _T("UNKNOWN: Internal error.");
 			ret = NSCAPI::returnUNKNOWN;
 	}
-	if (msg.length() > buffer_length_) {
+	if (msg.length() >= buffer_length_) {
 		NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
 		msg = msg.substr(0,buffer_length_-1);
 	}

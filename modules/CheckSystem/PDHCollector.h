@@ -22,7 +22,7 @@
 
 #include "PDHCollectors.h"
 #include <thread.h>
-#include <Mutex.h>
+#include <MutexRW.h>
 
 /**
  * @ingroup NSClientCompat
@@ -45,14 +45,15 @@
  */
 class PDHCollector {
 private:
-	MutexHandler mutexHandler;
+
+	MutexRW mutex_;
 	HANDLE hStopEvent_;
 	int checkIntervall_;
 
-	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large> memCmtLim;
-	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large> memCmt;
-	PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large> upTime;
-	PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large> cpu;
+	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmtLim;
+	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmt;
+	PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> upTime;
+	PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> cpu;
 
 public:
 	PDHCollector();

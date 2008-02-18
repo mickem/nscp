@@ -59,19 +59,21 @@ Command::Result Command::execute(std::wstring host) const {
 	std::wstring perf;
 	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectCommand(cmd_.c_str(), args_.getLen(), args_.get(), msg, perf);
 	result.service = alias_;
-	result.code = conv_code(ret);
 	if (ret == NSCAPI::returnIgnored) {
 		result.result = _T("Command was not found: ") + cmd_;
+		result.code = NSCAPI::returnUNKNOWN;
 	} else if (ret == NSCAPI::returnInvalidBufferLen) {
 		result.result = _T("Result was to long: ") + cmd_;
+		result.code = NSCAPI::returnUNKNOWN;
 	} else {
 		result.result = msg + _T("|") + perf;
+		result.code = conv_code(ret);
 		if (result.result.length() >= NSCA_MAX_PLUGINOUTPUT_LENGTH) {
 			NSC_LOG_ERROR(_T("NSCA return data truncated"));
 			result.result = result.result.substr(0, NSCA_MAX_PLUGINOUTPUT_LENGTH-1);
 		}
 	}
-	NSC_LOG_MESSAGE_STD(_T("Result: ") + result.toString());
+	//NSC_DEBUG_MSG_STD(_T("Result: ") + result.toString());
 	return result;
 }
 
@@ -106,7 +108,16 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 		return 0;
 	}
 
+	srand( reinterpret_cast<int>(lpParameter) );
+
 	DWORD waitStatus = 0;
+	int drift = (checkIntervall_*rand())/RAND_MAX ;
+	NSC_LOG_ERROR_STD(_T("Drifting: ") + strEx::itos(drift));
+	waitStatus = WaitForSingleObject(hStopEvent_, drift*1000);
+	if (waitStatus != WAIT_TIMEOUT)  {
+		NSC_LOG_ERROR_STD(_T("Drift failed... strange..."));
+	}
+	NSC_LOG_ERROR_STD(_T("Done drifting: ") + strEx::itos(drift));
 	int remain = checkIntervall_;
 	while (((waitStatus = WaitForSingleObject(hStopEvent_, remain*1000)) == WAIT_TIMEOUT)) {
 		MutexLock mutex(mutexHandler);

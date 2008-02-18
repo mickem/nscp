@@ -67,7 +67,7 @@ void simpleSSL::count_socket(bool add) {
 }
 
 
-bool simpleSSL::sSSL::readAll(simpleSocket::Socket *report_to, simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/, int maxLength /*= -1*/) {
+bool simpleSSL::sSSL::readAll(simpleSocket::DataBuffer &buffer, unsigned int tmpBufferLength /* = 1024*/, int maxLength /*= -1*/) {
 	char *tmpBuffer = new char[tmpBufferLength+1];
 	if (!ssl_)
 		create();
@@ -80,17 +80,22 @@ bool simpleSSL::sSSL::readAll(simpleSocket::Socket *report_to, simpleSocket::Dat
 		int rc = getError(n);
 		if ((rc == SSL_ERROR_WANT_READ) || (rc == SSL_ERROR_WANT_WRITE))
 			return true;
-		report_to->printError(_T(__FILE__), __LINE__, _T("Could not read from socket: ") + strEx::itos(rc));
 		throw simpleSocket::SocketException(_T("Could not read from socket: ") + strEx::itos(rc));
 	}
 	return n>0;
 }
-void simpleSSL::sSSL::send(const char * buf, unsigned int len) {
+
+bool simpleSSL::sSSL::sendAll(const char * buffer, unsigned int len) {
 	if (!ssl_)
 		create();
-	int rc = SSL_write(ssl_, buf, len);
-	if (rc <= 0)
-		throw SSLException(_T("Socket write failed: "), rc, getError(rc));
+	int n = SSL_write(ssl_, buffer, len);
+	if (n <= 0) {
+		int rc = getError(n);
+		if ((rc == SSL_ERROR_WANT_READ) || (rc == SSL_ERROR_WANT_WRITE))
+			return true;
+		throw simpleSocket::SocketException(_T("Could not write to socket: ") + strEx::itos(rc));
+	}
+	return false;
 }
 
 bool simpleSSL::Listener::accept(tSocket &client) {
