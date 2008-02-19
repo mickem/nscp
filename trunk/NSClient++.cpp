@@ -534,6 +534,9 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 		} catch(const NSPluginException& e) {
 			LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
 			return NSCAPI::returnCRIT;
+		} catch(...) {
+			LOG_ERROR_STD(_T("Unknown exception raised in module"));
+			return NSCAPI::returnCRIT;
 		}
 	}
 	LOG_MESSAGE_STD(_T("No handler for command: '") + command + _T("'"));

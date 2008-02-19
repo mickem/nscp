@@ -387,9 +387,9 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 			msg = _T("UNKNOWN: Internal error.");
 			ret = NSCAPI::returnUNKNOWN;
 	}
-	if (msg.length() >= buffer_length_) {
+	if (msg.length() >= buffer_length_-1) {
 		NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
-		msg = msg.substr(0,buffer_length_-1);
+		msg = msg.substr(0,buffer_length_-2);
 	}
 	if (perf.empty()||noPerfData_) {
 		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg, buffer_length_);

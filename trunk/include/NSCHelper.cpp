@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <msvc_wrappers.h>
 #include <config.h>
+#include <strEx.h>
 
 #ifdef DEBUG
 /**
@@ -68,8 +69,11 @@ NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLe
 */
 int NSCHelper::wrapReturnString(TCHAR *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
 	// @todo deprecate this
-	if (str.length() >= bufLen)
+	if (str.length() >= bufLen) {
+		std::wstring sstr = str.substr(0, min(10, str.length()));
+		NSC_DEBUG_MSG_STD(_T("String (") + strEx::itos(str.length()) + _T(") to long to fit inside buffer(") + strEx::itos(bufLen) + _T(") : ") + sstr);
 		return NSCAPI::isInvalidBufferLen;
+	}
 	wcsncpy_s(buffer, bufLen, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
@@ -109,8 +113,10 @@ std::wstring NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 		return _T("CRITICAL");
 	else if (returnCode == NSCAPI::returnWARN)
 		return _T("WARNING");
+	else if (returnCode == NSCAPI::returnUNKNOWN)
+		return _T("WARNING");
 	else
-		return _T("UNKNOWN");
+		return _T("BAD_CODE");
 }
 
 
