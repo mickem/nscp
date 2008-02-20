@@ -2,19 +2,26 @@ TODO:
  * Process times and similar ?
  * Fix configuration GUI (low priority)
  * Fix installer (after configuration UI)
- * Add module for relaying events
+ * Add module for relaying events (in progress)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
+ * Improved socket performance (would be nice if we could be used as a "hub")
+
+2008-02-19 MickeM
+ + Added new module NRPEClient that can act as a NRPE client, might be useful for testing things and 
+   eventually for relaying events.
+   Usage: nsclient++ -noboot NRPEClient -H 192.168.0.1 -p 5666 -c check_something -a foo bar
+   This is an early concept so don't expect much...
 
 2008-02-19 MickeM
  + Fixed a buffer overflow in the NRPE socket handling.
  
 2008-02-18 MickeM
- + Added propper output handling to process subsystem (now you can execute programs tat return "much" data.
+ + Added proper output handling to process subsystem (now you can execute programs tat return "much" data.
  + Added select support for SSL_write (now you can send "any amount of data" to the (SSL) socket.
    Since check_nrpe doesn't do this it wont work in that end, but still...
 
 2008-02-16 MickeM
- + Refactored ExternalCommand handling so NRPE and new module does the same thing.
+ + Re factored ExternalCommand handling so NRPE and new module does the same thing.
 
 2008-02-14 MickeM
  + Added so commands starting in host_ (NSCA Handlers) are sent as host-commands
@@ -22,9 +29,9 @@ TODO:
 
 2008-02-13 MickeM
  + Added string_length to [Settings] as well (used internally) for all "injected" buffers.
- * Fixed issue with scripts result truncated efter 1024 chars 
-    (now they return "all" output and thus you can use the NRPE settings I adde yesterday :)
- + Added hostname setting to [NSCA] section (must have been braindead when I did not add it before)
+ * Fixed issue with scripts result truncated after 1024 chars 
+    (now they return "all" output and thus you can use the NRPE settings I added yesterday :)
+ + Added hostname setting to [NSCA] section (must have been  when I did not add it before)
  + Added to NSCA truncates output when to long.
 
 2008-02-12 MickeM
@@ -33,7 +40,7 @@ TODO:
  * Improved exception handling in the PDH collector (hopefully less deadlocks)
 
 2008-02-11 MickeM
- + Added encryption support for NSCA module (about half of the algorithms are avalible, 
+ + Added encryption support for NSCA module (about half of the algorithms are available, 
      if someone wants to use one not available let me know, and I will try to add it)
 
 2008-02-09 MickeM
@@ -47,7 +54,7 @@ TODO:
  + Added some more default catch handlers (on the "core" side of plugin-calls).
 
 2008-02-07 MickeM
- + Added default catch handlers to all wrapped plugin calls.
+ + Added default catch handlers to all wrapped plug in calls.
 
 2008-02-05 MickeM
  * Fixed issue with checkEventLog (sometimes you got the wrong message back)

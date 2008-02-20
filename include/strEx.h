@@ -34,6 +34,23 @@
 #endif
 
 namespace strEx {
+	namespace s {
+		inline std::string itos(float i) {
+			std::stringstream ss;
+			ss << i;
+			return ss.str();
+		}
+		inline std::string itos(int i) {
+			std::stringstream ss;
+			ss << i;
+			return ss.str();
+		}
+		inline std::string itos(unsigned int i) {
+			std::stringstream ss;
+			ss << i;
+			return ss.str();
+		}
+	}
 
 	inline void append_list(std::wstring &lst, std::wstring &append) {
 		if (!lst.empty())

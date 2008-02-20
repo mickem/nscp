@@ -106,13 +106,16 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = true;
+			mainClient.setBoot(false);
+			g_bConsoleLog = false;
 			mainClient.enableDebug(true);
+			mainClient.InitiateService();
 			int nRetCode = -1;
 			if (argc>=4)
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
 			else if (argc>=3)
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
+			mainClient.TerminateService();
 			return nRetCode;
 		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
 			std::wcout << "Launching test mode..." << std::endl;
@@ -220,27 +223,29 @@ bool NSClientT::InitiateService() {
 		LOG_ERROR_STD(_T("Unknown exception iniating socket..."));
 		return false;
 	}
-	try {
-		SettingsT::sectionList list = Settings::getInstance()->getSection(_T("modules"));
-		for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
-			try {
-				loadPlugin(getBasePath() + _T("modules\\") + (*it));
-			} catch(const NSPluginException& e) {
-				LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
-				//return false;
-			} catch (...) {
-				LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + (*it));
-				return false;
+	if (boot_) {
+		try {
+			SettingsT::sectionList list = Settings::getInstance()->getSection(_T("modules"));
+			for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
+				try {
+					loadPlugin(getBasePath() + _T("modules\\") + (*it));
+				} catch(const NSPluginException& e) {
+					LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+					//return false;
+				} catch (...) {
+					LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + (*it));
+					return false;
+				}
 			}
+		} catch (SettingsException e) {
+			NSC_LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
 		}
-	} catch (SettingsException e) {
-		NSC_LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
-	}
-	try {
-		loadPlugins();
-	} catch (...) {
-		LOG_ERROR_STD(_T("Unknown exception loading plugins"));
-		return false;
+		try {
+			loadPlugins();
+		} catch (...) {
+			LOG_ERROR_STD(_T("Unknown exception loading plugins"));
+			return false;
+		}
 	}
 	return true;
 }
@@ -249,10 +254,12 @@ bool NSClientT::InitiateService() {
  * When the program is stopped as a service this will be the "exit point".
  */
 void NSClientT::TerminateService(void) {
-	try {
-		mainClient.unloadPlugins();
-	} catch(NSPluginException &e) {
-		std::wcout << _T("Exception raised: ") << e.error_ << _T(" in module: ") << e.file_ << std::endl;;
+	if (boot_) {
+		try {
+			mainClient.unloadPlugins();
+		} catch(NSPluginException &e) {
+			std::wcout << _T("Exception raised: ") << e.error_ << _T(" in module: ") << e.file_ << std::endl;;
+		}
 	}
 	try {
 		simpleSocket::WSACleanup();
@@ -306,7 +313,6 @@ int NSClientT::commandLineExec(const TCHAR* module, const TCHAR* command, const 
 			}
 		}
 	}
-	LOG_MESSAGE_STD(_T("Module was not loaded, attempt to load it"));
 	try {
 		plugin_type plugin = loadPlugin(getBasePath() + _T("modules\\") + module);
 		LOG_DEBUG_STD(_T("Loading plugin: ") + plugin->getName() + _T("..."));

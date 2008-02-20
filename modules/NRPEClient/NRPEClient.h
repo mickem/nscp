@@ -74,6 +74,9 @@ public:
 	std::wstring getConfigurationMeta();
 
 private:
+	int execute_nrpe_command(std::wstring host, int port, bool ssl, int timeout, std::wstring command, std::wstring arguments);
+	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
+	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	class NRPEException {
 		std::wstring error_;
 	public:

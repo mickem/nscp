@@ -71,16 +71,20 @@ private:
 	cmdMap cmdDescriptions_;
 	typedef enum log_status {log_unknown, log_debug, log_nodebug };
 	log_status debug_;
+	bool boot_;
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown) {}
+	NSClientT(void) : debug_(log_unknown), boot_(true) {}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
 		if (debug)
 			debug_ = log_debug;
 		else
 			debug_ = log_nodebug;
+	}
+	void setBoot(bool boot = true) {
+		boot_ = boot;
 	}
 
 	// Service helper functions
