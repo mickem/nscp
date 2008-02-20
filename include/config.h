@@ -82,6 +82,7 @@
 
 // NRPE Settings headlines
 #define NRPE_SECTION_TITLE _T("NRPE")
+#define NRPE_CLIENT_HANDLER_SECTION_TITLE _T("NRPE Client Handlers")
 #define NRPE_HANDLER_SECTION_TITLE _T("NRPE Handlers")
 #define NRPE_SETTINGS_TIMEOUT _T("command_timeout")
 #define NRPE_SETTINGS_TIMEOUT_DEFAULT 60

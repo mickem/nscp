@@ -42,11 +42,43 @@ NRPEClient::~NRPEClient() {
 }
 
 bool NRPEClient::loadModule() {
-	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
-	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
 	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
+
+	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_CLIENT_HANDLER_SECTION_TITLE);
+	NSC_DEBUG_MSG_STD(_T("humm..."));
+	for (std::list<std::wstring>::const_iterator it = commands.begin(); it != commands.end(); ++it) {
+		NSC_DEBUG_MSG_STD(*it);
+		std::wstring s = NSCModuleHelper::getSettingsString(NRPE_CLIENT_HANDLER_SECTION_TITLE, (*it), _T(""));
+		if (s.empty()) {
+			NSC_LOG_ERROR_STD(_T("Invalid NRPE-client entry: ") + (*it));
+		} else {
+			addCommand((*it).c_str(), s);
+		}
+	}
 	return true;
 }
+
+void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
+	NSC_LOG_ERROR_STD(_T("Parsing: ") + args);
+	try {
+		boost::program_options::options_description desc = get_optionDesc();
+		boost::program_options::positional_options_description p = get_optionsPositional();
+
+		boost::program_options::variables_map vm;
+		boost::program_options::store(
+			basic_command_line_parser_ex<TCHAR>(args).options(desc).positional(p).run()
+			, vm);
+		boost::program_options::notify(vm); 
+		nrpe_connection_data cd = get_ConectionData(vm);
+		NSC_DEBUG_MSG_STD(_T("Parsed CLI for: ") + key.c_str() + _T(" = ") + cd.toString());
+		commands[key] = cd;
+	} catch (boost::program_options::validation_error &e) {
+		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + strEx::string_to_wstring(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str());
+	}
+}
+
 bool NRPEClient::unloadModule() {
 	return true;
 }
@@ -59,95 +91,100 @@ bool NRPEClient::hasMessageHandler() {
 }
 NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf)
 {
-	return 0;
+	command_list::const_iterator cit = commands.find(command);
+	if (cit == commands.end())
+		return NSCAPI::returnIgnored;
+	nrpe_result_data r = execute_nrpe_command((*cit).second);
+	message = r.text;
+	return r.result;
 }
 
 
-
-int NRPEClient::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args) {
-		try {
-			boost::program_options::options_description desc("Allowed options");
-			buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
-			desc.add_options()
-				("help,h", "Show this help message.")
-				("host,H", boost::program_options::wvalue<std::wstring>(), "The address of the host running the NRPE daemon")
-				("port,p", boost::program_options::value<int>(), "The port on which the daemon is running (default=5666)")
-				("command,c", boost::program_options::wvalue<std::wstring>(), "The name of the command that the remote daemon should run")
-				("timeout,t", boost::program_options::value<int>(), "Number of seconds before connection times out (default=10)")
-				("buffer-length,l", boost::program_options::value<int>(), std::string("Length of payload (has to be same as on the server (default=" + strEx::s::itos(buffer_length_) + ")").c_str())
-				("no-ssl,n", "Do not initial an ssl handshake with the server, talk in plaintext.")
-				("arguments,a", boost::program_options::wvalue<std::vector<std::wstring>>(), "list of arguments")
-				;
-			boost::program_options::positional_options_description p;
-			p.add("arguments", -1);
-			
-			boost::program_options::variables_map vm;
-			boost::program_options::store(
-				basic_command_line_parser_ex<TCHAR>(command, argLen, args).options(desc).positional(p).run()
-				, vm);
-			boost::program_options::notify(vm);    
-
-			if (vm.count("help")) {
-				std::cout << desc << "\n";
-				return 1;
-			}
-			std::wstring host = _T("localhost");
-			std::wstring command;
-			std::wstring arguments;
-			int port = 5666;
-			int timeout = 10;
-			bool ssl = true;
-
-			if (vm.count("host"))
-				host = vm["host"].as<std::wstring>();
-			if (vm.count("port"))
-				port = vm["port"].as<int>();
-			if (vm.count("timeout"))
-				timeout = vm["timeout"].as<int>();
-			if (vm.count("buffer-length"))
-				buffer_length_ = vm["buffer-length"].as<int>();
-			if (vm.count("command"))
-				command = vm["command"].as<std::wstring>();
-			if (vm.count("arguments")) {
-				std::vector<std::wstring> v = vm["arguments"].as<std::vector<std::wstring>>();
-				for (std::vector<std::wstring>::const_iterator cit = v.begin(); cit != v.end(); ++cit) {
-					if (!arguments.empty())
-						arguments += _T("!");
-					arguments += *cit;
-				}
-			}
-			if (vm.count("no-ssl"))
-				ssl = false;
-			return execute_nrpe_command(host, port, ssl, timeout, command, arguments);
-		} catch (boost::program_options::validation_error &e) {
-			std::cout << e.what() << std::endl;
-		} catch (...) {
-			std::cout << "Unknown exception parsing command line" << std::endl;
+boost::program_options::options_description NRPEClient::get_optionDesc() {
+	boost::program_options::options_description desc("Allowed options");
+	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
+	desc.add_options()
+		("help,h", "Show this help message.")
+		("host,H", boost::program_options::wvalue<std::wstring>(), "The address of the host running the NRPE daemon")
+		("port,p", boost::program_options::value<int>(), "The port on which the daemon is running (default=5666)")
+		("command,c", boost::program_options::wvalue<std::wstring>(), "The name of the command that the remote daemon should run")
+		("timeout,t", boost::program_options::value<int>(), "Number of seconds before connection times out (default=10)")
+		("buffer-length,l", boost::program_options::value<int>(), std::string("Length of payload (has to be same as on the server (default=" + strEx::s::itos(buffer_length_) + ")").c_str())
+		("no-ssl,n", "Do not initial an ssl handshake with the server, talk in plaintext.")
+		("arguments,a", boost::program_options::wvalue<std::vector<std::wstring>>(), "list of arguments")
+		;
+	return desc;
+}
+boost::program_options::positional_options_description NRPEClient::get_optionsPositional() {
+	boost::program_options::positional_options_description p;
+	p.add("arguments", -1);
+	return p;
+}
+NRPEClient::nrpe_connection_data NRPEClient::get_ConectionData(boost::program_options::variables_map &vm) {
+	nrpe_connection_data ret(buffer_length_);
+	if (vm.count("host"))
+		ret.host = vm["host"].as<std::wstring>();
+	if (vm.count("port"))
+		ret.port = vm["port"].as<int>();
+	if (vm.count("timeout"))
+		ret.timeout = vm["timeout"].as<int>();
+	if (vm.count("buffer-length"))
+		ret.buffer_length = vm["buffer-length"].as<int>();
+	if (vm.count("command"))
+		ret.command = vm["command"].as<std::wstring>();
+	if (vm.count("arguments")) {
+		std::vector<std::wstring> v = vm["arguments"].as<std::vector<std::wstring>>();
+		for (std::vector<std::wstring>::const_iterator cit = v.begin(); cit != v.end(); ++cit) {
+			if (!ret.arguments.empty())
+				ret.arguments += _T("!");
+			ret.arguments += *cit;
 		}
-	return 0;
+	}
+	if (vm.count("no-ssl"))
+		ret.ssl = false;
+	return ret;
 }
-int NRPEClient::execute_nrpe_command(std::wstring host, int port, bool ssl, int timeout, std::wstring command, std::wstring arguments) {
+int NRPEClient::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args) {
 	try {
-		std::wstring cmd = command;
-		if (cmd.empty())
-			cmd = _T("_NRPE_CHECK");
-		if (!arguments.empty())
-			cmd += _T("!") + arguments;
-		NRPEPacket packet;
-		if (ssl)
-			packet = send_ssl(host, port, timeout, NRPEPacket::make_request(cmd, buffer_length_));
-		else
-			packet = send_nossl(host, port, timeout, NRPEPacket::make_request(cmd, buffer_length_));
-		std::wcout << packet.getPayload() << std::endl;
-		return packet.getResult();
-	} catch (simpleSocket::SocketException &e) {
-		std::wcout << _T("whoops...") << e.getMessage() <<  std::endl;
-	} catch (simpleSSL::SSLException &e) {
-		std::wcout << _T("whoops...") << e.getMessage() <<  std::endl;
+		boost::program_options::options_description desc = get_optionDesc();
+		boost::program_options::positional_options_description p = get_optionsPositional();
+		
+		boost::program_options::variables_map vm;
+		boost::program_options::store(
+			basic_command_line_parser_ex<TCHAR>(command, argLen, args).options(desc).positional(p).run()
+			, vm);
+		boost::program_options::notify(vm);    
+
+		if (vm.count("help")) {
+			std::cout << desc << "\n";
+			return 1;
+		}
+
+		nrpe_result_data result = execute_nrpe_command(get_ConectionData(vm));
+		std::wcout << result.text << std::endl;
+		return result.result;
+	} catch (boost::program_options::validation_error &e) {
+		std::cout << e.what() << std::endl;
 	} catch (...) {
-		std::cout << "whoops..." << std::endl;
+		std::cout << "Unknown exception parsing command line" << std::endl;
 	}
 	return NSCAPI::returnUNKNOWN;
+}
+NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_data con) {
+	try {
+		NRPEPacket packet;
+		if (con.ssl)
+			packet = send_ssl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(), con.buffer_length));
+		else
+			packet = send_nossl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(), con.buffer_length));
+		return nrpe_result_data(packet.getResult(), packet.getPayload());
+	} catch (simpleSocket::SocketException &e) {
+		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + e.getMessage());
+	} catch (simpleSSL::SSLException &e) {
+		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("SSL Socket error: ") + e.getMessage());
+	} catch (...) {
+		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Unknown error"));
+	}
 }
 NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet)
 {
@@ -173,76 +210,7 @@ NRPEPacket NRPEClient::send_nossl(std::wstring host, int port, int timeout, NRPE
 
 
 
-NRPEPacket NRPEClient::handlePacket(NRPEPacket p) {
-	if (p.getType() != NRPEPacket::queryPacket) {
-		NSC_LOG_ERROR(_T("Request is not a query."));
-		throw NRPEException(_T("Invalid query type"));
-	}
-	if (p.getVersion() != NRPEPacket::version2) {
-		NSC_LOG_ERROR(_T("Request had unsupported version."));
-		throw NRPEException(_T("Invalid version"));
-	}
-	if (!p.verifyCRC()) {
-		NSC_LOG_ERROR(_T("Request had invalid checksum."));
-		throw NRPEException(_T("Invalid checksum"));
-	}
-	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
-	if (cmd.first == _T("_NRPE_CHECK")) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") SZVERSION _T(") seem to be doing fine..."), buffer_length_);
-	}
-	std::wstring msg, perf;
 
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
-		if (!cmd.second.empty()) {
-			NSC_LOG_ERROR(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
-			throw NRPEException(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
-		}
-	}
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
-		if (cmd.first.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-			NSC_LOG_ERROR(_T("Request command contained illegal metachars!"));
-			throw NRPEException(_T("Request command contained illegal metachars!"));
-		}
-		if (cmd.second.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-			NSC_LOG_ERROR(_T("Request arguments contained illegal metachars!"));
-			throw NRPEException(_T("Request command contained illegal metachars!"));
-		}
-	}
-
-	NSCAPI::nagiosReturn ret = -3;
-	try {
-		ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
-	} catch (...) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), buffer_length_);
-	}
-	switch (ret) {
-		case NSCAPI::returnInvalidBufferLen:
-			msg = _T("UNKNOWN: Return buffer to small to handle this command.");
-			ret = NSCAPI::returnUNKNOWN;
-			break;
-		case NSCAPI::returnIgnored:
-			msg = _T("UNKNOWN: No handler for that command");
-			ret = NSCAPI::returnUNKNOWN;
-			break;
-		case NSCAPI::returnOK:
-		case NSCAPI::returnWARN:
-		case NSCAPI::returnCRIT:
-		case NSCAPI::returnUNKNOWN:
-			break;
-		default:
-			msg = _T("UNKNOWN: Internal error.");
-			ret = NSCAPI::returnUNKNOWN;
-	}
-	if (msg.length() > buffer_length_) {
-		NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
-		msg = msg.substr(0,buffer_length_-1);
-	}
-	if (perf.empty()||noPerfData_) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg, buffer_length_);
-	} else {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + _T("|") + perf, buffer_length_);
-	}
-}
 
 NSC_WRAPPERS_MAIN_DEF(gNRPEClient);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

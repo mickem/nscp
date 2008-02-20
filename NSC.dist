@@ -25,6 +25,9 @@
 ;LUAScript.dll
 ; Script to check external scripts and/or internal aliases, early beta.
 ;CheckExternalScripts.dll
+; Check other hosts through NRPE extreme beta and probably a bit dangerous! :)
+;NRPEClient.dll
+
 
 
 [Settings]
@@ -273,3 +276,10 @@ use_file=1
 ;check_ok=scripts\ok.bat
 ;check_nok=scripts\xlong.bat
 ;check_vbs=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
+
+;# REMOTE NRPE PROXY COMMANDS
+;  A list of commands that check other hosts.
+;  Used by the NRPECLient module
+[NRPE Client Handlers]
+check_other=-H 192.168.0.1 -p 5666 -c remote_command -a arguments
+

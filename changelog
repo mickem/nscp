@@ -11,12 +11,15 @@ TODO:
    eventually for relaying events.
    Usage: nsclient++ -noboot NRPEClient -H 192.168.0.1 -p 5666 -c check_something -a foo bar
    This is an early concept so don't expect much...
+ * Fixed a bug in NSCA module (now it works again :)
+ + Added a command wrapper for the NRPECLient module so now it can act as a check command.
+   (No argument handling yet though), For a sample check out the [NRPE Client Handlers] section in NSC.ini
 
 2008-02-19 MickeM
  + Fixed a buffer overflow in the NRPE socket handling.
  
 2008-02-18 MickeM
- + Added proper output handling to process subsystem (now you can execute programs tat return "much" data.
+ + Added proper output handling to process subsystem (now you can execute programs that return "much" data.
  + Added select support for SSL_write (now you can send "any amount of data" to the (SSL) socket.
    Since check_nrpe doesn't do this it wont work in that end, but still...
 

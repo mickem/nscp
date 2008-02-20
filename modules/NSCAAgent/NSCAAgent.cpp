@@ -56,12 +56,9 @@ NSCAAgent::~NSCAAgent() {}
  * @return true
  */
 bool NSCAAgent::loadModule() {
-	//pdhThread.createThread();
-	//std::list<std::wstring> checks = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
-	//int interval = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
 	int e_threads = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_DEBUG_THREADS, NSCA_DEBUG_THREADS_DEFAULT);
 
-	for (int i=1;i<e_threads;i++) {
+	for (int i=0;i<e_threads;i++) {
 		std::wstring id = _T("nsca_t_") + strEx::itos(i);
 		NSCAThreadImpl *thread = new NSCAThreadImpl(id);
 		extra_threads.push_back(thread);

@@ -24,28 +24,58 @@ NSC_WRAPPERS_MAIN();
 #include <SSLSocket.h>
 #include <map>
 #include <nrpe/NRPEPacket.hpp>
+#include <boost/program_options.hpp>
+
 
 class NRPEClient {
 private:
 	typedef enum {
 		inject, script, script_dir,
 	} command_type;
-	struct command_data {
-		command_data() : type(inject) {}
-		command_data(command_type type_, std::wstring arguments_) : type(type_), arguments(arguments_) {}
-		command_type type;
+	struct nrpe_connection_data {
+		std::wstring host;
+		std::wstring command;
 		std::wstring arguments;
+		std::wstring command_line;
+		int port;
+		int timeout;
+		unsigned int buffer_length;
+		bool ssl;
+		nrpe_connection_data(unsigned int buffer_length_ = 1024) 
+			: host(_T("localhost")), 
+			port(5666), 
+			timeout(10), 
+			ssl(true), 
+			buffer_length(buffer_length_) 
+		{}
+		std::wstring get_cli() {
+			if (command_line.empty()) {
+				command_line = command;
+				if (command_line.empty())
+					command_line = _T("_NRPE_CHECK");
+				if (!arguments.empty())
+					command_line += _T("!") + arguments;
+			}
+			return command_line;
+		}
+		std::wstring toString() {
+			std::wstringstream ss;
+			ss << _T("host: ") << host;
+			ss << _T(", port: ") << port;
+			ss << _T(", timeout: ") << timeout;
+			ss << _T(", ssl: ") << ssl;
+			ss << _T(", buffer_length: ") << buffer_length;
+			return ss.str();
+		}
 	};
-	bool bUseSSL_;
-	simpleSSL::Listener socket_ssl_;
-	simpleSocket::Listener<> socket_;
-	typedef std::map<strEx::blindstr, command_data> command_list;
+	struct nrpe_result_data {
+		nrpe_result_data() {}
+		nrpe_result_data(int result_, std::wstring text_) : result(result_), text(text_) {}
+		std::wstring text;
+		int result;
+	};
+	typedef std::map<strEx::blindstr, nrpe_connection_data> command_list;
 	command_list commands;
-	unsigned int timeout;
-	unsigned int socketTimeout_;
-	socketHelpers::allowedHosts allowedHosts;
-	bool noPerfData_;
-	std::wstring scriptDirectory_;
 	unsigned int buffer_length_;
 
 public:
@@ -64,7 +94,7 @@ public:
 		return version;
 	}
 	std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NRPE connection and handles them.\nNRPE is preferred over NSClient as it is more flexible. You can of cource use both NSClient and NRPE.");
+		return _T("A simple client for NRPE.");
 	}
 
 	bool hasCommandHandler();
@@ -74,38 +104,17 @@ public:
 	std::wstring getConfigurationMeta();
 
 private:
-	int execute_nrpe_command(std::wstring host, int port, bool ssl, int timeout, std::wstring command, std::wstring arguments);
+	nrpe_result_data  execute_nrpe_command(nrpe_connection_data con);
 	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
-	class NRPEException {
-		std::wstring error_;
-	public:
-/*		NRPESocketException(simpleSSL::SSLException e) {
-			error_ = e.getMessage();
-		}
-		NRPEException(NRPEPacket::NRPEPacketException e) {
-			error_ = e.getMessage();
-		}
-		*/
-		NRPEException(std::wstring s) {
-			error_ = s;
-		}
-		std::wstring getMessage() {
-			return error_;
-		}
-	};
+
+	boost::program_options::options_description NRPEClient::get_optionDesc();
+	boost::program_options::positional_options_description NRPEClient::get_optionsPositional();
+	nrpe_connection_data NRPEClient::get_ConectionData(boost::program_options::variables_map &vm);
 
 
 private:
-
-
-	NRPEPacket handlePacket(NRPEPacket p);
-	void addCommand(command_type type, strEx::blindstr key, std::wstring args = _T("")) {
-		addCommand(key, command_data(type, args));
-	}
-	void addCommand(strEx::blindstr key, command_data args) {
-		commands[key] = args;
-	}
+	void addCommand(strEx::blindstr key, std::wstring args);
 
 };
 
