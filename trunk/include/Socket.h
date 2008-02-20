@@ -210,9 +210,12 @@ namespace simpleSocket {
 				to_.sin_family = AF_INET;
 				to_.sin_port = htons(port);
 				to_.sin_addr.s_addr = inet_addr(host);
-				return ::connect(socket_, (SOCKADDR*) &to_, sizeof(to_));
+				return connect_();
 			}
 			return SOCKET_ERROR;
+		}
+		virtual int connect_() {
+			return ::connect(socket_, (SOCKADDR*) &to_, sizeof(to_));
 		}
 
 		virtual void close() {
@@ -251,7 +254,9 @@ namespace simpleSocket {
 				::select(NULL, &read_, &write_, &excp_, NULL);
 			else
 				::select(NULL, &read_, &write_, &excp_, &timeout_);
-			return FD_ISSET(socket_, &write_);
+			if (FD_ISSET(socket_, &write_))
+				return true;
+			return false;
 		}
 
 		static unsigned long inet_addr(std::wstring addr) {

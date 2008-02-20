@@ -133,18 +133,38 @@ void setupDH(simpleSSL::DH &dh) {
 	dh.bin2bn_g(dh512_g, sizeof(dh512_g));
 }
 
-void simpleSSL::Listener::StartListener(std::wstring host, int port, unsigned int listenQue) {
-	// @todo init SSL
+int simpleSSL::Socket::connect_() {
 	simpleSSL::SSL_init();
 
-	context.createSSLv23();
+	Context context;
+	context.createSSLv23Client();
+	context.setCipherList();
+	/*
+	simpleSSL::DH dh;
+	dh.create();
+	setupDH(dh);
+	context.setTmpDH(dh.getDH());
+	dh.free();
+	*/
+	if (tBase::connect_() == SOCKET_ERROR) {
+		throw simpleSocket::SocketException(_T("Failed to connect to host: ") + inet_ntoa(to_.sin_addr.s_addr), WSAGetLastError());
+	}
+	ssl.setContext(context);
+	ssl.set_fd(socket_);
+	ssl.connect();
+	return 0;
+}
+
+
+void simpleSSL::Listener::StartListener(std::wstring host, int port, unsigned int listenQue) {
+	simpleSSL::SSL_init();
+	context.createSSLv23Server();
 	context.setCipherList();
 	simpleSSL::DH dh;
 	dh.create();
 	setupDH(dh);
 	context.setTmpDH(dh.getDH());
 	dh.free();
-
 	if (!lock_cs) {
 		lock_cs_count = simpleSSL::Crypto::getNumberOfLocks();
 		lock_cs = reinterpret_cast<HANDLE*>(simpleSSL::Crypto::malloc(lock_cs_count * sizeof(HANDLE)));

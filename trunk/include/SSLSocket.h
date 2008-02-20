@@ -111,19 +111,30 @@ namespace simpleSSL {
 		}
 
 		void destroy() {
-			assert(ctx_);
+			if (ctx_ != NULL)
+				throw SSLException(_T("Error: SSL Context already initalized."));
 			SSL_CTX_free(ctx_);
 			ctx_ = NULL;
 		}
-		void createSSLv23() {
-			assert(ctx_ == NULL);
+		void createSSLv23Server() {
+			if (ctx_ != NULL)
+				throw SSLException(_T("Error: SSL Context already initalized."));
 			ctx_ = SSL_CTX_new(SSLv23_server_method());
 			if (ctx_ == NULL) {
 				throw SSLException(_T("Error: could not create SSL context."));
 			}
 		}
+		void createSSLv23Client() {
+			if (ctx_ != NULL)
+				throw SSLException(_T("Error: SSL Context already initalized."));
+			ctx_ = SSL_CTX_new(SSLv23_client_method());
+			if (ctx_ == NULL)
+				throw SSLException(_T("Error: could not create SSL context."));
+			SSL_CTX_set_options(ctx_,SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+		}
 		void setCipherList(std::string s = "ADH") {
-			assert(ctx_);
+			if (ctx_ == NULL)
+				throw SSLException(_T("Error: SSL Context already initalized."));
 			SSL_CTX_set_cipher_list(ctx_, s.c_str());
 		}
 		void setTmpDH(::DH* dh) {
@@ -168,7 +179,8 @@ namespace simpleSSL {
 				throw SSLException(_T("Error: SSL_clear - failed: "), rc, getError(rc));
 		}
 		void create() {
-			assert(!ssl_);
+			if (ssl_ != NULL) 
+				throw SSLException(_T("Error: Could not create SSL connection structure, SSL is already inatialized."));
 			ssl_ = context_.newSSL();
 			if (ssl_ == NULL) 
 				throw SSLException(_T("Error: Could not create SSL connection structure."));
@@ -185,6 +197,25 @@ namespace simpleSSL {
 			int rc = 0;
 			int i = 0;
 			while ((rc = SSL_accept(ssl_)) != 1) {
+				if (++i >= 100) {
+					throw SSLException(_T("SSL: Could not complete SSL handshake."));
+				}
+				int rc2 = getError(rc);
+				if ((rc2 == SSL_ERROR_WANT_READ) || (rc2 == SSL_ERROR_WANT_WRITE)) {
+					Sleep(100);
+					continue;
+				} else {
+					throw SSLException(_T("Error: Could not complete SSL handshake : "), rc, rc2);
+				}
+			}
+			/**/
+		}
+		void connect() {
+			if (!ssl_)
+				create();
+			int rc = 0;
+			int i = 0;
+			while ((rc = SSL_connect(ssl_)) != 1) {
 				if (++i >= 100) {
 					throw SSLException(_T("SSL: Could not complete SSL handshake."));
 				}
@@ -242,6 +273,8 @@ namespace simpleSSL {
 		Socket() {
 		}
 		Socket(Socket &other) : tBase(other), ssl(other.ssl) {
+		}
+		Socket(bool create) : tBase(create) {
 		}
 		virtual ~Socket() {
 			ssl.shutdown();
@@ -301,6 +334,11 @@ namespace simpleSSL {
 			*/
 			tBase::close();
 		}
+		virtual int connect(std::wstring host, u_short port) {
+			return tBase::connect(host, port);
+		}
+
+		virtual int connect_();
 		void setContext(Context c) {
 			ssl.setContext(c);
 		}
