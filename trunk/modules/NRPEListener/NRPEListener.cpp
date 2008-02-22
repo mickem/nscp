@@ -80,6 +80,8 @@ bool NRPEListener::loadModule() {
 	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
 	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
 	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
+	if (buffer_length_ != 1024)
+		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
 	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::wstring>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
@@ -275,13 +277,14 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 			if (block.getLength() >= NRPEPacket::getBufferLength(buffer_length_))
 				break;
 			if (!lastReadHasMore) {
+				NSC_LOG_MESSAGE(_T("Could not read a full NRPE packet from socket, only got: ") + strEx::itos(block.getLength()));
 				client->close();
 				return;
 			}
 			Sleep(100);
 		}
 		if (i >= maxWait) {
-			NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout)"));
+			NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout), we only got: ") + strEx::itos(block.getLength()));
 			client->close();
 			return;
 		}
@@ -316,6 +319,10 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 				client->close();
 				return;
 			}
+		} else {
+			NSC_LOG_ERROR_STD(_T("We got more then we wanted ") + strEx::itos(NRPEPacket::getBufferLength(buffer_length_)) + _T(", we only got: ") + strEx::itos(block.getLength()));
+			client->close();
+			return;
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("SocketException: ") + e.getMessage());

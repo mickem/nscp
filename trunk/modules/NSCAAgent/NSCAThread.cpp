@@ -73,7 +73,6 @@ Command::Result Command::execute(std::wstring host) const {
 			result.result = result.result.substr(0, NSCA_MAX_PLUGINOUTPUT_LENGTH-1);
 		}
 	}
-	//NSC_DEBUG_MSG_STD(_T("Result: ") + result.toString());
 	return result;
 }
 

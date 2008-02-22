@@ -6,7 +6,12 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
-2008-02-19 MickeM
+2008-02-22 MickeM
+ * Fixed issues in the NRPE module (now returns the correct status)
+ + Added a lot of "error log" for when the packet size in NRPEListener is not correct 
+    (might make it simpler to diagnose problems)
+
+2008-02-20 MickeM
  + Added new module NRPEClient that can act as a NRPE client, might be useful for testing things and 
    eventually for relaying events.
    Usage: nsclient++ -noboot NRPEClient -H 192.168.0.1 -p 5666 -c check_something -a foo bar

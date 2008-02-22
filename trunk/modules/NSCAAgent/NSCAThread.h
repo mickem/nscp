@@ -169,7 +169,7 @@ public:
 			NSCAPacket::data_packet *data = reinterpret_cast<NSCAPacket::data_packet*>(buffer);
 			data->packet_version=static_cast<NSCAPacket::int16_t>(htons(NSCA_PACKET_VERSION_3));
 			data->timestamp=static_cast<NSCAPacket::u_int32_t>(htonl(time));
-			data->return_code = code;
+			data->return_code = ntohs(code);
 			data->crc32_value=static_cast<NSCAPacket::u_int32_t>(0L);
 
 			if (h.length() >= NSCA_MAX_HOSTNAME_LENGTH)
