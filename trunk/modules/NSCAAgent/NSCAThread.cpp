@@ -111,12 +111,11 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 
 	DWORD waitStatus = 0;
 	int drift = (checkIntervall_*rand())/RAND_MAX ;
-	NSC_LOG_ERROR_STD(_T("Drifting: ") + strEx::itos(drift));
+	NSC_DEBUG_MSG_STD(_T("Drifting: ") + strEx::itos(drift));
 	waitStatus = WaitForSingleObject(hStopEvent_, drift*1000);
 	if (waitStatus != WAIT_TIMEOUT)  {
 		NSC_LOG_ERROR_STD(_T("Drift failed... strange..."));
 	}
-	NSC_LOG_ERROR_STD(_T("Done drifting: ") + strEx::itos(drift));
 	int remain = checkIntervall_;
 	while (((waitStatus = WaitForSingleObject(hStopEvent_, remain*1000)) == WAIT_TIMEOUT)) {
 		MutexLock mutex(mutexHandler);

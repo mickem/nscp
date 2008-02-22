@@ -59,7 +59,6 @@ bool NRPEClient::loadModule() {
 }
 
 void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
-	NSC_LOG_ERROR_STD(_T("Parsing: ") + args);
 	try {
 		boost::program_options::options_description desc = get_optionDesc();
 		boost::program_options::positional_options_description p = get_optionsPositional();
@@ -70,7 +69,7 @@ void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 			, vm);
 		boost::program_options::notify(vm); 
 		nrpe_connection_data cd = get_ConectionData(vm);
-		NSC_DEBUG_MSG_STD(_T("Parsed CLI for: ") + key.c_str() + _T(" = ") + cd.toString());
+		NSC_DEBUG_MSG_STD(_T("Added NRPE Client: ") + key.c_str() + _T(" = ") + cd.toString());
 		commands[key] = cd;
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + strEx::string_to_wstring(e.what()));
