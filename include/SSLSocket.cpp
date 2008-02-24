@@ -134,8 +134,6 @@ void setupDH(simpleSSL::DH &dh) {
 }
 
 int simpleSSL::Socket::connect_() {
-	simpleSSL::SSL_init();
-
 	Context context;
 	context.createSSLv23Client();
 	context.setCipherList();

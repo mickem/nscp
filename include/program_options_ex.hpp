@@ -30,5 +30,8 @@ public:
 			make_vector<charT, charT**>(arg0, argv, argv+argc)
 			)
 		{}
+		basic_command_line_parser_ex(const std::wstring args) 
+			: boost::program_options::basic_command_line_parser<charT>(boost::program_options::split_winmain(args))
+		{}
 
 };

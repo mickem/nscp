@@ -3,9 +3,9 @@
 #include <map>
 
 extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
+#include "LUA/lua.h"
+#include "LUA/lauxlib.h"
+#include "LUA/lualib.h"
 }
 #include "luna.h"
 
