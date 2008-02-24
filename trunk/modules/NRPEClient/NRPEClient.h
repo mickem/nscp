@@ -42,7 +42,7 @@ private:
 		unsigned int buffer_length;
 		bool ssl;
 		nrpe_connection_data(unsigned int buffer_length_ = 1024) 
-			: host(_T("localhost")), 
+			: host(_T("127.0.0.1")), 
 			port(5666), 
 			timeout(10), 
 			ssl(true), 
@@ -77,6 +77,7 @@ private:
 	typedef std::map<strEx::blindstr, nrpe_connection_data> command_list;
 	command_list commands;
 	unsigned int buffer_length_;
+	bool bInitSSL;
 
 public:
 	NRPEClient();
@@ -107,6 +108,7 @@ private:
 	nrpe_result_data  execute_nrpe_command(nrpe_connection_data con);
 	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
+	void initSSL();
 
 	boost::program_options::options_description NRPEClient::get_optionDesc();
 	boost::program_options::positional_options_description NRPEClient::get_optionsPositional();

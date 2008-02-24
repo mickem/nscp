@@ -1,6 +1,6 @@
 //extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
+#include "LUA/lua.h"
+#include "LUA/lauxlib.h"
 //}
 
 template <typename T> class Luna {

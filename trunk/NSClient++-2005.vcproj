@@ -3122,10 +3122,6 @@
 			RelativePath=".\NSClient++.manifest"
 			>
 		</File>
-		<File
-			RelativePath=".\scripts\test.lua"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>

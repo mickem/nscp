@@ -35,7 +35,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	return TRUE;
 }
 
-NRPEClient::NRPEClient() : buffer_length_(0) {
+NRPEClient::NRPEClient() : buffer_length_(0), bInitSSL(false) {
 }
 
 NRPEClient::~NRPEClient() {
@@ -56,6 +56,12 @@ bool NRPEClient::loadModule() {
 		}
 	}
 	return true;
+}
+void NRPEClient::initSSL() {
+	if (bInitSSL)
+		return;
+	simpleSSL::SSL_init();
+	bInitSSL = true;
 }
 
 void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
@@ -187,6 +193,7 @@ NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_da
 }
 NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet)
 {
+	initSSL();
 	simpleSSL::Socket socket(true);
 	socket.connect(host, port);
 	socket.sendAll(packet.getBuffer(), packet.getBufferLength());
