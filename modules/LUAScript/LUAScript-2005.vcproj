@@ -68,10 +68,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="LUA.lib"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)&quot;"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/LUAScript.pdb"
@@ -152,8 +152,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/LUAScript.pdb"
@@ -230,8 +232,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
@@ -310,8 +314,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
@@ -389,8 +395,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
@@ -469,8 +477,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
@@ -546,7 +556,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
@@ -622,7 +634,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
@@ -702,8 +716,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/LUAScript.pdb"
@@ -784,8 +800,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="lua.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="LUAScript.def"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/LUAScript.pdb"
