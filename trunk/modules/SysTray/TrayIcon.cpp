@@ -25,10 +25,12 @@
 #include <strEx.h>
 #include <ShellAPI.h>
 #include "SysTray.h"
+#include <error.hpp>
 
 
 extern SysTray gSysTray;
 
+//BOOL ChangeWindowMessageFilter(UINT message,DWORD dwFlag);
 
 unsigned IconWidget_::threadProc(LPVOID lpParameter)
 {
@@ -40,12 +42,22 @@ unsigned IconWidget_::threadProc(LPVOID lpParameter)
 void IconWidget_::createDialog(void) {
 	hDlgWnd = ::CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
 
+	UINT UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
+	if (UDM_TASKBARCREATED == 0) {
+		NSC_LOG_ERROR_STD(_T("Failed to register 'TaskbarCreated': ") + error::lookup::last_error());
+	}
+
 	MSG Msg;
 	BOOL bRet;
 	while((bRet = ::GetMessage(&Msg, NULL, 0, 0)) != 0)
 	{
 		if (Msg.message == WM_MY_CLOSE) {
 			::DestroyWindow(hDlgWnd);
+//		} else if (Msg.message == WM_QUERYENDSESSION) {
+//			NSC_LOG_ERROR_STD(_T("Got WM_QUERYENDSESSION thingy..."));
+		} else if (Msg.message == UDM_TASKBARCREATED) {
+			NSC_LOG_MESSAGE_STD(_T("Recreating systray icon..."));
+			TrayIcon::addIcon(Msg.hwnd);
 		} else if (bRet == -1) {
 			// handle the error and possibly exit
 			NSC_LOG_ERROR_STD(_T("Wonder what this is... please let me know..."));
@@ -184,6 +196,8 @@ INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam
 	}
 	return FALSE;
 }
+
+
 
 void insert_logrecord(HWND hwndLV, const SysTray::log_entry &entry) {
 	LVITEM item;
