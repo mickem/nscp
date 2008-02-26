@@ -2,10 +2,13 @@ TODO:
  * Process times and similar ?
  * Fix configuration GUI (low priority)
  * Fix installer (after configuration UI)
- * Add module for relaying events (in progress)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
+ * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-02-26 MickeM
+ + Added installer
+ 
 2008-02-22 MickeM
  * Fixed issues in the NRPE module (now returns the correct status)
  + Added a lot of "error log" for when the packet size in NRPEListener is not correct 
