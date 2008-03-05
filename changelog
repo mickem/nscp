@@ -14,6 +14,8 @@ TODO:
  + Added <> (same as ! and !=) as NRPE breaks the use of ! (in "all" numeric filters (eventlog))
    Try using: filter-eventType=<>warning to remove everything that is not a warning
  * Fixed two spelling misstakes in the SysTray module.
+ * Fixed 64-bit issues with installer
+ * Fixed so installer uninstalls/installs the service
  
 2008-02-26 MickeM
  + Added installer
