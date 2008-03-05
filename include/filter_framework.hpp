@@ -186,6 +186,7 @@ namespace filters {
 	struct filter_one {
 		TFilterType filter;
 		bool hasFilter_;
+		std::wstring value_;
 		filter_one() : hasFilter_(false) {}
 		filter_one(const filter_one &other) : hasFilter_(other.hasFilter_), filter(other.filter) {
 		}
@@ -197,6 +198,7 @@ namespace filters {
 			return TFilter::filter(filter, value);
 		}
 		const filter_one & operator=(std::wstring value) {
+			value_ = value;
 			hasFilter_ = false;
 			try {
 				filter = THandler::parse(value);
@@ -205,6 +207,9 @@ namespace filters {
 				throw parse_exception(e.getMessage());
 			}
 			return *this;
+		}
+		std::wstring getValue() const {
+			return value_;
 		}
 	};
 
@@ -217,6 +222,7 @@ namespace filters {
 	struct filter_all_strings {
 		sub_string_filter sub;
 		exact_string_filter exact;
+		std::wstring value_;
 #ifndef NO_BOOST_DEP
 		regexp_string_filter regexp;
 #endif
@@ -240,7 +246,11 @@ namespace filters {
 				return true;
 			return false;
 		}
+		std::wstring getValue() const {
+			return value_;
+		}
 		const filter_all_strings & operator=(std::wstring value) {
+			value_ = value;
 			strEx::token t = strEx::getToken(value, ':', false);
 			if (t.first == _T("substr")) {
 				sub = t.second;
@@ -263,6 +273,7 @@ namespace filters {
 		filter_one<TType, TType, THandler, filter::numeric_equals_filter<TType> > eq;
 		filter_one<TType, TType, THandler, filter::numeric_nequals_filter<TType> > neq;
 		filter_one<std::list<TType>, TType, handlers::numeric_list_handler<TType, THandler>, filter::numeric_inlist_filter<std::list<TType>, TType> > inList;
+		std::wstring value_;
 
 		filter_all_numeric() {}
 		filter_all_numeric(const filter_all_numeric &other) {
@@ -289,6 +300,7 @@ namespace filters {
 			return false;
 		}
 		const filter_all_numeric& operator=(std::wstring value) {
+			value_ = value;
 			if (value.substr(0,1) == _T(">")) {
 				max = value.substr(1);
 			} else if (value.substr(0,1) == _T("<")) {
@@ -297,12 +309,17 @@ namespace filters {
 				eq = value.substr(1);
 			} else if (value.substr(0,2) == _T("!=")) {
 				neq = value.substr(2);
+			} else if (value.substr(0,1) == _T("!")) {
+				neq = value.substr(1);
 			} else if (value.substr(0,3) == _T("in:")) {
 				inList = value.substr(3);
 			} else {
 				throw parse_exception(_T("Unknown filter key: ") + value + _T(" (numeric filters have to have an operator as well ie. foo=>5 or bar==5)"));
 			}
 			return *this;
+		}
+		std::wstring getValue() const {
+			return value_;
 		}
 	};
 	typedef filter_all_numeric<unsigned long long, checkHolders::time_handler<unsigned long long> > filter_all_times;

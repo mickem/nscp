@@ -1793,6 +1793,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\checkHelpers.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\filter_framework.hpp"
 				>
 			</File>

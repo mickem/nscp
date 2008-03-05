@@ -28,6 +28,8 @@ NSC_WRAPPERS_MAIN();
 
 class CheckEventLog {
 private:
+	bool debug_;
+	std::wstring syntax_;
 
 public:
 	CheckEventLog();
