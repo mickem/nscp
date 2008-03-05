@@ -309,6 +309,8 @@ namespace filters {
 				eq = value.substr(1);
 			} else if (value.substr(0,2) == _T("!=")) {
 				neq = value.substr(2);
+			} else if (value.substr(0,2) == _T("<>")) {
+				neq = value.substr(2);
 			} else if (value.substr(0,1) == _T("!")) {
 				neq = value.substr(1);
 			} else if (value.substr(0,3) == _T("in:")) {

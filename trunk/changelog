@@ -11,6 +11,9 @@ TODO:
  + Added syntax to new section [Eventlog] used as a shorthand for the syntax to use as "default" (when no syntax=... option is given)
  * Fixed an issue with eventlog and . matching.
  + Added shorthand ! for != in "all" numeric filters (eventlog)
+ + Added <> (same as ! and !=) as NRPE breaks the use of ! (in "all" numeric filters (eventlog))
+   Try using: filter-eventType=<>warning to remove everything that is not a warning
+ * Fixed two spelling misstakes in the SysTray module.
  
 2008-02-26 MickeM
  + Added installer

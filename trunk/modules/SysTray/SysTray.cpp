@@ -37,11 +37,11 @@ SysTray::~SysTray() {}
 bool SysTray::loadModule() {
 	try {
 		if ((serviceControll::GetServiceType(SZSERVICENAME)&SERVICE_INTERACTIVE_PROCESS)!=SERVICE_INTERACTIVE_PROCESS) {
-			NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray wont be loaded. Run ") SZAPPNAME _T(" SysTray install ti change this."));
+			NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
 			return true;
 		}
 	} catch (serviceControll::SCException e) {
-		NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray wont be loaded. Run ") SZAPPNAME _T(" SysTray install ti change this."));
+		NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
 		return true;
 	}
 	icon.createThread();
