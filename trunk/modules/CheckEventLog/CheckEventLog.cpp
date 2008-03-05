@@ -46,6 +46,8 @@ CheckEventLog::~CheckEventLog() {
 bool CheckEventLog::loadModule() {
 	try {
 		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
+		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -338,10 +340,28 @@ struct eventlog_filter {
 	filters::filter_all_times timeWritten;
 	filters::filter_all_times timeGenerated;
 	filters::filter_all_numeric<DWORD, filters::handlers::eventtype_handler> eventID;
+	std::wstring value_;
 
 	inline bool hasFilter() {
 		return eventSource.hasFilter() || eventType.hasFilter() || eventID.hasFilter() || eventSeverity.hasFilter() || message.hasFilter() || 
 			timeWritten.hasFilter() || timeGenerated.hasFilter();
+	}
+	std::wstring getValue() const {
+		if (eventSource.hasFilter())
+			return eventSource.getValue();
+		if (eventType.hasFilter())
+			return eventType.getValue();
+		if (eventSeverity.hasFilter())
+			return eventSeverity.getValue();
+		if (eventID.hasFilter())
+			return eventID.getValue();
+		if (message.hasFilter())
+			return message.getValue();
+		if (timeWritten.hasFilter())
+			return timeWritten.getValue();
+		if (timeGenerated.hasFilter())
+			return timeGenerated.getValue();
+		return _T("UNknown...");
 	}
 	bool matchFilter(const EventLogRecord &value) const {
 		if ((eventSource.hasFilter())&&(eventSource.matchFilter(value.eventSource())))
@@ -388,7 +408,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	bool bShowDescriptions = false;
 	bool unique = false;
 	unsigned int truncate = 0;
-	std::wstring syntax;
+	std::wstring syntax = syntax_;
 	const int filter_plus = 1;
 	const int filter_minus = 2;
 	const int filter_normal = 3;
@@ -476,7 +496,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		{
 			while (dwRead > 0) 
 			{ 
-				bool bMatch = bFilterAll;
+				//bool bMatch = bFilterAll;
+				bool bMatch = !bFilterIn;
 				EventLogRecord record((*cit2), pevlr, ltime);
 
 				if (filter_chain.empty()) {
@@ -486,6 +507,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 
 				for (filterlist_type::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
+					std::wstring reason;
 					int mode = (*cit3).first;
 					bool bTmpMatched = (*cit3).second.matchFilter(record);
 					if (!bFilterNew) {
@@ -503,13 +525,19 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 					} else {
 						if ((mode == filter_minus)&&(bTmpMatched)) {
 							// a -<filter> hit so thrash item and bail out!
+							if (debug_)
+								NSC_DEBUG_MSG_STD(_T("Matched: - ") + (*cit3).second.getValue() + _T(" for: ") + record.render(bShowDescriptions, syntax));
 							bMatch = false;
 							break;
 						} else if ((mode == filter_plus)&&(!bTmpMatched)) {
-								// a +<filter> missed hit so thrash item and bail out!
-								bMatch = false;
-								break;
+							// a +<filter> missed hit so thrash item and bail out!
+							if (debug_)
+								NSC_DEBUG_MSG_STD(_T("Matched: + ") + (*cit3).second.getValue() + _T(" for: ") + record.render(bShowDescriptions, syntax));
+							bMatch = false;
+							break;
 						} else if (bTmpMatched) {
+							if (debug_)
+								NSC_DEBUG_MSG_STD(_T("Matched: . (contiunue): ") + (*cit3).second.getValue() + _T(" for: ") + record.render(bShowDescriptions, syntax));
 							bMatch = true;
 						}
 					}
