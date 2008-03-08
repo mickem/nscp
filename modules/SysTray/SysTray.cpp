@@ -105,7 +105,7 @@ void SysTray::handleMessage(int msgType, TCHAR* file, int line, TCHAR* message) 
 				log.pop_front();
 			hWnd = hLogWnd;
 		} else {
-			std::cout << "Fuck!!!" << std::endl;
+			std::cout << "Damnit!!!" << std::endl;
 			NSC_LOG_ERROR_STD(_T("Failed to get mutex in logger, message discarded"));
 		}
 	}

@@ -6,6 +6,19 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-03-08 MickeM
+ * Changed so log is now in unicode format
+   Hopefully this will make it simpler to diagnose PDH issues in "strange locales".
+   If anyone hates this let me know and I will add an option to use "old ansi log".
+ * Fixed so the console is logged as ANSI (properly) and all unicodes are discarded.
+   This means "strangness" in unicode and non-us-ascii chars on the console,
+    so for details refer to the log-file which is proper unicode.
+ + Since log module is loaded "after" the client has booted I added a "hello" message that prints the current version
+    (if you find this annoying let me know, I will make it optional :)
+
+2008-03-06 MickeM
+ * Fixed silly ordering bug with the <> syntax.
+
 2008-03-05 MickeM
  + Added debug to new section [Eventlog], when enabled it will (log) wat lines matched what, this is a pretty big performance overhead so dont run with this one.
  + Added syntax to new section [Eventlog] used as a shorthand for the syntax to use as "default" (when no syntax=... option is given)
