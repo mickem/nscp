@@ -119,6 +119,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			return nRetCode;
 		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
 			std::wcout << "Launching test mode..." << std::endl;
+			LOG_MESSAGE_STD(_T("Booting: " SZSERVICEDISPLAYNAME ));
 			try {
 				if (serviceControll::isStarted(SZSERVICENAME)) {
 					std::wcerr << "Service seems to be started, this is probably not a good idea..." << std::endl;
@@ -134,6 +135,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			}
 			LOG_MESSAGE_STD(_T("Using settings from: ") + Settings::getInstance()->getActiveType());
 			LOG_MESSAGE(_T("Enter command to inject or exit to terminate..."));
+
 			std::wstring s = _T("");
 			std::wstring buff = _T("");
 			while (true) {
@@ -152,10 +154,11 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					strEx::token t = strEx::getToken(buff, ' ');
 					std::wstring msg, perf;
 					NSCAPI::nagiosReturn ret = mainClient.inject(t.first, t.second, ' ', true, msg, perf);
-					if (perf.empty())
-						std::wcout << NSCHelper::translateReturn(ret) << _T(":") << msg << std::endl;
-					else
-						std::wcout << NSCHelper::translateReturn(ret) << _T(":") << msg << _T("|") << perf << std::endl;
+					std::wcout << NSCHelper::translateReturn(ret) << _T(":");
+					std::cout << strEx::wstring_to_string(msg);
+					if (!perf.empty())
+						std::cout << "|" << strEx::wstring_to_string(perf);
+					std::wcout << std::endl;
 					buff = _T("");
 				} else {
 					buff += s + _T(" ");
@@ -592,25 +595,25 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 			return;
 		}
 		if (g_bConsoleLog) {
-			std::wstring k = _T("?");
+			std::string k = "?";
 			switch (msgType) {
 			case NSCAPI::critical:
-				k =_T("c");
+				k ="c";
 				break;
 			case NSCAPI::warning:
-				k =_T("w");
+				k ="w";
 				break;
 			case NSCAPI::error:
-				k =_T("e");
+				k ="e";
 				break;
 			case NSCAPI::log:
-				k =_T("l");
+				k ="l";
 				break;
 			case NSCAPI::debug:
-				k =_T("d");
+				k ="d";
 				break;
-			}
-			std::wcout << k << _T(" ") << file_stl << _T("(") << line << _T(") ") << message << std::endl;
+			}	
+			std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
 		}
 		for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
 			try {

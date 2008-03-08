@@ -348,19 +348,19 @@ struct eventlog_filter {
 	}
 	std::wstring getValue() const {
 		if (eventSource.hasFilter())
-			return eventSource.getValue();
+			return _T("event-source: ") + eventSource.getValue();
 		if (eventType.hasFilter())
-			return eventType.getValue();
+			return _T("event-type: ") + eventType.getValue();
 		if (eventSeverity.hasFilter())
-			return eventSeverity.getValue();
+			return _T("severity: ") + eventSeverity.getValue();
 		if (eventID.hasFilter())
-			return eventID.getValue();
+			return _T("event-id: ") + eventID.getValue();
 		if (message.hasFilter())
-			return message.getValue();
+			return _T("message: ") + message.getValue();
 		if (timeWritten.hasFilter())
-			return timeWritten.getValue();
+			return _T("time-written: ") + timeWritten.getValue();
 		if (timeGenerated.hasFilter())
-			return timeGenerated.getValue();
+			return _T("time-generated: ") + timeGenerated.getValue();
 		return _T("UNknown...");
 	}
 	bool matchFilter(const EventLogRecord &value) const {

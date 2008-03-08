@@ -204,7 +204,9 @@ namespace filters {
 				filter = THandler::parse(value);
 				hasFilter_ = true;
 			} catch (handlers::handler_exception e) {
-				throw parse_exception(e.getMessage());
+				throw parse_exception(e.getMessage() + _T(": ") + value);
+			} catch (...) {
+				throw parse_exception(_T("Unknown parse exception: ") + value);
 			}
 			return *this;
 		}
@@ -303,13 +305,13 @@ namespace filters {
 			value_ = value;
 			if (value.substr(0,1) == _T(">")) {
 				max = value.substr(1);
+			} else if (value.substr(0,2) == _T("<>")) {
+				neq = value.substr(2);
 			} else if (value.substr(0,1) == _T("<")) {
 				min = value.substr(1);
 			} else if (value.substr(0,1) == _T("=")) {
 				eq = value.substr(1);
 			} else if (value.substr(0,2) == _T("!=")) {
-				neq = value.substr(2);
-			} else if (value.substr(0,2) == _T("<>")) {
 				neq = value.substr(2);
 			} else if (value.substr(0,1) == _T("!")) {
 				neq = value.substr(1);
