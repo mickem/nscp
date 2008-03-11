@@ -76,9 +76,9 @@ public:
 			return false;
 		}
 		DWORD cbData = static_cast<DWORD>(wcslen(value));
-		BYTE *bData = new BYTE[cbData+1];
-		wcsncpy_s(reinterpret_cast<TCHAR*>(bData), cbData+1, value, cbData);
-		BOOL bRet = RegSetValueEx(hTemp, lpszKey, NULL, REG_SZ, bData, cbData);
+		TCHAR *bData = new TCHAR[cbData+2];
+		wcsncpy_s(bData, cbData+1, value, cbData);
+		BOOL bRet = RegSetValueEx(hTemp, lpszKey, NULL, REG_SZ, reinterpret_cast<BYTE*>(bData), cbData);
 		RegCloseKey(hTemp);
 		delete [] bData;
 		return  (bRet == ERROR_SUCCESS);
@@ -114,9 +114,12 @@ public:
 		LONG lRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, bData, &cbData);
 		if (lRet == ERROR_SUCCESS) {
 			if (type == REG_SZ) {
-				if (cbData < data_length-1) {
+				if (cbData == 0)
+					return _T("");
+				else if (cbData < data_length-1) {
 					bData[cbData] = 0;
-					ret = reinterpret_cast<LPCTSTR>(bData);
+					const TCHAR *ptr = reinterpret_cast<TCHAR*>(bData);
+					ret = ptr;
 				} else {
 					std::wcout << _T("getString_::Buffersize to small: ") << lpszPath << "." << lpszKey << ": " << type << std::endl;
 				}

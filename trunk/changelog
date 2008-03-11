@@ -6,6 +6,9 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2007-03-11 MickeM
+ ! 0.3.1 Released
+
 2008-03-08 MickeM
  * Changed so log is now in unicode format
    Hopefully this will make it simpler to diagnose PDH issues in "strange locales".
@@ -15,6 +18,7 @@ TODO:
     so for details refer to the log-file which is proper unicode.
  + Since log module is loaded "after" the client has booted I added a "hello" message that prints the current version
     (if you find this annoying let me know, I will make it optional :)
+ * Fixed some issues in the registry handling
 
 2008-03-06 MickeM
  * Fixed silly ordering bug with the <> syntax.
