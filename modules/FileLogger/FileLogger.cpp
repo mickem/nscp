@@ -24,6 +24,7 @@
 
 #include <sys/timeb.h>
 #include <time.h>
+#include <utils.h>
 
 FileLogger gFileLogger;
 
@@ -33,7 +34,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	return TRUE;
 }
 
-FileLogger::FileLogger() {
+FileLogger::FileLogger() : init_(false) {
 }
 FileLogger::~FileLogger() {
 }
@@ -52,6 +53,9 @@ bool FileLogger::loadModule() {
 	_tzset();
 	getFileName();
 	format_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_DATEMASK, LOG_DATEMASK_DEFAULT);
+	init_ = true;
+	std::wstring hello = _T("Starting to log for: ") + NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
+	handleMessage(NSCAPI::log, __FILEW__, __LINE__, hello.c_str());
 	return true;
 }
 bool FileLogger::unloadModule() {
@@ -63,9 +67,30 @@ bool FileLogger::hasCommandHandler() {
 bool FileLogger::hasMessageHandler() {
 	return true;
 }
-void FileLogger::handleMessage(int msgType, TCHAR* file, int line, TCHAR* message) {
+void FileLogger::writeEntry(std::wstring line) {
+	DWORD numberOfBytesWritten;
+	HANDLE hFile = ::CreateFile(file_.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		hFile = ::CreateFile(file_.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			std::wcout << _T("Failed to write to log file: ") << file_ << std::endl;
+			return;
+		}
+		WORD wBOM = 0xFEFF;
+		::WriteFile(hFile, &wBOM, sizeof(WORD), &numberOfBytesWritten, NULL);
+	}
+	//::WriteFile(hFile, &wBOM, sizeof(WORD), &NumberOfBytesWritten, NULL);
+	if (::SetFilePointer(hFile, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+		std::wcout << _T("Failed to move pointer to end of file...") << std::endl;
+	}
+	::WriteFile(hFile, line.c_str(), (line.length())*(sizeof(TCHAR)), &numberOfBytesWritten, NULL);
+	::CloseHandle(hFile);
+}
+
+void FileLogger::handleMessage(int msgType, TCHAR* file, int line, const TCHAR* message) {
+	if (!init_)
+		return;
 	TCHAR buffer[65];
-	std::wofstream stream(file_.c_str(), std::ios::app);
 	__time64_t ltime;
 	_time64( &ltime );
 	struct tm *today = _localtime64( &ltime );
@@ -78,7 +103,10 @@ void FileLogger::handleMessage(int msgType, TCHAR* file, int line, TCHAR* messag
 	} else {
 		wcsncpy_s(buffer, 64, _T("???"), 63);
 	}
-	stream << buffer << _T(": ") << NSCHelper::translateMessageType(msgType) << _T(":") << file << _T(":") << line << _T(": ") << message << std::endl;
+	writeEntry(std::wstring(buffer) + _T(": ") + 
+		NSCHelper::translateMessageType(msgType) + _T(":") + 
+		std::wstring(file) + _T(":") + strEx::itos(line) +_T(": ") + 
+		message + _T("\r\n"));
 }
 
 NSC_WRAPPERS_MAIN_DEF(gFileLogger);

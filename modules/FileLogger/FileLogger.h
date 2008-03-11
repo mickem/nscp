@@ -26,6 +26,7 @@ class FileLogger {
 private:
 	std::wstring file_;
 	std::wstring format_;
+	bool init_;
 
 public:
 	FileLogger();
@@ -49,8 +50,9 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	void handleMessage(int msgType, TCHAR* file, int line, TCHAR* message);
+	void handleMessage(int msgType, TCHAR* file, int line, const TCHAR* message);
 	int handleCommand(TCHAR* command, TCHAR **argument, TCHAR *returnBuffer, int returnBufferLen);
+	void writeEntry(std::wstring line);
 
 
 	std::wstring getFileName();

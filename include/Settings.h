@@ -103,6 +103,8 @@ public:
 	void read(int type = -1) {
 		bool bNew = false;
 		TSettings *sM = settingsManager;
+		if (settingsManager == NULL)
+			throw SettingsException(_T("No settings method specified, cannot start"));
 		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
 			if (type == REGSettings::getType()) {
 				sM = new REGSettings();
@@ -160,6 +162,8 @@ public:
 	void write(int type = -1) {
 		bool bNew = false;
 		TSettings *sM = settingsManager;
+		if (settingsManager == NULL)
+			throw SettingsException(_T("No settings method specified, cannot start"));
 		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
 			if (type == REGSettings::getType()) {
 				sM = new REGSettings();
