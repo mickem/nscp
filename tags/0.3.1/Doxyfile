@@ -1,0 +1,285 @@
+# Doxyfile 1.4.1
+
+#---------------------------------------------------------------------------
+# Project related configuration options
+#---------------------------------------------------------------------------
+PROJECT_NAME           = NSClient++
+PROJECT_NUMBER         = 1
+OUTPUT_DIRECTORY       = Doc
+CREATE_SUBDIRS         = NO
+OUTPUT_LANGUAGE        = English
+USE_WINDOWS_ENCODING   = YES
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+ABBREVIATE_BRIEF       = "The $name class" \
+                         "The $name widget" \
+                         "The $name file" \
+                         is \
+                         provides \
+                         specifies \
+                         contains \
+                         represents \
+                         a \
+                         an \
+                         the
+ALWAYS_DETAILED_SEC    = YES
+INLINE_INHERITED_MEMB  = YES
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = 
+STRIP_FROM_INC_PATH    = 
+SHORT_NAMES            = NO
+JAVADOC_AUTOBRIEF      = YES
+MULTILINE_CPP_IS_BRIEF = NO
+DETAILS_AT_TOP         = YES
+INHERIT_DOCS           = YES
+DISTRIBUTE_GROUP_DOC   = NO
+TAB_SIZE               = 8
+ALIASES                = 
+OPTIMIZE_OUTPUT_FOR_C  = NO
+OPTIMIZE_OUTPUT_JAVA   = NO
+SUBGROUPING            = YES
+#---------------------------------------------------------------------------
+# Build related configuration options
+#---------------------------------------------------------------------------
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_LOCAL_METHODS  = YES
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+HIDE_FRIEND_COMPOUNDS  = NO
+HIDE_IN_BODY_DOCS      = NO
+INTERNAL_DOCS          = NO
+CASE_SENSE_NAMES       = NO
+HIDE_SCOPE_NAMES       = NO
+SHOW_INCLUDE_FILES     = YES
+INLINE_INFO            = YES
+SORT_MEMBER_DOCS       = YES
+SORT_BRIEF_DOCS        = YES
+SORT_BY_SCOPE_NAME     = YES
+GENERATE_TODOLIST      = YES
+GENERATE_TESTLIST      = YES
+GENERATE_BUGLIST       = YES
+GENERATE_DEPRECATEDLIST= YES
+ENABLED_SECTIONS       = 
+MAX_INITIALIZER_LINES  = 10
+SHOW_USED_FILES        = YES
+SHOW_DIRECTORIES       = YES
+FILE_VERSION_FILTER    = 
+#---------------------------------------------------------------------------
+# configuration options related to warning and progress messages
+#---------------------------------------------------------------------------
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = YES
+WARN_FORMAT            = "$file($line) : $text"
+WARN_LOGFILE           = 
+#---------------------------------------------------------------------------
+# configuration options related to the input files
+#---------------------------------------------------------------------------
+INPUT                  = C:\Source\nscplus
+FILE_PATTERNS          = *.cpp \
+                         *.h \
+                         *.hpp \
+                         *.c
+RECURSIVE              = YES
+EXCLUDE                = 
+EXCLUDE_SYMLINKS       = NO
+EXCLUDE_PATTERNS       = 
+EXAMPLE_PATH           = .
+EXAMPLE_PATTERNS       = 
+EXAMPLE_RECURSIVE      = YES
+IMAGE_PATH             = 
+INPUT_FILTER           = 
+FILTER_PATTERNS        = 
+FILTER_SOURCE_FILES    = NO
+#---------------------------------------------------------------------------
+# configuration options related to source browsing
+#---------------------------------------------------------------------------
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = YES
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+VERBATIM_HEADERS       = YES
+#---------------------------------------------------------------------------
+# configuration options related to the alphabetical class index
+#---------------------------------------------------------------------------
+ALPHABETICAL_INDEX     = YES
+COLS_IN_ALPHA_INDEX    = 5
+IGNORE_PREFIX          = 
+#---------------------------------------------------------------------------
+# configuration options related to the HTML output
+#---------------------------------------------------------------------------
+GENERATE_HTML          = YES
+HTML_OUTPUT            = 
+HTML_FILE_EXTENSION    = 
+HTML_HEADER            = 
+HTML_FOOTER            = 
+HTML_STYLESHEET        = 
+HTML_ALIGN_MEMBERS     = YES
+GENERATE_HTMLHELP      = NO
+CHM_FILE               = 
+HHC_LOCATION           = 
+GENERATE_CHI           = NO
+BINARY_TOC             = NO
+TOC_EXPAND             = NO
+DISABLE_INDEX          = YES
+ENUM_VALUES_PER_LINE   = 4
+GENERATE_TREEVIEW      = YES
+TREEVIEW_WIDTH         = 300
+#---------------------------------------------------------------------------
+# configuration options related to the LaTeX output
+#---------------------------------------------------------------------------
+GENERATE_LATEX         = NO
+LATEX_OUTPUT           = 
+LATEX_CMD_NAME         = latex
+MAKEINDEX_CMD_NAME     = 
+COMPACT_LATEX          = NO
+PAPER_TYPE             = a4wide
+EXTRA_PACKAGES         = 
+LATEX_HEADER           = 
+PDF_HYPERLINKS         = YES
+USE_PDFLATEX           = YES
+LATEX_BATCHMODE        = YES
+LATEX_HIDE_INDICES     = NO
+#---------------------------------------------------------------------------
+# configuration options related to the RTF output
+#---------------------------------------------------------------------------
+GENERATE_RTF           = NO
+RTF_OUTPUT             = 
+COMPACT_RTF            = NO
+RTF_HYPERLINKS         = YES
+RTF_STYLESHEET_FILE    = 
+RTF_EXTENSIONS_FILE    = 
+#---------------------------------------------------------------------------
+# configuration options related to the man page output
+#---------------------------------------------------------------------------
+GENERATE_MAN           = NO
+MAN_OUTPUT             = 
+MAN_EXTENSION          = .3
+MAN_LINKS              = YES
+#---------------------------------------------------------------------------
+# configuration options related to the XML output
+#---------------------------------------------------------------------------
+GENERATE_XML           = NO
+XML_OUTPUT             = xml
+XML_SCHEMA             = 
+XML_DTD                = 
+XML_PROGRAMLISTING     = YES
+#---------------------------------------------------------------------------
+# configuration options for the AutoGen Definitions output
+#---------------------------------------------------------------------------
+GENERATE_AUTOGEN_DEF   = NO
+#---------------------------------------------------------------------------
+# configuration options related to the Perl module output
+#---------------------------------------------------------------------------
+GENERATE_PERLMOD       = NO
+PERLMOD_LATEX          = NO
+PERLMOD_PRETTY         = YES
+PERLMOD_MAKEVAR_PREFIX = 
+#---------------------------------------------------------------------------
+# Configuration options related to the preprocessor   
+#---------------------------------------------------------------------------
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+SEARCH_INCLUDES        = YES
+INCLUDE_PATH           = 
+INCLUDE_FILE_PATTERNS  = 
+PREDEFINED             = "DECLARE_INTERFACE(name)=class name" \
+                         "STDMETHOD(result,name)=virtual result name" \
+                         "PURE= = 0" \
+                         THIS_= \
+                         THIS= \
+                         DECLARE_REGISTRY_RESOURCEID=// \
+                         DECLARE_PROTECT_FINAL_CONSTRUCT=// \
+                         "DECLARE_AGGREGATABLE(Class)= " \
+                         "DECLARE_REGISTRY_RESOURCEID(Id)= " \
+                         DECLARE_MESSAGE_MAP \
+                         = \
+                         BEGIN_MESSAGE_MAP=/* \
+                         END_MESSAGE_MAP=*/// \
+                         BEGIN_COM_MAP=/* \
+                         END_COM_MAP=*/// \
+                         BEGIN_PROP_MAP=/* \
+                         END_PROP_MAP=*/// \
+                         BEGIN_MSG_MAP=/* \
+                         END_MSG_MAP=*/// \
+                         BEGIN_PROPERTY_MAP=/* \
+                         END_PROPERTY_MAP=*/// \
+                         BEGIN_OBJECT_MAP=/* \
+                         END_OBJECT_MAP()=*/// \
+                         DECLARE_VIEW_STATUS=// \
+                         "STDMETHOD(a)=HRESULT a" \
+                         "ATL_NO_VTABLE= " \
+                         "__declspec(a)= " \
+                         BEGIN_CONNECTION_POINT_MAP=/* \
+                         END_CONNECTION_POINT_MAP=*/// \
+                         "DECLARE_DYNAMIC(class)= " \
+                         "IMPLEMENT_DYNAMIC(class1, class2)= " \
+                         "DECLARE_DYNCREATE(class)= " \
+                         "IMPLEMENT_DYNCREATE(class1, class2)= " \
+                         "IMPLEMENT_SERIAL(class1, class2, class3)= " \
+                         "DECLARE_MESSAGE_MAP()= " \
+                         TRY=try \
+                         "CATCH_ALL(e)= catch(...)" \
+                         END_CATCH_ALL= \
+                         "THROW_LAST()= throwRUNTIME_CLASS(class)=class" \
+                         MAKEINTRESOURCE(nId)=nId \
+                         "IMPLEMENT_REGISTER(v, w, x, y, z)= " \
+                         ASSERT(x)=assert(x) \
+                         ASSERT_VALID(x)=assert(x) \
+                         TRACE0(x)=printf(x) \
+                         "OS_ERR(A,B)={ #A, B }" \
+                         __cplusplus \
+                         "DECLARE_OLECREATE(class)= " \
+                         "BEGIN_DISPATCH_MAP(class1, class2)= " \
+                         "INTERFACE_PART(class, id, name)= " \
+                         END_INTERFACE_MAP()= \
+                         "DISP_FUNCTION(class, name, function, result, id)=" \
+                         END_DISPATCH_MAP()= \
+                         "IMPLEMENT_OLECREATE2(class, name, id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11)="
+EXPAND_AS_DEFINED      = 
+SKIP_FUNCTION_MACROS   = YES
+#---------------------------------------------------------------------------
+# Configuration::additions related to external references   
+#---------------------------------------------------------------------------
+TAGFILES               = 
+GENERATE_TAGFILE       = 
+ALLEXTERNALS           = NO
+EXTERNAL_GROUPS        = NO
+PERL_PATH              = 
+#---------------------------------------------------------------------------
+# Configuration options related to the dot tool   
+#---------------------------------------------------------------------------
+CLASS_DIAGRAMS         = YES
+HIDE_UNDOC_RELATIONS   = NO
+HAVE_DOT               = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+GROUP_GRAPHS           = YES
+UML_LOOK               = YES
+TEMPLATE_RELATIONS     = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = YES
+GRAPHICAL_HIERARCHY    = YES
+DIRECTORY_GRAPH        = YES
+DOT_IMAGE_FORMAT       = png
+DOT_PATH               = 
+DOTFILE_DIRS           = 
+MAX_DOT_GRAPH_WIDTH    = 1024
+MAX_DOT_GRAPH_HEIGHT   = 1024
+MAX_DOT_GRAPH_DEPTH    = 1000
+DOT_TRANSPARENT        = NO
+DOT_MULTI_TARGETS      = NO
+GENERATE_LEGEND        = YES
+DOT_CLEANUP            = YES
+#---------------------------------------------------------------------------
+# Configuration::additions related to the search engine   
+#---------------------------------------------------------------------------
+SEARCHENGINE           = NO

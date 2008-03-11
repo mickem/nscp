@@ -1,0 +1,285 @@
+[modules]
+;# NSCLIENT++ MODULES
+;# A list with DLLs to load at startup.
+;  You will need to enable some of these for NSClient++ to work.
+; ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+; *                                                               *
+; * N O T I C E ! ! ! - Y O U   H A V E   T O   E D I T   T H I S *
+; *                                                               *
+; ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+;FileLogger.dll
+;CheckSystem.dll
+;CheckDisk.dll
+;NSClientListener.dll
+;NRPEListener.dll
+;SysTray.dll
+;CheckEventLog.dll
+;CheckHelpers.dll
+;CheckWMI.dll
+;
+; RemoteConfiguration IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
+;RemoteConfiguration.dll
+; NSCA Agent is a new beta module use with care!
+;NSCAAgent.dll
+; LUA script module used to write your own "check deamon" (sort of) early beta.
+;LUAScript.dll
+; Script to check external scripts and/or internal aliases, early beta.
+;CheckExternalScripts.dll
+; Check other hosts through NRPE extreme beta and probably a bit dangerous! :)
+;NRPEClient.dll
+
+
+
+[Settings]
+;# OBFUSCATED PASSWORD
+;  This is the same as the password option but here you can store the password in an obfuscated manner.
+;  *NOTICE* obfuscation is *NOT* the same as encryption, someone with access to this file can still figure out the 
+;  password. Its just a bit harder to do it at first glance.
+;obfuscated_password=Jw0KAUUdXlAAUwASDAAB
+;
+;# PASSWORD
+;  This is the password (-s) that is required to access NSClient remotely. If you leave this blank everyone will be able to access the daemon remotly.
+;password=secret-password
+;
+;# ALLOWED HOST ADDRESSES
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to the all daemons.
+;  If leave this blank anyone can access the deamon remotly (NSClient still requires a valid password).
+;  The syntax is host or ip/mask so 192.168.0.0/24 will allow anyone on that subnet access
+;allowed_hosts=127.0.0.1/32
+;
+;# USE THIS FILE
+;  Use the INI file as opposed to the registry if this is 0 and the use_reg in the registry is set to 1 
+;  the registry will be used instead.
+use_file=1
+
+[log]
+;# LOG DEBUG
+;  Set to 1 if you want debug message printed in the log file (debug messages are always printed to stdout when run with -test)
+;debug=1
+;
+;# LOG FILE
+;  The file to print log statements to
+;file=NSC.log
+;
+;# LOG DATE MASK
+;  The format to for the date/time part of the log entry written to file.
+;date_mask=%Y-%m-%d %H:%M:%S
+
+
+[NSClient]
+;# ALLOWED HOST ADDRESSES
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NSClient deamon.
+;  If you leave this blank the global version will be used instead.
+;allowed_hosts=
+;
+;# NSCLIENT PORT NUMBER
+;  This is the port the NSClientListener.dll will listen to.
+;port=12489
+;
+;# BIND TO ADDRESS
+;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Leaving this blank will bind to all avalible IP adresses.
+;bind_to_address=
+;
+;# SOCKET TIMEOUT
+;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
+;socket_timeout=30
+
+[NRPE]
+;# NRPE PORT NUMBER
+;  This is the port the NRPEListener.dll will listen to.
+;port=5666
+;
+;# COMMAND TIMEOUT
+;  This specifies the maximum number of seconds that the NRPE daemon will allow plug-ins to finish executing before killing them off.
+;command_timeout=60
+;
+;# COMMAND ARGUMENT PROCESSING
+;  This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.
+;allow_arguments=0
+;
+;# COMMAND ALLOW NASTY META CHARS
+;  This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'"\[]{}) characters in arguments.
+;allow_nasty_meta_chars=0
+;
+;# USE SSL SOCKET
+;  This option controls if SSL should be used on the socket.
+;use_ssl=1
+;
+;# BIND TO ADDRESS
+;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Leaving this blank will bind to all avalible IP adresses.
+; bind_to_address=
+;
+;# ALLOWED HOST ADDRESSES
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NRPE deamon.
+;  If you leave this blank the global version will be used instead.
+;allowed_hosts=
+;
+;# SCRIPT DIRECTORY
+;  All files in this directory will become check commands.
+;  *WARNING* This is undoubtedly dangerous so use with care!
+;script_dir=scripts\
+;
+;# SOCKET TIMEOUT
+;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
+;socket_timeout=30
+
+[Check System]
+;# CPU BUFFER SIZE
+;  Can be anything ranging from 1s (for 1 second) to 10w for 10 weeks. Notice that a larger buffer will waste memory 
+;  so don't use a larger buffer then you need (ie. the longest check you do +1).
+;CPUBufferSize=1h
+;
+;# CHECK RESOLUTION
+;  The resolution to check values (currently only CPU).
+;  The value is entered in 1/10:th of a second and the default is 10 (which means ones every second)
+;CheckResolution=10
+;
+;# CHECK ALL SERVICES
+;  Configure how to check services when a CheckAll is performed.
+;  ...=started means services in that class *has* to be running.
+;  ...=stopped means services in that class has to be stopped.
+;  ...=ignored means services in this class will be ignored.
+;check_all_services[SERVICE_BOOT_START]=ignored
+;check_all_services[SERVICE_SYSTEM_START]=ignored
+;check_all_services[SERVICE_AUTO_START]=started
+;check_all_services[SERVICE_DEMAND_START]=ignored
+;check_all_services[SERVICE_DISABLED]=stopped
+
+[External Script]
+;# COMMAND TIMEOUT
+;  This specifies the maximum number of seconds that the NRPE daemon will allow plug-ins to finish executing before killing them off.
+;command_timeout=60
+;
+;# COMMAND ARGUMENT PROCESSING
+;  This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.
+;allow_arguments=0
+;
+;# COMMAND ALLOW NASTY META CHARS
+;  This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'"\[]{}) characters in arguments.
+;allow_nasty_meta_chars=0
+;
+;# COMMAND ALLOW NASTY META CHARS
+;  This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'"\[]{}) characters in arguments.
+;script_dir=c:\my\script\dir
+
+[External Scripts]
+;check_es_long=scripts\long.bat
+;check_es_ok=scripts\ok.bat
+;check_es_nok=scripts\nok.bat
+;check_vbs_sample=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
+
+[External Alias]
+;alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
+;alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
+;alias_service=checkServiceState CheckAll
+;alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
+
+
+
+
+; [includes]
+;# The order when used is "reversed" thus the last included file will be "first"
+;# Included files can include other files (be carefull only do basic recursive checking)
+;
+; myotherfile.ini
+; real.ini
+
+
+[NSCA Agent]
+;# CHECK INTERVALL (in seconds)
+;   How often we should run the checks and submit the results.
+;interval=5
+;
+;# ENCRYPTION METHOD
+;   This option determines the method by which the send_nsca client will encrypt the packets it sends 
+;   to the nsca daemon. The encryption method you choose will be a balance between security and 
+;   performance, as strong encryption methods consume more processor resources.
+;   You should evaluate your security needs when choosing an encryption method.
+;
+; Note: The encryption method you specify here must match the decryption method the nsca daemon uses 
+;       (as specified in the nsca.cfg file)!!
+; Values:
+;	0 = None	(Do NOT use this option)
+;	1 = Simple XOR  (No security, just obfuscation, but very fast)
+;   2 = DES
+;   3 = 3DES (Triple DES)
+;	4 = CAST-128
+;	6 = xTEA
+;	8 = BLOWFISH
+;	9 = TWOFISH
+;	11 = RC2
+;	14 = RIJNDAEL-128 (AES)
+;	20 = SERPENT
+;encryption_method=14
+;
+;# ENCRYPTION PASSWORD
+;  This is the password/passphrase that should be used to encrypt the sent packets. 
+;password=
+;
+;# BIND TO ADDRESS
+;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Leaving this blank will bind to "one" local interface.
+; -- not supported as of now -- 
+;bind_to_address=
+;
+;# LOCAL HOST NAME
+;  The name of this host (if empty "computername" will be used.
+;hostname=
+;
+;# NAGIOS SERVER ADDRESS
+;  The address to the nagios server to submit results to.
+;nsca_host=192.168.0.1
+;
+;# NAGIOS SERVER PORT
+;  The port to the nagios server to submit results to.
+;nsca_port=5667
+;
+
+;# CHECK COMMAND LIST
+;  The checks to run everytime we submit results back to nagios
+;  Any command(alias/key) starting with a host_ is sent as HOST_COMMAND others are sent as SERVICE_COMMANDS
+;  where the alias/key is used as service name.
+;
+[NSCA Commands]
+;my_cpu_check=checkCPU warn=80 crit=90 time=20m time=10s time=4
+;my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
+;my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService
+;host_check=check_ok
+
+[NRPE Handlers]
+;# COMMAND DEFINITIONS
+;# Command definitions that this daemon will run.
+;# Can be either NRPE syntax:
+;command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10
+;# Or simplified syntax:
+;test=c:\test.bat foo $ARG1$ bar
+;check_disk1=/usr/local/nagios/libexec/check_disk -w 5 -c 10
+;# Or even loopback (inject) syntax (to run internal commands)
+;# This is a way to run "NSClient" commands and other internal module commands such as check eventlog etc.
+;check_cpu=inject checkCPU warn=80 crit=90 5 10 15
+;check_eventlog=inject CheckEventLog Application warn.require.eventType=error warn.require.eventType=warning critical.require.eventType=error critical.exclude.eventType=info truncate=1024 descriptions
+;check_disk_c=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\ATI\*.*
+;# But be careful:
+; dont_check=inject dont_check This will "loop forever" so be careful with the inject command...
+;# Check some escapings...
+; check_escape=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M "File: foo \" WIN=c:\\WINDOWS\\*.*"
+;# Some real world samples
+;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
+;nrpe_ok=scripts\ok.bat
+;check_multi_line=scripts\multi_line.bat
+;#
+;# The sample scripts
+;#
+;check_long=scripts\long.bat
+;check_ok=scripts\ok.bat
+;check_nok=scripts\xlong.bat
+;check_vbs=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
+
+;# REMOTE NRPE PROXY COMMANDS
+;  A list of commands that check other hosts.
+;  Used by the NRPECLient module
+[NRPE Client Handlers]
+check_other=-H 192.168.0.1 -p 5666 -c remote_command -a arguments
+
