@@ -293,7 +293,14 @@ namespace script_wrapper {
 			std::wstring cmd = command.c_str();
 			lua_pushstring(L, w2s(cmd).c_str()); 
 
-			if (lua_pcall(L, 1, LUA_MULTRET, 0) != 0) {
+			lua_createtable(L, 0, argLen);
+			for (int i=0;i<argLen;i++) {
+				lua_pushnumber(L,i+1);
+				lua_pushstring(L,strEx::wstring_to_string(char_args[i]).c_str());
+				lua_settable(L,-3);
+			}
+
+			if (lua_pcall(L, 2, LUA_MULTRET, 0) != 0) {
 				std::wstring err = strEx::string_to_wstring(lua_tostring(L, -1));
 				NSC_LOG_ERROR_STD(_T("Failed to call main function in script: ") + script_ + _T(": ") + err);
 				lua_pop(L, 1); // remove error message

@@ -161,11 +161,11 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		simpleSocket::Socket socket(true);
 		simpleSocket::DataBuffer inc;
 		if (socket.connect(nscahost_, nscaport_) == SOCKET_ERROR) {
-			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + nscahost_ + _T(":") + strEx::itos(nscaport_));
+			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + nscahost_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
 			return;
 		}
 		if (!socket.readAll(inc, sizeof(NSCAPacket::init_packet_struct), sizeof(NSCAPacket::init_packet_struct))) {
-			NSC_LOG_ERROR_STD(_T("<<< Failed to read header from: ") + nscahost_ + _T(":") + strEx::itos(nscaport_));
+			NSC_LOG_ERROR_STD(_T("<<< Failed to read header from: ") + nscahost_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
 			return;
 		}
 		NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();

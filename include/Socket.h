@@ -155,6 +155,9 @@ namespace simpleSocket {
 		fd_set read_, write_, excp_;
 
 	public:
+		static std::wstring getLastError() {
+			return error::format::from_system(::WSAGetLastError());
+		}
 		Socket() : socket_(NULL) {
 			FD_ZERO(&read_);
 			FD_ZERO(&write_);
