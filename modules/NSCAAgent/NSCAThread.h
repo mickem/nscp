@@ -225,6 +225,8 @@ private:
 	std::wstring hostname_;
 	std::wstring nscahost_;
 	unsigned int nscaport_;
+	bool cacheNscaHost_;
+	std::wstring nscaaddr_;
 	std::string password_;
 	int encryption_method_;
 

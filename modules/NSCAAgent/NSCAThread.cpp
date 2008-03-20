@@ -29,6 +29,7 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
 	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
 	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
+	cacheNscaHost_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST, NSCA_CACHE_HOST_DEFAULT) == 1;
 	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
@@ -160,12 +161,20 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		nsca_encrypt crypt_inst;
 		simpleSocket::Socket socket(true);
 		simpleSocket::DataBuffer inc;
-		if (socket.connect(nscahost_, nscaport_) == SOCKET_ERROR) {
-			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + nscahost_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
+		if (!cacheNscaHost_ || nscaaddr_.empty()) {
+			nscaaddr_ = socket.getHostByName(nscahost_);
+			NSC_DEBUG_MSG_STD(_T("Looked up ") + nscahost_ + _T(" to ") + nscaaddr_);
+		}
+		if (nscaaddr_.empty()) {
+			NSC_LOG_ERROR_STD(_T("Failed to lookup host: ") + nscahost_);
+			return;
+		}
+		if (socket.connect(nscaaddr_, nscaport_) == SOCKET_ERROR) {
+			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + nscaaddr_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
 			return;
 		}
 		if (!socket.readAll(inc, sizeof(NSCAPacket::init_packet_struct), sizeof(NSCAPacket::init_packet_struct))) {
-			NSC_LOG_ERROR_STD(_T("<<< Failed to read header from: ") + nscahost_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
+			NSC_LOG_ERROR_STD(_T("<<< Failed to read header from: ") + nscaaddr_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
 			return;
 		}
 		NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();
