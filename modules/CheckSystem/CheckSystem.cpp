@@ -455,6 +455,10 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, TCHAR *
 		return NSCAPI::returnUNKNOWN;
 	}
 	unsigned long long value = pObject->getUptime();
+	if (value == -1) {
+		msg = _T("ERROR: Could not get value");
+		return NSCAPI::returnUNKNOWN;
+	}
 	if (bNSClient) {
 		msg = strEx::itos(value);
 	} else {
@@ -473,6 +477,13 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, TCHAR *
 // @todo state_handler
 
 
+inline int get_state(DWORD state) {
+	if (state == SERVICE_RUNNING)
+		return checkHolders::state_started;
+	else if (state == SERVICE_STOPPED)
+		return checkHolders::state_stopped;
+	return checkHolders::state_none;
+}
 
 /**
  * Retrieve the service state of one or more services (by name).
@@ -570,22 +581,26 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 				info = TNtServiceInfo::GetService((*it).data.c_str());
 			} catch (NTServiceException e) {
 				if (!msg.empty()) msg += _T(" - ");
-				msg += (*it).data + _T(": Unknown");
+				msg += (*it).data + _T(": Error");
 				NSCHelper::escalteReturnCodeToWARN(returnCode);
 				continue;
 			}
-			if ((info.m_dwCurrentState == SERVICE_RUNNING) && (*it).showAll()) {
-				if (!msg.empty()) msg += _T(" - ");
-				msg += (*it).data + _T(": Started");
-			} else if (info.m_dwCurrentState == SERVICE_RUNNING) {
-			} else if (info.m_dwCurrentState == SERVICE_STOPPED) {
-				if (!msg.empty()) msg += _T(" - ");
-				msg += (*it).data + _T(": Stopped");
-				NSCHelper::escalteReturnCodeToCRIT(returnCode);
-			} else {
-				if (!msg.empty()) msg += _T(" - ");
-				msg += (*it).data + _T(": Unknown");
-				NSCHelper::escalteReturnCodeToWARN(returnCode);
+			if ((*it).crit.state.hasBounds()) {
+				bool ok = (*it).crit.state.check(get_state(info.m_dwCurrentState));
+				if (!ok || (*it).showAll()) {
+					if (info.m_dwCurrentState == SERVICE_RUNNING) {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Started");
+					} else if (info.m_dwCurrentState == SERVICE_STOPPED) {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Stopped");
+					} else {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Unknown");
+					}
+					if (!ok) 
+						NSCHelper::escalteReturnCodeToCRIT(returnCode);
+				}
 			}
 		} else {
 			try {
@@ -677,7 +692,15 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, TCHAR **ch
 				return NSCAPI::returnUNKNOWN;
 			}
 			dataPaged.value = pObject->getMemCommit();
+			if (dataPaged.value == -1) {
+				msg = _T("ERROR: Failed to get PDH value.");
+				return NSCAPI::returnUNKNOWN;
+			}
 			dataPaged.total = pObject->getMemCommitLimit();
+			if (dataPaged.total == -1) {
+				msg = _T("ERROR: Failed to get PDH value.");
+				return NSCAPI::returnUNKNOWN;
+			}
 		} else if (firstMem) {
 			try {
 				data = memoryChecker.getMemoryStatus();

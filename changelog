@@ -1,14 +1,16 @@
 TODO: 
  * Process times and similar ?
  * Fix configuration GUI (low priority)
- * Fix installer (after configuration UI)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
 2007-03-20
- + Added host-lookupos for NSCA server
+ + Added host-lookupos for NSCA server (#149)
  + Added option (cache_hostname=1|0) to cache the NSCA host name (Ie. only lookup once)
+ * Fixed service check: check_nt -v SERVICESTATE -l CheckAll so it works as advertised (#150)
+ * Fixed issue with check_nt MEMUSE/CPULOAD/UPTIME if something is "broken" they will now return an error instead of "0". (#134)
+   Added option debug_skip_data_collection to simulate this (just for kicks)
 
 2007-03-18
  * Added some more error mesages to the NSCA module

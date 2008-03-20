@@ -24,6 +24,7 @@
 
 
 PDHCollector::PDHCollector() : hStopEvent_(NULL) {
+	dontCollect_ = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_IGNORE_COLLECTION, C_SYSTEM_IGNORE_COLLECTION_DEFAULT)==1;
 	checkIntervall_ = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CHECK_RESOLUTION, C_SYSTEM_CHECK_RESOLUTION_DEFAULT);
 	std::wstring s = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_BUFFER_TIME, C_SYSTEM_CPU_BUFFER_TIME_DEFAULT);
 	unsigned int i = strEx::stoui_as_time(s, checkIntervall_*100);
@@ -191,9 +192,10 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 					NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 				else {
 					try {
-						pdh.gatherData();
+						if (!dontCollect_)
+							pdh.gatherData();
 					} catch (const PDH::PDHException &e) {
-						if (first) {	// If this is the first run an error will be thrown since the data is not yet avalible
+						if (first) {	// If this is the first run an error will be thrown since the data is not yet available
 							// This is "ok" but perhaps another solution would be better, but this works :)
 							first = false;
 						} else {
@@ -259,7 +261,10 @@ int PDHCollector::getCPUAvrage(std::wstring time) {
 	try {
 		return static_cast<int>(cpu.getAvrage(mseconds / (checkIntervall_*100)));
 	} catch (PDHCollectors::PDHException &e) {
-		NSC_LOG_ERROR(_T("Failed to get (sub) Mutex!"));
+		NSC_LOG_ERROR(_T("Failed to get CPU value: ") + e.getError());
+		return -1;
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Failed to get CPU value"));
 		return -1;
 	}
 }
@@ -275,7 +280,15 @@ long long PDHCollector::getUptime() {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}
-	return upTime.getValue();
+	try {
+		return upTime.getValue();
+	} catch (PDHCollectors::PDHException &e) {
+		NSC_LOG_ERROR(_T("Failed to get UPTIME value: ") + e.getError());
+		return -1;
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Failed to get UPTIME value"));
+		return -1;
+	}
 }
 /**
 * Memory commit limit (your guess is as good as mine to what this is :)
@@ -287,7 +300,15 @@ unsigned long long PDHCollector::getMemCommitLimit() {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}
-	return memCmtLim.getValue();
+	try {
+		return memCmtLim.getValue();
+	} catch (PDHCollectors::PDHException &e) {
+		NSC_LOG_ERROR(_T("Failed to get MEM_CMT_LIMIT value: ") + e.getError());
+		return -1;
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Failed to get MEM_CMT_LIMIT value"));
+		return -1;
+	}
 }
 /**
 *
@@ -300,5 +321,13 @@ unsigned long long PDHCollector::getMemCommit() {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}
-	return memCmt.getValue();
+	try {
+		return memCmt.getValue();
+	} catch (PDHCollectors::PDHException &e) {
+		NSC_LOG_ERROR(_T("Failed to get MEM_CMT value: ") + e.getError());
+		return -1;
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Failed to get MEM_CMT value"));
+		return -1;
+	}
 }

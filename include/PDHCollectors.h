@@ -115,20 +115,25 @@ namespace PDHCollectors {
 	class StaticPDHCounterListener<TType, format_double, TMutextHandler> : public PDH::PDHCounterListener {
 		TType value_;
 		TMutextHandler mutex_;
+		bool hasValue_;
+		std::wstring lastError_;
 	public:
-		StaticPDHCounterListener() : value_(0) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
 				return;
 			value_ = counter.getDoubleValue();
+			hasValue_ = true;
 		}
 		void attach(const PDH::PDHCounter &counter){}
 		void detach(const PDH::PDHCounter &counter){}
 		TType getValue() {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
-				return -1;
+				throw PDHException(_T("Could not get mutex"));
+			if (!hasValue_)
+				throw PDHException(_T("No value has been collected yet"));
 			return value_;
 		}
 		DWORD getFormat() const {
@@ -140,20 +145,24 @@ namespace PDHCollectors {
 	class StaticPDHCounterListener<TType, format_long, TMutextHandler> : public PDH::PDHCounterListener {
 		TType value_;
 		TMutextHandler mutex_;
+		bool hasValue_;
 	public:
-		StaticPDHCounterListener() : value_(0) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
 				return;
 			value_ = counter.getIntValue();
+			hasValue_ = true;
 		}
 		void attach(const PDH::PDHCounter &counter){}
 		void detach(const PDH::PDHCounter &counter){}
 		TType getValue() {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
-				return -1;
+				throw PDHException(_T("Could not get mutex"));
+			if (!hasValue_)
+				throw PDHException(_T("No value has been collected yet"));
 			return value_;
 		}
 		DWORD getFormat() const {
@@ -165,20 +174,24 @@ namespace PDHCollectors {
 	class StaticPDHCounterListener<TType, format_large, TMutextHandler> : public PDH::PDHCounterListener {
 		TMutextHandler mutex_;
 		TType value_;
+		bool hasValue_;
 	public:
-		StaticPDHCounterListener() : value_(0) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
 				return;
 			value_ = counter.getInt64Value();
+			hasValue_ = true;
 		}
 		void attach(const PDH::PDHCounter &counter){}
 		void detach(const PDH::PDHCounter &counter){}
 		TType getValue() {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
-				return -1;
+				throw PDHException(_T("Could not get mutex"));
+			if (!hasValue_)
+				throw PDHException(_T("No value has been collected yet"));
 			return value_;
 		}
 		DWORD getFormat() const {
@@ -193,9 +206,10 @@ namespace PDHCollectors {
 		unsigned int length;
 		TType *buffer;
 		unsigned int current;
+		bool hasValue_;
 	public:
-		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0) {}
-		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0) {
+		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false) {}
+		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0), hasValue_(false) {
 			PDHCounterMutexHandler mutex(mutex_);
 			if (!mutex.hasLock())
 				return;
@@ -244,6 +258,7 @@ namespace PDHCollectors {
 				return;
 			if (current >= length)
 				return;
+			hasValue_ = true;
 			buffer[current++] = value;
 			if (current >= length)
 				current = 0;
@@ -252,8 +267,10 @@ namespace PDHCollectors {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock(true))
 				throw PDHException(_T("Failed to get mutex :("));
+			if (!hasValue_)
+				throw PDHException(_T("No value has been collected yet"));
 			if ((backItems == 0) || (backItems >= length))
-				return -1;
+				throw PDHException(_T("Strange error buffer pointers are f*cked up"));
 			double ret = 0;
 			if (current >= backItems) {
 				// Handle "whole" list.

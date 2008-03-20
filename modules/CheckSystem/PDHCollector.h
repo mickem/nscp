@@ -49,6 +49,7 @@ private:
 	MutexRW mutex_;
 	HANDLE hStopEvent_;
 	int checkIntervall_;
+	bool dontCollect_;
 
 	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmtLim;
 	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmt;
