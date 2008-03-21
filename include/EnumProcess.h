@@ -21,16 +21,14 @@
 #pragma once
 
 #include <psapi.h>
-#include <tlhelp32.h>
 #include <string>
+#include <error.hpp>
 
 
 namespace ENUM_METHOD 
 {
 	const int NONE    = 0x0;
 	const int PSAPI   = 0x1;
-	const int TOOLHELP= 0x2;
-	const int PROC16  = 0x4;
 } 
 
 const int MAX_FILENAME = 256;
@@ -40,40 +38,44 @@ const int MAX_FILENAME = 256;
 typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
 typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
 typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
-
-//Functions loaded from Kernel32
-typedef HANDLE (WINAPI *PFCreateToolhelp32Snapshot)(DWORD dwFlags, DWORD th32ProcessID);
-typedef BOOL (WINAPI *PFProcess32First)(HANDLE hSnapshot, LPPROCESSENTRY32W lppe);
-typedef BOOL (WINAPI *PFProcess32Next)(HANDLE hSnapshot, LPPROCESSENTRY32W lppe);
-typedef BOOL (WINAPI *PFModule32First)(HANDLE hSnapshot, LPMODULEENTRY32W lpme);
-typedef BOOL (WINAPI *PFModule32Next)(HANDLE hSnapshot, LPMODULEENTRY32W lpme);
 #else
 // Functions loaded from PSAPI
 typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
 typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
 typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
-
-//Functions loaded from Kernel32
-typedef HANDLE (WINAPI *PFCreateToolhelp32Snapshot)(DWORD dwFlags, DWORD th32ProcessID);
-typedef BOOL (WINAPI *PFProcess32First)(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
-typedef BOOL (WINAPI *PFProcess32Next)(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
-typedef BOOL (WINAPI *PFModule32First)(HANDLE hSnapshot, LPMODULEENTRY32 lpme);
-typedef BOOL (WINAPI *PFModule32Next)(HANDLE hSnapshot, LPMODULEENTRY32 lpme);
 #endif
 
 class CEnumProcess  
 {
 public:
 
+	class EnumProcException {
+		std::wstring error_;
+	public:
+		EnumProcException(std::wstring error) : error_(error) {}
+		EnumProcException(std::wstring error, DWORD code) : error_(error) {
+			error_ += _T(":" ) + error::format::from_system(code);
+		}
+		std::wstring getMessage() const {
+			return error_;
+		}
+	};
+
 	struct CProcessEntry
 	{
-		std::wstring sFilename;
+		static const int fill_filename = 0x1;
+		static const int fill_command_line = 0x2;
+		DWORD fill;
+		std::wstring filename;
+		std::wstring command_line;
 		DWORD  dwPID;
-		WORD   hTask16;
-		// Constructors/Destructors
-		CProcessEntry() : dwPID(0), hTask16(0) {}
-		CProcessEntry(CProcessEntry &e) : dwPID(e.dwPID), hTask16(e.hTask16), sFilename(e.sFilename) {}
+		// Constructors/Destructor
+		CProcessEntry() : dwPID(0), fill(0) {}
+		CProcessEntry(DWORD toFill) : dwPID(0), fill(toFill) {}
+		CProcessEntry(const CProcessEntry &e) : dwPID(e.dwPID), fill(e.fill), filename(e.filename), command_line(e.command_line) {}
 		virtual ~CProcessEntry() {}
+		bool getCommandLine() const { return fill&fill_command_line!=0; }
+		bool getFilename() const { return fill&fill_filename!=0; }
 	};
 
 	struct CModuleEntry
@@ -94,6 +96,8 @@ public:
 	BOOL GetModuleFirst(DWORD dwPID, CModuleEntry* pEntry);
 	BOOL GetProcessNext(CProcessEntry *pEntry);    
 	BOOL GetProcessFirst(CProcessEntry* pEntry);
+	BOOL EnableTokenPrivilege(LPTSTR privilege);
+	std::wstring GetCommandLine(HANDLE hProcess);
 
 	int GetAvailableMethods();
 	int GetSuggestedMethod();
@@ -119,24 +123,6 @@ protected:
 	PFGetModuleFileNameEx FGetModuleFileNameEx;// Pointer to GetModuleFileNameEx
 	BOOL FillPStructPSAPI(DWORD pid, CProcessEntry* pEntry);
 	BOOL FillMStructPSAPI(DWORD dwPID, HMODULE mMod, CModuleEntry* pEntry);
-
-	// ToolHelp related members
-	HANDLE m_hProcessSnap, m_hModuleSnap;
-	HMODULE TOOLHELP;   //Handle to the module (Kernel32)
-#ifdef UNICODE
-	PROCESSENTRY32W m_pe;
-	MODULEENTRY32W  m_me;
-#else
-	PROCESSENTRY32 m_pe;
-	MODULEENTRY32  m_me;
-#endif
-	// ToolHelp related functions
-	PFCreateToolhelp32Snapshot FCreateToolhelp32Snapshot;
-	PFProcess32First FProcess32First;
-	PFProcess32Next  FProcess32Next;
-	PFModule32First  FModule32First;
-	PFModule32Next   FModule32Next;   
 	LPTSTR lpString;
-
 };
 

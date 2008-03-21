@@ -29,6 +29,9 @@
 #include <map>
 #include <set>
 #include <sysinfo.h>
+#ifndef NO_BOOST_DEP
+#include <boost/regex.hpp>
+#endif
 
 CheckSystem gCheckSystem;
 
@@ -67,6 +70,7 @@ bool CheckSystem::loadModule() {
 	int method = tmp.GetAvailableMethods();
 	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_AUTO) {
 		OSVERSIONINFO osVer = systemInfo::getOSVersion();
+		/*
 		if (systemInfo::isBelowNT4(osVer)) {
 			NSC_DEBUG_MSG_STD(_T("Autodetected NT4<, using PSAPI process enumeration."));
 			if (method == (method|ENUM_METHOD::PSAPI)) {
@@ -83,6 +87,7 @@ bool CheckSystem::loadModule() {
 				NSC_LOG_ERROR_STD(_T("TOOLHELP was not available, since you are on > W2K you need top manually override the ") C_SYSTEM_ENUMPROC_METHOD _T("option in NSC:ini."));
 			}
 		} else {
+		*/
 			NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
 			processMethod_ = ENUM_METHOD::PSAPI;
 			if (method == (method|ENUM_METHOD::PSAPI)) {
@@ -91,7 +96,7 @@ bool CheckSystem::loadModule() {
 				NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
 				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
 			}
-		}
+		//}
 	} else if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
 		NSC_DEBUG_MSG_STD(_T("Using PSAPI method."));
 		if (method == (method|ENUM_METHOD::PSAPI)) {
@@ -100,12 +105,7 @@ bool CheckSystem::loadModule() {
 			NSC_LOG_ERROR_STD(_T("PSAPI method not available, check ") C_SYSTEM_ENUMPROC_METHOD _T(" option."));
 		}
 	} else {
-		NSC_DEBUG_MSG_STD(_T("Using TOOLHELP method."));
-		if (method == (method|ENUM_METHOD::TOOLHELP)) {
-			processMethod_ = ENUM_METHOD::TOOLHELP;
-		} else {
-			NSC_LOG_ERROR_STD(_T("TOOLHELP method not avalible, check ") C_SYSTEM_ENUMPROC_METHOD _T(" option."));
-		}
+		NSC_LOG_ERROR_STD(_T("TOOLHELP method has been removed sine we dont really want to support w9x ") C_SYSTEM_ENUMPROC_METHOD _T("."));
 	}
 	try {
 		NSCModuleHelper::registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
@@ -750,21 +750,19 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, TCHAR **ch
 	return returnCode;
 }
 typedef struct NSPROCDATA__ {
-	NSPROCDATA__() : count(0) {}
-	NSPROCDATA__(const NSPROCDATA__ &other) {
-		count = other.count;
-		entry = other.entry;
-	}
-
 	unsigned int count;
 	CEnumProcess::CProcessEntry entry;
+	std::wstring key;
+
+	NSPROCDATA__() : count(0) {}
+	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), entry(other.entry), key(other.key) {}
 } NSPROCDATA;
 typedef std::map<std::wstring,NSPROCDATA,strEx::case_blind_string_compare> NSPROCLST;
 /**
 * Get a hash_map with all running processes.
 * @return a hash_map with all running processes
 */
-NSPROCLST GetProcessList(int processMethod)
+NSPROCLST GetProcessList(int processMethod, bool getCmdLines)
 {
 	NSPROCLST ret;
 	if (processMethod == 0) {
@@ -776,12 +774,21 @@ NSPROCLST GetProcessList(int processMethod)
 		NSC_LOG_ERROR_STD(_T("Failed to set process enumeration method"));
 		return ret;
 	}
-	CEnumProcess::CProcessEntry entry;
+	int toFill = CEnumProcess::CProcessEntry::fill_filename;
+	if (getCmdLines)
+		toFill |= CEnumProcess::CProcessEntry::fill_command_line;
+	CEnumProcess::CProcessEntry entry(toFill);
 	for (BOOL OK = enumeration.GetProcessFirst(&entry); OK; OK = enumeration.GetProcessNext(&entry) ) {
-		NSPROCLST::iterator it = ret.find(entry.sFilename);
+		std::wstring key;
+		if (getCmdLines)
+			key = entry.command_line;
+		else
+			key = entry.filename;
+		NSPROCLST::iterator it = ret.find(key);
 		if (it == ret.end()) {
-			ret[entry.sFilename].entry = entry;
-			ret[entry.sFilename].count = 1;
+			ret[key].entry = entry;
+			ret[key].count = 1;
+			ret[key].key = key;
 		} else
 			(*it).second.count++;
 	}
@@ -811,6 +818,13 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 	bool bNSClient = false;
 	StateConatiner tmpObject;
 	bool bPerfData = true;
+	bool useCmdLine = false;
+	typedef enum {
+		match_string, match_substring, match_regexp
+	} match_type;
+	match_type match = match_string;
+
+	
 
 	tmpObject.data = _T("uptime");
 	tmpObject.crit.state = _T("started");
@@ -821,6 +835,11 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_BOOL_TRUE(_T("cmdLine"), useCmdLine)
+		MAP_OPTIONS_MODE(_T("match"), _T("string"), match,  match_string)
+		MAP_OPTIONS_MODE(_T("match"), _T("regexp"), match,  match_regexp)
+		MAP_OPTIONS_MODE(_T("match"), _T("substr"), match,  match_substring)
+		MAP_OPTIONS_MODE(_T("match"), _T("substring"), match,  match_substring)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 	else if (p2.first == _T("Proc")) {
 			tmpObject.data = p__.second;
@@ -839,10 +858,9 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 		}
 	MAP_OPTIONS_END()
 
-
 	NSPROCLST runningProcs;
 	try {
-		runningProcs = GetProcessList(processMethod_);
+		runningProcs = GetProcessList(processMethod_, useCmdLine);
 	} catch (TCHAR *c) {
 		NSC_LOG_ERROR_STD(_T("ERROR: ") + c);
 		msg = static_cast<std::wstring>(_T("ERROR: ")) + c;
@@ -850,14 +868,43 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 	}
 
 	for (std::list<StateConatiner>::iterator it = list.begin(); it != list.end(); ++it) {
-		NSPROCLST::iterator proc = runningProcs.find((*it).data);
+		NSPROCLST::iterator proc;
+		if (match == match_string) {
+			proc = runningProcs.find((*it).data);
+		} else if (match == match_substring) {
+			for (proc=runningProcs.begin();proc!=runningProcs.end();++proc) {
+				if ((*proc).first.find((*it).data) != std::wstring::npos)
+					break;
+			}
+#ifndef NO_BOOST_DEP
+		} else if (match == match_regexp) {
+			try {
+				boost::wregex filter((*it).data,boost::regex::icase);
+				for (proc=runningProcs.begin();proc!=runningProcs.end();++proc) {
+					std::wstring value = (*proc).first;
+					if (boost::regex_match(value, filter))
+						break;
+				}
+			} catch (const boost::bad_expression e) {
+				NSC_LOG_ERROR_STD(_T("Failed to compile regular expression: ") + (*proc).first);
+				msg = _T("Failed to compile regular expression: ") + (*proc).first;
+				return NSCAPI::returnUNKNOWN;
+			} catch (...) {
+				NSC_LOG_ERROR_STD(_T("Failed to compile regular expression: ") + (*proc).first);
+				msg = _T("Failed to compile regular expression: ") + (*proc).first;
+				return NSCAPI::returnUNKNOWN;
+			}
+#endif
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unsupported mode for: ") + (*proc).first);
+			msg = _T("Unsupported mode for: ") + (*proc).first;
+			return NSCAPI::returnUNKNOWN;
+		}
 		bool bFound = (proc != runningProcs.end());
-		std::wstring tmp;
-		TNtServiceInfo info;
 		if (bNSClient) {
 			if (bFound && (*it).showAll()) {
 				if (!msg.empty()) msg += _T(" - ");
-				msg += (*it).data + _T(": Running");
+				msg += (*proc).first + _T(": Running");
 			} else if (bFound) {
 			} else {
 				if (!msg.empty()) msg += _T(" - ");
@@ -872,6 +919,9 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 			} else {
 				value.count = 0;
 				value.state = checkHolders::state_stopped;
+			}
+			if (bFound && (*it).alias.empty()) {
+				(*it).alias = (*proc).first;
 			}
 			(*it).perfData = bPerfData;
 			(*it).runCheck(value, returnCode, msg, perf);

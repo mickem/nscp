@@ -125,6 +125,8 @@ namespace filters {
 					return boost::wregex(str);
 				} catch (const boost::bad_expression e) {
 					throw handler_exception(_T("Invalid syntax in regular expression:") + str);
+				} catch (...) {
+					throw handler_exception(_T("Invalid syntax in regular expression:") + str);
 				}
 			}
 		};

@@ -33,8 +33,6 @@
 CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP(NULL), m_pCurrentM(NULL), lpString(NULL), PSAPI(NULL)
 {
 	lpString = new TCHAR[MAX_FILENAME+1];
-	m_hProcessSnap = INVALID_HANDLE_VALUE;
-	m_hModuleSnap = INVALID_HANDLE_VALUE;
 
 	PSAPI = ::LoadLibrary(_TEXT("PSAPI"));
 	if (PSAPI)  
@@ -54,34 +52,10 @@ CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP
 #endif
 	}
 
-	TOOLHELP = ::LoadLibrary(_TEXT("Kernel32"));
-	if (TOOLHELP)  
-	{
-		// Setup variables
-		m_pe.dwSize = sizeof(m_pe);
-		m_me.dwSize = sizeof(m_me);
-		// Find ToolHelp functions
-#ifdef UNICODE
-		FCreateToolhelp32Snapshot = (PFCreateToolhelp32Snapshot)::GetProcAddress(TOOLHELP, "CreateToolhelp32Snapshot");
-		FProcess32First = (PFProcess32First)::GetProcAddress(TOOLHELP, "Process32FirstW");
-		FProcess32Next = (PFProcess32Next)::GetProcAddress(TOOLHELP, "Process32NextW");
-		FModule32First = (PFModule32First)::GetProcAddress(TOOLHELP, "Module32FirstW");
-		FModule32Next = (PFModule32Next)::GetProcAddress(TOOLHELP, "Module32NextW");
-#else
-		FCreateToolhelp32Snapshot = (PFCreateToolhelp32Snapshot)::GetProcAddress(TOOLHELP, "CreateToolhelp32SnapshotA");
-		FProcess32First = (PFProcess32First)::GetProcAddress(TOOLHELP, "Process32FirstA");
-		FProcess32Next = (PFProcess32Next)::GetProcAddress(TOOLHELP, "Process32NextA");
-		FModule32First = (PFModule32First)::GetProcAddress(TOOLHELP, "Module32FirstA");
-		FModule32Next = (PFModule32Next)::GetProcAddress(TOOLHELP, "Module32NextA");
-#endif
-	}
-
 	// Find the preferred method of enumeration
 	m_method = ENUM_METHOD::NONE;
 	int method = GetAvailableMethods();
 	if (method == (method|ENUM_METHOD::PSAPI))    m_method = ENUM_METHOD::PSAPI;
-	if (method == (method|ENUM_METHOD::TOOLHELP)) m_method = ENUM_METHOD::TOOLHELP;
-	if (method == (method|ENUM_METHOD::PROC16))   m_method += ENUM_METHOD::PROC16;
 
 }
 
@@ -91,33 +65,22 @@ CEnumProcess::~CEnumProcess()
 	if (m_pProcesses) {delete[] m_pProcesses;}
 	if (m_pModules)   {delete[] m_pModules;}
 	if (PSAPI) FreeLibrary(PSAPI);
-	if (TOOLHELP) FreeLibrary(TOOLHELP);
-	if (INVALID_HANDLE_VALUE != m_hProcessSnap) ::CloseHandle(m_hProcessSnap);
-	if (INVALID_HANDLE_VALUE != m_hModuleSnap)  ::CloseHandle(m_hModuleSnap);
 }
 
 
 
-int CEnumProcess::GetAvailableMethods()
-{
+int CEnumProcess::GetAvailableMethods() {
 	int res = 0;
 	// Does all psapi functions exist?
 	if (PSAPI&&FEnumProcesses&&FEnumProcessModules&&FGetModuleFileNameEx) 
 		res += ENUM_METHOD::PSAPI;
-	// How about Toolhelp?
-	if (TOOLHELP&&FCreateToolhelp32Snapshot&&FProcess32Next&&FProcess32Next&&FModule32First&&FModule32Next) 
-		res += ENUM_METHOD::TOOLHELP;
-
 	return res;
 }
 
-int CEnumProcess::SetMethod(int method)
-{
+int CEnumProcess::SetMethod(int method) {
 	int avail = GetAvailableMethods();
-
-	if (method != ENUM_METHOD::PROC16 && avail == (method|avail)) 
+	if (avail == (method|avail)) 
 		m_method = method;
-
 	return m_method;
 }
 
@@ -130,22 +93,11 @@ int CEnumProcess::GetSuggestedMethod()
 ////////////////////////////////////////////////////////////////////////////////////
 BOOL CEnumProcess::GetProcessFirst(CEnumProcess::CProcessEntry *pEntry)
 {
-	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-
-	if ((ENUM_METHOD::TOOLHELP|m_method) == m_method)
-		// Use ToolHelp functions
-		// ----------------------
-	{
-		m_hProcessSnap = FCreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-		if (INVALID_HANDLE_VALUE == m_hProcessSnap) return FALSE;
-		if (!FProcess32First(m_hProcessSnap, &m_pe)) return FALSE;
-		pEntry->dwPID = m_pe.th32ProcessID;
-		pEntry->sFilename, m_pe.szExeFile;
-	}
-	else
+	if (ENUM_METHOD::NONE == m_method) {
+		return FALSE; 
+	} else if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
 		// Use PSAPI functions
 		// ----------------------
-	{
 		if (m_pProcesses) {delete[] m_pProcesses;}
 		m_pProcesses = new DWORD[m_MAX_COUNT];
 		m_pCurrentP = m_pProcesses;
@@ -162,8 +114,9 @@ BOOL CEnumProcess::GetProcessFirst(CEnumProcess::CProcessEntry *pEntry)
 		if (!OK) return FALSE;
 		m_cProcesses = cbNeeded/sizeof(DWORD); 
 		return FillPStructPSAPI(*m_pProcesses, pEntry);
+	} else {
+		return FALSE;
 	}
-
 	return TRUE;
 }
 
@@ -172,25 +125,17 @@ BOOL CEnumProcess::GetProcessFirst(CEnumProcess::CProcessEntry *pEntry)
 BOOL CEnumProcess::GetProcessNext(CEnumProcess::CProcessEntry *pEntry)
 {
 	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-	pEntry->hTask16 = 0;
-
 
 	// Use ToolHelp functions
 	// ----------------------
-	if ((ENUM_METHOD::TOOLHELP|m_method) == m_method)
-	{
-		if (!FProcess32Next(m_hProcessSnap, &m_pe)) return FALSE;
-		pEntry->dwPID = m_pe.th32ProcessID;
-		pEntry->sFilename = m_pe.szExeFile;
-	}
-	else
+	if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
 		// Use PSAPI functions
 		// ----------------------
-	{
 		if (--m_cProcesses <= 0) return FALSE;
 		FillPStructPSAPI(*++m_pCurrentP, pEntry);
+	} else {
+		return FALSE;
 	}
-
 	return TRUE;
 }
 
@@ -198,24 +143,9 @@ BOOL CEnumProcess::GetProcessNext(CEnumProcess::CProcessEntry *pEntry)
 BOOL CEnumProcess::GetModuleFirst(DWORD dwPID, CEnumProcess::CModuleEntry *pEntry)
 {
 	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-	// Use ToolHelp functions
-	// ----------------------
-	if ((ENUM_METHOD::TOOLHELP|m_method) == m_method)
-	{
-		if (INVALID_HANDLE_VALUE != m_hModuleSnap)  ::CloseHandle(m_hModuleSnap);
-		m_hModuleSnap = FCreateToolhelp32Snapshot(TH32CS_SNAPMODULE, dwPID);
-
-		if(!FModule32First(m_hModuleSnap, &m_me)) return FALSE;
-
-		pEntry->pLoadBase = m_me.modBaseAddr;
-		pEntry->sFilename = m_me.szExePath;
-		pEntry->pPreferredBase = GetModulePreferredBase(dwPID, m_me.modBaseAddr);
-		return TRUE;
-	}
-	else
+	if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
 		// Use PSAPI functions
 		// ----------------------
-	{
 		if (m_pModules) {delete[] m_pModules;}
 		m_pModules = new HMODULE[m_MAX_COUNT];
 		m_pCurrentM = m_pModules;
@@ -239,6 +169,8 @@ BOOL CEnumProcess::GetModuleFirst(DWORD dwPID, CEnumProcess::CModuleEntry *pEntr
 			return FillMStructPSAPI(dwPID, *m_pCurrentM, pEntry);
 		}
 		return FALSE;
+	} else {
+		return FALSE;
 	}
 }
 
@@ -246,62 +178,140 @@ BOOL CEnumProcess::GetModuleFirst(DWORD dwPID, CEnumProcess::CModuleEntry *pEntr
 BOOL CEnumProcess::GetModuleNext(DWORD dwPID, CEnumProcess::CModuleEntry *pEntry)
 {
 	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-
-	// Use ToolHelp functions
-	// ----------------------
-	if ((ENUM_METHOD::TOOLHELP|m_method) == m_method)
-	{
-		if(!FModule32Next(m_hModuleSnap, &m_me)) return FALSE;
-
-		pEntry->pLoadBase = m_me.modBaseAddr;
-		pEntry->sFilename = m_me.szExePath;
-		pEntry->pPreferredBase = GetModulePreferredBase(dwPID, m_me.modBaseAddr);
-		return TRUE;
-	}
-	else
+	if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
 		// Use PSAPI functions
 		// ----------------------
-	{
 		if (--m_cModules <= 0) return FALSE;
 		return FillMStructPSAPI(dwPID, *++m_pCurrentM, pEntry);
+	} else {
+		return FALSE;
 	}
 
 }
 
 
+BOOL CEnumProcess::EnableTokenPrivilege (LPTSTR privilege)
+{
+	HANDLE hToken;                        
+	TOKEN_PRIVILEGES token_privileges;                  
+	DWORD dwSize;                        
+	ZeroMemory (&token_privileges, sizeof (token_privileges));
+	token_privileges.PrivilegeCount = 1;
+	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
+		return FALSE;
+	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid))
+	{ 
+		CloseHandle (hToken);
+		return FALSE;
+	}
+
+	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize))
+	{ 
+		CloseHandle (hToken);
+		return FALSE;
+	}
+	CloseHandle (hToken);
+	return TRUE;
+}
+
+// Process data block is found in an NT machine.
+// on an Intel system at 0x00020000  which is the 32
+// memory page. At offset 0x0498 is what I believe to be
+// the process' startup directory which is followed by
+// the system's PATH. Next is  process full command
+// followed by the exe name.
+#define PROCESS_DATA_BLOCK_ADDRESS      (LPVOID)0x00020498
+// align pointer
+#define ALIGNMENT(x) ( (x & 0xFFFFFFFC) ? (x & 0xFFFFFFFC) + sizeof(DWORD) : x )
+
+std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess)
+{
+	SYSTEM_INFO sysinfo;
+	GetSystemInfo (&sysinfo);
+
+	MEMORY_BASIC_INFORMATION mbi;
+	if (VirtualQueryEx (hProcess, PROCESS_DATA_BLOCK_ADDRESS, &mbi, sizeof(mbi) ) == 0)
+		throw EnumProcException(_T("VirtualQueryEx failed"), GetLastError());
+	LPBYTE lpBuffer = (LPBYTE)malloc (sysinfo.dwPageSize);
+	if (lpBuffer == NULL)
+		throw EnumProcException(_T("Failed to allocate buffer"));
+	DWORD dwBytesRead;
+	if (!ReadProcessMemory( hProcess, mbi.BaseAddress, (LPVOID)lpBuffer, sysinfo.dwPageSize, &dwBytesRead)) {
+		free(lpBuffer);
+		throw EnumProcException(_T("ReadProcessMemory failed"), GetLastError());
+	}
+	LPBYTE lpPos = lpPos = lpBuffer + ((DWORD)PROCESS_DATA_BLOCK_ADDRESS - (DWORD)mbi.BaseAddress);
+
+	// Skip programs current directory and path
+	lpPos += (wcslen((LPWSTR)lpPos) + 1) * sizeof(WCHAR);
+
+	// Aligned on a DWORD boundary skip it, and copy the next string into
+	// buffer and null terminate it.
+	lpPos = (LPBYTE)ALIGNMENT((DWORD)lpPos);
+	lpPos += (wcslen((LPWSTR)lpPos) + 1) * sizeof(WCHAR);
+
+	// Sometimes there is an extra \0 here
+	/*
+	if ( *lpPos == '\0' ) 
+		lpPos += sizeof(WCHAR);
+	*/
+
+	DWORD nStrLength = (wcslen((LPWSTR)lpPos) + 1) * sizeof(WCHAR);
+	WCHAR *buffer = new TCHAR[nStrLength+2];
+	buffer[0] = L'\0';
+	if(nStrLength > sizeof(WCHAR)) {
+		wcsncpy(buffer, (LPWSTR)lpPos, nStrLength);
+		buffer[nStrLength] = L'\0';
+	}
+	free(lpBuffer);
+	std::wstring ret = buffer;
+	delete [] buffer;
+	return ret;
+}
+
 
 BOOL CEnumProcess::FillPStructPSAPI(DWORD dwPID, CEnumProcess::CProcessEntry* pEntry)
 {
 	pEntry->dwPID = dwPID;
-
 	// Open process to get filename
-	HANDLE hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, dwPID);
-	if (hProc)
-	{
-		HMODULE hMod;
-		DWORD size;
-		// Get the first module (the process itself)
-		if( FEnumProcessModules(hProc, &hMod, sizeof(hMod), &size) )
-		{
-			//Get filename
-
-			if( !FGetModuleFileNameEx( hProc, hMod, lpString, MAX_FILENAME) ) { 
-				pEntry->sFilename = _T("N/A (error)");
-			} else {
-				std::wstring path = lpString;
-				std::wstring::size_type pos = path.find_last_of(_T("\\"));
-				if (pos != std::wstring::npos) {
-					path = path.substr(++pos);
-				}
-				pEntry->sFilename = path;
-			}
-		}
-		CloseHandle(hProc);
+	bool bCmdLine = pEntry->getCommandLine();
+	DWORD openArgs = PROCESS_QUERY_INFORMATION|PROCESS_VM_READ;
+	if (bCmdLine)
+		openArgs |= PROCESS_VM_OPERATION;
+	HANDLE hProc = OpenProcess(openArgs, FALSE, dwPID);
+	if (!hProc) {
+		pEntry->filename = _T("N/A (security restriction)");
+		return TRUE;
 	}
-	else
-		pEntry->sFilename = _T("N/A (security restriction)");
+	if (bCmdLine) {
+		try {
+			pEntry->command_line = GetCommandLine(hProc);
+		} catch (EnumProcException &e) {
+			pEntry->command_line = _T("ERROR: " + e.getMessage(););
+		} catch (...) {
+			pEntry->command_line = _T("ERROR: Failed to get CommandLine.");
+		}
+	}
+	HMODULE hMod;
+	DWORD size;
+	// Get the first module (the process itself)
+	if( FEnumProcessModules(hProc, &hMod, sizeof(hMod), &size) ) {
+		//Get filename
+		//GetModuleFileNameEx
 
-	return TRUE;
+		if( !FGetModuleFileNameEx( hProc, hMod, lpString, MAX_FILENAME) ) { 
+			pEntry->filename = _T("N/A (error)");
+		} else {
+			std::wstring path = lpString;
+			std::wstring::size_type pos = path.find_last_of(_T("\\"));
+			if (pos != std::wstring::npos) {
+				path = path.substr(++pos);
+			}
+			pEntry->filename = path;
+		}
+	}
+	CloseHandle(hProc);
 }
 
 

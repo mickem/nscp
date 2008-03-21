@@ -2,6 +2,7 @@
 #include <tchar.h>
 #include <string>
 #include <windows.h>
+#include <strEx.h>
 
 namespace error {
 	class format {
