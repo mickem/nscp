@@ -2364,7 +2364,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\include\com_helpers.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\include\config.h"
+				>
+			</File>
+			<File
+				RelativePath=".\include\error.hpp"
 				>
 			</File>
 			<File

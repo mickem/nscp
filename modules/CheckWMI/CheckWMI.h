@@ -28,9 +28,6 @@ NSC_WRAPPERS_CLI();
 #include "WMIQuery.h"
 
 class CheckWMI {
-private:
-	WMIQuery wmiQuery;
-
 public:
 	CheckWMI();
 	virtual ~CheckWMI();

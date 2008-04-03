@@ -18,18 +18,17 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#if !defined(AFX_STDAFX_H__6B96F953_C431_11D3_BCD2_00A0D21A1A22__INCLUDED_)
-#define AFX_STDAFX_H__6B96F953_C431_11D3_BCD2_00A0D21A1A22__INCLUDED_
-
-#if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
 
 #define _WINSOCKAPI_
 //#include <WinSock2.h>
 
+#define _WIN32_DCOM
+#include <objbase.h>
+
 #define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
+
 
 #define COMPILE_NEWAPIS_STUBS
 #define WANT_GETLONGPATHNAME_WRAPPER
@@ -50,6 +49,3 @@
 #ifdef MEMCHECK
 #include <vld.h>
 #endif
-
-
-#endif // !defined(AFX_STDAFX_H__6B96F953_C431_11D3_BCD2_00A0D21A1A22__INCLUDED_)

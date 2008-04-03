@@ -60,9 +60,6 @@ public:
 };
 class WMIQuery
 {
-private:
-	bool bInitialized;
-
 public:
 	struct WMIResult {
 		std::wstring alias;
@@ -146,12 +143,9 @@ public:
 			return false;
 		}
 	};
-	WMIQuery(void);
-	~WMIQuery(void);
+	WMIQuery(void) {};
+	~WMIQuery(void) {};
 
 	result_type  execute(std::wstring query);
 	std::wstring sanitize_string(LPTSTR in);
-
-	bool initialize();
-	void unInitialize();
 };

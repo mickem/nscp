@@ -187,6 +187,10 @@
 #define C_SYSTEM_SVC_ALL_4 _T("check_all_services[SERVICE_DISABLED]")
 #define C_SYSTEM_SVC_ALL_4_DEFAULT _T("stopped")
 
+#define C_TASKSCHED_SECTION _T("Task Scheduler")
+#define C_TASKSCHED_SYNTAX _T("syntax")
+#define C_TASKSCHED_SYNTAX_DEFAULT _T("%title% last run: %most-recent-run-time% (%exit-code%)")
+
 // Log to File Settings
 #define LOG_SECTION_TITLE _T("log")
 #define LOG_FILENAME _T("file") 

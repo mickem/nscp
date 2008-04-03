@@ -56,10 +56,26 @@ namespace script_wrapper {
 		return where_type(_T("unknown"),0);
 	}
 	std::wstring extract_string(lua_State *L) {
-		return strEx::string_to_wstring(lua_tostring( L, lua_gettop( L ) ));
+		int top = lua_gettop(L);
+		if (lua_isstring(L, top))
+			return strEx::string_to_wstring(lua_tostring( L, lua_gettop( L ) ));
+		return _T("<NOT_A_STRING>");
 	}
 	std::wstring pop_string(lua_State *L) {
-		std::wstring ret = strEx::string_to_wstring(lua_tostring( L, lua_gettop( L ) ));
+		std::wstring ret;
+		int top = lua_gettop(L);
+		if (lua_isstring(L, top))
+			ret = strEx::string_to_wstring(lua_tostring( L, top));
+		else if (lua_isnil(L, top))
+			ret = _T("<NIL>");
+		else if (lua_istable(L, top))
+			ret = _T("<TABLE>");
+		else if (lua_isnumber(L, top))
+			ret = _T("<NUMBER>");
+		else if (lua_iscfunction(L, top))
+			ret = _T("<C-FUNCTION>");
+		else
+			ret = _T("<UNKNOWN>");
 		lua_pop(L, 1);
 		return ret;
 	}

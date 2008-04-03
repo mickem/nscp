@@ -163,7 +163,7 @@ namespace strEx {
 		buf[l] = 0;
 		return buf;
 	}
-	inline std::wstring format_date(SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+	inline std::wstring format_date(const SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		TCHAR buf[51];
 
 		struct tm tmTime;
@@ -186,7 +186,7 @@ namespace strEx {
 
 	static const __int64 SECS_BETWEEN_EPOCHS = 11644473600;
 	static const __int64 SECS_TO_100NS = 10000000;
-	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format) {
+	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
 		filetime /= SECS_TO_100NS;
 		return format_date(static_cast<time_t>(filetime), format);
@@ -291,7 +291,7 @@ namespace strEx {
 	else  \
 		strEx::replace(format, key, _T("0"));
 
-	inline std::wstring format_time_delta(std::wstring format, struct tm *mtm) {
+	inline std::wstring format_time_delta(struct tm *mtm, std::wstring format = _T("%Y years %m months %d days %H hours %M minutes")) {
 		// "Date: %Y-%m-%d %H:%M:%S"
 		MK_FORMAT_FTD(70, _T("%Y"), mtm->tm_year);
 		MK_FORMAT_FTD(0, _T("%m"), mtm->tm_mon);

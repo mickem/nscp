@@ -28,6 +28,7 @@
 #include <NSCAPI.h>
 #include <MutexRW.h>
 #include <map>
+#include <com_helpers.hpp>
 
 
 /**
@@ -72,6 +73,7 @@ private:
 	typedef enum log_status {log_unknown, log_debug, log_nodebug };
 	log_status debug_;
 	bool boot_;
+	com_helper::initialize_com com_helper_;
 
 public:
 	// c-tor, d-tor

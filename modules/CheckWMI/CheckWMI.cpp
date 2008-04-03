@@ -50,10 +50,9 @@ bool CheckWMI::loadModule() {
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
-	return wmiQuery.initialize();
+	return true;
 }
 bool CheckWMI::unloadModule() {
-	wmiQuery.unInitialize();
 	return true;
 }
 
@@ -122,6 +121,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 
 	WMIQuery::result_type rows;
 	try {
+		WMIQuery wmiQuery;
 		rows = wmiQuery.execute(query);
 	} catch (WMIException e) {
 		message = _T("WMIQuery failed: ") + e.getMessage();
@@ -190,6 +190,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TC
 
 	WMIQuery::result_type rows;
 	try {
+		WMIQuery wmiQuery;
 		rows = wmiQuery.execute(query);
 	} catch (WMIException e) {
 		message = _T("WMIQuery failed: ") + e.getMessage();
@@ -259,6 +260,7 @@ int CheckWMI::commandLineExec(const TCHAR* command, const unsigned int argLen, T
 	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
 	WMIQuery::result_type rows;
 	try {
+		WMIQuery wmiQuery;
 		rows = wmiQuery.execute(query);
 	} catch (WMIException e) {
 		NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());

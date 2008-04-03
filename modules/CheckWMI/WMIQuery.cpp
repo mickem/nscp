@@ -25,38 +25,6 @@
 #include <Wbemidl.h>
 #include <map>
 
-WMIQuery::WMIQuery(void) : bInitialized(false)
-{
-}
-
-WMIQuery::~WMIQuery(void)
-{
-	if (bInitialized)
-		unInitialize();
-}
-
-
-bool WMIQuery::initialize()
-{
-	HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-	if (FAILED(hRes)) {
-		NSC_LOG_ERROR_STD(_T("CoInitialize failed: ") + error::format::from_system(hRes));
-		return false;
-	}
-	bInitialized = true;
-	hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
-	if (FAILED(hRes)) {
-		NSC_LOG_ERROR_STD(_T("CoInitializeSecurity failed: ") + error::format::from_system(hRes));
-		return false;
-	}
-	return true;
-}
-void WMIQuery::unInitialize()
-{
-	CoUninitialize();
-	bInitialized = false;
-}
-
 std::wstring WMIQuery::sanitize_string(LPTSTR in) {
 	TCHAR *p = in;
 	while (*p) {
@@ -69,9 +37,6 @@ std::wstring WMIQuery::sanitize_string(LPTSTR in) {
 
 WMIQuery::result_type WMIQuery::execute(std::wstring query)
 {
-	if (!bInitialized) {
-		initialize();
-	}
 	result_type ret;
 
 	CComPtr< IWbemLocator > locator;

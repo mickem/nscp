@@ -5,7 +5,12 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
-2008-03-21
+2008-04-03 MickeM
+ * Moved COM init to "core" (from WMI module)
+ + Added new Check command: CheckTaskSched Use like so:
+     CheckTaskSched +filter-exit-code==1 ShowAll MaxWarn=1 MaxCrit=1
+
+2008-03-21 MickeM
  + Added command line support for process checks
    New option: cmdLine will toggle so full command lines are used instead of just process names.
  + Added regular expression matching to process checks
@@ -14,31 +19,31 @@ TODO:
    New option: match=substr (match=strings is the default and "old" way)
    This is *NOT* case blind so might be hard to use, plan to add case blindness to it in the future.
  : Sample command: check_nt ... -v PROCSTATE -l cmdLine,match=regexp,.*exp.* -d SHOWALL
- * Ohh yeah... it is 2008 this year... not 2007, fixed a few entries in the changelog :)
- - BREAKING CHANGE! -- Removed TOOLHELPER API as PSAPI is simpler and toolhel is really only usefull on w9x (which I dont oficcaly support)
+ * Ohh yeah... it is 2008 this year... not 2007, fixed a few entries in the  :)
+ - BREAKING CHANGE! -- Removed TOOLHELPER API as PSAPI is simpler and toolhelp is really only useful on w9x (which I don't officially support)
 
-2008-03-20
+2008-03-20 MickeM
  + Added host-lookupos for NSCA server (#149)
  + Added option (cache_hostname=1|0) to cache the NSCA host name (Ie. only lookup once)
  * Fixed service check: check_nt -v SERVICESTATE -l CheckAll so it works as advertised (#150)
  * Fixed issue with check_nt MEMUSE/CPULOAD/UPTIME if something is "broken" they will now return an error instead of "0". (#134)
    Added option debug_skip_data_collection to simulate this (just for kicks)
 
-2008-03-18
- * Added some more error mesages to the NSCA module
- * Added support for srguments to LUA module.
+2008-03-18 MickeM
+ * Added some more error messages to the NSCA module
+ * Added support for arguments to LUA module.
    syntax: function debug (command, args) -- args is a table with all arguments
 
 2008-03-11 MickeM
  ! 0.3.1 Released
 
 2008-03-08 MickeM
- * Changed so log is now in unicode format
+ * Changed so log is now in Unicode format
    Hopefully this will make it simpler to diagnose PDH issues in "strange locales".
    If anyone hates this let me know and I will add an option to use "old ansi log".
- * Fixed so the console is logged as ANSI (properly) and all unicodes are discarded.
-   This means "strangness" in unicode and non-us-ascii chars on the console,
-    so for details refer to the log-file which is proper unicode.
+ * Fixed so the console is logged as ANSI (properly) and all Unicode's are discarded.
+   This means "strangeness" in Unicode and non-us-ascii chars on the console,
+    so for details refer to the log-file which is proper Unicode.
  + Since log module is loaded "after" the client has booted I added a "hello" message that prints the current version
     (if you find this annoying let me know, I will make it optional :)
  * Fixed some issues in the registry handling
@@ -47,13 +52,13 @@ TODO:
  * Fixed silly ordering bug with the <> syntax.
 
 2008-03-05 MickeM
- + Added debug to new section [Eventlog], when enabled it will (log) wat lines matched what, this is a pretty big performance overhead so dont run with this one.
+ + Added debug to new section [Eventlog], when enabled it will (log) what lines matched what, this is a pretty big performance overhead so don't run with this one.
  + Added syntax to new section [Eventlog] used as a shorthand for the syntax to use as "default" (when no syntax=... option is given)
  * Fixed an issue with eventlog and . matching.
  + Added shorthand ! for != in "all" numeric filters (eventlog)
  + Added <> (same as ! and !=) as NRPE breaks the use of ! (in "all" numeric filters (eventlog))
    Try using: filter-eventType=<>warning to remove everything that is not a warning
- * Fixed two spelling misstakes in the SysTray module.
+ * Fixed two spelling mistakes in the SysTray module.
  * Fixed 64-bit issues with installer
  * Fixed so installer uninstalls/installs the service
  

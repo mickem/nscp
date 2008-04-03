@@ -502,7 +502,7 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 	GetSystemTimeAsFileTime(&now_);
 	unsigned long long now = ((now_.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now_.dwLowDateTime);
 	time_t value = (now-finder.info.ullLastWriteTime)/10000000;
-	message = strEx::itos(value/60) + _T("&") + strEx::format_time_delta(format, gmtime(&value));
+	message = strEx::itos(value/60) + _T("&") + strEx::format_time_delta(gmtime(&value), format);
 	return NSCAPI::returnOK;
 }
 

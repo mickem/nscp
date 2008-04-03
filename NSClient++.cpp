@@ -244,10 +244,20 @@ bool NSClientT::InitiateService() {
 	try {
 		simpleSocket::WSAStartup();
 	} catch (simpleSocket::SocketException e) {
-		LOG_ERROR_STD(_T("Uncaught exception: ") + e.getMessage());
+		LOG_ERROR_STD(_T("Socket exception: ") + e.getMessage());
 		return false;
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception iniating socket..."));
+		return false;
+	}
+
+	try {
+		com_helper_.initialize();
+	} catch (com_helper::com_exception e) {
+		LOG_ERROR_STD(_T("COM exception: ") + e.getMessage());
+		return false;
+	} catch (...) {
+		LOG_ERROR_STD(_T("Unknown exception iniating COM..."));
 		return false;
 	}
 	if (boot_) {
@@ -266,6 +276,9 @@ bool NSClientT::InitiateService() {
 			}
 		} catch (SettingsException e) {
 			NSC_LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
+		} catch (...) {
+			LOG_ERROR_STD(_T("Unknown exception when loading settings"));
+			return false;
 		}
 		try {
 			loadPlugins();
@@ -284,14 +297,25 @@ void NSClientT::TerminateService(void) {
 	if (boot_) {
 		try {
 			mainClient.unloadPlugins();
-		} catch(NSPluginException &e) {
+		} catch(NSPluginException e) {
 			std::wcout << _T("Exception raised: ") << e.error_ << _T(" in module: ") << e.file_ << std::endl;;
+		} catch(...) {
+			std::wcout << _T("UNknown exception raised: ") << std::endl;;
 		}
+	}
+	try {
+		com_helper_.unInitialize();
+	} catch (com_helper::com_exception e) {
+		LOG_ERROR_STD(_T("COM exception: ") + e.getMessage());
+	} catch (...) {
+		LOG_ERROR_STD(_T("Unknown exception uniniating COM..."));
 	}
 	try {
 		simpleSocket::WSACleanup();
 	} catch (simpleSocket::SocketException e) {
-		LOG_ERROR_STD(_T("Uncaught exception: ") + e.getMessage());
+		LOG_ERROR_STD(_T("Socket exception: ") + e.getMessage());
+	} catch (...) {
+		LOG_ERROR_STD(_T("Unknown exception uniniating socket..."));
 	}
 	Settings::destroyInstance();
 }

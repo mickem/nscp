@@ -190,7 +190,7 @@ namespace filters {
 		bool hasFilter_;
 		std::wstring value_;
 		filter_one() : hasFilter_(false) {}
-		filter_one(const filter_one &other) : hasFilter_(other.hasFilter_), filter(other.filter) {
+		filter_one(const filter_one &other) : hasFilter_(other.hasFilter_), filter(other.filter), value_(other.value_) {
 		}
 
 		inline bool hasFilter() const {
@@ -261,11 +261,25 @@ namespace filters {
 #ifndef NO_BOOST_DEP
 			} else if (t.first == _T("regexp")) {
 				regexp = t.second;
+#else
+			} else if (t.first == _T("regexp")) {
+				throw parse_exception(_T("Regular expression support not enabled!") + value);
 #endif
 			} else {
 				exact = t.first;
 			}
 			return *this;
+		}
+		std::wstring to_string() const {
+			if (sub.hasFilter())
+				return _T("substring: '") + sub.getValue() + _T("'");
+#ifndef NO_BOOST_DEP
+			if (regexp.hasFilter())
+				return _T("regexp: '") + regexp.getValue() + _T("'");
+#endif
+			if (exact.hasFilter())
+				return _T("exact: '") + exact.getValue() + _T("'");
+			return _T("MISSING VALUE");
 		}
 	};
 
@@ -324,6 +338,15 @@ namespace filters {
 			}
 			return *this;
 		}
+#define NSCP_FF_DEBUG_NUM(key) if (key.hasFilter()) return _T( # key ) + key.value_;
+		std::wstring to_string() const {
+			NSCP_FF_DEBUG_NUM(max);
+			NSCP_FF_DEBUG_NUM(min);
+			NSCP_FF_DEBUG_NUM(eq);
+			NSCP_FF_DEBUG_NUM(neq);
+			//NSCP_FF_DEBUG_NUM(inList);
+			return _T(" MISSING! ");
+		}
 		std::wstring getValue() const {
 			return value_;
 		}
@@ -354,10 +377,10 @@ namespace filters {
 			chain.push_back(filteritem_type(mode, filter));
 		}
 
-		bool hasFilter() {
+		bool hasFilter() const {
 			return !chain.empty();
 		}
-		bool get_inital_state() {
+		bool get_inital_state() const {
 			return filterAll;
 		}
 
@@ -379,6 +402,23 @@ namespace filters {
 				}
 			}
 			return matched;
+		}
+		std::wstring mode_2_string(filter_mode mode) const {
+			if (mode == plus)
+				return _T("+");
+			if (mode == minus)
+				return _T("-");
+			if (mode == normal)
+				return _T(".");
+			return _T("?");
+		}
+		std::wstring debug() const {
+			std::wstringstream ss;
+			ss << _T("Initial state: ") << get_inital_state() << std::endl;
+			ss << _T("filters: ") << std::endl;
+			for (filterlist_type::const_iterator cit = chain.begin(); cit != chain.end(); ++cit )
+				ss << _T("  ") << mode_2_string((*cit).first) << _T(": ") << (*cit).second.to_string() << std::endl;
+			return ss.str();
 		}
 
 	};
