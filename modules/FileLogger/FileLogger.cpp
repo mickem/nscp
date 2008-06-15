@@ -42,17 +42,44 @@ FileLogger::~FileLogger() {
 std::wstring FileLogger::getFileName()
 {
 	if (file_.empty()) {
-		file_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_FILENAME, LOG_FILENAME_DEFAULT);
+		file_ = SETTINGS_GET_STRING(log::FILENAME);
+		if (file_.empty())
+			file_ = settings::log::FILENAME_DEFAULT;
 		if (file_.find(_T("\\")) == std::wstring::npos)
 			file_ = NSCModuleHelper::getBasePath() + _T("\\") + file_;
 	}
 	return file_;
 }
 
-bool FileLogger::loadModule() {
+bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
 	_tzset();
 	getFileName();
-	format_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_DATEMASK, LOG_DATEMASK_DEFAULT);
+
+	try {
+		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
+#define LOG_SECTION_TITLE _T("log")
+#define LOG_FILENAME _T("file") 
+#define LOG_DATEMASK _T("date_mask")
+			NSC_DEBUG_MSG(_T("Using compatibility mode in: LOGGING module"));
+
+			SETTINGS_MAP_KEY_A(log::FILENAME,	LOG_SECTION_TITLE, LOG_FILENAME);
+			SETTINGS_MAP_KEY_A(log::DATEMASK,	LOG_SECTION_TITLE, LOG_DATEMASK);
+			SETTINGS_MAP_KEY_A(log::DEBUG_LOG,	LOG_SECTION_TITLE, _T("debug"));
+		}
+		SETTINGS_REG_PATH(log::SECTION);
+
+		SETTINGS_REG_KEY_S(log::FILENAME);
+		SETTINGS_REG_KEY_S(log::DATEMASK);
+		SETTINGS_REG_KEY_B(log::DEBUG_LOG);
+
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+	}
+
+
+	format_ = SETTINGS_GET_STRING(log::DATEMASK);
 	init_ = true;
 	std::wstring hello = _T("Starting to log for: ") + NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
 	handleMessage(NSCAPI::log, __FILEW__, __LINE__, hello.c_str());

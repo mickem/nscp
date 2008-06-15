@@ -43,11 +43,24 @@ CheckEventLog::~CheckEventLog() {
 }
 
 
-bool CheckEventLog::loadModule() {
+bool CheckEventLog::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
+
+		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
+			NSC_DEBUG_MSG(_T("Using compatiblity mode in: EventLog Checker"));
+#define EVENTLOG_SECTION_TITLE _T("Eventlog")
+#define EVENTLOG_DEBUG _T("debug")
+#define EVENTLOG_SYNTAX _T("syntax")
+			SETTINGS_MAP_KEY_A(event_log::DEBUG_KEY,	EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG);
+			SETTINGS_MAP_KEY_A(event_log::SYNTAX,		EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX);
+		}
+		SETTINGS_REG_PATH(event_log::SECTION);
+		SETTINGS_REG_KEY_B(event_log::DEBUG_KEY);
+		SETTINGS_REG_KEY_S(event_log::SYNTAX);
+
 		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
-		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
-		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
+		debug_ = SETTINGS_GET_BOOL(event_log::DEBUG_KEY);
+		syntax_ = SETTINGS_GET_STRING(event_log::SYNTAX);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {

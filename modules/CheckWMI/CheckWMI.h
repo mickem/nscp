@@ -32,7 +32,7 @@ public:
 	CheckWMI();
 	virtual ~CheckWMI();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	std::wstring getModuleName() {

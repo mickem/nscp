@@ -1,290 +1,237 @@
 #pragma once
 
-#include <Singleton.h>
 #include <string>
 #include <map>
-#include <TSettings.h>
-#include <config.h>
-#include <iostream>
-#include <fstream>
+#include <Settings.h>
+#include <simpleini/SimpleIni.h>
 
-#define BUFF_LEN 4096
+namespace Settings {
+	class INISettings : public Settings::SettingsInterfaceImpl {
+	private:
+		std::wstring filename_;
+		bool is_loaded_;
+		CSimpleIni ini;
 
-
-class INIFile {
-private:
-	std::wstring file_;
-public:
-	typedef std::list<std::wstring> sectionList;
-
-public:
-	INIFile(std::wstring file) : file_(file) {}
-
-	std::wstring getFile() const {
-		return file_;
-	}
-	/**
-	 * Retrieves a list of section
-	 * @access public 
-	 * @returns INIFile::sectionList
-	 * @qualifier
-	 * @param unsigned int bufferLength
-	 */
-	sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
-		sectionList ret;
-		TCHAR* buffer = new TCHAR[bufferLength+1];
-		unsigned int count = ::GetPrivateProfileSectionNames(buffer, BUFF_LEN, file_.c_str());
-		if (count == bufferLength-2) {
-			delete [] buffer;
-			return getSections(bufferLength*10);
+	public:
+		INISettings(Settings::SettingsCore *core, std::wstring context) : ini(false, false, false), is_loaded_(false), Settings::SettingsInterfaceImpl(core, context) {}
+		//////////////////////////////////////////////////////////////////////////
+		/// Create a new settings interface of "this kind"
+		///
+		/// @param context the context to use
+		/// @return the newly created settings interface
+		///
+		/// @author mickem
+		virtual SettingsInterfaceImpl* create_new_context(std::wstring context) {
+			return new INISettings(get_core(), context);
 		}
-		unsigned int last = 0;
-		for (unsigned int i=0;i<count;i++) {
-			if (buffer[i] == '\0') {
-				std::wstring s = &buffer[last];
-				ret.push_back(s);
-				last = i+1;
+		//////////////////////////////////////////////////////////////////////////
+		/// Get a string value if it does not exist exception will be thrown
+		///
+		/// @param path the path to look up
+		/// @param key the key to lookup
+		/// @return the string value
+		///
+		/// @author mickem
+		virtual std::wstring get_real_string(SettingsCore::key_path_type key) {
+			load_data();
+			const wchar_t *val = ini.GetValue(key.first.c_str(), key.second.c_str(), NULL);
+			if (val == NULL)
+				throw KeyNotFoundException(key);
+			return val;
+		}
+		//////////////////////////////////////////////////////////////////////////
+		/// Get an integer value if it does not exist exception will be thrown
+		///
+		/// @param path the path to look up
+		/// @param key the key to lookup
+		/// @return the int value
+		///
+		/// @author mickem
+		virtual int get_real_int(SettingsCore::key_path_type key) {
+			std::wstring str = get_real_string(key);
+			return strEx::stoi(str);
+		}
+		//////////////////////////////////////////////////////////////////////////
+		/// Get a boolean value if it does not exist exception will be thrown
+		///
+		/// @param path the path to look up
+		/// @param key the key to lookup
+		/// @return the boolean value
+		///
+		/// @author mickem
+		virtual bool get_real_bool(SettingsCore::key_path_type key) {
+			std::wstring str = get_real_string(key);
+			return SettingsInterfaceImpl::string_to_bool(str);
+		}
+		//////////////////////////////////////////////////////////////////////////
+		/// Check if a key exists
+		///
+		/// @param path the path to look up
+		/// @param key the key to lookup
+		/// @return true/false if the key exists.
+		///
+		/// @author mickem
+		virtual bool has_real_key(SettingsCore::key_path_type key) {
+			return false;
+		}
+		//////////////////////////////////////////////////////////////////////////
+		/// Get the type this settings store represent.
+		///
+		/// @return the type of settings store
+		///
+		/// @author mickem
+		virtual SettingsCore::settings_type get_type() {
+			return SettingsCore::ini_file;
+		}
+		//////////////////////////////////////////////////////////////////////////
+		/// Is this the active settings store
+		///
+		/// @return
+		///
+		/// @author mickem
+		virtual bool is_active() {
+			return true;
+		}
+		//////////////////////////////////////////////////////////////////////////
+		/// Write a value to the resulting context.
+		///
+		/// @param key The key to write to
+		/// @param value The value to write
+		///
+		/// @author mickem
+		virtual void set_real_value(SettingsCore::key_path_type key, conainer value) {
+			try {
+				const SettingsCore::key_description desc = get_core()->get_registred_key(key.first, key.second);
+				std::wstring comment = _T("; ");
+				if (!desc.title.empty())
+					comment += desc.title + _T(" - ");
+				if (!desc.description.empty())
+					comment += desc.description;
+				strEx::replace(comment, _T("\n"), _T(" "));
+				get_core()->get_logger()->quick_debug(_T("saving: ") + key.first + _T("//") + key.second);
+				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), comment.c_str());
+			} catch (KeyNotFoundException e) {
+				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str());
+			} catch (SettingsException e) {
+				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
+			} catch (...) {
+				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
-		delete [] buffer;
-		return ret;
-	}
-
-	/**
-	* Get all keys from a section as a list<string>
-	* @param section The section to return all keys from
-	* @return A list with all keys from the section
-	*/
-	sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
-		sectionList ret;
-		TCHAR* buffer = new TCHAR[bufferLength+1];
-		unsigned int count = GetPrivateProfileSection(section.c_str(), buffer, bufferLength, file_.c_str());
-		if (count == bufferLength-2) {
-			delete [] buffer;
-			return getSection(section, bufferLength*10);
-		}
-		unsigned int last = 0;
-		for (unsigned int i=0;i<count;i++) {
-			if (buffer[i] == '\0') {
-				std::wstring s = &buffer[last];
-				std::size_t p = s.find('=');
-				if (p == std::wstring::npos)
-					ret.push_back(s);
-				else
-					ret.push_back(s.substr(0,p));
-				last = i+1;
+		//////////////////////////////////////////////////////////////////////////
+		/// Get all (sub) sections (given a path).
+		/// If the path is empty all root sections will be returned
+		///
+		/// @param path The path to get sections from (if empty root sections will be returned)
+		/// @param list The list to append nodes to
+		/// @return a list of sections
+		///
+		/// @author mickem
+		virtual void get_real_sections(std::wstring path, string_list &list) {
+			get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
+			CSimpleIni::TNamesDepend lst;
+			ini.GetAllSections(lst);
+			if (path.empty()) {
+				for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+					std::wstring mapped = (*cit).pItem;
+					if (mapped.length() > 1) {
+						std::wstring::size_type pos = mapped.find(L'/', 1);
+						if (pos != std::wstring::npos)
+							mapped = mapped.substr(0,pos);
+					}
+					list.push_back(mapped);
+				}
+			} else {
+				for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+					std::wstring mapped = (*cit).pItem;
+					std::wstring::size_type mapped_len = mapped.length();
+					std::wstring::size_type path_len = path.length();
+					if (mapped_len > path_len+1 && mapped.substr(0,path_len) == path) {
+						std::wstring::size_type pos = mapped.find(L'/', path_len+1);
+						if (pos == std::wstring::npos)
+							mapped = mapped.substr(path_len+1);
+						else
+							mapped = mapped.substr(path_len+1, pos-path_len-1);
+						list.push_back(mapped);
+					}
+				}
 			}
 		}
-		delete [] buffer;
-		return ret;
-	}
-	/**
-	* Get a string from the settings file
-	* @param section Section to read from 
-	* @param key Key to retrieve
-	* @param defaultValue Default value to return if key is not found
-	* @return The value or defaultValue if the key is not found
-	*/
-	std::wstring getString(std::wstring section, std::wstring key, std::wstring defaultValue = _T("")) const {
-		TCHAR* buffer = new TCHAR[1024];
-		GetPrivateProfileString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, 1023, file_.c_str());
-		std::wstring ret = buffer;
-		delete [] buffer;
-		return ret;
-	}
-
-	void setString(std::wstring section, std::wstring key, std::wstring value) {
-		//		if (value.size() > 0)
-		//WritePrivateProfileString(section.c_str(), key.c_str(), NULL, file_.c_str());
-		WritePrivateProfileString(section.c_str(), key.c_str(), value.c_str(), file_.c_str());
-		//		else
-		//			WritePrivateProfileString(section.c_str(), key.c_str(), NULL, file_.c_str());
-	}
-
-	/**
-	* Get an integer from the settings file
-	* @param section Section to read from 
-	* @param key Key to retrieve
-	* @param defaultValue Default value to return if key is not found
-	* @return The value or defaultValue if the key is not found
-	*/
-	int getInt(std::wstring section, std::wstring key, int defaultValue = 0) {
-		return GetPrivateProfileInt(section.c_str(), key.c_str(), defaultValue, file_.c_str());
-	}
-	void setInt(std::wstring section, std::wstring key, int value) {
-		WritePrivateProfileString(section.c_str(), key.c_str(), strEx::itos(value).c_str(), file_.c_str());
-	}
-};
-
-class INIFileBundle {
-	std::list<INIFile*> files_;
-	INIFile *coreFile_;
-	std::wstring basepath_;
-public:
-	INIFileBundle(std::wstring basepath, std::wstring coreFile) : coreFile_(NULL), basepath_(basepath) {
-		importFile(basepath_, coreFile, true);
-	}
-
-	void importFile(std::wstring basepath, const std::wstring fname, bool corefile = false) {
-		std::wstring filename = basepath + fname;
-		INIFile *tmp = new INIFile(filename);
-		if (corefile)
-			coreFile_ = tmp;
-		files_.push_front(tmp);
-		INIFile::sectionList lst = tmp->getSection(_T("includes"));
-		for(INIFile::sectionList::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
-			if (!hasFile(*cit))
-				importFile(basepath, *cit);
+		//////////////////////////////////////////////////////////////////////////
+		/// Get all keys given a path/section.
+		/// If the path is empty all root sections will be returned
+		///
+		/// @param path The path to get sections from (if empty root sections will be returned)
+		/// @param list The list to append nodes to
+		/// @return a list of sections
+		///
+		/// @author mickem
+		virtual void get_real_keys(std::wstring path, string_list &list) {
+			load_data();
+			get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Looking for: ")) + path);
+			CSimpleIni::TNamesDepend lst;
+			ini.GetAllKeys(path.c_str(), lst);
+			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+				list.push_back((*cit).pItem);
+			}
 		}
-	}
-	bool hasFile(const std::wstring file) const {
-		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
-			if (file == (*cit)->getFile())
-				return true;
+		//////////////////////////////////////////////////////////////////////////
+		/// Save the settings store
+		///
+		/// @author mickem
+		virtual void save() {
+			SettingsInterfaceImpl::save();
+			SI_Error rc = ini.SaveFile(get_file_name().c_str());
+			if (rc < 0)
+				throw_SI_error(rc, _T("Failed to save file"));
 		}
-		return false;
-	}
-
-
-	/**
-	* Retrieves a list of section
-	* @access public 
-	* @returns INIFile::sectionList
-	* @qualifier
-	* @param unsigned int bufferLength
-	*/
-	INIFile::sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
-		INIFile::sectionList ret;
-		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
-			INIFile::sectionList tmp = (*cit)->getSections(bufferLength);
-			ret.insert(ret.begin(), tmp.begin(), tmp.end());
+		virtual SettingsCore::key_type get_key_type(std::wstring path, std::wstring key) {
+			return SettingsCore::key_string;
 		}
-		return ret;
-	}
-
-	/**
-	* Get all keys from a section as a list<string>
-	* @param section The section to return all keys from
-	* @return A list with all keys from the section
-	*/
-	INIFile::sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
-		INIFile::sectionList ret;
-		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
-			INIFile::sectionList tmp = (*cit)->getSection(section, bufferLength);
-			ret.insert(ret.begin(), tmp.begin(), tmp.end());
+	private:
+		void load_data() {
+			if (is_loaded_)
+				return;
+			if (!file_exists()) {
+				is_loaded_ = true;
+				return;
+			}
+			SI_Error rc = ini.LoadFile(get_file_name().c_str());
+			if (rc < 0)
+				throw_SI_error(rc, _T("Failed to load file"));
+			is_loaded_ = true;
 		}
-		return ret;
-	}
-	/**
-	* Get a string from the settings file
-	* @param section Section to read from 
-	* @param key Key to retrieve
-	* @param defaultValue Default value to return if key is not found
-	* @return The value or defaultValue if the key is not found
-	*/
-	std::wstring getString(std::wstring section, std::wstring key, std::wstring defaultValue = _T("")) const {
-		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
-			std::wstring s = (*cit)->getString(section, key, defaultValue);
-			if (s != defaultValue)
-				return s;
+		void throw_SI_error(SI_Error err, std::wstring msg) {
+			std::wstring error_str = _T("unknown error");
+			if (err == SI_NOMEM)
+				error_str = _T("Out of memmory");
+			if (err == SI_FAIL)
+				error_str = _T("General failure");
+			if (err == SI_FILE)
+				error_str = _T("I/O error: ") + error::lookup::last_error();
+			throw SettingsException(msg + _T(": ") + get_context() + _T(" - ") + error_str);
 		}
-		return defaultValue;
-	}
-
-	void setString(std::wstring section, std::wstring key, std::wstring value) {
-		if (coreFile_ != NULL)
-			coreFile_->setString(section, key, value);
-	}
-
-	/**
-	* Get an integer from the settings file
-	* @param section Section to read from 
-	* @param key Key to retrieve
-	* @param defaultValue Default value to return if key is not found
-	* @return The value or defaultValue if the key is not found
-	*/
-	int getInt(std::wstring section, std::wstring key, int defaultValue = 0) {
-		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
-			int s = (*cit)->getInt(section, key, defaultValue);
-			if (s != defaultValue)
-				return s;
+		std::wstring get_file_name() {
+			if (filename_.empty()) {
+				filename_ = get_core()->get_base() + _T("\\") + get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini"));
+				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading INI settings from: ") + filename_);
+			}
+			return filename_;
 		}
-		return defaultValue;
-	}
-	void setInt(std::wstring section, std::wstring key, int value) {
-		if (coreFile_ != NULL)
-			coreFile_->setInt(section, key, value);
-	}
-};
-
-class INISettings : public TSettings
-{
-private:
-//	typedef std::map<std::wstring,std::wstring> saveKeyList;
-//	typedef std::map<std::wstring,saveKeyList> saveSectionList;
-	INIFileBundle settingsBundle;
-	std::wstring basepath_;
-public:
-	INISettings(std::wstring basepath, std::wstring file) : settingsBundle(basepath, file)
-	{
-	}
-
-	virtual ~INISettings(void)
-	{
-	}
-	std::wstring getActiveType() {
-		return _T("INI-file");
-	}
-	int getActiveTypeID() {
-		return INISettings::getType();
-	}
-	static int getType() {
-		return 1;
-	}
-
-	static bool hasSettings(std::wstring basepath, std::wstring file) {
-		INIFile ini(basepath + _T("\\") + file);
-		return ini.getInt(MAIN_SECTION_TITLE, MAIN_USEFILE, MAIN_USEFILE_DEFAULT) == 1;
-	}
-
-	sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
-		return settingsBundle.getSections(bufferLength);
-	}
-
-	/**
-	* Get all keys from a section as a list<string>
-	* @param section The section to return all keys from
-	* @return A list with all keys from the section
-	*/
-	sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
-		return settingsBundle.getSection(section, bufferLength);
-	}
-	/**
-	* Get a string from the settings file
-	* @param section Section to read from 
-	* @param key Key to retrieve
-	* @param defaultValue Default value to return if key is not found
-	* @return The value or defaultValue if the key is not found
-	*/
-	std::wstring getString(std::wstring section, std::wstring key, std::wstring defaultValue = _T("")) const {
-		return settingsBundle.getString(section, key, defaultValue);
-	}
-
-	void setString(std::wstring section, std::wstring key, std::wstring value) {
-		return settingsBundle.setString(section, key, value);
-	}
-
-	/**
-	* Get an integer from the settings file
-	* @param section Section to read from 
-	* @param key Key to retrieve
-	* @param defaultValue Default value to return if key is not found
-	* @return The value or defaultValue if the key is not found
-	*/
-	int getInt(std::wstring section, std::wstring key, int defaultValue = 0) {
-		return settingsBundle.getInt(section, key, defaultValue);
-	}
-	void setInt(std::wstring section, std::wstring key, int value) {
-		return settingsBundle.setInt(section, key, value);
-	}
-};
+		bool file_exists() {
+			std::wstring filename = get_file_name();
+			FILE * fp = NULL;
+			bool found = false;
+#if __STDC_WANT_SECURE_LIB__
+			if (_wfopen_s(&fp, filename.c_str(), L"rb") != 0)
+				return false;
+#else
+			fp = _wfopen(filename.c_str(), L"rb");
+#endif
+			if (!fp)
+				return false;
+			fclose(fp);
+			return true;
+		}
+	};
+}

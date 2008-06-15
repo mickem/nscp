@@ -39,7 +39,7 @@ CheckDisk::CheckDisk() {
 CheckDisk::~CheckDisk() {
 }
 
-bool CheckDisk::loadModule() {
+bool CheckDisk::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
 		NSCModuleHelper::registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
 		NSCModuleHelper::registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));

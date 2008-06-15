@@ -69,8 +69,8 @@ public:
 	std::wstring GetErrorControl(void);
 	std::wstring GetCurrentState(void);
 
-	static TNtServiceInfo *EnumServices(DWORD dwType, DWORD dwState, DWORD *pdwCount);
-	static void EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList);
+	static TNtServiceInfoList EnumServices(DWORD dwType, DWORD dwState);
+	//static void EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList);
 	static TNtServiceInfo GetService(std::wstring);
 };
 

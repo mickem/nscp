@@ -2408,6 +2408,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\include\OLDSettings.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\include\PDHCounter.h"
 				>
 			</File>
@@ -2452,6 +2456,23 @@
 		<Filter
 			Name="Misc"
 			>
+			<File
+				RelativePath=".\boot.dist"
+				>
+			</File>
+			<File
+				RelativePath=".\boot.ini"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+			</File>
 			<File
 				RelativePath=".\changelog"
 				>
@@ -2700,11 +2721,11 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Debug|Win32"
-					ExcludedFromBuild="true"
 					>
 					<Tool
 						Name="VCCustomBuildTool"
 						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
+						Outputs="html"
 					/>
 				</FileConfiguration>
 				<FileConfiguration

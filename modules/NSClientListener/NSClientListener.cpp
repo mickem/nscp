@@ -49,30 +49,51 @@ NSClientListener::NSClientListener() {
 NSClientListener::~NSClientListener() {
 }
 std::wstring getAllowedHosts() {
-	std::wstring ret = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, MAIN_ALLOWED_HOSTS, _T(""));
+	std::wstring ret = SETTINGS_GET_STRING(nsclient::ALLOWED_HOSTS);
 	if (ret.empty())
-		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
+		ret = SETTINGS_GET_STRING(protocol_def::ALLOWED_HOSTS);
 	return ret;
 }
 bool getCacheAllowedHosts() {
-	int val = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, -1);
-	if (val == -1)
-		val = NSCModuleHelper::getSettingsInt(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, MAIN_ALLOWED_HOSTS_CACHE_DEFAULT);
-	return val==1?true:false;
+	return SETTINGS_GET_INT_FALLBACK(nsclient::CACHE_ALLOWED, protocol_def::CACHE_ALLOWED);
 }
 
-bool NSClientListener::loadModule() {
+bool NSClientListener::loadModule(NSCAPI::moduleLoadMode mode) {
+	if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
+		NSC_DEBUG_MSG(_T("Using compatiblity mode in: NSClientListener"));
+		#define NSCLIENT_SECTION_TITLE _T("NSClient")
+		#define NSCLIENT_SETTINGS_PORT _T("port")
+		#define NSCLIENT_SETTINGS_VERSION _T("version")
+		#define NSCLIENT_SETTINGS_BINDADDR _T("bind_to_address")
+		#define NSCLIENT_SETTINGS_LISTENQUE _T("socket_back_log")
+		#define NSCLIENT_SETTINGS_READ_TIMEOUT _T("socket_timeout")
+
+		SETTINGS_MAP_KEY_A(nsclient::PORT,			NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT);
+		SETTINGS_MAP_KEY_A(nsclient::VERSION,		NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_VERSION);
+		SETTINGS_MAP_KEY_A(nsclient::BINDADDR,		NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR);
+		SETTINGS_MAP_KEY_A(nsclient::LISTENQUE,		NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_LISTENQUE);
+		SETTINGS_MAP_KEY_A(nsclient::READ_TIMEOUT,	NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_READ_TIMEOUT);
+	}
+	SETTINGS_REG_PATH(nsclient::SECTION);
+	SETTINGS_REG_KEY_I(nsclient::PORT);
+	SETTINGS_REG_KEY_S(nsclient::VERSION);
+	SETTINGS_REG_KEY_S(nsclient::BINDADDR);
+	SETTINGS_REG_KEY_I(nsclient::LISTENQUE);
+	SETTINGS_REG_KEY_I(nsclient::READ_TIMEOUT);
+
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
-	unsigned short port = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT, NSCLIENT_SETTINGS_PORT_DEFAULT);
-	std::wstring host = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR, NSCLIENT_SETTINGS_BINDADDR_DEFAULT);
-	unsigned int backLog = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_LISTENQUE, NSCLIENT_SETTINGS_LISTENQUE_DEFAULT);
-	socketTimeout_ = NSCModuleHelper::getSettingsInt(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_READ_TIMEOUT, NSCLIENT_SETTINGS_READ_TIMEOUT_DEFAULT);
-	try {
-		socket.setHandler(this);
-		socket.StartListener(host, port, backLog);
-	} catch (simpleSocket::SocketException e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
-		return false;
+	unsigned short port = SETTINGS_GET_INT(nsclient::PORT);
+	std::wstring host = SETTINGS_GET_STRING(nsclient::BINDADDR);
+	unsigned int backLog = SETTINGS_GET_INT(nsclient::LISTENQUE);
+	socketTimeout_ = SETTINGS_GET_INT(nsclient::READ_TIMEOUT);
+	if (mode == NSCAPI::normalStart) {
+		try {
+			socket.setHandler(this);
+			socket.StartListener(host, port, backLog);
+		} catch (simpleSocket::SocketException e) {
+			NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
+			return false;
+		}
 	}
 	return true;
 }
@@ -114,15 +135,15 @@ bool NSClientListener::unloadModule() {
 std::wstring getPassword() {
 	static std::wstring password = _T("");
 	if (password.empty()) {
-		password = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+		password = SETTINGS_GET_STRING(nsclient::OBFUSCATED_PWD);
 		if (password.empty())
-			password= NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+			password= SETTINGS_GET_STRING(protocol_def::OBFUSCATED_PWD);
 		if (!password.empty()) {
 			password = NSCModuleHelper::Decrypt(password);
 		} else {
-			password = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, MAIN_SETTINGS_PWD, MAIN_SETTINGS_PWD_DEFAULT);
+			password = SETTINGS_GET_STRING(nsclient::PWD);
 			if (password.empty())
-				password = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_SETTINGS_PWD, MAIN_SETTINGS_PWD_DEFAULT);
+				password = SETTINGS_GET_STRING(protocol_def::PWD);
 		}
 	}
 	return password;
@@ -184,7 +205,7 @@ std::string NSClientListener::parseRequest(std::string str_buffer)  {
 			break;
 		case REQ_CLIENTVERSION:
 			{
-				std::wstring v = NSCModuleHelper::getSettingsString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_VERSION, NSCLIENT_SETTINGS_VERSION_DEFAULT);
+				std::wstring v = SETTINGS_GET_STRING(nsclient::VERSION);
 				if (v == _T("auto"))
 					v = NSCModuleHelper::getApplicationName() + _T(" ") + NSCModuleHelper::getApplicationVersionString();
 				return strEx::wstring_to_string(v);

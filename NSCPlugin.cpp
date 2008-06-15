@@ -42,6 +42,7 @@ NSCPlugin::NSCPlugin(const std::wstring file)
 	,fGetVersion(NULL)
 	,fCommandLineExec(NULL)
 	,bLoaded_(false)
+	,broken_(false)
 {
 }
 
@@ -58,6 +59,7 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 	,fGetVersion(NULL)
 	,fCommandLineExec(NULL)
 	,bLoaded_(false)
+	,broken_(false)
 {
 	if (other.bLoaded_) {
 		file_ = other.file_;
@@ -120,11 +122,17 @@ void NSCPlugin::load_dll() {
 	bLoaded_ = true;
 }
 
-void NSCPlugin::load_plugin() {
+bool NSCPlugin::load_plugin(NSCAPI::moduleLoadMode mode) {
 	if (!fLoadModule)
 		throw NSPluginException(file_, _T("Critical error (fLoadModule)"));
-	if (!fLoadModule())
-		throw NSPluginException(file_, _T("Could not load plug in"));
+	return fLoadModule(mode);
+}
+
+void NSCPlugin::setBroken(bool broken) {
+	broken_ = broken;
+}
+bool NSCPlugin::isBroken() {
+	return broken_;
 }
 
 

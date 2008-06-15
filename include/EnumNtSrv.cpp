@@ -135,12 +135,10 @@ std::wstring TNtServiceInfo::GetCurrentState(void)
 // Caller is responsible to delete this pointer using delete [] ...
 // dwType = bit OR of SERVICE_WIN32, SERVICE_DRIVER
 // dwState = bit OR of SERVICE_ACTIVE, SERVICE_INACTIVE
-TNtServiceInfo *TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, DWORD *pdwCount)
+TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState)
 {
-	ASSERT(pdwCount != NULL);
+	TNtServiceInfoList ret;
 	// Maybe check if dwType and dwState have at least one constant specified
-	*pdwCount = 0;
-	TNtServiceInfo *info = NULL;
 	SC_HANDLE scman = ::OpenSCManager(NULL,NULL,SC_MANAGER_ENUMERATE_SERVICE);
 	if (scman) {
 		ENUM_SERVICE_STATUS service, *lpservice;
@@ -153,29 +151,30 @@ TNtServiceInfo *TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, DWORD 
 			lpservice = new ENUM_SERVICE_STATUS [bytes];
 			::EnumServicesStatus(scman,dwType,dwState,lpservice,bytes,
 				&bytesNeeded,&servicesReturned,&resumeHandle);
-			*pdwCount = servicesReturned;    // Not a chance that 0 services is returned
-			info = new TNtServiceInfo [servicesReturned];
 			TCHAR Buffer[1024];				// Should be enough for service info
 			QUERY_SERVICE_CONFIG *lpqch = (QUERY_SERVICE_CONFIG*)Buffer;
 			for (DWORD ndx = 0; ndx < servicesReturned; ndx++) {
-				info[ndx].m_strServiceName = lpservice[ndx].lpServiceName;
-				info[ndx].m_strDisplayName = lpservice[ndx].lpDisplayName;
-				info[ndx].m_dwServiceType = lpservice[ndx].ServiceStatus.dwServiceType;
-				info[ndx].m_dwCurrentState = lpservice[ndx].ServiceStatus.dwCurrentState;
+				TNtServiceInfo info;
+				info.m_strServiceName = lpservice[ndx].lpServiceName;
+				info.m_strDisplayName = lpservice[ndx].lpDisplayName;
+				info.m_dwServiceType = lpservice[ndx].ServiceStatus.dwServiceType;
+				info.m_dwCurrentState = lpservice[ndx].ServiceStatus.dwCurrentState;
 				SC_HANDLE sh = ::OpenService(scman,lpservice[ndx].lpServiceName,SERVICE_QUERY_CONFIG);
 				if (::QueryServiceConfig(sh,lpqch,sizeof(Buffer),&bytesNeeded)) {
-					info[ndx].m_strBinaryPath = lpqch->lpBinaryPathName;
-					info[ndx].m_dwStartType = lpqch->dwStartType;
-					info[ndx].m_dwErrorControl = lpqch->dwErrorControl;
+					info.m_strBinaryPath = lpqch->lpBinaryPathName;
+					info.m_dwStartType = lpqch->dwStartType;
+					info.m_dwErrorControl = lpqch->dwErrorControl;
 				}
 				::CloseServiceHandle(sh);
+				ret.push_back(info);
 			}
 			delete [] lpservice;
 		}
 		::CloseServiceHandle(scman);
 	}
-	return info;
+	return ret;
 }
+
 
 #define SC_BUF_LEN 4096
 TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
@@ -192,6 +191,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 		TCHAR *buf = new TCHAR[bufLen+1];
 		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
 			::CloseServiceHandle(scman);
+			delete [] buf;
 			throw NTServiceException(name, _T("GetServiceKeyName: Could not translate service name"), GetLastError());
 		}
 		/*
@@ -203,6 +203,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 		buf[bufLen] = 0;
 		*/
 		sh = ::OpenService(scman,buf,SERVICE_QUERY_STATUS);
+		delete [] buf;
 		if (sh == NULL) {
 			::CloseServiceHandle(scman);
 			throw NTServiceException(name, _T("OpenService: Could not open Service"), GetLastError());
@@ -223,7 +224,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	return info;
 }
 
-
+/*
 // Enumerate services on this machine and return an STL list of service objects 
 // dwType = bit OR of SERVICE_WIN32, SERVICE_DRIVER
 // dwState = bit OR of SERVICE_ACTIVE, SERVICE_INACTIVE
@@ -238,7 +239,7 @@ void TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoLis
 	}
 	delete [] pSrvList;
 }
-
+*/
 /*#############################################################################
 # End of file ENUMNTSRV.CPP
 #############################################################################*/

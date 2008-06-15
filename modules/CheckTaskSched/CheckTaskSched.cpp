@@ -35,16 +35,19 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	return TRUE;
 }
 
-bool CheckTaskSched::loadModule() {
+bool CheckTaskSched::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
 		NSCModuleHelper::registerCommand(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
 		NSCModuleHelper::registerCommand(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+
+		SETTINGS_REG_PATH(task_scheduler::SECTION);
+		SETTINGS_REG_KEY_S(task_scheduler::SYNTAX);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
-	syntax = NSCModuleHelper::getSettingsString(C_TASKSCHED_SECTION, C_TASKSCHED_SYNTAX, C_TASKSCHED_SYNTAX_DEFAULT);
+	syntax = SETTINGS_GET_STRING(task_scheduler::SYNTAX);
 	return true;
 }
 bool CheckTaskSched::unloadModule() {

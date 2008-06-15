@@ -34,17 +34,19 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 
 SysTray::SysTray() : icon(_T("SysTray")) {}
 SysTray::~SysTray() {}
-bool SysTray::loadModule() {
-	try {
-		if ((serviceControll::GetServiceType(SZSERVICENAME)&SERVICE_INTERACTIVE_PROCESS)!=SERVICE_INTERACTIVE_PROCESS) {
+bool SysTray::loadModule(NSCAPI::moduleLoadMode mode) {
+	if (mode == NSCAPI::normalStart) {
+		try {
+			if ((serviceControll::GetServiceType(SZSERVICENAME)&SERVICE_INTERACTIVE_PROCESS)!=SERVICE_INTERACTIVE_PROCESS) {
+				NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
+				return true;
+			}
+		} catch (serviceControll::SCException e) {
 			NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
 			return true;
 		}
-	} catch (serviceControll::SCException e) {
-		NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
-		return true;
+		icon.createThread();
 	}
-	icon.createThread();
 	return true;
 }
 bool SysTray::unloadModule() {

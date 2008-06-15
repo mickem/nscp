@@ -17,6 +17,7 @@ NSClientSocket::~NSClientSocket() {
 std::string NSClientSocket::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');
 	NSC_DEBUG_MSG("Password: " + pwd.first);
+break-on-compile
 	if ( (pwd.first.empty()) || (pwd.first != NSCModuleHelper::getSettingsString("NSClient", "password", "")) )
 		return "ERROR: Invalid password.";
 	if (pwd.second.empty())

@@ -49,12 +49,14 @@ private:
 	std::wstring scriptDirectory_;
 	unsigned int buffer_length_;
 	std::wstring root_;
+	bool allowNasty_;
+	bool allowArgs_;
 
 public:
 	NRPEListener();
 	virtual ~NRPEListener();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 

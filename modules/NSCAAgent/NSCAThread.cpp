@@ -23,14 +23,14 @@
 
 
 NSCAThread::NSCAThread() : hStopEvent_(NULL) {
-	checkIntervall_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
-	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
-	nscahost_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_SERVER, NSCA_SERVER_DEFAULT);
-	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
-	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
-	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
-	cacheNscaHost_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST, NSCA_CACHE_HOST_DEFAULT) == 1;
-	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
+	checkIntervall_ = SETTINGS_GET_INT(nsca::INTERVAL);
+	hostname_ = SETTINGS_GET_STRING(nsca::HOSTNAME);
+	nscahost_ = SETTINGS_GET_STRING(nsca::SERVER_HOST);
+	nscaport_ = SETTINGS_GET_INT(nsca::SERVER_PORT);
+	encryption_method_ = SETTINGS_GET_INT(nsca::ENCRYPTION);
+	password_ = strEx::wstring_to_string(SETTINGS_GET_STRING(nsca::PASSWORD));
+	cacheNscaHost_ = SETTINGS_GET_BOOL(nsca::CACHE_HOST);
+	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(settings::nsca::CMD_SECTION_PATH);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
 	}
@@ -79,7 +79,7 @@ Command::Result Command::execute(std::wstring host) const {
 
 
 void NSCAThread::addCommand(std::wstring key) {
-	std::wstring value = NSCModuleHelper::getSettingsString(NSCA_CMD_SECTION_TITLE, key, _T(""));
+	std::wstring value = NSCModuleHelper::getSettingsString(settings::nsca::CMD_SECTION_PATH, key, _T(""));
 	if ((key.length() > 4) && (key.substr(0,4) == _T("host")))
 		commands_.push_back(Command(_T(""), value));
 	else

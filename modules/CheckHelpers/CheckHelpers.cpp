@@ -38,7 +38,7 @@ CheckHelpers::~CheckHelpers() {
 }
 
 
-bool CheckHelpers::loadModule() {
+bool CheckHelpers::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
 		NSCModuleHelper::registerCommand(_T("CheckAlwaysOK"), _T("Run another check and regardless of its return code return OK."));
 		NSCModuleHelper::registerCommand(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));

@@ -169,7 +169,6 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 			p2 = inBuf.size();
 		// p1 = start of "this token"
 		// p2 = end of "this token" (next split char)
-		//std::wcout << _T("found token: ") << p1 << _T(":") << p2;
 
 		assert(p2>p1);
 		std::wstring token = inBuf.substr(p1,p2-p1);
@@ -178,7 +177,6 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		if (escape && token[token.size()-1] == '\"')
 			token = token.substr(0, token.size()-1);
 
-		//std::wcout << _T(" -- ") << token << std::endl;
 
 		token_list.push_back(token);
 		if (p2 < inBuf.size())

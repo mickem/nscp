@@ -55,16 +55,67 @@ NSCAAgent::~NSCAAgent() {}
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
-bool NSCAAgent::loadModule() {
-	int e_threads = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_DEBUG_THREADS, NSCA_DEBUG_THREADS_DEFAULT);
+bool NSCAAgent::loadModule(NSCAPI::moduleLoadMode mode) {
+	try {
 
-	for (int i=0;i<e_threads;i++) {
-		std::wstring id = _T("nsca_t_") + strEx::itos(i);
-		NSCAThreadImpl *thread = new NSCAThreadImpl(id);
-		extra_threads.push_back(thread);
+		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
+			NSC_DEBUG_MSG(_T("Using compatiblity mode in: NSCA module"));
+
+#define NSCA_AGENT_SECTION_TITLE _T("NSCA Agent")
+#define NSCA_CMD_SECTION_TITLE _T("NSCA Commands")
+
+#define NSCA_INTERVAL _T("interval")
+#define NSCA_HOSTNAME _T("hostname")
+#define NSCA_SERVER _T("nsca_host")
+#define NSCA_PORT _T("nsca_port")
+#define NSCA_ENCRYPTION _T("encryption_method")
+#define NSCA_PASSWORD _T("password")
+#define NSCA_DEBUG_THREADS _T("debug_threads")
+#define NSCA_CACHE_HOST _T("cache_hostname")
+
+			SETTINGS_MAP_KEY_A(nsca::INTERVAL,		NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL);
+			SETTINGS_MAP_KEY_A(nsca::HOSTNAME,		NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME);
+			SETTINGS_MAP_KEY_A(nsca::SERVER_HOST,	NSCA_AGENT_SECTION_TITLE, NSCA_SERVER);
+			SETTINGS_MAP_KEY_A(nsca::SERVER_PORT,	NSCA_AGENT_SECTION_TITLE, NSCA_PORT);
+			SETTINGS_MAP_KEY_A(nsca::ENCRYPTION,	NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION);
+			SETTINGS_MAP_KEY_A(nsca::PASSWORD,		NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD);
+			SETTINGS_MAP_KEY_A(nsca::THREADS,		NSCA_AGENT_SECTION_TITLE, NSCA_DEBUG_THREADS);
+			SETTINGS_MAP_KEY_A(nsca::CACHE_HOST,	NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST);
+
+			SETTINGS_MAP_SECTION_A(nsca::CMD_SECTION,	NSCA_CMD_SECTION_TITLE);
+		}
+
+		SETTINGS_REG_PATH(nsca::SECTION);
+		SETTINGS_REG_PATH(nsca::SERVER_SECTION);
+		SETTINGS_REG_PATH(nsca::CMD_SECTION);
+
+		SETTINGS_REG_KEY_I(nsca::INTERVAL);
+		SETTINGS_REG_KEY_S(nsca::HOSTNAME);
+		SETTINGS_REG_KEY_S(nsca::SERVER_HOST);
+		SETTINGS_REG_KEY_I(nsca::SERVER_PORT);
+		SETTINGS_REG_KEY_I(nsca::ENCRYPTION);
+		SETTINGS_REG_KEY_S(nsca::PASSWORD);
+		SETTINGS_REG_KEY_I(nsca::THREADS);
+		SETTINGS_REG_KEY_B(nsca::CACHE_HOST);
+
+
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
-	for (std::list<NSCAThreadImpl*>::const_iterator cit=extra_threads.begin();cit != extra_threads.end(); ++cit) {
-		(*cit)->createThread(reinterpret_cast<LPVOID>(rand()));
+
+	if (mode == NSCAPI::normalStart) {
+		int e_threads = SETTINGS_GET_INT(nsca::THREADS);
+
+		for (int i=0;i<e_threads;i++) {
+			std::wstring id = _T("nsca_t_") + strEx::itos(i);
+			NSCAThreadImpl *thread = new NSCAThreadImpl(id);
+			extra_threads.push_back(thread);
+		}
+		for (std::list<NSCAThreadImpl*>::const_iterator cit=extra_threads.begin();cit != extra_threads.end(); ++cit) {
+			(*cit)->createThread(reinterpret_cast<LPVOID>(rand()));
+		}
 	}
 	
 	return true;

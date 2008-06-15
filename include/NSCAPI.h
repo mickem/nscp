@@ -20,6 +20,9 @@
 ***************************************************************************/
 #pragma once
 
+
+#include <tchar.h>
+
 namespace NSCAPI {
 
 #ifdef DEBUG
@@ -40,7 +43,19 @@ namespace NSCAPI {
 		hasFailed = 0,
 		isInvalidBufferLen = -2
 	} errorReturn;
+	typedef enum {
+		key_string = 100,
+		key_integer = 200,
+		key_bool = 300,
+	} settings_type;
+
+	typedef enum {
+		normalStart = 0,
+		dontStart = 1,
+	} moduleLoadMode;
 #else
+	const int normalStart = 0;
+	const int dontStart = 1;
 	const int returnOK = 0;
 	const int returnWARN = 1;
 	const int returnCRIT = 2;
@@ -52,11 +67,15 @@ namespace NSCAPI {
 	const int isSuccess = 1; 
 	const int hasFailed = 0;
 	const int isInvalidBufferLen = -2;
-
+	const int key_string = 100;
+	const int key_integer = 200;
+	const int key_bool = 300;
 
 	typedef int nagiosReturn;
 	typedef int boolReturn;
 	typedef int errorReturn;
+	typedef int settings_type;
+	typedef int moduleLoadMode;
 #endif
 
 	const int xor = 1;
@@ -74,4 +93,14 @@ namespace NSCAPI {
 	const int debug = 666;			// Debug message
 
 	typedef int messageTypes;		// Message type
+
+	struct plugin_info {
+		TCHAR *dll;
+		TCHAR *name;
+		TCHAR *description;
+		TCHAR *version;
+	};
+	typedef plugin_info* plugin_info_list;
+
+
 };

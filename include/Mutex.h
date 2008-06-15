@@ -61,7 +61,7 @@ public:
 		if (hMutex == NULL && GetLastError() == ERROR_ALREADY_EXISTS )
 			hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, NULL);
 		if (hMutex == NULL) {
-			std::wcout << _T("Error in mutex creation: ") << GetLastError()	<< std::endl;
+			std::wcout << _T("*** *** *** Error in mutex creation: ") << GetLastError()	<< std::endl;
 		}
 	}
 	/**
@@ -124,7 +124,7 @@ public:
 	 */
 	MutexLock(HANDLE hMutex, DWORD timeout = 5000L) : bHasMutex(false), hMutex_(hMutex) {
 		if (hMutex_ == NULL) {
-			std::wcout << _T("Error in mutex lock: ") << std::endl;
+			std::wcout << _T("*** *** *** Error in mutex lock: ") << std::endl;
 			bHasMutex = false;
 			return;
 		}
@@ -194,7 +194,7 @@ public:
 	*/
 	void lock(DWORD timeout = 5000L) {
 		if (hMutex_ == NULL) {
-			std::wcout << _T("Error in mutex lock: ") << std::endl;
+			std::wcout << _T("*** *** *** Error in mutex lock: ") << std::endl;
 			bHasMutex = false;
 			return;
 		}

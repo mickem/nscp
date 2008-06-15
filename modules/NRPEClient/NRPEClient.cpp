@@ -41,14 +41,20 @@ NRPEClient::NRPEClient() : buffer_length_(0), bInitSSL(false) {
 NRPEClient::~NRPEClient() {
 }
 
-bool NRPEClient::loadModule() {
-	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
-
-	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_CLIENT_HANDLER_SECTION_TITLE);
-	NSC_DEBUG_MSG_STD(_T("humm..."));
+bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
+	std::list<std::wstring> commands;
+	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
+	try {
+		SETTINGS_REG_PATH(nrpe::CH_SECTION);
+		commands = NSCModuleHelper::getSettingsSection(settings::nrpe::CH_SECTION_PATH);
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+	}
 	for (std::list<std::wstring>::const_iterator it = commands.begin(); it != commands.end(); ++it) {
 		NSC_DEBUG_MSG_STD(*it);
-		std::wstring s = NSCModuleHelper::getSettingsString(NRPE_CLIENT_HANDLER_SECTION_TITLE, (*it), _T(""));
+		std::wstring s = NSCModuleHelper::getSettingsString(settings::nrpe::CH_SECTION_PATH, (*it), _T(""));
 		if (s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid NRPE-client entry: ") + (*it));
 		} else {
@@ -107,7 +113,7 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::blindstr command, co
 
 boost::program_options::options_description NRPEClient::get_optionDesc() {
 	boost::program_options::options_description desc("Allowed options");
-	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
+	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
 	desc.add_options()
 		("help,h", "Show this help message.")
 		("host,H", boost::program_options::wvalue<std::wstring>(), "The address of the host running the NRPE daemon")

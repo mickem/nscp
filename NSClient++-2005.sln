@@ -188,7 +188,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lua-modules", "lua-modules"
 		Release.AspNetCompiler.Debug = "False"
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheckWMI", "modules\CheckTaskSched\CheckTaskSched-2005.vcproj", "{F3401E75-60FB-4A0E-A18C-6505587D5B1A}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheckTaskSched", "modules\CheckTaskSched\CheckTaskSched-2005.vcproj", "{F3401E75-60FB-4A0E-A18C-6505587D5B1A}"
+	ProjectSection(WebsiteProperties) = preProject
+		Debug.AspNetCompiler.Debug = "True"
+		Release.AspNetCompiler.Debug = "False"
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WEBConfiguration", "..\..\..\..\..\..\..\source\nscp-trunc\modules\WEBConfiguration\WEBConfiguration-2005.vcproj", "{1B792ABB-8003-48EF-9045-43D0D6BD8836}"
 	ProjectSection(WebsiteProperties) = preProject
 		Debug.AspNetCompiler.Debug = "True"
 		Release.AspNetCompiler.Debug = "False"
@@ -1064,7 +1070,6 @@ Global
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Mixed Platforms.ActiveCfg = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Mixed Platforms.Build.0 = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Win32.ActiveCfg = Release|Win32
-		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Win32.Build.0 = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|x64.ActiveCfg = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Release|Any CPU.ActiveCfg = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Release|Itanium.ActiveCfg = Release|Win32
@@ -1113,6 +1118,46 @@ Global
 		{F3401E75-60FB-4A0E-A18C-6505587D5B1A}.Release|Win32.Build.0 = Release|Win32
 		{F3401E75-60FB-4A0E-A18C-6505587D5B1A}.Release|x64.ActiveCfg = Release|x64
 		{F3401E75-60FB-4A0E-A18C-6505587D5B1A}.Release|x64.Build.0 = Release|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|Itanium.ActiveCfg = Debug|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|Mixed Platforms.Build.0 = Debug|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|Win32.Build.0 = Debug|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|x64.ActiveCfg = Debug|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug|x64.Build.0 = Debug|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|Any CPU.ActiveCfg = Debug-MemCheck|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|Itanium.ActiveCfg = Debug-MemCheck|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|Mixed Platforms.ActiveCfg = Debug-MemCheck|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|Mixed Platforms.Build.0 = Debug-MemCheck|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|Win32.ActiveCfg = Debug-MemCheck|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|Win32.Build.0 = Debug-MemCheck|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|x64.ActiveCfg = Debug-MemCheck|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Debug-MemCheck|x64.Build.0 = Debug-MemCheck|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|Any CPU.ActiveCfg = Distribution|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|Itanium.ActiveCfg = Distribution|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|Mixed Platforms.ActiveCfg = Distribution|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|Mixed Platforms.Build.0 = Distribution|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|Win32.ActiveCfg = Distribution|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|Win32.Build.0 = Distribution|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|x64.ActiveCfg = Distribution|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Distribution|x64.Build.0 = Distribution|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|Any CPU.ActiveCfg = Nightly|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|Itanium.ActiveCfg = Nightly|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|Mixed Platforms.ActiveCfg = Nightly|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|Mixed Platforms.Build.0 = Nightly|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|Win32.ActiveCfg = Nightly|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|Win32.Build.0 = Nightly|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|x64.ActiveCfg = Nightly|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Nightly|x64.Build.0 = Nightly|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|Any CPU.ActiveCfg = Release|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|Itanium.ActiveCfg = Release|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|Mixed Platforms.ActiveCfg = Release|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|Mixed Platforms.Build.0 = Release|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|Win32.ActiveCfg = Release|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|Win32.Build.0 = Release|Win32
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|x64.ActiveCfg = Release|x64
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1133,6 +1178,7 @@ Global
 		{4241C6CF-EC01-4AD9-89B0-B75EBA8A5996} = {9757464B-C125-4307-A84A-F4181AE6A081}
 		{BBFF8362-C626-4838-B0A2-F695D638AD24} = {9757464B-C125-4307-A84A-F4181AE6A081}
 		{F3401E75-60FB-4A0E-A18C-6505587D5B1A} = {9757464B-C125-4307-A84A-F4181AE6A081}
+		{1B792ABB-8003-48EF-9045-43D0D6BD8836} = {9757464B-C125-4307-A84A-F4181AE6A081}
 		{0E2B21D9-F432-4127-8E92-7716B1072510} = {9A087442-7BB2-4CF0-9F58-5D1BC3C32CD2}
 		{A3CF4E23-1D1B-4D93-A16A-48C52D118560} = {9A087442-7BB2-4CF0-9F58-5D1BC3C32CD2}
 		{6206F046-3D36-4258-BB03-3291A7070117} = {9A087442-7BB2-4CF0-9F58-5D1BC3C32CD2}

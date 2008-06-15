@@ -39,16 +39,10 @@ NRPEListener::~NRPEListener() {
 }
 
 std::wstring getAllowedHosts() {
-	std::wstring ret = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS, _T(""));
-	if (ret.empty())
-		ret = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
-	return ret;
+	return SETTINGS_GET_STRING_FALLBACK(nrpe::ALLOWED_HOSTS, protocol_def::ALLOWED_HOSTS);
 }
 bool getCacheAllowedHosts() {
-	int val = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, -1);
-	if (val == -1)
-		val = NSCModuleHelper::getSettingsInt(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS_CACHE, MAIN_ALLOWED_HOSTS_CACHE_DEFAULT);
-	return val==1?true:false;
+	return SETTINGS_GET_BOOL_FALLBACK(nrpe::CACHE_ALLOWED, protocol_def::CACHE_ALLOWED);
 }
 
 
@@ -73,13 +67,63 @@ void NRPEListener::addAllScriptsFrom(std::wstring path) {
 	FindClose(hFind);
 }
 
-bool NRPEListener::loadModule() {
-	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
-	noPerfData_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA,NRPE_SETTINGS_PERFDATA_DEFAULT)==0;
-	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
-	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
-	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
-	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
+bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
+	if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
+		NSC_DEBUG_MSG(_T("Using compatiblity mode in: NRPE Module"));
+
+#define NRPE_SECTION_TITLE _T("NRPE")
+#define NRPE_SETTINGS_READ_TIMEOUT _T("socket_timeout")
+#define NRPE_SETTINGS_PORT _T("port")
+#define NRPE_SETTINGS_BINDADDR _T("bind_to_address")
+#define NRPE_SETTINGS_LISTENQUE _T("socket_back_log")
+#define NRPE_SETTINGS_USE_SSL _T("use_ssl")
+#define NRPE_SETTINGS_STRLEN _T("string_length")
+#define NRPE_SETTINGS_PERFDATA _T("performance_data")
+#define NRPE_HANDLER_SECTION_TITLE _T("NRPE Handlers")
+#define NRPE_SETTINGS_SCRIPTDIR _T("script_dir")
+#define NRPE_SETTINGS_TIMEOUT _T("command_timeout")
+#define NRPE_SETTINGS_ALLOW_ARGUMENTS _T("allow_arguments")
+#define NRPE_SETTINGS_ALLOW_NASTY_META _T("allow_nasty_meta_chars")
+
+		SETTINGS_MAP_KEY_A(nrpe::PORT,			NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT);
+		SETTINGS_MAP_KEY_A(nrpe::BINDADDR,		NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR);
+		SETTINGS_MAP_KEY_A(nrpe::LISTENQUE,		NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE);
+		SETTINGS_MAP_KEY_A(nrpe::READ_TIMEOUT,	NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT);
+		SETTINGS_MAP_KEY_A(nrpe::USE_SSL,		NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL);
+		SETTINGS_MAP_KEY_A(nrpe::PAYLOAD_LENGTH,NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN);
+		SETTINGS_MAP_KEY_A(nrpe::ALLOW_PERFDATA,NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA);
+		SETTINGS_MAP_KEY_A(nrpe::SCRIPT_PATH,	NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR);
+		SETTINGS_MAP_KEY_A(nrpe::CMD_TIMEOUT,	NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT);
+		SETTINGS_MAP_KEY_A(nrpe::ALLOW_ARGS,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS);
+		SETTINGS_MAP_KEY_A(nrpe::ALLOW_NASTY,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META);
+
+		SETTINGS_MAP_SECTION_A(nrpe::SECTION_HANDLERS,NRPE_HANDLER_SECTION_TITLE);
+		
+	}
+
+	SETTINGS_REG_KEY_I(nrpe::PORT);
+	SETTINGS_REG_KEY_S(nrpe::BINDADDR);
+	SETTINGS_REG_KEY_I(nrpe::LISTENQUE);
+	SETTINGS_REG_KEY_I(nrpe::READ_TIMEOUT);
+	SETTINGS_REG_KEY_B(nrpe::USE_SSL);
+	SETTINGS_REG_KEY_I(nrpe::PAYLOAD_LENGTH);
+	SETTINGS_REG_KEY_B(nrpe::ALLOW_PERFDATA);
+	SETTINGS_REG_KEY_S(nrpe::SCRIPT_PATH);
+	SETTINGS_REG_KEY_I(nrpe::CMD_TIMEOUT);
+	SETTINGS_REG_KEY_B(nrpe::ALLOW_ARGS);
+	SETTINGS_REG_KEY_B(nrpe::ALLOW_NASTY);
+
+	SETTINGS_REG_PATH(nrpe::SECTION);
+	SETTINGS_REG_PATH(nrpe::SECTION_HANDLERS);
+
+	bUseSSL_ = SETTINGS_GET_BOOL(nrpe::USE_SSL)==1;
+	noPerfData_ = SETTINGS_GET_INT(nrpe::ALLOW_PERFDATA)==0;
+	timeout = SETTINGS_GET_INT(nrpe::CMD_TIMEOUT);
+	socketTimeout_ = SETTINGS_GET_INT(nrpe::READ_TIMEOUT);
+	scriptDirectory_ = SETTINGS_GET_STRING(nrpe::SCRIPT_PATH);
+	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
+	allowArgs_ = SETTINGS_GET_BOOL(nrpe::ALLOW_ARGS);
+	allowNasty_ = SETTINGS_GET_BOOL(nrpe::ALLOW_NASTY);
 	if (buffer_length_ != 1024)
 		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
 	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
@@ -111,15 +155,17 @@ bool NRPEListener::loadModule() {
 
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
 	try {
-		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
-		std::wstring host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
-		unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
-		if (bUseSSL_) {
-			socket_ssl_.setHandler(this);
-			socket_ssl_.StartListener(host, port, backLog);
-		} else {
-			socket_.setHandler(this);
-			socket_.StartListener(host, port, backLog);
+		unsigned short port = SETTINGS_GET_INT(nrpe::PORT);
+		std::wstring host = SETTINGS_GET_STRING(nrpe::BINDADDR);
+		unsigned int backLog = SETTINGS_GET_INT(nrpe::LISTENQUE);
+		if (mode == NSCAPI::normalStart) {
+			if (bUseSSL_) {
+				socket_ssl_.setHandler(this);
+				socket_ssl_.StartListener(host, port, backLog);
+			} else {
+				socket_.setHandler(this);
+				socket_.StartListener(host, port, backLog);
+			}
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
@@ -169,13 +215,13 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 
 	const command_data cd = (*cit).second;
 	std::wstring args = cd.arguments;
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 1) {
+	if (allowArgs_) {
 		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
 		arrayBuffer::arrayList::const_iterator cit2 = arr.begin();
 		int i=1;
 
 		for (;cit2!=arr.end();cit2++,i++) {
-			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+			if (allowNasty_) {
 				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;
@@ -353,13 +399,13 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	}
 	std::wstring msg, perf;
 
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {
+	if (allowArgs_) {
 		if (!cmd.second.empty()) {
 			NSC_LOG_ERROR(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
 			throw NRPEException(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
 		}
 	}
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+	if (allowNasty_) {
 		if (cmd.first.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 			NSC_LOG_ERROR(_T("Request command contained illegal metachars!"));
 			throw NRPEException(_T("Request command contained illegal metachars!"));

@@ -23,42 +23,34 @@ NSC_WRAPPERS_MAIN();
 #include <strEx.h>
 #include <utils.h>
 #include <checkHelpers.hpp>
-#include "script_wrapper.hpp"
+#include <boost/thread/thread.hpp>
 
-class LUAScript : script_wrapper::lua_handler {
+namespace http {
+	namespace server {
+		class Server;
+		class Configuration;
+	}
+}
+namespace Wt {
+	class WebController;
+	class Configuration;
+	class HTTPStream;
+}
+class WEBConfiguration {
 private:
 
-	class lua_func {
-	public:
-		lua_func(script_wrapper::lua_script* script_, std::wstring function_) : script(script_), function(function_) {}
-		lua_func() : script(NULL) {}
-		script_wrapper::lua_script* script;
-		std::wstring function;
-
-		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) const {
-			return script->handleCommand(handler, function, command, argLen, char_args, msg, perf);
-		}
-	};
-
-	typedef std::map<strEx::blindstr,lua_func> cmd_list;
-	typedef std::list<script_wrapper::lua_script*> script_list;
-
-	cmd_list commands_;
-	script_list scripts_;
-
 public:
-	LUAScript();
-	virtual ~LUAScript();
+	WEBConfiguration();
+	virtual ~WEBConfiguration();
 	// Module calls
 	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	bool reload(std::wstring &msg);
 
 	std::wstring getModuleName() {
-		return _T("LUAScript");
+		return _T("WEBConfiguration");
 	}
 	std::wstring getModuleDescription() {
-		return _T("LUAScript...");
+		return _T("WEBConfiguration Allows remote configuration and administration of NSCP.");
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
@@ -67,15 +59,22 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	bool loadScript(const std::wstring script);
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);
+	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
-	//script_wrapper::lua_handler
-	void register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function);
+	// Check commands
+	NSCAPI::nagiosReturn writeConf(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
+	NSCAPI::nagiosReturn readConf(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
+	NSCAPI::nagiosReturn setVariable(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
+	NSCAPI::nagiosReturn getVariable(const unsigned int argLen, TCHAR **char_args, std::wstring &message);
 
 private:
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsDiscSize> PathConatiner;
 	typedef checkHolders::CheckConatiner<checkHolders::MaxMinPercentageBoundsDiskSize> DriveConatiner;
+	boost::thread **threads;
+	http::server::Server *server;
+	Wt::WebController *controller;
+	Wt::Configuration *wtConfiguration;
+	Wt::HTTPStream    *stream;
+	http::server::Configuration *config;
 };

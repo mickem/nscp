@@ -24,9 +24,10 @@
 
 
 PDHCollector::PDHCollector() : hStopEvent_(NULL) {
-	dontCollect_ = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_IGNORE_COLLECTION, C_SYSTEM_IGNORE_COLLECTION_DEFAULT)==1;
-	checkIntervall_ = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CHECK_RESOLUTION, C_SYSTEM_CHECK_RESOLUTION_DEFAULT);
-	std::wstring s = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_BUFFER_TIME, C_SYSTEM_CPU_BUFFER_TIME_DEFAULT);
+	// TODO: Re add this?
+	//dontCollect_ = SETTINGS_GET_INT(check_system::) NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_IGNORE_COLLECTION, C_SYSTEM_IGNORE_COLLECTION_DEFAULT)==1;
+	checkIntervall_ = SETTINGS_GET_INT(check_system::INTERVALL);
+	std::wstring s = SETTINGS_GET_STRING(check_system::BUFFER_SIZE);
 	unsigned int i = strEx::stoui_as_time(s, checkIntervall_*100);
 	cpu.resize(i/(checkIntervall_*100));
 }
@@ -38,13 +39,14 @@ PDHCollector::~PDHCollector()
 }
 
 bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
-	if (NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_AUTODETECT_PDH, C_SYSTEM_AUTODETECT_PDH_DEFAULT) != 1) {
-		NSC_DEBUG_MSG_STD(_T("Autodetect disabled from nsc.ini via: ") + C_SYSTEM_AUTODETECT_PDH);
+	std::wstring method = SETTINGS_GET_STRING(check_system::CPU_METHOD);
+
+	if (method == settings::check_system::CPU_METHOD_PDH_MANUAL) {
+		NSC_DEBUG_MSG_STD(_T("Autodetect disabled from nsc.ini via: ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD));
 		return false;
 	}
 	std::wstring prefix;
-	std::wstring section = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_FORCE_LANGUAGE, C_SYSTEM_FORCE_LANGUAGE_DEFAULT);
-	int noIndex = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_NO_INDEX, C_SYSTEM_NO_INDEX_DEFAULT);
+	std::wstring section = SETTINGS_GET_STRING(check_system::FORCE_LANGUAGE);
 	bool bUseIndex = false;
 
 	// Investigate environment and find out what to use
@@ -52,7 +54,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 		OSVERSIONINFO osVer = systemInfo::getOSVersion();
 		if (!systemInfo::isNTBased(osVer)) {
 			NSC_LOG_ERROR_STD(_T("Detected Windows 3.x or Windows 9x, PDH will be disabled."));
-			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first setup ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD) + _T(", and then you also need to configure the various counter."));
 			return false;
 		}
 
@@ -69,7 +71,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			langId = systemInfo::GetSystemDefaultUILanguage();
 		} else {
 			NSC_LOG_ERROR_STD(_T("Unknown OS detected, PDH will be disabled."));
-			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD) + _T(" in the config file, and then you also need to configure the various counter."));
 			return false;
 		}
 
@@ -79,16 +81,16 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			section = _T("0000") + strEx::ihextos(langId);
 			section = _T("0x") + section.substr(section.length()-4);
 		}
-		if (bUseIndex&&noIndex==1) {
-			NSC_DEBUG_MSG_STD(_T("We wanted to use index but were forced not to use them due to: ") + C_SYSTEM_NO_INDEX);
+		if (bUseIndex&&(method==settings::check_system::CPU_METHOD_PDH_NO_INDEX)) {
+			NSC_DEBUG_MSG_STD(_T("We wanted to use index but were forced not to use them due to: ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD));
 			bUseIndex = false;
 		}
 	} catch (const systemInfo::SystemInfoException &e) {
-		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD) + _T(" in the config file, and then you also need to configure the various counter."));
 		NSC_LOG_ERROR_STD(_T("The Error: ") + e.getError());
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
+		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD) + _T(" in the config file, and then you also need to configure the various counter."));
 		NSC_LOG_ERROR_STD(_T("The Error: UNKNOWN_EXCEPTION"));
 		return false;
 	}
@@ -106,6 +108,10 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			memCl = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(30);
 			memCb = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(26);
 		} else {
+			NSC_LOG_ERROR_STD(_T("REPORT THIS: counters.defs file handling has not been (re)added!!!"));
+			return false;
+			/*
+			@TODO: FIXME
 			SettingsT settings;
 			settings.setFile(NSCModuleHelper::getBasePath(),  _T("counters.defs"), true);
 			NSC_DEBUG_MSG_STD(_T("Detected language: ") + settings.getString(section, _T("Description"), _T("Not found")) + _T(" (") + section + _T(")"));
@@ -119,6 +125,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			uptime = settings.getString(section, prefix + _T("_") + C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT);
 			memCl = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT);
 			memCb = settings.getString(section, prefix + _T("_") + C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT);
+			*/
 		}
 		NSC_DEBUG_MSG_STD(_T("Found countername: CPU:    ") + proc);
 		NSC_DEBUG_MSG_STD(_T("Found countername: UPTIME: ") + uptime);
@@ -168,10 +175,10 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			pdh.removeAllCounters();
 			NSC_DEBUG_MSG_STD(_T("We aparently failed to load counters trying to use default (English) counters or those configured in nsc.ini"));
 			SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
-			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT, C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT), &memCmtLim);
-			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE, C_SYSTEM_MEM_PAGE_DEFAULT), &memCmt);
-			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME, C_SYSTEM_UPTIME_DEFAULT), &upTime);
-			pdh.addCounter(NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU, C_SYSTEM_MEM_CPU_DEFAULT), &cpu);
+			pdh.addCounter(SETTINGS_GET_STRING(check_system::PDH_MEM_CMT_LIM), &memCmtLim);
+			pdh.addCounter(SETTINGS_GET_STRING(check_system::PDH_MEM_CMT_BYT), &memCmt);
+			pdh.addCounter(SETTINGS_GET_STRING(check_system::PDH_SYSUP), &upTime);
+			pdh.addCounter(SETTINGS_GET_STRING(check_system::PDH_CPU), &cpu);
 			try {
 				pdh.open();
 			} catch (const PDH::PDHException &e) {

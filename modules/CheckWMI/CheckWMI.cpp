@@ -41,7 +41,7 @@ CheckWMI::~CheckWMI() {
 }
 
 
-bool CheckWMI::loadModule() {
+bool CheckWMI::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
 		NSCModuleHelper::registerCommand(_T("CheckWMIValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
 		NSCModuleHelper::registerCommand(_T("CheckWMI"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));

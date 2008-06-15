@@ -18,46 +18,4 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
-
-#include <config.h>
-#include <strEx.h>
-#include <utils.h>
-#include <checkHelpers.hpp>
-#include "TaskSched.h"
-
-class CheckTaskSched {
-private:
-	std::wstring syntax;
-
-public:
-	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-
-	std::wstring getModuleName() {
-		return _T("CheckTaskSched");
-	}
-	std::wstring getModuleDescription() {
-		return _T("CheckTaskSched can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
-	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	int CheckTaskSched::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
-
-	// Check commands
-	NSCAPI::nagiosReturn TaskSchedule(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-
-
-
-private:
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsDiscSize> PathConatiner;
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinPercentageBoundsDiskSize> DriveConatiner;
-};
+#include "stdafx.h"

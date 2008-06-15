@@ -39,7 +39,7 @@ public:
 	NSCAAgent();
 	virtual ~NSCAAgent();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	std::wstring getConfigurationMeta();
 

@@ -52,7 +52,7 @@ public:
 	SysTray();
 	virtual ~SysTray();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	void setLogWindow(HWND hWnd);
 

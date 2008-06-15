@@ -83,7 +83,7 @@ public:
 	NRPEClient();
 	virtual ~NRPEClient();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 

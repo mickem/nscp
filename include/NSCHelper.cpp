@@ -144,6 +144,14 @@ namespace NSCModuleHelper {
 	lpNSAPIGetAllCommandNames fNSAPIGetAllCommandNames= NULL;
 	lpNSAPIReleaseAllCommandNamessBuffer fNSAPIReleaseAllCommandNamessBuffer= NULL;
 	lpNSAPIRegisterCommand fNSAPIRegisterCommand= NULL;
+	lpNSAPISettingsAddPathMapping fNSAPISettingsAddPathMapping = NULL;
+	lpNSAPISettingsAddKeyMapping fNSAPISettingsAddKeyMapping = NULL;
+	lpNSAPISettingsRegKey fNSAPISettingsRegKey = NULL;
+	lpNSAPISettingsRegPath fNSAPISettingsRegPath = NULL;
+	lpNSAPIGetPluginList fNSAPIGetPluginList = NULL;
+	lpNSAPIReleasePluginList fNSAPIReleasePluginList = NULL;
+	lpNSAPISettingsSave fNSAPISettingsSave = NULL;
+
 	unsigned int buffer_length;
 
 }
@@ -173,7 +181,7 @@ void NSCModuleHelper::Message(int msgType, std::wstring file, int line, std::wst
 		return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
 	}
 	else
-		std::wcout << _T("NSCore not loaded...") << std::endl << message << std::endl;
+		std::wcout << _T("*** *** *** NSCore not loaded, dumping log: ") << file << _T(":") << line << _T(": ") << std::endl << message << std::endl;
 }
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
@@ -352,6 +360,38 @@ int NSCModuleHelper::getSettingsInt(std::wstring section, std::wstring key, int 
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
+
+void NSCModuleHelper::settings_add_mapping(std::wstring src_path, std::wstring src_key, std::wstring dst_path, std::wstring dst_key) {
+	if (!fNSAPISettingsAddKeyMapping)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	fNSAPISettingsAddKeyMapping(src_path.c_str(), src_key.c_str(), dst_path.c_str(), dst_key.c_str());
+}
+void NSCModuleHelper::settings_add_mapping(std::wstring src, std::wstring dst) {
+	if (!fNSAPISettingsAddPathMapping)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	fNSAPISettingsAddPathMapping(src.c_str(), dst.c_str());
+}
+
+void NSCModuleHelper::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
+	if (!fNSAPISettingsRegKey)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	fNSAPISettingsRegKey(path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
+}
+void NSCModuleHelper::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+	if (!fNSAPISettingsRegPath)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	fNSAPISettingsRegPath(path.c_str(), title.c_str(), description.c_str(), advanced);
+}
+
+
+void NSCModuleHelper::settings_save() {
+	if (!fNSAPISettingsSave)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	fNSAPISettingsSave();
+}
+
+
+
 /**
  * Returns the biggest of the two states
  * STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
@@ -411,7 +451,7 @@ std::wstring NSCModuleHelper::getBasePath() {
 unsigned int NSCModuleHelper::getBufferLength() {
 	static unsigned int len = 0;
 	if (len == 0) {
-		len = getSettingsInt(MAIN_SECTION_TITLE, MAIN_STRING_LENGTH, MAIN_STRING_LENGTH_DEFAULT);
+		len = SETTINGS_GET_INT(settings_def::PAYLOAD_LEN);
 	}
 	return len;
 }
@@ -485,6 +525,31 @@ NSCAPI::errorReturn NSCModuleHelper::Rehash(int flag) {
 	if (!fNSAPIRehash)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIRehash(flag);
+}
+NSCModuleHelper::plugin_info_list NSCModuleHelper::getPluginList() {
+	if (!fNSAPIGetPluginList || !fNSAPIReleasePluginList)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	plugin_info_list ret;
+	
+	
+	int len = 0;
+	//NSCAPI::plugin_info_list **list2;
+	//NSCAPI::plugin_info_list *list[1];
+	NSCAPI::plugin_info *list[1];
+	//typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSAPI_plugin_info** list);
+	//typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSAPI_plugin_info** list);
+	NSCAPI::errorReturn err = fNSAPIGetPluginList(&len, list);
+	if (err != NSCAPI::isSuccess)
+		return ret;
+	for (int i=0;i<len;i++) {
+		plugin_info_type info;
+		info.description = (*list)[i].description;
+		info.name = (*list)[i].name;
+		info.dll = (*list)[i].dll;
+		ret.push_back(info);
+	}
+	fNSAPIReleasePluginList(len, list);
+	return ret;
 }
 
 std::list<std::wstring> NSCModuleHelper::getAllCommandNames() {
@@ -608,6 +673,18 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIReleaseAllCommandNamessBuffer = (NSCModuleHelper::lpNSAPIReleaseAllCommandNamessBuffer)f(_T("NSAPIReleaseAllCommandNamessBuffer"));
 	NSCModuleHelper::fNSAPIRegisterCommand = (NSCModuleHelper::lpNSAPIRegisterCommand)f(_T("NSAPIRegisterCommand"));
 
+	NSCModuleHelper::fNSAPISettingsAddKeyMapping = (NSCModuleHelper::lpNSAPISettingsAddKeyMapping)f(_T("NSAPISettingsAddKeyMapping"));
+	NSCModuleHelper::fNSAPISettingsAddPathMapping = (NSCModuleHelper::lpNSAPISettingsAddPathMapping)f(_T("NSAPISettingsAddPathMapping"));
+
+	NSCModuleHelper::fNSAPISettingsRegKey = (NSCModuleHelper::lpNSAPISettingsRegKey)f(_T("NSAPISettingsRegKey"));
+	NSCModuleHelper::fNSAPISettingsRegPath = (NSCModuleHelper::lpNSAPISettingsRegPath)f(_T("NSAPISettingsRegPath"));
+
+	NSCModuleHelper::fNSAPIGetPluginList = (NSCModuleHelper::lpNSAPIGetPluginList)f(_T("NSAPIGetPluginList"));
+	NSCModuleHelper::fNSAPIReleasePluginList = (NSCModuleHelper::lpNSAPIReleasePluginList)f(_T("NSAPIReleasePluginList"));
+
+	NSCModuleHelper::fNSAPISettingsSave = (NSCModuleHelper::lpNSAPISettingsSave)f(_T("NSAPISettingsSave"));
+		
+
 	return NSCAPI::isSuccess;
 }
 /**
@@ -665,8 +742,8 @@ NSCAPI::boolReturn NSCModuleWrapper::wrapHasMessageHandler(bool has) {
  * @param retPerformance The returned performance data
  * @param *returnBufferMessage The return message buffer
  * @param returnBufferMessageLen The return message buffer length
- * @param *returnBufferPerf The return perfomance data buffer
- * @param returnBufferPerfLen The return perfomance data buffer length
+ * @param *returnBufferPerf The return performance data buffer
+ * @param returnBufferPerfLen The return performance data buffer length
  * @return the return code
  */
 NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::wstring retMessage, const std::wstring retPerformance, TCHAR *returnBufferMessage, unsigned int returnBufferMessageLen, TCHAR *returnBufferPerf, unsigned int returnBufferPerfLen) {

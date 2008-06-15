@@ -57,6 +57,14 @@
  *
  */
 class NSClientT {
+public:
+	struct plugin_info_type {
+		std::wstring dll;
+		std::wstring name;
+		std::wstring version;
+		std::wstring description;
+	};
+	typedef std::list<plugin_info_type> plugin_info_list;
 private:
 	typedef NSCPlugin* plugin_type;
 	typedef std::vector<plugin_type> pluginList;
@@ -74,6 +82,7 @@ private:
 	log_status debug_;
 	bool boot_;
 	com_helper::initialize_com com_helper_;
+
 
 public:
 	// c-tor, d-tor
@@ -112,12 +121,15 @@ public:
 	std::list<std::wstring> getAllCommandNames();
 	void registerCommand(std::wstring cmd, std::wstring desc);
 	unsigned int getBufferLength();
+	void HandleSettingsCLI(TCHAR* arg, int argc, TCHAR* argv[]);
 
 	bool logDebug();
+	void listPlugins();
+	plugin_info_list get_all_plugins();
 
 private:
 	plugin_type addPlugin(plugin_type plugin);
-
+	void load_all_plugins(int mode);
 };
 
 typedef NTService<NSClientT> NSClient;
@@ -155,6 +167,15 @@ NSCAPI::errorReturn NSAPIDescribeCommand(const TCHAR*,TCHAR*,unsigned int);
 NSCAPI::errorReturn NSAPIGetAllCommandNames(TCHAR***, unsigned int *);
 NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(TCHAR***, unsigned int *);
 NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR*,const TCHAR*);
+NSCAPI::errorReturn NSAPISettingsAddKeyMapping(const TCHAR*, const TCHAR*, const TCHAR*, const TCHAR*);
+NSCAPI::errorReturn NSAPISettingsAddPathMapping(const TCHAR*, const TCHAR*);
+NSCAPI::errorReturn NSAPISettingsRegKey(const TCHAR*, const TCHAR*, int, const TCHAR*, const TCHAR*, const TCHAR*, int);
+NSCAPI::errorReturn NSAPISettingsRegPath(const TCHAR*, const TCHAR*, const TCHAR*, int);
+NSCAPI::errorReturn NSAPIGetPluginList(int*, NSCAPI::plugin_info*[]);
+NSCAPI::errorReturn NSAPIReleasePluginList(int,NSCAPI::plugin_info*[]);
+NSCAPI::errorReturn NSAPISettingsSave(void);
+
+
 
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging

@@ -5,6 +5,20 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-05-?? MickeM
+ * BREAKING CHANGE! -- THe API function NSCLoadPlugin has been changed to take an integer to define the load-status
+
+2008-06-?? MickeM
+ * BREAKING CHANGE! -- New settings API as well as new WEBConfiguration UI (nothing is finnished yet but I wanted to check things into the SVN since it is a lot of changes now :)
+
+2008-05-14 MickeM
+ * Fixed memoryleak in the service checker.
+     I am really sorry I usualy write better code then this.
+
+2008-05-11 MickeM
+ * BREAKING CHANGE! -- Changed PDH options to a more uniform design:
+     auto_detect_pdh and dont_use_pdh_index has been removed and instead there is a new method option that takes various values.
+
 2008-04-03 MickeM
  * Moved COM init to "core" (from WMI module)
  + Added new Check command: CheckTaskSched Use like so:
@@ -19,7 +33,7 @@ TODO:
    New option: match=substr (match=strings is the default and "old" way)
    This is *NOT* case blind so might be hard to use, plan to add case blindness to it in the future.
  : Sample command: check_nt ... -v PROCSTATE -l cmdLine,match=regexp,.*exp.* -d SHOWALL
- * Ohh yeah... it is 2008 this year... not 2007, fixed a few entries in the  :)
+ * Ohh yeah... it is 2008 this year... not 2007, fixed a few entries in the change log :)
  - BREAKING CHANGE! -- Removed TOOLHELPER API as PSAPI is simpler and toolhelp is really only useful on w9x (which I don't officially support)
 
 2008-03-20 MickeM

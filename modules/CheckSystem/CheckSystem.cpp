@@ -63,49 +63,23 @@ CheckSystem::~CheckSystem() {}
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
-bool CheckSystem::loadModule() {
-	pdhThread.createThread();
-	std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
-	CEnumProcess tmp;
-	int method = tmp.GetAvailableMethods();
-	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_AUTO) {
-		OSVERSIONINFO osVer = systemInfo::getOSVersion();
-		/*
-		if (systemInfo::isBelowNT4(osVer)) {
-			NSC_DEBUG_MSG_STD(_T("Autodetected NT4<, using PSAPI process enumeration."));
-			if (method == (method|ENUM_METHOD::PSAPI)) {
-				processMethod_ = ENUM_METHOD::PSAPI;
-			} else {
-				NSC_LOG_ERROR_STD(_T("PSAPI method not available, since you are on NT4 you need to install \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-			}
-		} else if (systemInfo::isAboveW2K(osVer)) {
-			NSC_DEBUG_MSG_STD(_T("Autodetected W2K>, using TOOLHELP process enumeration."));
-			if (method == (method|ENUM_METHOD::TOOLHELP)) {
-				processMethod_ = ENUM_METHOD::TOOLHELP;
-			} else {
-				NSC_LOG_ERROR_STD(_T("TOOLHELP was not available, since you are on > W2K you need top manually override the ") C_SYSTEM_ENUMPROC_METHOD _T("option in NSC:ini."));
-			}
-		} else {
-		*/
-			NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
-			processMethod_ = ENUM_METHOD::PSAPI;
-			if (method == (method|ENUM_METHOD::PSAPI)) {
-				processMethod_ = ENUM_METHOD::PSAPI;
-			} else {
-				NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-			}
-		//}
-	} else if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
-		NSC_DEBUG_MSG_STD(_T("Using PSAPI method."));
+bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
+	if (mode == NSCAPI::normalStart) {
+		pdhThread.createThread();
+	}
+	std::wstring wantedMethod = SETTINGS_GET_STRING(check_system::PROC_ENUM);
+	if (wantedMethod == settings::check_system::PROC_ENUM_TH) {
+		NSC_LOG_ERROR_STD(_T("TOOLHELP method has been removed sine we dont really want to support w9x."));
+	} else {
+		CEnumProcess tmp;
+		int method = tmp.GetAvailableMethods();
+		NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
 		if (method == (method|ENUM_METHOD::PSAPI)) {
 			processMethod_ = ENUM_METHOD::PSAPI;
 		} else {
-			NSC_LOG_ERROR_STD(_T("PSAPI method not available, check ") C_SYSTEM_ENUMPROC_METHOD _T(" option."));
+			NSC_LOG_ERROR_STD(_T("PSAPI method not available. Try installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
+			NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
 		}
-	} else {
-		NSC_LOG_ERROR_STD(_T("TOOLHELP method has been removed sine we dont really want to support w9x ") C_SYSTEM_ENUMPROC_METHOD _T("."));
 	}
 	try {
 		NSCModuleHelper::registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
@@ -114,6 +88,69 @@ bool CheckSystem::loadModule() {
 		NSCModuleHelper::registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
 		NSCModuleHelper::registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
 		NSCModuleHelper::registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
+
+		/*
+		#define C_SYSTEM_SECTION_TITLE _T("Check System")
+		#define C_SYSTEM_AUTODETECT_PDH _T("auto_detect_pdh")
+		*/
+#define C_SYSTEM_SECTION_TITLE _T("Check System")
+#define C_SYSTEM_CPU_BUFFER_TIME _T("CPUBufferSize") 
+#define C_SYSTEM_CHECK_RESOLUTION _T("CheckResolution")
+
+#define C_SYSTEM_AUTODETECT_PDH _T("auto_detect_pdh")
+#define C_SYSTEM_FORCE_LANGUAGE _T("force_language")
+#define C_SYSTEM_NO_INDEX _T("dont_use_pdh_index")
+#define C_SYSTEM_IGNORE_COLLECTION _T("debug_skip_data_collection")
+
+#define C_SYSTEM_MEM_PAGE_LIMIT _T("MemoryCommitLimit")
+#define C_SYSTEM_MEM_PAGE _T("MemoryCommitByte")
+#define C_SYSTEM_UPTIME _T("SystemSystemUpTime")
+#define C_SYSTEM_CPU _T("SystemTotalProcessorTime")
+#define C_SYSTEM_ENUMPROC_METHOD _T("ProcessEnumerationMethod")
+#define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
+#define C_SYSTEM_SVC_ALL_1 _T("check_all_services[SERVICE_SYSTEM_START]")
+#define C_SYSTEM_SVC_ALL_2 _T("check_all_services[SERVICE_AUTO_START]")
+#define C_SYSTEM_SVC_ALL_3 _T("check_all_services[SERVICE_DEMAND_START]")
+#define C_SYSTEM_SVC_ALL_4 _T("check_all_services[SERVICE_DISABLED]")
+#define C_SYSTEM_CPU_METHOD _T("method")
+		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
+			NSC_DEBUG_MSG(_T("Using compatiblity mode in: NSCA module"));
+
+			SETTINGS_MAP_KEY_A(check_system::SVC_BOOT_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_0);
+			SETTINGS_MAP_KEY_A(check_system::SVC_SYSTEM_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_1);
+			SETTINGS_MAP_KEY_A(check_system::SVC_AUTO_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_2);
+			SETTINGS_MAP_KEY_A(check_system::SVC_DEMAND_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_3);
+			SETTINGS_MAP_KEY_A(check_system::SVC_DISABLED,		C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_4);
+
+			SETTINGS_MAP_KEY_A(check_system::BUFFER_SIZE,		C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_BUFFER_TIME);
+			SETTINGS_MAP_KEY_A(check_system::INTERVALL,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_CHECK_RESOLUTION);
+			SETTINGS_MAP_KEY_A(check_system::PROC_ENUM,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD);
+			SETTINGS_MAP_KEY_A(check_system::CPU_METHOD,		C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_METHOD);
+			SETTINGS_MAP_KEY_A(check_system::FORCE_LANGUAGE,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_FORCE_LANGUAGE);
+
+			SETTINGS_MAP_KEY_A(check_system::PDH_MEM_CMT_LIM,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT);
+			SETTINGS_MAP_KEY_A(check_system::PDH_MEM_CMT_BYT,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE);
+			SETTINGS_MAP_KEY_A(check_system::PDH_SYSUP,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME);
+			SETTINGS_MAP_KEY_A(check_system::PDH_CPU,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU);
+		}
+		SETTINGS_REG_PATH(check_system::SECTION);
+		SETTINGS_REG_PATH(check_system::COUNTERS_SECTION);
+		SETTINGS_REG_PATH(check_system::SERVICES_SECTION);
+
+		SETTINGS_REG_KEY_S(check_system::SVC_BOOT_START);
+		SETTINGS_REG_KEY_S(check_system::SVC_SYSTEM_START);
+		SETTINGS_REG_KEY_S(check_system::SVC_AUTO_START);
+		SETTINGS_REG_KEY_S(check_system::SVC_DEMAND_START);
+		SETTINGS_REG_KEY_S(check_system::SVC_DISABLED);
+		SETTINGS_REG_KEY_S(check_system::BUFFER_SIZE);
+		SETTINGS_REG_KEY_I(check_system::INTERVALL);
+		SETTINGS_REG_KEY_S(check_system::PROC_ENUM);
+		SETTINGS_REG_KEY_S(check_system::CPU_METHOD);
+		SETTINGS_REG_KEY_S(check_system::FORCE_LANGUAGE);
+		SETTINGS_REG_KEY_S(check_system::PDH_MEM_CMT_LIM);
+		SETTINGS_REG_KEY_S(check_system::PDH_MEM_CMT_BYT);
+		SETTINGS_REG_KEY_S(check_system::PDH_SYSUP);
+		SETTINGS_REG_KEY_S(check_system::PDH_CPU);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -557,15 +594,13 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 		std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
 		*/
 		std::map<DWORD,std::wstring> lookups;
-		lookups[SERVICE_BOOT_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_0, C_SYSTEM_SVC_ALL_0_DEFAULT);
-		lookups[SERVICE_SYSTEM_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_1, C_SYSTEM_SVC_ALL_1_DEFAULT);
-		lookups[SERVICE_AUTO_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_2, C_SYSTEM_SVC_ALL_2_DEFAULT);
-		lookups[SERVICE_DEMAND_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_3, C_SYSTEM_SVC_ALL_3_DEFAULT);
-		lookups[SERVICE_DISABLED] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_4, C_SYSTEM_SVC_ALL_4_DEFAULT);
+		lookups[SERVICE_BOOT_START] = SETTINGS_GET_STRING(check_system::SVC_BOOT_START);
+		lookups[SERVICE_SYSTEM_START] = SETTINGS_GET_STRING(check_system::SVC_SYSTEM_START);
+		lookups[SERVICE_AUTO_START] = SETTINGS_GET_STRING(check_system::SVC_AUTO_START);
+		lookups[SERVICE_DEMAND_START] = SETTINGS_GET_STRING(check_system::SVC_DEMAND_START);
+		lookups[SERVICE_DISABLED] = SETTINGS_GET_STRING(check_system::SVC_DISABLED);
 
-
-		std::list<TNtServiceInfo> service_list_automatic;
-		TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE,&service_list_automatic); 
+		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE); 
 		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
 			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
 				tmpObject.data = (*service).m_strServiceName;

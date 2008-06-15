@@ -98,6 +98,13 @@ namespace NSCModuleHelper
 		std::wstring msg_;
 		NSCMHExcpetion(std::wstring msg) : msg_(msg) {}
 	};
+	struct plugin_info_type {
+		std::wstring dll;
+		std::wstring name;
+		std::wstring version;
+		std::wstring description;
+	};
+	typedef std::list<plugin_info_type> plugin_info_list;
 	// Types for the Callbacks into the main program
 	typedef NSCAPI::errorReturn (*lpNSAPIGetBasePath)(TCHAR*,unsigned int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(TCHAR*,unsigned int);
@@ -122,6 +129,14 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIGetAllCommandNames)(arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIReleaseAllCommandNamessBuffer)(arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(const TCHAR*,const TCHAR*);
+	typedef NSCAPI::errorReturn (*lpNSAPISettingsAddKeyMapping)(const TCHAR*, const TCHAR*, const TCHAR*, const TCHAR*);
+	typedef NSCAPI::errorReturn (*lpNSAPISettingsAddPathMapping)(const TCHAR*, const TCHAR*);
+	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(const TCHAR*, const TCHAR*, int, const TCHAR*, const TCHAR*, const TCHAR*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(const TCHAR*, const TCHAR*, const TCHAR*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
+	typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSCAPI::plugin_info *list[]);
+	typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
+
 
 	// Helper functions for calling into the core
 	std::wstring getApplicationName(void);
@@ -129,6 +144,12 @@ namespace NSCModuleHelper
 	std::list<std::wstring> getSettingsSection(std::wstring section);
 	std::wstring getSettingsString(std::wstring section, std::wstring key, std::wstring defaultValue);
 	int getSettingsInt(std::wstring section, std::wstring key, int defaultValue);
+	void settings_add_mapping(std::wstring src_path, std::wstring src_key, std::wstring dst_path, std::wstring dst_key);
+	void settings_add_mapping(std::wstring src, std::wstring dst);
+	void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
+	void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
+	void settings_save();
+
 	void Message(int msgType, std::wstring file, int line, std::wstring message);
 	NSCAPI::nagiosReturn InjectCommandRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen);
 	NSCAPI::nagiosReturn InjectCommand(const TCHAR* command, const unsigned int argLen, TCHAR **argument, std::wstring & message, std::wstring & perf);
@@ -145,6 +166,8 @@ namespace NSCModuleHelper
 	NSCAPI::errorReturn WriteSettings(int type);
 	NSCAPI::errorReturn ReadSettings(int type);
 	NSCAPI::errorReturn Rehash(int flag);
+	plugin_info_list getPluginList();
+
 	std::list<std::wstring> getAllCommandNames();
 	std::wstring describeCommand(std::wstring command);
 	void registerCommand(std::wstring command, std::wstring description);
@@ -176,7 +199,7 @@ namespace NSCModuleWrapper {
 // Module wrappers (definitions)
 #define NSC_WRAPPERS_MAIN() \
 	extern "C" int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f); \
-	extern int NSLoadModule(); \
+	extern int NSLoadModule(int mode); \
 	extern int NSGetModuleName(TCHAR* buf, int buflen); \
 	extern int NSGetModuleDescription(TCHAR* buf, int buflen); \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision); \
@@ -226,9 +249,12 @@ namespace NSCModuleWrapper {
 			return NSCAPI::hasFailed; \
 		} \
 	} \
-	extern int NSLoadModule() { \
+	extern int NSLoadModule(int mode) { \
 		try { \
-			return NSCModuleWrapper::wrapLoadModule(toObject.loadModule()); \
+			return NSCModuleWrapper::wrapLoadModule(toObject.loadModule(mode)); \
+		} catch (NSCModuleHelper::NSCMHExcpetion e) { \
+			NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
+			return NSCAPI::hasFailed; \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
 			return NSCAPI::hasFailed; \
@@ -380,3 +406,32 @@ namespace NSCModuleWrapper {
 		_T("</module>"); \
 	}
 
+#define SETTINGS_MAKE_NAME(key) \
+	std::wstring(settings::key ## _PATH + _T(".") + settings::key)
+
+#define SETTINGS_GET_STRING(key) \
+	NSCModuleHelper::getSettingsString(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
+#define SETTINGS_GET_INT(key) \
+	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
+#define SETTINGS_GET_BOOL(key) \
+	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
+
+#define SETTINGS_GET_STRING_FALLBACK(key, fallback) \
+	NSCModuleHelper::getSettingsString(settings::key ## _PATH, settings::key, NSCModuleHelper::getSettingsString(settings::fallback ## _PATH, settings::fallback, settings::fallback ## _DEFAULT))
+#define SETTINGS_GET_INT_FALLBACK(key, fallback) \
+	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, NSCModuleHelper::getSettingsInt(settings::fallback ## _PATH, settings::fallback, settings::fallback ## _DEFAULT))
+#define SETTINGS_GET_BOOL_FALLBACK(key, fallback) \
+	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, NSCModuleHelper::getSettingsInt(settings::fallback ## _PATH, settings::fallback, settings::fallback ## _DEFAULT))
+
+#define SETTINGS_REG_KEY_S(key) \
+	NSCModuleHelper::settings_register_key(settings::key ## _PATH, settings::key, NSCAPI::key_string, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _DEFAULT, settings::key ## _ADVANCED);
+#define SETTINGS_REG_KEY_I(key) \
+	NSCModuleHelper::settings_register_key(settings::key ## _PATH, settings::key, NSCAPI::key_integer, settings::key ## _TITLE, settings::key ## _DESC, strEx::itos(settings::key ## _DEFAULT), settings::key ## _ADVANCED);
+#define SETTINGS_REG_KEY_B(key) \
+	NSCModuleHelper::settings_register_key(settings::key ## _PATH, settings::key, NSCAPI::key_integer, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _DEFAULT==1?_T("1"):_T("0"), settings::key ## _ADVANCED);
+#define SETTINGS_REG_PATH(key) \
+	NSCModuleHelper::settings_register_path(settings::key ## _PATH, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _ADVANCED);
+#define SETTINGS_MAP_KEY_A(name, section, key) \
+	NSCModuleHelper::settings_add_mapping(settings::name ## _PATH, settings::name, section, key);
+#define SETTINGS_MAP_SECTION_A(name, section) \
+	NSCModuleHelper::settings_add_mapping(settings::name ## _PATH, section);

@@ -38,12 +38,14 @@ private:
 	unsigned int timeout;
 	std::wstring scriptDirectory_;
 	std::wstring root_;
+	bool allowArgs_;
+	bool allowNasty_;
 
 public:
 	CheckExternalScripts();
 	virtual ~CheckExternalScripts();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 

@@ -93,9 +93,10 @@ private:
 	bool bLoaded_;			// Status of plug in
 	HMODULE hModule_;		// module handle to the DLL (once it is loaded)
 	std::wstring file_;		// Name of the DLL file
+	bool broken_;
 
 	typedef INT (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
-	typedef INT (*lpLoadModule)();
+	typedef INT (*lpLoadModule)(int);
 	typedef INT (*lpGetName)(TCHAR*,unsigned int);
 	typedef INT (*lpGetDescription)(TCHAR*,unsigned int);
 	typedef INT (*lpGetVersion)(int*,int*,int*);
@@ -129,7 +130,9 @@ public:
 	std::wstring getName(void);
 	std::wstring getDescription();
 	void load_dll(void);
-	void load_plugin(void);
+	bool load_plugin(NSCAPI::moduleLoadMode mode);
+	void setBroken(bool broken);
+	bool isBroken();
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
 	bool hasMessageHandler(void);
@@ -138,6 +141,15 @@ public:
 	void unload(void);
 	std::wstring getCongifurationMeta();
 	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments);
+	std::wstring getFilename() {
+		if (file_.empty())
+			return _T("");
+		std::wstring::size_type pos = file_.find_last_of(_T("\\"));
+		if (pos != std::wstring::npos && ++pos < file_.length()) {
+			return file_.substr(pos);
+		}
+		return file_;
+	}
 	std::wstring getModule() {
 		if (file_.empty())
 			return _T("");

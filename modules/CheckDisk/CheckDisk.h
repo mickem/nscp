@@ -31,7 +31,7 @@ public:
 	CheckDisk();
 	virtual ~CheckDisk();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	std::wstring getModuleName() {
