@@ -25,7 +25,7 @@
 #define SZAPPNAME _T("NSClient++")
 
 // Version
-#define SZBETATAG _T(" ") // _T(" RC ")  _T(" BETA ") 
+#define SZBETATAG _T(" RC ")  //_T(" ") // _T(" RC ")  _T(" BETA ") 
 #define SZVERSION STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
 

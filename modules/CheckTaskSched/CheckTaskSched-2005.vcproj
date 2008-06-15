@@ -232,7 +232,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Wbemuuid.lib"
+				AdditionalDependencies="Mstask.lib"
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -395,7 +395,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Wbemuuid.lib"
+				AdditionalDependencies="Mstask.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -556,7 +556,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Wbemuuid.lib"
+				AdditionalDependencies="Mstask.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
 				ModuleDefinitionFile="CheckTaskSched.def"
@@ -716,7 +716,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Wbemuuid.lib"
+				AdditionalDependencies="Mstask.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""

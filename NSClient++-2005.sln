@@ -188,7 +188,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lua-modules", "lua-modules"
 		Release.AspNetCompiler.Debug = "False"
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheckWMI", "modules\CheckTaskSched\CheckTaskSched-2005.vcproj", "{F3401E75-60FB-4A0E-A18C-6505587D5B1A}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheckTaskSched", "modules\CheckTaskSched\CheckTaskSched-2005.vcproj", "{F3401E75-60FB-4A0E-A18C-6505587D5B1A}"
 	ProjectSection(WebsiteProperties) = preProject
 		Debug.AspNetCompiler.Debug = "True"
 		Release.AspNetCompiler.Debug = "False"
@@ -1064,7 +1064,6 @@ Global
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Mixed Platforms.ActiveCfg = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Mixed Platforms.Build.0 = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Win32.ActiveCfg = Release|Win32
-		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|Win32.Build.0 = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Nightly|x64.ActiveCfg = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Release|Any CPU.ActiveCfg = Release|Win32
 		{19BF0AD8-0013-46C7-9E91-F60FE3B0A63D}.Release|Itanium.ActiveCfg = Release|Win32

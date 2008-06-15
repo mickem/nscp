@@ -5,6 +5,13 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-06-14 MickeM
+ * Fixed error message from external commands (better reporting now)
+
+2008-05-14 MickeM
+ * Fixed memoryleak in the service checker.
+     I am really sorry I usualy write better code then this.
+
 2008-04-03 MickeM
  * Moved COM init to "core" (from WMI module)
  + Added new Check command: CheckTaskSched Use like so:

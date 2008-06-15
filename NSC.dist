@@ -27,6 +27,8 @@
 ;CheckExternalScripts.dll
 ; Check other hosts through NRPE extreme beta and probably a bit dangerous! :)
 ;NRPEClient.dll
+; Extreamly early beta of a task-schedule checker
+;CheckTaskSched.dll
 
 
 

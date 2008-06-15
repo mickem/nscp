@@ -143,7 +143,13 @@ namespace process {
 			CloseHandle(pi.hProcess);
 			CloseHandle(hChildOutR);
 		} else {
-			msg = _T("NRPE_NT failed to create process (") + command + _T("): ") + error::lookup::last_error();
+			DWORD error = GetLastError();
+			if (error == ERROR_BAD_EXE_FORMAT) {
+				NSC_LOG_ERROR_STD(command + _T(" is not an .exe file or a valid image (if you run a script you usually need to prefix the command with the interpreter like so: \"command=c:\perl.exe <script>\""));
+				msg = _T("ExternalCommands: failed to create process (") + command + _T("): it is not an exe file (check NSC.log for more info) - ") + error::lookup::last_error(error);
+			} else {
+				msg = _T("ExternalCommands: failed to create process (") + command + _T("): ") + error::lookup::last_error(error);
+			}
 			result = NSCAPI::returnUNKNOWN;
 			CloseHandle(hChildInR);
 			CloseHandle(hChildInW);

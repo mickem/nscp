@@ -1963,6 +1963,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\execute_process.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\NSCHelper.h"
 				>
 			</File>

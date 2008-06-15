@@ -25,28 +25,6 @@
 
 NSClient mainClient;	// Global core instance.
 bool g_bConsoleLog = false;
-//////////////////////////////////////////////////////////////////////////
-// Startup code
-
-#define XNSC_DEFINE_SETTING_KEY(name, tag) \
-	name ## _SECTION \
-
-#define DEFINE_SETTING_S(name, section, key, value) \
-	const std::wstring name ## _SECTION = section; \
-	const std::wstring name = key; \
-	const std::wstring name ## _DEFAULT = value;
-
-DEFINE_SETTING_S(NSCLIENT_TEST2, NSCLIENT_SECTION_TITLE, _T("bind_to_address"), _T(""))
-
-
-
-
-#define NSCLIENT_TEST _T("bind_to_address")
-#define NSCLIENT_TEST_DEFAULT _T("xxx")
-#define NSCLIENT_TEST_SECTION NSCLIENT_SECTION_TITLE
-
-#define SETTINGS_KEY(key) \
-	key ## _SECTION, key, key ## _DEFAULT
 
 /**
  * Application startup point
@@ -155,11 +133,6 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			LOG_MESSAGE_STD(_T("Using settings from: ") + Settings::getInstance()->getActiveType());
 			LOG_MESSAGE(_T("Enter command to inject or exit to terminate..."));
 
-			std::wstring str1 = Settings::getInstance()->getString(SETTINGS_KEY(NSCLIENT_TEST));
-			std::wcout << str1 << std::endl;
-			std::wstring str2 = Settings::getInstance()->getString(SETTINGS_KEY(NSCLIENT_TEST2));
-			std::wcout << str2 << std::endl;
-
 			std::wstring s = _T("");
 			std::wstring buff = _T("");
 			while (true) {
@@ -178,11 +151,15 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					strEx::token t = strEx::getToken(buff, ' ');
 					std::wstring msg, perf;
 					NSCAPI::nagiosReturn ret = mainClient.inject(t.first, t.second, ' ', true, msg, perf);
-					std::wcout << NSCHelper::translateReturn(ret) << _T(":");
-					std::cout << strEx::wstring_to_string(msg);
-					if (!perf.empty())
-						std::cout << "|" << strEx::wstring_to_string(perf);
-					std::wcout << std::endl;
+					if (ret == NSCAPI::returnIgnored) {
+						std::wcout << _T("No handler for command: ") << t.first << std::endl;
+					} else {
+						std::wcout << NSCHelper::translateReturn(ret) << _T(":");
+						std::cout << strEx::wstring_to_string(msg);
+						if (!perf.empty())
+							std::cout << "|" << strEx::wstring_to_string(perf);
+						std::wcout << std::endl;
+					}
 					buff = _T("");
 				} else {
 					buff += s + _T(" ");

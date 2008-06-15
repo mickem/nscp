@@ -88,7 +88,7 @@ bool CheckSystem::loadModule() {
 			}
 		} else {
 		*/
-			NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
+			//NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
 			processMethod_ = ENUM_METHOD::PSAPI;
 			if (method == (method|ENUM_METHOD::PSAPI)) {
 				processMethod_ = ENUM_METHOD::PSAPI;
@@ -564,8 +564,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 		lookups[SERVICE_DISABLED] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_4, C_SYSTEM_SVC_ALL_4_DEFAULT);
 
 
-		std::list<TNtServiceInfo> service_list_automatic;
-		TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE,&service_list_automatic); 
+		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE); 
 		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
 			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
 				tmpObject.data = (*service).m_strServiceName;
