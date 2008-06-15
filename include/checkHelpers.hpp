@@ -65,8 +65,8 @@ namespace checkHolders {
 
 	typedef enum {showLong, showShort, showProblems, showUnknown} showType;
 	template <class TContents>
-	struct CheckConatiner {
-		typedef CheckConatiner<TContents> TThisType;
+	struct CheckContainer {
+		typedef CheckContainer<TContents> TThisType;
 		TContents warn;
 		TContents crit;
 		std::wstring data;
@@ -76,15 +76,15 @@ namespace checkHolders {
 		bool perfData;
 
 
-		CheckConatiner() : show(showUnknown), perfData(true)
+		CheckContainer() : show(showUnknown), perfData(true)
 		{}
-		CheckConatiner(std::wstring data_, TContents warn_, TContents crit_) 
+		CheckContainer(std::wstring data_, TContents warn_, TContents crit_) 
 			: data(data_), warn(warn_), crit(crit_), show(showUnknown) 
 		{}
-		CheckConatiner(std::wstring name_, std::wstring alias_, TContents warn_, TContents crit_) 
+		CheckContainer(std::wstring name_, std::wstring alias_, TContents warn_, TContents crit_) 
 			: data(data_), alias(alias_), warn(warn_), crit(crit_), show(showUnknown) 
 		{}
-		CheckConatiner(const TThisType &other) 
+		CheckContainer(const TThisType &other) 
 			: data(other.data), alias(other.alias), warn(other.warn), crit(other.crit), show(other.show) 
 		{}
 		std::wstring getAlias() {
@@ -750,4 +750,5 @@ namespace checkHolders {
 	typedef MaxMinStateBounds<MaxMinStateValueType<int, state_type>, NumericBounds<int, int_handler>, StateBounds<state_type, state_handler> > MaxMinStateBoundsStateBoundsInteger;
 	typedef SimpleStateBounds<StateBounds<state_type, state_handler> > SimpleBoundsStateBoundsInteger;
 }
+
 

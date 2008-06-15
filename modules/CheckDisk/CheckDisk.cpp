@@ -128,7 +128,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 		return NSCAPI::returnCRIT;
 	}
 
-	DriveConatiner tmpObject;
+	DriveContainer tmpObject;
 	bool bFilter = false;
 	bool bFilterRemote = false;
 	bool bFilterRemovable = false;
@@ -138,7 +138,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 	bool bCheckAllOthers = false;
 	bool bNSClient = false;
 	bool bPerfData = true;
-	std::list<DriveConatiner> drives;
+	std::list<DriveContainer> drives;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("Drive"), tmpObject.data, drives.push_back(tmpObject))
@@ -164,6 +164,9 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 	MAP_OPTIONS_END()
 	bFilter = bFilterFixed || bFilterCDROM  || bFilterRemote || bFilterRemovable;
 
+	if (drives.size() == 0)
+		bCheckAll = true;
+
 	if (bCheckAll) {
 		DWORD dwDrives = GetLogicalDrives();
 		int idx = 0;
@@ -177,14 +180,14 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
 					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
 					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) )
-					drives.push_back(DriveConatiner(drv, tmpObject.warn, tmpObject.crit));
+					drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
 			}
 			idx++;
 			dwDrives >>= 1;
 		}
 	}
 	if (bCheckAllOthers) {
-		std::list<DriveConatiner> checkdrives;
+		std::list<DriveContainer> checkdrives;
 		DWORD dwDrives = GetLogicalDrives();
 		int idx = 0;
 		while (dwDrives != 0) {
@@ -199,13 +202,13 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) )  
 				{
 					bool bFound = false;
-					for (std::list<DriveConatiner>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
-						DriveConatiner drive = (*pit);
+					for (std::list<DriveContainer>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
+						DriveContainer drive = (*pit);
 						if (drive.data == drv)
 							bFound = true;
 					}
 					if (!bFound)
-						checkdrives.push_back(DriveConatiner(drv, tmpObject.warn, tmpObject.crit));
+						checkdrives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
 				}
 			}
 			idx++;
@@ -215,8 +218,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 	}
 
 
-	for (std::list<DriveConatiner>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
-		DriveConatiner drive = (*pit);
+	for (std::list<DriveContainer>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
+		DriveContainer drive = (*pit);
 		if (drive.data.length() == 1)
 			drive.data += _T(":");
 		drive.perfData = bPerfData;
@@ -287,8 +290,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
-	PathConatiner tmpObject;
-	std::list<PathConatiner> paths;
+	PathContainer tmpObject;
+	std::list<PathContainer> paths;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("File"), tmpObject.data, paths.push_back(tmpObject))
@@ -309,8 +312,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
 	MAP_OPTIONS_END()
 
-	for (std::list<PathConatiner>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-		PathConatiner path = (*pit);
+	for (std::list<PathContainer>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
+		PathContainer path = (*pit);
 		std::wstring tstr;
 		std::wstring sName = path.getAlias();
 		get_size sizeFinder;
@@ -474,7 +477,7 @@ struct file_filter_function : public baseFinderFunction
 NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsUInteger> CheckFileConatiner;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsUInteger> CheckFileContainer;
 	if (stl_args.empty()) {
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
@@ -510,16 +513,16 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsUInteger> CheckFileConatiner;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsUInteger> CheckFileContainer;
 	if (stl_args.empty()) {
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
 	file_filter_function finder;
-	PathConatiner tmpObject;
+	PathContainer tmpObject;
 	std::list<std::wstring> paths;
 	unsigned int truncate = 0;
-	CheckFileConatiner query;
+	CheckFileContainer query;
 	std::wstring syntax = _T("%filename%");
 	bool bPerfData = true;
 
