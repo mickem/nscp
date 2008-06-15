@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<VisualStudioProject>
+    <WindowsInstallerXML
+        ProductVersion="2.0.5325.0"
+        ProjectGuid="{A3CF4E23-1D1B-4D93-A16A-48C52D118560}"
+        SchemaVersion="1.0"
+    >
+        <BuildSettings
+            OutputName="NSClient++"
+            OutputType="MSI"
+        />
+        <Configurations>
+            <Configuration
+                Name="Debug"
+                RelativeOutputDirectory="bin\Debug"
+                RelativeIntermediateDirectory="obj\Debug"
+            />
+            <Configuration
+                Name="Release"
+                RelativeOutputDirectory="bin\Release"
+                RelativeIntermediateDirectory="obj\Release"
+            />
+        </Configurations>
+        <WixlibReferences>
+            <WixlibReference
+                RelativePath="WixUI.wixlib"
+            />
+        </WixlibReferences>
+        <Files>
+            <File
+                RelativePath="Product.wxs"
+            />
+            <File
+                RelativePath="WixUI_en-us.wxl"
+            />
+        </Files>
+    </WindowsInstallerXML>
+</VisualStudioProject>
