@@ -5,6 +5,13 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-06-24 MickeM
+ + Added new check (to CheckHelpers): CheckOK: Just return OK (anything passed along will be used as a message).
+ + Added new check (to CheckHelpers): CheckWARNING: Just return WARN (anything passed along will be used as a message).
+ + Added new check (to CheckHelpers): CheckCRITICAL: Just return CRIT (anything passed along will be used as a message).
+ + Added new check (to CheckHelpers): CheckVersion: Just return the nagios version (along with OK status).
+ * Better error messages in the check service thingy.
+
 2008-06-18 MickeM
  * Fixed an issue in regards to reading the return packet in the in the NRPEClient (now it works).
    Before only the first 1024 bytes were used.
