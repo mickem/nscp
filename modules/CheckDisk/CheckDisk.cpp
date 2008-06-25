@@ -204,7 +204,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 					bool bFound = false;
 					for (std::list<DriveContainer>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
 						DriveContainer drive = (*pit);
-						if (drive.data == drv)
+						if (_wcsicmp(drive.data.substr(0,1).c_str(), drv.substr(0,1).c_str())==0)
 							bFound = true;
 					}
 					if (!bFound)

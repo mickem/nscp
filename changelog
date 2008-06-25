@@ -5,6 +5,9 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-06-25 MickeM
+ * Fixed issue with CheckDriveSize and CheckAllOthers (#188)
+
 2008-06-24 MickeM
  + Added new check (to CheckHelpers): CheckOK: Just return OK (anything passed along will be used as a message).
  + Added new check (to CheckHelpers): CheckWARNING: Just return WARN (anything passed along will be used as a message).
