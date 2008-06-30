@@ -123,12 +123,12 @@ std::wstring NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 * @param returnCode 
 * @return 
 */
-NSCAPI::nagiosReturn returnCode NSCHelper::translateReturn(std::wstring str) {
+NSCAPI::nagiosReturn NSCHelper::translateReturn(std::wstring str) {
 	if (str == _T("OK"))
 		return NSCAPI::returnOK;
-	else if (returnCode == _T("CRITICAL"))
+	else if (str == _T("CRITICAL"))
 		return NSCAPI::returnCRIT;
-	else if (returnCode == _T("WARNING"))
+	else if (str == _T("WARNING"))
 		return NSCAPI::returnWARN;
 	else 
 		return NSCAPI::returnUNKNOWN;

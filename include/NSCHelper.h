@@ -39,7 +39,7 @@ namespace NSCHelper
 #endif
 	std::wstring translateMessageType(NSCAPI::messageTypes msgType);
 	std::wstring translateReturn(NSCAPI::nagiosReturn returnCode);
-	NSCAPI::nagiosReturn NSCHelper::translateReturn(std::wstring str);
+	NSCAPI::nagiosReturn translateReturn(std::wstring str);
 	NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b);
 
 	inline bool isNagiosReturnCode(NSCAPI::nagiosReturn code) {
