@@ -7,6 +7,9 @@ TODO:
 
 2008-06-30 MickeM
  * Fixed issue with CheckFile and performance data ( #156 )
+ + Added option (InvalidStatus) to CheckCounter to allow other then UNKNOWN return state when counters are missing ( #167 ).
+   *NOTICE* this is all reasons (so if the counter is missing or some such the same will happen not just when the instance is missing)
+   Message will reflect reason.
 
 2008-06-25 MickeM
  * Fixed issue with CheckDriveSize and CheckAllOthers (#188)

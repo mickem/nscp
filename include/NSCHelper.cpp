@@ -118,6 +118,21 @@ std::wstring NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 	else
 		return _T("BAD_CODE");
 }
+/**
+* Translate a string into the corresponding return code 
+* @param returnCode 
+* @return 
+*/
+NSCAPI::nagiosReturn returnCode NSCHelper::translateReturn(std::wstring str) {
+	if (str == _T("OK"))
+		return NSCAPI::returnOK;
+	else if (returnCode == _T("CRITICAL"))
+		return NSCAPI::returnCRIT;
+	else if (returnCode == _T("WARNING"))
+		return NSCAPI::returnWARN;
+	else 
+		return NSCAPI::returnUNKNOWN;
+}
 
 
 
