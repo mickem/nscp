@@ -167,6 +167,10 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		}
 		if (p2 == std::wstring::npos)
 			p2 = inBuf.size();
+		if (p1 == p2 && p1 != inBuf.size()) {
+			p1++;
+			continue;
+		}
 		// p1 = start of "this token"
 		// p2 = end of "this token" (next split char)
 		//std::wcout << _T("found token: ") << p1 << _T(":") << p2;
