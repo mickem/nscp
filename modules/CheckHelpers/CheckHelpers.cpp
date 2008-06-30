@@ -44,6 +44,10 @@ bool CheckHelpers::loadModule() {
 		NSCModuleHelper::registerCommand(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));
 		NSCModuleHelper::registerCommand(_T("CheckAlwaysWARNING"), _T("Run another check and regardless of its return code return WARN."));
 		NSCModuleHelper::registerCommand(_T("CheckMultiple"), _T("Run more then one check and return the worst state."));
+		NSCModuleHelper::registerCommand(_T("CheckOK"), _T("Just return OK (anything passed along will be used as a message)."));
+		NSCModuleHelper::registerCommand(_T("CheckWARNING"), _T("Just return WARN (anything passed along will be used as a message)."));
+		NSCModuleHelper::registerCommand(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
+		NSCModuleHelper::registerCommand(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -61,6 +65,19 @@ bool CheckHelpers::hasCommandHandler() {
 bool CheckHelpers::hasMessageHandler() {
 	return false;
 }
+NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
+{
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (args.empty()) {
+		msg = NSCHelper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
+		return status;
+	}
+	std::list<std::wstring>::const_iterator cit;
+	for (cit=args.begin();cit!=args.end();++cit)
+		msg += *cit;
+	return status;
+}
 
 NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
 	if (command == _T("CheckAlwaysOK")) {
@@ -70,6 +87,15 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, 
 		}
 		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
 		return NSCAPI::returnOK;
+	} else if (command == _T("CheckVersion")) {
+		msg = SZVERSION;
+		return NSCAPI::returnOK;
+	} else if (command == _T("CheckOK")) {
+		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);
+	} else if (command == _T("CheckWARNING")) {
+		return checkSimpleStatus(NSCAPI::returnWARN, argLen, char_args, msg, perf);
+	} else if (command == _T("CheckCRITICAL")) {
+		return checkSimpleStatus(NSCAPI::returnCRIT, argLen, char_args, msg, perf);
 	} else if (command == _T("CheckAlwaysCRITICAL")) {
 		if (argLen < 2) {
 			msg = _T("ERROR: Missing arguments.");

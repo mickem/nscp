@@ -426,6 +426,7 @@ struct file_filter_function : public baseFinderFunction
 	bool error;
 	std::wstring message;
 	std::wstring syntax;
+	std::wstring alias;
 	unsigned long long now;
 	unsigned int hit_count;
 
@@ -461,6 +462,10 @@ struct file_filter_function : public baseFinderFunction
 			}
 			if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
 				strEx::append_list(message, info.render(syntax));
+				if (alias.length() < 16)
+					strEx::append_list(alias, info.filename);
+				else
+					strEx::append_list(alias, std::wstring(_T("...")));
 				hit_count++;
 			}
 		}
@@ -563,6 +568,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	message = finder.message;
 	if (finder.error)
 		return NSCAPI::returnUNKNOWN;
+	query.alias = finder.alias;
 	query.runCheck(finder.hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");
