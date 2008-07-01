@@ -5,12 +5,16 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-07-01 MickeM
+ + Added new option (namespace) to CheckWMI and CheckWMIValue use like so:
+   CheckWMI namespace=root\\cimv2 MaxCrit=3 MinWarn=1 "Query:load=Select * from win32_Processor"
+
 2008-06-30 MickeM
  * Fixed issue with CheckFile and performance data ( #156 )
  + Added option (InvalidStatus) to CheckCounter to allow other then UNKNOWN return state when counters are missing ( #167 ).
    *NOTICE* this is all reasons (so if the counter is missing or some such the same will happen not just when the instance is missing)
    Message will reflect reason.
- * Fixed issue in the arraybuffer (one of the plit functions had a problem with multiple chars of the same)
+ * Fixed issue in the arraybuffer (one of the plit functions had a problem with multiple chars of the same) ( #190 )
 
 2008-06-25 MickeM
  * Fixed issue with CheckDriveSize and CheckAllOthers (#188)

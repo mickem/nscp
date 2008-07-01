@@ -146,6 +146,6 @@ public:
 	WMIQuery(void) {};
 	~WMIQuery(void) {};
 
-	result_type  execute(std::wstring query);
+	result_type  execute(std::wstring ns, std::wstring query);
 	std::wstring sanitize_string(LPTSTR in);
 };

@@ -79,7 +79,7 @@ bool CheckWMI::hasMessageHandler() {
 	MAP_CHAINED_FILTER(value, numeric)
 
 NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIConatiner;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainer;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	typedef filters::chained_filter<WMIQuery::wmi_filter,WMIQuery::wmi_row> filter_chain;
@@ -91,13 +91,15 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 	}
 	unsigned int truncate = 0;
 	std::wstring query, alias;
+	std::wstring ns = _T("root\\cimv2");
 	bool bPerfData = true;
 
-	WMIConatiner result_query;
+	WMIContainer result_query;
 	try {
 		MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR(_T("Query"), query)
 		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
+		MAP_OPTIONS_STR2INT(_T("namespace"), ns)
 		MAP_OPTIONS_STR(_T("Alias"), alias)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_NUMERIC_ALL(result_query, _T(""))
@@ -122,7 +124,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 	WMIQuery::result_type rows;
 	try {
 		WMIQuery wmiQuery;
-		rows = wmiQuery.execute(query);
+		rows = wmiQuery.execute(ns, query);
 	} catch (WMIException e) {
 		message = _T("WMIQuery failed: ") + e.getMessage();
 		return NSCAPI::returnCRIT;
@@ -150,18 +152,19 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 }
 
 NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBounds<checkHolders::NumericBounds<long long, checkHolders::int64_handler> > > WMIConatiner;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<long long, checkHolders::int64_handler> > > WMIContainer;
 	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (stl_args.empty()) {
 		message = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
-	std::list<WMIConatiner> list;
+	std::list<WMIContainer> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	WMIConatiner tmpObject;
+	WMIContainer tmpObject;
 	bool bPerfData = true;
 	unsigned int truncate = 0;
 	std::wstring query;
+	std::wstring ns = _T("root\\cimv2");
 	std::wstring aliasCol;
 
 	// Query=Select ... MaxWarn=5 MaxCrit=12 Check=Col1 --(later)-- Match==test Check=Col2
@@ -170,6 +173,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TC
 		MAP_OPTIONS_BEGIN(stl_args)
 			MAP_OPTIONS_SHOWALL(tmpObject)
 			MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T(""))
+			MAP_OPTIONS_STR2INT(_T("namespace"), ns)
 			MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
 			MAP_OPTIONS_STR(_T("AliasCol"), aliasCol)
 			MAP_OPTIONS_STR(_T("Query"), query)
@@ -191,15 +195,15 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TC
 	WMIQuery::result_type rows;
 	try {
 		WMIQuery wmiQuery;
-		rows = wmiQuery.execute(query);
+		rows = wmiQuery.execute(ns, query);
 	} catch (WMIException e) {
 		message = _T("WMIQuery failed: ") + e.getMessage();
 		return NSCAPI::returnCRIT;
 	}
 	int hit_count = 0;
 
-	for (std::list<WMIConatiner>::const_iterator it = list.begin(); it != list.end(); ++it) {
-		WMIConatiner itm = (*it);
+	for (std::list<WMIContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
+		WMIContainer itm = (*it);
 		itm.setDefault(tmpObject);
 		itm.perfData = bPerfData;
 		if (itm.data == _T("*")) {
@@ -218,8 +222,8 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TC
 			alias = (*citRow).get(aliasCol).string;
 		}
 		for (WMIQuery::wmi_row::list_type::const_iterator citCol = (*citRow).results.begin(); citCol != (*citRow).results.end(); ++citCol) {
-			for (std::list<WMIConatiner>::const_iterator it = list.begin(); it != list.end(); ++it) {
-				WMIConatiner itm = (*it);
+			for (std::list<WMIContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
+				WMIContainer itm = (*it);
 				if (itm.data == _T("*")) {
 					found = true;
 				} else if ((*citCol).first == itm.data) {
@@ -257,11 +261,12 @@ NSCAPI::nagiosReturn CheckWMI::handleCommand(const strEx::blindstr command, cons
 int CheckWMI::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** char_args) {
 	//WMIQuery wmiQuery;
 	std::wstring query = command;
+	std::wstring ns = _T("root\\cimv2");
 	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
 	WMIQuery::result_type rows;
 	try {
 		WMIQuery wmiQuery;
-		rows = wmiQuery.execute(query);
+		rows = wmiQuery.execute(ns, query);
 	} catch (WMIException e) {
 		NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
 		return -1;

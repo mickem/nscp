@@ -18,6 +18,7 @@
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <WinSvc.h>
+#include <error.hpp>
 #include "EnumNtSrv.h"
 
 #ifdef _DEBUG
@@ -183,7 +184,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	info.m_strServiceName = name;
 	SC_HANDLE scman = ::OpenSCManager(NULL,NULL,SC_MANAGER_ENUMERATE_SERVICE);
 	if (!scman) {
-		throw NTServiceException(name, _T("Could not open ServiceControl manager"), GetLastError());
+		throw NTServiceException(name, _T("Could not open ServiceControl manager: ") + error::lookup::last_error());
 	}
 	SC_HANDLE sh = ::OpenService(scman,name.c_str(),SERVICE_QUERY_STATUS);
 	if (!sh) {
@@ -192,7 +193,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
 			::CloseServiceHandle(scman);
 			delete [] buf;
-			throw NTServiceException(name, _T("GetServiceKeyName: Could not translate service name"), GetLastError());
+			throw NTServiceException(name, _T("GetServiceKeyName: Could not translate service name: ") + error::lookup::last_error());
 		}
 		/*
 		Why does this not work? (a bug in the API? says it should return the correct size?)
@@ -206,7 +207,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 		delete [] buf;
 		if (sh == NULL) {
 			::CloseServiceHandle(scman);
-			throw NTServiceException(name, _T("OpenService: Could not open Service"), GetLastError());
+			throw NTServiceException(name, _T("OpenService: Could not open Service: ") + error::lookup::last_error());
 		}
 	}
 	SERVICE_STATUS state;
@@ -216,7 +217,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	} else {
 		::CloseServiceHandle(sh);
 		::CloseServiceHandle(scman);
-		throw NTServiceException(name, _T("QueryServiceStatus: Could not query service status"), GetLastError());
+		throw NTServiceException(name, _T("QueryServiceStatus: Could not query service status: ") + error::lookup::last_error());
 	}
 	// TODO: Get more info here 
 	::CloseServiceHandle(sh);

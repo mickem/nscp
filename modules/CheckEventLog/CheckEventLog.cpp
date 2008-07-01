@@ -391,7 +391,7 @@ struct eventlog_filter {
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	if (command != _T("CheckEventLog"))
 		return NSCAPI::returnIgnored;
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBoundsULongInteger> EventLogQueryConatiner;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQueryContainer;
 	typedef std::pair<int,eventlog_filter> filteritem_type;
 	typedef std::list<filteritem_type > filterlist_type;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -399,7 +399,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 	std::list<std::wstring> files;
 	filterlist_type filter_chain;
-	EventLogQueryConatiner query;
+	EventLogQueryContainer query;
 
 	bool bPerfData = true;
 	bool bFilterIn = true;
