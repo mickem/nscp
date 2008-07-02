@@ -75,7 +75,7 @@ bool CheckTaskSched::hasMessageHandler() {
 
 
 NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
-	typedef checkHolders::CheckConatiner<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIConatiner;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainer;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	typedef filters::chained_filter<TaskSched::wmi_filter,TaskSched::result> filter_chain;
@@ -90,7 +90,7 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 	bool bPerfData = true;
 	bool bDebug = false;
 
-	WMIConatiner result_query;
+	WMIContainer result_query;
 	try {
 		MAP_OPTIONS_BEGIN(args)
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)

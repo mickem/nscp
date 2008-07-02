@@ -14,8 +14,14 @@
 
 	<?if "$(var.PlatForm)" = "x64"?>
 		<?define PlatForm.x64 ?>
+		<?define Product.GUID = "2D1374D5-8026-4e58-8F2E-6A3C40444769" ?>
+		<?define Package.GUID = "4E50A0E0-AE48-4737-A6A7-07F3A9F94C29" ?>
+		<?define Postfix.GUID = "DD5862EE637C" ?>
 	<?else?>
-		<?define PlatForm.Win32 ?>
+		<?define Product.GUID = "BD153740-D13B-4432-8D39-EE8D2F100B0A" ?>
+		<?define Package.GUID = "93CF1821-AB09-4c77-AA15-DD5862EE637B" ?>
+		<?define Postfix.GUID = "DD5862EE637B" ?>
+	<?define PlatForm.Win32 ?>
 	<?endif?>
 	
 	<?ifdef var.PlatForm.Win32?>
@@ -28,20 +34,20 @@
 		<?define Source = "../../x64/nightly/" ?>
 	<?endif?>
 
-	<Product Id="2D1374D5-8026-4e58-8F2E-6A3C40444769" Name="NSClient++ ($(var.PlatForm))" Language="1033" Version="0.3.1.0" Manufacturer="MySolutions NORDIC">
-		<Package Id="93CF1821-AB09-4c77-AA15-DD5862EE637B" Description="A simple windows monitor agent for (amongst others) nagios."
+	<Product Id="$(var.Product.GUID)" Name="NSClient++ ($(var.PlatForm))" Language="1033" Version="0.3.1.0" Manufacturer="MySolutions NORDIC">
+		<Package Id="$(var.Package.GUID)" Description="A simple windows monitor agent for (amongst others) nagios."
 						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes"/>
 		<?ifdef var.PlatForm.Win32?>
-			<Condition Message="x64 bit version not supported on Win32 bit platform (get Win32 bit version instead)">NOT VersionNT64</Condition>
+			<Condition Message="x64 bit version not supported (by installer) on Win32 bit platform (get Win32 bit version instead)">NOT VersionNT64</Condition>
 		<?else?>
-			<Condition Message="Win32 bit version not supported on x64 bit platform (get x64 bit version instead)">VersionNT64</Condition>
+			<Condition Message="Win32 bit version not supported (by installer) on x64 bit platform (get x64 bit version instead)">VersionNT64</Condition>
 		<?endif?>
 		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high">
 		</Media>
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="$(var.ProgramFiles)">
 				<Directory Id="INSTALLLOCATION" Name="NSClient" LongName="NSClient++">
-						<Component Id="MainClient" Guid="F6636DB0-A0B9-4dd2-B74C-B91D05D3CBE7" Win64="$(var.Win64)">
+						<Component Id="MainClient" Guid="F6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 							<File Id="NSClientEXE" Name="nsclient.exe" LongName="nsclient++.exe" DiskId="1" 
 										Source="$(var.Source)/nsclient++.exe" Vital="yes">
 								<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="NSCPTest"
@@ -60,17 +66,17 @@
 							<File Id="License" Name="license.txt" LongName="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="yes"/>
 						</Component>
 						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
-							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-88F694C7CD7B" Win64="$(var.Win64)">
+							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 								<File Id="NRPEListenerDLL" Name="NRPELsnr.dll" LongName="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEListener.dll" Vital="no" />
 								<File Id="NRPEClientDLL" Name="NRPEClnt.dll" LongName="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
 							</Component>
-							<Component Id="NSCListener" Guid="6DAF8BB9-9A56-48f5-B2C5-A6CF832E2A69" Win64="$(var.Win64)">
+							<Component Id="NSCListener" Guid="6DAF8BB9-9A56-48f5-B2C5-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 								<File Id="NSCListenerDLL" Name="NSCLsnr.dll" LongName="NSClientListener.dll" DiskId="1" Source="$(var.Source)/modules/NSClientListener.dll" Vital="no" />
 							</Component>
-							<Component Id="NSCA" Guid="8820A304-C596-4393-A72F-E750EB112CAA" Win64="$(var.Win64)">
+							<Component Id="NSCA" Guid="8820A304-C596-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 								<File Id="NSCAAgentDLL" Name="NSCAAgnt.dll" LongName="NSCAAgent.dll" DiskId="1" Source="$(var.Source)/modules/NSCAAgent.dll" Vital="no" />
 							</Component>
-							<Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-5C36F3F3209B" Win64="$(var.Win64)">
+							<Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 								<File Id="ModCheckEventLog.dll" Name="EvntLg.dll" LongName="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
 								<File Id="ModCheckExternalScripts.dll" Name="ExtScr.dll" LongName="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
 								<File Id="ModCheckHelpers.dll" Name="Helpers.dll" LongName="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />

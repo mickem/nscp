@@ -236,7 +236,7 @@ std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess)
 	LPBYTE lpBuffer = (LPBYTE)malloc (sysinfo.dwPageSize);
 	if (lpBuffer == NULL)
 		throw EnumProcException(_T("Failed to allocate buffer"));
-	DWORD dwBytesRead;
+	SIZE_T dwBytesRead;
 	if (!ReadProcessMemory( hProcess, mbi.BaseAddress, (LPVOID)lpBuffer, sysinfo.dwPageSize, &dwBytesRead)) {
 		free(lpBuffer);
 		throw EnumProcException(_T("ReadProcessMemory failed"), GetLastError());

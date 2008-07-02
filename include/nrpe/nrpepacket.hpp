@@ -116,7 +116,7 @@ public:
 		if (buffer == NULL)
 			throw NRPEPacketException(_T("No buffer."));
 		if (length != getBufferLength())
-			throw NRPEPacketException(_T("Invalid length."));
+			throw NRPEPacketException(_T("Invalid length: ") + strEx::itos(length) + _T(" != ") + strEx::itos(getBufferLength()));
 		const packet *p = reinterpret_cast<const packet*>(buffer);
 		type_ = ntohs(p->packet_type);
 		if ((type_ != queryPacket)&&(type_ != responsePacket))

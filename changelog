@@ -5,6 +5,12 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
+2008-03-11 MickeM
+ ! 0.3.3 Released
+
+2008-07-02 MickeM
+ + Fixed some issues (?) with the installer the w32 and x64 are now different components (GUIDs).
+
 2008-07-01 MickeM
  + Added new option (namespace) to CheckWMI and CheckWMIValue use like so:
    CheckWMI namespace=root\\cimv2 MaxCrit=3 MinWarn=1 "Query:load=Select * from win32_Processor"
