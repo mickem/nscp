@@ -23,8 +23,8 @@
 #include <list>
 #include <pdh.h>
 #include <pdhmsg.h>
-#include <assert.h>
 #include <sstream>
+#include <error.hpp>
 
 namespace PDH {
 
@@ -177,7 +177,8 @@ namespace PDH {
 		}
 
 		PDHCounterInfo getCounterInfo(BOOL bExplainText = FALSE) {
-			assert(hCounter_ != NULL);
+			if (hCounter_ == NULL)
+				throw PDHException(_T("Counter is null!"));
 			PDH_STATUS status;
 			BYTE *lpBuffer = new BYTE[1025];
 			DWORD bufSize = 1024;
@@ -205,7 +206,8 @@ namespace PDH {
 				hCounter_ = NULL;
 				throw PDHException(name_, _T("PdhAddCounter failed"), status);
 			}
-			assert(hCounter_ != NULL);
+			if (hCounter_ == NULL)
+				throw PDHException(_T("Counter is null!"));
 		}
 		void remove() {
 			if (hCounter_ == NULL)
@@ -278,7 +280,8 @@ namespace PDH {
 		}
 
 		void open() {
-			assert(hQuery_ == NULL);
+			if (hQuery_ != NULL)
+				throw PDHException(_T("query is not null!"));
 			PDH_STATUS status;
 			if( (status = PdhOpenQuery( NULL, 0, &hQuery_ )) != ERROR_SUCCESS)
 				throw PDHException(_T("PdhOpenQuery failed"), status);
@@ -288,7 +291,8 @@ namespace PDH {
 		}
 
 		void close() {
-			assert(hQuery_ != NULL);
+			if (hQuery_ == NULL)
+				throw PDHException(_T("query is null!"));
 			PDH_STATUS status;
 			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
 				(*it)->remove();
@@ -443,6 +447,9 @@ namespace PDH {
 				case PDH_CSTATUS_NO_COUNTER:
 					error = _T("The specified counter was not found in the performance object.");
 					break;
+				case PDH_CSTATUS_NO_OBJECT:
+					error = _T("The specified performance object was not found on the computer.");
+					break;
 				case PDH_CSTATUS_NO_MACHINE:
 					error = _T("The specified computer could not be found or connected to.");
 					break;
@@ -451,6 +458,9 @@ namespace PDH {
 					break;
 				case PDH_MEMORY_ALLOCATION_FAILURE:
 					error = _T("The function is unable to allocate a required temporary buffer.");
+					break;
+				default:
+					error = _T("Unknown error: ") + error::lookup::last_error(status);
 					break;
 			}
 			return false;

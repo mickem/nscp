@@ -27,8 +27,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-#define ASSERT(x)
-
 //=============================================================================
 // class TNtServiceInfo
 //
@@ -105,7 +103,8 @@ std::wstring TNtServiceInfo::GetStartType(void)
 // Return this service error control as a string
 std::wstring TNtServiceInfo::GetErrorControl(void)
 {
-	ASSERT(m_dwErrorControl < 4);
+	if (m_dwErrorControl >= 4)
+		throw std::exception();
 	TCHAR *types[] = {
 		_T("ERROR_IGNORE"),		// 0
 			_T("ERROR_NORMAL"), // 1
@@ -118,7 +117,8 @@ std::wstring TNtServiceInfo::GetErrorControl(void)
 // Return this service current state as a string
 std::wstring TNtServiceInfo::GetCurrentState(void)
 {
-	ASSERT(m_dwCurrentState < 8);
+	if (m_dwErrorControl >= 8)
+		throw std::exception();
 	TCHAR *types[] = {
 		_T("UNKNOWN"),
 			_T("STOPPED"),			// 1
@@ -225,22 +225,6 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	return info;
 }
 
-/*
-// Enumerate services on this machine and return an STL list of service objects 
-// dwType = bit OR of SERVICE_WIN32, SERVICE_DRIVER
-// dwState = bit OR of SERVICE_ACTIVE, SERVICE_INACTIVE
-void TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList)
-{
-	ASSERT(pList != NULL);
-	TNtServiceInfo *pSrvList = NULL;
-	DWORD dwCount = 0;
-	pSrvList = TNtServiceInfo::EnumServices(dwType, dwState, &dwCount);
-	for (DWORD dwIndex = 0; dwIndex < dwCount; dwIndex ++) {
-		pList->insert(pList->end(), pSrvList[dwIndex]);
-	}
-	delete [] pSrvList;
-}
-*/
 /*#############################################################################
 # End of file ENUMNTSRV.CPP
 #############################################################################*/

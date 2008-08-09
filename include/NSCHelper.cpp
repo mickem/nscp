@@ -20,7 +20,6 @@
 ***************************************************************************/
 
 #include <NSCHelper.h>
-#include <assert.h>
 #include <msvc_wrappers.h>
 #include <config.h>
 #include <strEx.h>
@@ -349,7 +348,8 @@ std::list<std::wstring> NSCModuleHelper::getSettingsSection(std::wstring section
 	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw NSCMHExcpetion(_T("Settings could not be destroyed."));
 	}
-	assert(aBuffer == NULL);
+	if (aBuffer != NULL)
+		throw NSCMHExcpetion(_T("buffer is not null?."));
 	return ret;
 }
 /**
@@ -514,7 +514,8 @@ std::list<std::wstring> NSCModuleHelper::getAllCommandNames() {
 	if (fNSAPIReleaseAllCommandNamessBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw NSCMHExcpetion(_T("Commands could not be destroyed."));
 	}
-	assert(aBuffer == NULL);
+	if (aBuffer != NULL)
+		throw NSCMHExcpetion(_T("buffer is not null?."));
 	return ret;
 }
 std::wstring NSCModuleHelper::describeCommand(std::wstring command) {

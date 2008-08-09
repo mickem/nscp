@@ -38,14 +38,32 @@ unsigned IconWidget_::threadProc(LPVOID lpParameter)
 	return 0;
 }
 
+#ifdef WINVER < 0x0600
+#define MSGFLT_ADD 1
+#define MSGFLT_REMOVE 2
+typedef BOOL (WINAPI *LPFN_CHANGEWINDOWMESSAGEFILTER) (UINT, DWORD);
+#endif
+
+LPFN_CHANGEWINDOWMESSAGEFILTER fnChangeWindowMessageFilter = NULL;
+BOOL ChangeWindowMessageFilter(UINT message, DWORD what)
+{
+	if (fnChangeWindowMessageFilter == NULL)
+		fnChangeWindowMessageFilter = (LPFN_CHANGEWINDOWMESSAGEFILTER)GetProcAddress(GetModuleHandle(TEXT("user32")),"ChangeWindowMessageFilter");
+	if (fnChangeWindowMessageFilter == NULL)
+		return true;
+	return fnChangeWindowMessageFilter(message,what);
+}
+
 
 void IconWidget_::createDialog(void) {
+	ChangeWindowMessageFilter()
 	hDlgWnd = ::CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
 
 	UINT UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
 	if (UDM_TASKBARCREATED == 0) {
 		NSC_LOG_ERROR_STD(_T("Failed to register 'TaskbarCreated': ") + error::lookup::last_error());
 	}
+	ChangeWindowMessageFilter(UDM_TASKBARCREATED, MSGFLT_ADD);
 
 	MSG Msg;
 	BOOL bRet;

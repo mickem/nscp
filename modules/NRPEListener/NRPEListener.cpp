@@ -254,7 +254,7 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 		NSC_LOG_ERROR_STD(_T("Unknown script type: ") + command.c_str());
 		return NSCAPI::critical;
 	}
-
+	return NSCAPI::returnIgnored;
 }
 
 void NRPEListener::onClose()

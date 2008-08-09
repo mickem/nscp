@@ -21,7 +21,6 @@
 #pragma once
 
 #include <iostream>
-#include <assert.h>
 
 //#define TRACE(x, y) 
 //#define VERIFY(x) x
@@ -81,7 +80,6 @@ public:
 		dwEvent = ::WaitForSingleObject( m_semReaders, dwMilliseconds );
 		if (dwEvent != WAIT_OBJECT_0)
 			return false;
-		//		  assert(dwEvent == WAIT_OBJECT_0);
 
 		m_nReaders++;
 
@@ -93,7 +91,6 @@ public:
 				::ReleaseSemaphore( m_semReaders, 1, NULL );
 				return false;
 			}
-			//assert(dwEvent == WAIT_OBJECT_0);
 		}
 		// V( semReaders )
 		::ReleaseSemaphore( m_semReaders, 1, NULL );
@@ -104,7 +101,8 @@ public:
 		DWORD dwEvent = WAIT_TIMEOUT;
 		// P( semReaders )
 		dwEvent = ::WaitForSingleObject( m_semReaders, INFINITE );
-		assert(dwEvent == WAIT_OBJECT_0);
+		if (dwEvent != WAIT_OBJECT_0)
+			throw std::exception("Unlock_DataRead::this is really bad...");
 
 		m_nReaders--;
 
@@ -125,7 +123,6 @@ public:
 		dwEvent = ::WaitForSingleObject( m_semWriters, dwMilliseconds );
 		if (dwEvent != WAIT_OBJECT_0)
 			return false;
-		//assert(dwEvent == WAIT_OBJECT_0);
 		return true;
 	}
 
@@ -145,7 +142,8 @@ public:
 	ReadLock(MutexRW* pMutexRW, const bool bInitialLock = false, DWORD dwMilliseconds = INFINITE)
 		:  m_pMutexRW(pMutexRW), m_bIsLocked(false)
 	{
-		assert(m_pMutexRW);
+		if (!m_pMutexRW)
+			throw std::exception("No mutex in lock: this is really bad...");
 		if (bInitialLock){
 			m_bIsLocked = m_pMutexRW->Lock_DataRead(dwMilliseconds);
 		}
@@ -156,12 +154,14 @@ public:
 	};
 
 	inline void Lock(DWORD dwMilliseconds = INFINITE){
-		assert(m_bIsLocked == false);
+		if (m_bIsLocked)
+			throw std::exception("Mutex locked when trying to lock: this is really bad...");
 		m_bIsLocked = m_pMutexRW->Lock_DataRead(dwMilliseconds);
 	};
 
 	inline void Unlock(){
-		assert(m_bIsLocked);
+		if (!m_bIsLocked)
+			throw std::exception("Mutex unlocked when trying to unlock:: this is really bad...");
 		m_pMutexRW->Unlock_DataRead();
 		m_bIsLocked = false;
 	};
@@ -181,7 +181,8 @@ public:
 	WriteLock(MutexRW* pMutexRW, const bool bInitialLock = false, DWORD dwMilliseconds = INFINITE) 
 		:  m_pMutexRW(pMutexRW), m_bIsLocked(false)
 	{
-		assert(m_pMutexRW);
+		if (!m_pMutexRW)
+			throw std::exception("No mutex in lock: this is really bad...");
 		if (bInitialLock){
 			m_bIsLocked = m_pMutexRW->Lock_DataWrite(dwMilliseconds);
 		}
@@ -192,12 +193,14 @@ public:
 	};
 
 	inline void Lock(DWORD dwMilliseconds = INFINITE){
-		assert(m_bIsLocked == false);
+		if (m_bIsLocked)
+			throw std::exception("already locked...this is really bad...");
 		m_bIsLocked = m_pMutexRW->Lock_DataWrite(dwMilliseconds);
 	};
 
 	inline void Unlock(){
-		assert(m_bIsLocked);
+		if (!m_bIsLocked)
+			throw std::exception("already un-locked...this is really bad...");
 		m_pMutexRW->Unlock_DataWrite();
 		m_bIsLocked = false;
 	};

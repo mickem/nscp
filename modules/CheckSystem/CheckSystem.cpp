@@ -860,9 +860,13 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 	NSPROCLST runningProcs;
 	try {
 		runningProcs = GetProcessList(processMethod_, useCmdLine);
-	} catch (TCHAR *c) {
-		NSC_LOG_ERROR_STD(_T("ERROR: ") + c);
-		msg = static_cast<std::wstring>(_T("ERROR: ")) + c;
+	} catch (CEnumProcess::EnumProcException e) {
+		NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getMessage());
+		msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Unhandled error when processing command"));
+		msg = _T("Unhandled error when processing command");
 		return NSCAPI::returnUNKNOWN;
 	}
 
@@ -893,6 +897,10 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 				msg = _T("Failed to compile regular expression: ") + (*proc).first;
 				return NSCAPI::returnUNKNOWN;
 			}
+#else
+			NSC_LOG_ERROR_STD(_T("NSClient++ is compiled with NO_BOOST_DEP so no regular expression support for you...") + (*proc).first);
+			msg = _T("Regular expression is not supported: ") + (*proc).first;
+			return NSCAPI::returnUNKNOWN;
 #endif
 		} else {
 			NSC_LOG_ERROR_STD(_T("Unsupported mode for: ") + (*proc).first);
@@ -994,9 +1002,15 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 		try {
 			std::wstring tstr;
 			if (!PDH::Enumerations::validate(counter.data, tstr)) {
-				msg = tstr;
-				msg += _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
-				return NSCHelper::translateReturn(invalidStatus);
+				NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
+				if (bNSClient) {
+					NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
+					//msg = _T("0");
+				} else {
+					//msg = tstr;
+					//msg += _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
+				}
+				//return NSCHelper::translateReturn(invalidStatus);
 			}
 			PDH::PDHQuery pdh;
 			PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
@@ -1010,6 +1024,8 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 			pdh.close();
 			double value = cDouble.getValue();
 			if (bNSClient) {
+				if (!msg.empty())
+					msg += _T(",");
 				msg += strEx::itos(static_cast<float>(value));
 			} else {
 				counter.perfData = bPerfData;
@@ -1018,14 +1034,20 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 			}
 		} catch (const PDH::PDHException e) {
 			NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getError() + _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")"));
-			msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getError()+ _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
+			if (bNSClient)
+				msg = _T("0");
+			else
+				msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getError()+ _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
 
-	if (msg.empty())
+	if (msg.empty() && !bNSClient)
 		msg = _T("OK all counters within bounds.");
-	else if (!bNSClient)
+	else if (msg.empty()) {
+		NSC_LOG_ERROR_STD(_T("No value found returning 0?"));
+		msg = _T("0");
+	}else if (!bNSClient)
 		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }

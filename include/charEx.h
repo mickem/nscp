@@ -19,7 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#include <assert.h>
 #include <windows.h>
 #include <tchar.h>
 
@@ -46,8 +45,10 @@ namespace charEx {
 
 
 	inline char* tchar_to_char( const wchar_t* pStr, int len, int &nChars) {
-		assert(pStr != NULL);
-		assert(len >= 0 || len == -1);
+		if (pStr == NULL)
+			throw std::exception();
+		if (len < -1)
+			throw std::exception();
 
 		// figure out how many narrow characters we are going to get 
 		nChars = WideCharToMultiByte(CP_ACP, 0, pStr, len, NULL, 0, NULL, NULL);
@@ -66,8 +67,10 @@ namespace charEx {
 	}
 
 	inline wchar_t* char_to_tchar(const char* pStr, int len, int &nChars) {
-		assert( pStr != NULL);
-		assert( len >= 0 || len == -1);
+		if (pStr == NULL)
+			throw std::exception();
+		if (len < -1)
+			throw std::exception();
 
 		// figure out how many wide characters we are going to get
 		nChars = MultiByteToWideChar( CP_ACP , 0 , pStr , len , NULL , 0 );
@@ -89,7 +92,8 @@ namespace charEx {
 
 	typedef std::pair<std::wstring,TCHAR*> token;
 	inline token getToken(TCHAR *buffer, TCHAR split) {
-		assert(buffer != NULL);
+		if (buffer == NULL)
+			throw std::exception();
 		TCHAR *p = wcschr(buffer, split);
 		if (!p)
 			return token(buffer, NULL);

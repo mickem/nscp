@@ -138,8 +138,10 @@ namespace simpleSSL {
 			SSL_CTX_set_cipher_list(ctx_, s.c_str());
 		}
 		void setTmpDH(::DH* dh) {
-			assert(ctx_);
-			assert(dh);
+			if (!ctx_)
+				throw SSLException(_T("setTmpDH:: Invalid context"));
+			if (!dh)
+				throw SSLException(_T("setTmpDH:: Invalid dh"));
 			SSL_CTX_set_tmp_dh(ctx_, dh);
 		}
 		SSL* newSSL() {
@@ -281,7 +283,8 @@ namespace simpleSSL {
 			ssl.free();
 		}
 		void attach(SOCKET s) {
-			assert(s);
+			if (!s)
+				throw SSLException(_T("attach:: Invalid socket"));
 			try {
 				tBase::attach(s);
 				tBase::setNonBlock();

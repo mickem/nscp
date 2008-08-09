@@ -201,7 +201,8 @@ namespace simpleSocket {
 			return s;
 		}
 		virtual void attach(SOCKET s) {
-			assert(socket_ == NULL);
+			if (socket_ != NULL)
+				throw SocketException(_T("Cant attach to existing socket!"));
 			socket_ = s;
 		}
 		virtual void shutdown(int how = SD_BOTH) {
@@ -313,12 +314,13 @@ namespace simpleSocket {
 		virtual bool readAll(DataBuffer &buffer, unsigned int tmpBufferLength = 1024, int maxLength = -1);
 		virtual bool sendAll(const char * buffer, unsigned int len);
 
-		int inline sendAll(DataBuffer &buffer) {
+		bool inline sendAll(DataBuffer &buffer) {
 			return sendAll(buffer.getBuffer(), buffer.getLength());
 		}
 
 		virtual int send(const char * buf, unsigned int len, int flags = 0) {
-			assert(socket_);
+			if (!socket_)
+				throw SocketException(_T("send:: cant send to uninitialized socket"));
 			return ::send(socket_, buf, len, flags);
 		}
 		int inline send(DataBuffer &buffer, int flags = 0) {
@@ -327,16 +329,19 @@ namespace simpleSocket {
 
 		virtual void socket(int af, int type, int protocol ) {
 			socket_ = ::socket(af, type, protocol);
-			assert(socket_ != INVALID_SOCKET);
+			if (socket_ == INVALID_SOCKET)
+				throw SocketException(_T("Failed to create socket"), WSAGetLastError());
 		}
 		virtual void bind() {
-			assert(socket_);
+			if (!socket_)
+				throw SocketException(_T("bind:: Invalid socket"));
 			int fromlen=sizeof(from_);
 			if (::bind(socket_, (sockaddr*)&from_, fromlen) == SOCKET_ERROR)
 				throw SocketException(_T("bind failed: "), ::WSAGetLastError());
 		}
 		virtual void listen(int backlog = SOMAXCONN) {
-			assert(socket_);
+			if (!socket_)
+				throw SocketException(_T("listen:: Invalid socket"));
 			if (::listen(socket_, backlog) == SOCKET_ERROR)
 				throw SocketException(_T("listen failed: "), ::WSAGetLastError());
 		}
@@ -358,7 +363,8 @@ namespace simpleSocket {
 			from_.sin_port=port;
 		}
 		virtual void ioctlsocket(long cmd, u_long *argp) {
-			assert(socket_);
+			if (!socket_)
+				throw SocketException(_T("ioctlsocket:: Invalid socket"));
 			if (::ioctlsocket(socket_, cmd, argp) == SOCKET_ERROR)
 				throw SocketException(_T("ioctlsocket failed: "), ::WSAGetLastError());
 		}
@@ -439,7 +445,8 @@ namespace simpleSocket {
 				return hStopEvent_ != NULL;
 			}
 			void exitThread(void) {
-				assert(hStopEvent_ != NULL);
+				if (hStopEvent_ == NULL)
+					throw SocketException(_T("exitThread:: no stop event??"));
 				if (!SetEvent(hStopEvent_))
 					throw SocketException(_T("SetEvent failed."));
 			}

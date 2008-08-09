@@ -312,6 +312,7 @@ BOOL CEnumProcess::FillPStructPSAPI(DWORD dwPID, CEnumProcess::CProcessEntry* pE
 		}
 	}
 	CloseHandle(hProc);
+	return TRUE;
 }
 
 

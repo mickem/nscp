@@ -74,8 +74,8 @@ public:
 		CProcessEntry(DWORD toFill) : dwPID(0), fill(toFill) {}
 		CProcessEntry(const CProcessEntry &e) : dwPID(e.dwPID), fill(e.fill), filename(e.filename), command_line(e.command_line) {}
 		virtual ~CProcessEntry() {}
-		bool getCommandLine() const { return fill&fill_command_line!=0; }
-		bool getFilename() const { return fill&fill_filename!=0; }
+		bool getCommandLine() const { return (fill&fill_command_line)!=0; }
+		bool getFilename() const { return (fill&fill_filename)!=0; }
 	};
 
 	struct CModuleEntry

@@ -320,7 +320,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
+				CommandLine="echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; nscp@druss.medin.name:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="foo"
 			/>
 			<Tool

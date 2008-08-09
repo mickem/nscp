@@ -246,6 +246,9 @@ bool NSClientT::InitiateService() {
 				} catch(const NSPluginException& e) {
 					LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
 					//return false;
+				} catch (std::exception e) {
+					LOG_ERROR_STD(_T("exception loading plugin: ") + (*it) + strEx::string_to_wstring(e.what()));
+					return false;
 				} catch (...) {
 					LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + (*it));
 					return false;

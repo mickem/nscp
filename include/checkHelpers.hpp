@@ -509,6 +509,11 @@ namespace checkHolders {
 					return 
 						MAKE_PERFDATA(alias, THandler::print_unformated(value.getLowerPercentage()), _T("%"), 
 						THandler::print_unformated(warn), THandler::print_unformated(crit));
+			} else if (type_ == value_upper) {
+				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
+				return 
+					MAKE_PERFDATA(alias, THandler::print_perf((value.value), unit), unit, 
+					THandler::print_perf(value.total-warn, unit), THandler::print_perf(value.total-crit, unit));
 			} else {
 				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
 				return 

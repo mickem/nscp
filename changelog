@@ -3,10 +3,30 @@ TODO:
  * Fix configuration GUI (low priority)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
- * "The message is blocked by User Interface Privilege Isolation, Administrative applications that need to see it can allow it through by calling ChangeWindowMessageFilter after making sure the necessary security precautions are in place. "
 
-2008-03-11 MickeM
- ! 0.3.3 Released
+2008-08-09 MickeM
+ + Added ChangeWindowMessageFilter so systray should not work on vista and beyond!
+
+2008-07-28 MickeM
+ * Improved the error handling for the check proc state.
+ * Removed all (I think) asserts replacing them with exceptions (should I hope reduce crashes and instead leave some form of errors)
+
+2008-07-25 MickeM
+ + Built a garage at the summer house
+ * cut down all the reeds and shrubbs at the summer house.
+
+2008-07-03 MickeM
+ * Fixed (again) issue with performance data and CheckDriveSize (when using "Min" bounds)
+ + Added some more error messages for when counters are not found.
+ * Fixed an issue with the new namespace option
+
+2008-07-02 MickeM
+ ! 0.3.3 Released (take 2)
+ + Added new option alias to controll the name for performance counters when using checkfile use like so:
+    checkfile alias=foo file=C:\boot.ini filter-written=>1000d syntax=gurka MaxCrit=1
+ * Fixed issue with performance data and CheckDriveSize (when using "Min" bounds)
+ ! 0.3.3 Released (take 1)
+ * Fixed some issues (?) with the installer the w32 and x64 are now different components (GUIDs).
 
 2008-07-02 MickeM
  + Fixed some issues (?) with the installer the w32 and x64 are now different components (GUIDs).
