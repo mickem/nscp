@@ -79,6 +79,8 @@
 #define NSCLIENT_SETTINGS_LISTENQUE_DEFAULT 0
 #define NSCLIENT_SETTINGS_READ_TIMEOUT _T("socket_timeout")
 #define NSCLIENT_SETTINGS_READ_TIMEOUT_DEFAULT 30
+#define NSCLIENT_SETTINGS_SYSTRAY_EXE _T("systray_exe")
+#define NSCLIENT_SETTINGS_SYSTRAY_EXE_DEFAULT _T("systray.exe")
 
 // NRPE Settings headlines
 #define NRPE_SECTION_TITLE _T("NRPE")
@@ -197,6 +199,8 @@
 #define LOG_FILENAME_DEFAULT _T("nsclient.log")
 #define LOG_DATEMASK _T("date_mask")
 #define LOG_DATEMASK_DEFAULT _T("%Y-%m-%d %H:%M:%S")
+#define LOG_ROOT _T("root_folder")
+#define LOG_ROOT_DEFAULT _T("exe")
 
 // Main Settings
 #define MAIN_SECTION_TITLE _T("Settings")
@@ -215,9 +219,11 @@
 #define MAIN_ALLOWED_HOSTS_CACHE_DEFAULT 1
 #define MAIN_STRING_LENGTH _T("string_length")
 #define MAIN_STRING_LENGTH_DEFAULT 4096
+#define MAIN_SHARED_SESSION _T("shared_session")
+#define MAIN_SHARED_SESSION_DEFAULT 0
 
 
-// LOA Config itemns
+// LOA Config items
 #define LUA_SCRIPT_SECTION_TITLE _T("LUA Scripts")
 
 

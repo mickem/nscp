@@ -23,6 +23,8 @@
 #include "TrayIcon.h"
 #include <ServiceCmd.h>
 #include <config.h>
+#include <Winwlx.h>
+#include <sysinfo.h>
 
 SysTray gSysTray;
 
@@ -34,24 +36,37 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 
 SysTray::SysTray() : icon(_T("SysTray")) {}
 SysTray::~SysTray() {}
+
+
+void SysTray::show() {
+	icon.createThread();
+}
 bool SysTray::loadModule() {
-	try {
-		if ((serviceControll::GetServiceType(SZSERVICENAME)&SERVICE_INTERACTIVE_PROCESS)!=SERVICE_INTERACTIVE_PROCESS) {
+	if (systemInfo::isBelowXP(systemInfo::getOSVersion())) {
+		try {
+			if ((serviceControll::GetServiceType(SZSERVICENAME)&SERVICE_INTERACTIVE_PROCESS)!=SERVICE_INTERACTIVE_PROCESS) {
+				NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
+				return true;
+			}
+		} catch (serviceControll::SCException e) {
 			NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
 			return true;
 		}
-	} catch (serviceControll::SCException e) {
-		NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
-		return true;
+		show();
+	} else {
+		NSC_LOG_ERROR(_T("SysTray module is not used on windows XP and above (so you can remove it)."));
 	}
-	icon.createThread();
 	return true;
 }
-bool SysTray::unloadModule() {
+void SysTray::hide() {
 	if (!icon.exitThread(20000)) {
 		std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
 		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
-		return false;
+	}
+}
+bool SysTray::unloadModule() {
+	if (systemInfo::isBelowXP(systemInfo::getOSVersion())) {
+		hide();
 	}
 	return true;
 }
@@ -60,21 +75,27 @@ int SysTray::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHA
 	if (_wcsicmp(command, _T("install")) == 0) {
 		try {
 			serviceControll::ModifyServiceType(SZSERVICENAME, SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS);
-			NSC_LOG_MESSAGE_STD(_T(MODULE_NAME) _T(" is now able to run as the SERVICE_INTERACTIVE_PROCESS flag has been set."));
+			std::wcout << _T(MODULE_NAME) << _T(" is now able to run as the SERVICE_INTERACTIVE_PROCESS flag has been set.") << std::endl;
 		} catch (const serviceControll::SCException& e) {
-			NSC_LOG_ERROR_STD(_T("Could not modify service: ") + e.error_);
+			std::wcerr << _T("Could not modify service: ") << e.error_ << std::endl;
+			return -1;
+		} catch (...) {
+			std::wcerr << _T("Could not modify service: Unknown error!") << std::endl;
 			return -1;
 		}
 	} else if (_wcsicmp(command, _T("uninstall")) == 0) {
 		try {
 			serviceControll::ModifyServiceType(SZSERVICENAME, SERVICE_WIN32_OWN_PROCESS);
-			NSC_LOG_MESSAGE_STD(_T(MODULE_NAME) _T(" is now not able to run as the SERVICE_INTERACTIVE_PROCESS flag has been reset."));
+			std::wcout << _T(" is now not able to run as the SERVICE_INTERACTIVE_PROCESS flag has been reset.") << std::endl;
 		} catch (const serviceControll::SCException& e) {
-			NSC_LOG_ERROR_STD(_T("Could not modify service: ") + e.error_);
+			std::wcerr << _T("Could not modify service: ") << e.error_ << std::endl;
+			return -1;
+		} catch (...) {
+			std::wcerr << _T("Could not modify service: Unknown error!") << std::endl;
 			return -1;
 		}
 	} else {
-		NSC_LOG_ERROR_STD(_T("Undefined command, usage: install or uninstall"));
+		std::wcerr << _T("Undefined command, usage: install or uninstall") << std::endl;
 		return -1;
 	}
 	return 0;
@@ -119,9 +140,12 @@ SysTray::log_type SysTray::getLog() {
 	return ret;
 }
 
-
-
-
+extern void ShowIcon() {
+	gSysTray.show();
+}
+extern void HideIcon() {
+	gSysTray.hide();
+}
 NSC_WRAPPERS_MAIN_DEF(gSysTray);
 NSC_WRAPPERS_HANDLE_MSG_DEF(gSysTray);
 NSC_WRAPPERS_IGNORE_CMD_DEF();

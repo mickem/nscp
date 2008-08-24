@@ -109,6 +109,7 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef void (*lpNSAPIMessage)(int, const TCHAR*, const int, const TCHAR*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
+	typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
 	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const TCHAR*, const unsigned int, TCHAR **, TCHAR *, unsigned int, TCHAR *, unsigned int);
 	typedef void* (*lpNSAPILoader)(TCHAR*);
 	typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
@@ -136,6 +137,7 @@ namespace NSCModuleHelper
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const TCHAR* command, TCHAR* buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
 	void StopService(void);
+	void Exit(void);
 	std::wstring getBasePath();
 	bool logDebug();
 	bool checkLogMessages(int type);
@@ -332,6 +334,7 @@ namespace NSCModuleWrapper {
 			return toObject.commandLineExec(command, argLen, args); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: commandLineExec(...)")); \
+			std::wcerr << _T("Unknown exception in: commandLineExec(...)") << std::endl; \
 			return NSCAPI::hasFailed; \
 		} \
 	} \

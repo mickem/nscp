@@ -53,6 +53,13 @@
 ;  Use the INI file as opposed to the registry if this is 0 and the use_reg in the registry is set to 1 
 ;  the registry will be used instead.
 use_file=1
+;
+; # USE SHARED MEMORY CHANNELS
+;  This is the "new" way for using the system tray based on an IPC framework on top shared memmory channels and events.
+;  It is brand new and (probably has bugs) so dont enable this unless for testing!
+;  If set to 1 shared channels will be created and system tray icons created and such and such...
+;shared_session=0
+
 
 [log]
 ;# LOG DEBUG
@@ -61,11 +68,17 @@ use_file=1
 ;
 ;# LOG FILE
 ;  The file to print log statements to
-;file=NSC.log
+;file=nsclient.log
 ;
 ;# LOG DATE MASK
 ;  The format to for the date/time part of the log entry written to file.
 ;date_mask=%Y-%m-%d %H:%M:%S
+;
+;# LOG ROOT FOLDER
+;  The root folder to use for logging.
+;  exe = the folder where the executable is located
+;  local-app-data = local application data (probably a better choice then the old default)
+;root_folder=exe
 
 
 [NSClient]

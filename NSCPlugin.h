@@ -106,6 +106,8 @@ private:
 	typedef INT (*lpHandleMessage)(int,const TCHAR*,const int,const TCHAR*);
 	typedef INT (*lpUnLoadModule)();
 	typedef INT (*lpGetConfigurationMeta)(int, TCHAR*);
+	typedef void (*lpShowTray)();
+	typedef void (*lpHideTray)();
 
 
 	lpModuleHelperInit fModuleHelperInit;
@@ -120,6 +122,8 @@ private:
 	lpUnLoadModule fUnLoadModule;
 	lpGetConfigurationMeta fGetConfigurationMeta;
 	lpCommandLineExec fCommandLineExec;
+	lpShowTray fShowTray;
+	lpHideTray fHideTray;
 
 public:
 	NSCPlugin(const std::wstring file);
@@ -138,6 +142,9 @@ public:
 	void unload(void);
 	std::wstring getCongifurationMeta();
 	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments);
+	void showTray();
+	void hideTray();
+
 	std::wstring getModule() {
 		if (file_.empty())
 			return _T("");

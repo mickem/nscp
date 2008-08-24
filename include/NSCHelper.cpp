@@ -145,6 +145,7 @@ namespace NSCModuleHelper {
 	lpNSAPIGetSettingsInt fNSAPIGetSettingsInt = NULL;
 	lpNSAPIMessage fNSAPIMessage = NULL;
 	lpNSAPIStopServer fNSAPIStopServer = NULL;
+	lpNSAPIExit fNSAPIExit = NULL;
 	lpNSAPIInject fNSAPIInject = NULL;
 	lpNSAPICheckLogMessages fNSAPICheckLogMessages = NULL;
 	lpNSAPIEncrypt fNSAPIEncrypt = NULL;
@@ -307,6 +308,14 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::wstring c
 void NSCModuleHelper::StopService(void) {
 	if (fNSAPIStopServer)
 		fNSAPIStopServer();
+}
+/**
+ * Close the program (usefull for tray/testmode) without stopping the service (unless this is the service).
+ * @author mickem
+ */
+void NSCModuleHelper::Exit(void) {
+	if (fNSAPIExit)
+		fNSAPIExit();
 }
 /**
  * Retrieve a string from the settings subsystem (INI-file)
@@ -608,6 +617,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIReleaseSettingsSectionBuffer = (NSCModuleHelper::lpNSAPIReleaseSettingsSectionBuffer)f(_T("NSAPIReleaseSettingsSectionBuffer"));
 	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f(_T("NSAPIMessage"));
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
+	NSCModuleHelper::fNSAPIExit = (NSCModuleHelper::lpNSAPIExit)f(_T("NSAPIExit"));
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f(_T("NSAPIInject"));
 	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f(_T("NSAPIGetBasePath"));
 	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f(_T("NSAPICheckLogMessages"));

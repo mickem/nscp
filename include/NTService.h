@@ -21,6 +21,7 @@
 #pragma once
 
 #include <string>
+#include <sysinfo.h>
 
 
 /**
@@ -79,8 +80,13 @@ public:
 
 	void service_main(DWORD dwArgc, LPTSTR *lpszArgv)
 	{
-		// register our service control handler:
-		sshStatusHandle = RegisterServiceCtrlHandler( SZSERVICENAME, TBase::service_ctrl_dispatch);
+		if (systemInfo::isAboveW2K(systemInfo::getOSVersion())) {
+			ssStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SESSIONCHANGE;
+			sshStatusHandle = RegisterServiceCtrlHandlerEx( SZSERVICENAME, TBase::service_ctrl_dispatch_ex, NULL);
+		} else {
+			// register our service control handler:
+			sshStatusHandle = RegisterServiceCtrlHandler( SZSERVICENAME, TBase::service_ctrl_dispatch);
+		}
 
 		// SERVICE_STATUS members that don't change in example
 		ssStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -99,16 +105,34 @@ public:
 			ReportStatusToSCMgr(SERVICE_STOPPED,dwErr,0);
 	}
 
+	typedef struct tagWTSSESSION_NOTIFICATION
+	{
+		DWORD cbSize;
+		DWORD dwSessionId;
 
-	void service_ctrl(DWORD dwCtrlCode) {
+	} WTSSESSION_NOTIFICATION, *PWTSSESSION_NOTIFICATION;
+#define WTS_SESSION_LOGON                  0x5
+#define WTS_SESSION_LOGOFF                 0x6
+
+	DWORD service_ctrl_ex(DWORD dwCtrlCode, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
 		switch(dwCtrlCode) 
 		{
 		case SERVICE_CONTROL_STOP:
 			ReportStatusToSCMgr(SERVICE_STOP_PENDING, NO_ERROR, 0);
 			ServiceStop();
-			return;
+			return 0;
 
 		case SERVICE_CONTROL_INTERROGATE:
+			break;
+
+		case SERVICE_CONTROL_SESSIONCHANGE:
+			if (lpEventData != NULL && dwEventType == WTS_SESSION_LOGON)
+				service_on_session_changed(reinterpret_cast<WTSSESSION_NOTIFICATION*>(lpEventData)->dwSessionId, true, dwEventType);
+			else if (lpEventData != NULL && dwEventType == WTS_SESSION_LOGOFF)
+				service_on_session_changed(reinterpret_cast<WTSSESSION_NOTIFICATION*>(lpEventData)->dwSessionId, false, dwEventType);
+			else {
+				service_on_session_changed(reinterpret_cast<WTSSESSION_NOTIFICATION*>(lpEventData)->dwSessionId, false, dwEventType);
+			}
 			break;
 
 		default:
@@ -116,6 +140,7 @@ public:
 
 		}
 		ReportStatusToSCMgr(ssStatus.dwCurrentState, NO_ERROR, 0);
+		return 0;
 	}
 
 
@@ -140,7 +165,7 @@ public:
 		if (dwCurrentState == SERVICE_START_PENDING)
 			ssStatus.dwControlsAccepted = 0;
 		else
-			ssStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+			ssStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP| SERVICE_ACCEPT_SESSIONCHANGE;
 
 		ssStatus.dwCurrentState = dwCurrentState;
 		ssStatus.dwWin32ExitCode = dwWin32ExitCode;

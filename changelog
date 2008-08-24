@@ -4,8 +4,16 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2008-08-16 MickeM
+ * *WARNING* THIS IS VERY VERY UNSTABEL (possibly)
+ * *WARNING* A lot of new untested code here so dont run in production enviornments :)
+ + Added shared session so system tray can communicate with master
+ + Added new system tray handlig (via TS so FUS should work with it)
+ + Added new option [System] / shared_session=0 (or 1) to enable / disable the new shared memory framework (it is for now disabled by default)
+   If you want to try this remember to change that option but also beware! it is dagerous and not finnished and and also there is as of now no security at all.
+
 2008-08-09 MickeM
- + Added ChangeWindowMessageFilter so systray should not work on vista and beyond!
+ + Added ChangeWindowMessageFilter so systray should maybe work on vista and beyond!
 
 2008-07-28 MickeM
  * Improved the error handling for the check proc state.

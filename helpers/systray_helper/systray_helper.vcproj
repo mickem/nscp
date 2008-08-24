@@ -2,9 +2,10 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8,00"
-	Name="UploadBinaries"
-	ProjectGUID="{D96F7075-F6CD-4921-B5D8-8488E2D24BDB}"
-	RootNamespace="UploadBinaries"
+	Name="systray_helper"
+	ProjectGUID="{43718644-173B-42D8-8AD1-E359BFB2BB20}"
+	RootNamespace="systray_helper"
+	Keyword="Win32Proj"
 	>
 	<Platforms>
 		<Platform
@@ -19,10 +20,10 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -42,9 +43,12 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
+				AdditionalIncludeDirectories="../../include"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="4"
@@ -60,7 +64,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="..\..\Debug/systray.exe"
+				LinkIncremental="2"
 				GenerateDebugInformation="true"
+				SubSystem="2"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -90,10 +97,10 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
-			CharacterSet="2"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -114,9 +121,12 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
+				AdditionalIncludeDirectories="../../include"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -132,7 +142,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="..\..\Debug/systray.exe"
+				LinkIncremental="2"
 				GenerateDebugInformation="true"
+				SubSystem="2"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -163,9 +176,9 @@
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
-			CharacterSet="2"
+			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -173,8 +186,6 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Making archive: 7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive: postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
-				Outputs="foo"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -187,7 +198,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories="../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -203,7 +217,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\systray.exe"
+				LinkIncremental="1"
 				GenerateDebugInformation="true"
+				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="1"
@@ -236,9 +253,9 @@
 		<Configuration
 			Name="Release|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
-			CharacterSet="2"
+			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -246,8 +263,6 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Making archive: 7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive: postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;echo pscp.exe &quot;$(TargetDir)\*.zip&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
-				Outputs="foo"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -261,7 +276,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories="../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -277,7 +295,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\systray.exe"
+				LinkIncremental="1"
 				GenerateDebugInformation="true"
+				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="17"
@@ -310,9 +331,9 @@
 		<Configuration
 			Name="Nightly|Win32"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="4"
-			CharacterSet="2"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="1"
+			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -320,8 +341,6 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; nscp@druss.medin.name:/var/www/files/nightly/&#x0D;&#x0A;"
-				Outputs="foo"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -334,7 +353,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories="../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -349,10 +371,20 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
+				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\systray.exe"
+				LinkIncremental="1"
+				GenerateDebugInformation="false"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -364,15 +396,21 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Nightly|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="4"
-			CharacterSet="2"
+			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="1"
+			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -380,8 +418,6 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Making archive&#x0D;&#x0A;7z.exe a -r -tzip -bd &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; &quot;$(TargetDir)\*&quot;&#x0D;&#x0A;echo Renaming archive&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).zip&quot; zip&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.zip&quot; nscp@druss.medin.name:/var/www/files/nightly/&#x0D;&#x0A;"
-				Outputs="foo"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -395,7 +431,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories="../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -410,10 +449,20 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
+				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\systray.exe"
+				LinkIncremental="1"
+				GenerateDebugInformation="false"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -423,6 +472,12 @@
 			/>
 			<Tool
 				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -437,19 +492,191 @@
 			Filter="cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx"
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
+			<File
+				RelativePath="..\..\include\ServiceCmd.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+						PrecompiledHeaderFile=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+						PrecompiledHeaderFile=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+						PrecompiledHeaderFile=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+						PrecompiledHeaderFile=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+						PrecompiledHeaderFile=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+						PrecompiledHeaderFile=""
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\stdafx.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\systray_helper.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\TrayWidget.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath="..\..\include\event_handler.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\file_logger.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\nsclient_session.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Resource.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\ServiceCmd.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\shared_memory.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\stdafx.h"
+				>
+			</File>
+			<File
+				RelativePath=".\systray_helper.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TrayWidget.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+			<File
+				RelativePath=".\res\standby.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\systray_helper.rc"
+				>
+			</File>
 		</Filter>
+		<File
+			RelativePath=".\ReadMe.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

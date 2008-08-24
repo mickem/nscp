@@ -246,7 +246,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Renaming archive&#x0D;&#x0A;echo mkdir &quot;$(OutDir)&quot;&#x0D;&#x0A;mkdir &quot;$(OutDir)&quot;&#x0D;&#x0A;cmd /c del &quot;$(OutDir)\*.msi&quot;&quot;&#x0D;&#x0A;cmd /c copy &quot;..\installer\bin\$(ConfigurationName)\NSClient++.msi&quot; &quot;$(OutDir)\NSClient++-$(PlatformName).msi&quot;&quot;&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).msi&quot; msi&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.msi&quot; mickem@ssl.nakednuns.org:/var/www/files/nightly/&#x0D;&#x0A;"
+				CommandLine="echo Renaming archive&#x0D;&#x0A;echo mkdir &quot;$(OutDir)&quot;&#x0D;&#x0A;mkdir &quot;$(OutDir)&quot;&#x0D;&#x0A;cmd /c del &quot;$(OutDir)\*.msi&quot;&quot;&#x0D;&#x0A;cmd /c copy &quot;..\installer\bin\$(ConfigurationName)\NSClient++.msi&quot; &quot;$(OutDir)\NSClient++-$(PlatformName).msi&quot;&quot;&#x0D;&#x0A;postbuild.pl &quot;$(TargetDir)\NSClient++-$(PlatformName).msi&quot; msi&#x0D;&#x0A;echo Sending to server&#x0D;&#x0A;pscp.exe &quot;$(TargetDir)\*.msi&quot; nscp@druss.medin.name:/var/www/files/nightly/&#x0D;&#x0A;"
 				Outputs="foo"
 			/>
 			<Tool

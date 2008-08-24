@@ -37,7 +37,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine=""
+				CommandLine="&#x0D;&#x0A;"
 				Outputs="$(InputDir)\$(OutDir)\msvcp71.dll"
 			/>
 			<Tool
@@ -84,7 +84,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib advapi32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib advapi32.lib ws2_32.lib Userenv.lib"
 				OutputFile=".\Release/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
@@ -138,7 +138,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo Copying dependency DLLs&#x0D;&#x0A;cmd /c &quot;copy $(InputDir)\dist_dll\*.* $(InputDir)\$(OutDir)\&quot;&#x0D;&#x0A;"
+				CommandLine="&#x0D;&#x0A;"
 				Outputs="$(InputDir)\$(OutDir)\msvcp71.dll"
 			/>
 			<Tool
@@ -186,7 +186,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Pdh.lib"
+				AdditionalDependencies="kernel32.lib user32.lib advapi32.lib ws2_32.lib Userenv.lib"
 				OutputFile=".\Release/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
@@ -282,7 +282,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
 				OutputFile=".\Debug/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
@@ -377,7 +377,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
 				OutputFile=".\Debug/NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
@@ -668,7 +668,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
@@ -756,7 +756,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
@@ -2376,6 +2376,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\include\event_handler.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\include\INISettings.h"
 				>
 			</File>
@@ -2400,6 +2404,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\include\nsclient_session.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\NSCPlugin.h"
 				>
 			</File>
@@ -2416,11 +2424,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\include\remote_processes.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\include\ServiceCmd.h"
 				>
 			</File>
 			<File
 				RelativePath=".\include\Settings.h"
+				>
+			</File>
+			<File
+				RelativePath=".\include\shared_memory.hpp"
 				>
 			</File>
 			<File
@@ -2441,6 +2457,10 @@
 			</File>
 			<File
 				RelativePath=".\include\thread.h"
+				>
+			</File>
+			<File
+				RelativePath=".\tray_manager.hpp"
 				>
 			</File>
 		</Filter>

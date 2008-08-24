@@ -36,6 +36,7 @@
 namespace strEx {
 	class string_exception : public std::exception {
 		std::wstring _what;
+	public:
 		string_exception(std::wstring what) : _what(what) {}
 		std::wstring what() {
 			return _what;
@@ -67,9 +68,9 @@ namespace strEx {
 
 	inline std::string wstring_to_string( const wchar_t* pStr, int len) {
 		if (pStr == NULL)
-			throw string_exception("Invalid pointer in wstring_to_string");
+			throw string_exception(_T("Invalid pointer in wstring_to_string"));
 		if (len < 0 && len != -1) 
-			throw string_exception("Invalid string length in wstring_to_string");
+			throw string_exception(_T("Invalid string length in wstring_to_string"));
 
 		// figure out how many narrow characters we are going to get 
 		int nChars = WideCharToMultiByte( CP_ACP , 0 , pStr , len , NULL , 0 , NULL , NULL ) ; 
@@ -93,9 +94,9 @@ namespace strEx {
 
 	inline std::wstring string_to_wstring( const char* pStr , int len ) {
 		if (pStr == NULL)
-			throw string_exception("Invalid pointer in wstring_to_string");
+			throw string_exception(_T("Invalid pointer in wstring_to_string"));
 		if (len < 0 && len != -1) 
-			throw string_exception("Invalid string length in wstring_to_string");
+			throw string_exception(_T("Invalid string length in wstring_to_string"));
 
 		// figure out how many wide characters we are going to get 
 		int nChars = MultiByteToWideChar( CP_ACP , 0 , pStr , len , NULL , 0 ) ; 
@@ -210,6 +211,9 @@ namespace strEx {
 			string = string.substr(0,pos)+with+string.substr(pos+len);
 			pos = string.find(replace, pos+1);
 		}
+	}
+	inline std::wstring ctos(TCHAR c) {
+		return std::wstring(c,1);
 	}
 	inline std::wstring itos(unsigned int i) {
 		std::wstringstream ss;

@@ -94,7 +94,7 @@ namespace serviceControll {
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		if (result != TRUE)
-			throw SCException(_T("Could not query service information"));
+			throw SCException(_T("Could not change service information"));
 	}
 
 	DWORD GetServiceType(LPCTSTR szName) {

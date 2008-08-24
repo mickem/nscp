@@ -27,6 +27,7 @@ NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 
 
+
 #define MODULE_NAME "SystemTray"
 class SysTray {
 private:
@@ -55,6 +56,8 @@ public:
 	bool loadModule();
 	bool unloadModule();
 	void setLogWindow(HWND hWnd);
+	void show();
+	void hide();
 
 	std::wstring getModuleName() {
 		return _T(MODULE_NAME);

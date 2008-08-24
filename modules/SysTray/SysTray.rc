@@ -94,12 +94,12 @@ IDR_POPUP MENU
 BEGIN
     POPUP "POPUP"
     BEGIN
-        MENUITEM "NSClient++",                  ID_POPUP_NSCLIENT, INACTIVE
+        MENUITEM "NSClient++",            ID_POPUP_NSCLIENT, INACTIVE
         MENUITEM SEPARATOR
-        MENUITEM "Inject Command",              ID_POPUP_INJECTCOMMAND
-        MENUITEM "Stop Service",                ID_POPUP_STOPSERVICE
+        MENUITEM "Run &Command",          ID_POPUP_INJECTCOMMAND
+        MENUITEM "Show &Log",             ID_POPUP_SHOWLOG
         MENUITEM SEPARATOR
-        MENUITEM "Show Log",                    ID_POPUP_SHOWLOG
+        MENUITEM "&Close",                ID_POPUP_STOPSERVICE
     END
 END
 
@@ -224,4 +224,3 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
