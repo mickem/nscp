@@ -42,20 +42,20 @@ void SysTray::show() {
 	icon.createThread();
 }
 bool SysTray::loadModule() {
-	if (systemInfo::isBelowXP(systemInfo::getOSVersion())) {
-		try {
-			if ((serviceControll::GetServiceType(SZSERVICENAME)&SERVICE_INTERACTIVE_PROCESS)!=SERVICE_INTERACTIVE_PROCESS) {
-				NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
-				return true;
-			}
-		} catch (serviceControll::SCException e) {
+	if (NSCModuleHelper::getSettingsInt(MAIN_SECTION_TITLE, MAIN_SHARED_SESSION, MAIN_SHARED_SESSION_DEFAULT) == 1) {
+		NSC_LOG_ERROR(_T("You have enabled shared session, systray module will not load..."));
+		return true;
+	}
+	try {
+		if ((serviceControll::GetServiceType(SZSERVICENAME)&SERVICE_INTERACTIVE_PROCESS)!=SERVICE_INTERACTIVE_PROCESS) {
 			NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
 			return true;
 		}
-		show();
-	} else {
-		NSC_LOG_ERROR(_T("SysTray module is not used on windows XP and above (so you can remove it)."));
+	} catch (serviceControll::SCException e) {
+		NSC_LOG_ERROR(_T("SysTray is not installed (or it cannot interact with the desktop) SysTray won't be loaded. Run ") SZAPPNAME _T(" SysTray install to change this."));
+		return true;
 	}
+	show();
 	return true;
 }
 void SysTray::hide() {

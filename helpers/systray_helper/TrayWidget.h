@@ -27,7 +27,7 @@
 #define WM_ICON_NOTIFY	WM_USER+1
 #define WM_MY_CLOSE	WM_USER+2
 
-class IconWidget : public nsclient_session::session_handler_interface {
+class TrayWidget : public nsclient_session::session_handler_interface {
 public:
 	struct log_entry {
 		log_entry(std::wstring category_, std::wstring file_, int line_, std::wstring message_) : category(category_), file(file_), line(line_), message(message_) {
@@ -49,8 +49,8 @@ private:
 	std::wstring channel_id_;
 
 public:
-	IconWidget(std::wstring cmdLine);
-	~IconWidget();
+	TrayWidget(std::wstring cmdLine);
+	~TrayWidget();
 	void createDialog(HINSTANCE hInstance);
 	log_type getLog();
 	void connectService();
@@ -60,14 +60,14 @@ public: // Shared session interface:
 	void log(std::wstring category, const TCHAR* file, const int line, std::wstring message);
 	void session_error(std::wstring file, unsigned int line, std::wstring msg);
 	void session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message);
-	int session_inject(std::wstring command, std::wstring arguments, std::wstring splitter, bool escape, std::wstring &msg, std::wstring & perf) {
+	int session_inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 		return -1;
 	}
 
 
 	void setLogWindow(HWND hWnd) { hLogWnd = hWnd; }
 	HWND getLogWindow() const { return hLogWnd; }
-	int inject(std::wstring command, std::wstring arguments, std::wstring splitter, bool escape, std::wstring &msg, std::wstring & perf);
+	int inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf);
 
 
 };

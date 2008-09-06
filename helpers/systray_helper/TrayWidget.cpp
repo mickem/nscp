@@ -72,8 +72,8 @@ std::wstring getArgumentValue(std::wstring key, strEx::splitList list) {
 	return _T("");
 }
 HINSTANCE ghInstance = NULL;
-IconWidget *gTrayInstance = NULL;
-IconWidget::IconWidget(std::wstring cmdLine) {
+TrayWidget *gTrayInstance = NULL;
+TrayWidget::TrayWidget(std::wstring cmdLine) {
 	strEx::splitList list = strEx::splitEx(cmdLine, _T(" "));
 	channel_id_ = getArgumentValue(_T("-channel"), list);
 	if (channel_id_.empty()) {
@@ -89,7 +89,7 @@ IconWidget::IconWidget(std::wstring cmdLine) {
 		LOG_ERROR_TRAY(_T("Failed to attach to shared session: ") + e.what());
 	}
 }
-IconWidget::~IconWidget() {
+TrayWidget::~TrayWidget() {
 	gTrayInstance = NULL;
 	try {
 		if (shared_client_.get() != NULL) {
@@ -103,7 +103,7 @@ IconWidget::~IconWidget() {
 	}
 	shared_client_.reset();
 }
-void IconWidget::connectService() {
+void TrayWidget::connectService() {
 	LOG_MESSAGE_TRAY(_T("Reconnecting to the service..."));
 	try {
 		shared_client_.reset(new nsclient_session::shared_client_session(channel_id_, this));
@@ -113,17 +113,17 @@ void IconWidget::connectService() {
 		LOG_ERROR_TRAY(_T("Failed to attach to shared session: ") + e.what());
 	}
 }
-int IconWidget::inject(std::wstring command, std::wstring arguments, std::wstring splitter, bool escape, std::wstring &msg, std::wstring & perf) {
+int TrayWidget::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 	if (shared_client_.get() == NULL) {
 		LOG_ERROR_TRAY(_T("No active shared instance!"));
 		return -1;
 	}
-	return shared_client_->inject(command, arguments, splitter[0], escape, msg, perf);
+	return shared_client_->inject(command, arguments, splitter, escape, msg, perf);
 }
 
 
 
-void IconWidget::createDialog(HINSTANCE hInstance) {
+void TrayWidget::createDialog(HINSTANCE hInstance) {
 	ghInstance = hInstance;
 	hDlgWnd = ::CreateDialog(hInstance,MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
 	if ((hDlgWnd == NULL)||!IsWindow(hDlgWnd)) {
@@ -159,14 +159,14 @@ void IconWidget::createDialog(HINSTANCE hInstance) {
 	}
 }
 
-void IconWidget::session_error(std::wstring file, unsigned int line, std::wstring msg) {
+void TrayWidget::session_error(std::wstring file, unsigned int line, std::wstring msg) {
 	log(_T("error"), file.c_str(), line, msg);
 }
 
-void IconWidget::session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) {
+void TrayWidget::session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) {
 	log(_T("message"), file, line, message);
 }
-void IconWidget::log(std::wstring category, const TCHAR* file, const int line, std::wstring message) {
+void TrayWidget::log(std::wstring category, const TCHAR* file, const int line, std::wstring message) {
 	log_entry record(category, file, line, message);
 	g_log_instance.log(_T("error"), record.file.c_str(), record.line, record.message.c_str());
 	HWND hWnd = NULL;
@@ -192,7 +192,7 @@ void IconWidget::log(std::wstring category, const TCHAR* file, const int line, s
 	}
 }
 
-IconWidget::log_type IconWidget::getLog() {
+TrayWidget::log_type TrayWidget::getLog() {
 	log_type ret;
 	for (log_type::const_iterator cit = log_.begin(); cit != log_.end(); ++cit)
 		ret.push_back(*cit);
@@ -285,7 +285,7 @@ public:
 			std::wstring msg;
 			std::wstring perf;
 			try {
-				int ret = gTrayInstance->inject(cmd, args, _T(" "), true, msg, perf);
+				int ret = gTrayInstance->inject(cmd, args, L' ', true, msg, perf);
 				//NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd, args, ' ', msg, perf);
 				/*
 				if (ret == NSCAPI::returnIgnored) {
@@ -449,7 +449,7 @@ INT_PTR CALLBACK TrayIcon::InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam
 
 
 
-void insert_logrecord(HWND hwndLV, const IconWidget::log_entry &entry) {
+void insert_logrecord(HWND hwndLV, const TrayWidget::log_entry &entry) {
 	LVITEM item;
 	item.mask = LVIF_TEXT;
 	std::wstring msg = entry.category;
@@ -489,8 +489,8 @@ INT_PTR CALLBACK TrayIcon::LogDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LP
 			ListView_InsertColumn(hwndLV, 3, &col);
 			col.pszText = _T("Message");
 			ListView_InsertColumn(hwndLV, 4, &col);
-			IconWidget::log_type log = gTrayInstance->getLog();
-			for (IconWidget::log_type::const_iterator cit = log.begin(); cit != log.end(); ++cit) {
+			TrayWidget::log_type log = gTrayInstance->getLog();
+			for (TrayWidget::log_type::const_iterator cit = log.begin(); cit != log.end(); ++cit) {
 				insert_logrecord(hwndLV, *cit);
 			}
 
@@ -504,7 +504,7 @@ INT_PTR CALLBACK TrayIcon::LogDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LP
 	case WM_USER+1: 
 		{
 			HWND hwndLV = GetDlgItem(hwndDlg, IDC_LOG);
-			const IconWidget::log_entry* record = reinterpret_cast<const IconWidget::log_entry*>(wParam);
+			const TrayWidget::log_entry* record = reinterpret_cast<const TrayWidget::log_entry*>(wParam);
 			insert_logrecord(hwndLV, *record);
 
 		}

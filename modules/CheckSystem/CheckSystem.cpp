@@ -340,7 +340,7 @@ public:
 	}
 
 	static std::wstring get_perf_unit(__int64 value) {
-		return _T("");
+		return _T("%");
 	}
 	static std::wstring print_perf(__int64 value, std::wstring unit) {
 		return strEx::itos(value);

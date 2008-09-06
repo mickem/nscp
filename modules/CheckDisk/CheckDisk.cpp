@@ -529,6 +529,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	unsigned int truncate = 0;
 	CheckFileContainer query;
 	std::wstring syntax = _T("%filename%");
+	std::wstring alias;
 	bool bPerfData = true;
 
 	try {
@@ -538,6 +539,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_STR(_T("syntax"), syntax)
 			MAP_OPTIONS_PUSH(_T("path"), paths)
+			MAP_OPTIONS_STR(_T("alias"), alias)
 			MAP_OPTIONS_PUSH(_T("file"), paths)
 			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterIn, _T("in"), _T("out"))
 			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterAll, _T("all"), _T("any"))
@@ -568,7 +570,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	message = finder.message;
 	if (finder.error)
 		return NSCAPI::returnUNKNOWN;
-	query.alias = finder.alias;
+	if (!alias.empty())
+		query.alias = alias;
+	else
+		query.alias = finder.alias;
+	if (query.alias.empty())
+		query.alias = _T("no files found");
 	query.runCheck(finder.hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");

@@ -8,7 +8,7 @@ namespace error {
 	class format {
 	public:
 		static std::wstring from_system(unsigned long dwError) {
-			LPVOID lpMsgBuf;
+			LPVOID lpMsgBuf = NULL;
 			unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,NULL,dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,NULL);
 			if (dwRet == 0) {
 				return _T("failed to lookup error code: ") + strEx::itos(dwError) + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
@@ -16,6 +16,7 @@ namespace error {
 			TCHAR *szBuf = new TCHAR[dwRet + 100];
 			wsprintf(szBuf, _T("%d: %s"), dwError, lpMsgBuf); 
 			std::wstring str = szBuf;
+			delete [] szBuf;
 			LocalFree(lpMsgBuf);
 			return str;
 		}
@@ -28,6 +29,7 @@ namespace error {
 			TCHAR *szBuf = new TCHAR[dwRet + 100];
 			wsprintf(szBuf, _T("%d: %s"), dwError, lpMsgBuf); 
 			std::wstring str = szBuf;
+			delete [] szBuf;
 			LocalFree(lpMsgBuf);
 			return str;
 		}
@@ -46,6 +48,7 @@ namespace error {
 			TCHAR *szBuf = new TCHAR[dwRet + 100];
 			wsprintf(szBuf, _T("%d: %s"), dwError, lpMsgBuf); 
 			std::wstring str = szBuf;
+			delete [] szBuf;
 			LocalFree(lpMsgBuf);
 			FreeLibrary(hevt);
 			return str;

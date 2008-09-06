@@ -25,7 +25,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	UNREFERENCED_PARAMETER(nCmdShow);
 
 
-	IconWidget widget(lpCmdLine);
+	TrayWidget widget(lpCmdLine);
 	widget.createDialog(hInstance);
 	return 0;
 }

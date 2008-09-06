@@ -213,7 +213,12 @@ namespace strEx {
 		}
 	}
 	inline std::wstring ctos(TCHAR c) {
-		return std::wstring(c,1);
+		return std::wstring(1, c);
+	}
+	inline TCHAR stoc(std::wstring str) {
+		if (str.length() == 0)
+			return L' ';
+		return str[0];
 	}
 	inline std::wstring itos(unsigned int i) {
 		std::wstringstream ss;

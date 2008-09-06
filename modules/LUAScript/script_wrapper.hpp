@@ -354,7 +354,7 @@ namespace script_wrapper {
 			lua_pushstring(L, w2s(cmd).c_str()); 
 
 			lua_createtable(L, 0, argLen);
-			for (int i=0;i<argLen;i++) {
+			for (unsigned int i=0;i<argLen;i++) {
 				lua_pushnumber(L,i+1);
 				lua_pushstring(L,strEx::wstring_to_string(char_args[i]).c_str());
 				lua_settable(L,-3);

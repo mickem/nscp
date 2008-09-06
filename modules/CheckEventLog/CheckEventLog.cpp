@@ -404,7 +404,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	bool bPerfData = true;
 	bool bFilterIn = true;
 	bool bFilterAll = false;
-	bool bFilterNew = false;
+	bool bFilterNew = true;
 	bool bShowDescriptions = false;
 	bool unique = false;
 	unsigned int truncate = 0;
@@ -470,6 +470,10 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	}
 
 	unsigned long int hit_count = 0;
+	if (files.empty()) {
+		message = _T("No file specified try adding: file=Application");
+		return NSCAPI::returnUNKNOWN;
+	}
 
 	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
 		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
@@ -501,7 +505,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				EventLogRecord record((*cit2), pevlr, ltime);
 
 				if (filter_chain.empty()) {
-					message = _T("No filters specified.");
+					message = _T("No filters specified try adding: filter+generated=>2d");
 					return NSCAPI::returnUNKNOWN;
 				}
 

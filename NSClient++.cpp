@@ -25,7 +25,7 @@
 #include <remote_processes.hpp>
 #include <Lmcons.h>
 
-NSClient mainClient;	// Global core instance.
+NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
 
 
@@ -379,7 +379,9 @@ bool NSClientT::initCore(bool boot) {
 	}
 
 	if (enable_shared_session_) {
+		LOG_MESSAGE_STD(_T("Enabling shared session..."));
 		if (boot) {
+			LOG_MESSAGE_STD(_T("Starting shared session..."));
 			try {
 				shared_server_.reset(new nsclient_session::shared_server_session(this));
 				if (!shared_server_->session_exists()) {
@@ -396,6 +398,7 @@ bool NSClientT::initCore(bool boot) {
 				shared_server_ = NULL;
 			}
 		} else {
+			LOG_MESSAGE_STD(_T("Attaching to shared session..."));
 			try {
 				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
 				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
@@ -593,7 +596,13 @@ void NSClientT::TerminateService(void) {
  * @param *lpszArgv 
  */
 void WINAPI NSClientT::service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
-	mainClient.service_main(dwArgc, lpszArgv);
+	try {
+		mainClient.service_main(dwArgc, lpszArgv);
+	} catch (service_helper::service_exception e) {
+		LOG_ERROR_STD(_T("Unknown service error: ") + e.what());
+	} catch (...) {
+		LOG_ERROR_STD(_T("Unknown service error!"));
+	}
 }
 DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
 	LOG_ERROR_STD(_T("service_ctrl_dispatch_ex dispatching event: ") + strEx::itos(dwControl));
@@ -964,11 +973,14 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 	{
 		ReadLock readLock(&m_mutexRW, true, 5000);
 		if (!readLock.IsLocked()) {
+			OutputDebugString(_T("Message was lost as the core was locked..."));
 			std::wcout << _T("Message was lost as the core was locked...") << std::endl;
 			return;
 		}
 		MutexLock lock(messageMutex);
 		if (!lock.hasMutex()) {
+			OutputDebugString(_T("Message was lost as the core was locked..."));
+			OutputDebugString(message.c_str());
 			std::wcout << _T("Message was lost as the core was locked...") << std::endl;
 			std::wcout << message << std::endl;
 			return;
@@ -995,6 +1007,7 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 			std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
 		}
 		if (messageHandlers_.size() == 0 || !plugins_loaded_) {
+			OutputDebugString(message.c_str());
 			log_cache_.push_back(cached_log_entry(msgType, file, line, message));
 		} else {
 			if (log_cache_.size() > 0) {

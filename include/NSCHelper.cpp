@@ -248,7 +248,9 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, const 
 			perf = perfBuffer;
 			break;
 		default:
-			throw NSCMHExcpetion(_T("Unknown inject error."));
+			delete [] msgBuffer;
+			delete [] perfBuffer;
+			throw NSCMHExcpetion(_T("Unknown return code when injecting: ") + std::wstring(command));
 	}
 	delete [] msgBuffer;
 	delete [] perfBuffer;

@@ -151,8 +151,8 @@ public:
 	void session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) {
 		reportMessage(msgType, file, line, message);
 	}
-	int session_inject(std::wstring command, std::wstring arguments, std::wstring splitter, bool escape, std::wstring &msg, std::wstring & perf) {
-		return inject(command, arguments, splitter[0], escape, msg, perf);
+	int session_inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
+		return inject(command, arguments, splitter, escape, msg, perf);
 	}
 
 
@@ -162,7 +162,7 @@ private:
 
 };
 
-typedef NTService<NSClientT> NSClient;
+typedef service_helper::NTService<NSClientT> NSClient;
 
 
 std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);

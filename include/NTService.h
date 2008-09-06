@@ -23,7 +23,17 @@
 #include <string>
 #include <sysinfo.h>
 
-
+namespace service_helper {
+	class service_exception {
+		std::wstring what_;
+	public:
+		service_exception(std::wstring what) : what_(what) {
+			OutputDebugString((std::wstring(_T("ERROR:")) + what).c_str());
+		}
+		std::wstring what() {
+			return what_;
+		}
+	};
 /**
  * @ingroup NSClient++
  * Helper class to implement a NT service
@@ -50,59 +60,104 @@
 template <class TBase>
 class NTService : public TBase
 {
+public:
 private:
 	HANDLE  hServerStopEvent;
 	SERVICE_STATUS          ssStatus;
 	SERVICE_STATUS_HANDLE   sshStatusHandle;
-	DWORD                   dwErr;
 	SERVICE_TABLE_ENTRY *dispatchTable;
+	DWORD dwControlsAccepted;
+	std::wstring name_;
+	wchar_t *serviceName_;
 public:
-	NTService() : dispatchTable(NULL), hServerStopEvent(NULL), dwErr(0) {
-		// TODO This ought to be made dynamic somehow...
+	NTService(std::wstring name) : dispatchTable(NULL), hServerStopEvent(NULL), name_(name), dwControlsAccepted(SERVICE_ACCEPT_STOP) {
+		serviceName_ = new wchar_t[name.length()+2];
+		wcsncpy(serviceName_, name.c_str(), name.length());
 		dispatchTable = new SERVICE_TABLE_ENTRY[2];
-		dispatchTable[0].lpServiceName = SZSERVICENAME;
+		dispatchTable[0].lpServiceName = serviceName_;
 		dispatchTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)TBase::service_main_dispatch;
 		dispatchTable[1].lpServiceName = NULL;
 		dispatchTable[1].lpServiceProc = NULL;
 	}
 	virtual ~NTService() {
 		delete [] dispatchTable;
+		delete [] serviceName_;
 	}
 
 	boolean StartServiceCtrlDispatcher() {
 		BOOL ret = ::StartServiceCtrlDispatcher(dispatchTable);
 		if (ret == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
-			std::wcout << "We are running in console mode, terminating..." << std::endl;
+			OutputDebugString(_T("We are running in console mode, terminating..."));
 			return false;
 		}
 		return ret != 0;
 	}
 
+
+
+	typedef DWORD (WINAPI *LPHANDLER_FUNCTION_EX) (
+		DWORD dwControl,     // requested control code
+		DWORD dwEventType,   // event type
+		LPVOID lpEventData,  // event data
+		LPVOID lpContext     // user-defined context data
+		);
+	typedef SERVICE_STATUS_HANDLE (WINAPI *REGISTER_SERVICE_CTRL_HANDLER_EX) (
+		LPCTSTR lpServiceName,                // name of service
+		LPHANDLER_FUNCTION_EX lpHandlerProc,  // handler function
+		LPVOID lpContext                      // user data
+		);
+
+	SERVICE_STATUS_HANDLE RegisterServiceCtrlHandlerEx_(LPCTSTR lpServiceName, LPHANDLER_FUNCTION_EX lpHandlerProc, LPVOID lpContext) {
+		HMODULE hAdvapi32 = NULL;
+		REGISTER_SERVICE_CTRL_HANDLER_EX fRegisterServiceCtrlHandlerEx = NULL;
+
+		if ((hAdvapi32 = GetModuleHandle(TEXT("Advapi32.dll"))) == NULL)
+			return 0;
+#ifdef _UNICODE
+		fRegisterServiceCtrlHandlerEx = (REGISTER_SERVICE_CTRL_HANDLER_EX)GetProcAddress(hAdvapi32, "RegisterServiceCtrlHandlerExW");
+#else
+		fRegisterServiceCtrlHandlerEx = (REGISTER_SERVICE_CTRL_HANDLER_EX)GetProcAddress(hAdvapi32, "RegisterServiceCtrlHandlerExA");
+#endif // _UNICODE
+		if (!fRegisterServiceCtrlHandlerEx)
+			return 0;
+		return fRegisterServiceCtrlHandlerEx(lpServiceName, lpHandlerProc, lpContext);
+	}
+
+
+
 	void service_main(DWORD dwArgc, LPTSTR *lpszArgv)
 	{
-		if (systemInfo::isAboveW2K(systemInfo::getOSVersion())) {
-			ssStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SESSIONCHANGE;
-			sshStatusHandle = RegisterServiceCtrlHandlerEx( SZSERVICENAME, TBase::service_ctrl_dispatch_ex, NULL);
+		OutputDebugString(_T("service_main launcing..."));
+		sshStatusHandle = RegisterServiceCtrlHandlerEx_(name_.c_str(), TBase::service_ctrl_dispatch_ex, NULL);
+		if (sshStatusHandle == 0) {
+			OutputDebugString(_T("Failed to register RegisterServiceCtrlHandlerEx_ (attempting to use normal one)..."));
+			sshStatusHandle = RegisterServiceCtrlHandler(name_.c_str(), TBase::service_ctrl_dispatch);
 		} else {
-			// register our service control handler:
-			sshStatusHandle = RegisterServiceCtrlHandler( SZSERVICENAME, TBase::service_ctrl_dispatch);
+			if (systemInfo::isAboveXP(systemInfo::getOSVersion()))
+				dwControlsAccepted |= SERVICE_ACCEPT_SESSIONCHANGE;
+			else
+				OutputDebugString(_T("Not >w2k so sessiong messages disabled..."));
 		}
+		ssStatus.dwControlsAccepted = dwControlsAccepted;
+		if (sshStatusHandle == 0)
+			throw service_exception(_T("Failed to register service: ") + error::lookup::last_error());
 
-		// SERVICE_STATUS members that don't change in example
+
 		ssStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
 		ssStatus.dwServiceSpecificExitCode = 0;
 
 		// report the status to the service control manager.
-		if (!ReportStatusToSCMgr(SERVICE_START_PENDING,NO_ERROR,3000)) {
-			if (sshStatusHandle)
-				ReportStatusToSCMgr(SERVICE_STOPPED,dwErr,0);
+		if (!ReportStatusToSCMgr(SERVICE_START_PENDING,3000)) {
+			ReportStatusToSCMgr(SERVICE_STOPPED,0);
+			throw service_exception(_T("Failed to report service status: ") + error::lookup::last_error());
 		}
-
-		ServiceStart( dwArgc, lpszArgv );
-
-		// try to report the stopped status to the service control manager.
-		if (sshStatusHandle)
-			ReportStatusToSCMgr(SERVICE_STOPPED,dwErr,0);
+		try {
+			OutputDebugString(_T("Attempting to start service..."));
+			ServiceStart(dwArgc, lpszArgv);
+		} catch (...) {
+			throw service_exception(_T("Uncaught exception in service... terminating: ") + error::lookup::last_error());
+		}
+		ReportStatusToSCMgr(SERVICE_STOPPED,0);
 	}
 
 	typedef struct tagWTSSESSION_NOTIFICATION
@@ -118,7 +173,7 @@ public:
 		switch(dwCtrlCode) 
 		{
 		case SERVICE_CONTROL_STOP:
-			ReportStatusToSCMgr(SERVICE_STOP_PENDING, NO_ERROR, 0);
+			ReportStatusToSCMgr(SERVICE_STOP_PENDING, 0);
 			ServiceStop();
 			return 0;
 
@@ -139,7 +194,7 @@ public:
 			break;
 
 		}
-		ReportStatusToSCMgr(ssStatus.dwCurrentState, NO_ERROR, 0);
+		ReportStatusToSCMgr(ssStatus.dwCurrentState, 0);
 		return 0;
 	}
 
@@ -158,17 +213,17 @@ public:
 	* @date 03-13-2004
 	*
 	*/
-	BOOL ReportStatusToSCMgr(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwWaitHint) {
+	BOOL ReportStatusToSCMgr(DWORD dwCurrentState, DWORD dwWaitHint) {
 		static DWORD dwCheckPoint = 1;
 		BOOL fResult = TRUE;
 
 		if (dwCurrentState == SERVICE_START_PENDING)
 			ssStatus.dwControlsAccepted = 0;
 		else
-			ssStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP| SERVICE_ACCEPT_SESSIONCHANGE;
+			ssStatus.dwControlsAccepted = dwControlsAccepted;
 
 		ssStatus.dwCurrentState = dwCurrentState;
-		ssStatus.dwWin32ExitCode = dwWin32ExitCode;
+		ssStatus.dwWin32ExitCode = 0;
 		ssStatus.dwWaitHint = dwWaitHint;
 
 		if ( (dwCurrentState == SERVICE_RUNNING ) || (dwCurrentState == SERVICE_STOPPED) )
@@ -195,7 +250,7 @@ public:
 	*/
 	void ServiceStart(DWORD dwArgc, LPTSTR *lpszArgv) {
 		hServerStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-		if (!ReportStatusToSCMgr(SERVICE_RUNNING,NO_ERROR,0)) {
+		if (!ReportStatusToSCMgr(SERVICE_RUNNING,0)) {
 			if (hServerStopEvent)
 				CloseHandle(hServerStopEvent);
 			return;
@@ -227,3 +282,4 @@ public:
 			SetEvent(hServerStopEvent);
 	}
 };
+}

@@ -34,7 +34,7 @@
 		<?define Source = "../../x64/nightly/" ?>
 	<?endif?>
 
-	<Product Id="$(var.Product.GUID)" Name="NSClient++ ($(var.PlatForm))" Language="1033" Version="0.3.1.0" Manufacturer="MySolutions NORDIC">
+	<Product Id="$(var.Product.GUID)" Name="NSClient++ ($(var.PlatForm))" Language="1033" Version="0.3.4.0" Manufacturer="MySolutions NORDIC">
 		<Package Id="$(var.Package.GUID)" Description="A simple windows monitor agent for (amongst others) nagios."
 						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes"/>
 		<?ifdef var.PlatForm.Win32?>
@@ -59,6 +59,12 @@
 								<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="NSCPStop"
 													LongName="Stop NSClient++ ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
 													IconIndex="0" Arguments="/stop" Description="Stop NSClient++ as a service"/>
+							</File>
+							<File Id="NSClientTRAY" Name="systray.exe" DiskId="1"
+										Source="$(var.Source)/systray.exe" Vital="yes">
+								<Shortcut Id="StartmenuNSClientTray" Directory="ProgramMenuDir" Name="NSCPTray"
+													LongName="NSClient++ ($(var.PlatForm) system tray)" WorkingDirectory="INSTALLDIR" Icon="nsclient.exe"
+													IconIndex="0" Description="Run NSClient++ in test mode"/>
 							</File>
 							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Source)/NSC.ini" Vital="yes"/>
 							<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="yes"/>

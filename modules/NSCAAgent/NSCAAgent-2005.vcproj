@@ -233,7 +233,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="ws2_32.lib Crypto++.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
 				ModuleDefinitionFile="NSCAAgent.def"

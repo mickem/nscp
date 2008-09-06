@@ -39,12 +39,46 @@ FileLogger::FileLogger() : init_(false) {
 FileLogger::~FileLogger() {
 }
 
-std::wstring FileLogger::getFileName()
-{
+#ifndef CSIDL_COMMON_APPDATA 
+#define CSIDL_COMMON_APPDATA 0x0023 
+#endif
+typedef BOOL (WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
+
+__inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
+	static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
+	if (!__SHGetSpecialFolderPath) {
+		HMODULE hDLL = LoadLibrary(_T("shfolder.dll"));
+		if (hDLL != NULL)
+			__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+	}
+	if(__SHGetSpecialFolderPath)
+		return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
+	return FALSE;
+}
+
+std::wstring getFolder(std::wstring key) {
+	if (key == _T("exe")) {
+		return NSCModuleHelper::getBasePath();
+	} else {
+		if (key == _T("local-app-data")) {
+			TCHAR buf[MAX_PATH+1];
+			_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE);
+			return buf;
+		}
+	}
+	return NSCModuleHelper::getBasePath();
+}
+std::wstring FileLogger::getFileName() {
 	if (file_.empty()) {
 		file_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_FILENAME, LOG_FILENAME_DEFAULT);
-		if (file_.find(_T("\\")) == std::wstring::npos)
-			file_ = NSCModuleHelper::getBasePath() + _T("\\") + file_;
+		if (file_.find(_T("\\")) == std::wstring::npos) {
+			std::wstring root = getFolder(NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_ROOT, LOG_ROOT_DEFAULT));
+			std::wstring::size_type pos = root.find_last_not_of(L'\\');
+			if (pos != std::wstring::npos) {
+				//root = root.substr(0, pos);
+			}
+			file_ = root + _T("\\") + file_;
+		}
 	}
 	return file_;
 }
@@ -56,6 +90,7 @@ bool FileLogger::loadModule() {
 	init_ = true;
 	std::wstring hello = _T("Starting to log for: ") + NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
 	handleMessage(NSCAPI::log, __FILEW__, __LINE__, hello.c_str());
+	NSC_LOG_MESSAGE_STD(_T("Log path is: ") + file_ );
 	return true;
 }
 bool FileLogger::unloadModule() {
@@ -67,19 +102,26 @@ bool FileLogger::hasCommandHandler() {
 bool FileLogger::hasMessageHandler() {
 	return true;
 }
+HANDLE openAppendOrNew(std::wstring file) {
+	DWORD numberOfBytesWritten = 0;
+	HANDLE hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile != INVALID_HANDLE_VALUE) {
+			WORD wBOM = 0xFEFF;
+			::WriteFile(hFile, &wBOM, sizeof(WORD), &numberOfBytesWritten, NULL);
+		}
+	}
+	return hFile;
+}
 void FileLogger::writeEntry(std::wstring line) {
 	DWORD numberOfBytesWritten;
-	HANDLE hFile = ::CreateFile(file_.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE hFile = openAppendOrNew(file_);
 	if (hFile == INVALID_HANDLE_VALUE) {
-		hFile = ::CreateFile(file_.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (hFile == INVALID_HANDLE_VALUE) {
-			std::wcout << _T("Failed to write to log file: ") << file_ << std::endl;
-			return;
-		}
-		WORD wBOM = 0xFEFF;
-		::WriteFile(hFile, &wBOM, sizeof(WORD), &numberOfBytesWritten, NULL);
+		if (line.find(_T("can not log to file")) != std::wstring::npos)
+			NSC_LOG_MESSAGE_STD(_T("Failed to create log file and temporary log! (can not log to file): ") + file_ );
+		return;
 	}
-	//::WriteFile(hFile, &wBOM, sizeof(WORD), &NumberOfBytesWritten, NULL);
 	if (::SetFilePointer(hFile, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
 		std::wcout << _T("Failed to move pointer to end of file...") << std::endl;
 	}
@@ -88,8 +130,10 @@ void FileLogger::writeEntry(std::wstring line) {
 }
 
 void FileLogger::handleMessage(int msgType, TCHAR* file, int line, const TCHAR* message) {
-	if (!init_)
+	if (!init_) {
+		std::wcout << _T("Discarding message (not initzialized yet") << std::endl;
 		return;
+	}
 	TCHAR buffer[65];
 	__time64_t ltime;
 	_time64( &ltime );
