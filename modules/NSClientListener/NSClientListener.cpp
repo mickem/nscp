@@ -235,7 +235,7 @@ std::string NSClientListener::parseRequest(std::string str_buffer)  {
 		default:				// "New" check_nscp also returns performance data
 			if (perf.empty())
 				return strEx::wstring_to_string(NSCHelper::translateReturn(ret) + _T("&") + message);
-			return strEx::wstring_to_string(NSCHelper::translateReturn(ret) + _T("&") + message + _T("|") + perf);
+			return strEx::wstring_to_string(NSCHelper::translateReturn(ret) + _T("&") + message + _T("&") + perf);
 	}
 }
 

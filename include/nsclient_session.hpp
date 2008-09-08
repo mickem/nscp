@@ -781,7 +781,7 @@ namespace nsclient_session {
 						error(__FILEW__, __LINE__, _T("arg1") + msg.arguments[1]);
 						error(__FILEW__, __LINE__, _T("arg2") + msg.arguments[2]);
 						error(__FILEW__, __LINE__, _T("arg3") + msg.arguments[3]);
-						ret = handler_->session_inject(msg.arguments[0], msg.arguments[1], strEx::stoc(msg.arguments[2]), msg.arguments[2]==_T("1"), message, perf);
+						ret = handler_->session_inject(msg.arguments[0], msg.arguments[1], strEx::stoc(msg.arguments[2]), msg.arguments[3]==_T("1"), message, perf);
 					} catch (...) {
 						message = _T("Unknown exception!");
 					}

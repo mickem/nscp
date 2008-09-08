@@ -184,6 +184,7 @@ use_file=1
 ;check_es_ok=scripts\ok.bat
 ;check_es_nok=scripts\nok.bat
 ;check_vbs_sample=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
+;check_powershell_warn=cmd /c echo scripts\powershell.ps1 | powershell.exe -command -
 
 [External Alias]
 ;alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s

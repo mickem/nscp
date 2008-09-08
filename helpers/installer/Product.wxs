@@ -14,13 +14,21 @@
 
 	<?if "$(var.PlatForm)" = "x64"?>
 		<?define PlatForm.x64 ?>
-		<?define Product.GUID = "2D1374D5-8026-4e58-8F2E-6A3C40444769" ?>
-		<?define Package.GUID = "4E50A0E0-AE48-4737-A6A7-07F3A9F94C29" ?>
-		<?define Postfix.GUID = "DD5862EE637C" ?>
+	<!--
+		<?define Product.GUID = "04239712-E061-4d85-9105-4B79128FF2EF" ?>
+		<?define Package.GUID = "E05F419A-6240-49dd-BC60-4103932A3F2E" ?>
+			-->
+	<?define Product.GUID = "F7F47EFB-9F10-4a62-AFC3-FE7E7124BCB6" ?>
+	<?define Package.GUID = "14F6DF05-BA2A-498f-B643-1BD524DF2F34" ?>
+	<?define Postfix.GUID = "DD5862EE637C" ?>
 	<?else?>
-		<?define Product.GUID = "BD153740-D13B-4432-8D39-EE8D2F100B0A" ?>
-		<?define Package.GUID = "93CF1821-AB09-4c77-AA15-DD5862EE637B" ?>
-		<?define Postfix.GUID = "DD5862EE637B" ?>
+	<!--
+		<?define Product.GUID = "5C8A0ACB-9D0B-4caf-AEA4-079F0E0AE1F2" ?>
+		<?define Package.GUID = "9C5E52DA-28B6-4a6c-B6BE-EE507BB9AC0D" ?>
+			-->
+	<?define Product.GUID = "79A6D271-4AE6-4795-B423-F96210C6F0E9" ?>
+	<?define Package.GUID = "EEEA18BE-7D61-43f3-A762-BAED76B8B98C" ?>
+	<?define Postfix.GUID = "DD5862EE637B" ?>
 	<?define PlatForm.Win32 ?>
 	<?endif?>
 	
@@ -34,9 +42,18 @@
 		<?define Source = "../../x64/nightly/" ?>
 	<?endif?>
 
-	<Product Id="$(var.Product.GUID)" Name="NSClient++ ($(var.PlatForm))" Language="1033" Version="0.3.4.0" Manufacturer="MySolutions NORDIC">
+	
+	<Product Id="$(var.Product.GUID)" Name="NSClient++ ($(var.PlatForm))" Language="1033" Version="0.3.4.0" Manufacturer="MySolutions NORDIC"
+					 UpgradeCode="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
+		
 		<Package Id="$(var.Package.GUID)" Description="A simple windows monitor agent for (amongst others) nagios."
 						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes"/>
+
+		<Upgrade Id="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
+			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="0.3.4.0"/>
+			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="0.3.4.0"  OnlyDetect="yes"/>
+		</Upgrade>
+
 		<?ifdef var.PlatForm.Win32?>
 			<Condition Message="x64 bit version not supported (by installer) on Win32 bit platform (get Win32 bit version instead)">NOT VersionNT64</Condition>
 		<?else?>
@@ -122,7 +139,12 @@
 				</Feature>
 			</Feature>
 		</Feature>
+
 		<InstallExecuteSequence>
+			<RemoveExistingProducts After='InstallInitialize'/>
+			<!--
+			<Custom Action='AlreadyUpdated' After='FindRelatedProducts'>PATCHFOUND</Custom>
+			-->
 			<!--Custom Action='LaunchFile' After='InstallFinalize'>NOT Installed</Custom-->
 			<Custom Action="install" After='InstallFinalize'/>
 			<Custom Action="uninstall" Before="RemoveFiles"/>
@@ -133,6 +155,7 @@
 
 		<UIRef Id="WixUI_FeatureTree" />
 		<UIRef Id="WixUI_ErrorProgressText" />
+
 		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/modules/SysTray.dll" />
 	</Product>
 </Wix>

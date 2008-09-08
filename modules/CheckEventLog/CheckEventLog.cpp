@@ -603,6 +603,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 	if (!bPerfData)
 		query.perfData = false;
+	if (query.alias.empty())
+		query.alias = _T("eventlog");
 	query.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");

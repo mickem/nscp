@@ -90,13 +90,13 @@ namespace process {
 		BOOL processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, root_path.c_str(), &si, &pi);
 		delete [] cmd;
 		if (processOK) {
+			DWORD dwAvail = 0;
 			std::string str;
 			HANDLE handles[2];
 			handles[0] = pi.hProcess;
 			handles[1] = hWaitEvt;
 			char *buffer = createBuffer();
 			for (unsigned int i=0;i<timeout;i++) {
-				DWORD dwAvail = 0;
 				if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))
 					break;
 				if (dwAvail > 0)
@@ -109,7 +109,11 @@ namespace process {
 			CloseHandle(hChildInW);
 			CloseHandle(hChildOutW);
 
-			str += readFromFile(buffer, hChildOutR);
+			dwAvail = 0;
+			if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))
+				NSC_LOG_ERROR_STD(_T("Failed to peek buffer: ") + error::lookup::last_error());
+			if (dwAvail > 0)
+				str += readFromFile(buffer, hChildOutR);
 			msg = strEx::string_to_wstring(str);
 			destroyBuffer(buffer);
 

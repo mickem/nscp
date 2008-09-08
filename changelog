@@ -4,6 +4,11 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2008-09-07 MickeM
+ + Added sample powershell script as well as a workaround for making them run.
+ * Fixed an issue making powershell scripts (and possibly others) not timeout properly.
+ + Added upgrade support to the installer (still need to add support for keeping .ini file so be ware)
+
 2008-09-06 MickeM
  * Improved error reporting in the eventlogchecker
  * *BREAKING CHANGE* filter=new is now the default so unless you use the new filtering you need to specify filter=old instead!
