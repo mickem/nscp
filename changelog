@@ -5,6 +5,9 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
 
 2008-09-09 MickeM
+ * Improved error handling for the WMI checks.
+ + CheckWMI: Added support for extracting numbers from strings 
+ * Fixed performance data for "large float values" to be rendered without scientific notation. (#151)
  * Fixed issue with & and some commands via check_nt.
  * Fixed a crash on exit (which I added in Rc1).
  * Added 10 "bytes" the CPU buffer: (#174)

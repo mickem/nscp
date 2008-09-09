@@ -243,7 +243,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = false;
+			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
 			mainClient.initCore(false);
 			int nRetCode = -1;

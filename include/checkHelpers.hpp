@@ -277,7 +277,7 @@ namespace checkHolders {
 			return _T("");
 		}
 		static std::wstring print_perf(double value, std::wstring unit) {
-			return strEx::itos(value);
+			return strEx::itos_non_sci(value);
 		}
 		static std::wstring print(double value) {
 			return strEx::itos(value);

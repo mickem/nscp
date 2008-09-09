@@ -57,7 +57,7 @@ WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query)
 	CComPtr< IEnumWbemClassObject > enumerator;
 	hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator );
 	if (FAILED(hr)) {
-		throw WMIException(_T("ExecQuery of '") + query + _T("' failed: ") + ComError::getComError() + _T(")"), hr);
+		throw WMIException(_T("ExecQuery of '") + query + _T("' failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
 	}
 
 	CComPtr< IWbemClassObject > row = NULL;

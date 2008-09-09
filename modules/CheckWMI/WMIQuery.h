@@ -25,26 +25,54 @@
 #include <strEx.h>
 #include <error.hpp>
 #include <filter_framework.hpp>
+#include <WbemCli.h>
 
 class ComError {
 public:
-	static std::wstring getComError() {
+	static std::wstring getWMIError(HRESULT hres) {
+		switch (hres) {
+			case WBEM_E_ACCESS_DENIED:
+				return _T("The current user does not have permission to view the result set.");
+			case WBEM_E_FAILED:
+				return _T("This indicates other unspecified errors.");
+			case WBEM_E_INVALID_PARAMETER:
+				return _T("An invalid parameter was specified.");
+			case WBEM_E_INVALID_QUERY:
+				return _T("The query was not syntactically valid.");
+			case WBEM_E_INVALID_QUERY_TYPE:
+				return _T("The requested query language is not supported.");
+			case WBEM_E_OUT_OF_MEMORY:
+				return _T("There was not enough memory to complete the operation.");
+			case WBEM_E_SHUTTING_DOWN:
+				return _T("Windows Management service was stopped and restarted. A new call to ConnectServer is required.");
+			case WBEM_E_TRANSPORT_FAILURE:
+				return _T("This indicates the failure of the remote procedure call (RPC) link between the current process and Windows Management.");
+			case WBEM_E_NOT_FOUND:
+				return _T("The query specifies a class that does not exist.");
+			default:
+				return _T("");
+		}
+	}
+	static std::wstring getComError(std::wstring inDesc = _T("")) {
 		USES_CONVERSION;
 		CComPtr<IErrorInfo> errorInfo;
 		HRESULT hr = GetErrorInfo(NULL, &errorInfo);
 		if (FAILED(hr) || hr == S_FALSE)
 			return _T("unknown error: ") + error::format::from_system(hr);
 		CComBSTR bDesc, bSource;
+		std::wstring src = _T("unknown");
 		hr = errorInfo->GetSource(&bSource);
-		if (FAILED(hr))
-			return _T("unknown error: ") + error::format::from_system(hr);
+		if (SUCCEEDED(hr))
+			src = OLE2T(bSource);
+		std::wstring desc;
 		hr = errorInfo->GetDescription(&bDesc);
-		if (FAILED(hr))
-			return _T("unknown error: ") + error::format::from_system(hr);
-		std::wstring ret = OLE2T(bSource);
-		ret += _T(" - ");
-		ret += OLE2T(bDesc);
-		return ret;
+		if (SUCCEEDED(hr))
+			desc = OLE2T(bDesc);
+		if (desc.empty() && !inDesc.empty())
+			desc = inDesc;
+		else if (desc.empty())
+			desc = _T("unknown error: ") + error::format::from_system(hr);
+		return src + _T(" - ") + desc;
 	}
 };
 
@@ -53,6 +81,9 @@ class WMIException {
 public:
 	WMIException(std::wstring str, HRESULT code) {
 		message_ = str + _T(":") + error::format::from_system(code);
+	}
+	WMIException(std::wstring str) {
+		message_ = str;
 	}
 	std::wstring getMessage() {
 		return message_;
@@ -69,7 +100,7 @@ public:
 		WMIResult() : isNumeric(false), numeric(0) {}
 		void setString(std::wstring a, std::wstring s) {
 			string = s;
-			numeric = 0;
+			numeric = strEx::stoi64(s);
 			alias = a;
 		}
 		void setNumeric(std::wstring a, long long n) {
