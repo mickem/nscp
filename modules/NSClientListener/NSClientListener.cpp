@@ -137,7 +137,10 @@ bool NSClientListener::isPasswordOk(std::wstring remotePassword)  {
 	}
 	return false;
 }
-
+void split_to_list(std::list<std::wstring> &list, std::wstring str) {
+	strEx::splitList add = strEx::splitEx(str, _T("&"));
+	list.insert(list.begin(), add.begin(), add.end());
+}
 std::string NSClientListener::parseRequest(std::string str_buffer)  {
 	std::wstring buffer = strEx::string_to_wstring(str_buffer);
 	NSC_DEBUG_MSG_STD(_T("Data: ") + buffer);
@@ -167,20 +170,23 @@ std::string NSClientListener::parseRequest(std::string str_buffer)  {
 
 	NSC_DEBUG_MSG_STD(_T("Data: ") + cmd.second);
 
+	std::list<std::wstring> args;
 
 	// prefix various commands
 	switch (c) {
 		case REQ_CPULOAD:
 			cmd.first = _T("checkCPU");
-			cmd.second += _T("&nsclient");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
 			break;
 		case REQ_UPTIME:
 			cmd.first = _T("checkUpTime");
-			cmd.second = _T("nsclient");
+			args.push_back(_T("nsclient"));
 			break;
 		case REQ_USEDDISKSPACE:
 			cmd.first = _T("CheckDriveSize");
-			cmd.second += _T("&nsclient");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
 			break;
 		case REQ_CLIENTVERSION:
 			{
@@ -191,28 +197,33 @@ std::string NSClientListener::parseRequest(std::string str_buffer)  {
 			}
 		case REQ_SERVICESTATE:
 			cmd.first = _T("checkServiceState");
-			cmd.second += _T("&nsclient");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
 			break;
 		case REQ_PROCSTATE:
 			cmd.first = _T("checkProcState");
-			cmd.second += _T("&nsclient");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
 			break;
 		case REQ_MEMUSE:
 			cmd.first = _T("checkMem");
-			cmd.second = _T("nsclient");
+			args.push_back(_T("nsclient"));
 			break;
 		case REQ_COUNTER:
 			cmd.first = _T("checkCounter");
-			cmd.second = _T("Counter=") + cmd.second + _T("&nsclient");
+			args.push_back(_T("Counter=") + cmd.second);
+			args.push_back(_T("nsclient"));
 			break;
 		case REQ_FILEAGE:
 			cmd.first = _T("getFileAge");
-			cmd.second = _T("path=") + cmd.second;
+			args.push_back(_T("path=") + cmd.second);
 			break;
+		default:
+			split_to_list(args, cmd.second);
 	}
 
 	std::wstring message, perf;
-	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first.c_str(), cmd.second.c_str(), '&', message, perf);
+	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectCommand(cmd.first.c_str(), args, message, perf);
 	if (!NSCHelper::isNagiosReturnCode(ret)) {
 		if (message.empty())
 			return "ERROR: Could not complete the request check log file for more information.";

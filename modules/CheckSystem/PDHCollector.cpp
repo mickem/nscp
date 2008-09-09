@@ -28,7 +28,7 @@ PDHCollector::PDHCollector() : hStopEvent_(NULL) {
 	checkIntervall_ = NSCModuleHelper::getSettingsInt(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CHECK_RESOLUTION, C_SYSTEM_CHECK_RESOLUTION_DEFAULT);
 	std::wstring s = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_BUFFER_TIME, C_SYSTEM_CPU_BUFFER_TIME_DEFAULT);
 	unsigned int i = strEx::stoui_as_time(s, checkIntervall_*100);
-	cpu.resize(i/(checkIntervall_*100));
+	cpu.resize(i/(checkIntervall_*100)+10);
 }
 
 PDHCollector::~PDHCollector() 

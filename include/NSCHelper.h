@@ -134,6 +134,7 @@ namespace NSCModuleHelper
 	void Message(int msgType, std::wstring file, int line, std::wstring message);
 	NSCAPI::nagiosReturn InjectCommandRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen);
 	NSCAPI::nagiosReturn InjectCommand(const TCHAR* command, const unsigned int argLen, TCHAR **argument, std::wstring & message, std::wstring & perf);
+	NSCAPI::nagiosReturn InjectCommand(const TCHAR* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const TCHAR* command, TCHAR* buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
 	void StopService(void);

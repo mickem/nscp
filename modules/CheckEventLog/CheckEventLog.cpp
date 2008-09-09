@@ -48,6 +48,7 @@ bool CheckEventLog::loadModule() {
 		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
 		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
 		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
+		buffer_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -386,8 +387,23 @@ struct eventlog_filter {
 #define MAP_FILTER(value, obj, filtermode) \
 			else if (p__.first == value) { eventlog_filter filter; filter.obj = p__.second; filter_chain.push_back(filteritem_type(filtermode, filter)); }
 
+struct event_log_buffer {
+	BYTE *bBuffer;
+	DWORD bufferSize_;
+	event_log_buffer(DWORD bufferSize) : bufferSize_(bufferSize) {
+		bBuffer = new BYTE[bufferSize+10];
+	}
+	~event_log_buffer() {
+		delete [] bBuffer;
+	}
+	EVENTLOGRECORD* getBufferUnsafe() {
+		return reinterpret_cast<EVENTLOGRECORD*>(bBuffer);
+	}
+	DWORD getBufferSize() {
+		return bufferSize_;
+	}
+};
 
-#define BUFFER_SIZE 1024*64
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	if (command != _T("CheckEventLog"))
 		return NSCAPI::returnIgnored;
@@ -413,6 +429,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	const int filter_minus = 2;
 	const int filter_normal = 3;
 	const int filter_compat = 3;
+	event_log_buffer buffer(buffer_);
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
@@ -485,10 +502,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 		//DWORD dwThisRecord;
 		DWORD dwRead, dwNeeded;
-		EVENTLOGRECORD *pevlr;
-		BYTE bBuffer[BUFFER_SIZE]; 
 
-		pevlr = reinterpret_cast<EVENTLOGRECORD*>(&bBuffer);
 
 		__time64_t ltime;
 		_time64(&ltime);
@@ -496,10 +510,10 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		//GetOldestEventLogRecord(hLog, &dwThisRecord);
 
 		while (ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
-			0, pevlr, BUFFER_SIZE, &dwRead, &dwNeeded))
+			0, buffer.getBufferUnsafe(), buffer.getBufferSize(), &dwRead, &dwNeeded))
 		{
-			while (dwRead > 0) 
-			{ 
+			EVENTLOGRECORD *pevlr = buffer.getBufferUnsafe(); 
+			while (dwRead > 0) { 
 				//bool bMatch = bFilterAll;
 				bool bMatch = !bFilterIn;
 				EventLogRecord record((*cit2), pevlr, ltime);
@@ -589,10 +603,19 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 					hit_count++;
 				}
 				dwRead -= pevlr->Length; 
-				pevlr = (EVENTLOGRECORD *) ((LPBYTE) pevlr + pevlr->Length); 
+				pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length); 
 			} 
-			pevlr = (EVENTLOGRECORD *) &bBuffer; 
-		} 
+		}
+		DWORD err = GetLastError();
+		if (err == ERROR_INSUFFICIENT_BUFFER) {
+			NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small (set the value of ") + EVENTLOG_BUFFER + _T("): ") + error::lookup::last_error(err));
+			message = std::wstring(_T("EvenlogBuffer is too small (set the value of ")) + EVENTLOG_BUFFER + _T("): ") + error::lookup::last_error(err);
+			return NSCAPI::returnUNKNOWN;
+		} else if (err != ERROR_HANDLE_EOF) {
+			NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
+			message = _T("Failed to read from eventlog: ") + error::lookup::last_error(err);
+			return NSCAPI::returnUNKNOWN;
+		}
 		CloseEventLog(hLog);
 		for (uniq_eventlog_map::const_iterator cit = uniq_records.begin(); cit != uniq_records.end(); ++cit) {
 			std::wstring msg = (*cit).first.message;

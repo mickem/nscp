@@ -160,6 +160,8 @@
 #define EVENTLOG_DEBUG_DEFAULT 0
 #define EVENTLOG_SYNTAX _T("syntax")
 #define EVENTLOG_SYNTAX_DEFAULT _T("")
+#define EVENTLOG_BUFFER _T("buffer_size")
+#define EVENTLOG_BUFFER_DEFAULT 1024*64
 
 #define NSCA_AGENT_SECTION_TITLE _T("NSCA Agent")
 #define NSCA_CMD_SECTION_TITLE _T("NSCA Commands")

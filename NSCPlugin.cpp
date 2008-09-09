@@ -44,6 +44,7 @@ NSCPlugin::NSCPlugin(const std::wstring file)
 	,fShowTray(NULL)
 	,fHideTray(NULL)
 	,bLoaded_(false)
+	,lastIsMsgPlugin_(false)
 {
 }
 
@@ -62,6 +63,7 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 	,fShowTray(NULL)
 	,fHideTray(NULL)
 	,bLoaded_(false)
+	,lastIsMsgPlugin_(false)
 {
 	if (other.bLoaded_) {
 		file_ = other.file_;
@@ -178,8 +180,10 @@ bool NSCPlugin::hasMessageHandler() {
 	if (!isLoaded())
 		throw NSPluginException(file_, _T("Module not loaded"));
 	try {
-		if (fHasMessageHandler())
+		if (fHasMessageHandler()) {
+			lastIsMsgPlugin_ = true;
 			return true;
+		}
 		return false;
 	} catch (...) {
 		throw NSPluginException(file_, _T("Unhandled exception in hasMessageHandler."));

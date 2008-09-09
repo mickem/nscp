@@ -4,6 +4,18 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2008-09-09 MickeM
+ * Fixed issue with & and some commands via check_nt.
+ * Fixed a crash on exit (which I added in Rc1).
+ * Added 10 "bytes" the CPU buffer: (#174)
+ + Added new option to [EventLog] section buffer_size to change the size of the buffer used when scanning the evenlotg (defaults to 64k).
+ * Fixed error handling in CHeckEventLog so errors are repoorted properly (#184)
+
+2008-09-08 MickeM
+ * Fixed issue in windows 2008 with system tray (shared_session).
+ * Fixed installer issue (should run (i hope) service installer on install now on 64 bit os)
+ * Fixed issue with unloading plugins and log (causing "timeouts" when exiting some times)
+
 2008-09-07 MickeM
  + Added sample powershell script as well as a workaround for making them run.
  * Fixed an issue making powershell scripts (and possibly others) not timeout properly.

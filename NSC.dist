@@ -299,3 +299,7 @@ use_file=1
 [NRPE Client Handlers]
 check_other=-H 192.168.0.1 -p 5666 -c remote_command -a arguments
 
+;# LUA SCRIPT SECTION
+;  A list of all Lua scripts to load.
+;[LUA Scripts]
+;scripts\test.lua

@@ -188,17 +188,19 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
 			} catch (const serviceControll::SCException& e) {
 				LOG_MESSAGE_STD(_T("Couldn't set service description: ") + e.error_);
+				return -1;
 			}
 			LOG_MESSAGE(_T("Service installed!"));
+			return 0;
 		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Uninstall(SZSERVICENAME);
 			} catch (const serviceControll::SCException& e) {
 				LOG_MESSAGE_STD(_T("Service deinstallation failed; ") + e.error_);
-				return -1;
 			}
 			LOG_MESSAGE(_T("Service uninstalled!"));
+			return 0;
 		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			std::wstring password;
@@ -520,15 +522,16 @@ void NSClientT::startTrayIcon(DWORD dwSessionId) {
 }
 
 bool NSClientT::exitCore(bool boot) {
+	plugins_loaded_ = false;
 	LOG_MESSAGE(_T("Attempting to stop NSCLient++ - " SZVERSION));
 	if (boot) {
 		try {
 			LOG_DEBUG_STD(_T("Stopping: NON Message Handling Plugins"));
 			mainClient.unloadPlugins(false);
 		} catch(NSPluginException e) {
-			std::wcout << _T("Exception raised: ") << e.error_ << _T(" in module: ") << e.file_ << std::endl;;
+			LOG_ERROR_STD(_T("Exception raised when unloading non msg plguins: ") + e.error_ + _T(" in module: ") + e.file_);
 		} catch(...) {
-			std::wcout << _T("UNknown exception raised: ") << std::endl;;
+			LOG_ERROR_STD(_T("Unknown exception raised when unloading non msg plugins"));
 		}
 	}
 	LOG_DEBUG_STD(_T("Stopping: COM helper"));
@@ -556,9 +559,9 @@ bool NSClientT::exitCore(bool boot) {
 			shared_client_->close_session();
 		}
 	} catch(nsclient_session::session_exception &e) {
-		std::wcout << _T("Exception closing shared client session: ") << e.what() << std::endl;;
+		LOG_ERROR_STD(_T("Exception closing shared client session: ") + e.what());
 	} catch(...) {
-		std::wcout << _T("Exception closing shared client session: Unknown exception!") << std::endl;;
+		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
 	}
 	try {
 		if (shared_server_.get() != NULL) {
@@ -567,16 +570,16 @@ bool NSClientT::exitCore(bool boot) {
 			shared_server_->close_session();
 		}
 	} catch(...) {
-		std::wcout << _T("UNknown exception raised: ") << std::endl;;
+		LOG_ERROR_STD(_T("UNknown exception raised: When closing shared session"));
 	}
 	if (boot) {
 		try {
 			LOG_DEBUG_STD(_T("Stopping: Message handling Plugins"));
 			mainClient.unloadPlugins(true);
 		} catch(NSPluginException e) {
-			std::wcout << _T("Exception raised: ") << e.error_ << _T(" in module: ") << e.file_ << std::endl;;
+			LOG_ERROR_STD(_T("Exception raised when unloading msg plugins: ") + e.error_ + _T(" in module: ") + e.file_);
 		} catch(...) {
-			std::wcout << _T("UNknown exception raised: ") << std::endl;;
+			LOG_ERROR_STD(_T("UNknown exception raised: When stopping message plguins"));
 		}
 	}
 	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Stopped succcessfully"));
@@ -712,8 +715,10 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
-		for (pluginList::size_type i=plugins_.size();i>0;i--) {
-			NSCPlugin *p = plugins_[i-1];
+		for (pluginList::reverse_iterator it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
+			NSCPlugin *p = *it;
+			if (p == NULL)
+				continue;
 			if (!unloadLoggers && p->hasMessageHandler()) {
 				LOG_DEBUG_STD(_T("Skipping log plugin: ") + p->getModule() + _T("..."));
 				continue;
@@ -728,17 +733,22 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
-		for (pluginList::size_type i=plugins_.size();i>0;i--) {
-			NSCPlugin *p = plugins_[i-1];
-			if (unloadLoggers || !p->hasMessageHandler()) {
-				LOG_DEBUG_STD(_T("Deleating plugin instance: ") + p->getModule() + _T("..."));
-				plugins_[i-1] = NULL;
-				delete p;
-				plugins_.erase(plugins_.begin() + i-1);
-				--i;
+		for (pluginList::iterator it = plugins_.begin(); it != plugins_.end(); ++it) {
+			NSCPlugin *p = (*it);
+			if (p == NULL)
+				continue;
+			try {
+				if (unloadLoggers || !p->getLastIsMsgPlugin()) {
+					*it = NULL;
+					delete p;
+					it = plugins_.erase(it);
+				}
+			} catch(NSPluginException e) {
+				LOG_ERROR_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
+			} catch(...) {
+				LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin"));
 			}
 		}
-		//plugins_.clear();
 	}
 }
 
@@ -947,6 +957,10 @@ bool NSClientT::logDebug() {
 	return (debug_ == log_debug);
 }
 
+void log_broken_message(std::wstring msg) {
+	OutputDebugString(msg.c_str());
+	std::wcout << msg << std::endl;
+}
 /**
  * Report a message to all logging enabled modules.
  *
@@ -963,7 +977,7 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 		try {
 			shared_server_->sendLogMessageToClients(msgType, file, line, message);
 		} catch (nsclient_session::session_exception e) {
-			std::wcout << _T("Failed to send message to clients: ") << e.what() << std::endl;
+			log_broken_message(_T("Failed to send message to clients: ") + e.what());
 		}
 	}
 	std::wstring file_stl = file;
@@ -973,16 +987,12 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 	{
 		ReadLock readLock(&m_mutexRW, true, 5000);
 		if (!readLock.IsLocked()) {
-			OutputDebugString(_T("Message was lost as the core was locked..."));
-			std::wcout << _T("Message was lost as the core was locked...") << std::endl;
+			log_broken_message(_T("Message was lost as the (mutexRW) core was locked: ") + message);
 			return;
 		}
 		MutexLock lock(messageMutex);
 		if (!lock.hasMutex()) {
-			OutputDebugString(_T("Message was lost as the core was locked..."));
-			OutputDebugString(message.c_str());
-			std::wcout << _T("Message was lost as the core was locked...") << std::endl;
-			std::wcout << message << std::endl;
+			log_broken_message(_T("Message was lost as the core was locked: ") + message);
 			return;
 		}
 		if (g_bConsoleLog) {
@@ -1011,15 +1021,16 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 			log_cache_.push_back(cached_log_entry(msgType, file, line, message));
 		} else {
 			if (log_cache_.size() > 0) {
-				std::wcout << _T("*** SENDING CACHE***") << std::endl;
 				for (log_cache_type::const_iterator cit=log_cache_.begin();cit!=log_cache_.end();++cit) {
 					for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
 						try {
 							messageHandlers_[i]->handleMessage((*cit).msgType, (_T("CACHE") + (*cit).file).c_str(), (*cit).line, (*cit).message.c_str());
 						} catch(const NSPluginException& e) {
-							// Here we are pretty much fucked! (as logging this might cause a loop :)
-							std::wcout << _T("Caught: ") << e.error_ << _T(" when trying to log a message...") << std::endl;
-							std::wcout << _T("This is *really really* bad, now the world is about to end...") << std::endl;
+							log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
+							return;
+						} catch(...) {
+							log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
+							return;
 						}
 					}
 				}
@@ -1029,9 +1040,11 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 				try {
 					messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
 				} catch(const NSPluginException& e) {
-					// Here we are pretty much fucked! (as logging this might cause a loop :)
-					std::wcout << _T("Caught: ") << e.error_ << _T(" when trying to log a message...") << std::endl;
-					std::wcout << _T("This is *really really* bad, now the world is about to end...") << std::endl;
+					log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
+					return;
+				} catch(...) {
+					log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
+					return;
 				}
 			}
 		}

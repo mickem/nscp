@@ -32,6 +32,8 @@
 
 
 logging::file_logger g_log_instance(_T("nsclient++"),_T("systray.log"));
+HINSTANCE ghInstance = NULL;
+TrayWidget *gTrayInstance = NULL;
 
 #define LOG_ERROR_FILE(x) g_log_instance.log(_T("error"), __FILEW__, __LINE__, std::wstring(x).c_str());
 #define LOG_MESSAGE_FILE(x) g_log_instance.log(_T("message"), __FILEW__, __LINE__, std::wstring(x).c_str());
@@ -40,6 +42,7 @@ logging::file_logger g_log_instance(_T("nsclient++"),_T("systray.log"));
 #define LOG_MESSAGE_TRAY(x) log(_T("message"), __FILEW__, __LINE__, std::wstring(x).c_str());
 
 #define LOG_ERROR_TO_TRAY(x) gTrayInstance->log(_T("error"), __FILEW__, __LINE__, std::wstring(x).c_str());
+#define LOG_MESSAGE_TO_TRAY(x) gTrayInstance->log(_T("message"), __FILEW__, __LINE__, std::wstring(x).c_str());
 
 #if WINVER < 0x0600
 #define MSGFLT_ADD 1
@@ -51,12 +54,14 @@ BOOL ChangeWindowMessageFilter(UINT message, DWORD what)
 	if (fnChangeWindowMessageFilter == NULL) {
 		HMODULE hMod = GetModuleHandle(TEXT("user32"));
 		if (hMod == NULL)
-			return false;
+			return FALSE;
 		fnChangeWindowMessageFilter = (LPFN_CHANGEWINDOWMESSAGEFILTER)GetProcAddress(hMod,"ChangeWindowMessageFilter");
 	}
 	if (fnChangeWindowMessageFilter == NULL) {
-		return true;
+		LOG_ERROR_FILE(_T("Could not find ChangeWindowMessageFilter: ") + error::lookup::last_error());
+		return TRUE;
 	}
+	LOG_ERROR_FILE(_T("registred windows thingy..."));
 	return fnChangeWindowMessageFilter(message,what);
 }
 #endif
@@ -71,8 +76,6 @@ std::wstring getArgumentValue(std::wstring key, strEx::splitList list) {
 	}
 	return _T("");
 }
-HINSTANCE ghInstance = NULL;
-TrayWidget *gTrayInstance = NULL;
 TrayWidget::TrayWidget(std::wstring cmdLine) {
 	strEx::splitList list = strEx::splitEx(cmdLine, _T(" "));
 	channel_id_ = getArgumentValue(_T("-channel"), list);
@@ -123,12 +126,31 @@ int TrayWidget::inject(std::wstring command, std::wstring arguments, TCHAR split
 
 
 
+
 void TrayWidget::createDialog(HINSTANCE hInstance) {
+	LOG_MESSAGE_TRAY(_T("Creating dialog..."));
 	ghInstance = hInstance;
-	hDlgWnd = ::CreateDialog(hInstance,MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
-	if ((hDlgWnd == NULL)||!IsWindow(hDlgWnd)) {
-		LOG_ERROR_TRAY(_T("Failed to create windows: ") + error::lookup::last_error());
-	}
+	//hDlgWnd = ::CreateDialog(hInstance,MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
+	//if ((hDlgWnd == NULL)||!IsWindow(hDlgWnd)) {
+//		LOG_ERROR_TRAY(_T("Failed to create windows: ") + error::lookup::last_error());
+//	}
+
+	WNDCLASSEX wndclass;
+	wndclass.lpszMenuName=NULL;
+	wndclass.cbSize=sizeof(wndclass);
+	wndclass.lpfnWndProc=TrayIcon::DialogProc;
+	wndclass.cbClsExtra=0;
+	wndclass.cbWndExtra=0;
+	wndclass.hInstance=hInstance;
+	wndclass.hIcon=NULL;
+	wndclass.hbrBackground=(HBRUSH)GetStockObject(WHITE_BRUSH);
+	wndclass.hCursor=LoadCursor(NULL,IDC_ARROW);
+	wndclass.hIconSm=NULL;
+	wndclass.lpszClassName=_T("NSClient_pp_TrayClass");
+	wndclass.style=0;
+	// register task bar restore event after crash
+	//WM_TASKBARCREATED=RegisterWindowMessage(TEXT("TaskbarCreated"));
+	//MyChangeWindowMessageFilter(WM_TASKBARCREATED, MSGFLT_ADD); 
 
 	UINT UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
 	if (UDM_TASKBARCREATED == 0) {
@@ -138,6 +160,32 @@ void TrayWidget::createDialog(HINSTANCE hInstance) {
 		LOG_ERROR_TRAY(_T("Failed to cchange window filter: ") + error::lookup::last_error());
 	}
 
+	if (!RegisterClassEx(&wndclass)) {
+		LOG_ERROR_TRAY(_T("Failed to register window class: ") + error::lookup::last_error());
+	}
+
+	MSG msg;
+	hDlgWnd=CreateWindow(_T("NSClient_pp_TrayClass"),NULL,0,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,NULL,NULL,hInstance,NULL);
+	if(hDlgWnd==NULL)
+	{
+		LOG_ERROR_TRAY(_T("Failed to create window: ") + error::lookup::last_error());
+		return;
+	}
+	while(GetMessage(&msg,NULL,0,0))
+	{
+		if (msg.message == WM_MY_CLOSE) {
+			::DestroyWindow(hDlgWnd);
+		} else if (msg.message == UDM_TASKBARCREATED) {
+			LOG_MESSAGE_TRAY(_T("Recreating systray icon..."));
+			TrayIcon::addIcon(msg.hwnd);
+		} else {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
+	return;
+	
+	/*
 	MSG Msg;
 	BOOL bRet;
 	while((bRet = ::GetMessage(&Msg, NULL, 0, 0)) != 0)
@@ -157,6 +205,7 @@ void TrayWidget::createDialog(HINSTANCE hInstance) {
 			::DispatchMessage(&Msg); 
 		} 
 	}
+	*/
 }
 
 void TrayWidget::session_error(std::wstring file, unsigned int line, std::wstring msg) {
@@ -528,10 +577,17 @@ INT_PTR CALLBACK TrayIcon::LogDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LP
 }
 namespace TrayIcon
 {
+	UINT UDM_TASKBARCREATED = -1;
 	HMENU hPopupMenu_ = NULL;
 }
-INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
+//LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+LRESULT CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
+	if (uMsg == UDM_TASKBARCREATED) {
+		addIcon(hwndDlg);
+		LOG_MESSAGE_TO_TRAY(_T("UDM_TASKBARCREATED"));
+	}
+
 	switch (uMsg) 
 	{
 	case WM_DESTROY:
@@ -541,7 +597,19 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 		PostQuitMessage(0);
 		return 0;
 
+	case WM_CREATE:
 	case WM_INITDIALOG:
+		LOG_MESSAGE_TO_TRAY(_T("WM_INITDIALOG"));
+
+
+		UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
+		if (UDM_TASKBARCREATED == 0) {
+			LOG_MESSAGE_TO_TRAY(_T("Failed to register 'TaskbarCreated': ") + error::lookup::last_error());
+		}
+		if (!ChangeWindowMessageFilter(UDM_TASKBARCREATED, MSGFLT_ADD)) {
+			LOG_MESSAGE_TO_TRAY(_T("Failed to cchange window filter: ") + error::lookup::last_error());
+		}
+
 		addIcon(hwndDlg);
 		break;
 
@@ -600,7 +668,8 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 		}
 		break;
 	}
-	return FALSE;
+	return DefWindowProc(hwndDlg,uMsg,wParam,lParam);
+	//return FALSE;
 }
 void TrayIcon::addIcon(HWND hWnd) {
 	NOTIFYICONDATA ndata;

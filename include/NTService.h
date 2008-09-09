@@ -138,13 +138,13 @@ public:
 			else
 				OutputDebugString(_T("Not >w2k so sessiong messages disabled..."));
 		}
-		ssStatus.dwControlsAccepted = dwControlsAccepted;
 		if (sshStatusHandle == 0)
 			throw service_exception(_T("Failed to register service: ") + error::lookup::last_error());
 
 
 		ssStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
 		ssStatus.dwServiceSpecificExitCode = 0;
+		ssStatus.dwControlsAccepted = dwControlsAccepted;
 
 		// report the status to the service control manager.
 		if (!ReportStatusToSCMgr(SERVICE_START_PENDING,3000)) {
@@ -152,7 +152,7 @@ public:
 			throw service_exception(_T("Failed to report service status: ") + error::lookup::last_error());
 		}
 		try {
-			OutputDebugString(_T("Attempting to start service..."));
+			OutputDebugString(std::wstring(_T("Attempting to start service with: ") + strEx::ihextos(dwControlsAccepted)).c_str());
 			ServiceStart(dwArgc, lpszArgv);
 		} catch (...) {
 			throw service_exception(_T("Uncaught exception in service... terminating: ") + error::lookup::last_error());

@@ -2428,6 +2428,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\resource.h"
+				>
+			</File>
+			<File
 				RelativePath=".\include\ServiceCmd.h"
 				>
 			</File>
@@ -2468,6 +2472,14 @@
 			Name="Resource Files"
 			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 			>
+			<File
+				RelativePath=".\NSClient++.rc"
+				>
+			</File>
+			<File
+				RelativePath=".\res\standby.ico"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Misc"

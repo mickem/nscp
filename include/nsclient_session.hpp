@@ -649,17 +649,15 @@ namespace nsclient_session {
 		int inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &message, std::wstring & perf) {
 			remote_channel::local_message_type msg;
 			msg.command = message_inject;
-			error(__FILEW__, __LINE__, _T("splitter") + strEx::ctos(splitter));
-			error(__FILEW__, __LINE__, _T("splitter") + splitter);
 			
 			msg.arguments.push_back(command);
 			msg.arguments.push_back(arguments);
 			msg.arguments.push_back(strEx::ctos(splitter));
 			msg.arguments.push_back(escape?_T("1"):_T("0"));
 
-			error(__FILEW__, __LINE__, _T("arg1") + msg.arguments[1]);
-			error(__FILEW__, __LINE__, _T("arg2") + msg.arguments[2]);
-			error(__FILEW__, __LINE__, _T("arg3") + msg.arguments[3]);
+			//error(__FILEW__, __LINE__, _T("arg1") + msg.arguments[1]);
+			//error(__FILEW__, __LINE__, _T("arg2") + msg.arguments[2]);
+			//error(__FILEW__, __LINE__, _T("arg3") + msg.arguments[3]);
 
 			unsigned int msg_id = send_server(msg);
 			remote_channel::local_message_type response = wait_reply(msg_id);
@@ -778,9 +776,9 @@ namespace nsclient_session {
 				int ret = -1;
 				if (msg.arguments.size() == 4) {
 					try {
-						error(__FILEW__, __LINE__, _T("arg1") + msg.arguments[1]);
-						error(__FILEW__, __LINE__, _T("arg2") + msg.arguments[2]);
-						error(__FILEW__, __LINE__, _T("arg3") + msg.arguments[3]);
+						//error(__FILEW__, __LINE__, _T("arg1") + msg.arguments[1]);
+						//error(__FILEW__, __LINE__, _T("arg2") + msg.arguments[2]);
+						//error(__FILEW__, __LINE__, _T("arg3") + msg.arguments[3]);
 						ret = handler_->session_inject(msg.arguments[0], msg.arguments[1], strEx::stoc(msg.arguments[2]), msg.arguments[3]==_T("1"), message, perf);
 					} catch (...) {
 						message = _T("Unknown exception!");

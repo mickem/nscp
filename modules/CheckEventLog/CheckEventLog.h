@@ -30,6 +30,7 @@ class CheckEventLog {
 private:
 	bool debug_;
 	std::wstring syntax_;
+	DWORD buffer_;
 
 public:
 	CheckEventLog();

@@ -74,7 +74,7 @@ public: // Shared session interface:
 
 namespace TrayIcon
 {
-	INT_PTR CALLBACK DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
+	LRESULT CALLBACK DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 	INT_PTR CALLBACK InjectDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 	INT_PTR CALLBACK LogDialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 	void setupUI();

@@ -159,8 +159,12 @@ public:
 		}
 		return ret;
 	}
+	bool getLastIsMsgPlugin() {
+		return lastIsMsgPlugin_;
+	}
 
 private:
+	bool lastIsMsgPlugin_;
 	bool isLoaded() const {
 		return bLoaded_;
 	}

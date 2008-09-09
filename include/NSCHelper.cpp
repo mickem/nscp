@@ -256,6 +256,54 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, const 
 	delete [] perfBuffer;
 	return retC;
 }
+
+/**
+* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
+* @param command Command to inject (password should not be included.
+* @param argLen The length of the argument buffer
+* @param **argument The argument buffer
+* @param message The return message buffer
+* @param perf The return performance data buffer
+* @return The return of the command
+*/
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf) 
+{
+	if (!fNSAPIInject)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	unsigned int buf_len = getBufferLength();
+
+
+	unsigned int argLen;
+	TCHAR ** aBuffer = arrayBuffer::list2arrayBuffer(argument, argLen);
+	TCHAR *msgBuffer = new TCHAR[buf_len+1];
+	TCHAR *perfBuffer = new TCHAR[buf_len+1];
+	msgBuffer[0] = 0;
+	perfBuffer[0] = 0;
+	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, aBuffer, msgBuffer, buf_len, perfBuffer, buf_len);
+	switch (retC) {
+		case NSCAPI::returnIgnored:
+			NSC_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
+			break;
+		case NSCAPI::returnInvalidBufferLen:
+			NSC_LOG_ERROR(_T("Inject buffer to small, increase the value of: string_length."));
+			break;
+		case NSCAPI::returnOK:
+		case NSCAPI::returnCRIT:
+		case NSCAPI::returnWARN:
+		case NSCAPI::returnUNKNOWN:
+			message = msgBuffer;
+			perf = perfBuffer;
+			break;
+		default:
+			delete [] msgBuffer;
+			delete [] perfBuffer;
+			throw NSCMHExcpetion(_T("Unknown return code when injecting: ") + std::wstring(command));
+	}
+	delete [] msgBuffer;
+	delete [] perfBuffer;
+	return retC;
+}
+
 /**
  * A wrapper around the InjetCommand that is simpler to use.
  * Parses a string by splitting and makes the array and also manages return buffers and such.
