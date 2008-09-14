@@ -82,7 +82,7 @@
 #define NSCLIENT_SETTINGS_READ_TIMEOUT _T("socket_timeout")
 #define NSCLIENT_SETTINGS_READ_TIMEOUT_DEFAULT 30
 #define NSCLIENT_SETTINGS_SYSTRAY_EXE _T("systray_exe")
-#define NSCLIENT_SETTINGS_SYSTRAY_EXE_DEFAULT _T("systray.exe")
+#define NSCLIENT_SETTINGS_SYSTRAY_EXE_DEFAULT _T("nstray.exe")
 
 // NRPE Settings headlines
 #define NRPE_SECTION_TITLE _T("NRPE")

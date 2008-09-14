@@ -371,7 +371,7 @@ bool NSClientT::initCore(bool boot) {
 		}
 		if (enable_shared_session_)
 			Settings::getInstance()->setInt(MAIN_SECTION_TITLE, MAIN_SHARED_SESSION, 1);
-		enable_shared_session_ = Settings::getInstance()->getInt(MAIN_SECTION_TITLE, MAIN_SHARED_SESSION, MAIN_SHARED_SESSION_DEFAULT);
+		enable_shared_session_ = Settings::getInstance()->getInt(MAIN_SECTION_TITLE, MAIN_SHARED_SESSION, MAIN_SHARED_SESSION_DEFAULT)==1;
 	} catch (SettingsException e) {
 		LOG_ERROR_STD(_T("Could not find settings: ") + e.getMessage());
 		return false;
@@ -608,7 +608,7 @@ void WINAPI NSClientT::service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
 	}
 }
 DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
-	LOG_ERROR_STD(_T("service_ctrl_dispatch_ex dispatching event: ") + strEx::itos(dwControl));
+	LOG_DEBUG_STD(_T("service_ctrl_dispatch_ex dispatching event: ") + strEx::itos(dwControl));
 	return mainClient.service_ctrl_ex(dwControl, dwEventType, lpEventData, lpContext);
 }
 
@@ -617,15 +617,19 @@ DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventT
  * @param dwCtrlCode 
  */
 void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
-	LOG_ERROR_STD(_T("service_ctrl_dispatch dispatching event: ") + strEx::itos(dwCtrlCode));
+	LOG_DEBUG_STD(_T("service_ctrl_dispatch dispatching event: ") + strEx::itos(dwCtrlCode));
 	mainClient.service_ctrl_ex(dwCtrlCode, NULL, NULL, NULL);
 }
 
 
 void NSClientT::service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType) {
-	LOG_MESSAGE_STD(_T("Got session change: ") + strEx::itos(dwSessionId));
+	if (shared_server_.get() != NULL) {
+		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
+		return;
+	}
+	LOG_DEBUG_STD(_T("Got session change: ") + strEx::itos(dwSessionId));
 	if (!logon) {
-		LOG_MESSAGE_STD(_T("Not a logon event: ") + strEx::itos(dwEventType));
+		LOG_DEBUG_STD(_T("Not a logon event: ") + strEx::itos(dwEventType));
 		return;
 	}
 	tray_starter::start(dwSessionId);
@@ -719,12 +723,18 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			NSCPlugin *p = *it;
 			if (p == NULL)
 				continue;
-			if (!unloadLoggers && p->hasMessageHandler()) {
-				LOG_DEBUG_STD(_T("Skipping log plugin: ") + p->getModule() + _T("..."));
-				continue;
+			try {
+				if (unloadLoggers || !p->hasMessageHandler()) {
+					LOG_DEBUG_STD(_T("Unloading plugin: ") + p->getModule() + _T("..."));
+					p->unload();
+				} else {
+					LOG_DEBUG_STD(_T("Skipping log plugin: ") + p->getModule() + _T("..."));
+				}
+			} catch(NSPluginException e) {
+				LOG_ERROR_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
+			} catch(...) {
+				LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin"));
 			}
-			LOG_DEBUG_STD(_T("Unloading plugin: ") + p->getModule() + _T("..."));
-			p->unload();
 		}
 	}
 	{
@@ -733,21 +743,20 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
-		for (pluginList::iterator it = plugins_.begin(); it != plugins_.end(); ++it) {
+		for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
 			NSCPlugin *p = (*it);
-			if (p == NULL)
-				continue;
 			try {
-				if (unloadLoggers || !p->getLastIsMsgPlugin()) {
-					*it = NULL;
-					delete p;
+				if (p != NULL && (unloadLoggers|| !p->isLoaded())) {
 					it = plugins_.erase(it);
+					delete p;
+					continue;
 				}
 			} catch(NSPluginException e) {
 				LOG_ERROR_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
 			} catch(...) {
 				LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin"));
 			}
+			it++;
 		}
 	}
 }

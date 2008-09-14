@@ -111,8 +111,8 @@ namespace simpleSSL {
 		}
 
 		void destroy() {
-			if (ctx_ != NULL)
-				throw SSLException(_T("Error: SSL Context already initalized."));
+			if (ctx_ == NULL)
+				throw SSLException(_T("Error: SSL Context not initalized."));
 			SSL_CTX_free(ctx_);
 			ctx_ = NULL;
 		}

@@ -23,8 +23,8 @@
 	<Configurations>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -61,12 +61,12 @@
 				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Release/IconService.pch"
-				AssemblerListingLocation=".\Release/"
-				ObjectFile=".\Release/"
-				ProgramDataBaseFileName=".\Release/"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				AssemblerListingLocation=""
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 			/>
@@ -85,7 +85,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib advapi32.lib ws2_32.lib Userenv.lib"
-				OutputFile=".\Release/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				GenerateManifest="false"
@@ -125,8 +125,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -163,11 +163,11 @@
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Release/IconService.pch"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
 				AssemblerListingLocation=".\Release/"
-				ObjectFile=".\Release/"
-				ProgramDataBaseFileName=".\Release/"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 				Detect64BitPortabilityProblems="false"
@@ -187,7 +187,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib advapi32.lib ws2_32.lib Userenv.lib"
-				OutputFile=".\Release/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
@@ -225,8 +225,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -258,11 +258,11 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Debug/IconService.pch"
-				AssemblerListingLocation=".\Debug/"
-				ObjectFile=".\Debug/"
-				ProgramDataBaseFileName=".\Debug/"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				AssemblerListingLocation=""
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 				Detect64BitPortabilityProblems="false"
@@ -283,12 +283,12 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
-				OutputFile=".\Debug/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				ModuleDefinitionFile=""
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile=".\Debug/NSClient++.pdb"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
 				SubSystem="1"
 				TargetMachine="1"
 			/>
@@ -320,7 +320,7 @@
 		<Configuration
 			Name="Debug|x64"
 			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -353,11 +353,11 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Debug/IconService.pch"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
 				AssemblerListingLocation=".\Debug/"
-				ObjectFile=".\Debug/"
-				ProgramDataBaseFileName=".\Debug/"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 				Detect64BitPortabilityProblems="false"
@@ -378,12 +378,12 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
-				OutputFile=".\Debug/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				ModuleDefinitionFile=""
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile=".\Debug/IconService.pdb"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
 				SubSystem="1"
 				TargetMachine="17"
 			/>
@@ -414,8 +414,8 @@
 		</Configuration>
 		<Configuration
 			Name="Distribution|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -452,11 +452,11 @@
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Release/IconService.pch"
-				AssemblerListingLocation=".\Release/"
-				ObjectFile=".\Release/"
-				ProgramDataBaseFileName=".\Release/"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				AssemblerListingLocation=""
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 				Detect64BitPortabilityProblems="false"
@@ -476,7 +476,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
-				OutputFile=".\Dist/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
@@ -517,7 +517,7 @@
 		<Configuration
 			Name="Distribution|x64"
 			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -555,11 +555,11 @@
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Release/IconService.pch"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
 				AssemblerListingLocation=".\Release/"
-				ObjectFile=".\Release/"
-				ProgramDataBaseFileName=".\Release/"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 				Detect64BitPortabilityProblems="false"
@@ -579,7 +579,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
-				OutputFile=".\Dist/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
@@ -619,8 +619,8 @@
 		</Configuration>
 		<Configuration
 			Name="Nightly|Win32"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -651,6 +651,12 @@
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				AssemblerListingLocation=""
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 			/>
@@ -669,6 +675,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
@@ -707,8 +714,8 @@
 		</Configuration>
 		<Configuration
 			Name="Nightly|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -739,6 +746,11 @@
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="include"
 				PreprocessorDefinitions="ARCH_x64"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 			/>
@@ -757,6 +769,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				IgnoreAllDefaultLibraries="false"
@@ -795,8 +808,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug-MemCheck|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -828,11 +841,11 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Debug/IconService.pch"
-				AssemblerListingLocation=".\Debug/"
-				ObjectFile=".\Debug/"
-				ProgramDataBaseFileName=".\Debug/"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				AssemblerListingLocation=""
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 				Detect64BitPortabilityProblems="false"
@@ -853,7 +866,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
-				OutputFile=".\Debug/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				ModuleDefinitionFile=""
@@ -890,7 +903,7 @@
 		<Configuration
 			Name="Debug-MemCheck|x64"
 			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -923,11 +936,11 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="stdafx.h"
-				PrecompiledHeaderFile=".\Debug/IconService.pch"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
 				AssemblerListingLocation=".\Debug/"
-				ObjectFile=".\Debug/"
-				ProgramDataBaseFileName=".\Debug/"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
 				Detect64BitPortabilityProblems="false"
@@ -948,7 +961,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib"
-				OutputFile=".\Debug/NSClient++.exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				ModuleDefinitionFile=""
@@ -2492,7 +2505,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2501,7 +2514,25 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2510,8 +2541,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;&#x0D;&#x0A;"
-						Outputs="$(InputDir)\Dist\$(InputFileName)"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2519,8 +2550,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(InputDir)\Dist\&quot;&quot;&#x0D;&#x0A;&#x0D;&#x0A;"
-						Outputs="$(InputDir)\Dist\$(InputFileName)"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2528,7 +2559,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2537,7 +2568,25 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug-MemCheck|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug-MemCheck|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2576,7 +2625,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2585,7 +2634,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2594,7 +2643,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2603,7 +2652,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2612,7 +2661,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2621,7 +2670,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2630,7 +2679,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2639,7 +2688,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2648,7 +2697,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2657,7 +2706,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2859,12 +2908,48 @@
 				RelativePath=".\files\license.txt"
 				>
 				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Distribution|Win32"
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
-						Outputs="$(TargetDir)\$(InputFileName) "
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2872,8 +2957,8 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
-						Outputs="$(TargetDir)\$(InputFileName) "
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2881,9 +2966,9 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
 						AdditionalDependencies=""
-						Outputs="$(TargetDir)\$(InputFileName)"
+						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -2891,9 +2976,27 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
 						AdditionalDependencies=""
-						Outputs="$(TargetDir)\$(InputFileName)"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug-MemCheck|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug-MemCheck|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -3021,7 +3124,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(OutDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(OutDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>

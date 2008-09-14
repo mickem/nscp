@@ -133,10 +133,11 @@ public:
 			OutputDebugString(_T("Failed to register RegisterServiceCtrlHandlerEx_ (attempting to use normal one)..."));
 			sshStatusHandle = RegisterServiceCtrlHandler(name_.c_str(), TBase::service_ctrl_dispatch);
 		} else {
-			if (systemInfo::isAboveXP(systemInfo::getOSVersion()))
+			if (systemInfo::isAboveXP(systemInfo::getOSVersion())) {
 				dwControlsAccepted |= SERVICE_ACCEPT_SESSIONCHANGE;
-			else
-				OutputDebugString(_T("Not >w2k so sessiong messages disabled..."));
+				OutputDebugString(_T("Windows XP or above detected so enabling session messages..."));
+			} else
+				OutputDebugString(_T("Windows 2000 or older detected (disabling session messages)"));
 		}
 		if (sshStatusHandle == 0)
 			throw service_exception(_T("Failed to register service: ") + error::lookup::last_error());

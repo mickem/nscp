@@ -24,7 +24,7 @@
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
-			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -65,7 +65,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Release/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="false"
@@ -103,7 +103,7 @@
 		<Configuration
 			Name="Release|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
-			IntermediateDirectory="tmp\$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -145,7 +145,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Release/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="false"
@@ -182,8 +182,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -227,7 +227,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Debug/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="true"
@@ -263,8 +263,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -309,7 +309,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Debug/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="true"
@@ -345,8 +345,8 @@
 		</Configuration>
 		<Configuration
 			Name="Distribution|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -387,7 +387,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Dist/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="false"
@@ -424,8 +424,8 @@
 		</Configuration>
 		<Configuration
 			Name="Distribution|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -467,7 +467,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Dist/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="false"
@@ -505,7 +505,7 @@
 		<Configuration
 			Name="Nightly|Win32"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
-			IntermediateDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -544,6 +544,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="false"
@@ -580,7 +581,7 @@
 		<Configuration
 			Name="Nightly|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -620,6 +621,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="false"
@@ -655,8 +657,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug-MemCheck|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -700,7 +702,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Debug/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="true"
@@ -736,8 +738,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug-MemCheck|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="1"
@@ -782,7 +784,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../Debug/modules/$(ProjectName).dll"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="FileLogger.def"
 				GenerateDebugInformation="true"
