@@ -2,12 +2,16 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
 	<?if "$(var.SysTray.ConfigurationName)" = "Debug|Win32"?>
 		<?define PlatForm = "Win32" ?>
+		<?define Mode = "Debug" ?>
 	<?elseif "$(var.SysTray.ConfigurationName)" = "Debug|x64"?>
 		<?define PlatForm = "x64" ?>
+		<?define Mode = "Debug" ?>
 	<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|Win32"?>
 		<?define PlatForm = "Win32" ?>
+		<?define Mode = "Nightly" ?>
 	<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|x64"?>
 		<?define PlatForm = "x64" ?>
+		<?define Mode = "Nightly" ?>
 	<?else?>
 		<?define PlatForm = "Unknown: $(var.SysTray.ConfigurationName)" ?>
 	<?endif?>
@@ -35,11 +39,11 @@
 	<?ifdef var.PlatForm.Win32?>
 		<?define ProgramFiles = "ProgramFilesFolder" ?>
 		<?define Win64 = "no" ?>
-		<?define Source = "../../win32/nightly/" ?>
+		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
 	<?else?>
 		<?define ProgramFiles = "ProgramFiles64Folder" ?>
 		<?define Win64 = "yes" ?>
-		<?define Source = "../../x64/nightly/" ?>
+		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
 	<?endif?>
 
 	
@@ -77,11 +81,11 @@
 													LongName="Stop NSClient++ ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
 													IconIndex="0" Arguments="/stop" Description="Stop NSClient++ as a service"/>
 							</File>
-							<File Id="NSClientTRAY" Name="systray.exe" DiskId="1"
-										Source="$(var.Source)/systray.exe" Vital="yes">
+							<File Id="NSClientTRAY" Name="nstray.exe" DiskId="1"
+										Source="$(var.Source)/nstray.exe" Vital="yes">
 								<Shortcut Id="StartmenuNSClientTray" Directory="ProgramMenuDir" Name="NSCPTray"
-													LongName="NSClient++ ($(var.PlatForm) system tray)" WorkingDirectory="INSTALLDIR" Icon="nsclient.exe"
-													IconIndex="0" Description="Run NSClient++ in test mode"/>
+													LongName="NSClient++ ($(var.PlatForm) system tray)" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
+													IconIndex="0" Description="Start systemtray"/>
 							</File>
 							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Source)/NSC.ini" Vital="yes"/>
 							<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="yes"/>
@@ -146,16 +150,17 @@
 			<Custom Action='AlreadyUpdated' After='FindRelatedProducts'>PATCHFOUND</Custom>
 			-->
 			<!--Custom Action='LaunchFile' After='InstallFinalize'>NOT Installed</Custom-->
-			<Custom Action="install" After='InstallFinalize'/>
+			<Custom Action="install" After='InstallFinalize'>NOT REMOVE</Custom>
 			<Custom Action="uninstall" Before="RemoveFiles"/>
 		</InstallExecuteSequence>
 
-		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install' Return='asyncNoWait'/>
+		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install' Return='check'/>
 		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall' Return='asyncNoWait'/>
 
 		<UIRef Id="WixUI_FeatureTree" />
 		<UIRef Id="WixUI_ErrorProgressText" />
 
-		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/modules/SysTray.dll" />
+		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/NSClient++.exe" />
+		<Icon Id="nstray.exe" SourceFile="$(var.Source)/nstray.exe" />
 	</Product>
 </Wix>
