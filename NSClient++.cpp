@@ -767,9 +767,18 @@ void NSClientT::loadPlugins() {
 		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 		return;
 	}
-	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
+	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
 		LOG_DEBUG_STD(_T("Loading plugin: ") + (*it)->getName() + _T("..."));
-		(*it)->load_plugin();
+		try {
+			(*it)->load_plugin();
+			++it;
+		} catch(NSPluginException e) {
+			it = plugins_.erase(it);
+			LOG_ERROR_STD(_T("Exception raised when loading plugin: ") + e.error_ + _T(" in module: ") + e.file_ + _T(" plugin has been removed."));
+		} catch(...) {
+			it = plugins_.erase(it);
+			LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin plugin has been removed"));
+		}
 	}
 	plugins_loaded_ = true;
 }

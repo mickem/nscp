@@ -4,6 +4,10 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2008-09-15 MickeM
+ * Fixed so NSCLient++ can load with "broken plugins" (before it printed an error and exited)
+ + Added a very basic simple .net plugin (and a wrapper)
+
 2008-09-14 MickeM - 0.3.4 RC-4
  * Fixed issue with OS detection (again)
  * Fixed issue with plugin unloading (again)
