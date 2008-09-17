@@ -7,6 +7,7 @@ TODO:
 2008-09-17 MickeM - 0.3.4 RC-6
  * Fixed issue on all filters so == takes the "usual" 2 equalsigns (old still works).
  * Added so tray icon can get "propper" name from core for "description".
+ * Added lookup of "long" eventlog names (you can now use the alias used in the event viewer)
 
 2008-09-16 MickeM - 0.3.4 RC-5
  * Fixed an issue with the session launcher

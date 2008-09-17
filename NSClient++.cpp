@@ -273,8 +273,8 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				LOG_ERROR_STD(_T("Service *NOT* started!"));
 				return -1;
 			}
-			if (server)
-				mainClient.startTrayIcons();
+//			if (server)
+//				mainClient.startTrayIcon(0);
 			LOG_MESSAGE_STD(_T("Using settings from: ") + Settings::getInstance()->getActiveType());
 			LOG_MESSAGE(_T("Enter command to inject or exit to terminate..."));
 

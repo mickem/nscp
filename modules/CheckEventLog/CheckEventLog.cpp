@@ -67,6 +67,159 @@ bool CheckEventLog::hasMessageHandler() {
 	return false;
 }
 
+namespace simple_registry {
+	class registry_exception {
+		std::wstring what_;
+	public:
+		registry_exception(std::wstring what) : what_(what) {}
+		registry_exception(std::wstring path, std::wstring what) : what_(path + _T(" -- ") + what) {}
+		registry_exception(std::wstring path, std::wstring key, std::wstring what) : what_(path + _T(".") + key + _T(" -- ") + what) {}
+		std::wstring what() {
+			return what_;
+		}
+	};
+	class registry_key {
+		HKEY hKey_;
+		std::wstring path_;
+		BYTE *bData_;
+		TCHAR *buffer_;
+	public:
+		registry_key(HKEY hRootKey, std::wstring path) : path_(path), hKey_(NULL), bData_(NULL), buffer_(NULL) {
+			LONG lRet = ERROR_SUCCESS;
+			if (lRet = RegOpenKeyEx(hRootKey, path.c_str(), 0, KEY_QUERY_VALUE|KEY_READ, &hKey_) != ERROR_SUCCESS)
+				throw registry_exception(path, _T("Failed to open key: ") + error::format::from_system(lRet));
+		}
+		~registry_key() {
+			if (hKey_ != NULL)
+				RegCloseKey(hKey_);
+			delete [] bData_;
+			delete [] buffer_;
+		}
+		std::wstring get_string(std::wstring key, DWORD buffer_length = 2048) {
+			DWORD type;
+			std::wstring ret;
+			DWORD cbData = buffer_length;
+			delete [] bData_;
+			bData_ = new BYTE[cbData+2];
+			// TODO: add get size here !
+			LONG lRet = RegQueryValueEx(hKey_, key.c_str(), NULL, &type, bData_, &cbData);
+			if (lRet != ERROR_SUCCESS)
+				throw registry_exception(path_, key, _T("Failed to get value: ") + error::format::from_system(lRet));
+			if (cbData >= buffer_length || cbData < 0)
+				throw registry_exception(path_, key, _T("Failed to get value: buffer to small"));
+			bData_[cbData] = 0;
+			if (type == REG_SZ) {
+				ret = reinterpret_cast<LPCTSTR>(bData_);
+			} else if (type == REG_EXPAND_SZ) {
+				std::wstring s = reinterpret_cast<LPCTSTR>(bData_);
+				delete [] buffer_;
+				buffer_ = new TCHAR[buffer_length+1];
+				DWORD expRet = ExpandEnvironmentStrings(s.c_str(), buffer_, buffer_length);
+				if (expRet >= buffer_length)
+					throw registry_exception(path_, key, _T("Buffer to small (expand)"));
+				else
+					ret = buffer_;
+			} else {
+				throw registry_exception(path_, key, _T("Unknown type (not a string)"));
+			}
+			return ret;
+		}
+		DWORD get_int(std::wstring key) {
+			DWORD type;
+			DWORD cbData = sizeof(DWORD);
+			DWORD ret = 0;
+			LONG lRet = RegQueryValueEx(hKey_, key.c_str(), NULL, &type, reinterpret_cast<LPBYTE>(&ret), &cbData);
+			if (lRet != ERROR_SUCCESS)
+				throw registry_exception(path_, key, _T("Failed to get value: ") + error::format::from_system(lRet));
+			if (type != REG_DWORD)
+				throw registry_exception(path_, key, _T("Unknown type (not a DWORD)"));
+			return ret;
+		}
+
+		std::list<std::wstring> get_keys(DWORD buffer_length = 2048) {
+			std::list<std::wstring> ret;
+			DWORD cSubKeys=0;
+			DWORD cMaxKeyLen;
+			// Get the class name and the value count. 
+			LONG lRet = RegQueryInfoKey(hKey_,NULL,NULL,NULL,&cSubKeys,&cMaxKeyLen,NULL,NULL,NULL,NULL,NULL,NULL);
+			if (lRet != ERROR_SUCCESS)
+				throw registry_exception(path_, _T("Failed to query key info: ") + error::format::from_system(lRet));
+			if (cSubKeys == 0)
+				return ret;
+			delete [] buffer_;
+			buffer_ = new TCHAR[cMaxKeyLen+20];
+			for (unsigned int i=0; i<cSubKeys; i++) {
+				lRet = RegEnumKey(hKey_, i, buffer_, cMaxKeyLen+10);
+				if (lRet != ERROR_SUCCESS) {
+					throw registry_exception(path_, _T("Failed to enumerate: ") + error::lookup::last_error(lRet));
+				}
+				std::wstring str = buffer_;
+				ret.push_back(str);
+			}
+			return ret;
+		}
+
+	};
+	
+	std::wstring get_string(HKEY hKey, std::wstring path, std::wstring key) {
+		registry_key reg(hKey, path);
+		return reg.get_string(key);
+	}
+}
+
+std::wstring load_string(std::wstring module, UINT id, DWORD bufferSize = 2048) {
+	//HMODULE hModule = LoadLibrary(module.c_str());
+	HMODULE hModule = LoadLibraryEx(module.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
+	//HMODULE hModule = GetModuleHandle(module.c_str());
+	if (hModule == NULL) {
+		return _T("failed to load: ") + module + _T("( reson: ") + error::lookup::last_error();
+	}
+
+	std::wstring rName = _T("1");
+	std::wstring ret;
+	HRSRC rsSrc = FindResource(hModule, rName.c_str(), RT_MESSAGETABLE);
+	if (rsSrc == NULL)
+		ret = _T("Failed to load string ") + strEx::itos(id) + _T(" reason was: ") + error::lookup::last_error(); 
+	/*
+	TCHAR *buffer = new TCHAR[bufferSize+1];
+	if (LoadString(hModule, id, buffer, bufferSize) != 0) {
+		ret = buffer;
+	} else {
+		ret = _T("Failed to load string ") + strEx::itos(id) + _T(" reason was: ") + error::lookup::last_error(); 
+	}
+	NSC_DEBUG_MSG_STD(buffer);
+	delete [] buffer;
+	*/
+	return ret;
+
+}
+std::wstring find_eventlog_name(std::wstring name) {
+	try {
+		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
+		std::list<std::wstring> list = key.get_keys();
+		for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+			try {
+				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + *cit);
+				std::wstring file = sub_key.get_string(_T("DisplayNameFile"));
+				int id = sub_key.get_int(_T("DisplayNameID"));
+				std::wstring real_name = error::format::message::from_module(file, id);
+				strEx::replace(real_name, _T("\n"), _T(""));
+				strEx::replace(real_name, _T("\r"), _T(""));
+				//strEx::replace(real_name, _T("\m"), _T(""));
+				//NSC_DEBUG_MSG_STD(_T("Found file: ") + real_name + _T(" for ") + *cit);
+				if (real_name == name)
+					return *cit;
+			} catch (simple_registry::registry_exception &e) {}
+		}
+		return name;
+	} catch (simple_registry::registry_exception &e) {
+		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand): ") + e.what());
+		return name;
+	} catch (...) {
+		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand)"));
+		return name;
+	}
+}
 
 class EventLogRecord {
 	EVENTLOGRECORD *pevlr_;
@@ -179,51 +332,12 @@ public:
 		return strEx::itos(dwType);
 	}
 	std::wstring get_dll() {
-		HKEY hKey = HKEY_LOCAL_MACHINE;
-		std::wstring path = ((std::wstring)_T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + eventSource()).c_str();
-		std::wstring ret;
-		HKEY hTemp;
-		LONG lRet = ERROR_SUCCESS;
-		if (lRet = RegOpenKeyEx(hKey, path.c_str(), 0, KEY_QUERY_VALUE, &hTemp) != ERROR_SUCCESS) {
-			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + error::format::from_system(lRet));
-			return ret;
+		try {
+			return simple_registry::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + eventSource(), _T("EventMessageFile"));
+		} catch (simple_registry::registry_exception &e) {
+			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + _T(": ") + e.what());
+			return _T("");
 		}
-		DWORD type;
-		const DWORD data_length = 2048;
-		DWORD cbData = data_length;
-		BYTE *bData = new BYTE[cbData];
-		lRet = RegQueryValueEx(hTemp, _T("EventMessageFile"), NULL, &type, bData, &cbData);
-		if (lRet == ERROR_SUCCESS) {
-			if (type == REG_SZ) {
-				if (cbData < data_length-1) {
-					bData[cbData] = 0;
-					ret = reinterpret_cast<LPCTSTR>(bData);
-				} else {
-					NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
-				}
-			} else if (type == REG_EXPAND_SZ) {
-#define EXPAND_BUFFER_SIZE 2048
-				if (cbData < data_length-1) {
-					bData[cbData] = 0;
-					std::wstring s = reinterpret_cast<LPCTSTR>(bData);
-					TCHAR *buffer = new TCHAR[EXPAND_BUFFER_SIZE+1];
-					DWORD expRet = ExpandEnvironmentStrings(s.c_str(), buffer, EXPAND_BUFFER_SIZE);
-					if (expRet >= EXPAND_BUFFER_SIZE)
-						NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
-					else
-						ret = buffer;
-				} else {
-					NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
-				}
-			} else {
-				NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource());
-			}
-		} else {
-			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + error::format::from_system(lRet));
-		}
-		RegCloseKey(hTemp);
-		delete [] bData;
-		return ret;
 	}
 
 	std::wstring render_message() {
@@ -493,7 +607,11 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	}
 
 	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
-		HANDLE hLog = OpenEventLog(NULL, (*cit2).c_str());
+		std::wstring name = find_eventlog_name(*cit2);
+		if ((*cit2) != name) {
+			NSC_DEBUG_MSG_STD(_T("Opening alternative log: ") + name);
+		}
+		HANDLE hLog = OpenEventLog(NULL, name.c_str());
 		if (hLog == NULL) {
 			message = _T("Could not open the '") + (*cit2) + _T("' event log: ") + error::lookup::last_error();
 			return NSCAPI::returnUNKNOWN;
