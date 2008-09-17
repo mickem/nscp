@@ -4,9 +4,20 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2008-09-17 MickeM - 0.3.4 RC-6
+ * Fixed issue on all filters so == takes the "usual" 2 equalsigns (old still works).
+ * Added so tray icon can get "propper" name from core for "description".
+
+2008-09-16 MickeM - 0.3.4 RC-5
+ * Fixed an issue with the session launcher
+
 2008-09-15 MickeM
  * Fixed so NSCLient++ can load with "broken plugins" (before it printed an error and exited)
  + Added a very basic simple .net plugin (and a wrapper)
+
+2008-09-14 MickeM - 0.3.4 RC-4
+ * Fixed an issue with the session launcher
+ * Fixed an issue with the uninstaller (should not "fail" when problems uninstalling)
 
 2008-09-14 MickeM - 0.3.4 RC-4
  * Fixed issue with OS detection (again)

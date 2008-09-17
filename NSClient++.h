@@ -148,11 +148,15 @@ public:
 
 	// Shared session interface:
 	void session_error(std::wstring file, unsigned int line, std::wstring msg);
+	void session_info(std::wstring file, unsigned int line, std::wstring msg);
 	void session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) {
 		reportMessage(msgType, file, line, message);
 	}
 	int session_inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 		return inject(command, arguments, splitter, escape, msg, perf);
+	}
+	std::pair<std::wstring,std::wstring> session_get_name() {
+		return std::pair<std::wstring,std::wstring>(SZAPPNAME,SZVERSION);
 	}
 
 

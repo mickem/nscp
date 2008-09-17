@@ -1245,7 +1245,6 @@ Global
 		{D367E76D-9485-4DCB-A9D0-3D3C0E190648}.Nightly|Mixed Platforms.ActiveCfg = Release|Win32
 		{D367E76D-9485-4DCB-A9D0-3D3C0E190648}.Nightly|Mixed Platforms.Build.0 = Release|Win32
 		{D367E76D-9485-4DCB-A9D0-3D3C0E190648}.Nightly|Win32.ActiveCfg = Release|Win32
-		{D367E76D-9485-4DCB-A9D0-3D3C0E190648}.Nightly|Win32.Build.0 = Release|Win32
 		{D367E76D-9485-4DCB-A9D0-3D3C0E190648}.Nightly|x64.ActiveCfg = Release|Win32
 		{D367E76D-9485-4DCB-A9D0-3D3C0E190648}.Release|Any CPU.ActiveCfg = Release|Win32
 		{D367E76D-9485-4DCB-A9D0-3D3C0E190648}.Release|Itanium.ActiveCfg = Release|Win32

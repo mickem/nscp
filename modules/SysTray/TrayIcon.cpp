@@ -45,7 +45,7 @@ typedef BOOL (WINAPI *LPFN_CHANGEWINDOWMESSAGEFILTER) (UINT, DWORD);
 #endif
 
 LPFN_CHANGEWINDOWMESSAGEFILTER fnChangeWindowMessageFilter = NULL;
-BOOL ChangeWindowMessageFilter(UINT message, DWORD what)
+BOOL ChangeWindowMessageFilter_(UINT message, DWORD what)
 {
 	if (fnChangeWindowMessageFilter == NULL)
 		fnChangeWindowMessageFilter = (LPFN_CHANGEWINDOWMESSAGEFILTER)GetProcAddress(GetModuleHandle(TEXT("user32")),"ChangeWindowMessageFilter");
@@ -126,7 +126,7 @@ void IconWidget_::createDialog(void) {
 	if (UDM_TASKBARCREATED == 0) {
 		NSC_LOG_ERROR_STD(_T("Failed to register 'TaskbarCreated': ") + error::lookup::last_error());
 	}
-	if (!ChangeWindowMessageFilter(UDM_TASKBARCREATED, MSGFLT_ADD)) {
+	if (!ChangeWindowMessageFilter_(UDM_TASKBARCREATED, MSGFLT_ADD)) {
 		NSC_LOG_ERROR_STD(_T("Failed to cchange window filter: ") + error::lookup::last_error());
 	}
 

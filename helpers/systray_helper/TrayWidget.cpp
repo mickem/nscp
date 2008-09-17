@@ -49,7 +49,7 @@ TrayWidget *gTrayInstance = NULL;
 #define MSGFLT_REMOVE 2
 typedef BOOL (WINAPI *LPFN_CHANGEWINDOWMESSAGEFILTER) (UINT, DWORD);
 LPFN_CHANGEWINDOWMESSAGEFILTER fnChangeWindowMessageFilter = NULL;
-BOOL ChangeWindowMessageFilter(UINT message, DWORD what)
+BOOL ChangeWindowMessageFilter_(UINT message, DWORD what)
 {
 	if (fnChangeWindowMessageFilter == NULL) {
 		HMODULE hMod = GetModuleHandle(TEXT("user32"));
@@ -84,13 +84,6 @@ TrayWidget::TrayWidget(std::wstring cmdLine) {
 	}
 	LOG_MESSAGE_TRAY(_T("Attempting to launch system tray module for ") + channel_id_);
 	gTrayInstance = this;
-	try {
-		shared_client_.reset(new nsclient_session::shared_client_session(channel_id_, this));
-		if (shared_client_.get() != NULL)
-			shared_client_->attach_to_session(channel_id_);
-	} catch (nsclient_session::session_exception e) {
-		LOG_ERROR_TRAY(_T("Failed to attach to shared session: ") + e.what());
-	}
 }
 TrayWidget::~TrayWidget() {
 	gTrayInstance = NULL;
@@ -110,8 +103,10 @@ void TrayWidget::connectService() {
 	LOG_MESSAGE_TRAY(_T("Reconnecting to the service..."));
 	try {
 		shared_client_.reset(new nsclient_session::shared_client_session(channel_id_, this));
-		if (shared_client_.get() != NULL)
+		if (shared_client_.get() != NULL) {
 			shared_client_->attach_to_session(channel_id_);
+			TrayIcon::addIcon(hDlgWnd);
+		}
 	} catch (nsclient_session::session_exception e) {
 		LOG_ERROR_TRAY(_T("Failed to attach to shared session: ") + e.what());
 	}
@@ -123,6 +118,13 @@ int TrayWidget::inject(std::wstring command, std::wstring arguments, TCHAR split
 	}
 	return shared_client_->inject(command, arguments, splitter, escape, msg, perf);
 }
+std::pair<std::wstring,std::wstring> TrayWidget::get_client_name() {
+	if (shared_client_.get() == NULL) {
+		LOG_ERROR_TRAY(_T("No active shared instance!"));
+		return std::pair<std::wstring,std::wstring>(_T("NSClient++ system tray offline"), _T(""));
+	}
+	return shared_client_->get_client_name();
+}
 
 
 
@@ -130,10 +132,6 @@ int TrayWidget::inject(std::wstring command, std::wstring arguments, TCHAR split
 void TrayWidget::createDialog(HINSTANCE hInstance) {
 	LOG_MESSAGE_TRAY(_T("Creating dialog..."));
 	ghInstance = hInstance;
-	//hDlgWnd = ::CreateDialog(hInstance,MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
-	//if ((hDlgWnd == NULL)||!IsWindow(hDlgWnd)) {
-//		LOG_ERROR_TRAY(_T("Failed to create windows: ") + error::lookup::last_error());
-//	}
 
 	WNDCLASSEX wndclass;
 	wndclass.lpszMenuName=NULL;
@@ -148,15 +146,12 @@ void TrayWidget::createDialog(HINSTANCE hInstance) {
 	wndclass.hIconSm=NULL;
 	wndclass.lpszClassName=_T("NSClient_pp_TrayClass");
 	wndclass.style=0;
-	// register task bar restore event after crash
-	//WM_TASKBARCREATED=RegisterWindowMessage(TEXT("TaskbarCreated"));
-	//MyChangeWindowMessageFilter(WM_TASKBARCREATED, MSGFLT_ADD); 
 
 	UINT UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
 	if (UDM_TASKBARCREATED == 0) {
 		LOG_ERROR_TRAY(_T("Failed to register 'TaskbarCreated': ") + error::lookup::last_error());
 	}
-	if (!ChangeWindowMessageFilter(UDM_TASKBARCREATED, MSGFLT_ADD)) {
+	if (!ChangeWindowMessageFilter_(UDM_TASKBARCREATED, MSGFLT_ADD)) {
 		LOG_ERROR_TRAY(_T("Failed to cchange window filter: ") + error::lookup::last_error());
 	}
 
@@ -184,32 +179,13 @@ void TrayWidget::createDialog(HINSTANCE hInstance) {
 		}
 	}
 	return;
-	
-	/*
-	MSG Msg;
-	BOOL bRet;
-	while((bRet = ::GetMessage(&Msg, NULL, 0, 0)) != 0)
-	{
-		if (Msg.message == WM_MY_CLOSE) {
-			::DestroyWindow(hDlgWnd);
-		} else if (Msg.message == UDM_TASKBARCREATED) {
-			LOG_MESSAGE_TRAY(_T("Recreating systray icon..."));
-			TrayIcon::addIcon(Msg.hwnd);
-		} else if (bRet == -1) {
-			// handle the error and possibly exit
-			LOG_ERROR_TRAY(_T("Wonder what this is... please let me know..."));
-			return;
-		} else {
-		//} else if (!::IsWindow(hDlgWnd) || !::IsDialogMessage(hDlgWnd, &Msg)) {
-			::TranslateMessage(&Msg); 
-			::DispatchMessage(&Msg); 
-		} 
-	}
-	*/
 }
 
 void TrayWidget::session_error(std::wstring file, unsigned int line, std::wstring msg) {
 	log(_T("error"), file.c_str(), line, msg);
+}
+void TrayWidget::session_info(std::wstring file, unsigned int line, std::wstring msg) {
+	log(_T("info"), file.c_str(), line, msg);
 }
 
 void TrayWidget::session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) {
@@ -352,6 +328,8 @@ public:
 			SetDlgItemText(hWnd, IDC_DESCRIPTION, result.c_str());
 			SetDlgItemText(hWnd, IDC_MSG, msg.c_str());
 			SetDlgItemText(hWnd, IDC_PERF, perf.c_str());
+		} else if (cmd == _T("connect-service")) {
+			gTrayInstance->connectService();
 		}
 		return 0;
 	}
@@ -363,6 +341,10 @@ public:
 		return sb;
 	}
 
+	static void connectService() {
+		Thread<worker_thread> *pThread = new Thread<worker_thread>(_T("tray-worker-thread"));
+		pThread->createThread(worker_thread::init(_T("connect-service"), NULL));
+	}
 	static void updateServiceStatus(HMENU hMenu) {
 		Thread<worker_thread> *pThread = new Thread<worker_thread>(_T("tray-worker-thread"));
 		pThread->createThread(worker_thread::init(_T("update-status"), hMenu));
@@ -585,7 +567,6 @@ LRESULT CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 {
 	if (uMsg == UDM_TASKBARCREATED) {
 		addIcon(hwndDlg);
-		LOG_MESSAGE_TO_TRAY(_T("UDM_TASKBARCREATED"));
 	}
 
 	switch (uMsg) 
@@ -599,18 +580,16 @@ LRESULT CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 
 	case WM_CREATE:
 	case WM_INITDIALOG:
-		LOG_MESSAGE_TO_TRAY(_T("WM_INITDIALOG"));
-
-
 		UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
 		if (UDM_TASKBARCREATED == 0) {
 			LOG_MESSAGE_TO_TRAY(_T("Failed to register 'TaskbarCreated': ") + error::lookup::last_error());
 		}
-		if (!ChangeWindowMessageFilter(UDM_TASKBARCREATED, MSGFLT_ADD)) {
+		if (!ChangeWindowMessageFilter_(UDM_TASKBARCREATED, MSGFLT_ADD)) {
 			LOG_MESSAGE_TO_TRAY(_T("Failed to cchange window filter: ") + error::lookup::last_error());
 		}
 
 		addIcon(hwndDlg);
+		worker_thread::connectService();
 		break;
 
 	case WM_COMMAND:
@@ -618,7 +597,7 @@ LRESULT CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 			switch (wParam) 
 			{
 			case ID_POPUP_CONNECT:
-				gTrayInstance->connectService();
+				worker_thread::connectService();
 				break;
 			case ID_POPUP_CLOSE:
 				::PostMessage(hwndDlg, WM_MY_CLOSE, NULL, NULL);
@@ -679,7 +658,8 @@ void TrayIcon::addIcon(HWND hWnd) {
 	ndata.uFlags=NIF_ICON|NIF_MESSAGE|NIF_TIP;
 	ndata.uCallbackMessage=WM_ICON_NOTIFY;
 	ndata.hIcon=::LoadIcon(ghInstance,MAKEINTRESOURCE(IDI_NSCP));
-	std::wstring title = _T("NSClient++ SystemTray (TODO)"); //NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
+	std::pair<std::wstring,std::wstring> version = gTrayInstance->get_client_name();
+	std::wstring title = version.first + _T(" - ") + version.second;
 	wcsncpy_s(ndata.szTip, 64, title.c_str(), min(64, title.size()));
 	Shell_NotifyIcon(NIM_ADD,&ndata);
 }

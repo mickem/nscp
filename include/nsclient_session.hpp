@@ -11,10 +11,7 @@ namespace nsclient_session {
 	class session_exception {
 		std::wstring what_;
 	public:
-		session_exception(std::wstring what) : what_(what) {
-			std::wcout << _T("e: ") << what << std::endl;
-
-		}
+		session_exception(std::wstring what) : what_(what) {}
 		std::wstring what() {
 			return what_;
 		}
@@ -23,8 +20,10 @@ namespace nsclient_session {
 	class session_handler_interface {
 	public:
 		virtual void session_error(std::wstring file, unsigned int line, std::wstring msg) = 0;
+		virtual void session_info(std::wstring file, unsigned int line, std::wstring msg) = 0;
 		virtual void session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) = 0;
 		virtual int session_inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) = 0;
+		virtual std::pair<std::wstring,std::wstring> session_get_name() = 0;
 	};
 
 	class session_interface {
@@ -39,6 +38,7 @@ namespace nsclient_session {
 	const static std::wstring message_detach = _T("core_detach");
 	const static std::wstring message_log = _T("core_log");
 	const static std::wstring message_inject = _T("core_inject");
+	const static std::wstring message_get_name = _T("core_get_name");
 	const static std::wstring message_master_shutdown = _T("core_master_shutdown");
 	const static std::wstring message_master_attach = _T("core_master_attach");
 	
@@ -68,8 +68,6 @@ namespace nsclient_session {
 		event_handler signal_event;
 		shared_memory_handler shared_memory;
 		std::wstring channel_name_;
-
-		//static const std::wstring channel_prefix;
 
 	public:
 		remote_channel(session_interface *instance, std::wstring channel_name) 
@@ -366,7 +364,7 @@ namespace nsclient_session {
 		}
 		void info(std::wstring file, unsigned int line, std::wstring msg) {
 			if (handler_)
-				handler_->session_error(file, line, msg);
+				handler_->session_info(file, line, msg);
 		}
 
 		HANDLE get_signal_event() {
@@ -646,6 +644,15 @@ namespace nsclient_session {
 			}
 		}
 
+		std::pair<std::wstring,std::wstring> get_client_name() {
+			remote_channel::local_message_type msg;
+			msg.command = message_get_name;
+			unsigned int msg_id = send_server(msg);
+			remote_channel::local_message_type response = wait_reply(msg_id);
+			if (response.arguments.size() != 2)
+				return std::pair<std::wstring,std::wstring>(_T("Unknown: Failed to get service name"),_T(""));
+			return std::pair<std::wstring,std::wstring>(response.arguments[0],response.arguments[1]);
+		}
 		int inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &message, std::wstring & perf) {
 			remote_channel::local_message_type msg;
 			msg.command = message_inject;
@@ -707,7 +714,7 @@ namespace nsclient_session {
 		handle_type detached_channels_;
 
 	public:
-		shared_server_session(session_handler_interface *handler) : shared_session(_T("server"), handler) {}
+		shared_server_session(session_handler_interface *handler, std::wstring title = _T("server")) : shared_session(title, handler) {}
 		virtual ~shared_server_session() {
 			if (!detached_channels_.empty()) {
 				for (handle_type::iterator it = detached_channels_.begin(); it != detached_channels_.end(); ++it) {
@@ -776,9 +783,6 @@ namespace nsclient_session {
 				int ret = -1;
 				if (msg.arguments.size() == 4) {
 					try {
-						//error(__FILEW__, __LINE__, _T("arg1") + msg.arguments[1]);
-						//error(__FILEW__, __LINE__, _T("arg2") + msg.arguments[2]);
-						//error(__FILEW__, __LINE__, _T("arg3") + msg.arguments[3]);
 						ret = handler_->session_inject(msg.arguments[0], msg.arguments[1], strEx::stoc(msg.arguments[2]), msg.arguments[3]==_T("1"), message, perf);
 					} catch (...) {
 						message = _T("Unknown exception!");
@@ -792,6 +796,26 @@ namespace nsclient_session {
 				response.arguments.push_back(strEx::itos(ret));
 				response.arguments.push_back(message);
 				response.arguments.push_back(perf);
+				send_client(msg.sender, response);
+			} else if (msg.command == message_get_name) {
+				std::wstring name;
+				std::wstring version;
+				if (msg.arguments.size() == 0) {
+					try {
+						std::pair<std::wstring,std::wstring> tmp = handler_->session_get_name();
+						name = tmp.first;
+						version = tmp.second;
+					} catch (...) {
+						name = _T("Unknown exception!");
+					}
+				} else {
+					name = _T("Failed to get name!");
+				}
+				remote_channel::local_message_type response;
+				response.command = message_get_name;
+				response.message_id = msg.message_id;
+				response.arguments.push_back(name);
+				response.arguments.push_back(version);
 				send_client(msg.sender, response);
 			} else {
 				error(__FILEW__, __LINE__, _T("Unknown command: ") + msg.command);

@@ -274,7 +274,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				return -1;
 			}
 			if (server)
-				mainClient.startTrayIcon(0);
+				mainClient.startTrayIcons();
 			LOG_MESSAGE_STD(_T("Using settings from: ") + Settings::getInstance()->getActiveType());
 			LOG_MESSAGE(_T("Enter command to inject or exit to terminate..."));
 
@@ -347,6 +347,10 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 void NSClientT::session_error(std::wstring file, unsigned int line, std::wstring msg) {
 	NSAPIMessage(NSCAPI::error, file.c_str(), line, msg.c_str());
+}
+
+void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring msg) {
+	NSAPIMessage(NSCAPI::log, file.c_str(), line, msg.c_str());
 }
 
 
@@ -502,7 +506,7 @@ void NSClientT::startTrayIcons() {
 	} else {
 		LOG_DEBUG_STD(_T("Found ") + strEx::itos(count) + _T(" sessions"));
 		for (DWORD i=0;i<count;i++) {
-			LOG_DEBUG_STD(_T("Found session") + strEx::itos(list[i].SessionId) + _T(" state: ") + strEx::itos(list[i].State));
+			LOG_DEBUG_STD(_T("Found session: ") + strEx::itos(list[i].SessionId) + _T(" state: ") + strEx::itos(list[i].State));
 			if (list[i].State == remote_processes::_WTS_CONNECTSTATE_CLASS::WTSActive) {
 				startTrayIcon(list[i].SessionId);
 			}
@@ -608,7 +612,6 @@ void WINAPI NSClientT::service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
 	}
 }
 DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
-	LOG_DEBUG_STD(_T("service_ctrl_dispatch_ex dispatching event: ") + strEx::itos(dwControl));
 	return mainClient.service_ctrl_ex(dwControl, dwEventType, lpEventData, lpContext);
 }
 
@@ -617,13 +620,12 @@ DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventT
  * @param dwCtrlCode 
  */
 void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
-	LOG_DEBUG_STD(_T("service_ctrl_dispatch dispatching event: ") + strEx::itos(dwCtrlCode));
 	mainClient.service_ctrl_ex(dwCtrlCode, NULL, NULL, NULL);
 }
 
 
 void NSClientT::service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType) {
-	if (shared_server_.get() != NULL) {
+	if (shared_server_.get() == NULL) {
 		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
 		return;
 	}

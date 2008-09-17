@@ -59,15 +59,20 @@ public:
 public: // Shared session interface:
 	void log(std::wstring category, const TCHAR* file, const int line, std::wstring message);
 	void session_error(std::wstring file, unsigned int line, std::wstring msg);
+	void session_info(std::wstring file, unsigned int line, std::wstring msg);
 	void session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message);
 	int session_inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 		return -1;
+	}
+	std::pair<std::wstring,std::wstring> session_get_name() {
+		return std::pair<std::wstring,std::wstring>(_T("NSClient++ systray"),_T(""));
 	}
 
 
 	void setLogWindow(HWND hWnd) { hLogWnd = hWnd; }
 	HWND getLogWindow() const { return hLogWnd; }
 	int inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf);
+	std::pair<std::wstring,std::wstring> get_client_name();
 
 
 };
