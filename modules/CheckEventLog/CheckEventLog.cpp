@@ -47,6 +47,7 @@ bool CheckEventLog::loadModule() {
 	try {
 		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
 		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
+		lookup_names_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_LOOKUP_NAMES, EVENTLOG_LOOKUP_NAMES_DEFAULT)==1;
 		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
 		buffer_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
@@ -167,32 +168,6 @@ namespace simple_registry {
 	}
 }
 
-std::wstring load_string(std::wstring module, UINT id, DWORD bufferSize = 2048) {
-	//HMODULE hModule = LoadLibrary(module.c_str());
-	HMODULE hModule = LoadLibraryEx(module.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
-	//HMODULE hModule = GetModuleHandle(module.c_str());
-	if (hModule == NULL) {
-		return _T("failed to load: ") + module + _T("( reson: ") + error::lookup::last_error();
-	}
-
-	std::wstring rName = _T("1");
-	std::wstring ret;
-	HRSRC rsSrc = FindResource(hModule, rName.c_str(), RT_MESSAGETABLE);
-	if (rsSrc == NULL)
-		ret = _T("Failed to load string ") + strEx::itos(id) + _T(" reason was: ") + error::lookup::last_error(); 
-	/*
-	TCHAR *buffer = new TCHAR[bufferSize+1];
-	if (LoadString(hModule, id, buffer, bufferSize) != 0) {
-		ret = buffer;
-	} else {
-		ret = _T("Failed to load string ") + strEx::itos(id) + _T(" reason was: ") + error::lookup::last_error(); 
-	}
-	NSC_DEBUG_MSG_STD(buffer);
-	delete [] buffer;
-	*/
-	return ret;
-
-}
 std::wstring find_eventlog_name(std::wstring name) {
 	try {
 		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
@@ -205,8 +180,6 @@ std::wstring find_eventlog_name(std::wstring name) {
 				std::wstring real_name = error::format::message::from_module(file, id);
 				strEx::replace(real_name, _T("\n"), _T(""));
 				strEx::replace(real_name, _T("\r"), _T(""));
-				//strEx::replace(real_name, _T("\m"), _T(""));
-				//NSC_DEBUG_MSG_STD(_T("Found file: ") + real_name + _T(" for ") + *cit);
 				if (real_name == name)
 					return *cit;
 			} catch (simple_registry::registry_exception &e) {}
@@ -607,9 +580,12 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	}
 
 	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
-		std::wstring name = find_eventlog_name(*cit2);
-		if ((*cit2) != name) {
-			NSC_DEBUG_MSG_STD(_T("Opening alternative log: ") + name);
+		std::wstring name = *cit2;
+		if (lookup_names_) {
+			name = find_eventlog_name(*cit2);
+			if ((*cit2) != name) {
+				NSC_DEBUG_MSG_STD(_T("Opening alternative log: ") + name);
+			}
 		}
 		HANDLE hLog = OpenEventLog(NULL, name.c_str());
 		if (hLog == NULL) {

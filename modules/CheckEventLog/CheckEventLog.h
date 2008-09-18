@@ -31,6 +31,7 @@ private:
 	bool debug_;
 	std::wstring syntax_;
 	DWORD buffer_;
+	bool lookup_names_;
 
 public:
 	CheckEventLog();

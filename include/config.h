@@ -158,6 +158,8 @@
 #define EVENTLOG_SECTION_TITLE _T("Eventlog")
 #define EVENTLOG_DEBUG _T("debug")
 #define EVENTLOG_DEBUG_DEFAULT 0
+#define EVENTLOG_LOOKUP_NAMES _T("lookup_names")
+#define EVENTLOG_LOOKUP_NAMES_DEFAULT 1
 #define EVENTLOG_SYNTAX _T("syntax")
 #define EVENTLOG_SYNTAX_DEFAULT _T("")
 #define EVENTLOG_BUFFER _T("buffer_size")

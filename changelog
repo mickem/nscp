@@ -5,6 +5,9 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
 
 2008-09-17 MickeM - 0.3.4 RC-6
+ * Added option [EventLog] lookup_names=0 to disable the evetlog name lookup (default is on)
+
+2008-09-17 MickeM
  * Fixed issue on all filters so == takes the "usual" 2 equalsigns (old still works).
  * Added so tray icon can get "propper" name from core for "description".
  * Added lookup of "long" eventlog names (you can now use the alias used in the event viewer)
