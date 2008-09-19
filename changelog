@@ -4,6 +4,13 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2008-09-18 MickeM - 0.3.4
+ * Changed so "missing services" are treated as stopped.
+    CheckServiceState missing=stopped ShowAll
+	OK: missing: not found
+ * Fixed issue with : in service name.
+ + Added some "reasonable default cheks" under [External Alias] for the CheckExternalScripts.dll module. 
+
 2008-09-17 MickeM - 0.3.4 RC-6
  * Added option [EventLog] lookup_names=0 to disable the evetlog name lookup (default is on)
 

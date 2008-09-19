@@ -297,9 +297,10 @@ namespace checkHolders {
 	};
 
 	typedef unsigned long state_type;
-	const int state_none	= 0x00;
-	const int state_started = 0x01;
-	const int state_stopped = 0x02;
+	const int state_none	  = 0x00;
+	const int state_started   = 0x01;
+	const int state_stopped   = 0x02;
+	const int state_not_found = 0x06;
 
 	class state_handler {
 	public:
@@ -313,6 +314,8 @@ namespace checkHolders {
 					ret |= state_stopped;
 				else if (*it == _T("ignored"))
 					ret |= state_none;
+				else if (*it == _T("not found"))
+					ret |= state_not_found;
 			}
 			return ret;
 		}
@@ -323,6 +326,8 @@ namespace checkHolders {
 				return _T("stopped");
 			else if (value == state_none)
 				return _T("none");
+			else if (value == state_not_found)
+				return _T("not found");
 			return _T("unknown");
 		}
 		static std::wstring print_unformated(state_type value) {

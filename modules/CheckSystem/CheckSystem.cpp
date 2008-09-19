@@ -482,6 +482,8 @@ inline int get_state(DWORD state) {
 		return checkHolders::state_started;
 	else if (state == SERVICE_STOPPED)
 		return checkHolders::state_stopped;
+	else if (state == MY_SERVICE_NOT_FOUND)
+		return checkHolders::state_not_found;
 	return checkHolders::state_none;
 }
 
@@ -533,9 +535,9 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_BOOL_TRUE(_T("CheckAll"), bAutoStart)
 		MAP_OPTIONS_INSERT(_T("exclude"), excludeList)
-		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
-		MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
-		MAP_OPTIONS_SECONDARY_END()
+		//MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
+		//MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
+		//MAP_OPTIONS_SECONDARY_END()
 		else { 
 			tmpObject.data = p__.first;
 			if (p__.second.empty())
@@ -593,6 +595,9 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 					} else if (info.m_dwCurrentState == SERVICE_STOPPED) {
 						if (!msg.empty()) msg += _T(" - ");
 						msg += (*it).data + _T(": Stopped");
+					} else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND) {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Not found");
 					} else {
 						if (!msg.empty()) msg += _T(" - ");
 						msg += (*it).data + _T(": Unknown");
@@ -614,15 +619,18 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 				value = checkHolders::state_started;
 			else if (info.m_dwCurrentState == SERVICE_STOPPED)
 				value = checkHolders::state_stopped;
+			else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND)
+				value = checkHolders::state_not_found;
 			else
 				value = checkHolders::state_none;
 			(*it).perfData = bPerfData;
+			(*it).setDefault(tmpObject);
 			(*it).runCheck(value, returnCode, msg, perf);
 		}
 
 	}
 	if (msg.empty())
-		msg = _T("OK: All services are running.");
+		msg = _T("OK: All services are in their apropriate state.");
 	else if (!bNSClient)
 		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;

@@ -46,6 +46,7 @@ public:
 		return _T("Service: '") + name_ + _T("' caused: ") + msg_;
 	}
 };
+#define MY_SERVICE_NOT_FOUND                        0xffff0000
 
 class TNtServiceInfo {
 public:

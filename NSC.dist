@@ -191,6 +191,8 @@ use_file=1
 ;alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
 ;alias_service=checkServiceState CheckAll
 ;alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
+;alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+
 
 
 

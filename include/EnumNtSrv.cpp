@@ -188,26 +188,26 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	}
 	SC_HANDLE sh = ::OpenService(scman,name.c_str(),SERVICE_QUERY_STATUS);
 	if (!sh) {
+		std::wstring short_name;
 		DWORD bufLen = SC_BUF_LEN;
 		TCHAR *buf = new TCHAR[bufLen+1];
 		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
-			::CloseServiceHandle(scman);
-			delete [] buf;
-			throw NTServiceException(name, _T("GetServiceKeyName: Could not translate service name: ") + error::lookup::last_error());
+			short_name = name;
+		} else {
+			short_name = buf;
 		}
-		/*
-		Why does this not work? (a bug in the API? says it should return the correct size?)
-		if (bufLen >= SC_BUF_LEN) {
-			::CloseServiceHandle(scman);
-			throw NTServiceException(name, "Service name to long to handle", GetLastError());
-		}
-		buf[bufLen] = 0;
-		*/
-		sh = ::OpenService(scman,buf,SERVICE_QUERY_STATUS);
 		delete [] buf;
+		sh = ::OpenService(scman,short_name.c_str(),SERVICE_QUERY_STATUS);
 		if (sh == NULL) {
+			DWORD dwErr = GetLastError();
 			::CloseServiceHandle(scman);
-			throw NTServiceException(name, _T("OpenService: Could not open Service: ") + error::lookup::last_error());
+			if (dwErr == ERROR_SERVICE_DOES_NOT_EXIST) {
+				info.m_dwCurrentState = MY_SERVICE_NOT_FOUND;
+				info.m_dwServiceType = MY_SERVICE_NOT_FOUND;
+				return info;
+			} else {
+				throw NTServiceException(name, _T("OpenService: Could not open Service: ") + error::lookup::last_error(dwErr));
+			}
 		}
 	}
 	SERVICE_STATUS state;
