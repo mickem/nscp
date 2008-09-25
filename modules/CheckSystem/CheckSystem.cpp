@@ -574,6 +574,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 				list.push_back(tmpObject); 
 			}
 		} 
+		tmpObject.crit.state = _T("ignored");
 	}
 	for (std::list<StateContainer>::iterator it = list.begin(); it != list.end(); ++it) {
 		TNtServiceInfo info;
@@ -621,16 +622,21 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 				value = checkHolders::state_stopped;
 			else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND)
 				value = checkHolders::state_not_found;
-			else
+			else {
+				NSC_LOG_MESSAGE(_T("Service had no (valid) state: ") + (*it).data + _T(" (") + strEx::itos(info.m_dwCurrentState) + _T(")"));
 				value = checkHolders::state_none;
+			}
+			unsigned int x = returnCode;
 			(*it).perfData = bPerfData;
 			(*it).setDefault(tmpObject);
 			(*it).runCheck(value, returnCode, msg, perf);
+//			NSC_LOG_MESSAGE(_T("Service: ") + (*it).data + _T(" (") + strEx::itos(info.m_dwCurrentState) + _T(":") + strEx::itos((*it).warn.state.value_) + _T(":") + strEx::itos((*it).crit.state.value_) + _T(") -- (") + strEx::itos(returnCode) + _T(":") + strEx::itos(x) + _T(")"));
 		}
-
 	}
-	if (msg.empty())
+	if (msg.empty() && returnCode == NSCAPI::returnOK)
 		msg = _T("OK: All services are in their apropriate state.");
+	else if (msg.empty())
+		msg = NSCHelper::translateReturn(returnCode) + _T(": Whooha this is odd.");
 	else if (!bNSClient)
 		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;

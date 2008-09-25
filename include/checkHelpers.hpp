@@ -686,8 +686,6 @@ namespace checkHolders {
 			if ((state.hasBounds())&&(!state.check(value))) {
 				message = lable + _T(": ") + formatState(TStateHolder::toStringLong(value), type);
 				return true;
-			} else {
-				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
 		}
