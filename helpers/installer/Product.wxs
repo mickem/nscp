@@ -18,22 +18,14 @@
 
 	<?if "$(var.PlatForm)" = "x64"?>
 		<?define PlatForm.x64 ?>
-	<!--
-		<?define Product.GUID = "04239712-E061-4d85-9105-4B79128FF2EF" ?>
-		<?define Package.GUID = "E05F419A-6240-49dd-BC60-4103932A3F2E" ?>
-			-->
-	<?define Product.GUID = "F7F47EFB-9F10-4a62-AFC3-FE7E7124BCB6" ?>
-	<?define Package.GUID = "14F6DF05-BA2A-498f-B643-1BD524DF2F34" ?>
-	<?define Postfix.GUID = "DD5862EE637C" ?>
+		<?define Product.GUID = "1FAFBA4E-2B66-403e-B203-9FF04600BD98" ?>
+		<?define Package.GUID = "0C874469-E629-4226-8547-B4A96386FF87" ?>
+		<?define Postfix.GUID = "DD5862EE637C" ?>
 	<?else?>
-	<!--
-		<?define Product.GUID = "5C8A0ACB-9D0B-4caf-AEA4-079F0E0AE1F2" ?>
-		<?define Package.GUID = "9C5E52DA-28B6-4a6c-B6BE-EE507BB9AC0D" ?>
-			-->
-	<?define Product.GUID = "79A6D271-4AE6-4795-B423-F96210C6F0E9" ?>
-	<?define Package.GUID = "EEEA18BE-7D61-43f3-A762-BAED76B8B98C" ?>
-	<?define Postfix.GUID = "DD5862EE637B" ?>
-	<?define PlatForm.Win32 ?>
+		<?define Product.GUID = "C7D5D1E1-CECC-4396-8FB3-013CCA861A62" ?>
+		<?define Package.GUID = "F038120B-DA72-4e1e-851C-4381AE512D71" ?>
+		<?define Postfix.GUID = "DD5862EE637B" ?>
+		<?define PlatForm.Win32 ?>
 	<?endif?>
 	
 	<?ifdef var.PlatForm.Win32?>
@@ -155,7 +147,7 @@
 		</InstallExecuteSequence>
 
 		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install' Return='check'/>
-		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall' Return='asyncNoWait'/>
+		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall' Return='ignore'/>
 
 		<UIRef Id="WixUI_FeatureTree" />
 		<UIRef Id="WixUI_ErrorProgressText" />
