@@ -161,7 +161,9 @@ public:
 
 
 
-
+void display(std::wstring title, std::wstring message) {
+	::MessageBox(NULL, message.c_str(), title.c_str(), MB_OK|MB_ICONERROR);
+}
 
 /**
  * Application startup point
@@ -177,27 +179,34 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
+			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
 			} catch (const serviceControll::SCException& e) {
-				LOG_MESSAGE_STD(_T("Service installation failed: ") + e.error_);
+				if (bGui)
+					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
+				LOG_ERROR_STD(_T("Service installation failed: ") + e.error_);
 				return -1;
 			}
 			try {
 				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
 			} catch (const serviceControll::SCException& e) {
+				if (bGui)
+					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
 				LOG_MESSAGE_STD(_T("Couldn't set service description: ") + e.error_);
-				return -1;
 			}
 			LOG_MESSAGE(_T("Service installed!"));
 			return 0;
 		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
+			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Uninstall(SZSERVICENAME);
 			} catch (const serviceControll::SCException& e) {
-				LOG_MESSAGE_STD(_T("Service deinstallation failed; ") + e.error_);
+				if (bGui)
+					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
+				LOG_ERROR_STD(_T("Service deinstallation failed; ") + e.error_);
 			}
 			LOG_MESSAGE(_T("Service uninstalled!"));
 			return 0;

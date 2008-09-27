@@ -18,12 +18,8 @@
 
 	<?if "$(var.PlatForm)" = "x64"?>
 		<?define PlatForm.x64 ?>
-		<?define Product.GUID = "1FAFBA4E-2B66-403e-B203-9FF04600BD98" ?>
-		<?define Package.GUID = "0C874469-E629-4226-8547-B4A96386FF87" ?>
 		<?define Postfix.GUID = "DD5862EE637C" ?>
 	<?else?>
-		<?define Product.GUID = "C7D5D1E1-CECC-4396-8FB3-013CCA861A62" ?>
-		<?define Package.GUID = "F038120B-DA72-4e1e-851C-4381AE512D71" ?>
 		<?define Postfix.GUID = "DD5862EE637B" ?>
 		<?define PlatForm.Win32 ?>
 	<?endif?>
@@ -38,16 +34,24 @@
 		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
 	<?endif?>
 
-	
-	<Product Id="$(var.Product.GUID)" Name="NSClient++ ($(var.PlatForm))" Language="1033" Version="0.3.4.0" Manufacturer="MySolutions NORDIC"
+	<?include ../../AutoBuild.wxs ?>
+	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
+	<?if $(var.Version.Build) = 0?>
+	<?define Version.Old.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Old.Revision).999" ?>
+	<?else?>
+	<?define Version.Old.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Old.Build)" ?>
+	<?endif?>
+
+
+	<Product Id="????????-????-????-????-????????????" Name="NSClient++ ($(var.PlatForm)) $(var.Version.String)" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC"
 					 UpgradeCode="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
 		
-		<Package Id="$(var.Package.GUID)" Description="A simple windows monitor agent for (amongst others) nagios."
+		<Package Id="????????-????-????-????-????????????" Description="A simple windows monitor agent for (amongst others) nagios."
 						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes"/>
 
 		<Upgrade Id="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
-			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="0.3.4.0"/>
-			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="0.3.4.0"  OnlyDetect="yes"/>
+			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.Old.String)"/>
+			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="$(var.Version.String)"  OnlyDetect="yes"/>
 		</Upgrade>
 
 		<?ifdef var.PlatForm.Win32?>
@@ -146,8 +150,8 @@
 			<Custom Action="uninstall" Before="RemoveFiles"/>
 		</InstallExecuteSequence>
 
-		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install' Return='check'/>
-		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall' Return='ignore'/>
+		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install gui' Return='check'/>
+		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall gui' Return='ignore'/>
 
 		<UIRef Id="WixUI_FeatureTree" />
 		<UIRef Id="WixUI_ErrorProgressText" />

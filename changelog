@@ -4,6 +4,9 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2008-09-24 MickeM
+ * Imroved the installer (now auto-updates the version when built)
+
 2008-09-24 MickeM - 0.3.5
  * Fixed issue with CheckServiceState and CheckAll (it now works)
  + Added new check: CheckFile2 which has the same syntax as the event log filtering.
