@@ -181,10 +181,10 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		try {
 			crypt_inst.encrypt_init(password_.c_str(),encryption_method_,reinterpret_cast<unsigned char*>(packet_in->iv));
 		} catch (nsca_encrypt::encryption_exception &e) {
-			NSC_LOG_ERROR_STD(_T("<<< Failed to initalize encryption header: ") + e.getMessage());
+			NSC_LOG_ERROR_STD(_T("<<< NSCA Encryption header missmatch (hint: if you dont use NSCA dot use the NSCA module): ") + e.getMessage());
 			return;
 		} catch (...) {
-			NSC_LOG_ERROR_STD(_T("<<< Failed to initalize encryption header!"));
+			NSC_LOG_ERROR_STD(_T("<<< NSCA Encryption header missmatch (hint: if you dont use NSCA dot use the NSCA module)!"));
 			return;
 		}
 
@@ -205,7 +205,7 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		}
 		socket.close();
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("<<< Failed to initalize encryption header!"));
+		NSC_LOG_ERROR_STD(_T("<<< NSCA Configuration missmatch (hint: if you dont use NSCA dot use the NSCA module)!"));
 		return;
 	}
 }

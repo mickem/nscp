@@ -38,6 +38,86 @@ unsigned IconWidget_::threadProc(LPVOID lpParameter)
 	return 0;
 }
 
+#ifdef WINVER < 0x0600
+#define MSGFLT_ADD 1
+#define MSGFLT_REMOVE 2
+typedef BOOL (WINAPI *LPFN_CHANGEWINDOWMESSAGEFILTER) (UINT, DWORD);
+#endif
+
+LPFN_CHANGEWINDOWMESSAGEFILTER fnChangeWindowMessageFilter = NULL;
+BOOL ChangeWindowMessageFilter_(UINT message, DWORD what)
+{
+	if (fnChangeWindowMessageFilter == NULL)
+		fnChangeWindowMessageFilter = (LPFN_CHANGEWINDOWMESSAGEFILTER)GetProcAddress(GetModuleHandle(TEXT("user32")),"ChangeWindowMessageFilter");
+	if (fnChangeWindowMessageFilter == NULL) {
+		NSC_DEBUG_MSG(_T("Failed to load: ChangeWindowMessageFilter aparently we are not on Vista..."));
+		return true;
+	}
+	NSC_DEBUG_MSG(_T("Chaning window message filters..."));
+	return fnChangeWindowMessageFilter(message,what);
+}
+
+void test() {
+/* error 
+WTSQueryUserToken(dwSessionId, &hToken);
+DuplicateTokenEx(hTokenNew,MAXIMUM_ALLOWED,NULL,SecurityIdentification,TokenPrimary,&hTokenDup);
+*/
+/*
+	HANDLE hToken = NULL, hTokenDup = NULL;
+	HMODULE  hmod = LoadLibrary("kernel32.dll");
+	WTSGETACTIVECONSOLESESSIONID lpfnWTSGetActiveConsoleSessionId = (WTSGETACTIVECONSOLESESSIONID)GetProcAddress(hmod,"WTSGetActiveConsoleSessionId"); 
+	DWORD dwSessionId = lpfnWTSGetActiveConsoleSessionId();
+	WTSQueryUserToken(dwSessionId, &hToken);
+	//DuplicateTokenEx(hTokenNew,MAXIMUM_ALLOWED,NULL,SecurityIdentification,TokenPrimary,&hTokenDup);
+	//
+	WriteToLog("Calling lpfnCreateEnvironmentBlock");
+	ZeroMemory( &si, sizeof( STARTUPINFO ) );
+	si.cb = sizeof( STARTUPINFO );
+	si.lpDesktop = "winsta0\\default";
+
+
+	LPVOID  pEnv = NULL;
+	DWORD dwCreationFlag = NORMAL_PRIORITY_CLASS | CREATE_NEW_CONSOLE;
+	HMODULE hModule = LoadLibrary("Userenv.dll");
+	if(hModule )
+	{
+		LPFN_CreateEnvironmentBlock lpfnCreateEnvironmentBlock = (LPFN_CreateEnvironmentBlock)GetProcAddress( hModule, "CreateEnvironmentBlock" );
+		if( lpfnCreateEnvironmentBlock != NULL )
+		{
+			if(lpfnCreateEnvironmentBlock(&pEnv, hTokenDup, FALSE))
+			{
+				WriteToLog("CreateEnvironmentBlock Ok");
+				dwCreationFlag |= CREATE_UNICODE_ENVIRONMENT;    
+			}
+			else
+			{
+				pEnv = NULL;
+			}
+		}
+	}
+	//
+	ZeroMemory( &pi,sizeof(pi));
+
+	if ( !CreateProcessAsUser(
+		hTokenDup,
+		NULL,
+		( char * )pszCmd,  
+		NULL,
+		NULL,
+		FALSE,
+		dwCreationFlag,
+		pEnv,
+		NULL,
+		&si,
+		&pi
+		) )
+	{
+
+		goto RESTORE;
+	} 
+*/
+
+}
 
 void IconWidget_::createDialog(void) {
 	hDlgWnd = ::CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
@@ -45,6 +125,9 @@ void IconWidget_::createDialog(void) {
 	UINT UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
 	if (UDM_TASKBARCREATED == 0) {
 		NSC_LOG_ERROR_STD(_T("Failed to register 'TaskbarCreated': ") + error::lookup::last_error());
+	}
+	if (!ChangeWindowMessageFilter_(UDM_TASKBARCREATED, MSGFLT_ADD)) {
+		NSC_LOG_ERROR_STD(_T("Failed to cchange window filter: ") + error::lookup::last_error());
 	}
 
 	MSG Msg;
@@ -300,7 +383,7 @@ INT_PTR CALLBACK TrayIcon::DialogProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARA
 			DestroyMenu(hMenu);
 			switch (cmd) {
 			case ID_POPUP_STOPSERVICE:
-				NSCModuleHelper::StopService();
+				NSCModuleHelper::Exit();
 				break;
 			case ID_POPUP_INJECTCOMMAND:
 				//if (TrayIcon::defaultCommand.empty())

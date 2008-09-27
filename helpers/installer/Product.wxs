@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
+	<?if "$(var.SysTray.ConfigurationName)" = "Debug|Win32"?>
+		<?define PlatForm = "Win32" ?>
+		<?define Mode = "Debug" ?>
+	<?elseif "$(var.SysTray.ConfigurationName)" = "Debug|x64"?>
+		<?define PlatForm = "x64" ?>
+		<?define Mode = "Debug" ?>
+	<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|Win32"?>
+		<?define PlatForm = "Win32" ?>
+		<?define Mode = "Nightly" ?>
+	<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|x64"?>
+		<?define PlatForm = "x64" ?>
+		<?define Mode = "Nightly" ?>
+	<?else?>
+		<?define PlatForm = "Unknown: $(var.SysTray.ConfigurationName)" ?>
+	<?endif?>
+
+	<?if "$(var.PlatForm)" = "x64"?>
+		<?define PlatForm.x64 ?>
+		<?define Postfix.GUID = "DD5862EE637C" ?>
+	<?else?>
+		<?define Postfix.GUID = "DD5862EE637B" ?>
+		<?define PlatForm.Win32 ?>
+	<?endif?>
+	
+	<?ifdef var.PlatForm.Win32?>
+		<?define ProgramFiles = "ProgramFilesFolder" ?>
+		<?define Win64 = "no" ?>
+		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
+	<?else?>
+		<?define ProgramFiles = "ProgramFiles64Folder" ?>
+		<?define Win64 = "yes" ?>
+		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
+	<?endif?>
+
+	<?include ../../AutoBuild.wxs ?>
+	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
+	<?if $(var.Version.Build) = 0?>
+	<?define Version.Old.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Old.Revision).999" ?>
+	<?else?>
+	<?define Version.Old.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Old.Build)" ?>
+	<?endif?>
+
+
+	<Product Id="????????-????-????-????-????????????" Name="NSClient++ ($(var.PlatForm)) $(var.Version.String)" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC"
+					 UpgradeCode="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
+		
+		<Package Id="????????-????-????-????-????????????" Description="A simple windows monitor agent for (amongst others) nagios."
+						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes"/>
+
+		<Upgrade Id="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
+			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.Old.String)"/>
+			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="$(var.Version.String)"  OnlyDetect="yes"/>
+		</Upgrade>
+
+		<?ifdef var.PlatForm.Win32?>
+			<Condition Message="x64 bit version not supported (by installer) on Win32 bit platform (get Win32 bit version instead)">NOT VersionNT64</Condition>
+		<?else?>
+			<Condition Message="Win32 bit version not supported (by installer) on x64 bit platform (get x64 bit version instead)">VersionNT64</Condition>
+		<?endif?>
+		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high">
+		</Media>
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="$(var.ProgramFiles)">
+				<Directory Id="INSTALLLOCATION" Name="NSClient" LongName="NSClient++">
+						<Component Id="MainClient" Guid="F6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+							<File Id="NSClientEXE" Name="nsclient.exe" LongName="nsclient++.exe" DiskId="1" 
+										Source="$(var.Source)/nsclient++.exe" Vital="yes">
+								<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="NSCPTest"
+													LongName="NSClient++ ($(var.PlatForm), test)" WorkingDirectory="INSTALLDIR" Icon="nsclient.exe"
+													IconIndex="0" Arguments="/test" Description="Run NSClient++ in test mode"/>
+								<Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="NSCPStrt"
+													LongName="Start NSClient++ ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
+													IconIndex="0" Arguments="/start" Description="Start NSClient++ as a service"/>
+								<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="NSCPStop"
+													LongName="Stop NSClient++ ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
+													IconIndex="0" Arguments="/stop" Description="Stop NSClient++ as a service"/>
+							</File>
+							<File Id="NSClientTRAY" Name="nstray.exe" DiskId="1"
+										Source="$(var.Source)/nstray.exe" Vital="yes">
+								<Shortcut Id="StartmenuNSClientTray" Directory="ProgramMenuDir" Name="NSCPTray"
+													LongName="NSClient++ ($(var.PlatForm) system tray)" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
+													IconIndex="0" Description="Start systemtray"/>
+							</File>
+							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Source)/NSC.ini" Vital="yes"/>
+							<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="yes"/>
+							<File Id="Counters" Name="counters.def" LongName="counters.defs" DiskId="1" Source="$(var.Source)/counters.defs" Vital="yes"/>
+							<File Id="License" Name="license.txt" LongName="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="yes"/>
+						</Component>
+						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
+							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="NRPEListenerDLL" Name="NRPELsnr.dll" LongName="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEListener.dll" Vital="no" />
+								<File Id="NRPEClientDLL" Name="NRPEClnt.dll" LongName="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
+							</Component>
+							<Component Id="NSCListener" Guid="6DAF8BB9-9A56-48f5-B2C5-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="NSCListenerDLL" Name="NSCLsnr.dll" LongName="NSClientListener.dll" DiskId="1" Source="$(var.Source)/modules/NSClientListener.dll" Vital="no" />
+							</Component>
+							<Component Id="NSCA" Guid="8820A304-C596-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="NSCAAgentDLL" Name="NSCAAgnt.dll" LongName="NSCAAgent.dll" DiskId="1" Source="$(var.Source)/modules/NSCAAgent.dll" Vital="no" />
+							</Component>
+							<Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="ModCheckEventLog.dll" Name="EvntLg.dll" LongName="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
+								<File Id="ModCheckExternalScripts.dll" Name="ExtScr.dll" LongName="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
+								<File Id="ModCheckHelpers.dll" Name="Helpers.dll" LongName="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
+								<File Id="ModCheckSystem.dll" Name="System.dll" LongName="CheckSystem.dll" DiskId="1" Source="$(var.Source)/modules/CheckSystem.dll" Vital="no" />
+								<File Id="ModCheckWMI.dll" Name="WMI.dll" LongName="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
+								<File Id="ModFileLogger.dll" Name="Logger.dll" LongName="FileLogger.dll" DiskId="1" Source="$(var.Source)/modules/FileLogger.dll" Vital="no" />
+								<File Id="ModLUAScript.dll" Name="LUAScr.dll" LongName="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
+								<File Id="ModRemoteConfiguration.dll" Name="RmtCfg.dll" LongName="RemoteConfiguration.dll" DiskId="1" Source="$(var.Source)/modules/RemoteConfiguration.dll" Vital="no" />
+								<File Id="ModSysTray.dll" Name="SysTray.dll" LongName="SysTray.dll" DiskId="1" Source="$(var.Source)/modules/SysTray.dll" Vital="no" />
+								<File Id="ModCheckDisk.dll" Name="CheckDsk.dll" LongName="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
+								<File Id="ModCheckTaskSched.dll" Name="TaskSch.dll" LongName="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
+							</Component>
+						</Directory>
+				</Directory>
+			</Directory>
+			<Directory Id="ProgramMenuFolder" Name="PMenu" LongName="Programs">
+				<Directory Id="ProgramMenuDir" Name='NSClient' LongName="NSClient++" />
+			</Directory>
+		</Directory>
+		<Feature Id="ProductFeature" Title="NSClient++ $(var.PlatForm)" Description="Binaries for $(var.PlatForm)"
+						 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
+			<Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
+				<ComponentRef Id="MainClient" />
+			</Feature>
+			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
+				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
+					<ComponentRef Id="Plugins" />
+				</Feature>
+				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Listener Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="disallow">
+					<ComponentRef Id="NRPEListener" />
+				</Feature>
+				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Listener Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
+					<ComponentRef Id="NSCListener" />
+				</Feature>
+				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
+					<ComponentRef Id="NSCA" />
+				</Feature>
+			</Feature>
+		</Feature>
+
+		<InstallExecuteSequence>
+			<RemoveExistingProducts After='InstallInitialize'/>
+			<!--
+			<Custom Action='AlreadyUpdated' After='FindRelatedProducts'>PATCHFOUND</Custom>
+			-->
+			<!--Custom Action='LaunchFile' After='InstallFinalize'>NOT Installed</Custom-->
+			<Custom Action="install" After='InstallFinalize'>NOT REMOVE</Custom>
+			<Custom Action="uninstall" Before="RemoveFiles"/>
+		</InstallExecuteSequence>
+
+		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install gui' Return='check'/>
+		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall gui' Return='ignore'/>
+
+		<UIRef Id="WixUI_FeatureTree" />
+		<UIRef Id="WixUI_ErrorProgressText" />
+
+		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/NSClient++.exe" />
+		<Icon Id="nstray.exe" SourceFile="$(var.Source)/nstray.exe" />
+	</Product>
+</Wix>

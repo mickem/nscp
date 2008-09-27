@@ -29,7 +29,7 @@
 #include <MutexRW.h>
 #include <map>
 #include <com_helpers.hpp>
-
+#include <nsclient_session.hpp>
 
 /**
  * @ingroup NSClient++
@@ -56,7 +56,8 @@
  * @bug 
  *
  */
-class NSClientT {
+class NSClientT : public nsclient_session::session_handler_interface {
+
 public:
 	struct plugin_info_type {
 		std::wstring dll;
@@ -66,9 +67,32 @@ public:
 	};
 	typedef std::list<plugin_info_type> plugin_info_list;
 private:
+
+	class NSException {
+		std::wstring what_;
+	public:
+		NSException(std::wstring what) : what_(what){}
+		std::wstring what() {
+			return what_;
+		}
+	};
+	struct cached_log_entry {
+		cached_log_entry(int msgType_, std::wstring file_, int line_, std::wstring message_) 
+			: msgType(msgType_),
+			file(file_),
+			line(line_),
+			message(message_)
+		{}
+		int msgType;
+		std::wstring file;
+		int line;
+		std::wstring message;
+	};
+
 	typedef NSCPlugin* plugin_type;
 	typedef std::vector<plugin_type> pluginList;
 	typedef std::map<std::wstring,std::wstring> cmdMap;
+	typedef std::list<cached_log_entry> log_cache_type;
 	pluginList plugins_;
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
@@ -80,13 +104,17 @@ private:
 	cmdMap cmdDescriptions_;
 	typedef enum log_status {log_unknown, log_debug, log_nodebug };
 	log_status debug_;
-	bool boot_;
 	com_helper::initialize_com com_helper_;
+	std::auto_ptr<nsclient_session::shared_client_session> shared_client_;
+	std::auto_ptr<nsclient_session::shared_server_session> shared_server_;
+	log_cache_type log_cache_;
+	bool plugins_loaded_;
+	bool enable_shared_session_;
 
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), boot_(true) {}
+	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false) {}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
 		if (debug)
@@ -94,15 +122,16 @@ public:
 		else
 			debug_ = log_nodebug;
 	}
-	void setBoot(bool boot = true) {
-		boot_ = boot;
-	}
 
 	// Service helper functions
 	bool InitiateService();
 	void TerminateService(void);
+	bool initCore(bool boot);
+	bool exitCore(bool boot);
 	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);
+	static DWORD WINAPI service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext);
+	void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
 
 	// Member functions
 	std::wstring getBasePath(void);
@@ -116,23 +145,40 @@ public:
 	void addPlugins(const std::list<std::wstring> plugins);
 	plugin_type loadPlugin(const std::wstring plugin);
 	void loadPlugins(void);
-	void unloadPlugins(void);
+	void unloadPlugins(bool unloadLoggers);
 	std::wstring describeCommand(std::wstring command);
 	std::list<std::wstring> getAllCommandNames();
 	void registerCommand(std::wstring cmd, std::wstring desc);
 	unsigned int getBufferLength();
 	void HandleSettingsCLI(TCHAR* arg, int argc, TCHAR* argv[]);
+	void startTrayIcons();
+	void startTrayIcon(DWORD dwSessionId);
 
 	bool logDebug();
 	void listPlugins();
 	plugin_info_list get_all_plugins();
+
+	// Shared session interface:
+	void session_error(std::wstring file, unsigned int line, std::wstring msg);
+	void session_info(std::wstring file, unsigned int line, std::wstring msg);
+	void session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) {
+		reportMessage(msgType, file, line, message);
+	}
+	int session_inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
+		return inject(command, arguments, splitter, escape, msg, perf);
+	}
+	std::pair<std::wstring,std::wstring> session_get_name() {
+		return std::pair<std::wstring,std::wstring>(SZAPPNAME,SZVERSION);
+	}
+
+
 
 private:
 	plugin_type addPlugin(plugin_type plugin);
 	void load_all_plugins(int mode);
 };
 
-typedef NTService<NSClientT> NSClient;
+typedef service_helper::NTService<NSClientT> NSClient;
 
 
 std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);

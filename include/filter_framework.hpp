@@ -265,6 +265,8 @@ namespace filters {
 			} else if (t.first == _T("regexp")) {
 				throw parse_exception(_T("Regular expression support not enabled!") + value);
 #endif
+			} else if (t.first.length() > 1 && t.first[0] == L'=') {
+				exact = t.first.substr(1);
 			} else {
 				exact = t.first;
 			}

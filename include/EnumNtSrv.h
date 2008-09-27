@@ -39,14 +39,14 @@ class NTServiceException {
 private:
 	std::wstring name_;
 	std::wstring msg_;
-	unsigned int error_;
 public:
-	NTServiceException(std::wstring name,std::wstring msg,unsigned int error) : name_(name), error_(error), msg_(msg) {};
+	NTServiceException(std::wstring name,std::wstring msg) : name_(name), msg_(msg) {};
 
 	std::wstring getError() {
-		return _T("Service: ") + name_ + _T(" caused: ") + msg_ + _T("(") + strEx::itos(error_) + _T(")");
+		return _T("Service: '") + name_ + _T("' caused: ") + msg_;
 	}
 };
+#define MY_SERVICE_NOT_FOUND                        0xffff0000
 
 class TNtServiceInfo {
 public:

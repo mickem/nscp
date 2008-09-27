@@ -35,7 +35,7 @@ std::wstring WMIQuery::sanitize_string(LPTSTR in) {
 	return in;
 }
 
-WMIQuery::result_type WMIQuery::execute(std::wstring query)
+WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query)
 {
 	result_type ret;
 
@@ -45,9 +45,9 @@ WMIQuery::result_type WMIQuery::execute(std::wstring query)
 		throw WMIException(_T("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!"), hr);
 	}
 
-	BSTR bstrNamespace = (_T("root\\cimv2"));
+	CComBSTR strNamespace(ns.c_str());
 	CComPtr< IWbemServices > service;
-	hr = locator->ConnectServer( bstrNamespace, NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL, &service );
+	hr = locator->ConnectServer( strNamespace, NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL, &service );
 	if (FAILED(hr)) {
 		throw WMIException(_T("ConnectServer failed!"), hr);
 	}
@@ -57,7 +57,7 @@ WMIQuery::result_type WMIQuery::execute(std::wstring query)
 	CComPtr< IEnumWbemClassObject > enumerator;
 	hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator );
 	if (FAILED(hr)) {
-		throw WMIException(_T("ExecQuery failed:") + query + _T(" (reason is: ") + ComError::getComError() + _T(")"), hr);
+		throw WMIException(_T("ExecQuery of '") + query + _T("' failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
 	}
 
 	CComPtr< IWbemClassObject > row = NULL;

@@ -55,7 +55,8 @@ arrayBuffer::arrayBuffer arrayBuffer::list2arrayBuffer(const arrayList lst, unsi
 		arrayBuffer[i] = new TCHAR[alen+2];
 		wcsncpy_s(arrayBuffer[i], alen+2, (*it).c_str(), alen+1);
 	}
-	assert(i == argLen);
+	if (i != argLen)
+		throw ArrayBufferException(_T("Invalid length!"));
 	return arrayBuffer;
 }
 /**
@@ -106,7 +107,8 @@ std::wstring arrayBuffer::arrayBuffer2string(arrayBuffer::arrayBuffer argument, 
 * @return The arrayBuffer
 */
 arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const TCHAR* buffer, TCHAR splitChar, unsigned int &argLen) {
-	assert(buffer);
+	if (!buffer)
+		throw ArrayBufferException(_T("Invalid buffer specified!"));
 	argLen = 0;
 	const TCHAR *p = buffer;
 	if (!p[0]) {
@@ -134,7 +136,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const TCHAR* buffer, TCH
 
 void arrayBuffer::set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument) {
 	if (position >= argLen)
-		assert(false);
+		throw ArrayBufferException(_T("position is outside the buffer"));
 	delete [] arrayBuffer[position];
 	size_t len = argument.length();
 	arrayBuffer[position] = new TCHAR[len+2];
@@ -167,10 +169,15 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		}
 		if (p2 == std::wstring::npos)
 			p2 = inBuf.size();
+		if (p1 == p2 && p1 != inBuf.size()) {
+			p1++;
+			continue;
+		}
 		// p1 = start of "this token"
 		// p2 = end of "this token" (next split char)
 
-		assert(p2>p1);
+		if (p2<=p1)
+			throw ArrayBufferException(_T("Invalid position"));
 		std::wstring token = inBuf.substr(p1,p2-p1);
 		if (escape && token[0] == '\"')
 			token = token.substr(1);
@@ -237,7 +244,6 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		if (p == std::wstring::npos)
 			p = inBuf.size();
 		//		TCHAR *q = strchr(p, (i<argLen-1)?splitChar:0);
-		assert(p>l);
 		unsigned int len = static_cast<unsigned int>(p-l);
 		arrayBuffer[i] = new TCHAR[len+1];
 		wcsncpy_s(arrayBuffer[i], len+1, inBuf.substr(l,p).c_str(), len);

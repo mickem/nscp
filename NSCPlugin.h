@@ -57,8 +57,21 @@ public:
 	 * @param file DLL filename (for which the exception is thrown)
 	 * @param error An error message (human readable format)
 	 */
-	NSPluginException(std::wstring file, std::wstring error) : file_(file), error_(error) {
+	NSPluginException(std::wstring file, std::wstring error) : error_(error) {
+		file_ = getModule(file);
 	}
+	std::wstring getModule(std::wstring file) {
+		if (file.empty())
+			return _T("");
+		std::wstring ret = file;
+		std::wstring::size_type pos = ret.find_last_of(_T("\\"));
+		if (pos != std::wstring::npos && ++pos < ret.length()) {
+			ret = ret.substr(pos);
+		}
+		return ret;
+	}
+
+
 };
 
 /**
@@ -107,6 +120,8 @@ private:
 	typedef INT (*lpHandleMessage)(int,const TCHAR*,const int,const TCHAR*);
 	typedef INT (*lpUnLoadModule)();
 	typedef INT (*lpGetConfigurationMeta)(int, TCHAR*);
+	typedef void (*lpShowTray)();
+	typedef void (*lpHideTray)();
 
 
 	lpModuleHelperInit fModuleHelperInit;
@@ -121,6 +136,8 @@ private:
 	lpUnLoadModule fUnLoadModule;
 	lpGetConfigurationMeta fGetConfigurationMeta;
 	lpCommandLineExec fCommandLineExec;
+	lpShowTray fShowTray;
+	lpHideTray fHideTray;
 
 public:
 	NSCPlugin(const std::wstring file);
@@ -164,11 +181,15 @@ public:
 		}
 		return ret;
 	}
-
-private:
+	bool getLastIsMsgPlugin() {
+		return lastIsMsgPlugin_;
+	}
 	bool isLoaded() const {
 		return bLoaded_;
 	}
+
+private:
+	bool lastIsMsgPlugin_;
 	bool getName_(TCHAR* buf, unsigned int buflen);
 	bool getDescription_(TCHAR* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);

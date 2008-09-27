@@ -23,7 +23,6 @@
 #include <tchar.h>
 #include <string>
 #include <list>
-#include <assert.h>
 #include <iostream>
 /**
  * @ingroup NSClient++
@@ -50,6 +49,10 @@
  *
  */
 namespace arrayBuffer {
+	class ArrayBufferException {
+	public:
+		ArrayBufferException(std::wstring error) {}
+	};
 	typedef TCHAR* arrayBufferItem;
 	typedef arrayBufferItem* arrayBuffer;
 	typedef std::list<std::wstring> arrayList;

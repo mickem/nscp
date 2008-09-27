@@ -65,8 +65,8 @@ namespace checkHolders {
 
 	typedef enum {showLong, showShort, showProblems, showUnknown} showType;
 	template <class TContents>
-	struct CheckConatiner {
-		typedef CheckConatiner<TContents> TThisType;
+	struct CheckContainer {
+		typedef CheckContainer<TContents> TThisType;
 		TContents warn;
 		TContents crit;
 		std::wstring data;
@@ -76,15 +76,15 @@ namespace checkHolders {
 		bool perfData;
 
 
-		CheckConatiner() : show(showUnknown), perfData(true)
+		CheckContainer() : show(showUnknown), perfData(true)
 		{}
-		CheckConatiner(std::wstring data_, TContents warn_, TContents crit_) 
+		CheckContainer(std::wstring data_, TContents warn_, TContents crit_) 
 			: data(data_), warn(warn_), crit(crit_), show(showUnknown) 
 		{}
-		CheckConatiner(std::wstring name_, std::wstring alias_, TContents warn_, TContents crit_) 
+		CheckContainer(std::wstring name_, std::wstring alias_, TContents warn_, TContents crit_) 
 			: data(data_), alias(alias_), warn(warn_), crit(crit_), show(showUnknown) 
 		{}
-		CheckConatiner(const TThisType &other) 
+		CheckContainer(const TThisType &other) 
 			: data(other.data), alias(other.alias), warn(other.warn), crit(other.crit), show(other.show) 
 		{}
 		std::wstring getAlias() {
@@ -277,7 +277,7 @@ namespace checkHolders {
 			return _T("");
 		}
 		static std::wstring print_perf(double value, std::wstring unit) {
-			return strEx::itos(value);
+			return strEx::itos_non_sci(value);
 		}
 		static std::wstring print(double value) {
 			return strEx::itos(value);
@@ -297,9 +297,10 @@ namespace checkHolders {
 	};
 
 	typedef unsigned long state_type;
-	const int state_none	= 0x00;
-	const int state_started = 0x01;
-	const int state_stopped = 0x02;
+	const int state_none	  = 0x00;
+	const int state_started   = 0x01;
+	const int state_stopped   = 0x02;
+	const int state_not_found = 0x06;
 
 	class state_handler {
 	public:
@@ -313,6 +314,8 @@ namespace checkHolders {
 					ret |= state_stopped;
 				else if (*it == _T("ignored"))
 					ret |= state_none;
+				else if (*it == _T("not found"))
+					ret |= state_not_found;
 			}
 			return ret;
 		}
@@ -323,6 +326,8 @@ namespace checkHolders {
 				return _T("stopped");
 			else if (value == state_none)
 				return _T("none");
+			else if (value == state_not_found)
+				return _T("not found");
 			return _T("unknown");
 		}
 		static std::wstring print_unformated(state_type value) {
@@ -509,6 +514,11 @@ namespace checkHolders {
 					return 
 						MAKE_PERFDATA(alias, THandler::print_unformated(value.getLowerPercentage()), _T("%"), 
 						THandler::print_unformated(warn), THandler::print_unformated(crit));
+			} else if (type_ == value_upper) {
+				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
+				return 
+					MAKE_PERFDATA(alias, THandler::print_perf((value.value), unit), unit, 
+					THandler::print_perf(value.total-warn, unit), THandler::print_perf(value.total-crit, unit));
 			} else {
 				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
 				return 
@@ -676,8 +686,6 @@ namespace checkHolders {
 			if ((state.hasBounds())&&(!state.check(value))) {
 				message = lable + _T(": ") + formatState(TStateHolder::toStringLong(value), type);
 				return true;
-			} else {
-				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
 		}
@@ -750,4 +758,5 @@ namespace checkHolders {
 	typedef MaxMinStateBounds<MaxMinStateValueType<int, state_type>, NumericBounds<int, int_handler>, StateBounds<state_type, state_handler> > MaxMinStateBoundsStateBoundsInteger;
 	typedef SimpleStateBounds<StateBounds<state_type, state_handler> > SimpleBoundsStateBoundsInteger;
 }
+
 

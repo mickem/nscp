@@ -57,5 +57,19 @@ namespace systemInfo {
 	inline bool isAboveW2K(const OSVERSIONINFO &osVersion) {
 		return ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT)&&(osVersion.dwMajorVersion>4));
 	}
+	inline bool isAboveXP(const OSVERSIONINFO &osVersion) {
+		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion==5)&&(osVersion.dwMinorVersion>=1))
+			return true;
+		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion>5))
+			return true;
+		return false;
+	}
+	inline bool isBelowXP(const OSVERSIONINFO &osVersion) {
+		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion<4))
+			return true;
+		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion==4)&&(osVersion.dwMinorVersion<1))
+			return true;
+		return false;
+	}
 
 }

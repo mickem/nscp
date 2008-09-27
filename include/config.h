@@ -22,11 +22,13 @@
 
 #include "../AutoBuild.h"
 #include <tchar.h> 
+#include <string>
 // Application Name
 #define SZAPPNAME _T("NSClient++")
 
 // Version
-//#define SZBETATAG _T(" ") // _T(" RC ")  _T(" BETA ") 
+//#define SZBETATAG _T(" ")
+//#define SZBETATAG _T(" RC ")  
 #define SZBETATAG _T(" BETA ") 
 #define SZVERSION STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
@@ -73,6 +75,8 @@
 	const std::wstring name ## _PATH = _T(path); \
 	const std::wstring name = _T(key); \
 	const std::wstring name ## _DEFAULT = _T(value);
+#define NSCLIENT_SETTINGS_SYSTRAY_EXE _T("systray_exe")
+#define NSCLIENT_SETTINGS_SYSTRAY_EXE_DEFAULT _T("nstray.exe")
 
 #define DEFINE_PATH(name, path) \
 	const std::wstring name ## _PATH = _T(path);
@@ -239,6 +243,16 @@ namespace settings {
 
 		DEFINE_SETTING_I(PAYLOAD_LEN, DEFAULT_SECTION, "payload length", 4096);
 		DESCRIBE_SETTING(PAYLOAD_LEN, "PAYLOAD LENGTH", "...");
+
+		DEFINE_SETTING_B(SHARED_SESSION, DEFAULT_SECTION, "shared session", true);
+		DESCRIBE_SETTING(SHARED_SESSION, "SHARED SESSION", "TODO");
+
+	}
+
+	namespace shared_session {
+		DEFINE_SETTING_S(SYSTRAY_EXE, DEFAULT_SECTION, "tray", "");
+		DESCRIBE_SETTING(SYSTRAY_EXE, "SYSTEM TRAY EXE", "TODO");
+		
 	}
 
 	namespace protocol_def {
@@ -264,8 +278,14 @@ namespace settings {
 		DEFINE_SETTING_B(DEBUG_KEY, EVENT_LOG_SECTION, "debug", false);
 		DESCRIBE_SETTING_ADVANCED(DEBUG_KEY, "DEBUG", "Log all \"hits\" and \"misses\" on the eventlog filter chain, useful for debugging eventlog checks but very very very noisy so you don't want to accidentally set this on a real machine.");
 
+		DEFINE_SETTING_B(LOOKUP_NAMES, EVENT_LOG_SECTION, "lookup_names", false);
+		DESCRIBE_SETTING_ADVANCED(LOOKUP_NAMES, "TODO", "TODO");
+
 		DEFINE_SETTING_S(SYNTAX, EVENT_LOG_SECTION, "syntax", "");
 		DESCRIBE_SETTING(SYNTAX, "SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).");
+
+		DEFINE_SETTING_I(BUFFER_SIZE, EVENT_LOG_SECTION, "buffer_size", 4096);
+		DESCRIBE_SETTING(BUFFER_SIZE, "BUFFER SIZE", "The size of the bugfer to use when getting messages this affects the speed and maximum size of messages you can recieve.");
 	}
 
 	namespace external_scripts {
@@ -406,6 +426,9 @@ namespace settings {
 
 		DEFINE_SETTING_S(FILENAME, LOG_SECTION, "file", "nsclient.log");
 		DESCRIBE_SETTING_ADVANCED(FILENAME, "SYNTAX", "The file to write log data to. If no directory is used this is relative to the NSClient++ binary.");
+
+		DEFINE_SETTING_S(ROOT, LOG_SECTION, "root", "auto");
+		DESCRIBE_SETTING_ADVANCED(ROOT, "TODO", "TODO");
 
 		DEFINE_SETTING_S(DATEMASK, LOG_SECTION, "date format", "%Y-%m-%d %H:%M:%S");
 		DESCRIBE_SETTING_ADVANCED(DATEMASK, "DATEMASK", "The date format used when logging to a file.");

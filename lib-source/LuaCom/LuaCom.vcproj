@@ -116,6 +116,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories="&quot;..\LUA\src\lua-5.1.2\src&quot;;.\luacom\include;.\luacom\src\library"
+				PreprocessorDefinitions="LUA5;LUACOM_DLL=\&quot;luacom.dll\&quot;;_CRT_SECURE_NO_WARNINGS"
 				RuntimeLibrary="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"

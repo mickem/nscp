@@ -90,13 +90,13 @@ namespace process {
 		BOOL processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, root_path.c_str(), &si, &pi);
 		delete [] cmd;
 		if (processOK) {
+			DWORD dwAvail = 0;
 			std::string str;
 			HANDLE handles[2];
 			handles[0] = pi.hProcess;
 			handles[1] = hWaitEvt;
 			char *buffer = createBuffer();
 			for (unsigned int i=0;i<timeout;i++) {
-				DWORD dwAvail = 0;
 				if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))
 					break;
 				if (dwAvail > 0)
@@ -109,7 +109,11 @@ namespace process {
 			CloseHandle(hChildInW);
 			CloseHandle(hChildOutW);
 
-			str += readFromFile(buffer, hChildOutR);
+			dwAvail = 0;
+			if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))
+				NSC_LOG_ERROR_STD(_T("Failed to peek buffer: ") + error::lookup::last_error());
+			if (dwAvail > 0)
+				str += readFromFile(buffer, hChildOutR);
 			msg = strEx::string_to_wstring(str);
 			destroyBuffer(buffer);
 
@@ -143,7 +147,13 @@ namespace process {
 			CloseHandle(pi.hProcess);
 			CloseHandle(hChildOutR);
 		} else {
-			msg = _T("NRPE_NT failed to create process (") + command + _T("): ") + error::lookup::last_error();
+			DWORD error = GetLastError();
+			if (error == ERROR_BAD_EXE_FORMAT) {
+				NSC_LOG_ERROR_STD(command + _T(" is not an .exe file or a valid image (if you run a script you usually need to prefix the command with the interpreter like so: \"command=c:\\perl.exe <script>\""));
+				msg = _T("ExternalCommands: failed to create process (") + command + _T("): it is not an exe file (check NSC.log for more info) - ") + error::lookup::last_error(error);
+			} else {
+				msg = _T("ExternalCommands: failed to create process (") + command + _T("): ") + error::lookup::last_error(error);
+			}
 			result = NSCAPI::returnUNKNOWN;
 			CloseHandle(hChildInR);
 			CloseHandle(hChildInW);

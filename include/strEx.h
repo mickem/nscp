@@ -34,6 +34,14 @@
 #endif
 
 namespace strEx {
+	class string_exception : public std::exception {
+		std::wstring _what;
+	public:
+		string_exception(std::wstring what) : _what(what) {}
+		std::wstring what() {
+			return _what;
+		}
+	};
 	namespace s {
 		inline std::string itos(float i) {
 			std::stringstream ss;
@@ -59,8 +67,10 @@ namespace strEx {
 	}
 
 	inline std::string wstring_to_string( const wchar_t* pStr, int len) {
-		//ASSERT_PTR( pStr ) ; 
-		//ASSERT( len >= 0 || len == -1 , _T("Invalid string length: ") << len ) ; 
+		if (pStr == NULL)
+			throw string_exception(_T("Invalid pointer in wstring_to_string"));
+		if (len < 0 && len != -1) 
+			throw string_exception(_T("Invalid string length in wstring_to_string"));
 
 		// figure out how many narrow characters we are going to get 
 		int nChars = WideCharToMultiByte( CP_ACP , 0 , pStr , len , NULL , 0 , NULL , NULL ) ; 
@@ -83,8 +93,10 @@ namespace strEx {
 	}
 
 	inline std::wstring string_to_wstring( const char* pStr , int len ) {
-		//ASSERT_PTR( pStr ) ; 
-		//ASSERT( len >= 0 || len == -1 , _T("Invalid string length: ") << len ) ; 
+		if (pStr == NULL)
+			throw string_exception(_T("Invalid pointer in wstring_to_string"));
+		if (len < 0 && len != -1) 
+			throw string_exception(_T("Invalid string length in wstring_to_string"));
 
 		// figure out how many wide characters we are going to get 
 		int nChars = MultiByteToWideChar( CP_ACP , 0 , pStr , len , NULL , 0 ) ; 
@@ -200,6 +212,14 @@ namespace strEx {
 			pos = string.find(replace, pos+1);
 		}
 	}
+	inline std::wstring ctos(TCHAR c) {
+		return std::wstring(1, c);
+	}
+	inline TCHAR stoc(std::wstring str) {
+		if (str.length() == 0)
+			return L' ';
+		return str[0];
+	}
 	inline std::wstring itos(unsigned int i) {
 		std::wstringstream ss;
 		ss << i;
@@ -229,6 +249,19 @@ namespace strEx {
 		std::wstringstream ss;
 		ss << i;
 		return ss.str();
+	}
+	inline std::wstring itos_non_sci(double i) {
+		std::wstringstream ss;
+		if (i < 10)
+			ss.precision(20);
+		ss << std::noshowpoint << std::fixed << i;
+		std::wstring s = ss.str();
+		std::wstring::size_type pos = s.find_last_not_of('0');
+		if (pos == std::wstring::npos)
+			return s;
+		if (s[pos] != '.')
+			pos++;
+		return s.substr(0, pos);
 	}
 	inline std::wstring itos(float i) {
 		std::wstringstream ss;

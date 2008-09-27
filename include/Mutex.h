@@ -24,6 +24,14 @@
 #include "strEx.h"
 #include <windows.h>
 #include <iostream>
+#include <error.hpp>
+
+class mutex_exception {
+	std::wstring what_;
+public:
+	mutex_exception(std::wstring what) : what_(what) {}
+	std::wstring what() { return what_; }
+};
 
 /**
  * @ingroup NSClient++
@@ -49,20 +57,25 @@
  *
  */
 class MutexHandler {
+public:
 private:
 	HANDLE hMutex;
+	DWORD dwWaitResult;
+	bool bCreated;
 public:
 	/**
 	 * Default c-tor.
 	 * Creates an unnamed mutex.
 	 */
-	MutexHandler() : hMutex(NULL) {
-		hMutex = CreateMutex(NULL, FALSE, NULL);
+	MutexHandler(std::wstring name = _T("")) : hMutex(NULL), dwWaitResult(0), bCreated(false) {
+		//std::wcout << _T("Creating mutex: ") << name << std::endl;
+		hMutex = CreateMutex(NULL, FALSE, name.empty()?NULL:name.c_str());
 		if (hMutex == NULL && GetLastError() == ERROR_ALREADY_EXISTS )
-			hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, NULL);
-		if (hMutex == NULL) {
-			std::wcout << _T("*** *** *** Error in mutex creation: ") << GetLastError()	<< std::endl;
-		}
+			hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, name.empty()?NULL:name.c_str());
+		else 
+			bCreated = true;
+		if (hMutex == NULL)
+			throw mutex_exception(_T("Failed to create mutex: ") + error::lookup::last_error());
 	}
 	/**
 	 * Default d-tor.
@@ -73,12 +86,57 @@ public:
 			CloseHandle(hMutex);
 		hMutex = NULL;
 	}
+	void close() {
+		if (hMutex)
+			CloseHandle(hMutex);
+		hMutex = NULL;
+	}
+	bool mutexWasCreated() {
+		return bCreated;
+	}
 	/**
 	 * HANDLe cast operator to retrieve the handle from the enclosed mutex object.
 	 * @return a handle to the mutex object.
 	 */
 	operator HANDLE () const {
 		return hMutex;
+	}
+	/**
+	* Release the mutex
+	*/
+	void releaseLock() {
+		if (hMutex == NULL)
+			throw mutex_exception(_T("Failed to release mutex lock (mutex handle is null)"));
+		if (!ReleaseMutex(hMutex))
+			throw mutex_exception(_T("Failed to relase the mutex: ") + error::lookup::last_error());
+	}
+	/**
+	* Waits for the mutex object.
+	* @timeout The timeout before abandoning wait
+	*/
+	bool accuireLock(DWORD timeout = 5000L) {
+		if (hMutex == NULL)
+			throw mutex_exception(_T("Failed to get mutex lock (mutex handle is null)"));
+		dwWaitResult = WaitForSingleObject(hMutex, timeout);
+		switch (dwWaitResult) {
+			// The thread got mutex ownership.
+		case WAIT_OBJECT_0:
+			return true;
+		case WAIT_TIMEOUT: 
+			return false;
+		case WAIT_ABANDONED: 
+			return true;
+		default:
+			throw mutex_exception(_T("Unknown returncode from the mutex: ") + strEx::itos(dwWaitResult));
+			
+		}
+	}
+	/**
+	* Get the result of the wait operation.
+	* @return Result of the wait operation
+	*/
+	DWORD getWaitResult() const {
+		return dwWaitResult;
 	}
 };
 
@@ -124,9 +182,11 @@ public:
 	 */
 	MutexLock(HANDLE hMutex, DWORD timeout = 5000L) : bHasMutex(false), hMutex_(hMutex) {
 		if (hMutex_ == NULL) {
-			std::wcout << _T("*** *** *** Error in mutex lock: ") << std::endl;
+			throw mutex_exception(_T("Failed to get mutex lock (mutex handle is null)"));
+			/*
 			bHasMutex = false;
 			return;
+			*/
 		}
 		dwWaitResult = WaitForSingleObject(hMutex_, timeout);
 		switch (dwWaitResult) {
@@ -134,10 +194,10 @@ public:
         case WAIT_OBJECT_0:
 			bHasMutex = true;
 			break;
-        case WAIT_TIMEOUT: 
+        case WAIT_TIMEOUT:
 			bHasMutex = false;
 			break;
-        case WAIT_ABANDONED: 
+        case WAIT_ABANDONED:
 			bHasMutex = false;
 			break;
 		}
@@ -194,9 +254,12 @@ public:
 	*/
 	void lock(DWORD timeout = 5000L) {
 		if (hMutex_ == NULL) {
-			std::wcout << _T("*** *** *** Error in mutex lock: ") << std::endl;
+			throw mutex_exception(_T("Failed to get mutex lock (mutex handle is null)"));
+			/*
+			std::wcout << _T("Error in mutex lock: ") << std::endl;
 			bHasMutex = false;
 			return;
+			*/
 		}
 		dwWaitResult = WaitForSingleObject(hMutex_, timeout);
 		switch (dwWaitResult) {

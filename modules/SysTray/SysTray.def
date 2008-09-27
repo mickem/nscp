@@ -12,3 +12,5 @@ EXPORTS
 	NSUnloadModule
 	NSGetModuleDescription
 	NSCommandLineExec
+	ShowIcon
+	HideIcon

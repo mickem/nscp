@@ -27,6 +27,8 @@
 ;CheckExternalScripts.dll
 ; Check other hosts through NRPE extreme beta and probably a bit dangerous! :)
 ;NRPEClient.dll
+; Extreamly early beta of a task-schedule checker
+;CheckTaskSched.dll
 
 
 
@@ -51,6 +53,13 @@
 ;  Use the INI file as opposed to the registry if this is 0 and the use_reg in the registry is set to 1 
 ;  the registry will be used instead.
 use_file=1
+;
+; # USE SHARED MEMORY CHANNELS
+;  This is the "new" way for using the system tray based on an IPC framework on top shared memmory channels and events.
+;  It is brand new and (probably has bugs) so dont enable this unless for testing!
+;  If set to 1 shared channels will be created and system tray icons created and such and such...
+;shared_session=0
+
 
 [log]
 ;# LOG DEBUG
@@ -59,11 +68,17 @@ use_file=1
 ;
 ;# LOG FILE
 ;  The file to print log statements to
-;file=NSC.log
+;file=nsclient.log
 ;
 ;# LOG DATE MASK
 ;  The format to for the date/time part of the log entry written to file.
 ;date_mask=%Y-%m-%d %H:%M:%S
+;
+;# LOG ROOT FOLDER
+;  The root folder to use for logging.
+;  exe = the folder where the executable is located
+;  local-app-data = local application data (probably a better choice then the old default)
+;root_folder=exe
 
 
 [NSClient]
@@ -169,12 +184,15 @@ use_file=1
 ;check_es_ok=scripts\ok.bat
 ;check_es_nok=scripts\nok.bat
 ;check_vbs_sample=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
+;check_powershell_warn=cmd /c echo scripts\powershell.ps1 | powershell.exe -command -
 
 [External Alias]
 ;alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
 ;alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
 ;alias_service=checkServiceState CheckAll
 ;alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
+;alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+
 
 
 
@@ -283,3 +301,7 @@ use_file=1
 [NRPE Client Handlers]
 check_other=-H 192.168.0.1 -p 5666 -c remote_command -a arguments
 
+;# LUA SCRIPT SECTION
+;  A list of all Lua scripts to load.
+;[LUA Scripts]
+;scripts\test.lua

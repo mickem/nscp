@@ -273,7 +273,13 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 			sTarget += s.substr(pStart,pEnd-pStart);
 			//p++;
 		}
-		return NSCModuleHelper::InjectSplitAndCommand(t.first, sTarget, '!', message, perf);
+		try {
+			return NSCModuleHelper::InjectSplitAndCommand(t.first, sTarget, '!', message, perf);
+		} catch (NSCModuleHelper::NSCMHExcpetion e) {
+			NSC_LOG_ERROR_STD(_T("Failed to inject command (") + command.c_str() + _T("): ") + e.msg_);
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("Failed to inject command (") + command.c_str() + _T("): Unknown error REPORT THIS"));
+		}
 	} else if (cd.type == script) {
 		int result = process::executeProcess(root_, args, message, perf, timeout);
 		if (!NSCHelper::isNagiosReturnCode(result)) {
@@ -294,7 +300,7 @@ NSCAPI::nagiosReturn NRPEListener::handleCommand(const strEx::blindstr command, 
 		NSC_LOG_ERROR_STD(_T("Unknown script type: ") + command.c_str());
 		return NSCAPI::critical;
 	}
-
+	return NSCAPI::returnIgnored;
 }
 
 void NRPEListener::onClose()

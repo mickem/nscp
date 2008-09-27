@@ -170,6 +170,38 @@ namespace XAutoBuild
 			return true;
 		}
 
+        /// <summary>
+        /// WriteVersion() writes AutoBuild.h based on information from
+        /// this class.
+        /// </summary>
+        /// <param name="path">fully qualified path to AutoBuild.h</param>
+        /// <returns>true = success</returns>
+        public bool WriteWixVersion(string path)
+        {
+
+            StreamWriter xabfile = null;
+
+            try
+            {
+                xabfile = new StreamWriter(path);
+            }
+            catch
+            {
+                Console.WriteLine("XAutoBuild: Error opening XAutoBuild file {0}.", path);
+                return false;
+            }
+            xabfile.WriteLine("<Include>");
+            xabfile.WriteLine("<?define Version.Major = \"{0}\" ?>", _filever[0]);
+            xabfile.WriteLine("<?define Version.Minor = \"{0}\" ?>", _filever[1]);
+            xabfile.WriteLine("<?define Version.Revision = \"{0}\" ?>", _filever[2]);
+            xabfile.WriteLine("<?define Version.Build = \"{0}\" ?>", _filever[3]);
+            xabfile.WriteLine("<?define Version.Old.Revision = \"{0}\" ?>", (_filever[2]-1));
+            xabfile.WriteLine("<?define Version.Old.Build = \"{0}\" ?>", (_filever[3]-1));
+            xabfile.WriteLine("</Include>");
+            xabfile.Close();
+            return true;
+        }
+
 		/// <summary>
 		/// AutoIncrement (readonly) returns the _autoincrement flag.
 		/// </summary>
@@ -197,7 +229,8 @@ namespace XAutoBuild
 
 	class Program
 	{
-		private const string FILE_NAME = "AutoBuild.h";
+        private const string FILE_NAME = "AutoBuild.h";
+        private const string WIX_FILE_NAME = "AutoBuild.wxs";
 
 		static void Usage()
 		{
@@ -267,6 +300,7 @@ namespace XAutoBuild
 
 
 			string infile = path + Path.DirectorySeparatorChar + FILE_NAME;
+            string wixfile = path + Path.DirectorySeparatorChar + WIX_FILE_NAME;
 
 			if (verbose)
 				Console.WriteLine("XAutoBuild: XAutoBuild file is {0}", infile);
@@ -304,7 +338,11 @@ namespace XAutoBuild
 				{
 					return 1;
 				}
-			}
+                if (!ver.WriteWixVersion(wixfile))
+                {
+                    return 1;
+                }
+            }
 
 			// at this point input file does exist - now read values
 
@@ -324,7 +362,11 @@ namespace XAutoBuild
 				{
 					return 1;
 				}
-			}
+                if (!ver.WriteWixVersion(wixfile))
+                {
+                    return 1;
+                }
+            }
 			else
 			{
 				if (verbose)

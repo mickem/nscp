@@ -29,7 +29,7 @@ PDHCollector::PDHCollector() : hStopEvent_(NULL) {
 	checkIntervall_ = SETTINGS_GET_INT(check_system::INTERVALL);
 	std::wstring s = SETTINGS_GET_STRING(check_system::BUFFER_SIZE);
 	unsigned int i = strEx::stoui_as_time(s, checkIntervall_*100);
-	cpu.resize(i/(checkIntervall_*100));
+	cpu.resize(i/(checkIntervall_*100)+10);
 }
 
 PDHCollector::~PDHCollector() 

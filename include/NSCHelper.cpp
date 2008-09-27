@@ -20,7 +20,6 @@
 ***************************************************************************/
 
 #include <NSCHelper.h>
-#include <assert.h>
 #include <msvc_wrappers.h>
 #include <config.h>
 #include <strEx.h>
@@ -118,6 +117,21 @@ std::wstring NSCHelper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 	else
 		return _T("BAD_CODE");
 }
+/**
+* Translate a string into the corresponding return code 
+* @param returnCode 
+* @return 
+*/
+NSCAPI::nagiosReturn NSCHelper::translateReturn(std::wstring str) {
+	if (str == _T("OK"))
+		return NSCAPI::returnOK;
+	else if (str == _T("CRITICAL"))
+		return NSCAPI::returnCRIT;
+	else if (str == _T("WARNING"))
+		return NSCAPI::returnWARN;
+	else 
+		return NSCAPI::returnUNKNOWN;
+}
 
 
 
@@ -131,6 +145,7 @@ namespace NSCModuleHelper {
 	lpNSAPIGetSettingsInt fNSAPIGetSettingsInt = NULL;
 	lpNSAPIMessage fNSAPIMessage = NULL;
 	lpNSAPIStopServer fNSAPIStopServer = NULL;
+	lpNSAPIExit fNSAPIExit = NULL;
 	lpNSAPIInject fNSAPIInject = NULL;
 	lpNSAPICheckLogMessages fNSAPICheckLogMessages = NULL;
 	lpNSAPIEncrypt fNSAPIEncrypt = NULL;
@@ -241,12 +256,62 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, const 
 			perf = perfBuffer;
 			break;
 		default:
-			throw NSCMHExcpetion(_T("Unknown inject error."));
+			delete [] msgBuffer;
+			delete [] perfBuffer;
+			throw NSCMHExcpetion(_T("Unknown return code when injecting: ") + std::wstring(command));
 	}
 	delete [] msgBuffer;
 	delete [] perfBuffer;
 	return retC;
 }
+
+/**
+* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
+* @param command Command to inject (password should not be included.
+* @param argLen The length of the argument buffer
+* @param **argument The argument buffer
+* @param message The return message buffer
+* @param perf The return performance data buffer
+* @return The return of the command
+*/
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf) 
+{
+	if (!fNSAPIInject)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	unsigned int buf_len = getBufferLength();
+
+
+	unsigned int argLen;
+	TCHAR ** aBuffer = arrayBuffer::list2arrayBuffer(argument, argLen);
+	TCHAR *msgBuffer = new TCHAR[buf_len+1];
+	TCHAR *perfBuffer = new TCHAR[buf_len+1];
+	msgBuffer[0] = 0;
+	perfBuffer[0] = 0;
+	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, aBuffer, msgBuffer, buf_len, perfBuffer, buf_len);
+	switch (retC) {
+		case NSCAPI::returnIgnored:
+			NSC_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
+			break;
+		case NSCAPI::returnInvalidBufferLen:
+			NSC_LOG_ERROR(_T("Inject buffer to small, increase the value of: string_length."));
+			break;
+		case NSCAPI::returnOK:
+		case NSCAPI::returnCRIT:
+		case NSCAPI::returnWARN:
+		case NSCAPI::returnUNKNOWN:
+			message = msgBuffer;
+			perf = perfBuffer;
+			break;
+		default:
+			delete [] msgBuffer;
+			delete [] perfBuffer;
+			throw NSCMHExcpetion(_T("Unknown return code when injecting: ") + std::wstring(command));
+	}
+	delete [] msgBuffer;
+	delete [] perfBuffer;
+	return retC;
+}
+
 /**
  * A wrapper around the InjetCommand that is simpler to use.
  * Parses a string by splitting and makes the array and also manages return buffers and such.
@@ -303,6 +368,14 @@ void NSCModuleHelper::StopService(void) {
 		fNSAPIStopServer();
 }
 /**
+ * Close the program (usefull for tray/testmode) without stopping the service (unless this is the service).
+ * @author mickem
+ */
+void NSCModuleHelper::Exit(void) {
+	if (fNSAPIExit)
+		fNSAPIExit();
+}
+/**
  * Retrieve a string from the settings subsystem (INI-file)
  * Might possibly be located in the registry in the future.
  *
@@ -342,7 +415,8 @@ std::list<std::wstring> NSCModuleHelper::getSettingsSection(std::wstring section
 	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw NSCMHExcpetion(_T("Settings could not be destroyed."));
 	}
-	assert(aBuffer == NULL);
+	if (aBuffer != NULL)
+		throw NSCMHExcpetion(_T("buffer is not null?."));
 	return ret;
 }
 /**
@@ -564,7 +638,8 @@ std::list<std::wstring> NSCModuleHelper::getAllCommandNames() {
 	if (fNSAPIReleaseAllCommandNamessBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw NSCMHExcpetion(_T("Commands could not be destroyed."));
 	}
-	assert(aBuffer == NULL);
+	if (aBuffer != NULL)
+		throw NSCMHExcpetion(_T("buffer is not null?."));
 	return ret;
 }
 std::wstring NSCModuleHelper::describeCommand(std::wstring command) {
@@ -657,6 +732,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIReleaseSettingsSectionBuffer = (NSCModuleHelper::lpNSAPIReleaseSettingsSectionBuffer)f(_T("NSAPIReleaseSettingsSectionBuffer"));
 	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f(_T("NSAPIMessage"));
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
+	NSCModuleHelper::fNSAPIExit = (NSCModuleHelper::lpNSAPIExit)f(_T("NSAPIExit"));
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f(_T("NSAPIInject"));
 	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f(_T("NSAPIGetBasePath"));
 	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f(_T("NSAPICheckLogMessages"));

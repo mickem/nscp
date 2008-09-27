@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 // NSClient++ Base Service
 // 
 // Copyright (c) 2004 MySolutions NORDIC (http://www.medin.name)
@@ -21,17 +21,152 @@
 #include <b64/b64.h>
 #include <config.h>
 #include <msvc_wrappers.h>
+#include <settings.h>
 #include <INISettings.h>
 #include <REGSettings.h>
 #include <OLDSettings.hpp>
+#include <Userenv.h>
+#include <remote_processes.hpp>
+#include <Lmcons.h>
 
-
-NSClient mainClient;	// Global core instance.
+NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
-//////////////////////////////////////////////////////////////////////////
-// Startup code
+
+class tray_starter {
+	struct start_block {
+		std::wstring cmd;
+		std::wstring cmd_line;
+		DWORD sessionId;
+	};
+
+public:
+	static LPVOID init(DWORD dwSessionId, std::wstring exe, std::wstring cmdline) {
+		start_block *sb = new start_block;
+		sb->cmd = exe;
+		sb->cmd_line = cmdline;
+		sb->sessionId = dwSessionId;
+		return sb;
+	}
+	DWORD threadProc(LPVOID lpParameter) {
+		start_block* param = static_cast<start_block*>(lpParameter);
+		DWORD dwSessionId = param->sessionId;
+		std::wstring cmd = param->cmd;
+		std::wstring cmdline = param->cmd_line;
+		delete param;
+		for (int i=0;i<10;i++) {
+			Sleep(1000);
+			if (startTrayHelper(dwSessionId, cmd, cmdline, false))
+				break;
+		}
+		return 0;
+	}
+
+	static bool start(DWORD dwSessionId) {
+		std::wstring program = mainClient.getBasePath() +  _T("\\") + SETTINGS_GET_STRING(shared_session::SYSTRAY_EXE);
+		std::wstring cmdln = _T("\"") + program + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
+		return tray_starter::startTrayHelper(dwSessionId, program, cmdln);
+	}
+
+	static bool startTrayHelper(DWORD dwSessionId, std::wstring exe, std::wstring cmdline, bool startThread = true) {
+		HANDLE hToken = NULL;
+		if (!remote_processes::GetSessionUserToken(dwSessionId, &hToken)) {
+			LOG_ERROR_STD(_T("Failed to query user token: ") + error::lookup::last_error());
+			return false;
+		} else {
+			STARTUPINFO          StartUPInfo;
+			PROCESS_INFORMATION  ProcessInfo;
+
+			ZeroMemory(&StartUPInfo,sizeof(STARTUPINFO));
+			ZeroMemory(&ProcessInfo,sizeof(PROCESS_INFORMATION));
+			StartUPInfo.wShowWindow = SW_HIDE;
+			StartUPInfo.lpDesktop = L"Winsta0\\Default";
+			StartUPInfo.cb = sizeof(STARTUPINFO);
+
+			wchar_t *buffer = new wchar_t[cmdline.size()+10];
+			wcscpy(buffer, cmdline.c_str());
+			LOG_MESSAGE_STD(_T("Running: ") + exe);
+			LOG_MESSAGE_STD(_T("Running: ") + cmdline);
+
+			LPVOID pEnv =NULL;
+			DWORD dwCreationFlags = CREATE_NO_WINDOW; //0; //DETACHED_PROCESS
+
+			if(CreateEnvironmentBlock(&pEnv,hToken,TRUE)) {
+				dwCreationFlags|=CREATE_UNICODE_ENVIRONMENT;
+			} else {
+				LOG_ERROR_STD(_T("Failed to create enviornment: ") + error::lookup::last_error());
+				pEnv=NULL;
+			}
+			/*
+			LOG_ERROR_STD(_T("Impersonating user: "));
+			if (!ImpersonateLoggedOnUser(hToken)) {
+			LOG_ERROR_STD(_T("Failed to impersonate the user: ") + error::lookup::last_error());
+			}
+
+			wchar_t pszUname[UNLEN + 1];
+			ZeroMemory(pszUname,sizeof(pszUname));
+			DWORD dwSize = UNLEN;
+			if (!GetUserName(pszUname,&dwSize)) {
+			DWORD dwErr = GetLastError();
+			if (!RevertToSelf())
+			LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+			LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
+			return false;
+			}
 
 
+			PROFILEINFO info;
+			info.dwSize = sizeof(PROFILEINFO);
+			info.lpUserName = pszUname;
+			if (!LoadUserProfile(hToken, &info)) {
+			DWORD dwErr = GetLastError();
+			if (!RevertToSelf())
+			LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+			LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
+			return false;
+			}
+			*/
+			if (!CreateProcessAsUser(hToken, exe.c_str(), buffer, NULL, NULL, FALSE, dwCreationFlags, pEnv, NULL, &StartUPInfo, &ProcessInfo)) {
+				DWORD dwErr = GetLastError();
+				delete [] buffer;
+				/*
+				if (!RevertToSelf()) {
+				LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+				}
+				*/
+				if (startThread && dwErr == ERROR_PIPE_NOT_CONNECTED) {
+					LOG_MESSAGE(_T("Failed to start trayhelper: starting a background thread to do it instead..."));
+					Thread<tray_starter> *pThread = new Thread<tray_starter>(_T("tray-starter-thread"));
+					pThread->createThread(tray_starter::init(dwSessionId, exe, cmdline));
+					return false;
+				} else if (dwErr == ERROR_PIPE_NOT_CONNECTED) {
+					LOG_ERROR_STD(_T("Thread failed to start trayhelper (will try again): ") + error::format::from_system(dwErr));
+					return false;
+				} else {
+					LOG_ERROR_STD(_T("Failed to start trayhelper: ") + error::format::from_system(dwErr));
+					return true;
+				}
+			} else {
+				delete [] buffer;
+				/*
+				if (!RevertToSelf()) {
+				LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+				}
+				*/
+				LOG_MESSAGE_STD(_T("Started tray in other user session: ") + strEx::itos(dwSessionId));
+			}
+
+
+			CloseHandle(hToken);
+			return true;
+		}
+	}
+};
+
+
+
+void display(std::wstring title, std::wstring message) {
+	::MessageBox(NULL, message.c_str(), title.c_str(), MB_OK|MB_ICONERROR);
+}
 
 class NSC_logger : public Settings::LoggerInterface {
 public:
@@ -81,8 +216,9 @@ public:
 	}
 };
 
+
 #define SETTINGS_GET_BOOL(key) \
-	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
+	settings_manager::get_settings()->get_bool(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
 
 namespace settings_manager {
 	class NSCSettingsImpl : public Settings::SettingsHandlerImpl {
@@ -148,7 +284,6 @@ namespace settings_manager {
 				return new Settings::REGSettings(this, context);
 			throw SettingsException(_T("Undefined settings type: ") + SettingsCore::type_to_string(type));
 		}
-
 	};
 
 	typedef Singleton<NSCSettingsImpl> SettingsHandler;
@@ -163,7 +298,6 @@ namespace settings_manager {
 	void destroy_settings() {
 		SettingsHandler::destroyInstance();
 	}
-
 
 	bool init_settings() {
 		try {
@@ -199,6 +333,7 @@ namespace settings_manager {
 #define SETTINGS_SET_STRING(key, value) \
 	Settings::get_settings()->set_string(key ## _PATH, key, value);
 
+
 /**
  * Application startup point
  *
@@ -213,26 +348,34 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
+			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
 			} catch (const serviceControll::SCException& e) {
-				LOG_MESSAGE_STD(_T("Service installation failed: ") + e.error_);
+				if (bGui)
+					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
+				LOG_ERROR_STD(_T("Service installation failed: ") + e.error_);
 				return -1;
 			}
 			try {
 				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
 			} catch (const serviceControll::SCException& e) {
+				if (bGui)
+					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
 				LOG_MESSAGE_STD(_T("Couldn't set service description: ") + e.error_);
 			}
 			LOG_MESSAGE(_T("Service installed!"));
+			return 0;
 		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
+			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Uninstall(SZSERVICENAME);
 			} catch (const serviceControll::SCException& e) {
-				LOG_MESSAGE_STD(_T("Service deinstallation failed; ") + e.error_);
-				return -1;
+				if (bGui)
+					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
+				LOG_ERROR_STD(_T("Service deinstallation failed; ") + e.error_);
 			}
 		} else if ( _wcsicmp( _T("settings"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
@@ -258,11 +401,6 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					std::wcerr << _T("Uncaught exception...") << std::endl;
 					return -1;
 				}
-			} else {
-				std::wcout << _T("nsclient++ -settings <key> ");
-				std::wcout << _T(" <key> : ");
-				std::wcout << _T("         upgrade");
-				return -1;
 			}
 		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
@@ -304,19 +442,22 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
-			mainClient.setBoot(false);
-			g_bConsoleLog = false;
+			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
-			mainClient.InitiateService();
+			mainClient.initCore(false);
 			int nRetCode = -1;
 			if (argc>=4)
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
 			else if (argc>=3)
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
-			mainClient.TerminateService();
+			mainClient.exitCore(false);
 			return nRetCode;
 		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
-			std::wcout << "Launching test mode..." << std::endl;
+			bool server = false;
+			if (argc > 2 && _wcsicmp( _T("server"), argv[2] ) == 0 ) {
+				server = true;
+			}
+			std::wcout << "Launching test mode - " << (server?_T("server mode"):_T("client mode")) << std::endl;
 			LOG_MESSAGE_STD(_T("Booting: " SZSERVICEDISPLAYNAME ));
 			try {
 				if (serviceControll::isStarted(SZSERVICENAME)) {
@@ -327,11 +468,10 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			}
 			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
-			if (!mainClient.InitiateService()) {
+			if (!mainClient.initCore(true)) {
 				LOG_ERROR_STD(_T("Service *NOT* started!"));
 				return -1;
 			}
-
 			LOG_MESSAGE_STD(_T("Using settings from: ") + settings_manager::get_core()->get_settings_type_desc());
 			LOG_MESSAGE(_T("Enter command to inject or exit to terminate..."));
 /*
@@ -343,7 +483,6 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 			Settings::get_settings()->save_to(_T("test.ini"));
 */
-
 			std::wstring s = _T("");
 			std::wstring buff = _T("");
 			while (true) {
@@ -360,22 +499,29 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				} else if (s == _T("on") && buff == _T("debug ")) {
 					std::wcout << _T("Setting debug log on...") << std::endl;
 					mainClient.enableDebug(true);
+				} else if (s == _T("reattach")) {
+					std::wcout << _T("Reattaching to session 0") << std::endl;
+					mainClient.startTrayIcon(0);
 				} else if (std::cin.peek() < 15) {
 					buff += s;
 					strEx::token t = strEx::getToken(buff, ' ');
 					std::wstring msg, perf;
 					NSCAPI::nagiosReturn ret = mainClient.inject(t.first, t.second, ' ', true, msg, perf);
-					std::wcout << NSCHelper::translateReturn(ret) << _T(":");
-					std::cout << strEx::wstring_to_string(msg);
-					if (!perf.empty())
-						std::cout << "|" << strEx::wstring_to_string(perf);
-					std::wcout << std::endl;
+					if (ret == NSCAPI::returnIgnored) {
+						std::wcout << _T("No handler for command: ") << t.first << std::endl;
+					} else {
+						std::wcout << NSCHelper::translateReturn(ret) << _T(":");
+						std::cout << strEx::wstring_to_string(msg);
+						if (!perf.empty())
+							std::cout << "|" << strEx::wstring_to_string(perf);
+						std::wcout << std::endl;
+					}
 					buff = _T("");
 				} else {
 					buff += s + _T(" ");
 				}
 			}
-			mainClient.TerminateService();
+			mainClient.exitCore(true);
 			return 0;
 		} else {
 			std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt -settings") << std::endl;
@@ -385,12 +531,12 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 		return nRetCode;
 	} else if (argc > 2) {
 		g_bConsoleLog = true;
-		mainClient.InitiateService();
+		mainClient.initCore(true);
 		if (argc>=3)
 			nRetCode = mainClient.commandLineExec(argv[1], argv[2], argc-3, &argv[3]);
 		else
 			nRetCode = mainClient.commandLineExec(argv[1], argv[2], 0, NULL);
-		mainClient.TerminateService();
+		mainClient.exitCore(true);
 		return nRetCode;
 	} else if (argc > 1) {
 		g_bConsoleLog = true;
@@ -578,19 +724,80 @@ void NSClientT::HandleSettingsCLI(TCHAR* arg, int argc, TCHAR* argv[]) {
 
 }
 
+void NSClientT::session_error(std::wstring file, unsigned int line, std::wstring msg) {
+	NSAPIMessage(NSCAPI::error, file.c_str(), line, msg.c_str());
+}
+
+void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring msg) {
+	NSAPIMessage(NSCAPI::log, file.c_str(), line, msg.c_str());
+}
+
+
+
+
 //////////////////////////////////////////////////////////////////////////
 // Service functions
 
 /**
- * Service control handler startup point.
- * When the program is started as a service this will be the entry point.
+ * Initialize the program
+ * @param boot true if we shall boot all plugins
+ * @param attachIfPossible is true we will attach to a running instance.
+ * @return success
+ * @author mickem
  */
-bool NSClientT::InitiateService() {
+bool NSClientT::initCore(bool boot) {
+	LOG_MESSAGE(_T("Attempting to start NSCLient++ - " SZVERSION));
 	if (!settings_manager::init_settings()) {
 		return false;
 	}
-	if (debug_) {
-		settings_manager::get_settings()->set_int(_T("log"), _T("debug"), 1);
+	try {
+		if (debug_)
+			settings_manager::get_settings()->set_int(_T("log"), _T("debug"), 1);
+		if (enable_shared_session_)
+			settings_manager::get_settings()->set_int(_T("Settings"), _T("shared_Session"), 1);
+		enable_shared_session_ = SETTINGS_GET_BOOL(settings_def::SHARED_SESSION);
+	} catch (SettingsException e) {
+		LOG_ERROR_STD(_T("Could not find settings: ") + e.getMessage());
+	}
+
+	if (enable_shared_session_) {
+		LOG_MESSAGE_STD(_T("Enabling shared session..."));
+		if (boot) {
+			LOG_MESSAGE_STD(_T("Starting shared session..."));
+			try {
+				shared_server_.reset(new nsclient_session::shared_server_session(this));
+				if (!shared_server_->session_exists()) {
+					shared_server_->create_new_session();
+				} else {
+					LOG_ERROR_STD(_T("Session already exists cant create a new one!"));
+				}
+				startTrayIcons();
+			} catch (nsclient_session::session_exception e) {
+				LOG_ERROR_STD(_T("Failed to create new session: ") + e.what());
+				shared_server_.reset(NULL);
+			} catch (...) {
+				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
+				shared_server_.reset(NULL);
+			}
+		} else {
+			LOG_MESSAGE_STD(_T("Attaching to shared session..."));
+			try {
+				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
+				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
+				if (shared_client_->session_exists()) {
+					shared_client_->attach_to_session(id);
+				} else {
+					LOG_ERROR_STD(_T("No session was found cant attach!"));
+				}
+				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
+			} catch (nsclient_session::session_exception e) {
+				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
+				shared_client_ = NULL;
+			} catch (...) {
+				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
+				shared_client_ = NULL;
+			}
+		}
 	}
 
 	try {
@@ -612,7 +819,7 @@ bool NSClientT::InitiateService() {
 		LOG_ERROR_STD(_T("Unknown exception iniating COM..."));
 		return false;
 	}
-	if (boot_) {
+	if (boot) {
 		try {
 			Settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 			for (Settings::string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
@@ -629,6 +836,9 @@ bool NSClientT::InitiateService() {
 				} catch(const NSPluginException& e) {
 					LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
 					//return false;
+				} catch (std::exception e) {
+					LOG_ERROR_STD(_T("exception loading plugin: ") + (*cit) + strEx::string_to_wstring(e.what()));
+					return false;
 				} catch (...) {
 					LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + (*cit));
 					return false;
@@ -647,22 +857,72 @@ bool NSClientT::InitiateService() {
 			return false;
 		}
 	}
+	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Started!"));
 	return true;
 }
+
 /**
- * Service control handler termination point.
- * When the program is stopped as a service this will be the "exit point".
+ * Service control handler startup point.
+ * When the program is started as a service this will be the entry point.
  */
-void NSClientT::TerminateService(void) {
-	if (boot_) {
-		try {
-			mainClient.unloadPlugins();
-		} catch(NSPluginException e) {
-			std::wcout << _T("Exception raised: ") << e.error_ << _T(" in module: ") << e.file_ << std::endl;;
-		} catch(...) {
-			std::wcout << _T("UNknown exception raised: ") << std::endl;;
+bool NSClientT::InitiateService() {
+	if (!initCore(true))
+		return false;
+/*
+	DWORD dwSessionId = remote_processes::getActiveSessionId();
+	if (dwSessionId != 0xFFFFFFFF)
+		tray_starter::start(dwSessionId);
+	else
+		LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
+		*/
+	return true;
+}
+
+void NSClientT::startTrayIcons() {
+	if (shared_server_.get() == NULL) {
+		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
+		return;
+	}
+	remote_processes::PWTS_SESSION_INFO list;
+	DWORD count;
+	if (!remote_processes::_WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE , 0, 1, &list, &count)) {
+		LOG_ERROR_STD(_T("Failed to enumerate sessions:" ) + error::lookup::last_error());
+	} else {
+		LOG_DEBUG_STD(_T("Found ") + strEx::itos(count) + _T(" sessions"));
+		for (DWORD i=0;i<count;i++) {
+			LOG_DEBUG_STD(_T("Found session: ") + strEx::itos(list[i].SessionId) + _T(" state: ") + strEx::itos(list[i].State));
+			if (list[i].State == remote_processes::_WTS_CONNECTSTATE_CLASS::WTSActive) {
+				startTrayIcon(list[i].SessionId);
+			}
 		}
 	}
+}
+void NSClientT::startTrayIcon(DWORD dwSessionId) {
+	if (shared_server_.get() == NULL) {
+		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
+		return;
+	}
+	if (!shared_server_->re_attach_client(dwSessionId)) {
+		if (!tray_starter::start(dwSessionId)) {
+			LOG_ERROR_STD(_T("Failed to start session (") + strEx::itos(dwSessionId) + _T("): " ) + error::lookup::last_error());
+		}
+	}
+}
+
+bool NSClientT::exitCore(bool boot) {
+	plugins_loaded_ = false;
+	LOG_MESSAGE(_T("Attempting to stop NSCLient++ - " SZVERSION));
+	if (boot) {
+		try {
+			LOG_DEBUG_STD(_T("Stopping: NON Message Handling Plugins"));
+			mainClient.unloadPlugins(false);
+		} catch(NSPluginException e) {
+			LOG_ERROR_STD(_T("Exception raised when unloading non msg plguins: ") + e.error_ + _T(" in module: ") + e.file_);
+		} catch(...) {
+			LOG_ERROR_STD(_T("Unknown exception raised when unloading non msg plugins"));
+		}
+	}
+	LOG_DEBUG_STD(_T("Stopping: COM helper"));
 	try {
 		com_helper_.unInitialize();
 	} catch (com_helper::com_exception e) {
@@ -670,6 +930,7 @@ void NSClientT::TerminateService(void) {
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception uniniating COM..."));
 	}
+	LOG_DEBUG_STD(_T("Stopping: Socket Helpers"));
 	try {
 		simpleSocket::WSACleanup();
 	} catch (simpleSocket::SocketException e) {
@@ -677,7 +938,47 @@ void NSClientT::TerminateService(void) {
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception uniniating socket..."));
 	}
+	LOG_DEBUG_STD(_T("Stopping: Settings instance"));
 	settings_manager::destroy_settings();
+	try {
+		if (shared_client_.get() != NULL) {
+			LOG_DEBUG_STD(_T("Stopping: shared client"));
+			shared_client_->set_handler(NULL);
+			shared_client_->close_session();
+		}
+	} catch(nsclient_session::session_exception &e) {
+		LOG_ERROR_STD(_T("Exception closing shared client session: ") + e.what());
+	} catch(...) {
+		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
+	}
+	try {
+		if (shared_server_.get() != NULL) {
+			LOG_DEBUG_STD(_T("Stopping: shared server"));
+			shared_server_->set_handler(NULL);
+			shared_server_->close_session();
+		}
+	} catch(...) {
+		LOG_ERROR_STD(_T("UNknown exception raised: When closing shared session"));
+	}
+	if (boot) {
+		try {
+			LOG_DEBUG_STD(_T("Stopping: Message handling Plugins"));
+			mainClient.unloadPlugins(true);
+		} catch(NSPluginException e) {
+			LOG_ERROR_STD(_T("Exception raised when unloading msg plugins: ") + e.error_ + _T(" in module: ") + e.file_);
+		} catch(...) {
+			LOG_ERROR_STD(_T("UNknown exception raised: When stopping message plguins"));
+		}
+	}
+	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Stopped succcessfully"));
+	return true;
+}
+/**
+ * Service control handler termination point.
+ * When the program is stopped as a service this will be the "exit point".
+ */
+void NSClientT::TerminateService(void) {
+	exitCore(true);
 }
 
 /**
@@ -686,15 +987,40 @@ void NSClientT::TerminateService(void) {
  * @param *lpszArgv 
  */
 void WINAPI NSClientT::service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
-	mainClient.service_main(dwArgc, lpszArgv);
+	try {
+		mainClient.service_main(dwArgc, lpszArgv);
+	} catch (service_helper::service_exception e) {
+		LOG_ERROR_STD(_T("Unknown service error: ") + e.what());
+	} catch (...) {
+		LOG_ERROR_STD(_T("Unknown service error!"));
+	}
 }
+DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
+	return mainClient.service_ctrl_ex(dwControl, dwEventType, lpEventData, lpContext);
+}
+
 /**
  * Forward this to the main service dispatcher helper class
  * @param dwCtrlCode 
  */
 void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
-	mainClient.service_ctrl(dwCtrlCode);
+	mainClient.service_ctrl_ex(dwCtrlCode, NULL, NULL, NULL);
 }
+
+
+void NSClientT::service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType) {
+	if (shared_server_.get() == NULL) {
+		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
+		return;
+	}
+	LOG_DEBUG_STD(_T("Got session change: ") + strEx::itos(dwSessionId));
+	if (!logon) {
+		LOG_DEBUG_STD(_T("Not a logon event: ") + strEx::itos(dwEventType));
+		return;
+	}
+	tray_starter::start(dwSessionId);
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // Member functions
@@ -762,7 +1088,7 @@ void NSClientT::addPlugins(const std::list<std::wstring> plugins) {
 /**
  * Unload all plug-ins (in reversed order)
  */
-void NSClientT::unloadPlugins() {
+void NSClientT::unloadPlugins(bool unloadLoggers) {
 	{
 		WriteLock writeLock(&m_mutexRW, true, 10000);
 		if (!writeLock.IsLocked()) {
@@ -770,7 +1096,8 @@ void NSClientT::unloadPlugins() {
 			return;
 		}
 		commandHandlers_.clear();
-		messageHandlers_.clear();
+		if (unloadLoggers)
+			messageHandlers_.clear();
 	}
 	{
 		ReadLock readLock(&m_mutexRW, true, 10000);
@@ -778,10 +1105,22 @@ void NSClientT::unloadPlugins() {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
-		for (pluginList::size_type i=plugins_.size();i>0;i--) {
-			NSCPlugin *p = plugins_[i-1];
-			LOG_DEBUG_STD(_T("Unloading plugin: ") + p->getName() + _T("..."));
-			p->unload();
+		for (pluginList::reverse_iterator it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
+			NSCPlugin *p = *it;
+			if (p == NULL)
+				continue;
+			try {
+				if (unloadLoggers || !p->hasMessageHandler()) {
+					LOG_DEBUG_STD(_T("Unloading plugin: ") + p->getModule() + _T("..."));
+					p->unload();
+				} else {
+					LOG_DEBUG_STD(_T("Skipping log plugin: ") + p->getModule() + _T("..."));
+				}
+			} catch(NSPluginException e) {
+				LOG_ERROR_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
+			} catch(...) {
+				LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin"));
+			}
 		}
 	}
 	{
@@ -790,12 +1129,21 @@ void NSClientT::unloadPlugins() {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
-		for (pluginList::size_type i=plugins_.size();i>0;i--) {
-			NSCPlugin *p = plugins_[i-1];
-			plugins_[i-1] = NULL;
-			delete p;
+		for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
+			NSCPlugin *p = (*it);
+			try {
+				if (p != NULL && (unloadLoggers|| !p->isLoaded())) {
+					it = plugins_.erase(it);
+					delete p;
+					continue;
+				}
+			} catch(NSPluginException e) {
+				LOG_ERROR_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
+			} catch(...) {
+				LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin"));
+			}
+			it++;
 		}
-		plugins_.clear();
 	}
 }
 
@@ -807,42 +1155,24 @@ void NSClientT::loadPlugins() {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
-		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
+		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
 			LOG_DEBUG_STD(_T("Loading plugin: ") + (*it)->getName() + _T("..."));
 			try {
 				if (!(*it)->load_plugin(NSCAPI::normalStart)) {
-					(*it)->setBroken(true);
-					hasBroken = true;
+					it = plugins_.erase(it);
 					LOG_ERROR_STD(_T("Plugin refused to load: ") + (*it)->getModule());
 				}
+				++it;
 			} catch (NSPluginException e) {
-				(*it)->setBroken(true);
-				hasBroken = true;
+				it = plugins_.erase(it);
 				LOG_ERROR_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
 			} catch (...) {
-				(*it)->setBroken(true);
-				hasBroken = true;
+				it = plugins_.erase(it);
 				LOG_ERROR_STD(_T("Could not load plugin: ") + (*it)->getModule());
 			}
 		}
 	}
-	while (hasBroken) {
-		WriteLock writeLock(&m_mutexRW, true, 10000);
-		if (!writeLock.IsLocked()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
-			return;
-		}
-		bool foundBroken = false;
-		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
-			if ((*it)->isBroken()) {
-				foundBroken = true;
-				plugins_.erase(it);
-				break;
-			}
-		}
-		if (!foundBroken)
-			break;
-	}
+	plugins_loaded_ = true;
 }
 /**
  * Load a single plug-in using a DLL filename
@@ -923,23 +1253,35 @@ unsigned int NSClientT::getBufferLength() {
 }
 
 NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
-	unsigned int aLen = 0;
-	TCHAR ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
-	unsigned int buf_len = getBufferLength();
-	TCHAR * mBuf = new TCHAR[buf_len+1]; mBuf[0] = '\0';
-	TCHAR * pBuf = new TCHAR[buf_len+1]; pBuf[0] = '\0';
-	NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, buf_len, pBuf, buf_len);
-	arrayBuffer::destroyArrayBuffer(aBuf, aLen);
-	if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
+	if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
+		try {
+			return shared_client_->inject(command, arguments, splitter, escape, msg, perf);
+		} catch (nsclient_session::session_exception &e) {
+			LOG_ERROR_STD(_T("Failed to inject remote command: ") + e.what());
+			return NSCAPI::returnCRIT;
+		} catch (...) {
+			LOG_ERROR_STD(_T("Failed to inject remote command: Unknown exception"));
+			return NSCAPI::returnCRIT;
+		}
+	} else {
+		unsigned int aLen = 0;
+		TCHAR ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
+		unsigned int buf_len = getBufferLength();
+		TCHAR * mBuf = new TCHAR[buf_len+1]; mBuf[0] = '\0';
+		TCHAR * pBuf = new TCHAR[buf_len+1]; pBuf[0] = '\0';
+		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, buf_len, pBuf, buf_len);
+		arrayBuffer::destroyArrayBuffer(aBuf, aLen);
+		if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
+			delete [] mBuf;
+			delete [] pBuf;
+			return ret;
+		}
+		msg = mBuf;
+		perf = pBuf;
 		delete [] mBuf;
 		delete [] pBuf;
 		return ret;
 	}
-	msg = mBuf;
-	perf = pBuf;
-	delete [] mBuf;
-	delete [] pBuf;
-	return ret;
 }
 
 /**
@@ -958,41 +1300,58 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 	if (logDebug()) {
 		LOG_DEBUG_STD(_T("Injecting: ") + (std::wstring) command + _T(": ") + arrayBuffer::arrayBuffer2string(argument, argLen, _T(", ")));
 	}
-	ReadLock readLock(&m_mutexRW, true, 5000);
-	if (!readLock.IsLocked()) {
-		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
-		return NSCAPI::returnUNKNOWN;
-	}
-	for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
+	if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
-			NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
-			switch (c) {
-				case NSCAPI::returnInvalidBufferLen:
-					LOG_ERROR(_T("UNKNOWN: Return buffer to small to handle this command."));
-					return c;
-				case NSCAPI::returnIgnored:
-					break;
-				case NSCAPI::returnOK:
-				case NSCAPI::returnWARN:
-				case NSCAPI::returnCRIT:
-				case NSCAPI::returnUNKNOWN:
-					LOG_DEBUG_STD(_T("Injected Result: ") + NSCHelper::translateReturn(c) + _T(" '") + (std::wstring)(returnMessageBuffer) + _T("'"));
-					LOG_DEBUG_STD(_T("Injected Performance Result: '") +(std::wstring)(returnPerfBuffer) + _T("'"));
-					return c;
-				default:
-					LOG_ERROR_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);
-					return c;
-			}
-		} catch(const NSPluginException& e) {
-			LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
-			return NSCAPI::returnCRIT;
-		} catch(...) {
-			LOG_ERROR_STD(_T("Unknown exception raised in module"));
-			return NSCAPI::returnCRIT;
+			std::wstring msg, perf;
+			int returnCode = shared_client_->inject(command, arrayBuffer::arrayBuffer2string(argument, argLen, _T(" ")), L' ', true, msg, perf);
+			NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, msg, returnCode);
+			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, perf, returnCode);
+		} catch (nsclient_session::session_exception &e) {
+			LOG_ERROR_STD(_T("Failed to inject remote command: ") + e.what());
+			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command: ") + e.what(), NSCAPI::returnCRIT);
+			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
+		} catch (...) {
+			LOG_ERROR_STD(_T("Failed to inject remote command: Unknown exception"));
+			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command:  + e.what()"), NSCAPI::returnCRIT);
+			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
 		}
+	} else {
+		ReadLock readLock(&m_mutexRW, true, 5000);
+		if (!readLock.IsLocked()) {
+			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			return NSCAPI::returnUNKNOWN;
+		}
+		for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
+			try {
+				NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+				switch (c) {
+					case NSCAPI::returnInvalidBufferLen:
+						LOG_ERROR(_T("UNKNOWN: Return buffer to small to handle this command."));
+						return c;
+					case NSCAPI::returnIgnored:
+						break;
+					case NSCAPI::returnOK:
+					case NSCAPI::returnWARN:
+					case NSCAPI::returnCRIT:
+					case NSCAPI::returnUNKNOWN:
+						LOG_DEBUG_STD(_T("Injected Result: ") + NSCHelper::translateReturn(c) + _T(" '") + (std::wstring)(returnMessageBuffer) + _T("'"));
+						LOG_DEBUG_STD(_T("Injected Performance Result: '") +(std::wstring)(returnPerfBuffer) + _T("'"));
+						return c;
+					default:
+						LOG_ERROR_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);
+						return c;
+				}
+			} catch(const NSPluginException& e) {
+				LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+				return NSCAPI::returnCRIT;
+			} catch(...) {
+				LOG_ERROR_STD(_T("Unknown exception raised in module"));
+				return NSCAPI::returnCRIT;
+			}
+		}
+		LOG_MESSAGE_STD(_T("No handler for command: '") + command + _T("'"));
+		return NSCAPI::returnIgnored;
 	}
-	LOG_MESSAGE_STD(_T("No handler for command: '") + command + _T("'"));
-	return NSCAPI::returnIgnored;
 }
 
 void NSClientT::listPlugins() {
@@ -1029,6 +1388,10 @@ bool NSClientT::logDebug() {
 	return (debug_ == log_debug);
 }
 
+void log_broken_message(std::wstring msg) {
+	OutputDebugString(msg.c_str());
+	std::wcout << msg << std::endl;
+}
 /**
  * Report a message to all logging enabled modules.
  *
@@ -1041,6 +1404,13 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 	if ((msgType == NSCAPI::debug)&&(!logDebug())) {
 		return;
 	}
+	if (shared_server_.get() != NULL && shared_server_->hasClients()) {
+		try {
+			shared_server_->sendLogMessageToClients(msgType, file, line, message);
+		} catch (nsclient_session::session_exception e) {
+			log_broken_message(_T("Failed to send message to clients: ") + e.what());
+		}
+	}
 	std::wstring file_stl = file;
 	std::wstring::size_type pos = file_stl.find_last_of(_T("\\"));
 	if (pos != std::wstring::npos)
@@ -1048,13 +1418,12 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 	{
 		ReadLock readLock(&m_mutexRW, true, 5000);
 		if (!readLock.IsLocked()) {
-			std::wcout << _T("Message was lost as the core was locked: ") << file << _T(":") << line << _T(": ") << message << std::endl;
+			log_broken_message(_T("Message was lost as the (mutexRW) core was locked: ") + message);
 			return;
 		}
 		MutexLock lock(messageMutex);
 		if (!lock.hasMutex()) {
-			std::wcout << _T("Message was lost as the core was locked: ") << file << _T(":") << line << _T(": ") << message << std::endl;
-			std::wcout << message << std::endl;
+			log_broken_message(_T("Message was lost as the core was locked: ") + message);
 			return;
 		}
 		if (g_bConsoleLog) {
@@ -1078,13 +1447,36 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 			}	
 			std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
 		}
-		for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
-			try {
-				messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
-			} catch(const NSPluginException& e) {
-				// Here we are pretty much fucked! (as logging this might cause a loop :)
-				std::wcout << _T("Caught: ") << e.error_ << _T(" when trying to log a message...") << std::endl;
-				std::wcout << _T("This is *really really* bad, now the world is about to end...") << std::endl;
+		if (messageHandlers_.size() == 0 || !plugins_loaded_) {
+			OutputDebugString(message.c_str());
+			log_cache_.push_back(cached_log_entry(msgType, file, line, message));
+		} else {
+			if (log_cache_.size() > 0) {
+				for (log_cache_type::const_iterator cit=log_cache_.begin();cit!=log_cache_.end();++cit) {
+					for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
+						try {
+							messageHandlers_[i]->handleMessage((*cit).msgType, (_T("CACHE") + (*cit).file).c_str(), (*cit).line, (*cit).message.c_str());
+						} catch(const NSPluginException& e) {
+							log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
+							return;
+						} catch(...) {
+							log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
+							return;
+						}
+					}
+				}
+				log_cache_.clear();
+			}
+			for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
+				try {
+					messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
+				} catch(const NSPluginException& e) {
+					log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
+					return;
+				} catch(...) {
+					log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
+					return;
+				}
 			}
 		}
 	}

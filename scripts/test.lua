@@ -1,13 +1,4 @@
---require("luacom")
---require("luacom")
---require("luacom-lua5-13")
-
 nscp.print('Loading test script...')
--- win = loadlib("win32.dll","luaopen_w32")
--- print(win) -- nil
-require( 'w32' )
-nscp.print(w32)
-nscp.print(w32.FindWindow)
 
 nscp.execute('version')
 v = nscp.getSetting('NSCA Agent', 'interval', 'broken')
@@ -21,10 +12,7 @@ nscp.register('foo', 'something')
 
 function something (command)
   nscp.print(command)
-  --code, msg, perf = inject('CheckCPU','time=5','MaxCrit=5')
-  msg = 'hello'
-  perf = 'hello'
-  code = 'ok'
+  code, msg, perf = nscp.execute('CheckCPU','time=5','MaxCrit=5')
   print(code .. ': ' .. msg .. ', ' .. perf)
   collectgarbage ()
 

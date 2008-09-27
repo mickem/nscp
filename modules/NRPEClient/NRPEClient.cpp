@@ -26,6 +26,7 @@
 #include <msvc_wrappers.h>
 #include <execute_process.hpp>
 #include <program_options_ex.hpp>
+#include <strEx.h>
 
 NRPEClient gNRPEClient;
 
@@ -189,12 +190,14 @@ NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_da
 		else
 			packet = send_nossl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(), con.buffer_length));
 		return nrpe_result_data(packet.getResult(), packet.getPayload());
+	} catch (NRPEPacket::NRPEPacketException &e) {
+		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.getMessage());
 	} catch (simpleSocket::SocketException &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + e.getMessage());
 	} catch (simpleSSL::SSLException &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("SSL Socket error: ") + e.getMessage());
 	} catch (...) {
-		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Unknown error"));
+		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
 NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet)
@@ -202,9 +205,11 @@ NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPa
 	initSSL();
 	simpleSSL::Socket socket(true);
 	socket.connect(host, port);
+	NSC_DEBUG_MSG_STD(_T(">>>length: ") + strEx::itos(packet.getBufferLength()));
 	socket.sendAll(packet.getBuffer(), packet.getBufferLength());
 	simpleSocket::DataBuffer buffer;
-	socket.readAll(buffer);
+	socket.readAll(buffer, packet.getBufferLength());
+	NSC_DEBUG_MSG_STD(_T("<<<length: ") + strEx::itos(buffer.getLength()));
 	packet.readFrom(buffer.getBuffer(), buffer.getLength());
 	return packet;
 }

@@ -41,7 +41,10 @@ NSCPlugin::NSCPlugin(const std::wstring file)
 	,fGetConfigurationMeta(NULL)
 	,fGetVersion(NULL)
 	,fCommandLineExec(NULL)
+	,fShowTray(NULL)
+	,fHideTray(NULL)
 	,bLoaded_(false)
+	,lastIsMsgPlugin_(false)
 	,broken_(false)
 {
 }
@@ -58,7 +61,10 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 	,fGetConfigurationMeta(NULL)
 	,fGetVersion(NULL)
 	,fCommandLineExec(NULL)
+	,fShowTray(NULL)
+	,fHideTray(NULL)
 	,bLoaded_(false)
+	,lastIsMsgPlugin_(false)
 	,broken_(false)
 {
 	if (other.bLoaded_) {
@@ -90,7 +96,7 @@ NSCPlugin::~NSCPlugin() {
 std::wstring NSCPlugin::getName() {
 	TCHAR *buffer = new TCHAR[1024];
 	if (!getName_(buffer, 1023)) {
-		throw NSPluginException(file_, _T("Could not get name"));
+		return _T("Could not get name");
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
@@ -182,8 +188,10 @@ bool NSCPlugin::hasMessageHandler() {
 	if (!isLoaded())
 		throw NSPluginException(file_, _T("Module not loaded"));
 	try {
-		if (fHasMessageHandler())
+		if (fHasMessageHandler()) {
+			lastIsMsgPlugin_ = true;
 			return true;
+		}
 		return false;
 	} catch (...) {
 		throw NSPluginException(file_, _T("Unhandled exception in hasMessageHandler."));
@@ -251,11 +259,11 @@ void NSCPlugin::unload() {
 }
 bool NSCPlugin::getName_(TCHAR* buf, unsigned int buflen) {
 	if (fGetName == NULL)
-		throw NSPluginException(file_, _T("Critical error (fGetName)"));
+		return false;//throw NSPluginException(file_, _T("Critical error (fGetName)"));
 	try {
 		return fGetName(buf, buflen)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getName."));
+		return false; //throw NSPluginException(file_, _T("Unhandled exception in getName."));
 	}
 }
 bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
@@ -267,6 +275,7 @@ bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
 		throw NSPluginException(file_, _T("Unhandled exception in getDescription."));
 	}
 }
+
 /**
  * Load all remote function pointers from the loaded module.
  * These pointers are cached for "speed" which might (?) be dangerous if something changes.
@@ -323,6 +332,10 @@ void NSCPlugin::loadRemoteProcs_(void) {
 
 	fGetConfigurationMeta = (lpGetConfigurationMeta)GetProcAddress(hModule_, "NSGetConfigurationMeta");
 	fCommandLineExec = (lpCommandLineExec)GetProcAddress(hModule_, "NSCommandLineExec");
+
+	fShowTray = (lpShowTray)GetProcAddress(hModule_, "ShowIcon");
+	fHideTray = (lpHideTray)GetProcAddress(hModule_, "HideIcon");
+
 }
 
 

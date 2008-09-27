@@ -18,6 +18,7 @@
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <WinSvc.h>
+#include <error.hpp>
 #include "EnumNtSrv.h"
 
 #ifdef _DEBUG
@@ -25,8 +26,6 @@
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
-
-#define ASSERT(x)
 
 //=============================================================================
 // class TNtServiceInfo
@@ -104,7 +103,8 @@ std::wstring TNtServiceInfo::GetStartType(void)
 // Return this service error control as a string
 std::wstring TNtServiceInfo::GetErrorControl(void)
 {
-	ASSERT(m_dwErrorControl < 4);
+	if (m_dwErrorControl >= 4)
+		throw std::exception();
 	TCHAR *types[] = {
 		_T("ERROR_IGNORE"),		// 0
 			_T("ERROR_NORMAL"), // 1
@@ -117,7 +117,8 @@ std::wstring TNtServiceInfo::GetErrorControl(void)
 // Return this service current state as a string
 std::wstring TNtServiceInfo::GetCurrentState(void)
 {
-	ASSERT(m_dwCurrentState < 8);
+	if (m_dwErrorControl >= 8)
+		throw std::exception();
 	TCHAR *types[] = {
 		_T("UNKNOWN"),
 			_T("STOPPED"),			// 1
@@ -183,30 +184,31 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	info.m_strServiceName = name;
 	SC_HANDLE scman = ::OpenSCManager(NULL,NULL,SC_MANAGER_ENUMERATE_SERVICE);
 	if (!scman) {
-		throw NTServiceException(name, _T("Could not open ServiceControl manager"), GetLastError());
+		throw NTServiceException(name, _T("Could not open ServiceControl manager: ") + error::lookup::last_error());
 	}
 	SC_HANDLE sh = ::OpenService(scman,name.c_str(),SERVICE_QUERY_STATUS);
 	if (!sh) {
+		std::wstring short_name;
 		DWORD bufLen = SC_BUF_LEN;
 		TCHAR *buf = new TCHAR[bufLen+1];
 		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
-			::CloseServiceHandle(scman);
-			delete [] buf;
-			throw NTServiceException(name, _T("GetServiceKeyName: Could not translate service name"), GetLastError());
+			short_name = name;
+		} else {
+			short_name = buf;
 		}
-		/*
-		Why does this not work? (a bug in the API? says it should return the correct size?)
-		if (bufLen >= SC_BUF_LEN) {
-			::CloseServiceHandle(scman);
-			throw NTServiceException(name, "Service name to long to handle", GetLastError());
-		}
-		buf[bufLen] = 0;
-		*/
-		sh = ::OpenService(scman,buf,SERVICE_QUERY_STATUS);
+		delete [] buf;
+		sh = ::OpenService(scman,short_name.c_str(),SERVICE_QUERY_STATUS);
 		delete [] buf;
 		if (sh == NULL) {
+			DWORD dwErr = GetLastError();
 			::CloseServiceHandle(scman);
-			throw NTServiceException(name, _T("OpenService: Could not open Service"), GetLastError());
+			if (dwErr == ERROR_SERVICE_DOES_NOT_EXIST) {
+				info.m_dwCurrentState = MY_SERVICE_NOT_FOUND;
+				info.m_dwServiceType = MY_SERVICE_NOT_FOUND;
+				return info;
+			} else {
+				throw NTServiceException(name, _T("OpenService: Could not open Service: ") + error::lookup::last_error(dwErr));
+			}
 		}
 	}
 	SERVICE_STATUS state;
@@ -216,7 +218,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	} else {
 		::CloseServiceHandle(sh);
 		::CloseServiceHandle(scman);
-		throw NTServiceException(name, _T("QueryServiceStatus: Could not query service status"), GetLastError());
+		throw NTServiceException(name, _T("QueryServiceStatus: Could not query service status: ") + error::lookup::last_error());
 	}
 	// TODO: Get more info here 
 	::CloseServiceHandle(sh);
@@ -224,22 +226,6 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	return info;
 }
 
-/*
-// Enumerate services on this machine and return an STL list of service objects 
-// dwType = bit OR of SERVICE_WIN32, SERVICE_DRIVER
-// dwState = bit OR of SERVICE_ACTIVE, SERVICE_INACTIVE
-void TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList)
-{
-	ASSERT(pList != NULL);
-	TNtServiceInfo *pSrvList = NULL;
-	DWORD dwCount = 0;
-	pSrvList = TNtServiceInfo::EnumServices(dwType, dwState, &dwCount);
-	for (DWORD dwIndex = 0; dwIndex < dwCount; dwIndex ++) {
-		pList->insert(pList->end(), pSrvList[dwIndex]);
-	}
-	delete [] pSrvList;
-}
-*/
 /*#############################################################################
 # End of file ENUMNTSRV.CPP
 #############################################################################*/
