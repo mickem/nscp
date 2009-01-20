@@ -29,6 +29,10 @@
 #include <list>
 #include <functional>
 #include <time.h>
+#include <algorithm>
+#include <locale>
+
+
 #ifdef _DEBUG
 #include <iostream>
 #endif
@@ -525,6 +529,48 @@ namespace strEx {
 			return _wcsicmp( x.c_str(), y.c_str() ) < 0;
 		}
 	};
+
+
+
+	class StrICmp
+	{
+	public:
+		StrICmp(const std::string &Lang = "english") : m_locE(Lang.c_str())
+		{
+		}
+		class CharLessI
+		{
+		public:
+			CharLessI(std::locale &locE) : m_locE(locE)
+			{
+			}
+			template<typename T>
+			bool operator()(T c1, T c2)
+			{
+				return std::tolower(c1, m_locE) < std::tolower(c2, m_locE);
+			}
+		private:
+			std::locale &m_locE;
+		};
+		template<typename T>
+		int operator()(const T &s1, const T &s2)
+		{
+			if (std::lexicographical_compare(s1.begin(), s1.end(), s2.begin(), s2.end(), CharLessI(m_locE)))
+				return -1;
+			if (std::lexicographical_compare(s2.begin(), s2.end(), s1.begin(), s1.end(), CharLessI(m_locE)))
+				return 1;
+			return 0;
+		}
+	private:
+		std::locale m_locE;
+	};
+
+	template<typename T>
+	int StrCmpI(const T &s1, const T &s2, const std::string &Lang = "english")
+	{
+		return StrICmp(Lang)(s1, s2);
+	}
+
 
 #ifdef _DEBUG
 	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {

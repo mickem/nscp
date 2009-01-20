@@ -131,13 +131,18 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 	}
 	int hit_count = 0;
 
-	bool match = chain.get_inital_state();
-	for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
-		WMIQuery::wmi_row vals = *citRow;
-		match = chain.match(match, vals);
-		if (match) {
-			strEx::append_list(message, vals.render());
-			hit_count++;
+	if (chain.empty()) {
+		NSC_DEBUG_MSG_STD(_T("No filters specified so we will match all rows"));
+		hit_count = rows.size();
+	} else {
+		bool match = chain.get_inital_state();
+		for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+			WMIQuery::wmi_row vals = *citRow;
+			match = chain.match(match, vals);
+			if (match) {
+				strEx::append_list(message, vals.render());
+				hit_count++;
+			}
 		}
 	}
 

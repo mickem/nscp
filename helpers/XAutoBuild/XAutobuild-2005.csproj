@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.20706</ProductVersion>
+    <ProductVersion>8.0.50727</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{0E2B21D9-F432-4127-8E92-7716B1072510}</ProjectGuid>
     <OutputType>Exe</OutputType>
@@ -39,6 +39,18 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug-MemCheck|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\Debug-MemCheck\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <CodeAnalysisRuleAssemblies>D:\Program\Microsoft Visual Studio 9.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleAssemblies>
+    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
+    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'OP5|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\OP5\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <DebugType>full</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>

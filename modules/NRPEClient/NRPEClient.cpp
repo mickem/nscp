@@ -25,7 +25,9 @@
 #include <config.h>
 #include <msvc_wrappers.h>
 #include <execute_process.hpp>
+#ifdef USE_BOOST
 #include <program_options_ex.hpp>
+#endif
 #include <strEx.h>
 
 NRPEClient gNRPEClient;
@@ -61,11 +63,16 @@ bool NRPEClient::loadModule() {
 void NRPEClient::initSSL() {
 	if (bInitSSL)
 		return;
+#ifdef USE_SSL
 	simpleSSL::SSL_init();
+#endif
 	bInitSSL = true;
 }
 
 void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
+#ifndef USE_BOOST
+	NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + _T(" boost not avalible!"));
+#else
 	try {
 		boost::program_options::options_description desc = get_optionDesc();
 		boost::program_options::positional_options_description p = get_optionsPositional();
@@ -83,6 +90,7 @@ void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str());
 	}
+#endif
 }
 
 bool NRPEClient::unloadModule() {
@@ -105,7 +113,7 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::blindstr command, co
 	return r.result;
 }
 
-
+#ifdef USE_BOOST
 boost::program_options::options_description NRPEClient::get_optionDesc() {
 	boost::program_options::options_description desc("Allowed options");
 	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
@@ -150,7 +158,12 @@ NRPEClient::nrpe_connection_data NRPEClient::get_ConectionData(boost::program_op
 		ret.ssl = false;
 	return ret;
 }
+#endif
 int NRPEClient::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args) {
+#ifndef USE_BOOST
+	NSC_LOG_ERROR_STD(_T("Could not execute ") + std::wstring(command) + _T(" boost not avalible!"));
+	return NSCAPI::returnUNKNOWN;
+#else
 	try {
 		boost::program_options::options_description desc = get_optionDesc();
 		boost::program_options::positional_options_description p = get_optionsPositional();
@@ -175,27 +188,37 @@ int NRPEClient::commandLineExec(const TCHAR* command, const unsigned int argLen,
 		std::cout << "Unknown exception parsing command line" << std::endl;
 	}
 	return NSCAPI::returnUNKNOWN;
+#endif
 }
 NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_data con) {
 	try {
 		NRPEPacket packet;
-		if (con.ssl)
+		if (con.ssl) {
+#ifdef USE_SSL
 			packet = send_ssl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(), con.buffer_length));
-		else
+#else
+			return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)!"));
+#endif
+		} else
 			packet = send_nossl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(), con.buffer_length));
 		return nrpe_result_data(packet.getResult(), packet.getPayload());
 	} catch (NRPEPacket::NRPEPacketException &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.getMessage());
 	} catch (simpleSocket::SocketException &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + e.getMessage());
+#ifdef USE_SSL
 	} catch (simpleSSL::SSLException &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("SSL Socket error: ") + e.getMessage());
+#endif
 	} catch (...) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
 NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet)
 {
+#ifndef USE_SSL
+	return send_nossl(host, port, timeout, packet);
+#else
 	initSSL();
 	simpleSSL::Socket socket(true);
 	socket.connect(host, port);
@@ -206,6 +229,7 @@ NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPa
 	NSC_DEBUG_MSG_STD(_T("<<<length: ") + strEx::itos(buffer.getLength()));
 	packet.readFrom(buffer.getBuffer(), buffer.getLength());
 	return packet;
+#endif
 }
 NRPEPacket NRPEClient::send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet)
 {

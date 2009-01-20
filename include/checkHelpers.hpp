@@ -48,14 +48,14 @@ namespace checkHolders {
 			return str + _T(" < critical");
 		return str + _T(" < unknown");
 	}
-	std::wstring formatState(std::wstring str, ResultType what) {
+	static std::wstring formatState(std::wstring str, ResultType what) {
 		if (what == warning)
 			return str + _T(" (warning)");
 		else if (what == critical)
 			return str + _T(" (critical)");
 		return str + _T(" (unknown)");
 	}
-	std::wstring formatNotFound(std::wstring str, ResultType what) {
+	static std::wstring formatNotFound(std::wstring str, ResultType what) {
 		if (what == warning)
 			return str + _T("not found (warning)");
 		else if (what == critical)

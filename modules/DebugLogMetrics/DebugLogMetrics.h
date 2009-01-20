@@ -18,59 +18,51 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
-
-#include "NSCAThread.h"
-#include <CheckMemory.h>
 
 NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
+#include <map>
+#include <error.hpp>
+#include "PDHCollector.h"
 
-class NSCAAgent {
+class DebugLogMetrics {
 private:
-	CheckMemory memoryChecker;
-	int processMethod_;
-//	NSCAThreadImpl pdhThread;
-	std::list<NSCAThreadImpl*> extra_threads;
+	struct command_data {
+		command_data() {}
+		command_data(std::wstring command_, std::wstring arguments_) : command(command_), arguments(arguments_) {}
+		std::wstring command;
+		std::wstring arguments;
+	};
+	typedef std::map<strEx::blindstr, command_data> command_list;
+	command_list commands;
+	command_list alias;
+	unsigned int timeout;
+	std::wstring scriptDirectory_;
+	std::wstring root_;
+	PDHCollectorThread pdhThread;
 
 public:
-
-public:
-	NSCAAgent();
-	virtual ~NSCAAgent();
+	DebugLogMetrics();
+	virtual ~DebugLogMetrics();
 	// Module calls
 	bool loadModule();
 	bool unloadModule();
-	std::wstring getConfigurationMeta();
 
-	/**
-	* Return the module name.
-	* @return The module name
-	*/
+
 	std::wstring getModuleName() {
-#ifdef HAVE_LIBCRYPTOPP
-		return _T("NSCAAgent (w/ encryption)");
-#else
-		return _T("NSCAAgent");
-#endif
+		return _T("Metrics Logger");
 	}
-	/**
-	* Module version
-	* @return module version
-	*/
 	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 3, 0 };
+		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
+		return _T("A module to log metrics to a file to find reasource and memory leaks.");
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args);
-
-	std::wstring getCryptos();
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	std::wstring getConfigurationMeta();
 
 };
+

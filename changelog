@@ -4,6 +4,30 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2009-01-20 MickeM 
+ * Fixed issue with CheckWMI when no filter was specified.
+
+2009-01-17 MickeM
+ + Added new command line option pdhlookup (to CheckSystem) to lookup index from names.
+   Probably not usefull to anyone but me :) Usage: "nsclient++ -noboot CheckSystem pdhlookup Antal bindningsreferenser"
+ * Fixed so PDH Collectors use the same exception as the rest of the PDH stuff (might give better errors when PDH breaks, but I doubt it)
+ * removed debug output from -noboot
+ + Added new command line option pdhmatch to use pattern matching on PDH queries
+   Usage: nsclient++ -noboot CheckSystem pdhmatch \Process(*)\Antal trådar
+ * Improved error reporting in the PDH subsystem.
+ + Added new module A_DebugLogMetrics.dll which can be used to generate debug info.
+   Enable the module and a file called process_info.csv will be created under %APP_DATA%/nsclient++/process_info.csv which contains metrics.
+ * Fixed handle leak in CheckExternalProcess and NRPEListsner (executing commands).
+
+2009-01-13 MickeM
+ * Fixed issue with 64-bit installer (now installs under Program Files (and not x86)
+ + Brand new build enviornment based upon boost build!!!
+   Use batch file to build (release-build.bat or modify to make your own)
+ * Modified /about so it now shows a lot of usefull(?) info.
+
+2008-11-13 MickeM
+ + Added truncate option to checkServiceState
+
 2008-09-24 MickeM
  * Imroved the installer (now auto-updates the version when built)
 

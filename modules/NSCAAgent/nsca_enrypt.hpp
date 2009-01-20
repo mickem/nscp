@@ -1,5 +1,3 @@
-#define HAVE_LIBCRYPTOPP
-
 #ifdef HAVE_LIBCRYPTOPP
 #include <crypto++/cryptlib.h>
 #include <crypto++/modes.h>
@@ -52,7 +50,7 @@
 #define ENCRYPT_SAFER128        25      /* SAFER-sk128 */
 #define ENCRYPT_SAFERPLUS       26      /* SAFER+ */
 #endif
-
+#define LAST_ENCRYPTION_ID 26
 
 class nsca_encrypt {
 public:
@@ -69,7 +67,9 @@ public:
 		virtual void init(std::string password, unsigned char *transmitted_iv, int iv_size) = 0;
 		virtual void encrypt(unsigned char *buffer, int buffer_size) = 0;
 		virtual void decrypt(unsigned char *buffer, int buffer_size) = 0;
+		virtual std::wstring getName() = 0;
 	};
+#ifdef HAVE_LIBCRYPTOPP
 	template <class TMethod>
 	class cryptopp_encryption : public any_encryption {
 	private:
@@ -136,8 +136,12 @@ public:
 		void decrypt(unsigned char *buffer, int buffer_size) {
 			throw encryption_exception(_T("Decryption not supported"));
 		}
+		std::wstring getName() {
+			return TMethod::StaticAlgorithmName();
+		}
 
 	};
+#endif
 	class no_encryption : public any_encryption {
 	public:
 		static int get_keySize() {
@@ -149,6 +153,9 @@ public:
 		void init(std::string password, unsigned char *transmitted_iv, int iv_size) {}
 		void encrypt(unsigned char *buffer, int buffer_size) {}
 		void decrypt(unsigned char *buffer, int buffer_size) {}
+		std::wstring getName() {
+			return _T("No Encryption (not safe)");
+		}
 	};
 	class xor_encryption : public any_encryption {
 	private:
@@ -205,6 +212,9 @@ public:
 		void decrypt(unsigned char *buffer, int buffer_size) {
 			throw encryption_exception(_T("Decryption not supported"));
 		}
+		std::wstring getName() {
+			return _T("XOR (not safe)");
+		}
 	};
 
 private:
@@ -236,6 +246,7 @@ public:
 				return true;
 
 // UNdefined
+#ifdef HAVE_LIBCRYPTOPP
 			case ENCRYPT_3WAY:
 			case ENCRYPT_ARCFOUR:
 			case ENCRYPT_CAST256:
@@ -247,6 +258,7 @@ public:
 			case ENCRYPT_SAFER64:
 			case ENCRYPT_SAFER128:
 			case ENCRYPT_SAFERPLUS:
+#endif
 			default:
 				return false;
 		}
@@ -328,11 +340,12 @@ public:
 			throw encryption_exception(_T("No encryption core!"));
 		core_->encrypt(buffer, buffer_size);
 	}
-
 	unsigned char* get_rand_buffer(int length) {
-		CryptoPP::AutoSeededRandomPool rng;
 		unsigned char * buffer = new unsigned char[length+1];
+#if HAVE_LIBCRYPTOPP
+		CryptoPP::AutoSeededRandomPool rng;
 		rng.GenerateBlock(buffer, length);
+#endif
 		return buffer;
 	}
 	void destroy_random_buffer(unsigned char* buffer) {

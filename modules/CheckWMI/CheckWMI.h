@@ -24,7 +24,7 @@ NSC_WRAPPERS_CLI();
 #include <config.h>
 #include <strEx.h>
 #include <utils.h>
-#include <checkHelpers.hpp>
+//#include <checkHelpers.hpp>
 #include "WMIQuery.h"
 
 class CheckWMI {

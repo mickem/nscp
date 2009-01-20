@@ -22,8 +22,10 @@
 
 #include <strEx.h>
 #include <checkHelpers.hpp>
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 #include <boost/regex.hpp>
+#else
+#pragma message("Compiling a module without regular expression support")
 #endif
 
 namespace filters {
@@ -50,7 +52,7 @@ namespace filters {
 				return str == filter;
 			}
 		};
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 		struct regexp_string_filter {
 			static bool filter(boost::wregex filter, std::wstring str) {
 				return  boost::regex_match(str, filter);
@@ -118,7 +120,7 @@ namespace filters {
 				return ret;
 			}
 		};
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 		struct regexp_handler {
 			static boost::wregex parse(std::wstring str) {
 				try {
@@ -218,7 +220,7 @@ namespace filters {
 	};
 
 	typedef filter_one<std::wstring, std::wstring, handlers::string_handler, filter::sub_string_filter> sub_string_filter;
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 	typedef filter_one<boost::wregex, std::wstring, handlers::regexp_handler, filter::regexp_string_filter> regexp_string_filter;
 #endif
 	typedef filter_one<std::wstring, std::wstring, handlers::string_handler, filter::exact_string_filter> exact_string_filter;
@@ -227,14 +229,14 @@ namespace filters {
 		sub_string_filter sub;
 		exact_string_filter exact;
 		std::wstring value_;
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 		regexp_string_filter regexp;
 #endif
 		filter_all_strings() {}
 
 		inline bool hasFilter() const {
 			return sub.hasFilter() 
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 				|| regexp.hasFilter() 
 #endif
 				|| exact.hasFilter();
@@ -242,7 +244,7 @@ namespace filters {
 		bool matchFilter(const std::wstring str) const {
 			if ((sub.hasFilter())&&(sub.matchFilter(str)))
 				return true;
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 			else if ((regexp.hasFilter())&&(regexp.matchFilter(str)))
 				return true;
 #endif
@@ -258,7 +260,7 @@ namespace filters {
 			strEx::token t = strEx::getToken(value, ':', false);
 			if (t.first == _T("substr")) {
 				sub = t.second;
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 			} else if (t.first == _T("regexp")) {
 				regexp = t.second;
 #else
@@ -275,7 +277,7 @@ namespace filters {
 		std::wstring to_string() const {
 			if (sub.hasFilter())
 				return _T("substring: '") + sub.getValue() + _T("'");
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 			if (regexp.hasFilter())
 				return _T("regexp: '") + regexp.getValue() + _T("'");
 #endif
@@ -377,6 +379,10 @@ namespace filters {
 			if (key.substr(0,1) == _T("-"))
 				mode = minus;
 			chain.push_back(filteritem_type(mode, filter));
+		}
+
+		bool empty() {
+			return chain.empty();
 		}
 
 		bool hasFilter() const {

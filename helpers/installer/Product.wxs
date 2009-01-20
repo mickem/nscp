@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
+	<?ifdef "$(var.boost)" ?>
+		<?define PlatForm = "$(var.arch)" ?>
+		<?define Mode = "Nightly" ?>
+		<?define SysTray.ConfigurationName = "BOOST BUILD" ?>
+	<?else?>
 	<?if "$(var.SysTray.ConfigurationName)" = "Debug|Win32"?>
 		<?define PlatForm = "Win32" ?>
 		<?define Mode = "Debug" ?>
@@ -15,6 +20,7 @@
 	<?else?>
 		<?define PlatForm = "Unknown: $(var.SysTray.ConfigurationName)" ?>
 	<?endif?>
+	<?endif?>
 
 	<?if "$(var.PlatForm)" = "x64"?>
 		<?define PlatForm.x64 ?>
@@ -27,31 +33,30 @@
 	<?ifdef var.PlatForm.Win32?>
 		<?define ProgramFiles = "ProgramFilesFolder" ?>
 		<?define Win64 = "no" ?>
-		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
+		<?define Plattform = "Intel" ?>
 	<?else?>
 		<?define ProgramFiles = "ProgramFiles64Folder" ?>
 		<?define Win64 = "yes" ?>
+		<?define Plattform = "x64" ?>
+	<?endif?>
+	<?ifndef var.Source ?>
 		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
 	<?endif?>
 
 	<?include ../../AutoBuild.wxs ?>
 	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
-	<?if $(var.Version.Build) = 0?>
-	<?define Version.Old.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Old.Revision).999" ?>
-	<?else?>
-	<?define Version.Old.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Old.Build)" ?>
-	<?endif?>
+	<?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
+	<?include config.wxs ?>
 
+	<Product Id="????????-????-????-????-????????????" Name="$(var.App.Title) ($(var.PlatForm))" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC"
+					UpgradeCode="$(var.UpgradeCode)">
 
-	<Product Id="????????-????-????-????-????????????" Name="NSClient++ ($(var.PlatForm)) $(var.Version.String)" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC"
-					 UpgradeCode="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
-		
-		<Package Id="????????-????-????-????-????????????" Description="A simple windows monitor agent for (amongst others) nagios."
-						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes"/>
+		<Package Id="????????-????-????-????-????????????" Description="A simple windows monitor agent for (amongst others) Nagios."
+						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes" Languages="1033" Platforms="$(var.Plattform)" />
 
-		<Upgrade Id="0B36E3B7-0042-452d-B376-57E0C07ADDAA">
-			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.Old.String)"/>
-			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="$(var.Version.String)"  OnlyDetect="yes"/>
+		<Upgrade Id="$(var.UpgradeCode)">
+			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="yes" Maximum="$(var.Version.String)"/>
+			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="yes"/>
 		</Upgrade>
 
 		<?ifdef var.PlatForm.Win32?>
@@ -63,30 +68,34 @@
 		</Media>
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="$(var.ProgramFiles)">
-				<Directory Id="INSTALLLOCATION" Name="NSClient" LongName="NSClient++">
+				<Directory Id="INSTALLLOCATION" Name="NSClient" LongName="$(var.App.Path)">
 						<Component Id="MainClient" Guid="F6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 							<File Id="NSClientEXE" Name="nsclient.exe" LongName="nsclient++.exe" DiskId="1" 
 										Source="$(var.Source)/nsclient++.exe" Vital="yes">
 								<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="NSCPTest"
-													LongName="NSClient++ ($(var.PlatForm), test)" WorkingDirectory="INSTALLDIR" Icon="nsclient.exe"
-													IconIndex="0" Arguments="/test" Description="Run NSClient++ in test mode"/>
+													LongName="$(var.App.Title) ($(var.PlatForm), test)" WorkingDirectory="INSTALLDIR" Icon="nsclient.exe"
+													IconIndex="0" Arguments="/test" Description="Run $(var.App.Title) in test mode"/>
 								<Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="NSCPStrt"
-													LongName="Start NSClient++ ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
-													IconIndex="0" Arguments="/start" Description="Start NSClient++ as a service"/>
+													LongName="Start $(var.App.Title) ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
+													IconIndex="0" Arguments="/start" Description="Start the $(var.App.Title) service"/>
 								<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="NSCPStop"
-													LongName="Stop NSClient++ ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
-													IconIndex="0" Arguments="/stop" Description="Stop NSClient++ as a service"/>
+													LongName="Stop $(var.App.Title) ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
+													IconIndex="0" Arguments="/stop" Description="Stop the $(var.App.Title) service"/>
 							</File>
 							<File Id="NSClientTRAY" Name="nstray.exe" DiskId="1"
 										Source="$(var.Source)/nstray.exe" Vital="yes">
 								<Shortcut Id="StartmenuNSClientTray" Directory="ProgramMenuDir" Name="NSCPTray"
-													LongName="NSClient++ ($(var.PlatForm) system tray)" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
-													IconIndex="0" Description="Start systemtray"/>
+													LongName="$(var.App.Title) ($(var.PlatForm)) system tray" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
+													IconIndex="0" Description="Start the $(var.App.Title) systemtray agent"/>
 							</File>
-							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Source)/NSC.ini" Vital="yes"/>
-							<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="yes"/>
-							<File Id="Counters" Name="counters.def" LongName="counters.defs" DiskId="1" Source="$(var.Source)/counters.defs" Vital="yes"/>
-							<File Id="License" Name="license.txt" LongName="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="yes"/>
+							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="no"/>
+							<?ifdef "$(var.boost)" ?>
+								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog.txt" Vital="no"/>
+							<?else?>
+								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no"/>
+							<?endif?>
+							<File Id="Counters" Name="counters.def" LongName="counters.defs" DiskId="1" Source="$(var.Source)/counters.defs" Vital="no"/>
+							<File Id="License" Name="license.txt" LongName="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="no"/>
 						</Component>
 						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
 							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
@@ -116,7 +125,7 @@
 				</Directory>
 			</Directory>
 			<Directory Id="ProgramMenuFolder" Name="PMenu" LongName="Programs">
-				<Directory Id="ProgramMenuDir" Name='NSClient' LongName="NSClient++" />
+				<Directory Id="ProgramMenuDir" Name='NSClient' LongName="$(var.App.StartMenuPath)" />
 			</Directory>
 		</Directory>
 		<Feature Id="ProductFeature" Title="NSClient++ $(var.PlatForm)" Description="Binaries for $(var.PlatForm)"
@@ -142,16 +151,18 @@
 
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
-			<!--
-			<Custom Action='AlreadyUpdated' After='FindRelatedProducts'>PATCHFOUND</Custom>
-			-->
-			<!--Custom Action='LaunchFile' After='InstallFinalize'>NOT Installed</Custom-->
 			<Custom Action="install" After='InstallFinalize'>NOT REMOVE</Custom>
 			<Custom Action="uninstall" Before="RemoveFiles"/>
+			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
 		</InstallExecuteSequence>
 
 		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install gui' Return='check'/>
 		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall gui' Return='ignore'/>
+		<CustomAction Id="PreventDowngrading" Error="Newer version already installed." />
+
+		<InstallUISequence>
+			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+		</InstallUISequence>
 
 		<UIRef Id="WixUI_FeatureTree" />
 		<UIRef Id="WixUI_ErrorProgressText" />

@@ -74,7 +74,13 @@ void NRPEListener::addAllScriptsFrom(std::wstring path) {
 }
 
 bool NRPEListener::loadModule() {
+#ifdef USE_SSL
 	bUseSSL_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1;
+#else
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1) {
+		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+	}
+#endif
 	noPerfData_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA,NRPE_SETTINGS_PERFDATA_DEFAULT)==0;
 	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
 	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
@@ -114,19 +120,25 @@ bool NRPEListener::loadModule() {
 		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
 		std::wstring host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
 		unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
+#ifdef USE_SSL
 		if (bUseSSL_) {
 			socket_ssl_.setHandler(this);
 			socket_ssl_.StartListener(host, port, backLog);
 		} else {
+#else
+		{
+#endif
 			socket_.setHandler(this);
 			socket_.StartListener(host, port, backLog);
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
+#ifdef USE_SSL
 	} catch (simpleSSL::SSLException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
+#endif
 	}
 	root_ = NSCModuleHelper::getBasePath();
 
@@ -134,11 +146,15 @@ bool NRPEListener::loadModule() {
 }
 bool NRPEListener::unloadModule() {
 	try {
+#ifdef USE_SSL
 		if (bUseSSL_) {
 			socket_ssl_.removeHandler(this);
 			if (socket_ssl_.hasListener())
 				socket_ssl_.StopListener();
 		} else {
+#else
+		{
+#endif
 			socket_.removeHandler(this);
 			if (socket_.hasListener())
 				socket_.StopListener();
@@ -146,9 +162,11 @@ bool NRPEListener::unloadModule() {
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
+#ifdef USE_SSL
 	} catch (simpleSSL::SSLException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
+#endif
 	}
 	return true;
 }

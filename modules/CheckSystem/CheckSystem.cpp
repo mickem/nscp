@@ -29,7 +29,7 @@
 #include <map>
 #include <set>
 #include <sysinfo.h>
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 #include <boost/regex.hpp>
 #endif
 
@@ -289,6 +289,58 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 				}
 			}
 		}
+	} else if (_wcsicmp(command, _T("pdhlookup")) == 0) {
+		try {
+			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			if (name.empty()) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
+				return 0;
+			}
+			DWORD dw = PDH::PDHQuery::lookupIndex(name);
+			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
+			NSC_LOG_MESSAGE_STD(_T("  | Index for '") + name + _T("' is ") + strEx::itos(dw));
+			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
+			return 0;
+		}
+	} else if (_wcsicmp(command, _T("pdhmatch")) == 0) {
+		try {
+			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			if (name.empty()) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
+				return 0;
+			}
+			std::list<std::wstring> list = PDH::PDHResolver::PdhExpandCounterPath(name.c_str());
+			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
+			for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+				NSC_LOG_MESSAGE_STD(_T("  | Found '") + *cit);
+			}
+			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
+			return 0;
+		}
+	} else if (_wcsicmp(command, _T("pdhobject")) == 0) {
+		try {
+			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			if (name.empty()) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
+				return 0;
+			}
+			PDH::Enumerations::pdh_object_details list = PDH::Enumerations::EnumObjectInstances(name.c_str());
+			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
+			for (std::list<std::wstring>::const_iterator cit = list.counters.begin(); cit != list.counters.end(); ++cit) {
+				NSC_LOG_MESSAGE_STD(_T("  | Found Counter: ") + *cit);
+			}
+			for (std::list<std::wstring>::const_iterator cit = list.instances.begin(); cit != list.instances.end(); ++cit) {
+				NSC_LOG_MESSAGE_STD(_T("  | Found Instance: ") + *cit);
+			}
+			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
+			return 0;
+		}
 	}
 	return 0;
 }
@@ -524,6 +576,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 	StateContainer tmpObject;
 	bool bPerfData = true;
 	bool bAutoStart = false;
+	unsigned int truncate = 0;
 
 	tmpObject.data = _T("service");
 	tmpObject.crit.state = _T("started");
@@ -531,6 +584,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
+		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_BOOL_TRUE(_T("CheckAll"), bAutoStart)
@@ -633,6 +687,8 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 //			NSC_LOG_MESSAGE(_T("Service: ") + (*it).data + _T(" (") + strEx::itos(info.m_dwCurrentState) + _T(":") + strEx::itos((*it).warn.state.value_) + _T(":") + strEx::itos((*it).crit.state.value_) + _T(") -- (") + strEx::itos(returnCode) + _T(":") + strEx::itos(x) + _T(")"));
 		}
 	}
+	if ((truncate > 0) && (msg.length() > (truncate-4)))
+		msg = msg.substr(0, truncate-4) + _T("...");
 	if (msg.empty() && returnCode == NSCAPI::returnOK)
 		msg = _T("OK: All services are in their apropriate state.");
 	else if (msg.empty())
@@ -893,7 +949,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 				if ((*proc).first.find((*it).data) != std::wstring::npos)
 					break;
 			}
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 		} else if (match == match_regexp) {
 			try {
 				boost::wregex filter((*it).data,boost::regex::icase);
@@ -912,7 +968,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 				return NSCAPI::returnUNKNOWN;
 			}
 #else
-			NSC_LOG_ERROR_STD(_T("NSClient++ is compiled with NO_BOOST_DEP so no regular expression support for you...") + (*proc).first);
+			NSC_LOG_ERROR_STD(_T("NSClient++ is compiled without USEBOOST so no regular expression support for you...") + (*proc).first);
 			msg = _T("Regular expression is not supported: ") + (*proc).first;
 			return NSCAPI::returnUNKNOWN;
 #endif

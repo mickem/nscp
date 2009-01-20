@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8,00"
-	Name="CheckSystem"
-	ProjectGUID="{2FCAF54B-AAD3-4F59-895A-8F9CEAFDC65D}"
-	RootNamespace="CheckSystem"
+	Name="DebugLogMetrics"
+	ProjectGUID="{53FB9872-5E74-4E62-892D-AD82C2ED67CE}"
+	RootNamespace="DebugLogMetrics"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -51,7 +51,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1;_CRT_SECURE_NO_DEPRECATE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -68,14 +68,15 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="2"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/CheckSystem.pdb"
+				ProgramDatabaseFile="$(OutDir)/DebugLogMetrics.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -134,7 +135,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1;_CRT_SECURE_NO_DEPRECATE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -151,14 +152,16 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="2"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				IgnoreDefaultLibraryNames="MSVCRT"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/CheckSystem.pdb"
+				ProgramDatabaseFile="$(OutDir)/DebugLogMetrics.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -211,8 +214,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS; _CRT_SECURE_NO_DEPRECATE"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
@@ -230,15 +233,16 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -292,8 +296,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS; _CRT_SECURE_NO_DEPRECATE"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
@@ -311,15 +315,16 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -372,8 +377,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
@@ -391,15 +396,15 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -453,8 +458,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
@@ -472,15 +477,15 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -533,8 +538,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -550,10 +555,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -611,8 +616,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -628,10 +633,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -693,7 +698,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;MEMCHECK"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -710,14 +715,15 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="2"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/CheckSystem.pdb"
+				ProgramDatabaseFile="$(OutDir)/DebugLogMetrics.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -776,7 +782,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1;_CRT_SECURE_NO_DEPRECATE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -793,14 +799,16 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="2"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				IgnoreDefaultLibraryNames="MSVCRT"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/CheckSystem.pdb"
+				ProgramDatabaseFile="$(OutDir)/DebugLogMetrics.pdb"
 				SubSystem="2"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -853,8 +861,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -870,10 +878,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -931,8 +939,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;USE_BOOST"
+				AdditionalIncludeDirectories="../include;../../include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -948,10 +956,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
-				OutputFile="$(OutDir)\$(ProjectName).dll"
+				AdditionalDependencies="Psapi.lib Pdh.lib"
+				OutputFile="$(OutDir)\A_$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -1014,7 +1022,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1;_CRT_SECURE_NO_DEPRECATE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -1031,16 +1039,18 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				IgnoreDefaultLibraryNames="MSVCRT"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/CheckSystem.pdb"
+				ProgramDatabaseFile="$(OutDir)/DebugLogMetrics.pdb"
 				SubSystem="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1091,7 +1101,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../include;../../include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS; _CRT_SECURE_NO_DEPRECATE"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
@@ -1110,17 +1120,18 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Release/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1171,7 +1182,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../include;../../include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
@@ -1190,17 +1201,17 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1251,9 +1262,9 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../include;../../include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
-				RuntimeLibrary="0"
+				RuntimeLibrary="2"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -1270,17 +1281,17 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Dist/modules/$(ProjectName).dll"
 				LinkIncremental="1"
-				ModuleDefinitionFile="CheckSystem.def"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1336,7 +1347,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1;_CRT_SECURE_NO_DEPRECATE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -1353,16 +1364,18 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Pdh.lib"
+				AdditionalDependencies="ws2_32.lib ssleay32.lib libeay32.lib"
 				OutputFile="../../Debug/modules/$(ProjectName).dll"
 				LinkIncremental="2"
-				ModuleDefinitionFile="CheckSystem.def"
+				AdditionalLibraryDirectories=""
+				IgnoreDefaultLibraryNames="MSVCRT"
+				ModuleDefinitionFile="DebugLogMetrics.def"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)/CheckSystem.pdb"
+				ProgramDatabaseFile="$(OutDir)/DebugLogMetrics.pdb"
 				SubSystem="2"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)/CheckSystem.lib"
+				ImportLibrary="$(OutDir)/DebugLogMetrics.lib"
 				TargetMachine="5"
 			/>
 			<Tool
@@ -1554,326 +1567,12 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\CheckSystem.cpp"
+				RelativePath=".\DebugLogMetrics.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\CheckSystem.def"
+				RelativePath=".\DebugLogMetrics.def"
 				>
-			</File>
-			<File
-				RelativePath="..\..\include\EnumNtSrv.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\..\include\EnumProcess.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Itanium"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=""
-					/>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\..\include\NSCHelper.cpp"
@@ -2277,106 +1976,6 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\..\include\sysinfo.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
 				RelativePath="..\..\include\utils.cpp"
 				>
 				<FileConfiguration
@@ -2540,15 +2139,7 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\..\include\arrayBuffer.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\CheckMemory.h"
-				>
-			</File>
-			<File
-				RelativePath=".\CheckSystem.h"
+				RelativePath="..\..\include\charEx.h"
 				>
 			</File>
 			<File
@@ -2556,11 +2147,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\include\EnumNtSrv.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\EnumProcess.h"
+				RelativePath=".\DebugLogMetrics.h"
 				>
 			</File>
 			<File
@@ -2568,15 +2155,11 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\NSCHelper.h"
+				>
+			</File>
+			<File
 				RelativePath=".\PDHCollector.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\PDHCollectors.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\PDHCounter.h"
 				>
 			</File>
 			<File
@@ -2584,18 +2167,20 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\include\strEx.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\sysinfo.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\include\utils.h"
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
+			>
+		</Filter>
+		<File
+			RelativePath=".\ReadMe.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

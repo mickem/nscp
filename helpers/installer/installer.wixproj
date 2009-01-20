@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <VisualStudioProject>
     <WindowsInstallerXML
-        ProductVersion="2.0.5325.0"
+        ProductVersion="2.0.5805.0"
         ProjectGuid="{A3CF4E23-1D1B-4D93-A16A-48C52D118560}"
         SchemaVersion="1.0"
     >
@@ -14,6 +14,11 @@
                 Name="Debug"
                 RelativeOutputDirectory="bin\Debug"
                 RelativeIntermediateDirectory="obj\Debug"
+            />
+            <Configuration
+                Name="OP5"
+                RelativeOutputDirectory="bin\Release"
+                RelativeIntermediateDirectory="obj\Release"
             />
             <Configuration
                 Name="Release"

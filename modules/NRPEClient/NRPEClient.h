@@ -21,10 +21,14 @@
 
 NSC_WRAPPERS_MAIN();
 #include <Socket.h>
+#ifdef USE_SSL
 #include <SSLSocket.h>
+#endif
 #include <map>
 #include <nrpe/NRPEPacket.hpp>
+#ifdef USE_BOOST
 #include <boost/program_options.hpp>
+#endif
 
 
 class NRPEClient {
@@ -88,14 +92,25 @@ public:
 
 
 	std::wstring getModuleName() {
+#ifdef USE_SSL
+		return _T("NRPE client (w/ SSL)");
+#else
 		return _T("NRPE client");
+#endif
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
-		return _T("A simple client for NRPE.");
+		return _T("A simple client for checking remote NRPE servers (think proxy).\n")
+#ifndef USE_BOOST
+		_T("BOOST support is missing (this is probably very bad)!\n")
+#endif
+#ifndef USE_SSL
+		_T("SSL support is missing (so you cant use encryption)!")
+#endif
+	;
 	}
 
 	bool hasCommandHandler();
@@ -109,10 +124,11 @@ private:
 	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	void initSSL();
-
+#ifdef USE_BOOST
 	boost::program_options::options_description NRPEClient::get_optionDesc();
 	boost::program_options::positional_options_description NRPEClient::get_optionsPositional();
 	nrpe_connection_data NRPEClient::get_ConectionData(boost::program_options::variables_map &vm);
+#endif
 
 
 private:

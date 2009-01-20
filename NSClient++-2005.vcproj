@@ -996,6 +996,195 @@
 			/>
 		</Configuration>
 		<Configuration
+			Name="OP5|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine="XAutobuild.exe -f &quot;$(ProjectDir)&quot;"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;"
+				Outputs="$(TargetDir)\$(ProjectName)-$(PlatformName).zip"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TypeLibraryName=".\Release/IconService.tlb"
+				HeaderFileName=""
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories="include"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				AssemblerListingLocation=""
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
+				WarningLevel="3"
+				SuppressStartupBanner="true"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1036"
+				AdditionalIncludeDirectories="./res/"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
+				LinkIncremental="1"
+				SuppressStartupBanner="true"
+				IgnoreAllDefaultLibraries="false"
+				IgnoreDefaultLibraryNames=""
+				ModuleDefinitionFile=""
+				ProgramDatabaseFile=""
+				SubSystem="1"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="OP5|x64"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="1"
+			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+				CommandLine="echo Seting up scripts&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;cmd /c &quot;xcopy /Q /Y &quot;$(InputDir)\scripts\*.*&quot; &quot;$(TargetDir)\scripts\&quot;&quot;&#x0D;&#x0A;echo Removing old archive and files we dont want&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.lib&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\modules\*.exp&quot;&quot;&#x0D;&#x0A;cmd /c &quot;del &quot;$(TargetDir)\*.zip&quot;&quot;&#x0D;&#x0A;"
+				Outputs="$(TargetDir)\$(ProjectName)-$(PlatformName).zip"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+				TypeLibraryName=".\Release/IconService.tlb"
+				HeaderFileName=""
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories="include"
+				PreprocessorDefinitions="ARCH_x64"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="StdAfx.h"
+				PrecompiledHeaderFile="$(IntDir)\$(TargetName).pch"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="$(IntDir)\vc80.pdb"
+				WarningLevel="3"
+				SuppressStartupBanner="true"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1036"
+				AdditionalIncludeDirectories="./res/"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
+				LinkIncremental="1"
+				SuppressStartupBanner="true"
+				IgnoreAllDefaultLibraries="false"
+				IgnoreDefaultLibraryNames=""
+				ModuleDefinitionFile=""
+				ProgramDatabaseFile=""
+				SubSystem="1"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="17"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
 			Name="Release|Itanium"
 			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
@@ -1590,6 +1779,24 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Itanium"
 					>
 					<Tool
@@ -1729,6 +1936,24 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Itanium"
 					>
 					<Tool
@@ -1860,6 +2085,24 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Debug-MemCheck|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -2015,6 +2258,24 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Itanium"
 					>
 					<Tool
@@ -2146,6 +2407,24 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Debug-MemCheck|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -2303,6 +2582,26 @@
 						Optimization="0"
 						PreprocessorDefinitions=""
 						BasicRuntimeChecks="3"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						Optimization="2"
+						PreprocessorDefinitions=""
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						Optimization="2"
+						PreprocessorDefinitions=""
 						UsePrecompiledHeader="1"
 					/>
 				</FileConfiguration>
@@ -2591,6 +2890,24 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Itanium"
 					>
 					<Tool
@@ -2703,6 +3020,24 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Debug-MemCheck|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
 					>
 					<Tool
 						Name="VCCustomBuildTool"
@@ -2856,6 +3191,26 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="OP5|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
+						Outputs=".\Doc"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
+						Outputs=".\Doc"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Itanium"
 					ExcludedFromBuild="true"
 					>
@@ -2912,7 +3267,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2921,7 +3276,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2930,7 +3285,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2939,7 +3294,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2948,7 +3303,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2957,7 +3312,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2966,7 +3321,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						AdditionalDependencies=""
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
@@ -2976,7 +3331,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						AdditionalDependencies=""
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
@@ -2986,7 +3341,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -2995,7 +3350,27 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						AdditionalDependencies=""
+						Outputs="$(TargetDir)$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
+						AdditionalDependencies=""
 						Outputs="$(TargetDir)$(InputFileName)"
 					/>
 				</FileConfiguration>
@@ -3068,6 +3443,24 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Nightly|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputName).ini"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)\$(InputName).ini&quot;&quot;&#x0D;&#x0A;&#x0D;&#x0A;"
+						Outputs="$(TargetDir)\$(InputName).ini"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
 					>
 					<Tool
 						Name="VCCustomBuildTool"
@@ -3197,6 +3590,28 @@
 						Name="VCCustomBuildTool"
 						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Skipping $(InputFileName)...&#x0D;&#x0A;"
+						AdditionalDependencies=""
+						Outputs=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="echo Skipping $(InputFileName)...&#x0D;&#x0A;"
+						AdditionalDependencies=""
+						Outputs=""
 					/>
 				</FileConfiguration>
 				<FileConfiguration

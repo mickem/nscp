@@ -18,146 +18,90 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-
 #include "stdafx.h"
-#include "NSCAAgent.h"
-#include <utils.h>
-#include <list>
-#include <string>
+#include "DebugLogMetrics.h"
+#include <strEx.h>
+#include <time.h>
+#include <config.h>
+#include <msvc_wrappers.h>
+#include <Psapi.h>
 
-NSCAAgent gNSCAAgent;
+DebugLogMetrics gDebugLogMetrics;
 
-/**
- * DLL Entry point
- * @param hModule 
- * @param ul_reason_for_call 
- * @param lpReserved 
- * @return 
- */
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
 	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
 	return TRUE;
 }
 
-/**
- * Default c-tor
- * @return 
- */
-NSCAAgent::NSCAAgent() {}
-/**
- * Default d-tor
- * @return 
- */
-NSCAAgent::~NSCAAgent() {}
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool NSCAAgent::loadModule() {
-	int e_threads = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_DEBUG_THREADS, NSCA_DEBUG_THREADS_DEFAULT);
+DebugLogMetrics::DebugLogMetrics() : pdhThread(_T("debugThread")) {}
+DebugLogMetrics::~DebugLogMetrics() {}
 
-	for (int i=0;i<e_threads;i++) {
-		std::wstring id = _T("nsca_t_") + strEx::itos(i);
-		NSCAThreadImpl *thread = new NSCAThreadImpl(id);
-		extra_threads.push_back(thread);
-	}
-	for (std::list<NSCAThreadImpl*>::const_iterator cit=extra_threads.begin();cit != extra_threads.end(); ++cit) {
-		(*cit)->createThread(reinterpret_cast<LPVOID>(rand()));
-	}
-	
+bool DebugLogMetrics::loadModule() {
+	timeout = NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
+	scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
+	root_ = NSCModuleHelper::getBasePath();
+	pdhThread.createThread(_T("NSClient++"));
 	return true;
 }
-/**
- * Unload (terminate) module.
- * Attempt to stop the background processing thread.
- * @return true if successfully, false if not (if not things might be bad)
- */
-bool NSCAAgent::unloadModule() {
-	/*
+bool DebugLogMetrics::unloadModule() {
 	if (!pdhThread.exitThread(20000)) {
 		std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
 		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
 	}
-	*/
-	for (std::list<NSCAThreadImpl*>::iterator it=extra_threads.begin();it != extra_threads.end(); ++it) {
-		if (!(*it)->exitThread(20000)) {
-			std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
-			NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
-		}
-	}
 	return true;
 }
-/**
- * Check if we have a command handler.
- * @return true (as we have a command handler)
- */
-bool NSCAAgent::hasCommandHandler() {
-	return false;
+
+
+bool DebugLogMetrics::hasCommandHandler() {
+	return true;
 }
-/**
- * Check if we have a message handler.
- * @return false as we have no message handler
- */
-bool NSCAAgent::hasMessageHandler() {
+bool DebugLogMetrics::hasMessageHandler() {
 	return false;
 }
 
-int NSCAAgent::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args) {
-	return -1;
+void getMetricsForPid(DWORD pid) {
+	HANDLE hProcModule = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid );
+	if( !hProcModule ) {
+		NSC_LOG_ERROR_STD(_T("Failed to open process: ") + error::lookup::last_error());
+		return;
+	}
+
+	PROCESS_MEMORY_COUNTERS pmc;
+	if (!GetProcessMemoryInfo( hProcModule, &pmc,  sizeof(pmc))) {
+		NSC_LOG_ERROR_STD(_T("Failed to get process memory info: ") + error::lookup::last_error());
+		CloseHandle(hProcModule);
+		return;
+	}
+	NSC_LOG_MESSAGE_STD(_T("Memory: ") + strEx::itos(pmc.WorkingSetSize));
+	
+	CloseHandle( hProcModule );
 }
 
+void getMetricsForName(std::wstring name) {
 
-/**
- * Main command parser and delegator.
- * This also handles a lot of the simpler responses (though some are deferred to other helper functions)
- *
- *
- * @param command 
- * @param argLen 
- * @param **args 
- * @return 
- */
-NSCAPI::nagiosReturn NSCAAgent::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+}
+
+NSCAPI::nagiosReturn DebugLogMetrics::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+	NSC_LOG_MESSAGE_STD(_T(" * * * ===> ") + command.c_str());
+	if (pdhThread.hasActiveThread())
+		pdhThread.getThread()->store(command.c_str());
+	//getMetricsForPid(GetCurrentProcessId());
 	return NSCAPI::returnIgnored;
 }
-std::wstring NSCAAgent::getCryptos() {
-	std::wstring ret = _T("{");
-	for (int i=0;i<LAST_ENCRYPTION_ID;i++) {
-		if (nsca_encrypt::hasEncryption(i)) {
-			std::wstring name;
-			try {
-				nsca_encrypt::any_encryption *core = nsca_encrypt::get_encryption_core(i);
-				if (core == NULL)
-					name = _T("Broken<NULL>");
-				else
-					name = core->getName();
-			} catch (nsca_encrypt::encryption_exception &e) {
-				name = e.getMessage();
-			}
-			if (ret.size() > 1)
-				ret += _T(", ");
-			ret += strEx::itos(i) + _T("=") + name;
-		}
-	}
-	return ret + _T("}");
-}
 
 
-NSC_WRAPPERS_MAIN_DEF(gNSCAAgent);
+NSC_WRAPPERS_MAIN_DEF(gDebugLogMetrics);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gNSCAAgent);
-NSC_WRAPPERS_HANDLE_CONFIGURATION(gNSCAAgent);
-NSC_WRAPPERS_CLI_DEF(gNSCAAgent);
+NSC_WRAPPERS_HANDLE_CMD_DEF(gDebugLogMetrics);
+NSC_WRAPPERS_HANDLE_CONFIGURATION(gDebugLogMetrics);
 
 
-
-MODULE_SETTINGS_START(NSCAAgent, _T("NRPE Listener configuration"), _T("...")) 
+MODULE_SETTINGS_START(DebugLogMetrics, _T("NRPE Listener configuration"), _T("...")) 
 
 PAGE(_T("NRPE Listsner configuration")) 
 
-ITEM_EDIT_TEXT(_T("port"), _T("This is the port the NRPEListener.dll will listen to.")) 
+ITEM_EDIT_TEXT(_T("port"), _T("This is the port the DebugLogMetrics.dll will listen to.")) 
 ITEM_MAP_TO(_T("basic_ini_text_mapper")) 
 OPTION(_T("section"), _T("NRPE")) 
 OPTION(_T("key"), _T("port")) 

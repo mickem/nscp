@@ -86,15 +86,15 @@ namespace process {
 		cmd[command.length()] = 0;
 
 		// Create the child process.
-		HANDLE hWaitEvt = ::CreateEvent(NULL, TRUE, FALSE, NULL);
+		//HANDLE hWaitEvt = ::CreateEvent(NULL, TRUE, FALSE, NULL);
 		BOOL processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, root_path.c_str(), &si, &pi);
 		delete [] cmd;
 		if (processOK) {
 			DWORD dwAvail = 0;
 			std::string str;
-			HANDLE handles[2];
-			handles[0] = pi.hProcess;
-			handles[1] = hWaitEvt;
+			//HANDLE handles[2];
+			//handles[0] = pi.hProcess;
+			//handles[1] = hWaitEvt;
 			char *buffer = createBuffer();
 			for (unsigned int i=0;i<timeout;i++) {
 				if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))

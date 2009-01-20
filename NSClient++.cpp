@@ -179,10 +179,13 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
-			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
+			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] )) || (argc > 3) && (_wcsicmp( _T("gui"), argv[3] ));
+			bool bStart = (argc > 2) && (_wcsicmp( _T("start"), argv[2] )) || (argc > 3) && (_wcsicmp( _T("start"), argv[3] ));
 			g_bConsoleLog = true;
 			try {
 				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
+				if (bStart)
+					serviceControll::Start(SZSERVICENAME);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
 					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
@@ -246,14 +249,48 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			}
 		} else if ( _wcsicmp( _T("about"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			LOG_MESSAGE(SZAPPNAME _T(" (C) Michael Medin"));
-			LOG_MESSAGE(_T("Version ") SZVERSION);
+			LOG_MESSAGE(SZAPPNAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
+			LOG_MESSAGE(_T("Version: ") SZVERSION);
+			LOG_MESSAGE(_T("Architecture: ") SZARCH);
+
+			std::wstring pluginPath = mainClient.getBasePath() + _T("modules\\");
+			LOG_MESSAGE_STD(_T("Looking at plugins in: ") + pluginPath);
+
+			WIN32_FIND_DATA wfd;
+			HANDLE hFind = FindFirstFile((pluginPath + _T("*.dll")).c_str(), &wfd);
+			if (hFind != INVALID_HANDLE_VALUE) {
+				do {
+					std::wstring file = wfd.cFileName;
+					NSCPlugin *plugin = new NSCPlugin(pluginPath + _T("\\") + file);
+					std::wstring name = _T("<unknown>");
+					std::wstring description = _T("<unknown>");
+					try {
+						plugin->load_dll();
+						name = plugin->getName();
+						description = plugin->getDescription();
+					} catch(const NSPluginException& e) {
+						LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+					} catch (std::exception e) {
+						LOG_ERROR_STD(_T("exception loading plugin: ") + strEx::string_to_wstring(e.what()));
+					} catch (...) {
+						LOG_ERROR_STD(_T("Unknown exception loading plugin"));
+					}
+					LOG_MESSAGE_STD(_T("* ") + name + _T(" (") + file + _T(")"));
+					std::list<std::wstring> list = strEx::splitEx(description, _T("\n"));
+					for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+						LOG_MESSAGE_STD(_T("    ") + *cit);
+					}
+				} while (FindNextFile(hFind, &wfd));
+			} else {
+				LOG_CRITICAL(_T("No plugin was found!"));
+			}
+			FindClose(hFind);
 		} else if ( _wcsicmp( _T("version"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			mainClient.enableDebug(true);
+			mainClient.enableDebug(false);
 			mainClient.initCore(false);
 			int nRetCode = -1;
 			if (argc>=4)
@@ -376,7 +413,7 @@ void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring 
  * @author mickem
  */
 bool NSClientT::initCore(bool boot) {
-	LOG_MESSAGE(_T("Attempting to start NSCLient++ - " SZVERSION));
+	LOG_DEBUG(_T("Attempting to start NSCLient++ - " SZVERSION));
 	try {
 		Settings::getInstance()->setFile(getBasePath(), _T("NSC.ini"));
 		if (debug_) {
@@ -536,7 +573,7 @@ void NSClientT::startTrayIcon(DWORD dwSessionId) {
 
 bool NSClientT::exitCore(bool boot) {
 	plugins_loaded_ = false;
-	LOG_MESSAGE(_T("Attempting to stop NSCLient++ - " SZVERSION));
+	LOG_DEBUG(_T("Attempting to stop NSCLient++ - " SZVERSION));
 	if (boot) {
 		try {
 			LOG_DEBUG_STD(_T("Stopping: NON Message Handling Plugins"));

@@ -49,7 +49,7 @@ bool CheckEventLog::loadModule() {
 		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
 		lookup_names_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_LOOKUP_NAMES, EVENTLOG_LOOKUP_NAMES_DEFAULT)==1;
 		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
-		buffer_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
+		buffer_length_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -516,7 +516,15 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	const int filter_minus = 2;
 	const int filter_normal = 3;
 	const int filter_compat = 3;
-	event_log_buffer buffer(buffer_);
+	event_log_buffer buffer(buffer_length_);
+	/*
+	try {
+		event_log_buffer buffer(buffer_length_);
+	} catch (std::exception e) {
+		message = std::wstring(_T("Failed to allocate memory: ")) + strEx::string_to_wstring(e.what());
+		return NSCAPI::returnUNKNOWN;
+	}
+	*/
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)

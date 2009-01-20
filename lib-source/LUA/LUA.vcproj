@@ -29,7 +29,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
 				Outputs="$(SolutionDir)\include\LUA\lua.h"
 			/>
 			<Tool
@@ -92,7 +92,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
 				Outputs="$(SolutionDir)\include\LUA\lua.h"
 			/>
 			<Tool
@@ -157,7 +157,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
 				Outputs="$(SolutionDir)\include\LUA\lua.h"
 			/>
 			<Tool
@@ -218,7 +218,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
 				Outputs="$(SolutionDir)\include\LUA\lua.h"
 			/>
 			<Tool
@@ -280,7 +280,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
 				Outputs="$(SolutionDir)\include\LUA\lua.h"
 			/>
 			<Tool
@@ -341,7 +341,130 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
+				Outputs="$(SolutionDir)\include\LUA\lua.h"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS"
+				RuntimeLibrary="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="OP5|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
+				Outputs="$(SolutionDir)\include\LUA\lua.h"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS"
+				RuntimeLibrary="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="OP5|x64"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\lua-5.1.2\src\*.h&quot; &quot;$(SolutionDir)include\LUA&quot;&quot;&#x0D;&#x0A;"
 				Outputs="$(SolutionDir)\include\LUA\lua.h"
 			/>
 			<Tool

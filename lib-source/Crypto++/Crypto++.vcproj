@@ -401,6 +401,132 @@
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
+		<Configuration
+			Name="OP5|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="MASM"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				RuntimeLibrary="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="OP5|x64"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+				CommandLine="echo mkdir &quot;$(SolutionDir)include\crypto++&quot;&#x0D;&#x0A;cmd /c &quot;mkdir &quot;$(SolutionDir)include\crypto++&quot;&quot;&#x0D;&#x0A;echo copy &quot;$(InputDir)src\\*.h&quot; &quot;$(SolutionDir)include\crypto++&quot;&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)src\*.h&quot; &quot;$(SolutionDir)include\crypto++&quot;&quot;&#x0D;&#x0A;"
+				Outputs="$(SolutionDir)include\crypto++\cryptlib.h"
+			/>
+			<Tool
+				Name="MASM"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				RuntimeLibrary="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				AdditionalDependencies=" $(IntDir)\x64masm.obj"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
 	</Configurations>
 	<References>
 	</References>
@@ -910,7 +1036,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="ml64.exe /c /nologo /Fo&quot;$(IntDir)\x64masm.obj&quot; /Zi &quot;$(InputPath)&quot;"
+						CommandLine="ml64.exe /c /nologo /Fo&quot;$(IntDir)\x64masm.obj&quot; /Zi &quot;$(InputPath)&quot;&#x0D;&#x0A;"
 						Outputs="$(IntDir)\x64masm.obj"
 					/>
 				</FileConfiguration>
@@ -927,7 +1053,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="ml64.exe /c /nologo /Fo&quot;$(IntDir)\x64masm.obj&quot; /Zi &quot;$(InputPath)&quot;"
+						CommandLine="ml64.exe /c /nologo /Fo&quot;$(IntDir)\x64masm.obj&quot; /Zi &quot;$(InputPath)&quot;&#x0D;&#x0A;"
 						Outputs="$(IntDir)\x64masm.obj"
 					/>
 				</FileConfiguration>
@@ -944,7 +1070,24 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="ml64.exe /c /nologo /Fo&quot;$(IntDir)\x64masm.obj&quot; /Zi &quot;$(InputPath)&quot;"
+						CommandLine="ml64.exe /c /nologo /Fo&quot;$(IntDir)\x64masm.obj&quot; /Zi &quot;$(InputPath)&quot;&#x0D;&#x0A;"
+						Outputs="$(IntDir)\x64masm.obj"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCustomBuildTool"
+						CommandLine="ml64.exe /c /nologo /Fo&quot;$(IntDir)\x64masm.obj&quot; /Zi &quot;$(InputPath)&quot;&#x0D;&#x0A;"
 						Outputs="$(IntDir)\x64masm.obj"
 					/>
 				</FileConfiguration>

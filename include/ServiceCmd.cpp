@@ -68,6 +68,7 @@ namespace serviceControll {
 			}
 			throw SCException(_T("Unable to install service."), err);
 		}
+		std::wcout << _T("Service ") << szName << _T(" installed...") << std::endl;;
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 	}

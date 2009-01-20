@@ -20,57 +20,19 @@
 ***************************************************************************/
 #pragma once
 
-#include "NSCAThread.h"
-#include <CheckMemory.h>
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+// Windows Header Files:
+#include <windows.h>
 
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
+#include <string>
+#include <functional>
 
-class NSCAAgent {
-private:
-	CheckMemory memoryChecker;
-	int processMethod_;
-//	NSCAThreadImpl pdhThread;
-	std::list<NSCAThreadImpl*> extra_threads;
+#include <config.h>
+#include <utils.h>
 
-public:
+#include <NSCAPI.h>
+#include <NSCHelper.h>
 
-public:
-	NSCAAgent();
-	virtual ~NSCAAgent();
-	// Module calls
-	bool loadModule();
-	bool unloadModule();
-	std::wstring getConfigurationMeta();
-
-	/**
-	* Return the module name.
-	* @return The module name
-	*/
-	std::wstring getModuleName() {
-#ifdef HAVE_LIBCRYPTOPP
-		return _T("NSCAAgent (w/ encryption)");
-#else
-		return _T("NSCAAgent");
+#ifdef MEMCHECK
+#include <vld.h>
 #endif
-	}
-	/**
-	* Module version
-	* @return module version
-	*/
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 3, 0 };
-		return version;
-	}
-	std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args);
-
-	std::wstring getCryptos();
-
-};
