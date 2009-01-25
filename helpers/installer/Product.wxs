@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
-	<?ifdef "$(var.boost)" ?>
+	<?if "$(var.boost)" = "true" ?>
 		<?define PlatForm = "$(var.arch)" ?>
 		<?define Mode = "Nightly" ?>
 		<?define SysTray.ConfigurationName = "BOOST BUILD" ?>
@@ -18,7 +18,7 @@
 		<?define PlatForm = "x64" ?>
 		<?define Mode = "Nightly" ?>
 	<?else?>
-		<?define PlatForm = "Unknown: $(var.SysTray.ConfigurationName)" ?>
+		<?define PlatForm = "Unknown: $(var.boost)" ?>
 	<?endif?>
 	<?endif?>
 
@@ -89,7 +89,7 @@
 													IconIndex="0" Description="Start the $(var.App.Title) systemtray agent"/>
 							</File>
 							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="no"/>
-							<?ifdef "$(var.boost)" ?>
+							<?if "$(var.boost)" = "true" ?>
 								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog.txt" Vital="no"/>
 							<?else?>
 								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no"/>

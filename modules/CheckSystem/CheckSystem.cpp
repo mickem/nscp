@@ -52,7 +52,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
  * Default c-tor
  * @return 
  */
-CheckSystem::CheckSystem() : processMethod_(0), pdhThread(_T("pdhThread")) {}
+CheckSystem::CheckSystem() : pdhThread(_T("pdhThread")) {}
 /**
  * Default d-tor
  * @return 
@@ -65,48 +65,6 @@ CheckSystem::~CheckSystem() {}
  */
 bool CheckSystem::loadModule() {
 	pdhThread.createThread();
-	std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
-	CEnumProcess tmp;
-	int method = tmp.GetAvailableMethods();
-	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_AUTO) {
-		OSVERSIONINFO osVer = systemInfo::getOSVersion();
-		/*
-		if (systemInfo::isBelowNT4(osVer)) {
-			NSC_DEBUG_MSG_STD(_T("Autodetected NT4<, using PSAPI process enumeration."));
-			if (method == (method|ENUM_METHOD::PSAPI)) {
-				processMethod_ = ENUM_METHOD::PSAPI;
-			} else {
-				NSC_LOG_ERROR_STD(_T("PSAPI method not available, since you are on NT4 you need to install \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-			}
-		} else if (systemInfo::isAboveW2K(osVer)) {
-			NSC_DEBUG_MSG_STD(_T("Autodetected W2K>, using TOOLHELP process enumeration."));
-			if (method == (method|ENUM_METHOD::TOOLHELP)) {
-				processMethod_ = ENUM_METHOD::TOOLHELP;
-			} else {
-				NSC_LOG_ERROR_STD(_T("TOOLHELP was not available, since you are on > W2K you need top manually override the ") C_SYSTEM_ENUMPROC_METHOD _T("option in NSC:ini."));
-			}
-		} else {
-		*/
-			//NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
-			processMethod_ = ENUM_METHOD::PSAPI;
-			if (method == (method|ENUM_METHOD::PSAPI)) {
-				processMethod_ = ENUM_METHOD::PSAPI;
-			} else {
-				NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-			}
-		//}
-	} else if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
-		NSC_DEBUG_MSG_STD(_T("Using PSAPI method."));
-		if (method == (method|ENUM_METHOD::PSAPI)) {
-			processMethod_ = ENUM_METHOD::PSAPI;
-		} else {
-			NSC_LOG_ERROR_STD(_T("PSAPI method not available, check ") C_SYSTEM_ENUMPROC_METHOD _T(" option."));
-		}
-	} else {
-		NSC_LOG_ERROR_STD(_T("TOOLHELP method has been removed sine we dont really want to support w9x ") C_SYSTEM_ENUMPROC_METHOD _T("."));
-	}
 	try {
 		NSCModuleHelper::registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
 		NSCModuleHelper::registerCommand(_T("checkUpTime"), _T("Check the up-time of the computer."));
@@ -690,7 +648,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 	if ((truncate > 0) && (msg.length() > (truncate-4)))
 		msg = msg.substr(0, truncate-4) + _T("...");
 	if (msg.empty() && returnCode == NSCAPI::returnOK)
-		msg = _T("OK: All services are in their apropriate state.");
+		msg = _T("OK: All services are in their appropriate state.");
 	else if (msg.empty())
 		msg = NSCHelper::translateReturn(returnCode) + _T(": Whooha this is odd.");
 	else if (!bNSClient)
@@ -827,35 +785,41 @@ typedef struct NSPROCDATA__ {
 	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), entry(other.entry), key(other.key) {}
 } NSPROCDATA;
 typedef std::map<std::wstring,NSPROCDATA,strEx::case_blind_string_compare> NSPROCLST;
+
+class NSC_error : public CEnumProcess::error_reporter {
+	void report_error(std::wstring error) {
+		NSC_LOG_ERROR(error);
+	}
+	void report_warning(std::wstring error) {
+		NSC_LOG_MESSAGE(error);
+	}
+};
+
 /**
 * Get a hash_map with all running processes.
 * @return a hash_map with all running processes
 */
-NSPROCLST GetProcessList(int processMethod, bool getCmdLines)
+NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
 {
 	NSPROCLST ret;
-	if (processMethod == 0) {
-		NSC_LOG_ERROR_STD(_T("ProcessMethod not defined or not available."));
-		return ret;
-	}
 	CEnumProcess enumeration;
-	if (enumeration.SetMethod(processMethod) != processMethod) {
-		NSC_LOG_ERROR_STD(_T("Failed to set process enumeration method"));
-		return ret;
+	if (!enumeration.has_PSAPI()) {
+		NSC_LOG_ERROR_STD(_T("Failed to enumerat processes"));
+		NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
+		NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
+		throw CEnumProcess::process_enumeration_exception(_T("PSAPI not avalible, please see eror log for details."));
 	}
-	int toFill = CEnumProcess::CProcessEntry::fill_filename;
-	if (getCmdLines)
-		toFill |= CEnumProcess::CProcessEntry::fill_command_line;
-	CEnumProcess::CProcessEntry entry(toFill);
-	for (BOOL OK = enumeration.GetProcessFirst(&entry); OK; OK = enumeration.GetProcessNext(&entry) ) {
+	NSC_error err;
+	CEnumProcess::process_list list = enumeration.enumerate_processes(getCmdLines, use16Bit, &err);
+	for (CEnumProcess::process_list::const_iterator entry = list.begin(); entry != list.end(); ++entry) {
 		std::wstring key;
-		if (getCmdLines)
-			key = entry.command_line;
+		if (getCmdLines && !(*entry).command_line.empty())
+			key = (*entry).command_line;
 		else
-			key = entry.filename;
+			key = (*entry).filename;
 		NSPROCLST::iterator it = ret.find(key);
 		if (it == ret.end()) {
-			ret[key].entry = entry;
+			ret[key].entry = (*entry);
 			ret[key].count = 1;
 			ret[key].key = key;
 		} else
@@ -887,6 +851,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 	bool bNSClient = false;
 	StateContainer tmpObject;
 	bool bPerfData = true;
+	bool use16bit = false;
 	bool useCmdLine = false;
 	typedef enum {
 		match_string, match_substring, match_regexp
@@ -905,6 +870,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_BOOL_TRUE(_T("cmdLine"), useCmdLine)
+		MAP_OPTIONS_BOOL_TRUE(_T("16bit"), use16bit)
 		MAP_OPTIONS_MODE(_T("match"), _T("string"), match,  match_string)
 		MAP_OPTIONS_MODE(_T("match"), _T("regexp"), match,  match_regexp)
 		MAP_OPTIONS_MODE(_T("match"), _T("substr"), match,  match_substring)
@@ -929,10 +895,10 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 
 	NSPROCLST runningProcs;
 	try {
-		runningProcs = GetProcessList(processMethod_, useCmdLine);
-	} catch (CEnumProcess::EnumProcException e) {
-		NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getMessage());
-		msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getMessage();
+		runningProcs = GetProcessList(useCmdLine, use16bit);
+	} catch (CEnumProcess::process_enumeration_exception &e) {
+		NSC_LOG_ERROR_STD(_T("ERROR: ") + e.what());
+		msg = static_cast<std::wstring>(_T("ERROR: ")) + e.what();
 		return NSCAPI::returnUNKNOWN;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Unhandled error when processing command"));

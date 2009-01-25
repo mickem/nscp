@@ -494,7 +494,9 @@ struct event_log_buffer {
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	if (command != _T("CheckEventLog"))
 		return NSCAPI::returnIgnored;
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQueryContainer;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
+	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
+	
 	typedef std::pair<int,eventlog_filter> filteritem_type;
 	typedef std::list<filteritem_type > filterlist_type;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -502,7 +504,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 	std::list<std::wstring> files;
 	filterlist_type filter_chain;
-	EventLogQueryContainer query;
+	EventLogQuery1Container query1;
+	EventLogQuery2Container query2;
 
 	bool bPerfData = true;
 	bool bFilterIn = true;
@@ -528,7 +531,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
-			MAP_OPTIONS_NUMERIC_ALL(query, _T(""))
+			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
+			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 			MAP_OPTIONS_BOOL_TRUE(_T("unique"), unique)
 			MAP_OPTIONS_BOOL_TRUE(_T("descriptions"), bShowDescriptions)
@@ -578,6 +582,12 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		return NSCAPI::returnUNKNOWN;
 	} catch (filters::filter_exception e) {
 		message = e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+		} catch (checkHolders::parse_exception e) {
+		message = e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+	} catch (...) {
+		message = _T("Invalid command line!");
 		return NSCAPI::returnUNKNOWN;
 	}
 
@@ -726,16 +736,26 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		}
 	}
 
-	if (!bPerfData)
-		query.perfData = false;
-	if (query.alias.empty())
-		query.alias = _T("eventlog");
-	query.runCheck(hit_count, returnCode, message, perf);
+	if (!bPerfData) {
+		query1.perfData = false;
+		query2.perfData = false;
+	}
+	if (query1.alias.empty())
+		query1.alias = _T("eventlog");
+	if (query2.alias.empty())
+		query2.alias = _T("eventlog");
+	if (query1.hasBounds())
+		query1.runCheck(hit_count, returnCode, message, perf);
+	else if (query2.hasBounds())
+		query2.runCheck(hit_count, returnCode, message, perf);
+	else {
+		message = _T("No bounds specified!");
+		return NSCAPI::returnUNKNOWN;
+	}
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");
 	if (message.empty())
 		message = _T("Eventlog check ok");
-	NSC_DEBUG_MSG_STD(_T("Result: ") + message) ;
 	return returnCode;
 }
 

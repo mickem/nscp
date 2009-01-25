@@ -373,7 +373,7 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	}
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
 	if (cmd.first == _T("_NRPE_CHECK")) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") SZVERSION _T(") seem to be doing fine..."), buffer_length_);
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") + NSCModuleHelper::getApplicationVersionString() + _T(") seem to be doing fine..."), buffer_length_);
 	}
 	std::wstring msg, perf;
 

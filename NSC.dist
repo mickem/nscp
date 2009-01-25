@@ -17,14 +17,17 @@
 ;CheckHelpers.dll
 ;CheckWMI.dll
 ;
+; Script to check external scripts and/or internal aliases.
+;CheckExternalScripts.dll
+;
+; NSCA Agent if you enable this NSClient++ will talk to NSCA hosts repeatedly (so dont enable unless you want to use NSCA)
+;NSCAAgent.dll
+;
+; LUA script module used to write your own "check deamon".
+;LUAScript.dll
+;
 ; RemoteConfiguration IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
 ;RemoteConfiguration.dll
-; NSCA Agent is a new beta module use with care!
-;NSCAAgent.dll
-; LUA script module used to write your own "check deamon" (sort of) early beta.
-;LUAScript.dll
-; Script to check external scripts and/or internal aliases, early beta.
-;CheckExternalScripts.dll
 ; Check other hosts through NRPE extreme beta and probably a bit dangerous! :)
 ;NRPEClient.dll
 ; Extreamly early beta of a task-schedule checker

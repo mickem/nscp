@@ -59,7 +59,7 @@ bool DebugLogMetrics::hasCommandHandler() {
 bool DebugLogMetrics::hasMessageHandler() {
 	return false;
 }
-
+/*
 void getMetricsForPid(DWORD pid) {
 	HANDLE hProcModule = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid );
 	if( !hProcModule ) {
@@ -81,6 +81,7 @@ void getMetricsForPid(DWORD pid) {
 void getMetricsForName(std::wstring name) {
 
 }
+*/
 
 NSCAPI::nagiosReturn DebugLogMetrics::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	NSC_LOG_MESSAGE_STD(_T(" * * * ===> ") + command.c_str());

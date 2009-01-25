@@ -337,6 +337,14 @@ namespace filters {
 				neq = value.substr(1);
 			} else if (value.substr(0,3) == _T("in:")) {
 				inList = value.substr(3);
+			} else if (value.substr(0,3) == _T("gt:")) {
+				max = value.substr(3);
+			} else if (value.substr(0,3) == _T("lt:")) {
+				min = value.substr(3);
+			} else if (value.substr(0,3) == _T("ne:")) {
+				neq = value.substr(3);
+			} else if (value.substr(0,3) == _T("eq:")) {
+				eq = value.substr(3);
 			} else {
 				throw parse_exception(_T("Unknown filter key: ") + value + _T(" (numeric filters have to have an operator as well ie. foo=>5 or bar==5)"));
 			}

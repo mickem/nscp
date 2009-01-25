@@ -88,7 +88,7 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, 
 		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
 		return NSCAPI::returnOK;
 	} else if (command == _T("CheckVersion")) {
-		msg = SZVERSION;
+		msg = NSCModuleHelper::getApplicationVersionString();
 		return NSCAPI::returnOK;
 	} else if (command == _T("CheckOK")) {
 		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);

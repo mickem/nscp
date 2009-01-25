@@ -62,10 +62,18 @@ bool CheckDisk::hasMessageHandler() {
 	return false;
 }
 
+class error_reporter {
+public:
+	virtual void report_error(std::wstring error) = 0;
+	virtual void report_warning(std::wstring error) = 0;
+};
+
+
 struct file_finder_data {
-	file_finder_data(const WIN32_FIND_DATA wfd_, const std::wstring path_) : wfd(wfd_), path(path_) {}
+	file_finder_data(const WIN32_FIND_DATA wfd_, const std::wstring path_, error_reporter *errors_) : wfd(wfd_), path(path_), errors(errors_) {}
 	const WIN32_FIND_DATA wfd;
 	const std::wstring path;
+	error_reporter *errors;
 };
 typedef std::unary_function<const file_finder_data&, bool> baseFinderFunction;
 
@@ -85,7 +93,9 @@ struct get_size : public baseFinderFunction
 	inline const bool hasError() const {
 		return error;
 	}
-	inline void setError(std::wstring) {
+	inline void setError(error_reporter *errors, std::wstring msg) {
+		if (errors != NULL)
+			errors->report_error(msg);
 		error = true;
 	}
 private:  
@@ -94,7 +104,7 @@ private:
 
 
 template <class finder_function>
-void recursive_scan(std::wstring dir, finder_function & f) {
+void recursive_scan(std::wstring dir, finder_function & f, error_reporter * errors) {
 	std::wstring baseDir;
 	std::wstring::size_type pos = dir.find_last_of('\\');
 	if (pos == std::wstring::npos)
@@ -105,15 +115,15 @@ void recursive_scan(std::wstring dir, finder_function & f) {
 	HANDLE hFind = FindFirstFile(dir.c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (!f(file_finder_data(wfd, baseDir)))
+			if (!f(file_finder_data(wfd, baseDir, errors)))
 				break;
 			if ((wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
 				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
-					recursive_scan<finder_function>(baseDir + _T("\\") + wfd.cFileName + _T("\\*.*"), f);
+					recursive_scan<finder_function>(baseDir + _T("\\") + wfd.cFileName + _T("\\*.*"), f, errors);
 			}
 		} while (FindNextFile(hFind, &wfd));
 	} else {
-		f.setError(_T("File not found"));
+		f.setError(errors, _T("File not found"));
 	}
 	FindClose(hFind);
 }
@@ -280,6 +290,14 @@ std::wstring CheckDisk::get_filter(unsigned int drvType) {
 	return _T("unknown: ") + strEx::itos(drvType);
 }
 
+class NSC_error : public error_reporter {
+	void report_error(std::wstring error) {
+		NSC_LOG_ERROR(error);
+	}
+	void report_warning(std::wstring error) {
+		NSC_LOG_MESSAGE(error);
+	}
+};
 
 
 NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
@@ -317,9 +335,10 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		std::wstring tstr;
 		std::wstring sName = path.getAlias();
 		get_size sizeFinder;
-		recursive_scan<get_size>(path.data, sizeFinder);
+		NSC_error errors;
+		recursive_scan<get_size>(path.data, sizeFinder, &errors);
 		if (sizeFinder.hasError()) {
-			message = _T("File not found");
+			message = _T("File not found check log for details");
 			return NSCAPI::returnUNKNOWN;
 		}
 		path.setDefault(tmpObject);
@@ -415,7 +434,7 @@ struct find_first_file_info : public baseFinderFunction
 		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			setError(_T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
+			setError(ffd.errors, _T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
 			return false;
 		}
 		GetFileInformationByHandle(hFile, &_info);
@@ -426,7 +445,9 @@ struct find_first_file_info : public baseFinderFunction
 	inline const bool hasError() const {
 		return error;
 	}
-	inline void setError(std::wstring) {
+	inline void setError(error_reporter *errors, std::wstring msg) {
+		if (errors != NULL)
+			errors->report_error(msg);
 		error = true;
 	}
 };
@@ -452,7 +473,8 @@ struct file_filter_function : public baseFinderFunction
 		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			setError(_T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
+			setError(ffd.errors, _T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
+			return true;
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
@@ -487,7 +509,9 @@ struct file_filter_function : public baseFinderFunction
 	inline const bool hasError() const {
 		return error;
 	}
-	inline void setError(std::wstring) {
+	inline void setError(error_reporter *errors, std::wstring msg) {
+		if (errors != NULL)
+			errors->report_error(msg);
 		error = true;
 	}
 };
@@ -522,7 +546,8 @@ struct file_filter_function_ex : public baseFinderFunction
 		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			setError(_T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
+			setError(ffd.errors, _T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
+			return true;
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
@@ -567,7 +592,9 @@ struct file_filter_function_ex : public baseFinderFunction
 	inline const bool hasError() const {
 		return error;
 	}
-	inline void setError(std::wstring) {
+	inline void setError(error_reporter *errors, std::wstring msg) {
+		if (errors != NULL)
+			errors->report_error(msg);
 		error = true;
 	}
 };
@@ -595,9 +622,10 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 		return NSCAPI::returnUNKNOWN;
 	}
 
-	recursive_scan<find_first_file_info>(path, finder);
+	NSC_error errors;
+	recursive_scan<find_first_file_info>(path, finder, &errors);
 	if (finder.hasError()) {
-		message = _T("File not found");
+		message = _T("File not found (check log for details)");
 		return NSCAPI::returnUNKNOWN;
 	}
 	FILETIME now_;
@@ -654,10 +682,11 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	GetSystemTimeAsFileTime(&now);
 	finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
 	finder.syntax = syntax;
+	NSC_error errors;
 	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-		recursive_scan<file_filter_function>((*pit), finder);
+		recursive_scan<file_filter_function>((*pit), finder, &errors);
 		if (finder.hasError()) {
-			message = _T("File not found: ") + (*pit);
+			message = _T("File not found: ") + (*pit) + _T(" check log for details.");
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
@@ -746,10 +775,11 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 		GetSystemTimeAsFileTime(&now);
 		finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
 		finder.syntax = syntax;
+		NSC_error errors;
 		for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-			recursive_scan<file_filter_function_ex>((*pit), finder);
+			recursive_scan<file_filter_function_ex>((*pit), finder, &errors);
 			if (finder.hasError()) {
-				message = _T("Error when scanning: ") + (*pit);
+				message = _T("Error when scanning: ") + (*pit) + _T(" check log for details.");
 				return NSCAPI::returnUNKNOWN;
 			}
 		}

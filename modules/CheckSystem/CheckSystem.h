@@ -29,7 +29,6 @@ NSC_WRAPPERS_CLI();
 class CheckSystem {
 private:
 	CheckMemory memoryChecker;
-	int processMethod_;
 	PDHCollectorThread pdhThread;
 
 public:
