@@ -35,8 +35,8 @@ NSClientListener gNSClientListener;
 #define REQ_PROCSTATE		6	// Works fine!
 #define REQ_MEMUSE			7	// Works fine!
 #define REQ_COUNTER			8	// Works fine!
-#define REQ_FILEAGE			9	// ... in the works ...
-//#define REQ_INSTANCES	10	// ! - not implemented Don't know how to use
+#define REQ_FILEAGE			9	// Works fine! (i hope)
+#define REQ_INSTANCES		10	// Works fine! (i hope)
 
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
@@ -218,6 +218,12 @@ std::string NSClientListener::parseRequest(std::string str_buffer)  {
 			cmd.first = _T("getFileAge");
 			args.push_back(_T("path=") + cmd.second);
 			break;
+		case REQ_INSTANCES:
+			cmd.first = _T("listCounterInstances");
+			args.push_back(cmd.second);
+			break;
+
+			
 		default:
 			split_to_list(args, cmd.second);
 	}

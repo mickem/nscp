@@ -72,6 +72,8 @@ bool CheckSystem::loadModule() {
 		NSCModuleHelper::registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
 		NSCModuleHelper::registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
 		NSCModuleHelper::registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
+		NSCModuleHelper::registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
+		
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -329,6 +331,8 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::blindstr command, c
 		return checkMem(argLen, char_args, msg, perf);
 	} else if (command == _T("checkCounter")) {
 		return checkCounter(argLen, char_args, msg, perf);
+	} else if (command == _T("listCounterInstances")) {
+		return listCounterInstances(argLen, char_args, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -1064,6 +1068,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 					msg += _T(",");
 				msg += strEx::itos(static_cast<float>(value));
 			} else {
+				std::wcout << _T("perf data: ") << bPerfData << std::endl;
 				counter.perfData = bPerfData;
 				counter.setDefault(tmpObject);
 				counter.runCheck(value, returnCode, msg, perf);
@@ -1087,6 +1092,50 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
+
+
+
+/**
+ * List all instances for a given counter.
+ *
+ * @param command Command to execute
+ * @param argLen The length of the argument buffer
+ * @param **char_args The argument buffer
+ * @param &msg String to put message in
+ * @param &perf String to put performance data in 
+ * @return The status of the command
+ *
+ * @todo add parsing support for NRPE
+ */
+NSCAPI::nagiosReturn CheckSystem::listCounterInstances(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+{
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
+
+	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (stl_args.empty()) {
+		msg = _T("ERROR: Missing argument exception.");
+		return NSCAPI::returnUNKNOWN;
+	}
+
+	std::wstring counter = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
+	try {
+		PDH::Enumerations::pdh_object_details obj = PDH::Enumerations::EnumObjectInstances(counter);
+		for (PDH::Enumerations::pdh_object_details::list::const_iterator it = obj.instances.begin(); it!=obj.instances.end();++it) {
+			if (!msg.empty())
+				msg += _T(", ");
+			msg += (*it);
+		}
+	} catch (const PDH::PDHException e) {
+		msg = _T("ERROR: Failed to enumerate counter instances: " + e.getError());
+		return NSCAPI::returnUNKNOWN;
+	} catch (...) {
+		msg = _T("ERROR: Failed to enumerate counter instances: <UNKNOWN EXCEPTION>");
+		return NSCAPI::returnUNKNOWN;
+	}
+	return NSCAPI::returnOK;
+}
+
+
 NSC_WRAPPERS_MAIN_DEF(gCheckSystem);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckSystem);

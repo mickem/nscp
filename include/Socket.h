@@ -506,7 +506,11 @@ namespace simpleSocket {
 			if (bindAddres_ == INADDR_NONE)
 				bindAddres_ = INADDR_ANY;
 			listenQue_ = queLength;
-			threadManager_.createThread(this);
+			try {
+				threadManager_.createThread(this);
+			} catch (ThreadException e) {
+				throw SocketException(_T("Could not start thread (got exception in thread): ") + e.e_);
+			}
 		}
 		virtual void StopListener() {
 			try {
@@ -517,7 +521,7 @@ namespace simpleSocket {
 					}
 			} catch (ThreadException e) {
 				tBase::close();
-				throw SocketException(_T("Could not terminate thread (got exception in thread)."));
+				throw SocketException(_T("Could not terminate thread (got exception in thread): ") + e.e_);
 			}
 			tBase::close();
 		}

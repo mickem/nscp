@@ -121,6 +121,9 @@ DuplicateTokenEx(hTokenNew,MAXIMUM_ALLOWED,NULL,SecurityIdentification,TokenPrim
 
 void IconWidget_::createDialog(void) {
 	hDlgWnd = ::CreateDialog(NSCModuleWrapper::getModule(),MAKEINTRESOURCE(IDD_NSTRAYDLG),NULL,TrayIcon::DialogProc);
+	if (hDlgWnd == NULL || !IsWindow(hDlgWnd)) {
+		NSC_LOG_ERROR_STD(_T("Failed to create windows: ") + error::lookup::last_error());
+	}
 
 	UINT UDM_TASKBARCREATED = RegisterWindowMessage(_T("TaskbarCreated"));
 	if (UDM_TASKBARCREATED == 0) {
@@ -135,6 +138,7 @@ void IconWidget_::createDialog(void) {
 	while((bRet = ::GetMessage(&Msg, NULL, 0, 0)) != 0)
 	{
 		if (Msg.message == WM_MY_CLOSE) {
+			TrayIcon::removeIcon(Msg.hwnd);
 			::DestroyWindow(hDlgWnd);
 //		} else if (Msg.message == WM_QUERYENDSESSION) {
 //			NSC_LOG_ERROR_STD(_T("Got WM_QUERYENDSESSION thingy..."));

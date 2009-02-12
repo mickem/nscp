@@ -65,9 +65,11 @@ void SysTray::hide() {
 	}
 }
 bool SysTray::unloadModule() {
-	if (systemInfo::isBelowXP(systemInfo::getOSVersion())) {
-		hide();
+	if (NSCModuleHelper::getSettingsInt(MAIN_SECTION_TITLE, MAIN_SHARED_SESSION, MAIN_SHARED_SESSION_DEFAULT) == 1) {
+		NSC_LOG_ERROR(_T("You have enabled shared session, systray module will not un-load..."));
+		return true;
 	}
+	hide();
 	return true;
 }
 

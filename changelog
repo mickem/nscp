@@ -4,6 +4,32 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2009-02-11 MickeM 
+ * Fixed so that performance data is always(?) renderd regardless of if we have bounds or not.
+   This was primarily to fix issues where we have might not "unexpectedly" get performance data (might still be some issues here so let me know).
+
+2009-02-06 MickeM 
+ * Fixed so that arguments ($ARG1$) are parsed properly for alias in CheckExternalScript
+
+2009-02-05 MickeM 
+ * Fixed so the error message for "to small eventlog buffer" specifies the required size.
+ * Changed so that event log buffer problems are "ignored in the result" (still logged in the error log).
+
+2009-02-03 MickeM 
+ * Added support for changing the time when using NSCA with the time_delay in NSC.ini
+   time_delay=+4h or time_delay=-1h etc should can now be used when system time not the same as NSCA time.
+
+2009-01-30 MickeM 
+ * Added support for changing name and description of service from the /install command line
+   NSClient++ /install [gui] [start] [service name] [description]
+   NSClient++ /uninstall [gui] [stop] [service name]
+   NSClient++ /start [gui] [service name]
+   NSClient++ /stop [gui] [service name]
+
+2009-01-28 MickeM 
+ * Slightly improved error handling around socket creation
+ * Fixed some pretty minor issues with the SysTray module (uncreation as well as new boost build).
+
 2009-01-25 MickeM 
  * Fixed issue with checkVersion (#242)
  * Fixed spelling error (#244)

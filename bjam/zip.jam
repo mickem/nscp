@@ -1,0 +1,15 @@
+import type ;
+import generators ;
+import feature : feature get-values ;
+import toolset : flags ;
+
+feature source-folder : : path free ;
+
+type.register ZIP : zip ;
+generators.register-composing bjam/zip.make-zip : : ZIP ;
+flags bjam/zip.make-zip SOURCE_FOLDER <source-folder> ;
+
+actions make-zip {
+	echo 7z.exe a -tzip -bd "$(<)" "$(SOURCE_FOLDER)"
+	7z.exe a -tzip -bd "$(<)" "$(SOURCE_FOLDER)"
+} 

@@ -136,19 +136,18 @@ namespace checkHolders {
 		void runCheck(typename TContents::TValueType &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			std::wstring tstr;
 			if (crit.check(value, getAlias(), tstr, critical)) {
-				std::wcout << _T("crit") << std::endl;
+				//std::wcout << _T("crit") << std::endl;
 				NSCHelper::escalteReturnCodeToCRIT(returnCode);
 			} else if (warn.check(value, getAlias(), tstr, warning)) {
-				std::wcout << _T("warn") << std::endl;
+				//std::wcout << _T("warn") << std::endl;
 				NSCHelper::escalteReturnCodeToWARN(returnCode);
 			}else if (show == showLong) {
-				std::wcout << _T("long") << std::endl;
+				//std::wcout << _T("long") << std::endl;
 				tstr = getAlias() + _T(": ") + TContents::toStringLong(value);
 			}else if (show == showShort) {
-				std::wcout << _T("short") << std::endl;
+				//std::wcout << _T("short") << std::endl;
 				tstr = getAlias() + _T(": ") + TContents::toStringShort(value);
 			}
-			std::wcout << _T("result: ") << tstr << _T("--") << std::endl;
 			if (perfData)
 				perf += gatherPerfData(value);
 			if (!message.empty() && !tstr.empty())
@@ -681,6 +680,7 @@ namespace checkHolders {
 				message = lable + _T(": ") + formatBelow(TNumericHolder::toStringShort(value.count), type);
 				return true;
 			} else {
+				NSC_DEBUG_MSG_STD(_T("Missing bounds for check: ") + lable);
 				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
@@ -756,6 +756,7 @@ namespace checkHolders {
 				return min.gatherPerfData(alias, value, warn.min.getPerfBound(value), crit.min.getPerfBound(value));
 			} else {
 				NSC_DEBUG_MSG_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
+				return min.gatherPerfData(alias, value, 0, 0);
 			}
 			return _T("");
 		}

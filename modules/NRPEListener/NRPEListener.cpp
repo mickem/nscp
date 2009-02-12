@@ -88,6 +88,7 @@ bool NRPEListener::loadModule() {
 	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
 	if (buffer_length_ != 1024)
 		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
+	NSC_DEBUG_MSG_STD(_T("Loading all commands (from NRPE)"));
 	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::wstring>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
@@ -117,6 +118,7 @@ bool NRPEListener::loadModule() {
 
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
 	try {
+		NSC_DEBUG_MSG_STD(_T("Starting NRPE socket..."));
 		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
 		std::wstring host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
 		unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
@@ -139,6 +141,9 @@ bool NRPEListener::loadModule() {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
 #endif
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		return false;
 	}
 	root_ = NSCModuleHelper::getBasePath();
 

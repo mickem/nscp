@@ -134,7 +134,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 		}
 	}
 	if (isAlias) {
-		return NSCModuleHelper::InjectSplitAndCommand(cd.command, cd.arguments, ' ', message, perf, true);
+		return NSCModuleHelper::InjectSplitAndCommand(cd.command, args, ' ', message, perf, true);
 	} else {
 		int result = process::executeProcess(root_, cd.command + _T(" ") + args, message, perf, timeout);
 		if (!NSCHelper::isNagiosReturnCode(result)) {

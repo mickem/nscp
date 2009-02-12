@@ -1,0 +1,27 @@
+local target = LUAScript ;
+local source = $(target) ;
+
+project boost/thread/example 
+    : requirements <library>/lua//liblua
+    ;
+
+
+lib $(target)
+
+	: # sources
+	$(source).cpp
+	../../include/NSCHelper.cpp
+	../../include/arrayBuffer.cpp
+
+	: # requirements
+	<def-file>$(source).def
+	#<openssl>on:<source>../../include/sslSocket.cpp
+	#<openssl>on:<source>/openssl//openssl
+	#<user-interface>gui
+	<runtime-link>static
+
+	: # default build
+
+	: # usage requirements
+	;
+

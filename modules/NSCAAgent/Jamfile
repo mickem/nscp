@@ -1,0 +1,28 @@
+local target = NSCAAgent ;
+local source = $(target) ;
+
+project 
+	: requirements
+	<find-static-library>ws2_32
+	;
+
+lib $(target)
+
+	: # sources
+	$(source).cpp
+	NSCAThread.cpp
+	../../include/NSCHelper.cpp
+	../../include/arrayBuffer.cpp
+	../../include/Socket.cpp
+	../../include/utils.cpp
+
+	: # requirements
+	<def-file>$(source).def
+	#<user-interface>gui
+	<runtime-link>static
+
+	: # default build
+
+	: # usage requirements
+	;
+

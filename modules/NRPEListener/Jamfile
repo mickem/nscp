@@ -1,0 +1,28 @@
+local target = NRPEListener ;
+local source = $(target) ;
+
+project 
+	: requirements
+	<find-static-library>ws2_32
+	;
+
+lib $(target)
+
+	: # sources
+	$(source).cpp
+	../../include/NSCHelper.cpp
+	../../include/arrayBuffer.cpp
+	../../include/b64/b64.c
+	../../include/utils.cpp
+
+	: # requirements
+	<def-file>$(source).def
+	<source>/openssl//socket
+	<runtime-link>static
+
+	: # default build
+	<link>static
+
+	: # usage requirements
+	;
+

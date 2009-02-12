@@ -621,9 +621,22 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 		//GetOldestEventLogRecord(hLog, &dwThisRecord);
 
-		while (ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
-			0, buffer.getBufferUnsafe(), buffer.getBufferSize(), &dwRead, &dwNeeded))
-		{
+		while (true) {
+			BOOL bStatus = ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
+				0, buffer.getBufferUnsafe(), buffer.getBufferSize(), &dwRead, &dwNeeded);
+			if (bStatus == FALSE) {
+				DWORD err = GetLastError();
+				if (err == ERROR_INSUFFICIENT_BUFFER) {
+					NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + EVENTLOG_BUFFER + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
+				} else if (err == ERROR_HANDLE_EOF) {
+					break;
+				} else {
+					NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
+					message = _T("Failed to read from eventlog: ") + error::lookup::last_error(err);
+					CloseEventLog(hLog);
+					return NSCAPI::returnUNKNOWN;
+				}
+			}
 			EVENTLOGRECORD *pevlr = buffer.getBufferUnsafe(); 
 			while (dwRead > 0) { 
 				//bool bMatch = bFilterAll;
@@ -717,16 +730,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				dwRead -= pevlr->Length; 
 				pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length); 
 			} 
-		}
-		DWORD err = GetLastError();
-		if (err == ERROR_INSUFFICIENT_BUFFER) {
-			NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small (set the value of ") + EVENTLOG_BUFFER + _T("): ") + error::lookup::last_error(err));
-			message = std::wstring(_T("EvenlogBuffer is too small (set the value of ")) + EVENTLOG_BUFFER + _T("): ") + error::lookup::last_error(err);
-			return NSCAPI::returnUNKNOWN;
-		} else if (err != ERROR_HANDLE_EOF) {
-			NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
-			message = _T("Failed to read from eventlog: ") + error::lookup::last_error(err);
-			return NSCAPI::returnUNKNOWN;
 		}
 		CloseEventLog(hLog);
 		for (uniq_eventlog_map::const_iterator cit = uniq_records.begin(); cit != uniq_records.end(); ++cit) {

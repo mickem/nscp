@@ -159,7 +159,7 @@ public:
 				_T("result: ") + result;
 		}
 
-		simpleSocket::DataBuffer getBuffer(nsca_encrypt &crypt_inst) const {
+		simpleSocket::DataBuffer getBuffer(nsca_encrypt &crypt_inst, __time32_t time_delta) const {
 			std::string s = strEx::wstring_to_string(service);
 			std::string r = strEx::wstring_to_string(result);
 			std::string h = strEx::wstring_to_string(host);
@@ -168,7 +168,7 @@ public:
 			unsigned char* buffer = crypt_inst.get_rand_buffer(buffer_len);
 			NSCAPacket::data_packet *data = reinterpret_cast<NSCAPacket::data_packet*>(buffer);
 			data->packet_version=static_cast<NSCAPacket::int16_t>(htons(NSCA_PACKET_VERSION_3));
-			data->timestamp=static_cast<NSCAPacket::u_int32_t>(htonl(time));
+			data->timestamp=static_cast<NSCAPacket::u_int32_t>(htonl(time+time_delta));
 			data->return_code = ntohs(code);
 			data->crc32_value=static_cast<NSCAPacket::u_int32_t>(0L);
 
@@ -229,6 +229,7 @@ private:
 	std::wstring nscaaddr_;
 	std::string password_;
 	int encryption_method_;
+	long timeDelta_;
 
 public:
 	NSCAThread();

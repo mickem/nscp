@@ -179,13 +179,33 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
-			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] )) || (argc > 3) && (_wcsicmp( _T("gui"), argv[3] ));
-			bool bStart = (argc > 2) && (_wcsicmp( _T("start"), argv[2] )) || (argc > 3) && (_wcsicmp( _T("start"), argv[3] ));
+			bool bGui = false;
+			bool bStart = false;
+			std::wstring service_name, service_description;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else if (_wcsicmp( _T("start"), argv[i]) == 0) {
+					bStart = true;
+				} else {
+					if (service_name.empty())
+						service_name = argv[i];
+					else {
+						if (!service_description.empty())
+							service_description += _T(" ");
+						service_description += argv[i];
+					}
+				}
+			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
+			if (service_description.empty())
+				service_description = SZSERVICEDISPLAYNAME;
 			g_bConsoleLog = true;
 			try {
-				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
+				serviceControll::Install(service_name.c_str(), service_description.c_str(), SZDEPENDENCIES);
 				if (bStart)
-					serviceControll::Start(SZSERVICENAME);
+					serviceControll::Start(service_name);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
 					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
@@ -193,7 +213,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				return -1;
 			}
 			try {
-				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
+				serviceControll::SetDescription(service_name, service_description);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
 					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
@@ -202,10 +222,25 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			LOG_MESSAGE(_T("Service installed!"));
 			return 0;
 		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
-			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
+			bool bGui = false;
+			bool bStop = false;
+			std::wstring service_name;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else if (_wcsicmp( _T("stop"), argv[i]) == 0) {
+					bStop = true;
+				} else {
+					service_name = argv[i];
+				}
+			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
 			g_bConsoleLog = true;
 			try {
-				serviceControll::Uninstall(SZSERVICENAME);
+				if (bStop)
+					serviceControll::Stop(service_name);
+				serviceControll::Uninstall(service_name);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
 					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
@@ -233,17 +268,43 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			return 0;
 		} else if ( _wcsicmp( _T("start"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
+			bool bGui = false;
+			std::wstring service_name;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else {
+					service_name = argv[i];
+				}
+			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
 			try {
-				serviceControll::Start(SZSERVICENAME);
+				serviceControll::Start(service_name.c_str());
 			} catch (const serviceControll::SCException& e) {
+				if (bGui)
+					display(_T("Service failed to start"), e.error_);
 				LOG_MESSAGE_STD(_T("Service failed to start: ") + e.error_);
 				return -1;
 			}
 		} else if ( _wcsicmp( _T("stop"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
+			bool bGui = false;
+			std::wstring service_name;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else {
+					service_name = argv[i];
+				}
+			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
 			try {
-				serviceControll::Stop(SZSERVICENAME);
+				serviceControll::Stop(service_name.c_str());
 			} catch (const serviceControll::SCException& e) {
+				if (bGui)
+					display(_T("Service failed to stop"), e.error_);
 				LOG_MESSAGE_STD(_T("Service failed to stop: ") + e.error_);
 				return -1;
 			}

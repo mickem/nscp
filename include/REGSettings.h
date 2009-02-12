@@ -147,16 +147,17 @@ public:
 		}
 		DWORD type;
 		DWORD cbData = sizeof(DWORD);
-		BYTE *bData = new BYTE[cbData+1];
-		bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, bData, &cbData);
+		DWORD buffer;
+		//BYTE *bData = new BYTE[cbData+1];
+		bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, reinterpret_cast<LPBYTE>(&buffer), &cbData );
 		if (type != REG_DWORD) {
 			bRet = -1;
 		}
 		RegCloseKey(hTemp);
 		if (bRet == ERROR_SUCCESS) {
-			ret = static_cast<DWORD>(*bData);
+			ret = buffer;
 		}
-		delete [] bData;
+		//delete [] bData;
 		return ret;
 	}
 	static sectionList getValues_(HKEY hKey, LPCTSTR lpszPath) {

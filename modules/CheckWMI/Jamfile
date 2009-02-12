@@ -1,0 +1,28 @@
+local target = CheckWMI ;
+local source = $(target) ;
+
+project 
+	: requirements
+	<find-static-library>Wbemuuid
+	;
+
+
+lib $(target)
+
+	: # sources
+	$(source).cpp
+	WMIQuery.cpp
+	../../include/NSCHelper.cpp
+	../../include/arrayBuffer.cpp
+
+	: # requirements
+	<def-file>$(source).def
+	#<user-interface>gui
+	<runtime-link>static
+
+	: # default build
+<link>static
+
+	: # usage requirements
+	;
+
