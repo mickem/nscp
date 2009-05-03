@@ -190,13 +190,18 @@ use_file=1
 ;check_powershell_warn=cmd /c echo scripts\powershell.ps1 | powershell.exe -command -
 
 [External Alias]
-;alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
-;alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
-;alias_service=checkServiceState CheckAll
-;alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
-;alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
-
-
+alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
+alias_cpu_ex=checkCPU warn=$ARG1$ crit=$ARG2$ time=5m time=1m time=30s
+alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
+alias_service=checkServiceState CheckAll
+alias_process=checkProcState $ARG1$=started
+alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
+alias_up=checkUpTime MinWarn=1d MinWarn=1h
+alias_file_age=checkFile2 filter=out "file=$ARG1$" filter-written=>1d MaxWarn=1 MaxCrit=1 "syntax=%filename% %write%"
+alias_file_size=checkFile2 filter=out "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=1 MaxCrit=1 "syntax=%filename% %size%"
+alias_file_size_in_dir=checkFile2 filter=out pattern=*.txt "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=1 MaxCrit=1 "syntax=%filename% %size%"
+alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+alias_event_log2=CheckEventLog file=application file=system filter=new filter=in MaxWarn=1 MaxCrit=1 filter+generated=<2d "filter+eventSource==Service Control Manager" filter+severity==error truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
 
 
 

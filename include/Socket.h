@@ -50,19 +50,25 @@ namespace simpleSocket {
 		DataBuffer() : buffer_(NULL), length_(0){
 		}
 		DataBuffer(const DataBuffer &other) {
+			char * old = buffer_;
 			buffer_ = new char[other.getLength()+2];
 			memcpy(buffer_, other.getBuffer(), other.getLength()+1);
 			length_ = other.getLength();
+			delete [] old;
 		}
 		DataBuffer(const char* buffer, unsigned int length) {
+			char *old = buffer_;
 			buffer_ = new char[length+2];
 			memcpy(buffer_, buffer, length+1);
 			length_ = length;
+			delete [] old;
 		}
 		DataBuffer(const unsigned char* buffer, unsigned int length) {
+			char *old = buffer_;
 			buffer_ = new char[length+2];
 			memcpy(buffer_, buffer, length+1);
 			length_ = length;
+			delete [] old;
 		}
 		virtual ~DataBuffer() {
 			delete [] buffer_;
@@ -70,11 +76,12 @@ namespace simpleSocket {
 			buffer_ = NULL;
 		}
 		void append(const char* buffer, const unsigned int length) {
+			char *old = buffer_;
 			char *tBuf = new char[length_+length+2];
 			memcpy(tBuf, buffer_, length_);
 			memcpy(&tBuf[length_], buffer, length);
-			delete [] buffer_;
 			buffer_ = tBuf;
+			delete [] old;
 			length_ += length;
 			buffer_[length_] = 0;
 		}
@@ -102,13 +109,13 @@ namespace simpleSocket {
 		void nibble(const unsigned int length) {
 			if (length > length_)
 				return;
+			char *old = buffer_;
 			unsigned int newLen = length_-length;
 			char *tBuf = new char[newLen+2];
 			memcpy(tBuf, &buffer_[length], newLen+1);
-			char *oldBuf = buffer_;
 			buffer_ = tBuf;
 			length_ = newLen;
-			delete [] oldBuf;
+			delete [] old;
 		}
 
 		DataBuffer unshift(const unsigned int length) {
@@ -119,10 +126,10 @@ namespace simpleSocket {
 			unsigned int newLen = length_-length;
 			char *tBuf = new char[newLen+2];
 			memcpy(tBuf, &buffer_[length], newLen+1);
-			char *oldBuf = buffer_;
+			char *old = buffer_;
 			buffer_ = tBuf;
 			length_ = newLen;
-			delete [] oldBuf;
+			delete [] old;
 			return ret;
 		}
 		const unsigned long long find(char c) {
@@ -136,11 +143,12 @@ namespace simpleSocket {
 			return pos-buffer_;
 		}
 		void copyFrom(const char* buffer, const unsigned int length) {
-			delete [] buffer_;
+			char *old = buffer_;
 			buffer_ = new char[length+2];
 			memcpy(buffer_, buffer, length);
 			length_ = length;
 			buffer_[length_] = 0;
+			delete [] old;
 		}
 		std::string toString() {
 			return strEx::format_buffer(buffer_, length_);
@@ -538,31 +546,55 @@ namespace simpleSocket {
 			Listener *pCore;
 			tSocket *client;
 		};
+		void cleanResponders(){
+			MutexLock lock(responderMutex_);
+			if (lock.hasMutex()) {
+				cleanResponders_RAW();
+			}
+		}
+		private:
+			void cleanResponders_RAW(){
+				for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end();) {
+					if ( (*it).terminated) {
+						if (WaitForSingleObject( (*it).hThread, 500) == WAIT_OBJECT_0) {
+							//printError(_T(__FILE__), __LINE__, _T("Closing: ") + strEx::itos((*it).dwThreadID));
+							CloseHandle((*it).hThread);
+							responderList_.erase(it++);
+						}
+					} else
+						++it;
+				}
+			}
+
+		public:
+
 		void addResponder(tSocket *client) {
 			MutexLock lock(responderMutex_);
 			if (!lock.hasMutex()) {
+				client->close();
+				delete client;
 				printError(_T(__FILE__), __LINE__, _T("Failed to get responder mutex."));
 				return;
 			}
-			for (socketResponses::iterator it = responderList_.begin(); it != responderList_.end();) {
-				if ( (*it).terminated) {
-					if (WaitForSingleObject( (*it).hThread, 500) == WAIT_OBJECT_0) {
-						CloseHandle((*it).hThread);
-						responderList_.erase(it++);
-					}
-				} else
-					++it;
-			}
+			cleanResponders_RAW();
 			simpleResponderBundle data;
 			srp_data *lpData = new srp_data;
 			lpData->pCore = this;
 			lpData->client = client;
 
 			data.hThread = reinterpret_cast<HANDLE>(::_beginthreadex( NULL, 0, &socketResponceProc, lpData, 0, &data.dwThreadID));
+			//printError(_T(__FILE__), __LINE__, _T("Adding responder.") + strEx::itos(data.dwThreadID));
 			data.terminated = false;
 			responderList_.push_back(data);
+
+			/*
+			delete lpData;
+			client->close();
+			delete client;
+			*/
 		}
 		bool removeResponder(DWORD dwThreadID) {
+			//printError(_T(__FILE__), __LINE__, _T("Terminating.") + strEx::itos(dwThreadID));
 			MutexLock lock(responderMutex_);
 			if (!lock.hasMutex()) {
 				printError(_T(__FILE__), __LINE__, _T("Failed to get responder mutex when trying to free thread."));
@@ -611,13 +643,15 @@ unsigned simpleSocket::Listener<TListenerType, TSocketType>::socketResponceProc(
 		pCore->onAccept(client);
 	} catch (SocketException e) {
 		pCore->printError(_T(__FILE__), __LINE__, e.getMessage() + _T(" killing socket..."));
+	} catch (...) {
+		pCore->printError(_T(__FILE__), __LINE__, _T("<UNHANDLED EXCEPTION> killing socket..."));
 	}
 	client->close();
 	delete client;
 	if (!pCore->removeResponder(GetCurrentThreadId())) {
 		pCore->printError(_T(__FILE__), __LINE__, _T("Could not remove thread: ") + strEx::itos(GetCurrentThreadId()));
 	}
-	_endthreadex(0);
+	//_endthreadex(0);
 	return 0;
 }
 
@@ -650,14 +684,22 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 	} catch (...) {
 		core->printError(_T(__FILE__), __LINE__, _T("Unhandeled exception in the socket thread..."));
 	}
+#define CLEAN_INTERVAL 10
 	if (socketOk) {
 		try {
 			//NSC_DEBUG_MSG_STD("Socket ready...");
+			int count =0;
 			while (!(WaitForSingleObject(hStopEvent_, 100) == WAIT_OBJECT_0)) {
 				try {
 					tSocket client;
 					if (core->accept(client)) {
 						core->addResponder(new tSocket(client));
+						count = 0;
+					} else if (count > CLEAN_INTERVAL) {
+						core->cleanResponders();
+						count = 0;
+					} else {
+						count++;
 					}
 				} catch (SocketException e) {
 					core->printError(_T(__FILE__), __LINE__, e.getMessage() + _T(", attempting to resume..."));
@@ -729,7 +771,7 @@ namespace socketHelpers {
 							(*it).host = record.substr(0, pos);
 							(*it).mask = lookupMask(record.substr(pos));
 						}
-						if (isalpha((*it).host[0]))
+						if ((!(*it).host.empty()) && isalpha((*it).host[0]))
 							(*it).in_addr = simpleSocket::Socket::getHostByNameAsIN((*it).host).S_un.S_addr;
 						else
 							(*it).in_addr = ::inet_addr(strEx::wstring_to_string((*it).host).c_str()); // simpleSocket::Socket::getHostByAddrAsIN((*it).host);

@@ -109,6 +109,11 @@ bool CheckSystem::hasMessageHandler() {
 }
 
 int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args) {
+	if (command == NULL) {
+		std::wcerr << _T("Usage: ... CheckSystem <command>") << std::endl;
+		std::wcerr << _T("Commands: debugpdh, listpdh, pdhlookup, pdhmatch, pdhobject") << std::endl;
+		return -1;
+	}
 	if (_wcsicmp(command, _T("debugpdh")) == 0) {
 		PDH::Enumerations::Objects lst;
 		try {

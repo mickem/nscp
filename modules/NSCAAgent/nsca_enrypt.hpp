@@ -137,7 +137,7 @@ public:
 			throw encryption_exception(_T("Decryption not supported"));
 		}
 		std::wstring getName() {
-			return TMethod::StaticAlgorithmName();
+			return strEx::string_to_wstring(TMethod::StaticAlgorithmName());
 		}
 
 	};

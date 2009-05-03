@@ -84,7 +84,6 @@ void getMetricsForName(std::wstring name) {
 */
 
 NSCAPI::nagiosReturn DebugLogMetrics::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
-	NSC_LOG_MESSAGE_STD(_T(" * * * ===> ") + command.c_str());
 	if (pdhThread.hasActiveThread())
 		pdhThread.getThread()->store(command.c_str());
 	//getMetricsForPid(GetCurrentProcessId());

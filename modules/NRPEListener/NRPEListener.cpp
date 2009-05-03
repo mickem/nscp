@@ -398,6 +398,8 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 			throw NRPEException(_T("Request command contained illegal metachars!"));
 		}
 	}
+	//TODO REMOVE THIS
+	//return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("TEST TEST TEST"), buffer_length_);
 
 	NSCAPI::nagiosReturn ret = -3;
 	try {

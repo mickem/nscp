@@ -123,5 +123,11 @@ namespace error {
 			}
 			return ::error::format::from_system(dwLastError);
 		}
+		static std::string last_error_ansi(unsigned long dwLastError = -1) {
+			if (dwLastError == -1) {
+				dwLastError = GetLastError();
+			}
+			return strEx::wstring_to_string(::error::format::from_system(dwLastError));
+		}
 	};
 }

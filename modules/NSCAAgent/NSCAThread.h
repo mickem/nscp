@@ -214,6 +214,9 @@ public:
 		return 3;
 	}
 	Result execute(std::wstring host) const;
+	std::wstring alias() const {
+		return alias_;
+	}
 };
 
 class NSCAThread {
@@ -230,6 +233,7 @@ private:
 	std::string password_;
 	int encryption_method_;
 	long timeDelta_;
+	int report_;
 
 public:
 	NSCAThread();

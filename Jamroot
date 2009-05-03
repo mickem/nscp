@@ -8,12 +8,18 @@ import option ;
 
 include user-config.jam ;
 
+feature character-set : unicode ansi multibyte : composite ;
+feature.compose <character-set>unicode : <define>_UNICODE <define>UNICODE ;
+feature.compose <character-set>multibyte : <define>_MBCS ;
+
+
 local toolset = [ MATCH "^--toolset=(.*)" : [ modules.peek : ARGV ] ] ;
 toolset ?= msvc ;
 if $(toolset) = "msvc" {
 	import bjam/lua ;
 	import bjam/openssl ;
 	import bjam/boost ;
+	import bjam/cryptopp ;
 }
 import toolset : flags ;
 import notfile ;
@@ -45,6 +51,7 @@ if $(toolset) = "msvc" {
 	using bjam/openssl : : $(TOP)/lib-source/openssl-0.9.8g/include $(TOP)/lib ;
 	using bjam/boost : : $(TOP)/lib-source/boost_1_35_0 $(TOP)/lib ;
 	using bjam/lua : : $(TOP)/lib-source/LUA/src/lua-5.1.2 ;
+	using bjam/cryptopp : : $(TOP)/lib-source/"Crypto++"/src ;
 
 	if [ bjam/lua.isEnabled ] = true {
 		echo "LUA support enabled (disable with --without-lua)" ; 
@@ -65,6 +72,13 @@ if $(toolset) = "msvc" {
 		bjam/boost.printEnv ;
 	} else {
 		echo "boost not avaliable! some features DISABLED (for instance regular expressions) (enable with --with-boost)" ; 
+	}
+
+	if [ bjam/cryptopp.isEnabled ] = true {
+		echo "Crypto++ found (disable with --without-cryptopp)" ; 
+		bjam/cryptopp.printEnv ;
+	} else {
+		echo "cryptopp not avaliable! encryption (NSCA) DISABLED (enable with --with-cryptopp)" ; 
 	}
 	
 	notfile update_version : @update_version ;
@@ -91,10 +105,6 @@ project master
 
 	: build-dir bjam-tmp-build
 	;
-
-feature character-set : unicode ansi multibyte : composite ;
-feature.compose <character-set>unicode : <define>_UNICODE <define>UNICODE ;
-feature.compose <character-set>multibyte : <define>_MBCS ;
 
 make $(target).exe.manifest : NSClient++.manifest : common.copy ;
 explicit $(target).manifest ;
@@ -147,6 +157,8 @@ all-modules =
     [ MATCH .*modules/(.*)/.* : [ glob modules/*/Jamfile ] ]
     ;
 
+# all-modules = NSCAAgent ;
+
 all-scripts =
     [ MATCH .*scripts/(.*)/.* : [ glob scripts/* ] ]
     ;
@@ -188,7 +200,7 @@ if $(toolset) = "msvc" {
 }
 
 all-installers =
-    [ MATCH .*helpers/(.*)/.* : [ glob helpers/*installer/Jamfile ] ]
+    [ MATCH .*helpers/(.*)/.* : [ glob helpers/installer/Jamfile ] ]
     ;
 for local l in $(all-installers)
 {
@@ -206,6 +218,13 @@ for local l in $(all-archive)
 	echo "Adding archive target for: $(l)" ;
 	explicit $(l) ;
 }
+
+alias installer_dll : helpers/installer_dll ;
+explicit installer_dll ;
+
+all-helpers = installer_dll ;
+alias all-helpers-targets : $(all-helpers) ;
+explicit all-helpers-targets ;
 
 alias all-root-targets : $(target) $(target-config) $(target-readme) $(target-license) $(target-changelog) $(target-counters) helpers/systray_helper ;
 explicit all-root-targets ;
@@ -230,6 +249,11 @@ rule generate-binary-location ( properties * )
 	local tag = [ get-root-prefix $(properties) ] ;
 	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/binaries ;
 }
+rule generate-helper-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/helpers ;
+}
 rule generate-module-location ( properties * )
 {
 	local tag = [ get-root-prefix $(properties) ] ;
@@ -242,7 +266,10 @@ explicit dist ;
 install dist-modules : all-modules-targets : <conditional>@generate-module-location ;
 explicit dist-modules ;
 
-alias build-binaries : dist dist-modules ;
+install dist-helpers : all-helpers-targets : <conditional>@generate-helper-location ;
+explicit dist-helpers ;
+
+alias build-binaries : dist dist-modules dist-helpers ;
 explicit build-binaries ;
 
 

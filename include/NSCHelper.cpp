@@ -280,6 +280,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, std::l
 	msgBuffer[0] = 0;
 	perfBuffer[0] = 0;
 	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, aBuffer, msgBuffer, buf_len, perfBuffer, buf_len);
+	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
 			NSC_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));

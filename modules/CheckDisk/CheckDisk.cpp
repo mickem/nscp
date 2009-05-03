@@ -102,30 +102,48 @@ private:
 	unsigned long long size;
 };
 
-
 template <class finder_function>
-void recursive_scan(std::wstring dir, finder_function & f, error_reporter * errors) {
-	std::wstring baseDir;
-	std::wstring::size_type pos = dir.find_last_of('\\');
-	if (pos == std::wstring::npos)
+void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, int max_level, finder_function & f, error_reporter * errors) {
+	if ((max_level != -1) && (current_level > max_level))
 		return;
-	baseDir = dir.substr(0, pos);
-
 	WIN32_FIND_DATA wfd;
-	HANDLE hFind = FindFirstFile(dir.c_str(), &wfd);
+
+	DWORD fileAttr = GetFileAttributes(dir.c_str());
+	NSC_DEBUG_MSG_STD(_T("Input is: ") + dir + _T(" / ") + strEx::ihextos(fileAttr));
+
+	if ((fileAttr != INVALID_FILE_ATTRIBUTES)&&(fileAttr != FILE_ATTRIBUTE_DIRECTORY)) {
+		NSC_DEBUG_MSG_STD(_T("Found a file dont do recursive scan: ") + dir);
+		// It is a file check it an return (dont check recursivly)
+		pattern_type single_path = split_path(dir);
+		HANDLE hFind = FindFirstFile(dir.c_str(), &wfd);
+		if (hFind != INVALID_HANDLE_VALUE) {
+			f(file_finder_data(wfd, single_path.first, errors));
+			FindClose(hFind);
+		}
+		return;
+	}
+	std::wstring file_pattern = dir + _T("\\") + pattern;
+	NSC_DEBUG_MSG_STD(_T("File pattern: ") + file_pattern);
+	HANDLE hFind = FindFirstFile(file_pattern.c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (!f(file_finder_data(wfd, baseDir, errors)))
+			if (!f(file_finder_data(wfd, dir, errors)))
 				break;
+		} while (FindNextFile(hFind, &wfd));
+		FindClose(hFind);
+	}
+	std::wstring dir_pattern = dir + _T("\\*.*");
+	NSC_DEBUG_MSG_STD(_T("File pattern: ") + dir_pattern);
+	hFind = FindFirstFile(dir_pattern.c_str(), &wfd);
+	if (hFind != INVALID_HANDLE_VALUE) {
+		do {
 			if ((wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
 				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
-					recursive_scan<finder_function>(baseDir + _T("\\") + wfd.cFileName + _T("\\*.*"), f, errors);
+					recursive_scan<finder_function>(dir + _T("\\") + wfd.cFileName, pattern, current_level+1, max_level, f, errors);
 			}
 		} while (FindNextFile(hFind, &wfd));
-	} else {
-		f.setError(errors, _T("File not found"));
+		FindClose(hFind);
 	}
-	FindClose(hFind);
 }
 
 
@@ -298,6 +316,16 @@ class NSC_error : public error_reporter {
 		NSC_LOG_MESSAGE(error);
 	}
 };
+typedef std::pair<std::wstring,std::wstring> pattern_type;
+pattern_type split_path(std::wstring path) {
+	std::wstring baseDir;
+	std::wstring::size_type pos = path.find_last_of('\\');
+	if (pos == std::wstring::npos) {
+		pattern_type(path, _T("*.*"));
+	}
+	NSC_DEBUG_MSG_STD(_T("Looking for: path: ") + path.substr(0, pos) + _T(", pattern: ") + path.substr(pos+1));
+	return pattern_type(path.substr(0, pos), path.substr(pos+1));
+}
 
 
 NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
@@ -336,7 +364,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		std::wstring sName = path.getAlias();
 		get_size sizeFinder;
 		NSC_error errors;
-		recursive_scan<get_size>(path.data, sizeFinder, &errors);
+		pattern_type splitpath = split_path(path.data);
+		recursive_scan<get_size>(splitpath.first, splitpath.second, -1, -1, sizeFinder, &errors);
 		if (sizeFinder.hasError()) {
 			message = _T("File not found check log for details");
 			return NSCAPI::returnUNKNOWN;
@@ -623,7 +652,8 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 	}
 
 	NSC_error errors;
-	recursive_scan<find_first_file_info>(path, finder, &errors);
+	pattern_type splitpath = split_path(path);
+	recursive_scan<find_first_file_info>(splitpath.first, splitpath.second, -1, -1, finder, &errors);
 	if (finder.hasError()) {
 		message = _T("File not found (check log for details)");
 		return NSCAPI::returnUNKNOWN;
@@ -653,6 +683,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	std::wstring syntax = _T("%filename%");
 	std::wstring alias;
 	bool bPerfData = true;
+	unsigned int max_dir_depth = -1;
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
@@ -662,6 +693,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 			MAP_OPTIONS_STR(_T("syntax"), syntax)
 			MAP_OPTIONS_PUSH(_T("path"), paths)
 			MAP_OPTIONS_STR(_T("alias"), alias)
+			MAP_OPTIONS_STR2INT(_T("max-dir-depth"), max_dir_depth)
 			MAP_OPTIONS_PUSH(_T("file"), paths)
 			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterIn, _T("in"), _T("out"))
 			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterAll, _T("all"), _T("any"))
@@ -684,7 +716,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	finder.syntax = syntax;
 	NSC_error errors;
 	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-		recursive_scan<file_filter_function>((*pit), finder, &errors);
+		pattern_type path = split_path(*pit);
+		recursive_scan<file_filter_function>(path.first, path.second, 0, max_dir_depth, finder, &errors);
 		if (finder.hasError()) {
 			message = _T("File not found: ") + (*pit) + _T(" check log for details.");
 			return NSCAPI::returnUNKNOWN;
@@ -727,7 +760,9 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 	CheckFileContainer query;
 	std::wstring syntax = _T("%filename%");
 	std::wstring alias;
+	std::wstring pattern = _T("*.*");
 	bool bPerfData = true;
+	int max_dir_depth = -1;
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
@@ -736,8 +771,10 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_STR(_T("syntax"), syntax)
 			MAP_OPTIONS_PUSH(_T("path"), paths)
+			MAP_OPTIONS_STR(_T("pattern"), pattern)
 			MAP_OPTIONS_STR(_T("alias"), alias)
 			MAP_OPTIONS_PUSH(_T("file"), paths)
+			MAP_OPTIONS_STR2INT(_T("max-dir-depth"), max_dir_depth)
 			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterIn, _T("in"), _T("out"))
 			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterAll, _T("all"), _T("any"))
 			/*
@@ -777,7 +814,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 		finder.syntax = syntax;
 		NSC_error errors;
 		for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-			recursive_scan<file_filter_function_ex>((*pit), finder, &errors);
+			//pattern_type path = split_path(*pit);
+			recursive_scan<file_filter_function_ex>(*pit, pattern, 0, max_dir_depth, finder, &errors);
 			if (finder.hasError()) {
 				message = _T("Error when scanning: ") + (*pit) + _T(" check log for details.");
 				return NSCAPI::returnUNKNOWN;

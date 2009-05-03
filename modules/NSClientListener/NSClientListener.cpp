@@ -282,7 +282,7 @@ void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
 				std::string incoming(db.getBuffer(), db.getLength());
 				sendTheResponse(client, parseRequest(incoming));
 				break;
-			} else if (pos>0) {
+			} else if (pos > 0) {
 				simpleSocket::DataBuffer buffer = db.unshift(static_cast<const unsigned int>(pos));
 				std::string bstr(buffer.getBuffer(), buffer.getLength());
 				db.nibble(1);

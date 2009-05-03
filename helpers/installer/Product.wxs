@@ -1,25 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
-	<?if "$(var.boost)" = "true" ?>
+	<!--
+	<?define boost = "false" ?>
+	 -->
+	<?ifdef var.boost ?>
 		<?define PlatForm = "$(var.arch)" ?>
 		<?define Mode = "Nightly" ?>
 		<?define SysTray.ConfigurationName = "BOOST BUILD" ?>
 	<?else?>
-	<?if "$(var.SysTray.ConfigurationName)" = "Debug|Win32"?>
-		<?define PlatForm = "Win32" ?>
-		<?define Mode = "Debug" ?>
-	<?elseif "$(var.SysTray.ConfigurationName)" = "Debug|x64"?>
-		<?define PlatForm = "x64" ?>
-		<?define Mode = "Debug" ?>
-	<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|Win32"?>
-		<?define PlatForm = "Win32" ?>
-		<?define Mode = "Nightly" ?>
-	<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|x64"?>
-		<?define PlatForm = "x64" ?>
-		<?define Mode = "Nightly" ?>
-	<?else?>
-		<?define PlatForm = "Unknown: $(var.boost)" ?>
-	<?endif?>
+		<?if "$(var.SysTray.ConfigurationName)" = "Debug|Win32"?>
+			<?define PlatForm = "Win32" ?>
+			<?define Mode = "Debug" ?>
+		<?elseif "$(var.SysTray.ConfigurationName)" = "Debug|x64"?>
+			<?define PlatForm = "x64" ?>
+			<?define Mode = "Debug" ?>
+		<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|Win32"?>
+			<?define PlatForm = "Win32" ?>
+			<?define Mode = "Nightly" ?>
+		<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|x64"?>
+			<?define PlatForm = "x64" ?>
+			<?define Mode = "Nightly" ?>
+		<?else?>
+			<?define PlatForm = "Unknown: plattform" ?>
+		<?endif?>
 	<?endif?>
 
 	<?if "$(var.PlatForm)" = "x64"?>
@@ -41,6 +44,9 @@
 	<?endif?>
 	<?ifndef var.Source ?>
 		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
+	<?endif?>
+	<?ifndef var.Helpers ?>
+		<?define Helpers = "../../$(var.PlatForm)/$(var.Mode)-helpers/" ?>
 	<?endif?>
 
 	<?include ../../AutoBuild.wxs ?>
@@ -70,7 +76,7 @@
 			<Directory Id="$(var.ProgramFiles)">
 				<Directory Id="INSTALLLOCATION" Name="NSClient" LongName="$(var.App.Path)">
 						<Component Id="MainClient" Guid="F6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-							<File Id="NSClientEXE" Name="nsclient.exe" LongName="nsclient++.exe" DiskId="1" 
+							<File Id="NSClientEXE" Name="nsclient.exe" LongName="nsclient++.exe" DiskId="1"
 										Source="$(var.Source)/nsclient++.exe" Vital="yes">
 								<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="NSCPTest"
 													LongName="$(var.App.Title) ($(var.PlatForm), test)" WorkingDirectory="INSTALLDIR" Icon="nsclient.exe"
@@ -81,15 +87,18 @@
 								<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="NSCPStop"
 													LongName="Stop $(var.App.Title) ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nsclient.exe"
 													IconIndex="0" Arguments="/stop" Description="Stop the $(var.App.Title) service"/>
+								<Shortcut Id="StarmentNSCHelp" Target="[HELP_LINK]" Icon="doc.ico" Directory="ProgramMenuDir" Name="Help" LongName="Documentation" Description="Visit the NSClient++ WIKI for documentation">
+									<Icon Id="doc.ico" SourceFile="help.ico"/>
+								</Shortcut>
 							</File>
 							<File Id="NSClientTRAY" Name="nstray.exe" DiskId="1"
 										Source="$(var.Source)/nstray.exe" Vital="yes">
 								<Shortcut Id="StartmenuNSClientTray" Directory="ProgramMenuDir" Name="NSCPTray"
-													LongName="$(var.App.Title) ($(var.PlatForm)) system tray" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
+													LongName="$(var.App.Title) ($(var.PlatForm)) system tray)" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
 													IconIndex="0" Description="Start the $(var.App.Title) systemtray agent"/>
 							</File>
-							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="no"/>
-							<?if "$(var.boost)" = "true" ?>
+							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="yes"/>
+							<?ifdef var.boost ?>
 								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog.txt" Vital="no"/>
 							<?else?>
 								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no"/>
@@ -109,6 +118,7 @@
 								<File Id="NSCAAgentDLL" Name="NSCAAgnt.dll" LongName="NSCAAgent.dll" DiskId="1" Source="$(var.Source)/modules/NSCAAgent.dll" Vital="no" />
 							</Component>
 							<Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="A_DebugLogMetrics.dll" Name="ADebug.dll" LongName="A_DebugLogMetrics.dll" DiskId="1" Source="$(var.Source)/modules/A_DebugLogMetrics.dll" Vital="no" />
 								<File Id="ModCheckEventLog.dll" Name="EvntLg.dll" LongName="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
 								<File Id="ModCheckExternalScripts.dll" Name="ExtScr.dll" LongName="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
 								<File Id="ModCheckHelpers.dll" Name="Helpers.dll" LongName="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
@@ -149,24 +159,79 @@
 			</Feature>
 		</Feature>
 
+<!--
+		<Condition Message='This installation can only run in full UI mode.'>
+			UILevel = 5
+		</Condition>
+-->
+		<Property Id='ARPCOMMENTS'>NSClient++ is a </Property>
+		<Property Id='ARPCONTACT'>michael@medin.name</Property>
+		<Property Id='ARPHELPLINK'>http://nsclient.org</Property>
+		<Property Id='ARPURLINFOABOUT'>http://nsclient.org</Property>
+		<Property Id='ARPURLUPDATEINFO'>http://nsclient.org</Property>
+		<Property Id='ARPHELPTELEPHONE'>http://nsclient.org</Property>
+		<Property Id='ARPPRODUCTICON'>nsclient.exe</Property>
+
+		<Property Id="CONF_CHECKS" />
+		<Property Id="CONF_NSCLIENT" />
+		<Property Id="CONF_NRPE" />
+		<Property Id="CONF_NSCA" />
+		<Property Id="ALLOW_CONFIGURATION" />
+
+		<!-- CONFIGURE THE INSTALLER -->
+		<Property Id='INSCON_CONFIGURE'>1</Property>
+		<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
+		<Property Id='CUSTOM_CONFIGURATION_FILE'>NSC.ini</Property>
+		<Property Id='INSTALL_SVC_EXE'>NSClient++.exe</Property>
+		<Property Id='INSTALL_SVC_SHORTNAME'>NSClientpp</Property>
+		<Property Id='INSTALL_SVC_LONGNAME'>$(var.App.Title) ($(var.PlatForm))</Property>
+		<Property Id='INSTALL_SVC_DESC'>Monitoring agent for nagios (and others) used to respond to status queries.</Property>
+
+		<Property Id='HELP_LINK'>http://nsclient.org/nscp/</Property>
+
+		<Property Id='SHOW_START_ON_EXIT'>1</Property>
+		<Property Id='START_SERVICE_ON_EXIT'></Property>
+		<Property Id='SHOW_DONATE_ON_EXIT'>1</Property>
+		<Property Id='DONATE_ON_EXIT'></Property>
+		<!--
+		<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
+			-->
+
+		<!--
+			<Property Id='ARPREADME'>path</Property>  
+			<Property Id='ARPSIZE'>app size in kilobytes</Property>
+			-->
+
+		<CustomAction Id='ReadOldConfig' BinaryKey='InstallerHelper' DllEntry='ImportConfig' />
+		<CustomAction Id='WriteNewConfig' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' />
+		<CustomAction Id='InstallService' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' />
+		<CustomAction Id='UnInstallService' BinaryKey='InstallerHelper' DllEntry='UninstallService' />
+		<CustomAction Id='StartService' BinaryKey='InstallerHelper' DllEntry='StartTheService' Return='asyncNoWait' Execute="immediate"/>
+		<CustomAction Id="PreventDowngrading" Error="Newer version already installed." />
+
+
+
+		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/installer_dll.dll' />
+
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
-			<Custom Action="install" After='InstallFinalize'>NOT REMOVE</Custom>
-			<Custom Action="uninstall" Before="RemoveFiles"/>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+			<!--
+			<Custom Action='WriteNewConfig' Before='InstallService'>INSCON_CONFIGURE="1" AND CONF_CAN_WRITE="1"</Custom>
+			 -->
+			<Custom Action="InstallService" After='InstallFinalize'>NOT REMOVE</Custom>
+			<Custom Action="UnInstallService" Before='RemoveFiles'>REMOVE="ALL"</Custom>
+			<!--
+			<Custom Action="StartService" After="InstallFiles"><![CDATA[START_SERVICE_ON_EXIT = "1" OR DONATE_ON_EXIT = "1"]]></Custom>
+				 -->
 		</InstallExecuteSequence>
-
-		<CustomAction Id='install' FileKey='NSClientEXE'  ExeCommand='/install gui' Return='check'/>
-		<CustomAction Id='uninstall' FileKey='NSClientEXE'  ExeCommand='/uninstall gui' Return='ignore'/>
-		<CustomAction Id="PreventDowngrading" Error="Newer version already installed." />
 
 		<InstallUISequence>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
 		</InstallUISequence>
 
-		<UIRef Id="WixUI_FeatureTree" />
+		<UIRef Id="WixUI_Mondo" />
 		<UIRef Id="WixUI_ErrorProgressText" />
-
 		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/NSClient++.exe" />
 		<Icon Id="nstray.exe" SourceFile="$(var.Source)/nstray.exe" />
 	</Product>

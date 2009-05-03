@@ -23,13 +23,15 @@
 #include <sysinfo.h>
 
 
-PDHCollector::PDHCollector() : hStopEvent_(NULL) {
+PDHCollector::PDHCollector() : hStopEvent_(NULL), hStoreEvent_(NULL) {
 }
 
 PDHCollector::~PDHCollector() 
 {
 	if (hStopEvent_)
 		CloseHandle(hStopEvent_);
+	if (hStoreEvent_)
+		CloseHandle(hStoreEvent_);
 }
 
 bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
@@ -89,6 +91,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 				my_instance = i;
 		}
 		pdh.removeAllCounters();
+		delete [] pid_list;
 		std::wstring my_process_name = process_name_;
 		if (my_instance > 0)
 			my_process_name += _T("#") + strEx::itos(my_instance);
@@ -152,6 +155,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			return 0;
 		}
 		file_.set_file(_T("nsclient++"),_T("process_info.csv"));
+		NSC_DEBUG_MSG_STD(_T("Logging perfoamnce metrics to: ") + file_.getFileName());
 		PDH::PDHQuery pdh;
 		bool bInit = true;
 		{
@@ -170,7 +174,9 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 		for (pdh_list::iterator it = list_.begin(); it != list_.end(); ++it) {
 			line += separator_ + _T("\"") + (*it)->key + _T("\"");
 		}
-		file_.writeEntry(line + _T("\n"));
+		if (!file_.writeEntry(line + _T("\n"))) {
+			NSC_LOG_ERROR_STD(_T("Failed to write data to preformance log file..."));
+		}
 
 
 		HANDLE handles[] = {hStoreEvent_, hStopEvent_};
@@ -180,6 +186,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			do {
 				std::list<std::wstring>	errors;
 				std::wstring str;
+				std::wstring line;
 				{
 					ReadLock lock(&mutex_, true, 5000);
 					if (!lock.IsLocked()) 
@@ -187,13 +194,17 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 					else {
 						try {
 							pdh.gatherData();
-							std::wstring line;
 							for (pdh_list::iterator it = list_.begin(); it != list_.end(); ++it) {
 								if (!line.empty())
 									line += separator_;
 								line += strEx::itos((*it)->value.getValue());
 							}
-							file_.writeEntry(event_ + separator_+  line + _T("\n"));
+							std::wstring key = _T("timed collect");
+							if (waitStatus == WAIT_OBJECT_0)
+								key = event_;
+							if (!file_.writeEntry(key + separator_+  line + _T("\n"))) {
+								errors.push_back(_T("Failed to write performance data..."));
+							}
 						} catch (PDH::PDHException &e) {
 							errors.push_back(_T("Failed to query performance counters: ") + e.getError());
 						} catch (...) {
@@ -204,10 +215,10 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 				for (std::list<std::wstring>::const_iterator cit = errors.begin(); cit != errors.end(); ++cit) {
 					NSC_LOG_ERROR_STD(*cit);
 				}
-				waitStatus = WaitForMultipleObjects(sizeof(handles)/sizeof(HANDLE), handles, FALSE, INFINITE);
-			} while (waitStatus == WAIT_OBJECT_0);
+				waitStatus = WaitForMultipleObjects(sizeof(handles)/sizeof(HANDLE), handles, FALSE, 5*1000);
+			} while (waitStatus == WAIT_OBJECT_0 || waitStatus == WAIT_TIMEOUT);
 		} else {
-			NSC_LOG_ERROR_STD(_T("No performance counters were found we will not wait for the end instead..."));
+			NSC_LOG_ERROR_STD(_T("No performance counters were found we will now wait for the end instead..."));
 			waitStatus = WaitForSingleObject(hStopEvent_, INFINITE);
 		}
 		if (waitStatus != WAIT_OBJECT_0) {
@@ -249,8 +260,10 @@ void PDHCollector::store(std::wstring event) {
 		}
 		event_ = event;
 	}
-	if (!SetEvent(hStoreEvent_)) {
-		NSC_LOG_ERROR_STD(_T("SetStopEvent failed"));
+	if (hStoreEvent_ == NULL)
+		NSC_LOG_ERROR(_T("Store event is not created!"));
+	else if (!SetEvent(hStoreEvent_)) {
+		NSC_LOG_ERROR_STD(_T("SetEvent STORE failed"));
 	}
 }
 
@@ -260,7 +273,7 @@ void PDHCollector::store(std::wstring event) {
 */
 void PDHCollector::exitThread(void) {
 	if (hStopEvent_ == NULL)
-		NSC_LOG_ERROR(_T("Stop event is not created!"));
+		NSC_LOG_ERROR_C(_T("Stop event is not created!"));
 	else if (!SetEvent(hStopEvent_)) {
 			NSC_LOG_ERROR_STD(_T("SetStopEvent failed"));
 	}

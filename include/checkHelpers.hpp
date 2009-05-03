@@ -154,7 +154,7 @@ namespace checkHolders {
 				message += _T(", ");
 			if (!tstr.empty())
 				message += tstr;
-			std::wcout << _T("result: ") << tstr << _T("--") << std::endl;
+			//std::wcout << _T("result: ") << tstr << _T("--") << std::endl;
 		}
 	};
 

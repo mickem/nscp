@@ -185,6 +185,8 @@
 #define NSCA_CACHE_HOST_DEFAULT 0
 #define NSCA_TIME_DELTA _T("time_delay")
 #define NSCA_TIME_DELTA_DEFAULT _T("0")
+#define NSCA_REPORT _T("report")
+#define NSCA_REPORT_DEFAULT _T("all")
 
 #define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
 #define C_SYSTEM_SVC_ALL_0_DEFAULT _T("ignored")

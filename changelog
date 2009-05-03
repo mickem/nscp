@@ -4,6 +4,43 @@ TODO:
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
 
+2009-05-03 MickeM 
+ * Fixed another quite serious memory leak!
+   And this was a hard one, took me hours and hours and hours (read weeks) to track down, but here we are!
+ * A lot of other fixes as I have been through much of the code looking for the memmory leak above.
+
+2009-03-30 MickeM 
+ + Added new option to NSCA module for specifying report options.
+	report=all (report=warning,critical) etc etc to specify which kind of return datat to get default value is all.
+ + Added so password and host ate stored in the installer (if changed)
+
+2009-03-29 MickeM 
+ * Fixed a lot of issues with the installer and added a start on exit (and donate) on the finnish dialog.
+
+2009-03-15 MickeM 
+ * New service name (displayname)
+ * New service description
+
+2009-03-14 MickeM 
+ * Rebuilt installer UI (still missing write config function)
+ * Added debug entry to log filename used by debug log metrics.
+ * Fixed so alias will not require the allow_nasty_metachars option set under external sripts module.
+
+2009-03-02 MickeM 
+ * Added catch handlers and error logging to NSCA Thread
+ * Fixed issue with CheckProcState and administrator login!
+ + Added debug module to installer
+ + Added option max-dir-depth to CheckFile and CheckFile2 like so:
+   CheckFile "file=c:\test\*.txt" filter-size=<24g "syntax=%filename%: %size%" MaxCrit=1 max-dir-depth=0
+   Will only find files on the "first level" where as max-dir-depth=1 would find all parents and children etc. (-1 is the default and means find all)
+ * Fixed issue with finding sub-folders and *.txt now it will always look for subfolders if they are present
+
+2009-02-26 MickeM 
+ * Fixed issue with debug logging (not it can be disabled again)
+
+2009-02-23 MickeM 
+ * Fixed build issues so NSCA now has all cryuptos avalible (verify with nsclient++ /about)
+
 2009-02-11 MickeM 
  * Fixed so that performance data is always(?) renderd regardless of if we have bounds or not.
    This was primarily to fix issues where we have might not "unexpectedly" get performance data (might still be some issues here so let me know).

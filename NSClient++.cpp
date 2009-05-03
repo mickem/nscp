@@ -208,7 +208,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					serviceControll::Start(service_name);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
-					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
+					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
 				LOG_ERROR_STD(_T("Service installation failed: ") + e.error_);
 				return -1;
 			}
@@ -216,9 +216,11 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				serviceControll::SetDescription(service_name, service_description);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
-					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
+					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
 				LOG_MESSAGE_STD(_T("Couldn't set service description: ") + e.error_);
 			}
+			if (bGui)
+				display(_T("Service installed"), _T("Service installed successfully!"));
 			LOG_MESSAGE(_T("Service installed!"));
 			return 0;
 		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
@@ -240,12 +242,19 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			try {
 				if (bStop)
 					serviceControll::Stop(service_name);
+			} catch (const serviceControll::SCException& e) {
+				LOG_MESSAGE_STD(_T("Failed to stop service (") + service_name + _T(") failed; ") + e.error_);
+			}
+			try {
 				serviceControll::Uninstall(service_name);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
-					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
+					display(_T("Error uninstalling"), _T("Service de-installation (") + service_name + _T(") failed; ") + e.error_ + _T("\nMaybe the service was not previously installed properly?"));
 				LOG_ERROR_STD(_T("Service deinstallation failed; ") + e.error_);
+				return 0;
 			}
+			if (bGui)
+				display(_T("Service uninstalled"), _T("Service uninstalled successfully!"));
 			LOG_MESSAGE(_T("Service uninstalled!"));
 			return 0;
 		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
@@ -360,6 +369,14 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
 			mainClient.exitCore(false);
 			return nRetCode;
+		} else if ( _wcsicmp( _T("svc"), argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
+			try {
+				std::wstring exe = serviceControll::get_exe_path(SZSERVICENAME);
+				LOG_MESSAGE_STD(_T("The Service uses: ") + exe);
+			} catch (const serviceControll::SCException& e) {
+				LOG_ERROR_STD(_T("Failed to find service: ") + e.error_);
+			}
 		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
 			bool server = false;
 			if (argc > 2 && _wcsicmp( _T("server"), argv[2] ) == 0 ) {
@@ -477,7 +494,7 @@ bool NSClientT::initCore(bool boot) {
 	LOG_DEBUG(_T("Attempting to start NSCLient++ - " SZVERSION));
 	try {
 		Settings::getInstance()->setFile(getBasePath(), _T("NSC.ini"));
-		if (debug_) {
+		if (debug_ == log_debug) {
 			Settings::getInstance()->setInt(_T("log"), _T("debug"), 1);
 		}
 		if (enable_shared_session_)
@@ -1078,11 +1095,20 @@ bool NSClientT::logDebug() {
 			else
 				debug_ = log_nodebug;
 		} catch (SettingsException e) {
-			debug_ = log_debug;
+			return true;
 		}
 	}
 	return (debug_ == log_debug);
 }
+void NSClientT::enableDebug(bool debug) {
+	if (debug) {
+		debug_ = log_debug;
+		LOG_DEBUG(_T("Enabling debug mode..."));
+	}
+	else
+		debug_ = log_nodebug;
+}
+
 
 void log_broken_message(std::wstring msg) {
 	OutputDebugString(msg.c_str());

@@ -13,18 +13,18 @@ namespace simple_file {
 #define CSIDL_LOCAL_APPDATA  0x001c
 #endif
 	typedef BOOL (WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
-
-	__inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
-		static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
-		if (!__SHGetSpecialFolderPath) {
-			HMODULE hDLL = LoadLibrary(_T("shell32.dll"));
-			if (hDLL != NULL)
-				__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+		static BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
+			static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
+			if (!__SHGetSpecialFolderPath) {
+				HMODULE hDLL = LoadLibrary(_T("shell32.dll"));
+				if (hDLL != NULL) { 
+					__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+				}
+			}
+			if(__SHGetSpecialFolderPath)
+				return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
+			return FALSE;
 		}
-		if(__SHGetSpecialFolderPath)
-			return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
-		return FALSE;
-	}
 
 
 	class file_appender {

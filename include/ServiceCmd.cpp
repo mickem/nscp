@@ -35,26 +35,29 @@ namespace serviceControll {
 	 * @date 03-13-2004
 	 *
 	 */
-	void Install(LPCTSTR szName, LPCTSTR szDisplayName, LPCTSTR szDependencies, DWORD dwServiceType) {
+	void Install(std::wstring szName, std::wstring szDisplayName, LPCTSTR szDependencies, DWORD dwServiceType, std::wstring exe) {
 		SC_HANDLE   schService;
 		SC_HANDLE   schSCManager;
-		TCHAR szPath[512];
 
-		if ( GetModuleFileName( NULL, szPath, 512 ) == 0 )
-			throw SCException(_T("Could not get module"));
+		if (exe.empty()) {
+			TCHAR szPath[512];
+			if ( GetModuleFileName( NULL, szPath, 512 ) == 0 )
+				throw SCException(_T("Could not get module"));
+			exe = szPath;
+		}
 
 		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 		if (!schSCManager)
 			throw SCException(_T("OpenSCManager failed:") + error::lookup::last_error());
 		schService = CreateService(
 			schSCManager,               // SCManager database
-			szName,						// name of service
-			szDisplayName,				// name to display
+			szName.c_str(),				// name of service
+			szDisplayName.c_str(),		// name to display
 			SERVICE_ALL_ACCESS,         // desired access
 			dwServiceType,				// service type
 			SERVICE_AUTO_START,			// start type
 			SERVICE_ERROR_NORMAL,       // error control type
-			szPath,                     // service's binary
+			exe.c_str(),                     // service's binary
 			NULL,                       // no load ordering group
 			NULL,                       // no tag identifier
 			szDependencies,			    // dependencies
@@ -167,18 +170,67 @@ namespace serviceControll {
 				if ( ssStatus.dwCurrentState != SERVICE_RUNNING ) {
 					CloseServiceHandle(schService);
 					CloseServiceHandle(schSCManager);
-					throw SCException(_T("Service failed to start."));
+					throw SCException(_T("Service '") +name + _T("' failed to start."));
 				}
 			}
 			CloseServiceHandle(schService);
 		} else {
-			std::wstring err = _T("OpenService failed: ") + error::lookup::last_error();
+			std::wstring err = _T("OpenService on '") + name + _T("' failed: ") + error::lookup::last_error();
 			CloseServiceHandle(schSCManager);
 			throw SCException(err);
 		}
 		CloseServiceHandle(schSCManager);
 	}
+	bool isInstalled(std::wstring name) {
+		SC_HANDLE   schService;
+		SC_HANDLE   schSCManager;
+		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+		if (!schSCManager) 
+			throw SCException(_T("OpenSCManager failed: ") + error::lookup::last_error());
+		schService = OpenService(schSCManager, name.c_str(), SERVICE_ALL_ACCESS);
+		if (schService) {
+			CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return true;
+		} else {
+			CloseServiceHandle(schSCManager);
+			return false;
+		}
+	}
+	std::wstring get_exe_path(std::wstring svc_name) {
+		std::wstring ret;
+		SC_HANDLE   schService;
+		SC_HANDLE   schSCManager;
+		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+		if (!schSCManager) 
+			throw SCException(_T("OpenSCManager failed: ") + error::lookup::last_error());
+		schService = OpenService(schSCManager, svc_name.c_str(),  SERVICE_QUERY_CONFIG);
+		if (!schService) {
+			CloseServiceHandle(schSCManager);
+			throw SCException(_T("Failed to open service: ") + svc_name + _T(" because ") + error::lookup::last_error());
+		}
+		DWORD dwBytesNeeded=0;
+		DWORD lErr;
+		if (QueryServiceConfig(schService,NULL,0, &dwBytesNeeded) || ((lErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)) {
+			CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			throw SCException(_T("Failed to query service information: ") + svc_name + _T(" because ") + error::lookup::last_error(lErr));
+		}
 
+		LPQUERY_SERVICE_CONFIG lpqscBuf = (LPQUERY_SERVICE_CONFIG)LocalAlloc(LPTR, dwBytesNeeded+10); 
+		BOOL bRet = (lpqscBuf!=NULL) && (QueryServiceConfig(schService,lpqscBuf,dwBytesNeeded, &dwBytesNeeded)==TRUE);
+		if (!bRet)
+			lErr = GetLastError();
+		else {
+			ret = lpqscBuf->lpBinaryPathName;
+		}
+		LocalFree(lpqscBuf);
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		if (!bRet)
+			throw SCException(_T("Failed to query service information: ") + svc_name + _T(" because ") + error::lookup::last_error(lErr));
+		return ret;
+	}
 
 	bool isStarted(std::wstring name) {
 		SC_HANDLE   schService;
@@ -201,7 +253,7 @@ namespace serviceControll {
 			CloseServiceHandle(schService);
 		} else {
 			CloseServiceHandle(schSCManager);
-			throw SCException(_T("OpenService failed."));
+			ret = false;
 		}
 		CloseServiceHandle(schSCManager);
 		return ret;
@@ -224,18 +276,20 @@ namespace serviceControll {
 
 		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 		if (!schSCManager)
-			throw SCException(_T("OpenSCManager failed."));
+			throw SCException(_T("OpenSCManager failed: ") + error::lookup::last_error());
 		schService = OpenService(schSCManager, name.c_str(), SERVICE_ALL_ACCESS);
 		if (schService) {
 			if(!DeleteService(schService)) {
+				std::wstring err = _T("DeleteService failed: ") + error::lookup::last_error();
 				CloseServiceHandle(schService);
 				CloseServiceHandle(schSCManager);
-				throw SCException(_T("DeleteService failed."));
+				throw SCException(err);
 			}
 			CloseServiceHandle(schService);
 		} else {
+			std::wstring err = _T("OpenService failed: ") + error::lookup::last_error();
 			CloseServiceHandle(schSCManager);
-			throw SCException(_T("OpenService failed."));
+			throw SCException(err);
 		}
 		CloseServiceHandle(schSCManager);
 	}
@@ -257,7 +311,7 @@ namespace serviceControll {
 
 		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 		if (!schSCManager)
-			throw SCException(_T("OpenSCManager failed."));
+			throw SCException(_T("OpenSCManager failed: ") + error::lookup::last_error());
 		schService = OpenService(schSCManager, name.c_str(), SERVICE_ALL_ACCESS);
 		if (schService) {
 			// try to stop the service
@@ -280,8 +334,9 @@ namespace serviceControll {
 			}
 			CloseServiceHandle(schService);
 		} else {
+			std::wstring err = _T("OpenService failed: ") + error::lookup::last_error();
 			CloseServiceHandle(schSCManager);
-			throw SCException(_T("OpenService failed."));
+			throw SCException(err);
 		}
 		CloseServiceHandle(schSCManager);
 	}

@@ -107,12 +107,7 @@ public:
 	// c-tor, d-tor
 	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false) {}
 	virtual ~NSClientT(void) {}
-	void enableDebug(bool debug = true) {
-		if (debug)
-			debug_ = log_debug;
-		else
-			debug_ = log_nodebug;
-	}
+	void enableDebug(bool debug = true);
 
 	// Service helper functions
 	bool InitiateService();

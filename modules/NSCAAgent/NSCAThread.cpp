@@ -21,11 +21,54 @@
 #include "NSCAThread.h"
 #include <Settings.h>
 
+#define REPORT_ERROR	0x01
+#define REPORT_WARNING	0x02
+#define REPORT_UNKNOWN	0x04
+#define REPORT_OK		0x08
+
+unsigned int parse_report_string(std::wstring str) {
+	unsigned int report = 0;
+	strEx::splitList lst = strEx::splitEx(str, _T(","));
+	for (strEx::splitList::const_iterator key = lst.begin(); key != lst.end(); ++key) {
+		if (*key == _T("all")) {
+			report = REPORT_ERROR|REPORT_OK|REPORT_UNKNOWN|REPORT_WARNING;
+		} else if (*key == _T("error") || *key == _T("err") || *key == _T("critical") || *key == _T("crit")) {
+			report |= REPORT_ERROR;
+		} else if (*key == _T("warning") || *key == _T("warn")) {
+			report |= REPORT_WARNING;
+		} else if (*key == _T("unknown")) {
+			report |= REPORT_UNKNOWN;
+		} else if (*key == _T("ok")) {
+			report |= REPORT_OK;
+		}
+	}
+	return report;
+}
+std::wstring generate_report_string(unsigned int report) {
+	std::wstring ret;
+	if ((report&REPORT_OK)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("ok");
+	}
+	if ((report&REPORT_WARNING)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("warning");
+	}
+	if ((report&REPORT_ERROR)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("critical");
+	}
+	if ((report&REPORT_UNKNOWN)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("unknown");
+	}
+	return ret;
+}
 
 NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	std::wstring tmpstr = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_TIME_DELTA, NSCA_TIME_DELTA_DEFAULT);
 	if (tmpstr[0] == '-' && tmpstr.size() > 2)
-		timeDelta_ = - strEx::stoui_as_time(tmpstr.substr(1));
+		timeDelta_ = 0 - strEx::stoui_as_time(tmpstr.substr(1));
 	if (tmpstr[0] == '+' && tmpstr.size() > 2)
 		timeDelta_ = strEx::stoui_as_time(tmpstr.substr(1));
 	else
@@ -35,6 +78,10 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
 	nscahost_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_SERVER, NSCA_SERVER_DEFAULT);
 	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
+	std::wstring report = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_REPORT, NSCA_REPORT_DEFAULT);
+	report_ = parse_report_string(report);
+	NSC_DEBUG_MSG_STD(_T("Only reporting: ") + generate_report_string(report_));
+	
 	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
 	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
 	cacheNscaHost_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST, NSCA_CACHE_HOST_DEFAULT) == 1;
@@ -126,26 +173,55 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 		NSC_LOG_ERROR_STD(_T("Drift failed... strange..."));
 	}
 	int remain = checkIntervall_;
-	while (((waitStatus = WaitForSingleObject(hStopEvent_, remain*1000)) == WAIT_TIMEOUT)) {
-		MutexLock mutex(mutexHandler);
-		if (!mutex.hasMutex()) 
-			NSC_LOG_ERROR(_T("Failed to get Mutex!"));
-		else {
-			__int64 start, stop;
-			_time64( &start );
+	try {
+		while (((waitStatus = WaitForSingleObject(hStopEvent_, remain*1000)) == WAIT_TIMEOUT)) {
+			MutexLock mutex(mutexHandler);
+			if (!mutex.hasMutex()) 
+				NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+			else {
+				__int64 start, stop;
+				_time64( &start );
 
-			std::list<Command::Result> results;
-			for (std::list<Command>::const_iterator cit = commands_.begin(); cit != commands_.end(); ++cit) {
-				results.push_back((*cit).execute(hostname_));
-			}
-			send(results);
-			_time64( &stop );
-			__int64 elapsed = stop-start;
-			remain = checkIntervall_-static_cast<int>(elapsed);
-			if (remain < 0)
-				remain = 0;
-		} 
+				std::list<Command::Result> results;
+				for (std::list<Command>::const_iterator cit = commands_.begin(); cit != commands_.end(); ++cit) {
+					try {
+						NSC_DEBUG_MSG_STD(_T("Executing (from NSCA): ") + (*cit).alias());
+						Command::Result result = (*cit).execute(hostname_);
+						if (
+							(result.code == NSCAPI::returnOK && ((report_&REPORT_OK)==REPORT_OK) ) ||
+							(result.code == NSCAPI::returnCRIT && ((report_&REPORT_ERROR)==REPORT_ERROR) ) ||
+							(result.code == NSCAPI::returnWARN && ((report_&REPORT_WARNING)==REPORT_WARNING) ) ||
+							(result.code == NSCAPI::returnUNKNOWN && ((report_&REPORT_UNKNOWN)==REPORT_UNKNOWN) )
+							) 
+						{
+							results.push_back(result);
+						} else {
+							NSC_DEBUG_MSG_STD(_T("Ignoring result (it does not match our reporting prefix: ") + (*cit).alias());
+						}
+					} catch (...) {
+						NSC_LOG_ERROR_STD(_T("Unknown exception when executing: ") + (*cit).alias());
+					}
+				}
+				if (!results.empty()) {
+					try {
+						send(results);
+					} catch (...) {
+						NSC_LOG_ERROR_STD(_T("Unknown exception when sending commands to server..."));
+					}
+				} else {
+					NSC_DEBUG_MSG_STD(_T("Nothing to report, thus not reporting anything..."));
+				}
+				_time64( &stop );
+				__int64 elapsed = stop-start;
+				remain = checkIntervall_-static_cast<int>(elapsed);
+				if (remain < 1)
+					remain = 1;
+			} 
+		}
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Unknown exception in NSCA Thread terminating..."));
 	}
+
 
 	if (waitStatus != WAIT_OBJECT_0) {
 		NSC_LOG_ERROR(_T("Something odd happened, terminating NSCA submission thread!"));
@@ -165,6 +241,7 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 	return 0;
 }
 void NSCAThread::send(const std::list<Command::Result> &results) {
+	NSC_DEBUG_MSG_STD(_T("Sending to server..."));
 	try {
 		nsca_encrypt crypt_inst;
 		simpleSocket::Socket socket(true);
@@ -216,6 +293,7 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		NSC_LOG_ERROR_STD(_T("<<< NSCA Configuration missmatch (hint: if you dont use NSCA dot use the NSCA module)!"));
 		return;
 	}
+	NSC_DEBUG_MSG_STD(_T("Finnished sending to server..."));
 }
 
 

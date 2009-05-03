@@ -63,10 +63,17 @@ public:
 	};
 	class process_enumeration_exception {
 		std::wstring what_;
+		DWORD error_code_;
 	public:
 		process_enumeration_exception(std::wstring what) : what_(what) {}
+		process_enumeration_exception(DWORD error_code, std::wstring what) : what_(what), error_code_(error_code) {
+			what += error::lookup::last_error(error_code_);
+		}
 		std::wstring what() {
 			return what_;
+		}
+		DWORD error_code() {
+			return error_code_;
 		}
 	};
 
@@ -95,6 +102,8 @@ public:
 	virtual ~CEnumProcess();
 
 	std::wstring GetCommandLine(HANDLE hProcess);
+	void enable_token_privilege(LPTSTR privilege);
+	void disable_token_privilege(LPTSTR privilege);
 	bool has_PSAPI() {
 		return PSAPI != NULL;
 	}

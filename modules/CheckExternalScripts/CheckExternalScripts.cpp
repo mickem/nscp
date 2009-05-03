@@ -124,7 +124,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 		int i=1;
 
 		for (;cit2!=arr.end();cit2++,i++) {
-			if (isAlias || NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+			if ((!isAlias) && (NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0)) {
 				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;

@@ -79,14 +79,64 @@ BOOL CALLBACK Enum16Proc( DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszMo
 }
 
 
+void CEnumProcess::enable_token_privilege(LPTSTR privilege)
+{
+	HANDLE hToken;                       
+	TOKEN_PRIVILEGES token_privileges;                 
+	DWORD dwSize;                       
+	ZeroMemory (&token_privileges, sizeof (token_privileges));
+	token_privileges.PrivilegeCount = 1;
+	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
+		throw process_enumeration_exception(_T("Failed to open process token: ") + error::lookup::last_error());
+	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid)) { 
+		CloseHandle (hToken);
+		throw process_enumeration_exception(_T("Failed to lookup privilege: ") + error::lookup::last_error());
+	}
+	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize)) { 
+		CloseHandle (hToken);
+		throw process_enumeration_exception(_T("Failed to adjust token privilege: ") + error::lookup::last_error());
+	}
+	CloseHandle (hToken);
+}
+
+void CEnumProcess::disable_token_privilege(LPTSTR privilege)
+{
+	HANDLE hToken;                       
+	TOKEN_PRIVILEGES token_privileges;                 
+	DWORD dwSize;                       
+	ZeroMemory (&token_privileges, sizeof (token_privileges));
+	token_privileges.PrivilegeCount = 1;
+	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
+		throw process_enumeration_exception(_T("Failed to open process token: ") + error::lookup::last_error());
+	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid)) { 
+		CloseHandle (hToken);
+		throw process_enumeration_exception(_T("Failed to lookup privilege: ") + error::lookup::last_error());
+	}
+	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_REMOVED;
+	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize)) { 
+		CloseHandle (hToken);
+		throw process_enumeration_exception(_T("Failed to adjust token privilege: ") + error::lookup::last_error());
+	}
+	CloseHandle (hToken);
+}
+
 CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command_line, bool find_16bit, CEnumProcess::error_reporter *error_interface, unsigned int buffer_size) {
+
+	try {
+		enable_token_privilege(SE_DEBUG_NAME);
+	} catch (process_enumeration_exception &e) {
+		if (error_interface!=NULL)
+			error_interface->report_warning(e.what());
+	} 
+
 	std::list<CProcessEntry> ret;
 	DWORD *dwPIDs = new DWORD[buffer_size+1];
 	DWORD cbNeeded = 0;
 	BOOL OK = FEnumProcesses(dwPIDs, buffer_size*sizeof(DWORD), &cbNeeded);
 	if (cbNeeded >= DEFAULT_BUFFER_SIZE*sizeof(DWORD)) {
 		delete [] dwPIDs;
-		return enumerate_processes(expand_command_line, find_16bit, error_interface, buffer_size + 1024); 
+		return enumerate_processes(expand_command_line, find_16bit, error_interface, buffer_size * 10); 
 	}
 	if (!OK) {
 		delete [] dwPIDs;
@@ -135,7 +185,7 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 		openArgs |= PROCESS_VM_OPERATION;
 	HANDLE hProc = OpenProcess(openArgs, FALSE, pid);
 	if (!hProc) {
-		throw process_enumeration_exception(_T("Failed to open process: ") + strEx::itos(pid) + _T(": ") + error::lookup::last_error());
+		throw process_enumeration_exception(GetLastError(), _T("Failed to open process: ") + strEx::itos(pid) + _T(": "));
 	}
 	if (expand_command_line) {
 		entry.command_line = GetCommandLine(hProc);
@@ -146,6 +196,7 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 	if( FEnumProcessModules(hProc, &hMod, sizeof(hMod), &size) ) {
 		TCHAR buffer[MAX_FILENAME+1];
 		if( !FGetModuleFileNameEx( hProc, hMod, reinterpret_cast<LPTSTR>(&buffer), MAX_FILENAME) ) { 
+			CloseHandle(hProc);
 			throw process_enumeration_exception(_T("Failed to find name for: ") + strEx::itos(pid) + _T(": ") + error::lookup::last_error());
 		} else {
 			std::wstring path = buffer;
