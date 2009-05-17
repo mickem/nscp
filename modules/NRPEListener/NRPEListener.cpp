@@ -323,8 +323,14 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 				block.copyFrom(out.getBuffer(), out.getBufferLength());
 			} catch (NRPEPacket::NRPEPacketException e) {
 				NSC_LOG_ERROR_STD(_T("NRPESocketException: ") + e.getMessage());
-				client->close();
-				return;
+				NRPEPacket err(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("Could not construct return paket in NRPE handler check clientside (nsclient.log) logs..."), buffer_length_);
+				try {
+					block.copyFrom(out.getBuffer(), out.getBufferLength());
+				} catch (NRPEPacket::NRPEPacketException e) {
+					NSC_LOG_ERROR_STD(_T("NRPESocketException (again): ") + e.getMessage());
+					client->close();
+					return;
+				}
 			}
 			int maxWait = socketTimeout_*10;
 			for (i=0;i<maxWait;i++) {

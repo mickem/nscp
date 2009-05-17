@@ -4,15 +4,15 @@
 #include <windows.h>
 #define BUFF_LEN 4096
 
-class TSettings
+class settings_base
 {
 public:
 	typedef std::list<std::wstring> sectionList;
-	TSettings(void)
+	settings_base(void)
 	{
 	}
 
-	virtual ~TSettings(void)
+	virtual ~settings_base(void)
 	{
 	}
 	virtual std::wstring getActiveType() = 0;
@@ -23,4 +23,6 @@ public:
 	virtual int getInt(std::wstring section, std::wstring key, int defaultValue = 0) = 0;
 	virtual void setInt(std::wstring section, std::wstring key, int value) = 0;
 	virtual int getActiveTypeID() = 0;
+	virtual void setSection(std::wstring section, sectionList data) = 0;
+
 };

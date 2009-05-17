@@ -50,7 +50,7 @@ typedef BOOL ( WINAPI *TASKENUMPROCEX )(DWORD dwThreadId, WORD hMod16, WORD hTas
 typedef INT (WINAPI *PFVDMEnumTaskWOWEx)(DWORD dwProcessId, TASKENUMPROCEX fp, LPARAM lparam); 
 #endif
 
-#define DEFAULT_BUFFER_SIZE 1024
+#define DEFAULT_BUFFER_SIZE 64*1024
 
 class CEnumProcess  
 {
@@ -60,6 +60,9 @@ public:
 	public:
 		virtual void report_error(std::wstring error) = 0;
 		virtual void report_warning(std::wstring error) = 0;
+		virtual void report_debug(std::wstring error) = 0;
+		virtual void report_debug_enter(std::wstring error) = 0;
+		virtual void report_debug_exit(std::wstring error) = 0;
 	};
 	class process_enumeration_exception {
 		std::wstring what_;

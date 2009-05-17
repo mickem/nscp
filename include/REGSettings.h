@@ -9,7 +9,7 @@
 
 
 #include <iostream>
-class REGSettings : public TSettings
+class REGSettings : public settings_base
 {
 public:
 	typedef std::list<std::wstring> sectionList;
@@ -214,5 +214,8 @@ public:
 			delete [] lpValueName;
 		}
 		return ret;
+	}
+	void setSection(std::wstring section, sectionList data)  {
+		std::wcout << _T("Unsupported function call") << std::endl;
 	}
 };

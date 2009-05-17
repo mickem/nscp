@@ -120,6 +120,15 @@ namespace script_wrapper {
 	void push_string(lua_State *L, std::wstring s) {
 		lua_pushstring(L, strEx::wstring_to_string(s).c_str());
 	}
+	void push_array(lua_State *L, std::list<std::wstring> &arr) {
+		lua_createtable(L, 0, arr.size());
+		int i=0;
+		for (std::list<std::wstring>::const_iterator cit=arr.begin(); cit != arr.end(); ++cit) {
+			lua_pushnumber(L,i++);
+			lua_pushstring(L,strEx::wstring_to_string(*cit).c_str());
+			lua_settable(L,-3);
+		}
+	}
 
 	class lua_script;
 	class lua_handler {
@@ -236,8 +245,19 @@ namespace script_wrapper {
 			return 1;
 		}
 		static int getSection (lua_State *L) {
-			NSC_DEBUG_MSG_STD(_T("LUA::setSettings"));
-			return 0;
+			int nargs = lua_gettop( L );
+			if (nargs > 1)
+				return luaL_error(L, "Incorrect syntax: nscp.getSection([<section>]);");
+			std::wstring v;
+			if (nargs > 0)
+				v = pop_string(L);
+			try {
+				std::list<std::wstring> list = NSCModuleHelper::getSettingsSection(v);
+				push_array(L, list);
+			} catch (...) {
+				return luaL_error(L, "Unknown exception getting section");
+			}
+			return 1;
 		}
 		static int info (lua_State *L) {
 			return log_any(L, NSCAPI::log);

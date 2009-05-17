@@ -84,7 +84,7 @@ void CEnumProcess::enable_token_privilege(LPTSTR privilege)
 	HANDLE hToken;                       
 	TOKEN_PRIVILEGES token_privileges;                 
 	DWORD dwSize;                       
-	ZeroMemory (&token_privileges, sizeof (token_privileges));
+	ZeroMemory (&token_privileges, sizeof(token_privileges));
 	token_privileges.PrivilegeCount = 1;
 	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
 		throw process_enumeration_exception(_T("Failed to open process token: ") + error::lookup::last_error());
@@ -122,9 +122,14 @@ void CEnumProcess::disable_token_privilege(LPTSTR privilege)
 }
 
 CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command_line, bool find_16bit, CEnumProcess::error_reporter *error_interface, unsigned int buffer_size) {
-
+	if (error_interface!=NULL)
+		error_interface->report_debug_enter(_T("enumerate_processes"));
 	try {
+		if (error_interface!=NULL)
+			error_interface->report_debug_enter(_T("enable_token_privilege"));
 		enable_token_privilege(SE_DEBUG_NAME);
+		if (error_interface!=NULL)
+			error_interface->report_debug_exit(_T("enable_token_privilege"));
 	} catch (process_enumeration_exception &e) {
 		if (error_interface!=NULL)
 			error_interface->report_warning(e.what());
@@ -133,9 +138,15 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 	std::list<CProcessEntry> ret;
 	DWORD *dwPIDs = new DWORD[buffer_size+1];
 	DWORD cbNeeded = 0;
+	if (error_interface!=NULL)
+		error_interface->report_debug_enter(_T("FEnumProcesses"));
 	BOOL OK = FEnumProcesses(dwPIDs, buffer_size*sizeof(DWORD), &cbNeeded);
+	if (error_interface!=NULL)
+		error_interface->report_debug_exit(_T("FEnumProcesses"));
 	if (cbNeeded >= DEFAULT_BUFFER_SIZE*sizeof(DWORD)) {
 		delete [] dwPIDs;
+		if (error_interface!=NULL)
+			error_interface->report_debug(_T("Need larger buffer: ") + strEx::itos(buffer_size));
 		return enumerate_processes(expand_command_line, find_16bit, error_interface, buffer_size * 10); 
 	}
 	if (!OK) {
@@ -148,6 +159,8 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 			continue;
 		CProcessEntry entry;
 		try {
+			if (error_interface!=NULL)
+				error_interface->report_debug_enter(_T("describe_pid"));
 			try {
 				entry = describe_pid(dwPIDs[i], expand_command_line);
 			} catch (process_enumeration_exception &e) {
@@ -155,7 +168,11 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 					error_interface->report_warning(e.what());
 				entry = describe_pid(dwPIDs[i], false);
 			}
+			if (error_interface!=NULL)
+				error_interface->report_debug_exit(_T("describe_pid"));
 			if (VDMDBG!=NULL&&find_16bit) {
+				if (error_interface!=NULL)
+					error_interface->report_debug(_T("Looking for 16bit apps"));
 				if( _wcsicmp(entry.filename.substr(0,9).c_str(), _T("NTVDM.EXE")) == 0) {
 					find_16bit_container container;
 					container.target = &ret;
@@ -173,6 +190,8 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 		}
 	}
 	delete [] dwPIDs;
+	if (error_interface!=NULL)
+		error_interface->report_debug_exit(_T("enumerate_processes"));
 	return ret;
 }
 

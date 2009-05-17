@@ -569,8 +569,8 @@ bool NSClientT::initCore(bool boot) {
 	}
 	if (boot) {
 		try {
-			SettingsT::sectionList list = Settings::getInstance()->getSection(_T("modules"));
-			for (SettingsT::sectionList::iterator it = list.begin(); it != list.end(); it++) {
+			settings_base::sectionList list = Settings::getInstance()->getSection(_T("modules"));
+			for (settings_base::sectionList::iterator it = list.begin(); it != list.end(); it++) {
 				try {
 					loadPlugin(getBasePath() + _T("modules\\") + (*it));
 				} catch(const NSPluginException& e) {

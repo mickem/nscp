@@ -38,7 +38,7 @@ public:
 
 };
 
-class SettingsT
+class settings_core
 {
 private:
 	typedef struct {
@@ -53,15 +53,15 @@ private:
 	std::wstring file_;
 	std::wstring basepath_;
 	bool bHasInternalData;
-	TSettings *settingsManager;
+	settings_base *settingsManager;
 
 public:
 	typedef std::list<std::wstring> sectionList;
-	SettingsT(void) : bHasInternalData(false), settingsManager(NULL)
+	settings_core(void) : bHasInternalData(false), settingsManager(NULL)
 	{
 	}
 
-	virtual ~SettingsT(void)
+	virtual ~settings_core(void)
 	{
 		if (settingsManager)
 			delete settingsManager;
@@ -102,7 +102,7 @@ public:
 #define UNLIKELY_VALUE_2 -4321
 	void read(int type = -1) {
 		bool bNew = false;
-		TSettings *sM = settingsManager;
+		settings_base *sM = settingsManager;
 		if (settingsManager == NULL)
 			throw SettingsException(_T("No settings method specified, cannot start"));
 		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
@@ -159,9 +159,17 @@ public:
 			delete sM;
 		}
 	}
+	void writeSection(std::wstring section, sectionList data) {
+		if (settingsManager == NULL)
+			throw SettingsException(_T("No settings method specified, cannot start"));
+		if (settingsManager->getActiveTypeID() == INISettings::getType())
+			settingsManager->setSection(section, data);
+		else 
+			throw SettingsException(_T("Writing modules to non-INI file is not supported"));
+	}
 	void write(int type = -1) {
 		bool bNew = false;
-		TSettings *sM = settingsManager;
+		settings_base *sM = settingsManager;
 		if (settingsManager == NULL)
 			throw SettingsException(_T("No settings method specified, cannot start"));
 		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
@@ -293,4 +301,4 @@ public:
 	}
 };
 
-typedef Singleton<SettingsT> Settings;		// Implement the settings manager as a singleton
+typedef Singleton<settings_core> Settings;		// Implement the settings manager as a singleton

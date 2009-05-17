@@ -132,16 +132,27 @@
 								<File Id="ModCheckTaskSched.dll" Name="TaskSch.dll" LongName="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
 							</Component>
 						</Directory>
+						<Directory Id="INSTALLLOCATION_SCRIPTS" Name="scripts">
+							<Component Id="Scripts" Guid="9B490E67-5472-4267-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="scriptargs.bat" Name="args.bat" LongName="args.bat" DiskId="1" Source="$(var.Source)/scripts/args.bat" Vital="no" />
+								<File Id="scriptcheck_vb.vbs" Name="check_vb.vbs" LongName="check_vb.vbs" DiskId="1" Source="$(var.Source)/scripts/check_vb.vbs" Vital="no" />
+								<File Id="scriptcritical.bat" Name="critical.bat" LongName="critical.bat" DiskId="1" Source="$(var.Source)/scripts/critical.bat" Vital="no" />
+								<File Id="scriptmulti_line.bat" Name="mline.bat" LongName="multi_line.bat" DiskId="1" Source="$(var.Source)/scripts/multi_line.bat" Vital="no" />
+								<File Id="scriptok.bat" Name="ok.bat" LongName="ok.bat" DiskId="1" Source="$(var.Source)/scripts/ok.bat" Vital="no" />
+								<File Id="scriptpowershell.ps1" Name="pwrshell.ps1" LongName="powershell.ps1" DiskId="1" Source="$(var.Source)/scripts/powershell.ps1" Vital="no" />
+								<File Id="scripttest.lua" Name="test.lua" LongName="test.lua" DiskId="1" Source="$(var.Source)/scripts/test.lua" Vital="no" />
+							</Component>
+						</Directory>
+					</Directory>
+				</Directory>
+				<Directory Id="ProgramMenuFolder" Name="PMenu" LongName="Programs">
+					<Directory Id="ProgramMenuDir" Name='NSClient' LongName="$(var.App.StartMenuPath)" />
 				</Directory>
 			</Directory>
-			<Directory Id="ProgramMenuFolder" Name="PMenu" LongName="Programs">
-				<Directory Id="ProgramMenuDir" Name='NSClient' LongName="$(var.App.StartMenuPath)" />
-			</Directory>
-		</Directory>
-		<Feature Id="ProductFeature" Title="NSClient++ $(var.PlatForm)" Description="Binaries for $(var.PlatForm)"
-						 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
-			<Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
-				<ComponentRef Id="MainClient" />
+			<Feature Id="ProductFeature" Title="NSClient++ $(var.PlatForm)" Description="Binaries for $(var.PlatForm)"
+							 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
+				<Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
+					<ComponentRef Id="MainClient" />
 			</Feature>
 			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
@@ -155,6 +166,9 @@
 				</Feature>
 				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
 					<ComponentRef Id="NSCA" />
+				</Feature>
+				<Feature Id="SampleScripts" Title="Sample Scripts" Description="Some sample client-side scripts to use with NRPE" Level="1" Absent="disallow">
+					<ComponentRef Id="Scripts" />
 				</Feature>
 			</Feature>
 		</Feature>

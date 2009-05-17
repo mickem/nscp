@@ -802,6 +802,15 @@ class NSC_error : public CEnumProcess::error_reporter {
 	void report_warning(std::wstring error) {
 		NSC_LOG_MESSAGE(error);
 	}
+	void report_debug(std::wstring error) {
+		NSC_DEBUG_MSG_STD(_T("PROC::: ") + error);
+	}
+	void report_debug_enter(std::wstring error) {
+		NSC_DEBUG_MSG_STD(_T("PROC>>> ") + error);
+	}
+	void report_debug_exit(std::wstring error) {
+		NSC_DEBUG_MSG_STD(_T("PROC<<<") + error);
+	}
 };
 
 /**

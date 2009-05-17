@@ -15,7 +15,7 @@ class INIFile {
 private:
 	std::wstring file_;
 public:
-	typedef std::list<std::wstring> sectionList;
+	//typedef std::list<std::wstring> sectionList;
 
 public:
 	INIFile(std::wstring file) : file_(file) {}
@@ -30,8 +30,8 @@ public:
 	 * @qualifier
 	 * @param unsigned int bufferLength
 	 */
-	sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
-		sectionList ret;
+	settings_base::sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
+		settings_base::sectionList ret;
 		TCHAR* buffer = new TCHAR[bufferLength+1];
 		unsigned int count = ::GetPrivateProfileSectionNames(buffer, BUFF_LEN, file_.c_str());
 		if (count == bufferLength-2) {
@@ -55,8 +55,8 @@ public:
 	* @param section The section to return all keys from
 	* @return A list with all keys from the section
 	*/
-	sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
-		sectionList ret;
+	settings_base::sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
+		settings_base::sectionList ret;
 		TCHAR* buffer = new TCHAR[bufferLength+1];
 		unsigned int count = GetPrivateProfileSection(section.c_str(), buffer, bufferLength, file_.c_str());
 		if (count == bufferLength-2) {
@@ -77,6 +77,30 @@ public:
 		}
 		delete [] buffer;
 		return ret;
+	}
+	/**
+	* Get all keys from a section as a list<string>
+	* @param section The section to return all keys from
+	* @return A list with all keys from the section
+	*/
+	//void settings_base::setSection(std::wstring,settings_base::sectionList)
+	void setSection(std::wstring section, settings_base::sectionList data) {
+		unsigned int length = 0;
+		for (settings_base::sectionList::const_iterator cit = data.begin(); cit!=data.end();++cit) {
+			length += (*cit).size() + 10;
+		}
+		TCHAR* buffer = new TCHAR[length+1];
+		unsigned int index = 0;
+		for (settings_base::sectionList::const_iterator cit = data.begin(); cit!=data.end();++cit) {
+			wcsncpy_s(&buffer[index], length-index-1,(*cit).c_str(), (*cit).length()+1);
+			index+=(*cit).length();
+			buffer[index]=0;
+			index++;
+		}
+		buffer[index]=0;
+		buffer[index+1]=0;
+		WritePrivateProfileSection(section.c_str(), buffer, file_.c_str());
+		delete [] buffer;
 	}
 	/**
 	* Get a string from the settings file
@@ -131,8 +155,8 @@ public:
 		if (corefile)
 			coreFile_ = tmp;
 		files_.push_front(tmp);
-		INIFile::sectionList lst = tmp->getSection(_T("includes"));
-		for(INIFile::sectionList::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+		settings_base::sectionList lst = tmp->getSection(_T("includes"));
+		for(settings_base::sectionList::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
 			if (!hasFile(*cit))
 				importFile(basepath, *cit);
 		}
@@ -153,10 +177,10 @@ public:
 	* @qualifier
 	* @param unsigned int bufferLength
 	*/
-	INIFile::sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
-		INIFile::sectionList ret;
+	settings_base::sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
+		settings_base::sectionList ret;
 		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
-			INIFile::sectionList tmp = (*cit)->getSections(bufferLength);
+			settings_base::sectionList tmp = (*cit)->getSections(bufferLength);
 			ret.insert(ret.begin(), tmp.begin(), tmp.end());
 		}
 		return ret;
@@ -167,10 +191,10 @@ public:
 	* @param section The section to return all keys from
 	* @return A list with all keys from the section
 	*/
-	INIFile::sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
-		INIFile::sectionList ret;
+	settings_base::sectionList getSection(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
+		settings_base::sectionList ret;
 		for (std::list<INIFile*>::const_iterator cit = files_.begin(); cit != files_.end(); ++cit) {
-			INIFile::sectionList tmp = (*cit)->getSection(section, bufferLength);
+			settings_base::sectionList tmp = (*cit)->getSection(section, bufferLength);
 			ret.insert(ret.begin(), tmp.begin(), tmp.end());
 		}
 		return ret;
@@ -191,6 +215,11 @@ public:
 		return defaultValue;
 	}
 
+	void setSection(std::wstring section, settings_base::sectionList data) {
+		if (coreFile_ != NULL)
+			coreFile_->setSection(section, data);
+	}
+		
 	void setString(std::wstring section, std::wstring key, std::wstring value) {
 		if (coreFile_ != NULL)
 			coreFile_->setString(section, key, value);
@@ -217,7 +246,7 @@ public:
 	}
 };
 
-class INISettings : public TSettings
+class INISettings : public settings_base
 {
 private:
 //	typedef std::map<std::wstring,std::wstring> saveKeyList;
@@ -249,6 +278,9 @@ public:
 
 	sectionList getSections(unsigned int bufferLength = BUFF_LEN) {
 		return settingsBundle.getSections(bufferLength);
+	}
+	void setSection(std::wstring section, settings_base::sectionList data) {
+		return settingsBundle.setSection(section, data);
 	}
 
 	/**

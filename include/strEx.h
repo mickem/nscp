@@ -213,7 +213,10 @@ namespace strEx {
 		std::wstring::size_type len = replace.length();
 		while (pos != std::wstring::npos) {
 			string = string.substr(0,pos)+with+string.substr(pos+len);
-			pos = string.find(replace, pos+1);
+			if (with.find(replace) != std::wstring::npos) // If the replace containes the key look after the replace!
+				pos = string.find(replace, pos+with.length());
+			else
+				pos = string.find(replace, pos+1);
 		}
 	}
 	inline std::wstring ctos(TCHAR c) {

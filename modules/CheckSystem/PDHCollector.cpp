@@ -106,7 +106,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			memCl = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(30);
 			memCb = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(26);
 		} else {
-			SettingsT settings;
+			settings_core settings;
 			settings.setFile(NSCModuleHelper::getBasePath(),  _T("counters.defs"), true);
 			NSC_DEBUG_MSG_STD(_T("Detected language: ") + settings.getString(section, _T("Description"), _T("Not found")) + _T(" (") + section + _T(")"));
 			if (settings.getString(section, _T("Description"), _T("_NOT_FOUND")) == _T("_NOT_FOUND")) {

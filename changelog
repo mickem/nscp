@@ -3,6 +3,15 @@ TODO:
  * Fix configuration GUI (low priority)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
+ * Fixa dependonservice LanManWorkStation (old win)
+ * Fix RtlStringFromGUID problem on NT4
+ 
+
+2009-05-17 MickeM 
+ * Changed default buffer size for process enumeration (64K now instead of 1K should I hope work better on 64bit OS:es)
+
+2009-05-10 MickeM 
+ + Added write support for modules to installer
 
 2009-05-03 MickeM 
  * Fixed another quite serious memory leak!
