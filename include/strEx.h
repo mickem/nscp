@@ -460,6 +460,25 @@ namespace strEx {
 		return ret;
 	}
 
+
+
+	inline std::wstring trim_right(const std::wstring &source , const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return str.erase( str.find_last_not_of(t) + 1);
+	}
+
+	inline std::wstring trim_left( const std::wstring& source, const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return str.erase(0 , source.find_first_not_of(t) );
+	}
+
+	inline std::wstring trim(const std::wstring& source, const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return trim_left( trim_right( str , t) , t );
+	} 
 	inline std::pair<std::wstring,std::wstring> split(std::wstring str, std::wstring key) {
 		std::wstring::size_type pos = str.find(key);
 		if (pos == std::wstring::npos)

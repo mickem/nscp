@@ -73,6 +73,7 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 		timeDelta_ = strEx::stoui_as_time(tmpstr.substr(1));
 	else
 		timeDelta_ = strEx::stoui_as_time(tmpstr);
+	timeDelta_ = timeDelta_ / 1000;
 	NSC_DEBUG_MSG_STD(_T("Time difference for NSCA server is: ") + strEx::itos(timeDelta_));
 	checkIntervall_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
 	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);

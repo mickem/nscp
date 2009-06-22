@@ -74,7 +74,7 @@
 		</Media>
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="$(var.ProgramFiles)">
-				<Directory Id="INSTALLLOCATION" Name="NSClient" LongName="$(var.App.Path)">
+					<Directory Id="INSTALLLOCATION" Name="$(var.App.ShortPath)" LongName="$(var.App.Path)">
 						<Component Id="MainClient" Guid="F6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 							<File Id="NSClientEXE" Name="nsclient.exe" LongName="nsclient++.exe" DiskId="1"
 										Source="$(var.Source)/nsclient++.exe" Vital="yes">
@@ -105,6 +105,10 @@
 							<?endif?>
 							<File Id="Counters" Name="counters.def" LongName="counters.defs" DiskId="1" Source="$(var.Source)/counters.defs" Vital="no"/>
 							<File Id="License" Name="license.txt" LongName="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="no"/>
+							<RemoveFile Id="LogFile1" Name="nsclient.log" On="uninstall" />
+							<RemoveFile Id="LogFile2" Name="nsc.log" On="uninstall" />
+							<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
+							<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
 						</Component>
 						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
 							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
@@ -145,10 +149,14 @@
 						</Directory>
 					</Directory>
 				</Directory>
+
+			<!-- ### Start Menu Items ### -->
 				<Directory Id="ProgramMenuFolder" Name="PMenu" LongName="Programs">
 					<Directory Id="ProgramMenuDir" Name='NSClient' LongName="$(var.App.StartMenuPath)" />
 				</Directory>
 			</Directory>
+
+		<!-- ### FEATURES START ### -->
 			<Feature Id="ProductFeature" Title="NSClient++ $(var.PlatForm)" Description="Binaries for $(var.PlatForm)"
 							 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
 				<Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
@@ -186,11 +194,18 @@
 		<Property Id='ARPHELPTELEPHONE'>http://nsclient.org</Property>
 		<Property Id='ARPPRODUCTICON'>nsclient.exe</Property>
 
-		<Property Id="CONF_CHECKS" />
-		<Property Id="CONF_NSCLIENT" />
-		<Property Id="CONF_NRPE" />
-		<Property Id="CONF_NSCA" />
+		<Property Id="CONF_CHECKS_DEFAULT"></Property>
+		<Property Id="CONF_NSCLIENT_DEFAULT"></Property>
+		<Property Id="CONF_NRPE_DEFAULT"></Property>
+		<Property Id="CONF_NSCA_DEFAULT"></Property>
+		<Property Id="CONF_WMI_DEFAULT"></Property>
 		<Property Id="ALLOW_CONFIGURATION" />
+
+		<!-- CONFIGURE DEFAULT VALUES-->
+		<!--
+		<Property Id="ALLOWED_HOSTS_DEFAULT">$$EMPTY$$</Property>
+		<Property Id="NSCLIENT_PWD_DEFAULT">$$EMPTY$$</Property>
+			-->
 
 		<!-- CONFIGURE THE INSTALLER -->
 		<Property Id='INSCON_CONFIGURE'>1</Property>
@@ -207,6 +222,7 @@
 		<Property Id='START_SERVICE_ON_EXIT'></Property>
 		<Property Id='SHOW_DONATE_ON_EXIT'>1</Property>
 		<Property Id='DONATE_ON_EXIT'></Property>
+		<Property Id='KEEP_WHICH_CONFIG'>NEW</Property>
 		<!--
 		<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
 			-->
@@ -216,11 +232,11 @@
 			<Property Id='ARPSIZE'>app size in kilobytes</Property>
 			-->
 
-		<CustomAction Id='ReadOldConfig' BinaryKey='InstallerHelper' DllEntry='ImportConfig' />
-		<CustomAction Id='WriteNewConfig' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' />
-		<CustomAction Id='InstallService' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' />
-		<CustomAction Id='UnInstallService' BinaryKey='InstallerHelper' DllEntry='UninstallService' />
-		<CustomAction Id='StartService' BinaryKey='InstallerHelper' DllEntry='StartTheService' Return='asyncNoWait' Execute="immediate"/>
+		<CustomAction Id='ReadOldConfig' BinaryKey='InstallerHelper' DllEntry='ImportConfig' Impersonate='yes' />
+		<CustomAction Id='WriteNewConfig' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' Impersonate='yes' />
+		<CustomAction Id='InstallService' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' Impersonate='yes' />
+		<CustomAction Id='UnInstallService' BinaryKey='InstallerHelper' DllEntry='UninstallService' Impersonate='yes' />
+		<CustomAction Id='StartService' BinaryKey='InstallerHelper' DllEntry='StartTheService' Impersonate='yes' Return='asyncNoWait' Execute="immediate"/>
 		<CustomAction Id="PreventDowngrading" Error="Newer version already installed." />
 
 
@@ -230,22 +246,21 @@
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
-			<!--
-			<Custom Action='WriteNewConfig' Before='InstallService'>INSCON_CONFIGURE="1" AND CONF_CAN_WRITE="1"</Custom>
-			 -->
 			<Custom Action="InstallService" After='InstallFinalize'>NOT REMOVE</Custom>
 			<Custom Action="UnInstallService" Before='RemoveFiles'>REMOVE="ALL"</Custom>
-			<!--
-			<Custom Action="StartService" After="InstallFiles"><![CDATA[START_SERVICE_ON_EXIT = "1" OR DONATE_ON_EXIT = "1"]]></Custom>
-				 -->
 		</InstallExecuteSequence>
 
 		<InstallUISequence>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
 		</InstallUISequence>
 
+		<Property Id="ALLUSERS"><![CDATA[2]]></Property>
+
+		<!-- ### User Interfaces ### -->
 		<UIRef Id="WixUI_Mondo" />
 		<UIRef Id="WixUI_ErrorProgressText" />
+
+		<!-- ### Icons -->
 		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/NSClient++.exe" />
 		<Icon Id="nstray.exe" SourceFile="$(var.Source)/nstray.exe" />
 	</Product>

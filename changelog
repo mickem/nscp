@@ -5,7 +5,26 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
- 
+
+2009-06-20 MickeM
+ * Fixed issue with CheckDisk and paths not working out properly
+
+2009-06-10 MickeM - 0.3.6
+ ! Release the new version
+
+2009-06-10 MickeM 
+ * Fixed so CheckEventLog only reports invalid buffersizes once
+
+2009-06-07 MickeM 
+ * Fixed issue with CheckFileAge incorrectly working in recursive mode.
+ * Finalized the installer
+
+2009-05-22 MickeM 
+ * Fixed time_delay option in NSCA config (now uses the correct base was 1000 times to large before)
+
+2009-05-21 MickeM 
+ * Fixed issue with eventlog parsing and 64 bit machines (descriptions option)
+ * Fixed issue with "modern windows" and installing the service (should not have the correct privlaiges)
 
 2009-05-17 MickeM 
  * Changed default buffer size for process enumeration (64K now instead of 1K should I hope work better on 64bit OS:es)

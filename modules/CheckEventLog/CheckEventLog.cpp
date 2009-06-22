@@ -28,6 +28,7 @@
 #include <utils.h>
 #include <error.hpp>
 #include <map>
+#include <vector>
 
 CheckEventLog gCheckEventLog;
 
@@ -314,32 +315,29 @@ public:
 	}
 
 	std::wstring render_message() {
-		DWORD *dwArgs = new DWORD[pevlr_->NumStrings+1];
+		std::vector<std::wstring> args;
+		TCHAR* *pArgs = new TCHAR*[pevlr_->NumStrings+1];
 		TCHAR* p = reinterpret_cast<TCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
 		for (unsigned int i =0;i<pevlr_->NumStrings;i++) {
-			dwArgs[i] = reinterpret_cast<DWORD>(p);
+			args.push_back(p);
+			pArgs[i] = p;
 			DWORD len = wcslen(p);
-			p += len+1;
+			p = &(p[len+1]);
+			//p += len+1;
 		}
 
-/*
-		TCHAR **_sz = (TCHAR**)GlobalAlloc(GPTR, (pevlr_->NumStrings)*sizeof(TCHAR *));
-		register UINT z;
-		TCHAR* p = reinterpret_cast<TCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
-		for(unsigned int z = 0; z < pevlr_->NumStrings; z++) {
-			DWORD len = wcslen(p);
-			_sz[z] = (TCHAR *)GlobalAlloc(GPTR, (len+1) * sizeof(TCHAR));
-			wcscpy_s(_sz[z], len, p);
-			p += len+1;
-		}
-*/
 		std::wstring ret;
 		strEx::splitList dlls = strEx::splitEx(get_dll(), _T(";"));
 		for (strEx::splitList::const_iterator cit = dlls.begin(); cit != dlls.end(); ++cit) {
 			//std::wstring msg = error::format::message::from_module((*cit), eventID(), _sz);
-			std::wstring msg = error::format::message::from_module((*cit), eventID(), dwArgs);
-			if (msg.empty()) {
-				msg = error::format::message::from_module((*cit), pevlr_->EventID, dwArgs);
+			std::wstring msg;
+			try {
+				msg = error::format::message::from_module_x64((*cit), eventID(), pArgs, pevlr_->NumStrings);
+				if (msg.empty()) {
+					msg = error::format::message::from_module_x64((*cit), pevlr_->EventID, pArgs, pevlr_->NumStrings);
+				}
+			} catch (...) {
+				msg = _T("Unknown exception getting message");
 			}
 			strEx::replace(msg, _T("\n"), _T(" "));
 			strEx::replace(msg, _T("\t"), _T(" "));
@@ -353,7 +351,7 @@ public:
 				ret += msg;
 			}
 		}
-		delete [] dwArgs;
+		delete [] pArgs;
 		return ret;
 	}
 	SYSTEMTIME get_time(DWORD time) {
@@ -596,6 +594,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		message = _T("No file specified try adding: file=Application");
 		return NSCAPI::returnUNKNOWN;
 	}
+	bool buffer_error_reported = false;
 
 	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
 		std::wstring name = *cit2;
@@ -627,7 +626,10 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			if (bStatus == FALSE) {
 				DWORD err = GetLastError();
 				if (err == ERROR_INSUFFICIENT_BUFFER) {
-					NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + EVENTLOG_BUFFER + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
+					if (!buffer_error_reported) {
+						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + EVENTLOG_BUFFER + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
+						buffer_error_reported = true;
+					}
 				} else if (err == ERROR_HANDLE_EOF) {
 					break;
 				} else {

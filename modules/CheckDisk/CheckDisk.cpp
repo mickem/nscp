@@ -24,7 +24,7 @@
 #include <time.h>
 #include <filter_framework.hpp>
 #include <error.hpp>
-
+#include <file_helpers.hpp>
 
 CheckDisk gCheckDisk;
 
@@ -114,7 +114,8 @@ void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, i
 	if ((fileAttr != INVALID_FILE_ATTRIBUTES)&&(fileAttr != FILE_ATTRIBUTE_DIRECTORY)) {
 		NSC_DEBUG_MSG_STD(_T("Found a file dont do recursive scan: ") + dir);
 		// It is a file check it an return (dont check recursivly)
-		pattern_type single_path = split_path(dir);
+		pattern_type single_path = split_path_ex(dir);
+		NSC_DEBUG_MSG_STD(_T("Path is: ") + single_path.first);
 		HANDLE hFind = FindFirstFile(dir.c_str(), &wfd);
 		if (hFind != INVALID_HANDLE_VALUE) {
 			f(file_finder_data(wfd, single_path.first, errors));
@@ -317,13 +318,30 @@ class NSC_error : public error_reporter {
 	}
 };
 typedef std::pair<std::wstring,std::wstring> pattern_type;
-pattern_type split_path(std::wstring path) {
+pattern_type split_path_ex(std::wstring path) {
 	std::wstring baseDir;
+	if (file_helpers::checks::is_directory(path)) {
+		return pattern_type(path, _T(""));
+	}
 	std::wstring::size_type pos = path.find_last_of('\\');
 	if (pos == std::wstring::npos) {
 		pattern_type(path, _T("*.*"));
 	}
 	NSC_DEBUG_MSG_STD(_T("Looking for: path: ") + path.substr(0, pos) + _T(", pattern: ") + path.substr(pos+1));
+	return pattern_type(path.substr(0, pos), path.substr(pos+1));
+}
+
+typedef std::pair<std::wstring,std::wstring> pattern_type;
+pattern_type split_pattern(std::wstring path) {
+	std::wstring baseDir;
+	if (file_helpers::checks::exists(path)) {
+		return pattern_type(path, _T(""));
+	}
+	std::wstring::size_type pos = path.find_last_of('\\');
+	if (pos == std::wstring::npos) {
+		pattern_type(path, _T("*.*"));
+	}
+	NSC_DEBUG_MSG_STD(_T("Looking for: pattern: ") + path.substr(0, pos) + _T(", pattern: ") + path.substr(pos+1));
 	return pattern_type(path.substr(0, pos), path.substr(pos+1));
 }
 
@@ -364,7 +382,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		std::wstring sName = path.getAlias();
 		get_size sizeFinder;
 		NSC_error errors;
-		pattern_type splitpath = split_path(path.data);
+		pattern_type splitpath = split_pattern(path.data);
 		recursive_scan<get_size>(splitpath.first, splitpath.second, -1, -1, sizeFinder, &errors);
 		if (sizeFinder.hasError()) {
 			message = _T("File not found check log for details");
@@ -652,7 +670,7 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 	}
 
 	NSC_error errors;
-	pattern_type splitpath = split_path(path);
+	pattern_type splitpath = split_pattern(path);
 	recursive_scan<find_first_file_info>(splitpath.first, splitpath.second, -1, -1, finder, &errors);
 	if (finder.hasError()) {
 		message = _T("File not found (check log for details)");
@@ -716,7 +734,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	finder.syntax = syntax;
 	NSC_error errors;
 	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-		pattern_type path = split_path(*pit);
+		pattern_type path = split_pattern(*pit);
 		recursive_scan<file_filter_function>(path.first, path.second, 0, max_dir_depth, finder, &errors);
 		if (finder.hasError()) {
 			message = _T("File not found: ") + (*pit) + _T(" check log for details.");

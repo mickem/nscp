@@ -209,7 +209,7 @@ if $(toolset) = "msvc" {
 }
 
 all-installers =
-    [ MATCH .*helpers/(.*)/.* : [ glob helpers/installer/Jamfile ] ]
+    [ MATCH .*helpers/(.*)/.* : [ glob helpers/*installer/Jamfile ] ]
     ;
 for local l in $(all-installers)
 {

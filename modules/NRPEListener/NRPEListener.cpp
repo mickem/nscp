@@ -323,9 +323,9 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 				block.copyFrom(out.getBuffer(), out.getBufferLength());
 			} catch (NRPEPacket::NRPEPacketException e) {
 				NSC_LOG_ERROR_STD(_T("NRPESocketException: ") + e.getMessage());
-				NRPEPacket err(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("Could not construct return paket in NRPE handler check clientside (nsclient.log) logs..."), buffer_length_);
 				try {
-					block.copyFrom(out.getBuffer(), out.getBufferLength());
+					NRPEPacket err(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("Could not construct return paket in NRPE handler check clientside (nsclient.log) logs..."), buffer_length_);
+					block.copyFrom(err.getBuffer(), err.getBufferLength());
 				} catch (NRPEPacket::NRPEPacketException e) {
 					NSC_LOG_ERROR_STD(_T("NRPESocketException (again): ") + e.getMessage());
 					client->close();
