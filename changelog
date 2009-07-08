@@ -6,6 +6,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2009-07-05 MickeM
+ * Fixed issue with CheckExternalScripts and script_dir: not adding the commands properly.
+ * Fixed issue with CheckExternalScripts and script_dir: not using relative paths (#310).
+
 2009-06-20 MickeM
  * Fixed issue with CheckDisk and paths not working out properly
 

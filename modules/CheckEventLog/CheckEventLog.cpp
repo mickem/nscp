@@ -181,6 +181,7 @@ std::wstring find_eventlog_name(std::wstring name) {
 				std::wstring real_name = error::format::message::from_module(file, id);
 				strEx::replace(real_name, _T("\n"), _T(""));
 				strEx::replace(real_name, _T("\r"), _T(""));
+				NSC_DEBUG_MSG(_T("Attempting to match: ") + real_name + _T(" with ") + name);
 				if (real_name == name)
 					return *cit;
 			} catch (simple_registry::registry_exception &e) {}

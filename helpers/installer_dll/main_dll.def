@@ -1,0 +1,7 @@
+LIBRARY	installer_dll
+
+EXPORTS
+	UninstallService
+	UpdateConfig
+	ImportConfig
+	StartTheService

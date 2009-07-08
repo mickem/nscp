@@ -832,7 +832,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 		finder.syntax = syntax;
 		NSC_error errors;
 		for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-			//pattern_type path = split_path(*pit);
 			recursive_scan<file_filter_function_ex>(*pit, pattern, 0, max_dir_depth, finder, &errors);
 			if (finder.hasError()) {
 				message = _T("Error when scanning: ") + (*pit) + _T(" check log for details.");

@@ -78,10 +78,10 @@ private:
 
 private:
 	void addAllScriptsFrom(std::wstring path);
-	void addCommand(strEx::blindstr key, std::wstring cmd = _T(""), std::wstring args = _T("")) {
+	void addCommand(strEx::blindstr key, std::wstring cmd, std::wstring args) {
 		commands[key] = command_data(cmd, args);
 	}
-	void addAlias(strEx::blindstr key, std::wstring cmd = _T(""), std::wstring args = _T("")) {
+	void addAlias(strEx::blindstr key, std::wstring cmd, std::wstring args) {
 		alias[key] = command_data(cmd, args);
 	}
 };

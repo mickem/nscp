@@ -2043,6 +2043,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\file_helpers.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\NSCHelper.h"
 				>
 			</File>

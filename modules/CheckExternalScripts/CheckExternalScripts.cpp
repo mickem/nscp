@@ -24,6 +24,7 @@
 #include <time.h>
 #include <config.h>
 #include <msvc_wrappers.h>
+#include <file_helpers.hpp>
 
 CheckExternalScripts gCheckExternalScripts;
 
@@ -37,21 +38,28 @@ CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
 void CheckExternalScripts::addAllScriptsFrom(std::wstring path) {
-	std::wstring baseDir;
+	file_helpers::patterns::pattern_type pattern = file_helpers::patterns::split_pattern(path);
+	if (!file_helpers::checks::exists(pattern.first)) 
+		pattern.first = NSCModuleHelper::getBasePath() + _T("\\") + pattern.first;
+	if (!file_helpers::checks::exists(pattern.first))
+		NSC_LOG_ERROR_STD(_T("Path was not found: ") + pattern.first);
+/* TODO: do we need this?
 	std::wstring::size_type pos = path.find_last_of('*');
 	if (pos == std::wstring::npos) {
 		path += _T("*.*");
 	}
+	*/
 	WIN32_FIND_DATA wfd;
-	HANDLE hFind = FindFirstFile(path.c_str(), &wfd);
+	std::wstring real_path = file_helpers::patterns::combine_pattern(pattern);
+	HANDLE hFind = FindFirstFile(real_path.c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
 			if ((wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY) {
-				addCommand(wfd.cFileName);
+				addCommand(wfd.cFileName, pattern.first + _T("\\") + wfd.cFileName, _T(""));
 			}
 		} while (FindNextFile(hFind, &wfd));
 	} else {
-		NSC_LOG_ERROR_STD(_T("No scripts found in path: ") + path);
+		NSC_LOG_ERROR_STD(_T("No scripts found in path: ") + real_path);
 		return;
 	}
 	FindClose(hFind);
