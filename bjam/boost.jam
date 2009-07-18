@@ -59,10 +59,13 @@ rule init (
 		.headers = $(headers) ;
 		
 	    local project = [ project.current ] ;
-
+		
 		local has-boost = [ MATCH "^--with-boost=(.*)" : [ modules.peek : ARGV ] ] ;
+		local has-generic-hdr = [ MATCH "^--include-path=(.*)" : [ modules.peek : ARGV ] ] ;
 		if $(has-boost) {
 			.headers = $(has-boost) ;
+		} else if $(has-generic-hdr) {
+			.headers = $(has-generic-hdr) ;
 		}
 		local has-boost-lib = [ MATCH "^--with-boost-lib=(.*)" : [ modules.peek : ARGV ] ] ;
 		local has-generic-lib = [ MATCH "^--library-path=(.*)" : [ modules.peek : ARGV ] ] ;

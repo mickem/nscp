@@ -20,6 +20,7 @@ if $(toolset) = "msvc" {
 	import bjam/openssl ;
 	import bjam/boost ;
 	import bjam/cryptopp ;
+	import bjam/psdk ;
 }
 import toolset : flags ;
 import notfile ;
@@ -50,7 +51,7 @@ path-constant BOOST_STAGE_LOCATE : $(stage-locate) ;
 if $(toolset) = "msvc" {
 	using bjam/openssl : : $(TOP)/lib-source/openssl-0.9.8g/include $(TOP)/lib ;
 	using bjam/boost : : $(TOP)/lib-source/boost_1_35_0 $(TOP)/lib ;
-	using bjam/lua : : $(TOP)/lib-source/LUA/src/lua-5.1.2 ;
+	using bjam/lua : : $(TOP)/lib-source/lua-5.1.2 ;
 	using bjam/cryptopp : : $(TOP)/lib-source/"Crypto++"/src ;
 
 	if [ bjam/lua.isEnabled ] = true {
@@ -178,6 +179,21 @@ if $(toolset) = "msvc" {
 		}
 		all-modules = $(result) ;
 	}
+	if ! ( [ bjam/psdk.isEnabled ] = true ) {
+		echo "PSDK support disabled skipping build of modules..." ;
+		local result ;
+		for local l in $(all-modules)
+		{
+			if [ MATCH (.*CheckTaskSched.*) : $(l) ] {
+				echo "Not building module: $(l)" ;
+			} else if [ MATCH (.*CheckWMI.*) : $(l) ] {
+				echo "Not building module: $(l)" ;
+			} else {
+				result += $(l) ;
+			}
+		}
+		all-modules = $(result) ;
+	}
 	for local l in $(all-modules)
 	{
 		alias $(l) 
@@ -203,9 +219,6 @@ if $(toolset) = "msvc" {
 
 		echo "Adding script: $(l)" ;
 	}
-	echo ">>>Done with: $(all-scripts-lst)" ;
-	echo $(all-scripts-lst) ;
-	echo "<<<Done with: $(all-scripts-lst)" ;
 }
 
 all-installers =

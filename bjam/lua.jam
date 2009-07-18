@@ -116,16 +116,23 @@ lib liblua
 		#<name>liblua
 	: # default-build
 	: # usage-requirements
-		$(usage-requirements) 
+		<conditional>@usage-requirements
 	;
-
+	
+rule usage-requirements ( properties * )
+{
+	local result ;
+	if ( $(.enabled) = true ) {
+		result += <define>USE_LUA ;
+		result += <include>$(.source)/src ;
+	}
+	return $(result) ;
+}
 alias embedded : liblua 
 
 	: # requirements
 	  #<name>lua
 	: # default-build
 	: # usage-requirements
-	  <define>USE_LUA
-	  <include>$(self.source)
-	  $(usage-requirements) 
+		<conditional>@usage-requirements
 	;

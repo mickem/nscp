@@ -522,10 +522,10 @@ bool NSClientT::initCore(bool boot) {
 				startTrayIcons();
 			} catch (nsclient_session::session_exception e) {
 				LOG_ERROR_STD(_T("Failed to create new session: ") + e.what());
-				shared_server_ = NULL;
+				shared_server_.reset(NULL);
 			} catch (...) {
 				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
-				shared_server_ = NULL;
+				shared_server_.reset(NULL);
 			}
 		} else {
 			LOG_MESSAGE_STD(_T("Attaching to shared session..."));
@@ -540,10 +540,10 @@ bool NSClientT::initCore(bool boot) {
 				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
 			} catch (nsclient_session::session_exception e) {
 				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
-				shared_client_ = NULL;
+				shared_client_.reset(NULL);
 			} catch (...) {
 				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
-				shared_client_ = NULL;
+				shared_client_.reset(NULL);
 			}
 		}
 	}

@@ -2,7 +2,7 @@ local target = LUAScript ;
 local source = $(target) ;
 
 project boost/thread/example 
-    : requirements <library>/lua//liblua
+    : requirements <library>/lua//embedded
     ;
 
 

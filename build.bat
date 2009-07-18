@@ -1,11 +1,11 @@
 @echo off
-SET jam=D:\source\boost-jam-3.1.17\bin.ntx86\bjam.exe
+@call env.bat
 
-SET cmdline=%jam% --toolset=msvc --with-lua --with-openssl=%openssl% --with-boost=%boost% --with-cryptopp %* build-binaries
+SET cmdline=%jam% --toolset=msvc --with-lua --with-openssl --with-boost --with-cryptopp %* build-binaries
 %jam% --toolset=msvc --with-lua --with-openssl=%openssl% --with-boost=%boost% --with-cryptopp %* build-binaries
 if %ERRORLEVEL% == 1 goto :error
 
-SET cmdline=%jam% --toolset=msvc --with-lua --with-openssl=%openssl% --with-boost=%boost% --with-cryptopp %* build-archives
+SET cmdline=%jam% --toolset=msvc --with-lua --with-openssl --with-boost --with-cryptopp %* build-archives
 %jam% --toolset=msvc --with-lua --with-openssl=%openssl% --with-boost=%boost% --with-cryptopp %* build-archives
 if %ERRORLEVEL% == 1 goto :error
 

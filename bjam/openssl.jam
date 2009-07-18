@@ -67,8 +67,11 @@ rule init (
 		.libraries = $(libraries) ;
 
 		local has-openssl = [ MATCH "^--with-openssl=(.*)" : [ modules.peek : ARGV ] ] ;
+		local has-generic-hdr = [ MATCH "^--include-path=(.*)" : [ modules.peek : ARGV ] ] ;
 		if $(has-openssl) {
 			.headers = $(has-openssl) ;
+		} else if $(has-generic-hdr) {
+			.headers = $(has-generic-hdr) ;
 		}
 		local has-openssl-lib = [ MATCH "^--with-openssl-lib=(.*)" : [ modules.peek : ARGV ] ] ;
 		local has-generic-lib = [ MATCH "^--library-path=(.*)" : [ modules.peek : ARGV ] ] ;

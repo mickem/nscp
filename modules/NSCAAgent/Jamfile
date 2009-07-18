@@ -3,7 +3,7 @@ local source = $(target) ;
 
 project 
 	: requirements
-    	<library>/cryptopp//libcryptopp
+    	<library>/cryptopp//embedded
 	<find-static-library>ws2_32
 	;
 
@@ -19,7 +19,7 @@ lib $(target)
 
 	: # requirements
 	<def-file>$(source).def
-	<source>/cryptopp//libcryptopp
+	<source>/cryptopp//embedded
 	#<user-interface>gui
 	<runtime-link>static
 
