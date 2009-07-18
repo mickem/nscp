@@ -1,0 +1,106 @@
+import feature : feature ;
+import project ;
+import "class" : new ;
+import targets ;
+import property-set ;
+import common ;
+import type ;
+import toolset : flags ;
+
+# Make this module into a project.
+project.initialize $(__name__) ;
+project psdk ;
+
+if [ MATCH (--debug-configuration) : [ modules.peek : ARGV ] ]
+{
+   .debug-configuration = true ;
+}
+
+rule initialized ( )
+{
+    return $(.initialized) ;
+}
+
+
+rule isEnabled ( )
+{
+    return $(.enabled) ;
+}
+
+rule isDebug ( )
+{
+    return $(.debug-configuration) ;
+}
+
+rule printEnv ( ) 
+{
+	echo "PSDK LIBRARIES : $(.libraries) change with --with-psdk-lib=<path>" ;
+	echo "PSDK HEADERS : $(.headers) change with --with-psdk=<path>" ;
+}
+
+
+# Initialize psdk support.
+rule init (
+    version ? :
+    headers         # Location of header files
+    libraries *     # Location of libraries, lib and bin subdirs of STLport.
+    )
+{
+
+	if $(.initialized)
+	{
+		errors.error "Attempt the reinitialize psdk!" ;
+	}
+	else
+	{
+		.initialized = true ;
+
+		.libraries = $(libraries) ;
+		.headers = $(headers) ;
+		
+	    local project = [ project.current ] ;
+
+		local has-psdk = [ MATCH "^--with-psdk=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-psdk) {
+			.headers = $(has-psdk) ;
+		}
+		local has-psdk-lib = [ MATCH "^--with-psdk-lib=(.*)" : [ modules.peek : ARGV ] ] ;
+		local has-generic-lib = [ MATCH "^--library-path=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-psdk-lib) {
+			.libraries = $(has-psdk-lib) ;
+		} else if $(has-generic-lib) {
+			.libraries = $(has-generic-lib) ;
+		}
+		
+		import toolset : flags ;
+
+		if ( ( --with-psdk in  [ modules.peek : ARGV ] ) || $(has-psdk) || $(has-psdk-lib) )  
+			&& ! ( --without-psdk in  [ modules.peek : ARGV ] ) {
+			.enabled = true ;
+		} else {
+			.enabled = false ;
+		}
+				
+		project.pop-current ;
+	}
+}
+
+alias regexp 
+	: # source
+	: # requirements
+	: # default-build
+	: # usage-requirements
+		<conditional>@usage-requirements
+	;
+
+
+rule usage-requirements ( properties * )
+{
+	local result ;
+	if ( $(.enabled) = true ) {
+		result += <define>USE_PSDK ;
+		result += <include>$(.headers) ;
+		result += <library-path>$(.libraries) ;
+	}
+	return $(result) ;
+}
