@@ -1,7 +1,11 @@
 LIBRARY	installer_dll
 
 EXPORTS
-	UninstallService
 	UpdateConfig
 	ImportConfig
-	StartTheService
+	StartAllServices
+	StopAllServices
+	ScheduleInstallService
+	ScheduleUnInstallService
+	ExecServiceInstall
+	NeedUninstall

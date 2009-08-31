@@ -18,5 +18,5 @@ set PATH=%PATH%;%TOOLS_DIR%
 set TargetDir=stage\
 
 
-pscp.exe "%TargetDir%\archive\*.zip" nscp@druss.medin.name:/var/www/files/nightly/
-pscp.exe "%TargetDir%\installer\*.msi" nscp@druss.medin.name:/var/www/files/nightly/
+pscp.exe "%TargetDir%\archive\*.zip" "%TargetDir%\installer\*.msi" nscp@nsclient.org:/var/nsclient/www/files/nightly/
+rem pscp.exe "%TargetDir%\installer\*.msi" nscp@nsclient.org:/var/nsclient/www/files/nightly/

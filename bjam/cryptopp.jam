@@ -6,6 +6,7 @@ import property-set ;
 import common ;
 import type ;
 import toolset : flags ;
+import stage ;
 
 # Make this module into a project.
 project.initialize $(__name__) ;
@@ -26,6 +27,15 @@ rule isEnabled ( )
     return $(.enabled) ;
 }
 
+rule getSource ( )
+{
+    return $(.source) ;
+}
+rule getTarget ( )
+{
+    return $(.target) ;
+}
+
 rule isDebug ( )
 {
     return $(.debug-configuration) ;
@@ -35,6 +45,7 @@ rule printEnv ( )
 {
 	echo "Crypto++ SOURCE : change with --with-cryptopp=<source>" ;
 	echo "Crypto++ SOURCE : $(.source) (change with --with-cryptopp=<source>" ;
+	echo "Crypto++ TARGET : $(.target) (change with --with-cryptopp-target=<target>" ;
 }
 
 # Initialize Lua support.
@@ -56,6 +67,17 @@ rule init (
 		local has-cryptopp = [ MATCH "^--with-cryptopp=(.*)" : [ modules.peek : ARGV ] ] ;
 		if $(has-cryptopp) {
 			.source = $(has-cryptopp) ;
+		}
+		local has-generic-hdr = [ MATCH "^--include-path=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-generic-hdr) {
+			.headers = $(has-generic-hdr) ;
+		}
+
+
+		local has-cryptopp-tgt = [ MATCH "^--with-cryptopp-target=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-cryptopp-tgt) {
+			.target = $(has-cryptopp-tgt) ;
+			.all_headers = [ path.glob-tree $(.source) : *.h ] ;
 		}
 		
 		if ( ( --with-cryptopp in  [ modules.peek : ARGV ] ) || $(has-cryptopp) )  
@@ -80,18 +102,7 @@ rule generate-asm-source ( properties * )
 	local result ;
 }
 
-
-#obj x64masm.obj : : @generate-asm-source ;
-# echo $(.source)/x64masm.asm ;
 obj x64masm.obj : $(.source)/x64masm.asm ;
-
-#	: # sources
-#	: # requirements
-#		<conditional>@generate-asm-source
-#	: # default-build
-#	: # usage-requirements
-#		$(usage-requirements) 
-#	;
 
 rule generate-source ( properties * )
 {
@@ -137,7 +148,7 @@ rule generate-source ( properties * )
 	result += <source>$(path)/files.cpp ;
 	result += <source>$(path)/filters.cpp ;
 	result += <source>$(path)/fips140.cpp ;
-	result += <source>$(path)/fipstest.cpp ;
+	# result += <source>$(path)/fipstest.cpp ;
 	result += <source>$(path)/gf256.cpp ;
 	result += <source>$(path)/gf2_32.cpp ;
 	result += <source>$(path)/gf2n.cpp ;
@@ -211,12 +222,11 @@ rule generate-source ( properties * )
 	result += <source>$(path)/whrlpool.cpp ;
 	result += <source>$(path)/winpipes.cpp ;
 
-# TODO readd this for 64 bit!
+	# TODO readd this for 64 bit!
+	# This needs a patched boost build (http://zigzag.cs.msu.su/boost.build/attachment/ticket/214/msvc_asm.patch)
 	if <address-model>64 in $(properties) {
-#		result += <source>x64masm.obj ;
 		result += <source>$(path)/x64masm.asm ;
-#		result += <source>x64masm.obj ;
-#		<implicit-dependency>$(path)/x64masm.asm ;
+		result += <source>$(path)/x64dll.asm ;
 	}
 	result += <source>$(path)/xtr.cpp ;
 	result += <source>$(path)/xtrcrypt.cpp ;
@@ -230,9 +240,9 @@ rule generate-usage-requirements ( properties * )
 {
 	local result ;
 	if ( $(.enabled) = true ) {
-		result += <include>$(.source) ;
 		result += <define>HAVE_LIBCRYPTOPP ;
 		result += <library>libcryptopp ;
+		result += <include>$(.headers) ;
 	}
 	return $(result) ;
 }
@@ -248,6 +258,7 @@ lib libcryptopp
 
 alias embedded
 	: # source
+	libcryptopp
 	: # requirements
 	: # default-build
 	: # usage-requirements

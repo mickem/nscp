@@ -9,21 +9,21 @@ local source = main_dll ;
 
 
 
-local lib = [ MATCH "^--psdk-lib=(.*)" : [ modules.peek : ARGV ] ] ;
-echo "PSDK lib path: $(lib) (change with --psdk-lib=<other path>" ;
+#local lib = [ MATCH "^--psdk-lib=(.*)" : [ modules.peek : ARGV ] ] ;
+#echo "PSDK lib path: $(lib) (change with --psdk-lib=<other path>" ;
 
-lib Msi : : <name>Msi <search>$(lib) ; 
-lib bufferoverflowu : : <name>bufferoverflowu <search>$(lib) ; 
+#lib Msi : : <name>Msi <search>$(lib) ; 
+#lib bufferoverflowu : : <name>bufferoverflowu <search>$(lib) ; 
 #lib secchk : : <name>secchk <search>$(lib) ; 
-lib secchk : : <name>secchk ; 
+#lib secchk : : <name>secchk ; 
 
 lib $(target)
 	: # sources
 	$(source).cpp
 	../../include/ServiceCmd.cpp
 	: # requirements
-	<source>Msi
-	<source>bufferoverflowu
+	<source>/psdk//Msi
+	<source>/psdk//bufferoverflowu
 	<def-file>$(source).def
 	<user-interface>gui
 	<runtime-link>static

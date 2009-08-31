@@ -9,6 +9,172 @@
 #include <file_helpers.hpp>
 #include "installer_helper.hpp"
 
+const UINT COST_SERVICE_INSTALL = 2000;
+
+LPCWSTR vcsServiceQuery =
+L"SELECT `ShortName`, `LongName`, `Description`, `Program`, `Attributes`, `Component_` FROM `Services`";
+enum eServiceQuery { feqShortName = 1, feqLongName, feqDesc, feqProgram, feqAttributes, feqComponent };
+enum eFirewallExceptionAttributes { feaIgnoreFailures = 1 };
+
+bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description);
+bool uninstall(msi_helper &h, std::wstring service_name);
+UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched);
+
+extern "C" UINT __stdcall ScheduleInstallService(MSIHANDLE hInstall) {
+	return SchedServiceMgmt(hInstall, msi_helper::WCA_TODO_INSTALL);
+}
+extern "C" UINT __stdcall ScheduleUnInstallService(MSIHANDLE hInstall) {
+	return SchedServiceMgmt(hInstall, msi_helper::WCA_TODO_UNINSTALL);
+}
+extern "C" UINT __stdcall ExecServiceInstall(__in MSIHANDLE hInstall) {
+	HRESULT hr = S_OK;
+	// initialize
+	msi_helper h(hInstall, _T("ExecServiceInstall"));
+	try {
+		msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
+
+		// loop through all the passed in data
+		while (data.has_more()) {
+			// extract the custom action data and if rolling back, swap INSTALL and UNINSTALL
+			int iTodo = data.get_next_int();
+			if (::MsiGetMode(hInstall, MSIRUNMODE_ROLLBACK))
+			{
+				if (msi_helper::WCA_TODO_INSTALL == iTodo)
+				{
+					iTodo = msi_helper::WCA_TODO_UNINSTALL;
+				}
+				else if (msi_helper::WCA_TODO_UNINSTALL == iTodo)
+				{
+					iTodo = msi_helper::WCA_TODO_INSTALL;
+				}
+			}
+
+			std::wstring shortname = data.get_next_string();
+			std::wstring longname = data.get_next_string();
+			std::wstring desc = data.get_next_string();
+			int attr = data.get_next_int();
+			BOOL fIgnoreFailures = feaIgnoreFailures == (attr & feaIgnoreFailures);
+			std::wstring file = data.get_next_string();
+			switch (iTodo) {
+			case msi_helper::WCA_TODO_INSTALL:
+			case msi_helper::WCA_TODO_REINSTALL:
+				h.logMessage(_T("Installing service install: ") + shortname + _T(", ") + file);
+				install(h, file, shortname, longname, desc);
+				break;
+
+			case msi_helper::WCA_TODO_UNINSTALL:
+				h.logMessage(_T("Installing service install: ") + shortname + _T(", ") + file);
+				uninstall(h, shortname);
+				break;
+			default:
+				h.logMessage(_T("IGNORING service install: ") + shortname + _T(", ") + file);
+			}
+		}
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to install service: ") + e.what());
+		return ERROR_SUCCESS;
+	} catch (...) {
+		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+
+}
+
+
+UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
+{
+	msi_helper h(hInstall, _T("SchedServiceInstall"));
+	try {
+		int cFirewallExceptions = 0;
+		h.logMessage(_T("SchedServiceInstall: ") + strEx::itos(todoSched));
+		// anything to do?
+		if (!h.table_exists(L"Services")) {
+			h.logMessage(_T("Services table doesn't exist, so there are no services to configure."));
+			return ERROR_SUCCESS;
+		}
+
+		// query and loop through all the firewall exceptions
+		PMSIHANDLE hView = h.open_execute_view(vcsServiceQuery);
+		if (h.isNull(hView)) {
+			h.logMessage(_T("Failed to query service view!"));
+			return ERROR_INSTALL_FAILURE;
+		}
+
+		msi_helper::custom_action_data_w custom_data;
+		PMSIHANDLE hRec = h.fetch_record(hView);
+		while (hRec != NULL)
+		{
+			std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
+			std::wstring longname = h.get_record_formatted_string(hRec, feqLongName);
+			std::wstring desc = h.get_record_formatted_string(hRec, feqDesc);
+			std::wstring program = h.get_record_formatted_string(hRec, feqProgram);
+			int attributes = h.get_record_integer(hRec, feqAttributes);
+			std::wstring component = h.get_record_string(hRec, feqComponent);
+
+			// figure out what we're doing for this exception, treating reinstall the same as install
+			msi_helper::WCA_TODO todoComponent = h.get_component_todo(component);
+			if ((msi_helper::WCA_TODO_REINSTALL == todoComponent ? msi_helper::WCA_TODO_INSTALL : todoComponent) != todoSched) {
+				h.logMessage(_T("Component '") + component + _T("' action state (") + strEx::itos(todoComponent) + _T(") doesn't match request (") + strEx::itos(todoSched) + _T(")"));
+				hRec = h.fetch_record(hView);
+				continue;
+			}
+			h.logMessage(_T("Adding data to CA chunk... "));
+			// action :: name :: remoteaddresses :: attributes :: target :: {port::protocol | path}
+			++cFirewallExceptions;
+			custom_data.write_int(todoComponent);
+			custom_data.write_string(shortname);
+			custom_data.write_string(longname);
+			custom_data.write_string(desc);
+			custom_data.write_int(attributes);
+			//custom_data.write_int(fetApplication);
+			custom_data.write_string(program);
+			h.logMessage(_T("Adding data to CA chunk... DONE"));
+			h.logMessage(_T("CA chunk: ") + custom_data.to_string());
+			hRec = h.fetch_record(hView);
+		}
+		// schedule ExecFirewallExceptions if there's anything to do
+		if (custom_data.has_data()) {
+			h.logMessage(_T("Scheduling (WixExecServiceInstall) firewall exception: ") + custom_data.to_string());
+			if (msi_helper::WCA_TODO_INSTALL == todoSched) {
+				HRESULT hr = h.do_deferred_action(L"WixRollbackServiceInstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
+				if (FAILED(hr)) {
+					h.errorMessage(_T("failed to schedule service install exceptions rollback"));
+					return hr;
+				}
+				hr = h.do_deferred_action(L"WixExecServiceInstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
+				if (FAILED(hr)) {
+					h.errorMessage(_T("failed to schedule service install exceptions execution"));
+					return hr;
+				}
+			}
+			else
+			{
+				h.logMessage(_T("Scheduling (WixExecServiceUninstall) firewall exception: ") + custom_data.to_string());
+				HRESULT hr = h.do_deferred_action(L"WixRollbackServiceUninstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
+				if (FAILED(hr)) {
+					h.errorMessage(_T("failed to schedule service install exceptions rollback"));
+					return hr;
+				}
+				hr = h.do_deferred_action(L"WixExecServiceUninstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
+				if (FAILED(hr)) {
+					h.errorMessage(_T("failed to schedule service install exceptions execution"));
+					return hr;
+				}
+			}
+		} else
+			h.logMessage(_T("No services scheduled"));
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to install service: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+
+}
+
 //#pragma comment(linker, "/EXPORT:ImportConfig=_ImportConfig@4")
 extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ImportConfig"));
@@ -106,13 +272,7 @@ extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 }
 
 
-bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name = _T(""), std::wstring service_long_name = _T(""), std::wstring service_description = _T("")) {
-	if (service_short_name.empty())
-		service_short_name = SZSERVICENAME;
-	if (service_long_name.empty())
-		service_long_name = SZSERVICEDISPLAYNAME;
-	if (service_description.empty())
-		service_description = SZSERVICEDISPLAYNAME;
+bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description) {
 	h.updateProgress(_T("Preparing to install service"), service_short_name);
 	try {
 		if (serviceControll::isStarted(service_short_name)) {
@@ -137,9 +297,7 @@ bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name = 
 	return true;
 }
 
-bool uninstall(msi_helper &h, std::wstring service_name = _T("")) {
-	if (service_name.empty())
-		service_name = SZSERVICENAME;
+bool uninstall(msi_helper &h, std::wstring service_name) {
 	h.updateProgress(_T("Preparing to uninstall service"), service_name);
 	try {
 		if (!serviceControll::isInstalled(service_name))
@@ -240,6 +398,7 @@ bool stop(msi_helper &h, std::wstring service_name = _T("")) {
 
 
 //#pragma comment(linker, "/EXPORT:UninstallService=_UninstallService@4")
+/*
 extern "C" UINT __stdcall UninstallService (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("UninstallService"));
 	try {
@@ -259,6 +418,7 @@ extern "C" UINT __stdcall UninstallService (MSIHANDLE hInstall) {
 	}
 	return ERROR_SUCCESS;
 }
+*/
 
 //#pragma comment(linker, "/EXPORT:UpdateConfig=_UpdateConfig@4")
 extern "C" UINT __stdcall UpdateConfig (MSIHANDLE hInstall) {
@@ -315,30 +475,32 @@ extern "C" UINT __stdcall UpdateConfig (MSIHANDLE hInstall) {
 	return ERROR_SUCCESS;
 }
 
-extern "C" UINT __stdcall StartTheService (MSIHANDLE hInstall) {
+extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("StartService"));
 	try {
-		h.logMessage(_T("Remove mode is: ") + h.getPropery(_T("REMOVE")));
-		h.logMessage(_T("mime mode is: ") + h.getPropery(_T("REMOVE_MIME")));
-		h.logMessage(_T("START_SERVICE_ON_EXIT mode is: ") + h.getPropery(_T("START_SERVICE_ON_EXIT")));
-		if (h.getPropery(_T("REMOVE")) == _T("ALL")) {
-			h.logMessage(_T("Uninstalling so we wont remove anything..."));
-			return ERROR_SUCCESS;
-		}
-		std::wstring svc_sname = h.getPropery(_T("INSTALL_SVC_SHORTNAME"));
-		h.logMessage(_T("service short name: ") + svc_sname);
-
 		std::wstring val = h.getPropery(_T("START_SERVICE_ON_EXIT"));
 		if (val == _T("1")) {
-			h.startProgress(10000, 2*10000, _T("Seting up service: [2] ([1])..."), _T("Seting up service: [2] ([1])... (X)"));
-			if (!start(h, svc_sname)) {
-				h.logMessage(_T("service failed to start"));
-				// Ignore this error due to various bugs and problems...
-				//return ERROR_INSTALL_FAILURE;
-			}
-			h.logMessage(_T("service started"));
-		}
+			// anything to do?
+			if (h.table_exists(L"Services")) {
+				PMSIHANDLE hView = h.open_execute_view(vcsServiceQuery);
+				if (h.isNull(hView)) {
+					h.logMessage(_T("Failed to query service view!"));
+					return ERROR_INSTALL_FAILURE;
+				}
 
+				msi_helper::custom_action_data_w custom_data;
+				PMSIHANDLE hRec = h.fetch_record(hView);
+				while (hRec != NULL)
+				{
+					std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
+					h.logMessage(_T("Starting: ") + shortname);
+					if (!start(h, shortname)) {
+						h.logMessage(_T("service failed to start: ") + shortname);
+					}
+					hRec = h.fetch_record(hView);
+				}
+			}
+		}
 		val = h.getPropery(_T("DONATE_ON_EXIT"));
 		if (val == _T("1")) {
 			long r = (long)ShellExecute(NULL, _T("open"), _T("https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=michael@medin.name&item_name=Fans+of+NSClient%2B%2B&item_number=Installer+Campaign&amount=10%2e00&currency_code=EUR&return=http%3A//nsclient.org"), NULL, NULL, SW_SHOWNORMAL);
@@ -357,3 +519,91 @@ extern "C" UINT __stdcall StartTheService (MSIHANDLE hInstall) {
 	}
 	return ERROR_SUCCESS;
 }
+
+
+extern "C" UINT __stdcall StopAllServices (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("StopAllServices"));
+	try {
+
+		// anything to do?
+		if (!h.table_exists(L"Services")) {
+			h.logMessage(_T("Services table doesn't exist, so there are no services to configure."));
+			return ERROR_SUCCESS;
+		}
+
+		// query and loop through all the firewall exceptions
+		PMSIHANDLE hView = h.open_execute_view(vcsServiceQuery);
+		if (h.isNull(hView)) {
+			h.logMessage(_T("Failed to query service view!"));
+			return ERROR_INSTALL_FAILURE;
+		}
+
+		msi_helper::custom_action_data_w custom_data;
+		PMSIHANDLE hRec = h.fetch_record(hView);
+		while (hRec != NULL)
+		{
+			std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
+			h.logMessage(_T("Stopping: ") + shortname);
+			if (!stop(h, shortname)) {
+				h.logMessage(_T("service failed to stop: ") + shortname);
+			}
+			hRec = h.fetch_record(hView);
+		}
+		/*
+		val = h.getPropery(_T("DONATE_ON_EXIT"));
+		if (val == _T("1")) {
+		long r = (long)ShellExecute(NULL, _T("open"), _T("https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=michael@medin.name&item_name=Fans+of+NSClient%2B%2B&item_number=Installer+Campaign&amount=10%2e00&currency_code=EUR&return=http%3A//nsclient.org"), NULL, NULL, SW_SHOWNORMAL);
+		if (r > 32)
+		return ERROR_SUCCESS;
+		msi_helper h(hInstall, _T("Donate"));
+		h.errorMessage(_T("Failed to start web browser..."));
+		return ERROR_INSTALL_FAILURE;
+		}
+		*/
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to start service: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to start service: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+}
+
+extern "C" UINT __stdcall NeedUninstall (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("NeedUninstall"));
+	try {
+		std::list<std::wstring> list = h.enumProducts();
+		for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+			if ((*cit) == _T("{E7CF81FE-8505-4D4A-8ED3-48949C8E4D5B}")) {
+				h.errorMessage(_T("Found old NSClient++/OP5 client installed, will uninstall it now!"));
+				std::wstring command = _T("msiexec /uninstall ") + (*cit);
+				TCHAR *cmd = new TCHAR[command.length()+1];
+				wcsncpy_s(cmd, command.length()+1, command.c_str(), command.length());
+				cmd[command.length()] = 0;
+				PROCESS_INFORMATION pi;
+				STARTUPINFO si;
+				ZeroMemory(&si, sizeof(STARTUPINFO));
+				si.cb = sizeof(STARTUPINFO);
+
+				BOOL processOK = CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+				delete [] cmd;
+				if (processOK) {
+					DWORD dwstate = WaitForSingleObject(pi.hProcess, 1000*60);
+					if (dwstate == WAIT_TIMEOUT)
+						h.errorMessage(_T("Failed to wait for process (probably not such a big deal, the uninstall usualy takes alonger)!"));
+				} else {
+					h.errorMessage(_T("Failed to start process: ") + error::lookup::last_error());
+				}
+			}
+		}
+	
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to start service: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to start service: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+};

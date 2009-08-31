@@ -296,13 +296,19 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "op5-archive", "helpers\op5-
 		{10A0052D-542B-47AD-85C3-1A3DD45BF2ED} = {10A0052D-542B-47AD-85C3-1A3DD45BF2ED}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DebugLogMetrics", "..\..\..\..\..\..\source\NSCP-stable\modules\DebugLogMetrics\DebugLogMetrics-2005.vcproj", "{53FB9872-5E74-4E62-892D-AD82C2ED67CE}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DebugLogMetrics", "modules\DebugLogMetrics\DebugLogMetrics-2005.vcproj", "{53FB9872-5E74-4E62-892D-AD82C2ED67CE}"
 	ProjectSection(WebsiteProperties) = preProject
 		Debug.AspNetCompiler.Debug = "True"
 		Release.AspNetCompiler.Debug = "False"
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "installer_dll", "..\..\..\..\..\..\source\NSCP-stable\helpers\installer_dll\installer_dll.vcproj", "{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "installer_dll", "helpers\installer_dll\installer_dll.vcproj", "{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}"
+	ProjectSection(WebsiteProperties) = preProject
+		Debug.AspNetCompiler.Debug = "True"
+		Release.AspNetCompiler.Debug = "False"
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "installer_dll_fw", "helpers\installer_dll_fw\installer_dll_fw.vcproj", "{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}"
 	ProjectSection(WebsiteProperties) = preProject
 		Debug.AspNetCompiler.Debug = "True"
 		Release.AspNetCompiler.Debug = "False"
@@ -1725,6 +1731,50 @@ Global
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Release|Win32.ActiveCfg = Release|Win32
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Release|Win32.Build.0 = Release|Win32
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Release|x64.ActiveCfg = Release|Win32
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|Itanium.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|Mixed Platforms.Build.0 = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|Win32.Build.0 = Debug|Win32
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|x64.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug|x64.Build.0 = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug-MemCheck|Any CPU.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug-MemCheck|Itanium.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug-MemCheck|Mixed Platforms.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug-MemCheck|Mixed Platforms.Build.0 = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug-MemCheck|Win32.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug-MemCheck|x64.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Debug-MemCheck|x64.Build.0 = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Distribution|Any CPU.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Distribution|Itanium.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Distribution|Mixed Platforms.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Distribution|Mixed Platforms.Build.0 = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Distribution|Win32.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Distribution|x64.ActiveCfg = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Distribution|x64.Build.0 = Debug|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Nightly|Any CPU.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Nightly|Itanium.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Nightly|Mixed Platforms.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Nightly|Mixed Platforms.Build.0 = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Nightly|Win32.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Nightly|x64.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Nightly|x64.Build.0 = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.OP5|Any CPU.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.OP5|Itanium.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.OP5|Mixed Platforms.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.OP5|Mixed Platforms.Build.0 = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.OP5|Win32.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.OP5|x64.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.OP5|x64.Build.0 = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|Any CPU.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|Itanium.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|Mixed Platforms.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|Mixed Platforms.Build.0 = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|Win32.ActiveCfg = Release|Win32
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|Win32.Build.0 = Release|Win32
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|x64.ActiveCfg = Release|x64
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1753,6 +1803,7 @@ Global
 		{BBE9A5E7-A16B-443C-A349-823DED5A9FF3} = {9A087442-7BB2-4CF0-9F58-5D1BC3C32CD2}
 		{FC917E21-188A-44EE-9EF2-7C1274C2D719} = {9A087442-7BB2-4CF0-9F58-5D1BC3C32CD2}
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66} = {9A087442-7BB2-4CF0-9F58-5D1BC3C32CD2}
+		{DF1DB6FB-0448-46D6-AE82-9901495E5F1A} = {9A087442-7BB2-4CF0-9F58-5D1BC3C32CD2}
 		{630857C0-6AD8-4CEE-B5F7-CA1DF620CA9A} = {C8DCE3D7-A802-4C5D-ABB1-B478F545B6E5}
 		{B6D08289-B8AE-4391-9D07-93B22618BE58} = {C8DCE3D7-A802-4C5D-ABB1-B478F545B6E5}
 		{45D4AD47-393C-4E67-9B68-FCA621CD3120} = {C8DCE3D7-A802-4C5D-ABB1-B478F545B6E5}

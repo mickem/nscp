@@ -110,6 +110,8 @@
 							<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
 							<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
 						</Component>
+						<Component Id="FireWallException" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
+						<Component Id="ServiceRegistration" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
 						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
 							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 								<File Id="NRPEListenerDLL" Name="NRPELsnr.dll" LongName="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEListener.dll" Vital="no" />
@@ -161,8 +163,14 @@
 							 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
 				<Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
 					<ComponentRef Id="MainClient" />
-			</Feature>
-			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
+				</Feature>
+				<Feature Id="FireWallException" Title="Firewall Exception" Description="Add an exception to the windows firewall" Level="1">
+					<ComponentRef Id="FireWallException" />
+				</Feature>
+				<Feature Id="ServiceRegistration" Title="Register service" Description="Register the NSClient++ service" Level="1">
+					<ComponentRef Id="ServiceRegistration" />
+				</Feature>
+				<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
 					<ComponentRef Id="Plugins" />
 				</Feature>
@@ -181,7 +189,49 @@
 			</Feature>
 		</Feature>
 
-<!--
+		<CustomTable Id="WixFirewallException">
+			<Column Id="Id"					Category="Identifier"	PrimaryKey="yes"	Type="string"	Width="72"	Modularize="Column"											Description="The primary key, a non-localized token."/>
+			<Column Id="Name"				Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255" Modularize="Property"	Nullable="yes" Localizable="yes" Description="Localizable display name."/>
+			<Column Id="RemoteAddresses"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="2"	Modularize="Property"	Nullable="yes"									Description="Remote address to accept incoming connections from."/>
+			<Column Id="Port"				Category="Formatted"	PrimaryKey="no"		Type="int"		Width="2"	Modularize="Property"	Nullable="yes" MinValue="1"			Description="Port number."/>
+			<Column Id="Protocol"			Category="Integer"		PrimaryKey="no"		Type="int"		Width="2"	MinValue="6" Nullable="yes" MaxValue="17"							Description="Protocol (6=TCP; 17=UDP)."/>
+			<Column Id="Program"			Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"		Description="Exception for a program (formatted path name)."/>
+			<Column Id="Attributes"			Category="Integer"		PrimaryKey="no"		Type="int"		Width="4"	Nullable="yes" MinValue="0" MaxValue="65536" Description="Vital=1"/>
+			<Column Id="Component_"			Category="Identifier"	PrimaryKey="no"		Type="string"	Width="72"	Modularize="Column"											Description="Foreign key into the Component table referencing component that controls the firewall configuration."/>
+			<Row>
+				<Data Column="Id">FWX1</Data>
+				<Data Column="Name">NSClient++ Monitoring Agent</Data>
+				<Data Column="Component_">FireWallException</Data>
+				<Data Column="Program">[#NSClientEXE]</Data>
+			</Row>
+		</CustomTable>
+
+		<CustomTable Id="Services">
+			<Column Id="Id"			Category="Identifier"	PrimaryKey="yes"	Type="string"	Width="72"	Modularize="Column"
+					Description="The primary key, a non-localized token."/>
+			<Column Id="ShortName"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255" Modularize="Property"	Nullable="yes" Localizable="yes" 
+					Description="Service name."/>
+			<Column Id="LongName"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
+					Description="Service long name."/>
+			<Column Id="Description" Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
+					Description="The description"/>
+			<Column Id="Program"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
+					Description="Exception for a program (formatted path name)."/>
+			<Column Id="Attributes"	Category="Integer"		PrimaryKey="no"		Type="int"		Width="4"							Nullable="yes" MinValue="0" MaxValue="65536" 
+					Description="Vital=1"/>
+			<Column Id="Component_"	Category="Identifier"	PrimaryKey="no"		Type="string"	Width="72"	Modularize="Column"	
+					Description="Foreign key into the Component table referencing component that controls the firewall configuration."/>
+			<Row>
+				<Data Column="Id">SVC</Data>
+				<Data Column="ShortName">NSClientpp</Data>
+				<Data Column="LongName">$(var.App.Title) ($(var.PlatForm))</Data>
+				<Data Column="Description">Monitoring agent for nagios (and others) used to respond to status queries.</Data>
+				<Data Column="Component_">ServiceRegistration</Data>
+				<Data Column="Program">[#NSClientEXE]</Data>
+			</Row>
+		</CustomTable>
+
+		<!--
 		<Condition Message='This installation can only run in full UI mode.'>
 			UILevel = 5
 		</Condition>
@@ -211,10 +261,6 @@
 		<Property Id='INSCON_CONFIGURE'>1</Property>
 		<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
 		<Property Id='CUSTOM_CONFIGURATION_FILE'>NSC.ini</Property>
-		<Property Id='INSTALL_SVC_EXE'>NSClient++.exe</Property>
-		<Property Id='INSTALL_SVC_SHORTNAME'>NSClientpp</Property>
-		<Property Id='INSTALL_SVC_LONGNAME'>$(var.App.Title) ($(var.PlatForm))</Property>
-		<Property Id='INSTALL_SVC_DESC'>Monitoring agent for nagios (and others) used to respond to status queries.</Property>
 
 		<Property Id='HELP_LINK'>http://nsclient.org/nscp/</Property>
 
@@ -225,33 +271,60 @@
 		<Property Id='KEEP_WHICH_CONFIG'>NEW</Property>
 		<!--
 		<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
-			-->
-
+		-->
 		<!--
 			<Property Id='ARPREADME'>path</Property>  
 			<Property Id='ARPSIZE'>app size in kilobytes</Property>
-			-->
+		-->
 
-		<CustomAction Id='ReadOldConfig' BinaryKey='InstallerHelper' DllEntry='ImportConfig' Impersonate='yes' />
-		<CustomAction Id='WriteNewConfig' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' Impersonate='yes' />
-		<CustomAction Id='InstallService' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' Impersonate='yes' />
-		<CustomAction Id='UnInstallService' BinaryKey='InstallerHelper' DllEntry='UninstallService' Impersonate='yes' />
-		<CustomAction Id='StartService' BinaryKey='InstallerHelper' DllEntry='StartTheService' Impersonate='yes' Return='asyncNoWait' Execute="immediate"/>
+		<CustomAction Id='ReadOldConfig' BinaryKey='InstallerHelper' DllEntry='ImportConfig' Impersonate='no' />
+		<CustomAction Id='WriteNewConfig' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' Impersonate='no' />
+
+		<CustomAction Id='NeedUninstall' BinaryKey='InstallerHelper' DllEntry='NeedUninstall' Impersonate='no' />
+		
+
 		<CustomAction Id="PreventDowngrading" Error="Newer version already installed." />
 
+		<CustomAction Id='SchedServiceInstall' BinaryKey='InstallerHelper' DllEntry='ScheduleInstallService' Execute="immediate" Return="check" />
+		<CustomAction Id='SchedServiceUnInstall' BinaryKey='InstallerHelper' DllEntry='ScheduleUnInstallService' Execute="immediate" Return="check" />
+		<CustomAction Id="WixRollbackServiceInstall" BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall" Execute="rollback" Impersonate="no" Return="check"  />
+		<CustomAction Id="WixExecServiceInstall" BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall" Execute="deferred" Impersonate="no" Return="check"  />
+		<CustomAction Id="WixRollbackServiceUninstall" BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall" Execute="rollback" Impersonate="no" Return="check"  />
+		<CustomAction Id="WixExecServiceUninstall" BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall" Execute="deferred" Impersonate="no" Return="check" />
+
+		<CustomAction Id='StartAllServices' BinaryKey='InstallerHelper' DllEntry='StartAllServices' Impersonate='no' Return='asyncNoWait' Execute="immediate"/>
+		<CustomAction Id='StopAllServices' BinaryKey='InstallerHelper' DllEntry='StopAllServices' Impersonate='no' Return='asyncNoWait' Execute="immediate"/>
+
+		<CustomAction Id="WixSchedFirewallExceptionsInstall" BinaryKey="WixFirewallCA" DllEntry="SchedFirewallExceptionsInstall" Execute="immediate" Return="check" />
+		<CustomAction Id="WixSchedFirewallExceptionsUninstall" BinaryKey="WixFirewallCA" DllEntry="SchedFirewallExceptionsUninstall" Execute="immediate" Return="check"  />
+		<CustomAction Id="WixRollbackFirewallExceptionsInstall" BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions" Execute="rollback" Impersonate="no" Return="check"  />
+		<CustomAction Id="WixExecFirewallExceptionsInstall" BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions" Execute="deferred" Impersonate="no" Return="check"  />
+		<CustomAction Id="WixRollbackFirewallExceptionsUninstall" BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions" Execute="rollback" Impersonate="no" Return="check"  />
+		<CustomAction Id="WixExecFirewallExceptionsUninstall" BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions" Execute="deferred" Impersonate="no" Return="check" />
 
 
 		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/installer_dll.dll' />
+		<Binary Id='WixFirewallCA' SourceFile='$(var.Helpers)/installer_dll_fw.dll' />
 
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
-			<Custom Action="InstallService" After='InstallFinalize'>NOT REMOVE</Custom>
-			<Custom Action="UnInstallService" Before='RemoveFiles'>REMOVE="ALL"</Custom>
+			
+			<Custom Action="SchedServiceInstall" After="InstallFiles" />
+			<Custom Action="SchedServiceUnInstall" Before="RemoveFiles" />
+			<Custom Action="StopAllServices" Before="InstallValidate" />
+			
+			<Custom Action="WixSchedFirewallExceptionsUninstall" Before="RemoveFiles">
+				<![CDATA[ VersionNT >= 501 AND (ServicePackLevel >= 2 OR VersionNT >= 600) ]]>
+			</Custom>
+			<Custom Action="WixSchedFirewallExceptionsInstall" After="InstallFiles">
+				<![CDATA[ VersionNT >= 501 AND (ServicePackLevel >= 2 OR VersionNT >= 600) ]]>
+			</Custom>
 		</InstallExecuteSequence>
 
 		<InstallUISequence>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+			<Custom Action="NeedUninstall" After="FindRelatedProducts" />
 		</InstallUISequence>
 
 		<Property Id="ALLUSERS"><![CDATA[2]]></Property>

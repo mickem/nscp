@@ -49,26 +49,20 @@ namespace simpleSocket {
 	public:
 		DataBuffer() : buffer_(NULL), length_(0){
 		}
-		DataBuffer(const DataBuffer &other) {
-			char * old = buffer_;
+		DataBuffer(const DataBuffer &other) : buffer_(NULL) {
 			buffer_ = new char[other.getLength()+2];
 			memcpy(buffer_, other.getBuffer(), other.getLength()+1);
 			length_ = other.getLength();
-			delete [] old;
 		}
-		DataBuffer(const char* buffer, unsigned int length) {
-			char *old = buffer_;
+		DataBuffer(const char* buffer, unsigned int length) : buffer_(NULL) {
 			buffer_ = new char[length+2];
 			memcpy(buffer_, buffer, length+1);
 			length_ = length;
-			delete [] old;
 		}
-		DataBuffer(const unsigned char* buffer, unsigned int length) {
-			char *old = buffer_;
+		DataBuffer(const unsigned char* buffer, unsigned int length) : buffer_(NULL) {
 			buffer_ = new char[length+2];
 			memcpy(buffer_, buffer, length+1);
 			length_ = length;
-			delete [] old;
 		}
 		virtual ~DataBuffer() {
 			delete [] buffer_;

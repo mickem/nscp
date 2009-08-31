@@ -39,6 +39,10 @@ CheckDisk::CheckDisk() {
 CheckDisk::~CheckDisk() {
 }
 
+bool is_directory(DWORD dwAttr) {
+	return ((dwAttr != INVALID_FILE_ATTRIBUTES) && ((dwAttr&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+}
+
 bool CheckDisk::loadModule() {
 	try {
 		NSCModuleHelper::registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
@@ -82,7 +86,7 @@ struct get_size : public baseFinderFunction
 	bool error;
 	get_size() : size(0), error(false) { }
 	result_type operator()(argument_type ffd) {
-		if (!(ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)) {
+		if (!is_directory(ffd.wfd.dwFileAttributes)) {
 			size += (ffd.wfd.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)ffd.wfd.nFileSizeLow;
 		}
 		return true;
@@ -111,7 +115,7 @@ void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, i
 	DWORD fileAttr = GetFileAttributes(dir.c_str());
 	NSC_DEBUG_MSG_STD(_T("Input is: ") + dir + _T(" / ") + strEx::ihextos(fileAttr));
 
-	if ((fileAttr != INVALID_FILE_ATTRIBUTES)&&(fileAttr != FILE_ATTRIBUTE_DIRECTORY)) {
+	if (!is_directory(fileAttr)) {
 		NSC_DEBUG_MSG_STD(_T("Found a file dont do recursive scan: ") + dir);
 		// It is a file check it an return (dont check recursivly)
 		pattern_type single_path = split_path_ex(dir);
@@ -138,7 +142,7 @@ void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, i
 	hFind = FindFirstFile(dir_pattern.c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if ((wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+			if (is_directory(wfd.dwFileAttributes)) {
 				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
 					recursive_scan<finder_function>(dir + _T("\\") + wfd.cFileName, pattern, current_level+1, max_level, f, errors);
 			}
@@ -474,7 +478,7 @@ struct find_first_file_info : public baseFinderFunction
 //	std::wstring message;
 	find_first_file_info() : error(false) {}
 	result_type operator()(argument_type ffd) {
-		if ((ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
+		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 		BY_HANDLE_FILE_INFORMATION _info;
 
@@ -513,7 +517,7 @@ struct file_filter_function : public baseFinderFunction
 
 	file_filter_function() : hit_count(0), error(false), bFilterIn(true), bFilterAll(true) {}
 	result_type operator()(argument_type ffd) {
-		if ((ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
+		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 		BY_HANDLE_FILE_INFORMATION _info;
 
@@ -586,7 +590,7 @@ struct file_filter_function_ex : public baseFinderFunction
 
 	file_filter_function_ex() : hit_count(0), error(false), debug_(false), bFilterIn(true), bFilterAll(true) {}
 	result_type operator()(argument_type ffd) {
-		if ((ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
+		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 		BY_HANDLE_FILE_INFORMATION _info;
 

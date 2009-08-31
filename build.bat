@@ -1,12 +1,12 @@
 @echo off
 @call env.bat
 
-SET cmdline=%jam% --toolset=msvc --with-lua --with-openssl --with-boost --with-cryptopp %* build-binaries
-%jam% --toolset=msvc --with-lua --with-openssl=%openssl% --with-boost=%boost% --with-cryptopp %* build-binaries
+SET cmdline=%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% %* build-binaries
+%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off %* build-binaries
 if %ERRORLEVEL% == 1 goto :error
 
-SET cmdline=%jam% --toolset=msvc --with-lua --with-openssl --with-boost --with-cryptopp %* build-archives
-%jam% --toolset=msvc --with-lua --with-openssl=%openssl% --with-boost=%boost% --with-cryptopp %* build-archives
+SET cmdline=%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off %* build-archives
+%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off %* build-archives
 if %ERRORLEVEL% == 1 goto :error
 
 SET cmdline=%jam% --toolset=wix %* build-installer

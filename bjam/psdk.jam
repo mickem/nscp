@@ -32,6 +32,12 @@ rule isDebug ( )
     return $(.debug-configuration) ;
 }
 
+rule get_includes ( )
+{
+    return $(.headers) ;
+}
+
+
 rule printEnv ( ) 
 {
 	echo "PSDK LIBRARIES : $(.libraries) change with --with-psdk-lib=<path>" ;
@@ -73,7 +79,7 @@ rule init (
 		}
 		
 		import toolset : flags ;
-
+		
 		if ( ( --with-psdk in  [ modules.peek : ARGV ] ) || $(has-psdk) || $(has-psdk-lib) )  
 			&& ! ( --without-psdk in  [ modules.peek : ARGV ] ) {
 			.enabled = true ;
@@ -85,22 +91,51 @@ rule init (
 	}
 }
 
-alias regexp 
-	: # source
-	: # requirements
-	: # default-build
-	: # usage-requirements
-		<conditional>@usage-requirements
-	;
-
-
 rule usage-requirements ( properties * )
 {
 	local result ;
 	if ( $(.enabled) = true ) {
 		result += <define>USE_PSDK ;
 		result += <include>$(.headers) ;
-		result += <library-path>$(.libraries) ;
 	}
 	return $(result) ;
 }
+
+rule requirements ( properties * )
+{
+	local result ;
+	if ( $(.enabled) = true ) {
+		#result += <library-path>$(.libraries) ;
+		result += <search>$(.libraries) ;
+	}
+	return $(result) ;
+}
+
+lib Msi 
+	: # source
+	: # requirements
+		<name>Msi
+		<conditional>@requirements
+	: # usage-requirements
+		<conditional>@usage-requirements
+	;
+
+lib bufferoverflowu 
+	: # source
+	: # requirements
+		<name>bufferoverflowu
+		<conditional>@requirements
+	: # usage-requirements
+		<conditional>@usage-requirements
+	;
+
+alias hnetcfg
+	: # source
+	: # requirements
+	: # usage-requirements
+		<conditional>@usage-requirements
+	;
+
+
+
+

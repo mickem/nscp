@@ -53,6 +53,7 @@ if $(toolset) = "msvc" {
 	using bjam/boost : : $(TOP)/lib-source/boost_1_35_0 $(TOP)/lib ;
 	using bjam/lua : : $(TOP)/lib-source/lua-5.1.2 ;
 	using bjam/cryptopp : : $(TOP)/lib-source/"Crypto++"/src ;
+	using bjam/psdk : : /foo ;
 
 	if [ bjam/lua.isEnabled ] = true {
 		echo "LUA support enabled (disable with --without-lua)" ; 
@@ -81,13 +82,19 @@ if $(toolset) = "msvc" {
 	} else {
 		echo "cryptopp not avaliable! encryption (NSCA) DISABLED (enable with --with-cryptopp)" ; 
 	}
+
+	if [ bjam/psdk.isEnabled ] = true {
+		echo "Platform SDK found (disable with --without-psdk)" ; 
+		bjam/psdk.printEnv ;
+	} else {
+		echo "Plattform SDK not avaliable! Various features wont work (enable with --with-psdk)" ; 
+	}
 	
 	notfile update_version : @update_version ;
 	actions update_version
 	{
 		D:\source\tools\XAutobuild.exe -f $(TOP) 
 	}
-	
 }
 
 
@@ -241,7 +248,10 @@ for local l in $(all-archive)
 	explicit $(l) ;
 }
 
-alias installer_dll : helpers/installer_dll ;
+alias cryptopp-headers : helpers/cryptopp-headers ;
+explicit cryptopp-headers ;
+
+alias installer_dll : helpers/installer_dll helpers/installer_dll_fw ;
 explicit installer_dll ;
 
 all-helpers = installer_dll ;
@@ -302,8 +312,6 @@ explicit dist-helpers ;
 
 install dist-scripts : all-scripts-targets : <conditional>@generate-scripts-location ;
 explicit dist-scripts ;
-
-
 
 alias build-binaries : dist dist-modules dist-helpers dist-scripts ;
 explicit build-binaries ;

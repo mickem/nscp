@@ -3,7 +3,6 @@ local source = $(target) ;
 
 project 
 	: requirements
-    	<library>/cryptopp//embedded
 	<find-static-library>ws2_32
 	;
 
@@ -16,10 +15,10 @@ lib $(target)
 	../../include/arrayBuffer.cpp
 	../../include/Socket.cpp
 	../../include/utils.cpp
+	/cryptopp//embedded
 
 	: # requirements
 	<def-file>$(source).def
-	<source>/cryptopp//embedded
 	#<user-interface>gui
 	<runtime-link>static
 

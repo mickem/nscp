@@ -358,6 +358,38 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 		} else if ( _wcsicmp( _T("version"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
+		} else if ( _wcsicmp( _T("d"), argv[1]+1 ) == 0 ) {
+			// Run command from command line (like NRPE) but with debug enabled
+			g_bConsoleLog = true;
+			mainClient.enableDebug(true);
+			mainClient.initCore(true);
+			std::wstring command, args, msg, perf;
+			if (argc > 2)
+				command = argv[2];
+			for (int i=3;i<argc;i++) {
+				if (i!=3) args += _T(" ");
+				args += argv[i];
+			}
+			nRetCode = mainClient.inject(command, args, L' ', true, msg, perf);
+			std::wcout << msg << _T("|") << perf << std::endl;
+			mainClient.exitCore(true);
+			return nRetCode;
+		} else if ( _wcsicmp( _T("c"), argv[1]+1 ) == 0 ) {
+			// Run command from command line (like NRPE)
+			g_bConsoleLog = true;
+			mainClient.enableDebug(false);
+			mainClient.initCore(true);
+			std::wstring command, args, msg, perf;
+			if (argc > 2)
+				command = argv[2];
+			for (int i=3;i<argc;i++) {
+				if (i!=3) args += _T(" ");
+				args += argv[i];
+			}
+			nRetCode = mainClient.inject(command, args, L' ', true, msg, perf);
+			std::wcout << msg << _T("|") << perf << std::endl;
+			mainClient.exitCore(true);
+			return nRetCode;
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			mainClient.enableDebug(false);
@@ -596,8 +628,8 @@ bool NSClientT::initCore(bool boot) {
 			LOG_ERROR_STD(_T("Unknown exception loading plugins"));
 			return false;
 		}
+		LOG_DEBUG_STD(_T("NSCLient++ - " SZVERSION) + _T(" Started!"));
 	}
-	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Started!"));
 	return true;
 }
 
@@ -709,8 +741,8 @@ bool NSClientT::exitCore(bool boot) {
 		} catch(...) {
 			LOG_ERROR_STD(_T("UNknown exception raised: When stopping message plguins"));
 		}
+		LOG_DEBUG_STD(_T("NSCLient++ - " SZVERSION) + _T(" Stopped succcessfully"));
 	}
-	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Stopped succcessfully"));
 	return true;
 }
 /**
@@ -1169,7 +1201,7 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 			}	
 			std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
 		}
-		if (messageHandlers_.size() == 0 || !plugins_loaded_) {
+		if (messageHandlers_.size() == 0 && !plugins_loaded_) {
 			OutputDebugString(message.c_str());
 			log_cache_.push_back(cached_log_entry(msgType, file, line, message));
 		} else {

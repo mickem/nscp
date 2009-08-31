@@ -1,19 +1,19 @@
 #ifdef HAVE_LIBCRYPTOPP
-#include <crypto++/cryptlib.h>
-#include <crypto++/modes.h>
-#include <crypto++/des.h>
-#include <crypto++/aes.h>
-#include <crypto++/cast.h>
-#include <crypto++/tea.h>
-#include <crypto++/3way.h>
-#include <crypto++/blowfish.h>
-#include <crypto++/twofish.h>
-#include <crypto++/rc2.h>
-#include <crypto++/arc4.h>
-#include <crypto++/serpent.h>
-#include <crypto++/gost.h>
-#include <crypto++/filters.h>
-#include <crypto++/osrng.h>
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/des.h>
+#include <cryptopp/aes.h>
+#include <cryptopp/cast.h>
+#include <cryptopp/tea.h>
+#include <cryptopp/3way.h>
+#include <cryptopp/blowfish.h>
+#include <cryptopp/twofish.h>
+#include <cryptopp/rc2.h>
+#include <cryptopp/arc4.h>
+#include <cryptopp/serpent.h>
+#include <cryptopp/gost.h>
+#include <cryptopp/filters.h>
+#include <cryptopp/osrng.h>
 #endif
 
 #define TRANSMITTED_IV_SIZE     128     /* size of IV to transmit - must be as big as largest IV needed for any crypto algorithm */

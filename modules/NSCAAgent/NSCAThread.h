@@ -234,6 +234,7 @@ private:
 	int encryption_method_;
 	long timeDelta_;
 	int report_;
+	unsigned int read_timeout_;
 
 public:
 	NSCAThread();

@@ -79,6 +79,7 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
 	nscahost_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_SERVER, NSCA_SERVER_DEFAULT);
 	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
+	read_timeout_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_READ_TIMEOUT, NSCA_READ_TIMEOUT_DEFAULT);
 	std::wstring report = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_REPORT, NSCA_REPORT_DEFAULT);
 	report_ = parse_report_string(report);
 	NSC_DEBUG_MSG_STD(_T("Only reporting: ") + generate_report_string(report_));
@@ -259,10 +260,34 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + nscaaddr_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
 			return;
 		}
-		if (!socket.readAll(inc, sizeof(NSCAPacket::init_packet_struct), sizeof(NSCAPacket::init_packet_struct))) {
-			NSC_LOG_ERROR_STD(_T("<<< Failed to read header from: ") + nscaaddr_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
+		socket.setNonBlock();
+
+		time_t start = time(NULL);
+		unsigned int sz_packet = sizeof(NSCAPacket::init_packet_struct);
+		do {
+			bool lastReadHasMore = false;
+			try {
+				lastReadHasMore = socket.readAll(inc, sz_packet);
+			} catch (simpleSocket::SocketException e) {
+				NSC_LOG_ERROR_STD(_T("Could not read NSCA hdr packet from socket :") + e.getMessage());
+				socket.close();
+				return;
+			}
+			if (inc.getLength() >= sz_packet)
+				break;
+			if (!lastReadHasMore) {
+				NSC_LOG_MESSAGE(_T("Could not read a full NSCA hdr packet from socket, only got: ") + strEx::itos(inc.getLength()));
+				socket.close();
+				return;
+			}
+			Sleep(100);
+		} while ((time(NULL) - start) < read_timeout_);
+		if (inc.getLength() != sz_packet) {
+			NSC_LOG_ERROR_STD(_T("Timeout reading NSCA hdr packet (increase socket_timeout), we only got: ") + strEx::itos(inc.getLength()));
+			socket.close();
 			return;
 		}
+
 		NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();
 		try {
 			crypt_inst.encrypt_init(password_.c_str(),encryption_method_,reinterpret_cast<unsigned char*>(packet_in->iv));
@@ -290,6 +315,9 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 			return;
 		}
 		socket.close();
+	} catch (simpleSocket::SocketException &e) {
+		NSC_LOG_ERROR_STD(_T("NSCA Socket exception: ") + e.getMessage());
+		return;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("<<< NSCA Configuration missmatch (hint: if you dont use NSCA dot use the NSCA module)!"));
 		return;

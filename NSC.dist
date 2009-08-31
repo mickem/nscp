@@ -202,6 +202,7 @@ alias_file_size=checkFile2 filter=out "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=
 alias_file_size_in_dir=checkFile2 filter=out pattern=*.txt "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=1 MaxCrit=1 "syntax=%filename% %size%"
 alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
 alias_event_log2=CheckEventLog file=application file=system filter=new filter=in MaxWarn=1 MaxCrit=1 filter+generated=<2d "filter+eventSource==Service Control Manager" filter+severity==error truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+check_ok=CheckOK Everything is fine!
 
 
 

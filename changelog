@@ -6,6 +6,24 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2009-08-30 MickeM
+ + Added -c and -d command line options like so:
+   NSClient++ -c CheckFile2 path=c:\test pattern=*.txt MaxCrit=1 filter+written=gt:2h
+   NSClient++ -c <command> <argument 1> <argument 2> ...
+   -d Is the same thing but with debug enabled.
+ + Added uninstall of old client (sort of broken but works)
+
+2009-08-29 MickeM
+ * Fixed issue with CheckFile (directory)
+ * Rewrote the CA:s in the installer to work "better" (hopefully) in general it should be have more like a propper installer.
+
+2009-07-18 MickeM
+ * Fixed issue with no loggers avalible and "memory leak"
+ * Added "firewall exception" to installer
+ * Fixed an issue with the socket data buffer
+ * Added new option to NSC.ini [NSCA] socket_timeout=30 (timeout in seconds when reading from NSCA sockets)
+ * Fixed issue with NSCA socket.
+
 2009-07-05 MickeM
  * Fixed issue with CheckExternalScripts and script_dir: not adding the commands properly.
  * Fixed issue with CheckExternalScripts and script_dir: not using relative paths (#310).
