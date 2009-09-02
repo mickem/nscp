@@ -1,0 +1,16 @@
+import bjam/cryptopp ;
+
+if ( [ bjam/cryptopp.isEnabled ] = true ) {
+	local source = [ bjam/cryptopp.getSource ] ;
+	local target = [ bjam/cryptopp.getTarget ] ;
+	echo "CRYPTOPP installing header files from: $(source)" ;
+	echo "CRYPTOPP installing header files into: $(target)" ;
+
+	all-headers =
+		[ MATCH (.*) : [ glob $(source)/*.h ] ]
+		;
+
+	install dist : $(all-headers) : <location>$(target) ;
+}
+
+
