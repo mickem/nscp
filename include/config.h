@@ -189,6 +189,8 @@
 #define NSCA_REPORT_DEFAULT _T("all")
 #define NSCA_READ_TIMEOUT _T("socket_timeout")
 #define NSCA_READ_TIMEOUT_DEFAULT 30
+#define NSCA_STRLEN _T("string_length")
+#define NSCA_STRLEN_DEFAULT 512
 
 #define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
 #define C_SYSTEM_SVC_ALL_0_DEFAULT _T("ignored")

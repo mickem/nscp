@@ -14,10 +14,10 @@ call build.bat runtime-link=static variant=release address-model=32 --library-pa
 if %ERRORLEVEL% == -1 goto :error
 
 REM build x64 (Amd64, Emt64) binary
-rem SET version=x64
-rem SET cmdline=build.bat runtime-link=static variant=release address-model=64 --library-path="%TARGET_LIB_x64_DIR%" --with-psdk-lib="%PLATTFORM_SDK_LIB_x64%" --with-psdk="%PLATTFORM_SDK_INCLUDE%" --wix="%WIX_PATH%"
-rem call build.bat runtime-link=static variant=release address-model=64 --library-path="%TARGET_LIB_x64_DIR%" --with-psdk-lib="%PLATTFORM_SDK_LIB_x64%" --with-psdk="%PLATTFORM_SDK_INCLUDE%" --wix="%WIX_PATH%"
-rem if %ERRORLEVEL% == -1 goto :error
+ SET version=x64
+ SET cmdline=build.bat runtime-link=static variant=release address-model=64 --library-path="%TARGET_LIB_x64_DIR%" --with-psdk-lib="%PLATTFORM_SDK_LIB_x64%" --with-psdk="%PLATTFORM_SDK_INCLUDE%" --wix="%WIX_PATH%"
+ call build.bat runtime-link=static variant=release address-model=64 --library-path="%TARGET_LIB_x64_DIR%" --with-psdk-lib="%PLATTFORM_SDK_LIB_x64%" --with-psdk="%PLATTFORM_SDK_INCLUDE%" --wix="%WIX_PATH%"
+ if %ERRORLEVEL% == -1 goto :error
 
 
 REM TODO: Add IA64 version

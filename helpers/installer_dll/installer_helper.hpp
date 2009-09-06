@@ -83,14 +83,14 @@ public:
 	}
 	*/
 	void setupMyProperty(std::wstring key, std::wstring val) {
+		logMessage(_T("Setting old values: ") + key + _T("_OLD=") + val);
+		setPropertyIfEmpty(key+_T("_OLD"), val);
 		std::wstring oldDef = getPropery(key+_T("_DEFAULT"));
 		if (!oldDef.empty())
 			val = oldDef;
-		else
-			setProperty(key+_T("_DEFAULT"), val);
-		setPropertyIfEmpty(key+_T("_OLD"), val);
 		if (val == MY_EMPTY)
 			val = _T("");
+		logMessage(_T("Setting old values: ") + key + _T("=") + val);
 		setPropertyIfEmpty(key, val);
 	}
 	void setMyProperty(std::wstring key, std::wstring val) {

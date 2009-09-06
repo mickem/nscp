@@ -6,6 +6,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2009-09-06 MickeM
+ + Added new option to [NSCA Agent] string_length=<size> of the NSCA_MAX_PLUGINOUTPUT_LENGTH option on the NSCA server.
+ * Readded all the "installer configuration" crap which I accidentaly removed when I fixed the installer... *sigh*
+
 2009-08-30 MickeM
  + Added -c and -d command line options like so:
    NSClient++ -c CheckFile2 path=c:\test pattern=*.txt MaxCrit=1 filter+written=gt:2h

@@ -14,8 +14,8 @@ lib $(target)
 	<user-interface>gui
 	<runtime-link>static
 	<threading>multi
-#	<include>"D:/Program/Microsoft Platform SDK for Windows Server 2003 R2/Include"
-	<include>"C:/Program Files/Microsoft Platform SDK for Windows Server 2003 R2/Include/Atl"
+	<include>"D:/Program/Microsoft Platform SDK for Windows Server 2003 R2/Include"
+#	<include>"C:/Program Files/Microsoft Platform SDK for Windows Server 2003 R2/Include/Atl"
 
 	: # default build
 	: # usage requirements

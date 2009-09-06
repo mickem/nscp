@@ -79,6 +79,7 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
 	nscahost_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_SERVER, NSCA_SERVER_DEFAULT);
 	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
+	payload_length_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_STRLEN, NSCA_STRLEN_DEFAULT);
 	read_timeout_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_READ_TIMEOUT, NSCA_READ_TIMEOUT_DEFAULT);
 	std::wstring report = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_REPORT, NSCA_REPORT_DEFAULT);
 	report_ = parse_report_string(report);
@@ -302,7 +303,7 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		try {
 			for (std::list<Command::Result>::const_iterator cit = results.begin(); cit != results.end(); ++cit) {
 				try {
-					socket.send((*cit).getBuffer(crypt_inst, timeDelta_));
+					socket.send((*cit).getBuffer(crypt_inst, timeDelta_, payload_length_));
 				} catch (NSCAPacket::NSCAException &e) {
 					NSC_LOG_ERROR_STD(_T("Failed to make command: ") + e.getMessage() );
 				}

@@ -159,12 +159,12 @@ public:
 				_T("result: ") + result;
 		}
 
-		simpleSocket::DataBuffer getBuffer(nsca_encrypt &crypt_inst, __time32_t time_delta) const {
+		simpleSocket::DataBuffer getBuffer(nsca_encrypt &crypt_inst, __time32_t time_delta, unsigned int pluginoutput_length) const {
 			std::string s = strEx::wstring_to_string(service);
 			std::string r = strEx::wstring_to_string(result);
 			std::string h = strEx::wstring_to_string(host);
 
-			unsigned int buffer_len = sizeof(NSCAPacket::data_packet);
+			unsigned int buffer_len = sizeof(NSCAPacket::data_packet)-NSCA_MAX_PLUGINOUTPUT_LENGTH+pluginoutput_length;
 			unsigned char* buffer = crypt_inst.get_rand_buffer(buffer_len);
 			NSCAPacket::data_packet *data = reinterpret_cast<NSCAPacket::data_packet*>(buffer);
 			data->packet_version=static_cast<NSCAPacket::int16_t>(htons(NSCA_PACKET_VERSION_3));
@@ -178,9 +178,9 @@ public:
 			if (s.length() >= NSCA_MAX_DESCRIPTION_LENGTH)
 				throw NSCAPacket::NSCAException(_T("description to long"));
 			strncpy_s(data->svc_description, NSCA_MAX_DESCRIPTION_LENGTH, s.c_str(), s.length());
-			if (r.length() >= NSCA_MAX_PLUGINOUTPUT_LENGTH)
+			if (r.length() >= pluginoutput_length)
 				throw NSCAPacket::NSCAException(_T("result to long"));
-			strncpy_s(data->plugin_output, NSCA_MAX_PLUGINOUTPUT_LENGTH, r.c_str(), r.length());
+			strncpy_s(data->plugin_output, pluginoutput_length, r.c_str(), r.length());
 
 			unsigned int calculated_crc32=calculate_crc32(buffer,buffer_len);
 			data->crc32_value=static_cast<NSCAPacket::u_int32_t>(htonl(calculated_crc32));
@@ -228,6 +228,7 @@ private:
 	std::wstring hostname_;
 	std::wstring nscahost_;
 	unsigned int nscaport_;
+	unsigned int payload_length_;
 	bool cacheNscaHost_;
 	std::wstring nscaaddr_;
 	std::string password_;
