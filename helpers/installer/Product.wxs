@@ -278,9 +278,10 @@
 		-->
 
 		<CustomAction Id='ReadOldConfig' BinaryKey='InstallerHelper' DllEntry='ImportConfig' Impersonate='no' />
-		<CustomAction Id='WriteNewConfig' BinaryKey='InstallerHelper' DllEntry='UpdateConfig' Impersonate='no' />
+    <CustomAction Id='ScheduleWriteConfig' BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig' Impersonate='no' />
+    <CustomAction Id="ExecWriteConfig" BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig" Execute="deferred" Impersonate="no" Return="check"  />
 
-		<CustomAction Id='NeedUninstall' BinaryKey='InstallerHelper' DllEntry='NeedUninstall' Impersonate='no' />
+    <CustomAction Id='NeedUninstall' BinaryKey='InstallerHelper' DllEntry='NeedUninstall' Impersonate='no' />
 		
 
 		<CustomAction Id="PreventDowngrading" Error="Newer version already installed." />
@@ -309,11 +310,11 @@
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
-			
-			<Custom Action="SchedServiceInstall" After="InstallFiles" />
+      <Custom Action="ScheduleWriteConfig" After='InstallFiles' />
+      <Custom Action="SchedServiceInstall" After="InstallFiles" />
 			<Custom Action="SchedServiceUnInstall" Before="RemoveFiles" />
 			<Custom Action="StopAllServices" Before="InstallValidate" />
-			
+
 			<Custom Action="WixSchedFirewallExceptionsUninstall" Before="RemoveFiles">
 				<![CDATA[ VersionNT >= 501 AND (ServicePackLevel >= 2 OR VersionNT >= 600) ]]>
 			</Custom>

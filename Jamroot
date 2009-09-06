@@ -93,7 +93,7 @@ if $(toolset) = "msvc" {
 	notfile update_version : @update_version ;
 	actions update_version
 	{
-		D:\source\tools\XAutobuild.exe -f $(TOP) 
+		XAutobuild.exe -f $(TOP) 
 	}
 }
 

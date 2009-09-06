@@ -174,6 +174,7 @@ UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
 	return ERROR_SUCCESS;
 
 }
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //#pragma comment(linker, "/EXPORT:ImportConfig=_ImportConfig@4")
 extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
@@ -315,47 +316,139 @@ bool uninstall(msi_helper &h, std::wstring service_name) {
 	return true;
 }
 
-inline void write_string_item_if_changed(msi_helper &h, std::wstring property, std::wstring path, std::wstring key) {
-	if (h.isChangedProperyAndOld(property))
-		Settings::getInstance()->setString(path, key, h.getPropery(property));
-	else
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool write_config(msi_helper &h, std::wstring path, std::wstring file);
+
+extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("ScheduleWriteConfig"));
+	try {
+		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
+		std::wstring main_conf = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
+		std::wstring custom_conf = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
+
+		std::wstring write = target + _T("\\") + custom_conf;
+		h.logMessage(_T("config file (update): ") + write);
+
+		if (h.getPropery(_T("CONF_CAN_WRITE")) == _T("1")) {
+			if (h.getPropery(_T("KEEP_WHICH_CONFIG")) == _T("OLD")) {
+				CopyFile((target + _T("\\nsc.ini")).c_str(), (target + _T("\\nsc.new")).c_str(), FALSE);
+				CopyFile((h.getTempPath() + _T("\\old_nsc.ini")).c_str(), (target + _T("\\nsc.ini")).c_str(), FALSE);
+			} else {
+				CopyFile((h.getTempPath() + _T("\\old_nsc.ini")).c_str(), (target + _T("\\nsc.old")).c_str(), FALSE);
+			}
+		}
+		if (h.getPropery(_T("KEEP_WHICH_CONFIG")) == _T("NEW")) {
+			if (!write_config(h, target, custom_conf)) {
+				h.logMessage(_T("Failed to write configuration"));
+				return ERROR_INSTALL_FAILURE;
+			}
+		}
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to install service: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+}
+extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("ExecWriteConfig"));
+	try {
+		h.logMessage(_T("RAW: ") + h.getPropery(L"CustomActionData"));
+		msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
+		h.logMessage(_T("Got CA data: ") + data.to_string());
+		std::wstring path = data.get_next_string();
+		std::wstring file = data.get_next_string();
+		Settings::getInstance()->setFile(path, file, true);
+
+		while (data.has_more()) {
+			unsigned int mode = data.get_next_int();
+			if (mode == 1) {
+			// loop through all the passed in data
+				std::wstring path = data.get_next_string();
+				std::wstring key = data.get_next_string();
+				std::wstring prop = data.get_next_string();
+				h.logMessage(_T("Writing to config file: ") + path + _T("/") + key + _T(" = ") + prop);
+				Settings::getInstance()->setString(path, key, prop);
+				//TODO write config
+			} else if (mode == 2) {
+				std::list<std::wstring> list = data.get_next_list();
+				h.logMessage(_T("Writing modules section: ") + strEx::itos(list.size()));
+				Settings::getInstance()->writeSection(_T("modules"), list);
+			} else {
+				h.errorMessage(_T("Unknown mode in CA data: ") + strEx::itos(mode) + _T(": ") + data.to_string());
+				return ERROR_INSTALL_FAILURE;
+			}
+		}
+		Settings::getInstance()->write();
+	} catch (SettingsException e) {
+		h.errorMessage(_T("Failed to write configuration file: ") + e.getMessage());
+		return ERROR_SUCCESS;
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to install service: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+}
+
+inline void write_string_item_if_changed(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring property, std::wstring path, std::wstring key) {
+	if (h.isChangedProperyAndOld(property)) {
+		data.write_int(1);
+		data.write_string(path);
+		data.write_string(key);
+		data.write_string(h.getPropery(property));
+	} else
 		h.logMessage(property + _T(" was not changed..."));
 }
 bool write_config(msi_helper &h, std::wstring path, std::wstring file) {
 	std::wstring t;
-	try {
-		if (h.getPropery(_T("CONF_CAN_WRITE")) != _T("1")) {
-			h.updateProgress(_T("File is not writable (writing to registry not supported)"), file);
-			return true;
-		}
-		Settings::getInstance()->setFile(path, file, true);
-		write_string_item_if_changed(h, _T("ALLOWED_HOSTS"), MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS);
-		write_string_item_if_changed(h, _T("NSCLIENT_PWD"), MAIN_SECTION_TITLE, MAIN_SETTINGS_PWD);
+	msi_helper::custom_action_data_w data;
 
-		settings_base::sectionList list;
-		if (h.isChangedProperyAndOld(_T("CONF_NRPE")))
-			list.push_back(_T("NRPEListener.dll"));
-		if (h.isChangedProperyAndOld(_T("CONF_NSCLIENT")))
-			list.push_back(_T("NSClientListener.dll"));
-		if (h.isChangedProperyAndOld(_T("CONF_NSCA")))
-			list.push_back(_T("NSCAAgent.dll"));
-		if (h.isChangedProperyAndOld(_T("CONF_WMI")))
-			list.push_back(_T("CheckWMI.dll"));
-		if (h.isChangedProperyAndOld(_T("CONF_CHECKS"))) {
-			list.push_back(_T("FileLogger.dll"));
-			list.push_back(_T("CheckSystem.dll"));
-			list.push_back(_T("CheckDisk.dll"));
-			list.push_back(_T("CheckEventLog.dll"));
-			list.push_back(_T("CheckHelpers.dll"));
-		}
-		if (!list.empty())
-			Settings::getInstance()->writeSection(_T("modules"), list);
-		Settings::getInstance()->write();
-	} catch (SettingsException e) {
-		h.errorMessage(_T("Failed to write new configuration file: ") + file + _T(": ") + e.getMessage());
-		return ERROR_SUCCESS;
+	data.write_string(path);
+	data.write_string(file);
+
+	//cd_prop.write_int(1);
+	if (h.getPropery(_T("CONF_CAN_WRITE")) != _T("1")) {
+		h.updateProgress(_T("File is not writable (writing to registry not supported)"), file);
+		return true;
 	}
-	return true;
+
+	//Settings::getInstance()->setFile(path, file, true);
+	write_string_item_if_changed(h, data, _T("ALLOWED_HOSTS"), MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS);
+	write_string_item_if_changed(h, data, _T("NSCLIENT_PWD"), MAIN_SECTION_TITLE, MAIN_SETTINGS_PWD);
+
+	settings_base::sectionList list;
+	if (h.isChangedProperyAndOld(_T("CONF_NRPE")))
+		list.push_back(_T("NRPEListener.dll"));
+	if (h.isChangedProperyAndOld(_T("CONF_NSCLIENT")))
+		list.push_back(_T("NSClientListener.dll"));
+	if (h.isChangedProperyAndOld(_T("CONF_NSCA")))
+		list.push_back(_T("NSCAAgent.dll"));
+	if (h.isChangedProperyAndOld(_T("CONF_WMI")))
+		list.push_back(_T("CheckWMI.dll"));
+	if (h.isChangedProperyAndOld(_T("CONF_CHECKS"))) {
+		list.push_back(_T("FileLogger.dll"));
+		list.push_back(_T("CheckSystem.dll"));
+		list.push_back(_T("CheckDisk.dll"));
+		list.push_back(_T("CheckEventLog.dll"));
+		list.push_back(_T("CheckHelpers.dll"));
+	}
+	if (list.size() > 0) {
+		data.write_int(2);
+		data.write_list(list);
+	}
+	if (data.has_data()) {
+		h.logMessage(_T("Scheduling (ExecWriteConfig): ") + data.to_string());
+		HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
+		if (FAILED(hr)) {
+			h.errorMessage(_T("failed to schedule config update"));
+			return hr;
+		}
+	}
 }
 
 
@@ -421,59 +514,6 @@ extern "C" UINT __stdcall UninstallService (MSIHANDLE hInstall) {
 */
 
 //#pragma comment(linker, "/EXPORT:UpdateConfig=_UpdateConfig@4")
-extern "C" UINT __stdcall UpdateConfig (MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("UpdateConfig"));
-	try {
-		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
-		std::wstring svc_exe = h.getPropery(_T("INSTALL_SVC_EXE"));
-		std::wstring svc_sname = h.getPropery(_T("INSTALL_SVC_SHORTNAME"));
-		std::wstring svc_lname = h.getPropery(_T("INSTALL_SVC_LONGNAME"));
-		std::wstring svc_desc = h.getPropery(_T("INSTALL_SVC_DESC"));
-
-		std::wstring main_conf = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
-		std::wstring custom_conf = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
-
-		std::wstring write = target + _T("\\") + custom_conf;
-		h.logMessage(_T("config file (update): ") + write);
-
-		h.logMessage(_T("service: ") + svc_exe);
-		h.logMessage(_T("service short name: ") + svc_sname);
-		h.logMessage(_T("service long name: ") + svc_lname);
-		h.logMessage(_T("service desc: ") + svc_desc);
-
-		std::wstring filename = target + _T("\\") + svc_exe;
-		h.logMessage(_T("service exe: ") + filename);
-
-		if (h.getPropery(_T("CONF_CAN_WRITE")) == _T("1")) {
-			if (h.getPropery(_T("KEEP_WHICH_CONFIG")) == _T("OLD")) {
-				CopyFile((target + _T("\\nsc.ini")).c_str(), (target + _T("\\nsc.new")).c_str(), FALSE);
-				CopyFile((h.getTempPath() + _T("\\old_nsc.ini")).c_str(), (target + _T("\\nsc.ini")).c_str(), FALSE);
-			} else {
-				CopyFile((h.getTempPath() + _T("\\old_nsc.ini")).c_str(), (target + _T("\\nsc.old")).c_str(), FALSE);
-			}
-		}
-		if (h.getPropery(_T("KEEP_WHICH_CONFIG")) == _T("NEW")) {
-			if (!write_config(h, target, custom_conf)) {
-				h.logMessage(_T("Failed to write configuration"));
-				return ERROR_INSTALL_FAILURE;
-			}
-		}
-
-		h.startProgress(10000, 2*10000, _T("Seting up service: [2] ([1])..."), _T("Seting up service: [2] ([1])... (X)"));
-		if (!install(h, filename, svc_sname, svc_lname, svc_desc)) {
-			h.logMessage(_T("service installtion failed"));
-			return ERROR_INSTALL_FAILURE;
-		}
-		h.logMessage(_T("service installed"));
-	} catch (installer_exception e) {
-		h.errorMessage(_T("Failed to install service: ") + e.what());
-		return ERROR_INSTALL_FAILURE;
-	} catch (...) {
-		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
-		return ERROR_INSTALL_FAILURE;
-	}
-	return ERROR_SUCCESS;
-}
 
 extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("StartService"));

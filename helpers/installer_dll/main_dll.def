@@ -1,8 +1,9 @@
 LIBRARY	installer_dll
 
 EXPORTS
-	UpdateConfig
 	ImportConfig
+	ScheduleWriteConfig
+	ExecWriteConfig
 	StartAllServices
 	StopAllServices
 	ScheduleInstallService

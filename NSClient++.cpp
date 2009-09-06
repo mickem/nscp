@@ -1201,7 +1201,7 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 			}	
 			std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
 		}
-		if (messageHandlers_.size() == 0 && !plugins_loaded_) {
+		if (!plugins_loaded_) {
 			OutputDebugString(message.c_str());
 			log_cache_.push_back(cached_log_entry(msgType, file, line, message));
 		} else {

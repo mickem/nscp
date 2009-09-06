@@ -523,6 +523,15 @@ public:
 		unsigned int get_next_int() {
 			return strEx::stoi(get_next_string());
 		}
+		std::list<std::wstring> get_next_list() {
+			std::list<std::wstring> list;
+			unsigned int count = get_next_int();
+			for (unsigned int i=0;i<count;++i) {
+				list.push_back(get_next_string());
+			}
+			return list;
+		}
+
 		std::wstring to_string() {
 			std::wstring str;
 			for (list_t::const_iterator cit = list_.begin(); cit != list_.end(); ++cit) {
@@ -540,6 +549,16 @@ public:
 		custom_action_data_w() {}
 		~custom_action_data_w() {}
 
+		void insert_string(std::wstring str) {
+			WCHAR delim[] = {MAGIC_MULTISZ_DELIM, 0}; // magic char followed by NULL terminator
+			if (!buf_.empty())
+				buf_ = str + delim + buf_ ;
+			else
+				buf_ = str;
+		}
+		void insert_int(int i) {
+			insert_string(strEx::itos(i));
+		}
 		void write_string(std::wstring str) {
 			WCHAR delim[] = {MAGIC_MULTISZ_DELIM, 0}; // magic char followed by NULL terminator
 			if (!buf_.empty())
@@ -549,11 +568,17 @@ public:
 		void write_int(int i) {
 			write_string(strEx::itos(i));
 		}
+		void write_list(std::list<std::wstring> list) {
+			write_int(list.size());
+			for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+				write_string(*cit);
+			}
+		}
 		std::wstring to_string() const {
 			return buf_; //return std::wstring(data_);
 		}
-		boolean has_data() const {
-			return used_size() > 0;
+		boolean has_data(const int size = 0) const {
+			return used_size() > size;
 		}
 		operator const TCHAR* () const {
 			return buf_.c_str();
@@ -590,9 +615,8 @@ public:
 			throw installer_exception(_T("Failed MsiDoAction on deferred action") + error::format::from_system(er));
 		return S_OK;
 	}
-/*
+	/*
 	std::wstring get_target_for_file(std::wstring file) {
-
 		// turn that into the path to the target file
 		hr = StrAllocFormatted(&pwzFormattedFile, L"[#%s]", pwzFileId);
 		ExitOnFailure1(hr, "failed to format file string for file: %S", pwzFileId);
@@ -607,8 +631,8 @@ public:
 		hr = WcaGetRecordString(hRec, egqComponent, &pwzComponentId);
 		ExitOnFailure(hr, "failed to get game component id");
 	}
+	*/
 
-*/
 	std::list<std::wstring> enumProducts() {
 		WCHAR buffer[40];
 		DWORD id = 0;
