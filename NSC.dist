@@ -275,35 +275,6 @@ check_ok=CheckOK Everything is fine!
 ;my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService
 ;host_check=check_ok
 
-[NRPE Handlers]
-;# COMMAND DEFINITIONS
-;# Command definitions that this daemon will run.
-;# Can be either NRPE syntax:
-;command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10
-;# Or simplified syntax:
-;test=c:\test.bat foo $ARG1$ bar
-;check_disk1=/usr/local/nagios/libexec/check_disk -w 5 -c 10
-;# Or even loopback (inject) syntax (to run internal commands)
-;# This is a way to run "NSClient" commands and other internal module commands such as check eventlog etc.
-;check_cpu=inject checkCPU warn=80 crit=90 5 10 15
-;check_eventlog=inject CheckEventLog Application warn.require.eventType=error warn.require.eventType=warning critical.require.eventType=error critical.exclude.eventType=info truncate=1024 descriptions
-;check_disk_c=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\ATI\*.*
-;# But be careful:
-; dont_check=inject dont_check This will "loop forever" so be careful with the inject command...
-;# Check some escapings...
-; check_escape=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M "File: foo \" WIN=c:\\WINDOWS\\*.*"
-;# Some real world samples
-;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
-;nrpe_ok=scripts\ok.bat
-;check_multi_line=scripts\multi_line.bat
-;#
-;# The sample scripts
-;#
-;check_long=scripts\long.bat
-;check_ok=scripts\ok.bat
-;check_nok=scripts\xlong.bat
-;check_vbs=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
-
 ;# REMOTE NRPE PROXY COMMANDS
 ;  A list of commands that check other hosts.
 ;  Used by the NRPECLient module

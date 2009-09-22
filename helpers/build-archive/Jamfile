@@ -1,0 +1,38 @@
+import common ;
+local target = "NSClient++.zip" ;
+
+constant _MODULE : $(__name__) ;
+path-constant TOP : . ;
+
+rule tag ( name : type ? : property-set )
+{
+	return [ format-name $(name) : $(property-set) ] ;
+}
+
+rule format-name ( name : property-set )
+{
+    local properties = [ $(property-set).raw ] ;
+    if <architecture>ia64 in $(properties) { 
+		tag = IA64 ; 
+	} else { 
+		if <address-model>64 in $(properties) { tag = x64 ; }
+		else { tag = Win32 ; }
+	}
+	local date = [ SHELL "perl helpers/perl/echo_date.pl" ] ;
+	local version = [ SHELL "perl helpers/perl/echo_version.pl $(TOP)/../../AutoBuild.h" ] ;
+	return "$(name)-$(version)-$(tag)-$(date).zip" ;
+}
+
+rule generate-binary-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <source-folder>$(BOOST_STAGE_LOCATE)\\$(tag)\\binaries\\* ;
+}
+
+use-project master : ../.. ;
+
+zip $(target) : /master//NSClient++ : <tag>@tag <conditional>@generate-binary-location  ; 
+
+explicit $(target) ;
+install build-archive : $(target) : <location>$(BOOST_STAGE_LOCATE)/archive ;
+

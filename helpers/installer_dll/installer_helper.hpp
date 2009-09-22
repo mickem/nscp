@@ -449,6 +449,17 @@ public:
 			return WCA_TODO_UNKNOWN;
 		}
 	}
+	bool is_installed(std::wstring wzComponentId)
+	{
+		INSTALLSTATE isInstalled = INSTALLSTATE_UNKNOWN;
+		INSTALLSTATE isAction = INSTALLSTATE_UNKNOWN;
+		UINT er = ::MsiGetComponentStateW(hInstall_, wzComponentId.c_str(), &isInstalled, &isAction);
+		if (ERROR_SUCCESS != er) {
+			logMessage(_T("State for : ") + wzComponentId + _T(" was unknown due to: ") + error::format::from_system(er));
+			return WCA_TODO_UNKNOWN;
+		}
+		return (INSTALLSTATE_LOCAL == isInstalled || INSTALLSTATE_SOURCE == isInstalled);
+	}
 	/********************************************************************
 	WcaIsInstalling() - determines if a pair of installstates means install
 	********************************************************************/

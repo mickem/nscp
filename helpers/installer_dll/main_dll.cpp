@@ -490,29 +490,6 @@ bool stop(msi_helper &h, std::wstring service_name = _T("")) {
 }
 
 
-//#pragma comment(linker, "/EXPORT:UninstallService=_UninstallService@4")
-/*
-extern "C" UINT __stdcall UninstallService (MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("UninstallService"));
-	try {
-		h.logMessage(_T("Remove mode is: ") + h.getPropery(_T("REMOVE")));
-		h.logMessage(_T("mime mode is: ") + h.getPropery(_T("REMOVE_MIME")));
-		h.setProperty(_T("REMOVE_MIME"), _T("test"));
-
-		h.startProgress(10000, 2*10000, _T("Removing service: [2] ([1])..."), _T("Removing service: [2] ([1])... (X)"));
-		if (!uninstall(h))
-			return ERROR_INSTALL_FAILURE;
-	} catch (installer_exception e) {
-		h.errorMessage(_T("Failed to install service: ") + e.what());
-		return ERROR_INSTALL_FAILURE;
-	} catch (...) {
-		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
-		return ERROR_INSTALL_FAILURE;
-	}
-	return ERROR_SUCCESS;
-}
-*/
-
 //#pragma comment(linker, "/EXPORT:UpdateConfig=_UpdateConfig@4")
 
 extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
@@ -533,9 +510,22 @@ extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 				while (hRec != NULL)
 				{
 					std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
-					h.logMessage(_T("Starting: ") + shortname);
-					if (!start(h, shortname)) {
-						h.logMessage(_T("service failed to start: ") + shortname);
+					std::wstring component = h.get_record_string(hRec, feqComponent);
+
+					// figure out what we're doing for this exception, treating reinstall the same as install
+					msi_helper::WCA_TODO todoComponent = h.get_component_todo(component);
+					if ((msi_helper::WCA_TODO_REINSTALL == todoComponent ? msi_helper::WCA_TODO_INSTALL : todoComponent) != msi_helper::WCA_TODO_INSTALL) {
+						h.logMessage(_T("Component '") + component + _T("' action state (") + strEx::itos(todoComponent) + _T(") doesn't match request (") + strEx::itos(msi_helper::WCA_TODO_INSTALL) + _T(")"));
+						hRec = h.fetch_record(hView);
+						continue;
+					}
+					try {
+						if (!serviceControll::isStarted(shortname)) {
+							h.updateProgress(_T("Starting service"), shortname);
+							serviceControll::Start(shortname);
+						}
+					} catch (const serviceControll::SCException& e) {
+						h.logMessage(_T("Failed to start service: ") + shortname + _T(": ") + e.error_);
 					}
 					hRec = h.fetch_record(hView);
 				}
@@ -546,15 +536,14 @@ extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 			long r = (long)ShellExecute(NULL, _T("open"), _T("https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=michael@medin.name&item_name=Fans+of+NSClient%2B%2B&item_number=Installer+Campaign&amount=10%2e00&currency_code=EUR&return=http%3A//nsclient.org"), NULL, NULL, SW_SHOWNORMAL);
 			if (r > 32)
 				return ERROR_SUCCESS;
-			msi_helper h(hInstall, _T("Donate"));
-			h.errorMessage(_T("Failed to start web browser..."));
+			h.errorMessage(_T("Failed to start web browser for donations..."));
 			return ERROR_INSTALL_FAILURE;
 		}
 	} catch (installer_exception e) {
-		h.errorMessage(_T("Failed to start service: ") + e.what());
+		h.errorMessage(_T("Failed to process finalizing stuff: ") + e.what());
 		return ERROR_INSTALL_FAILURE;
 	} catch (...) {
-		h.errorMessage(_T("Failed to start service: <UNKNOWN EXCEPTION>"));
+		h.errorMessage(_T("Failed to process finalizing stuff: <UNKNOWN EXCEPTION>"));
 		return ERROR_INSTALL_FAILURE;
 	}
 	return ERROR_SUCCESS;
@@ -583,28 +572,33 @@ extern "C" UINT __stdcall StopAllServices (MSIHANDLE hInstall) {
 		while (hRec != NULL)
 		{
 			std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
-			h.logMessage(_T("Stopping: ") + shortname);
-			if (!stop(h, shortname)) {
-				h.logMessage(_T("service failed to stop: ") + shortname);
+			std::wstring component = h.get_record_string(hRec, feqComponent);
+
+			// figure out what we're doing for this exception, treating reinstall the same as install
+			msi_helper::WCA_TODO todoComponent = h.get_component_todo(component);
+			if (todoComponent == msi_helper::WCA_TODO_REINSTALL)
+				todoComponent = msi_helper::WCA_TODO_INSTALL;
+			h.logMessage(_T("Component '") + component + _T("' action state (") + strEx::itos(todoComponent));
+			if (todoComponent != msi_helper::WCA_TODO_INSTALL && todoComponent != msi_helper::WCA_TODO_UNINSTALL) {
+				h.logMessage(_T("Component '") + component + _T("' action state (") + strEx::itos(todoComponent) + _T(") doesn't match request (IN/UN/RE)"));
+				hRec = h.fetch_record(hView);
+				continue;
+			}
+			try {
+				if (serviceControll::isStarted(shortname)) {
+					h.updateProgress(_T("Stopping service"), shortname);
+					serviceControll::Stop(shortname);
+				}
+			} catch (const serviceControll::SCException& e) {
+				h.logMessage(_T("Failed to stop service: ") + shortname + _T(": ") + e.error_);
 			}
 			hRec = h.fetch_record(hView);
 		}
-		/*
-		val = h.getPropery(_T("DONATE_ON_EXIT"));
-		if (val == _T("1")) {
-		long r = (long)ShellExecute(NULL, _T("open"), _T("https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=michael@medin.name&item_name=Fans+of+NSClient%2B%2B&item_number=Installer+Campaign&amount=10%2e00&currency_code=EUR&return=http%3A//nsclient.org"), NULL, NULL, SW_SHOWNORMAL);
-		if (r > 32)
-		return ERROR_SUCCESS;
-		msi_helper h(hInstall, _T("Donate"));
-		h.errorMessage(_T("Failed to start web browser..."));
-		return ERROR_INSTALL_FAILURE;
-		}
-		*/
 	} catch (installer_exception e) {
-		h.errorMessage(_T("Failed to start service: ") + e.what());
+		h.errorMessage(_T("Failed to stop service: ") + e.what());
 		return ERROR_INSTALL_FAILURE;
 	} catch (...) {
-		h.errorMessage(_T("Failed to start service: <UNKNOWN EXCEPTION>"));
+		h.errorMessage(_T("Failed to stop service: <UNKNOWN EXCEPTION>"));
 		return ERROR_INSTALL_FAILURE;
 	}
 	return ERROR_SUCCESS;

@@ -97,6 +97,7 @@
 													LongName="$(var.App.Title) ($(var.PlatForm)) system tray)" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
 													IconIndex="0" Description="Start the $(var.App.Title) systemtray agent"/>
 							</File>
+							
 							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="yes"/>
 							<?ifdef var.boost ?>
 								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog.txt" Vital="no"/>
@@ -112,6 +113,16 @@
 						</Component>
 						<Component Id="FireWallException" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
 						<Component Id="ServiceRegistration" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
+						<Component Id="Documentation" Guid="9B490E67-5472-4267-889C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+							<File Id="doc.usage.nagios" Name="nagios.pdf" LongName="Nagios Usage Guide.pdf" DiskId="1" Source="$(var.Source)/Nagios Usage Guide.pdf" Vital="no" >
+								<Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="nagios"
+													LongName="Nagios Usage Guide" WorkingDirectory="INSTALLDIR" Description="Nagios Usage Guide"/>
+							</File>
+							<File Id="doc.reference" Name="nsclient.pdf" LongName="NSClient++ Reference Manual.pdf" DiskId="1" Source="$(var.Source)/NSClient++ Reference Manual.pdf" Vital="no" >
+								<Shortcut Id="Startmenu.doc.ref" Directory="ProgramMenuDir" Name="refman"
+													LongName="NSClient++ Reference Manual" WorkingDirectory="INSTALLDIR" Description="NSClient++ Reference Manual"/>
+							</File>
+						</Component>
 						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
 							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 								<File Id="NRPEListenerDLL" Name="NRPELsnr.dll" LongName="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEListener.dll" Vital="no" />
@@ -169,6 +180,9 @@
 				</Feature>
 				<Feature Id="ServiceRegistration" Title="Register service" Description="Register the NSClient++ service" Level="1">
 					<ComponentRef Id="ServiceRegistration" />
+				</Feature>
+				<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1">
+					<ComponentRef Id="Documentation" />
 				</Feature>
 				<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
@@ -231,55 +245,11 @@
 			</Row>
 		</CustomTable>
 
-		<!--
-		<Condition Message='This installation can only run in full UI mode.'>
-			UILevel = 5
-		</Condition>
--->
-		<Property Id='ARPCOMMENTS'>NSClient++ is a </Property>
-		<Property Id='ARPCONTACT'>michael@medin.name</Property>
-		<Property Id='ARPHELPLINK'>http://nsclient.org</Property>
-		<Property Id='ARPURLINFOABOUT'>http://nsclient.org</Property>
-		<Property Id='ARPURLUPDATEINFO'>http://nsclient.org</Property>
-		<Property Id='ARPHELPTELEPHONE'>http://nsclient.org</Property>
-		<Property Id='ARPPRODUCTICON'>nsclient.exe</Property>
-
-		<Property Id="CONF_CHECKS_DEFAULT"></Property>
-		<Property Id="CONF_NSCLIENT_DEFAULT"></Property>
-		<Property Id="CONF_NRPE_DEFAULT"></Property>
-		<Property Id="CONF_NSCA_DEFAULT"></Property>
-		<Property Id="CONF_WMI_DEFAULT"></Property>
-		<Property Id="ALLOW_CONFIGURATION" />
-
-		<!-- CONFIGURE DEFAULT VALUES-->
-		<!--
-		<Property Id="ALLOWED_HOSTS_DEFAULT">$$EMPTY$$</Property>
-		<Property Id="NSCLIENT_PWD_DEFAULT">$$EMPTY$$</Property>
-			-->
-
-		<!-- CONFIGURE THE INSTALLER -->
-		<Property Id='INSCON_CONFIGURE'>1</Property>
-		<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
-		<Property Id='CUSTOM_CONFIGURATION_FILE'>NSC.ini</Property>
-
-		<Property Id='HELP_LINK'>http://nsclient.org/nscp/</Property>
-
-		<Property Id='SHOW_START_ON_EXIT'>1</Property>
-		<Property Id='START_SERVICE_ON_EXIT'></Property>
-		<Property Id='SHOW_DONATE_ON_EXIT'>1</Property>
-		<Property Id='DONATE_ON_EXIT'></Property>
-		<Property Id='KEEP_WHICH_CONFIG'>NEW</Property>
-		<!--
-		<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
-		-->
-		<!--
-			<Property Id='ARPREADME'>path</Property>  
-			<Property Id='ARPSIZE'>app size in kilobytes</Property>
-		-->
+		<?include properties.wxs ?>
 
 		<CustomAction Id='ReadOldConfig' BinaryKey='InstallerHelper' DllEntry='ImportConfig' Impersonate='no' />
-    <CustomAction Id='ScheduleWriteConfig' BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig' Impersonate='no' />
-    <CustomAction Id="ExecWriteConfig" BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig" Execute="deferred" Impersonate="no" Return="check"  />
+		<CustomAction Id='ScheduleWriteConfig' BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig' Impersonate='no' />
+		<CustomAction Id="ExecWriteConfig" BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig" Execute="deferred" Impersonate="no" Return="check"  />
 
     <CustomAction Id='NeedUninstall' BinaryKey='InstallerHelper' DllEntry='NeedUninstall' Impersonate='no' />
 		
@@ -310,8 +280,8 @@
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
-      <Custom Action="ScheduleWriteConfig" After='InstallFiles' />
-      <Custom Action="SchedServiceInstall" After="InstallFiles" />
+			<Custom Action="ScheduleWriteConfig" After='InstallFiles' />
+			<Custom Action="SchedServiceInstall" After="InstallFiles" />
 			<Custom Action="SchedServiceUnInstall" Before="RemoveFiles" />
 			<Custom Action="StopAllServices" Before="InstallValidate" />
 

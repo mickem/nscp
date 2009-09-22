@@ -64,9 +64,11 @@ namespace strEx {
 		}
 	}
 
-	inline void append_list(std::wstring &lst, std::wstring &append) {
+	inline void append_list(std::wstring &lst, std::wstring &append, std::wstring sep = _T(", ")) {
+		if (append.empty())
+			return;
 		if (!lst.empty())
-			lst += _T(", ");
+			lst += sep;
 		lst += append;
 	}
 

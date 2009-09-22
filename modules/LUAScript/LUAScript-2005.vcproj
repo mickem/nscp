@@ -47,7 +47,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../include;../../include"
+				AdditionalIncludeDirectories="&quot;D:\source\NSCP-stable\lib-source\LUA\src\lua-5.1.2\src\&quot;;../include;../../include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"

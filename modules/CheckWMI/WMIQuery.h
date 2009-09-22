@@ -133,11 +133,21 @@ public:
 			results[column] = value;
 		}
 
-		std::wstring render() {
+		std::wstring render(std::wstring syntax = _T(""), std::wstring sep = _T(", ")) {
 			std::wstring ret;
 			for (list_type::const_iterator it = results.begin(); it != results.end(); ++it) {
-				if (!ret.empty())	ret += _T(", ");
-				ret += (*it).first + _T("=") + (*it).second.string;
+				if (syntax.empty()) {
+					if (!ret.empty())	ret += sep;
+					ret += (*it).first + _T("=") + (*it).second.string;
+				} else {
+					std::wstring sub = syntax;
+					strEx::replace(sub, _T("%column%"), (*it).first);
+					strEx::replace(sub, _T("%value%"), (*it).second.string);
+					strEx::replace(sub, _T("%") + (*it).first + _T("%"), (*it).second.string);
+					if (sub == syntax)
+						continue;
+					strEx::append_list(ret, sub, sep);
+				}
 			}
 			return ret;
 		}

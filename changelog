@@ -6,6 +6,14 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2009-09-20 MickeM
+ * Fixed alias in CheckWMI (now works)
+ + Added columnSyntax to CheckWMI to allow formating of returned data (default is %column%=%value%)
+ + Added columnSeparator to CheckWMI to allow formating of returned data (default is ", ")
+
+2009-09-13 MickeM
+ * Fixed some more issues with the installer should not "work" on Windows 2008 as well as slightly simpler to configure.
+
 2009-09-06 MickeM
  + Added new option to [NSCA Agent] string_length=<size> of the NSCA_MAX_PLUGINOUTPUT_LENGTH option on the NSCA server.
  * Readded all the "installer configuration" crap which I accidentaly removed when I fixed the installer... *sigh*

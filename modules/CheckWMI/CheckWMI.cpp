@@ -93,6 +93,8 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 	std::wstring query, alias;
 	std::wstring ns = _T("root\\cimv2");
 	bool bPerfData = true;
+	std::wstring colSyntax;
+	std::wstring colSep;
 
 	WMIContainer result_query;
 	try {
@@ -100,18 +102,20 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 		MAP_OPTIONS_STR(_T("Query"), query)
 		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 		MAP_OPTIONS_STR(_T("namespace"), ns)
-		MAP_OPTIONS_STR(_T("Alias"), alias)
+		MAP_OPTIONS_STR(_T("Alias"), result_query.alias)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_NUMERIC_ALL(result_query, _T(""))
 		MAP_OPTIONS_SHOWALL(result_query)
 		MAP_CHAINED_FILTER(_T("string"),string)
+		MAP_OPTIONS_STR(_T("columnSyntax"),colSyntax)
+		MAP_OPTIONS_STR(_T("columnSeparator"),colSep)
 		MAP_CHAINED_FILTER(_T("numeric"),numeric)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 		MAP_SECONDARY_CHAINED_FILTER(_T("string"),string)
 		MAP_SECONDARY_CHAINED_FILTER(_T("numeric"),numeric)
 			else if (p2.first == _T("Query")) {
 					query = p__.second;
-					alias = p2.second;
+					result_query.alias = p2.second;
 				}
 		MAP_OPTIONS_MISSING_EX(p2, message, _T("Unknown argument: "))
 			MAP_OPTIONS_SECONDARY_END()
@@ -134,13 +138,17 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 	if (chain.empty()) {
 		NSC_DEBUG_MSG_STD(_T("No filters specified so we will match all rows"));
 		hit_count = rows.size();
+		for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+			WMIQuery::wmi_row vals = *citRow;
+			strEx::append_list(message, vals.render(colSyntax, colSep), colSep);
+		}
 	} else {
 		bool match = chain.get_inital_state();
 		for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
 			WMIQuery::wmi_row vals = *citRow;
 			match = chain.match(match, vals);
 			if (match) {
-				strEx::append_list(message, vals.render());
+				strEx::append_list(message, vals.render(colSyntax, colSep), colSep);
 				hit_count++;
 			}
 		}
@@ -148,6 +156,10 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 
 	if (!bPerfData)
 		result_query.perfData = false;
+	if (result_query.alias.empty())
+		result_query.alias = _T("wmi query");
+
+	NSC_DEBUG_MSG_STD(_T("Message is: ") + message);
 	result_query.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");

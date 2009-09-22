@@ -29,6 +29,8 @@ import bjam/zip ;
 local target = NSClient++ ;
 local target-config = nsc.ini ;
 local target-readme = readme.txt ;
+local target-guide = "Nagios Usage Guide.pdf" ;
+local target-refman = "NSClient++ Reference Manual.pdf" ;
 local target-changelog = changelog.txt ;
 local target-license = license.txt ;
 local target-counters = counters.defs ;
@@ -149,8 +151,12 @@ explicit $(target) ;
 make $(target-config) : nsc.dist : common.copy ;
 explicit $(target-config) ;
 
-make $(target-readme) : files/readme.txt : common.copy ;
+make $(target-readme) : docs/readme.txt : common.copy ;
 explicit $(target-readme) ;
+make $(target-guide) : "docs/Nagios Usage Guide.pdf" : common.copy ;
+explicit $(target-guide) ;
+make $(target-refman) : "docs/NSClient++ Reference Manual.pdf" : common.copy ;
+explicit $(target-refman) ;
 
 make $(target-license) : files/license.txt : common.copy ;
 explicit $(target-license) ;
@@ -261,7 +267,7 @@ explicit all-helpers-targets ;
 alias all-scripts-targets : $(all-scripts-lst) ;
 explicit all-scripts-targets ;
 
-alias all-root-targets : $(target) $(target-config) $(target-readme) $(target-license) $(target-changelog) $(target-counters) helpers/systray_helper ;
+alias all-root-targets : $(target) $(target-config) $(target-readme) $(target-guide) $(target-refman) $(target-license) $(target-changelog) $(target-counters) helpers/systray_helper ;
 explicit all-root-targets ;
 
 alias all-modules-targets : $(all-modules) ;
