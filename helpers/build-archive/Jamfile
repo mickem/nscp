@@ -12,12 +12,7 @@ rule tag ( name : type ? : property-set )
 rule format-name ( name : property-set )
 {
     local properties = [ $(property-set).raw ] ;
-    if <architecture>ia64 in $(properties) { 
-		tag = IA64 ; 
-	} else { 
-		if <address-model>64 in $(properties) { tag = x64 ; }
-		else { tag = Win32 ; }
-	}
+	local tag = [ get-root-prefix $(properties) ] ;
 	local date = [ SHELL "perl helpers/perl/echo_date.pl" ] ;
 	local version = [ SHELL "perl helpers/perl/echo_version.pl $(TOP)/../../AutoBuild.h" ] ;
 	return "$(name)-$(version)-$(tag)-$(date).zip" ;

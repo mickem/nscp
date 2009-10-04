@@ -1,0 +1,34 @@
+import common ;
+import path ; 
+local target = "NSClient++.zip" ;
+
+constant _MODULE : $(__name__) ;
+path-constant TOP : . ;
+
+rule format-name ( name : type ? : property-set )
+{
+    local properties = [ $(property-set).raw ] ;
+	local date = [ SHELL "perl helpers/perl/echo_date.pl" ] ;
+	local version = [ SHELL "perl helpers/perl/echo_version.pl $(TOP)/../../AutoBuild.h" ] ;
+	return "$(name)-$(version)-source-$(date).zip" ;
+}
+
+use-project master : ../.. ;
+
+zip $(target) : /master//NSClient++ : 
+	<tag>@format-name 
+	<source-folder>../../*.c*
+	<source-folder>../../*.h*
+	<source-folder>../../*.def
+	<recursive>on
+	<exclude>.svn
+	<exclude>bin
+	<exclude>lib-source
+	<exclude>to_remove
+	<exclude>Debug
+	<exclude>tmp
+; 
+
+explicit $(target) ;
+install build-archive : $(target) : <location>$(BOOST_STAGE_LOCATE)/archive ;
+

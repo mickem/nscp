@@ -24,6 +24,9 @@
 #include <Userenv.h>
 #include <remote_processes.hpp>
 #include <Lmcons.h>
+//#ifdef DEBUG
+#include <assert.h>
+//#endif
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
@@ -450,6 +453,10 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				} else if (s == _T("reattach")) {
 					std::wcout << _T("Reattaching to session 0") << std::endl;
 					mainClient.startTrayIcon(0);
+//#ifdef DEBUG
+				} else if (s == _T("assert")) {
+					assert(false);
+//#endif
 				} else if (std::cin.peek() < 15) {
 					buff += s;
 					strEx::token t = strEx::getToken(buff, ' ');

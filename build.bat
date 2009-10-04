@@ -1,26 +1,28 @@
 @echo off
 @call env.bat
 
-SET cmdline=%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% %* build-binaries
-%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off %* build-binaries
+echo :: %jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off --with-psdk="%PLATTFORM_SDK_INCLUDE%" %* build-binaries >> build.log
+%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off --with-psdk="%PLATTFORM_SDK_INCLUDE%" %* build-binaries
 if %ERRORLEVEL% == 1 goto :error
+echo :: Result: %ERRORLEVEL% >> build.log
 
-SET cmdline=%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off %* build-archives
-%jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% warnings=off %* build-archives
+echo :: %jam% --toolset=msvc warnings=off %* build-archives >> build.log
+%jam% --toolset=msvc warnings=off %* build-archives
 if %ERRORLEVEL% == 1 goto :error
+echo :: Result: %ERRORLEVEL% >> build.log
 
-SET cmdline=%jam% --toolset=wix %* build-installer
-%jam% --toolset=wix %* build-installer
+echo :: %jam% --toolset=wix "--wix=%WIX_PATH%" %* build-installer >> build.log
+%jam% --toolset=wix "--wix=%WIX_PATH%" %* build-installer
 if %ERRORLEVEL% == 1 goto :error
+echo :: Result: %ERRORLEVEL% >> build.log
 
-exit /b 1
+exit /b 0
 goto :eof
 
 :error
+echo :: Error: %ERRORLEVEL% >> build.log
 echo *************
 echo * E R R O R *
-echo *************
-echo %cmdline%
 echo *************
 
 exit /b -1

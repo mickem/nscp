@@ -207,8 +207,8 @@ if $(toolset) = "msvc" {
 		}
 		all-modules = $(result) ;
 	}
-	for local l in $(all-modules)
-	{
+	all-modules-text = "" ;
+	for local l in $(all-modules) {
 		alias $(l) 
 			: # sources
 			modules/$(l) 
@@ -217,31 +217,25 @@ if $(toolset) = "msvc" {
 			: # usage requirements
 			<dependency>$(target)
 			;
-		echo "Adding module: $(l)" ;
 		explicit $(l) ;
+		all-modules-text = "$(all-modules-text) $(l)" ;
 	}
-	for local l in $(all-scripts)
-	{
-		#make scripts-$(l) : scripts/$(l) : common.copy ;
-		#explicit scripts/$(l) ;
-
-		#alias scripts-$(l) : scripts/$(l) ;
-		#explicit scripts-$(l) ;
-
+	echo "Building modules: $(all-modules-text)" ;
+	for local l in $(all-scripts) {
 		all-scripts-lst = $(all-scripts-lst) scripts/$(l) ;
-
-		echo "Adding script: $(l)" ;
 	}
-}
-
-all-installers =
-    [ MATCH .*helpers/(.*)/.* : [ glob helpers/*installer/Jamfile ] ]
-    ;
-for local l in $(all-installers)
-{
-	alias $(l) : helpers/$(l) ;
-	echo "Adding installer target for: $(l)" ;
-	explicit $(l) ;
+} else {
+	all-installers =
+		[ MATCH .*helpers/(.*)/.* : [ glob helpers/*installer/Jamfile ] ]
+		;
+	all-installers-text = "" ;
+	for local l in $(all-installers)
+	{
+		alias $(l) : helpers/$(l) ;
+		explicit $(l) ;
+		all-installers-text = "$(all-installers-text) $(l)" ;
+	}
+	echo "Building installers: $(all-installers-text)" ;
 }
 
 all-archive =
@@ -279,12 +273,20 @@ explicit all-archive-targets ;
 
 rule get-root-prefix ( properties * )
 {
+	tag = "UNKNOWN" ;
     if <architecture>ia64 in $(properties) { 
-		return IA64 ; 
+		tag = "IA64" ;
 	} else { 
-		if <address-model>64 in $(properties) { return x64 ; }
-		else { return Win32 ; }
+		if <address-model>64 in $(properties) { 
+			tag = "x64" ; 
+		} else { 
+			tag = "Win32" ; 
+		}
 	}
+    if <variant>debug in $(properties) {
+		tag = "$(tag)-debug" ;
+	}
+	return $(tag) ;
 }
 rule generate-binary-location ( properties * )
 {
@@ -326,9 +328,10 @@ explicit build-binaries ;
 alias build-archives : all-archive-targets : <location>$(BOOST_STAGE_LOCATE)/archive ;
 explicit build-archives ;
 
-
 alias build-installer : all-installer-targets : <location>$(BOOST_STAGE_LOCATE)/installer ;
 explicit build-installer ;
 
+alias source-archive : helpers/build-source : <location>$(BOOST_STAGE_LOCATE)/archive ;
+explicit source-archive ;
 
 
