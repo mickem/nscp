@@ -114,8 +114,8 @@ rule requirements ( properties * )
 lib Msi 
 	: # source
 	: # requirements
-		<name>Msi
 		<conditional>@requirements
+	: # default-build
 	: # usage-requirements
 		<conditional>@usage-requirements
 	;
@@ -123,8 +123,8 @@ lib Msi
 lib bufferoverflowu 
 	: # source
 	: # requirements
-		<name>bufferoverflowu
 		<conditional>@requirements
+	: # default-build
 	: # usage-requirements
 		<conditional>@usage-requirements
 	;
@@ -132,6 +132,8 @@ lib bufferoverflowu
 alias hnetcfg
 	: # source
 	: # requirements
+		<conditional>@requirements
+	: # default-build
 	: # usage-requirements
 		<conditional>@usage-requirements
 	;

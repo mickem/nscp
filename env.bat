@@ -12,6 +12,7 @@ rem # Set the path to the boost build path (usualy inside the boost library loca
 rem #
 rem SET BOOST_BUILD_PATH=D:\tools\boost-build
 SET BOOST_BUILD_PATH=C:\src\lib-src\boost_1_39_0\tools\build\v2
+rem SET BOOST_BUILD_PATH=C:\src\tools\beta\boost-build
 rem BOOST_BUILD_PATH=D:\source\boost-build
 rem #
 rem ########################

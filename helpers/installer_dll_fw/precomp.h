@@ -21,7 +21,9 @@
 #include <msidefs.h>
 #include <msiquery.h>
 //#include <strsafe.h>
+#ifdef USE_PSDK
 #include <netfw.h>
+#endif
 
 //#include "wcautil.h"
 //#include "fileutil.h"

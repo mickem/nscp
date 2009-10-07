@@ -1,34 +1,17 @@
 local target = installer_dll ;
 local source = main_dll ;
 
-#project 
-#	: requirements
-#	<find-static-library>Msi
-#	<library-path>"D:/Program/Microsoft Platform SDK for Windows Server 2003 R2/Lib"
-#	;
-
-
-
-#local lib = [ MATCH "^--psdk-lib=(.*)" : [ modules.peek : ARGV ] ] ;
-#echo "PSDK lib path: $(lib) (change with --psdk-lib=<other path>" ;
-
-#lib Msi : : <name>Msi <search>$(lib) ; 
-#lib bufferoverflowu : : <name>bufferoverflowu <search>$(lib) ; 
-#lib secchk : : <name>secchk <search>$(lib) ; 
-#lib secchk : : <name>secchk ; 
-
 lib $(target)
 	: # sources
 	$(source).cpp
 	../../include/ServiceCmd.cpp
+	/psdk//Msi
+	/psdk//bufferoverflowu
 	: # requirements
-	<source>/psdk//Msi
-	<source>/psdk//bufferoverflowu
 	<def-file>$(source).def
 	<user-interface>gui
 	<runtime-link>static
 	<threading>multi
-
 	: # default build
 	: # usage requirements
 	;

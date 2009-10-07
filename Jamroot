@@ -254,8 +254,7 @@ explicit cryptopp-headers ;
 alias installer_dll : helpers/installer_dll helpers/installer_dll_fw ;
 explicit installer_dll ;
 
-all-helpers = installer_dll ;
-alias all-helpers-targets : $(all-helpers) ;
+alias all-helpers-targets : installer_dll ;
 explicit all-helpers-targets ;
 
 alias all-scripts-targets : $(all-scripts-lst) ;
