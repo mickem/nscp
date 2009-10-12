@@ -108,7 +108,26 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::blindstr command, co
 	command_list::const_iterator cit = commands.find(command);
 	if (cit == commands.end())
 		return NSCAPI::returnIgnored;
-	nrpe_result_data r = execute_nrpe_command((*cit).second);
+
+	std::wstring args = (*cit).second.arguments;
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 1) {
+		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
+		arrayBuffer::arrayList::const_iterator cit2 = arr.begin();
+		int i=1;
+
+		for (;cit2!=arr.end();cit2++,i++) {
+			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
+					return NSCAPI::returnIgnored;
+				}
+			}
+			strEx::replace(args, _T("$ARG") + strEx::itos(i) + _T("$"), (*cit2));
+		}
+	}
+
+	NSC_DEBUG_MSG_STD(_T("Rewrote command arguments: ") + args);
+	nrpe_result_data r = execute_nrpe_command((*cit).second, args);
 	message = r.text;
 	return r.result;
 }
@@ -179,7 +198,8 @@ int NRPEClient::commandLineExec(const TCHAR* command, const unsigned int argLen,
 			return 1;
 		}
 
-		nrpe_result_data result = execute_nrpe_command(get_ConectionData(vm));
+		NRPEClient::nrpe_connection_data command = get_ConectionData(vm);
+		nrpe_result_data result = execute_nrpe_command(command, command.arguments);
 		std::wcout << result.text << std::endl;
 		return result.result;
 	} catch (boost::program_options::validation_error &e) {
@@ -190,17 +210,17 @@ int NRPEClient::commandLineExec(const TCHAR* command, const unsigned int argLen,
 	return NSCAPI::returnUNKNOWN;
 #endif
 }
-NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_data con) {
+NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_data con, std::wstring arguments) {
 	try {
 		NRPEPacket packet;
 		if (con.ssl) {
 #ifdef USE_SSL
-			packet = send_ssl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(), con.buffer_length));
+			packet = send_ssl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(arguments), con.buffer_length));
 #else
 			return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)!"));
 #endif
 		} else
-			packet = send_nossl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(), con.buffer_length));
+			packet = send_nossl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(arguments), con.buffer_length));
 		return nrpe_result_data(packet.getResult(), packet.getPayload());
 	} catch (NRPEPacket::NRPEPacketException &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.getMessage());

@@ -25,7 +25,7 @@
 #include <remote_processes.hpp>
 #include <Lmcons.h>
 //#ifdef DEBUG
-#include <assert.h>
+#include <crtdbg.h>
 //#endif
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
@@ -455,7 +455,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					mainClient.startTrayIcon(0);
 //#ifdef DEBUG
 				} else if (s == _T("assert")) {
-					assert(false);
+					throw "test";
 //#endif
 				} else if (std::cin.peek() < 15) {
 					buff += s;

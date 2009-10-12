@@ -13,9 +13,7 @@ rule format-name ( name : type ? : property-set )
 	return "$(name)-$(version)-source-$(date).zip" ;
 }
 
-use-project master : ../.. ;
-
-zip $(target) : /master//NSClient++ : 
+zip $(target) : test.foo : 
 	<tag>@format-name 
 	<source-folder>../../*.c*
 	<source-folder>../../*.h*

@@ -16,6 +16,6 @@ flags bjam/zip.make-zip EXCLUDES <exclude> : -x ;
 flags bjam/zip.make-zip FLAGS <recursive>on : -r ;
 
 actions make-zip {
-	echo 7z.exe a -tzip -bd "$(<)" "$(FLAGS)" "$(SOURCE_FOLDER)" "-x!$(EXCLUDES)"
-	7z.exe a -tzip -bd "$(<)" "$(FLAGS)" "$(SOURCE_FOLDER)" "-x!$(EXCLUDES)"
+	echo 7z a -tzip -bd "$(<)" "$(FLAGS)" "$(SOURCE_FOLDER)" "-x!$(EXCLUDES)"
+	7z a -tzip -bd "$(<)" "$(FLAGS)" "$(SOURCE_FOLDER)" "-x!$(EXCLUDES)"
 } 

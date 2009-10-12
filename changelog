@@ -6,6 +6,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2009-10-11 MickeM
+ + Added argument support to NRPE Client
+   This is temporarily enabled by the same options under the NRPE section. BUT this will change int he future so be ware when using them.
+
 2009-09-20 MickeM
  * Fixed alias in CheckWMI (now works)
  + Added columnSyntax to CheckWMI to allow formating of returned data (default is %column%=%value%)

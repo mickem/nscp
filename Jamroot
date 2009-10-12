@@ -282,9 +282,9 @@ rule get-root-prefix ( properties * )
 			tag = "Win32" ; 
 		}
 	}
-    if <variant>debug in $(properties) {
-		tag = "$(tag)-debug" ;
-	}
+    #if <variant>debug in $(properties) {
+	#	tag = "$(tag)-debug" ;
+	#}
 	return $(tag) ;
 }
 rule generate-binary-location ( properties * )

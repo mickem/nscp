@@ -52,12 +52,14 @@ private:
 			ssl(true), 
 			buffer_length(buffer_length_) 
 		{}
-		std::wstring get_cli() {
+		std::wstring get_cli(std::wstring arguments_) {
 			if (command_line.empty()) {
 				command_line = command;
 				if (command_line.empty())
 					command_line = _T("_NRPE_CHECK");
-				if (!arguments.empty())
+				if (!arguments_.empty())
+					command_line += _T("!") + arguments_;
+				else if (!arguments.empty())
 					command_line += _T("!") + arguments;
 			}
 			return command_line;
@@ -120,7 +122,7 @@ public:
 	std::wstring getConfigurationMeta();
 
 private:
-	nrpe_result_data  execute_nrpe_command(nrpe_connection_data con);
+	nrpe_result_data  execute_nrpe_command(nrpe_connection_data con, std::wstring arguments);
 	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	void initSSL();
