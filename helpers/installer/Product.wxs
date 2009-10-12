@@ -111,7 +111,7 @@
 							<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
 							<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
 						</Component>
-						<Component Id="FireWallException" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
+						<Component Id="FireWallException" Guid="F6636DB0-A0B9-4dA2-B75D-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
 						<Component Id="ServiceRegistration" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
 						<Component Id="Documentation" Guid="9B490E67-5472-4267-889C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 							<File Id="doc.usage.nagios" Name="nagios.pdf" LongName="Nagios Usage Guide.pdf" DiskId="1" Source="$(var.Source)/Nagios Usage Guide.pdf" Vital="no" >

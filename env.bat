@@ -3,17 +3,21 @@ rem ########################
 rem #
 rem # Set the path to the boost build jam binary
 rem #
-SET jam=C:\src\tools\boost-jam-3.1.17\bin.ntx86\bjam.exe
+rem SET jam=C:\src\tools\boost-jam-3.1.17\bin.ntx86\bjam.exe
 rem SET jam=D:\source\tools\bjam.exe
+set jam=C:\src\tools\nightly\boost-build\jam_src\bin.ntx86\bjam.exe
+
 rem #
 rem ########################
 rem #
 rem # Set the path to the boost build path (usualy inside the boost library location)
 rem #
 rem SET BOOST_BUILD_PATH=D:\tools\boost-build
-SET BOOST_BUILD_PATH=C:\src\lib-src\boost_1_39_0\tools\build\v2
-rem SET BOOST_BUILD_PATH=C:\src\tools\beta\boost-build
-rem BOOST_BUILD_PATH=D:\source\boost-build
+ SET BOOST_BUILD_PATH=C:\src\lib-src\boost_1_39_0\tools\build\v2
+rem  SET BOOST_BUILD_PATH=C:\src\tools\beta\boost-build
+rem set BOOST_BUILD_PATH=D:\source\boost-build
+rem set BOOST_BUILD_PATH=C:\src\tools\nightly\boost-build\
+
 rem #
 rem ########################
 rem #
