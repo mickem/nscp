@@ -1,0 +1,58 @@
+import common ;
+local target = "NSClient++.msi" ;
+
+constant _MODULE : $(__name__) ;
+path-constant TOP : . ;
+
+project installer
+    : requirements <include>.
+	<tag>@$(__name__).tag
+    : usage-requirements
+    : build-dir bin.v2
+    : default-build $(default-build)
+    ;
+
+rule tag ( name : type ? : property-set )
+{
+	return [ format-name $(name) : $(property-set) ] ;
+}
+
+rule format-name ( name : property-set )
+{
+    local properties = [ $(property-set).raw ] ;
+    if <architecture>ia64 in $(properties) { 
+		tag = IA64 ; 
+	} else { 
+		if <address-model>64 in $(properties) { tag = x64 ; }
+		else { tag = Win32 ; }
+	}
+	local date = [ SHELL "perl helpers/perl/echo_date.pl" ] ;
+	local version = [ SHELL "perl helpers/perl/echo_version.pl $(TOP)/../../AutoBuild.h" ] ;
+	echo " * * * new name: $(name)-$(version)-$(tag)-$(date).msi" ;
+	return "$(name)-$(version)-$(tag)-$(date).msi" ;
+}
+
+rule generate-binary-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <define>Source=$(BOOST_STAGE_LOCATE)\\$(tag)\\binaries
+		<define>Helpers=$(BOOST_STAGE_LOCATE)\\$(tag)\\helpers
+			<define>arch=$(tag) ;
+}
+
+msi $(target)
+  :
+    Product.wxs
+    wixui.wixlib
+  :
+    <localisation>WixUI_en-us.wxl
+    <search-path>.
+	<conditional>@generate-binary-location
+	<define>boost=true
+    <variant>debug:<define>builddir=$(INSTALLDIR)/debug
+    <variant>release:<define>builddir=$(INSTALLDIR)/release
+  ; 
+explicit $(target) ;
+
+install build-installer : $(target) : <location>$(BOOST_STAGE_LOCATE)/installer ;
+

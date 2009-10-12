@@ -1,0 +1,8 @@
+<Include>
+<?define App.Title = "NSClient++" ?>
+<?define App.Path = "NSClient++" ?>
+<?define App.ShortPath = "NSClient" ?>
+<?define App.StartMenuPath = "NSClient++" ?>
+<?define Path.ini = "$(var.Source)" ?>
+<?define App.SubFolder = "\op5" ?>
+</Include>

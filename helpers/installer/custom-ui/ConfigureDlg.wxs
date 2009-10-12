@@ -1,0 +1,75 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
+  <Fragment>
+    <UI>
+      <Dialog Id="ConfigureDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+        <Control Id="allowed_hostsLabel" Type="Text" X="45" Y="53" Width="260" Height="15" TabSkip="no" Text="&amp;Allowed hosts: (this is the IP of the nagios (or other) server)" />
+        <Control Id="allowed_hosts" Type="Edit" X="45" 		Y="65" Width="280" Height="18" Property="ALLOWED_HOSTS" Text="{255}" >
+          <Condition Action="enable">CONF_CAN_WRITE = "1" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+          <Condition Action="disable">CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+		</Control>
+        <Control Id="nsclient_pwdLabel" Type="Text" X="45" 	Y="85" Width="260" Height="15" TabSkip="no" Text="&amp;NSClient password (only used via check_nt):" />
+        <Control Id="nsclient_pwdEdit" Type="Edit" X="45" 	Y="97" Width="280" Height="18" Property="NSCLIENT_PWD" Text="{255}" >
+          <Condition Action="enable">CONF_CAN_WRITE = "1" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+          <Condition Action="disable">CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+		</Control>
+
+		<Control Id="checkLabel" Type="GroupBox" X="45"			Y="120" Width="280" Height="95" Text="Modules to load:" />
+		<Control Id="checkPluginsLabel" Type="CheckBox" X="50"	Y="130" Width="260" Height="20" Property="CONF_CHECKS" Text="Enable common check plugins" CheckBoxValue="1" >
+          <Condition Action="enable"><![CDATA[CONF_CHECKS_GRAY <> "1" AND CONF_CAN_WRITE = "1" AND KEEP_WHICH_CONFIG = "NEW"]]></Condition>
+          <Condition Action="disable">CONF_CHECKS_GRAY = "1" OR CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+		</Control>
+		<Control Id="checkNSClientLabel" Type="CheckBox" X="50"	Y="145" Width="260" Height="20" Property="CONF_NSCLIENT" Text="Enable nsclient server (check_nt)" CheckBoxValue="1" >
+          <Condition Action="enable">CONF_CAN_WRITE = "1" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+          <Condition Action="disable">CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+		</Control>
+		<Control Id="checkNRPELabel" Type="CheckBox" X="50"		Y="160" Width="260" Height="20" Property="CONF_NRPE" Text="Enable NRPE server (check_nrpe)" CheckBoxValue="1" >
+          <Condition Action="enable">CONF_CAN_WRITE = "1" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+          <Condition Action="disable">CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+		</Control>
+		<Control Id="checkNSCALabel" Type="CheckBox" X="50"		Y="175" Width="260" Height="20" Property="CONF_NSCA" Text="Enable NSCA client (dont enable unless you really use NSCA)" CheckBoxValue="1" >
+          <Condition Action="enable">CONF_CAN_WRITE = "1" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+          <Condition Action="disable">CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+		</Control>
+		<Control Id="checkWMILabel" Type="CheckBox" X="50"		Y="190" Width="260" Height="20" Property="CONF_WMI" Text="Enable WMI checks" CheckBoxValue="1" >
+          <Condition Action="enable">CONF_CAN_WRITE = "1" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+          <Condition Action="disable">CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+		</Control>
+		
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+          <Publish Event="NewDialog" Value="[WixUI_ConfigureDlgBack]">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+		<!--
+          <Publish Event="ValidateProductIDd" Value="0">1</Publish>
+          <Publish Event="SpawnWaitDialog" Value="WaitForCostingDlg">CostingComplete = 1</Publish>
+		  -->
+          <Publish Event="NewDialog" Value="[WixUI_ConfigureDlgNext]">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+
+        <Control Id="DescriptionWrite" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+          <Text>Basic Configuration (default values from old configuration)</Text>
+          <Condition Action="show">CONF_CAN_WRITE = "1" AND CONF_OLD_NOT_FOUND = "0" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+        </Control>
+        <Control Id="DescriptionNotFound" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+          <Text>Old configuration was not found!</Text>
+          <Condition Action="show">CONF_CAN_WRITE = "1" AND CONF_OLD_NOT_FOUND = "1" AND KEEP_WHICH_CONFIG = "NEW"</Condition>
+        </Control>
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+          <Text>Unsupported configuration file found!</Text>
+          <Condition Action="show">CONF_CAN_WRITE = "0" OR KEEP_WHICH_CONFIG = "OLD"</Condition>
+        </Control>
+
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+          <Text>{\WixUI_Font_Title}NSClient++ Configuration</Text>
+        </Control>
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+      </Dialog>
+    </UI>
+  </Fragment>
+</Wix>
