@@ -1,0 +1,19 @@
+local target = installer_dll_fw ;
+local source = dllmain ;
+
+
+lib $(target)
+	: # sources
+	$(source).cpp
+	firewall.cpp
+	/psdk//hnetcfg
+	/psdk//bufferoverflowu
+	/psdk//Msi
+	: # requirements
+	<def-file>firewall.def
+	<user-interface>gui
+	<runtime-link>static
+	<threading>multi
+	: # default build
+	: # usage requirements
+	;

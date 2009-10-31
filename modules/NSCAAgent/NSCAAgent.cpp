@@ -173,6 +173,27 @@ int NSCAAgent::commandLineExec(const TCHAR* command, const unsigned int argLen, 
 NSCAPI::nagiosReturn NSCAAgent::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
 	return NSCAPI::returnIgnored;
 }
+std::wstring NSCAAgent::getCryptos() {
+	std::wstring ret = _T("{");
+	for (int i=0;i<LAST_ENCRYPTION_ID;i++) {
+		if (nsca_encrypt::hasEncryption(i)) {
+			std::wstring name;
+			try {
+				nsca_encrypt::any_encryption *core = nsca_encrypt::get_encryption_core(i);
+				if (core == NULL)
+					name = _T("Broken<NULL>");
+				else
+					name = core->getName();
+			} catch (nsca_encrypt::encryption_exception &e) {
+				name = e.getMessage();
+			}
+			if (ret.size() > 1)
+				ret += _T(", ");
+			ret += strEx::itos(i) + _T("=") + name;
+		}
+	}
+	return ret + _T("}");
+}
 
 
 NSC_WRAPPERS_MAIN_DEF(gNSCAAgent);

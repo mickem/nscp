@@ -1,0 +1,336 @@
+import feature : feature ;
+import modules ;
+import os ;
+import errors ;
+import stage ;
+import common ;
+import option ;
+
+include user-config.jam ;
+
+feature character-set : unicode ansi multibyte : composite ;
+feature.compose <character-set>unicode : <define>_UNICODE <define>UNICODE ;
+feature.compose <character-set>multibyte : <define>_MBCS ;
+
+
+local toolset = [ MATCH "^--toolset=(.*)" : [ modules.peek : ARGV ] ] ;
+toolset ?= msvc ;
+if $(toolset) = "msvc" {
+	import bjam/lua ;
+	import bjam/openssl ;
+	import bjam/boost ;
+	import bjam/cryptopp ;
+	import bjam/psdk ;
+}
+import toolset : flags ;
+import notfile ;
+import bjam/zip ;
+
+local target = NSClient++ ;
+local target-config = nsc.ini ;
+local target-readme = readme.txt ;
+local target-guide = "Nagios Usage Guide.pdf" ;
+local target-refman = "NSClient++ Reference Manual.pdf" ;
+local target-changelog = changelog.txt ;
+local target-license = license.txt ;
+local target-counters = counters.defs ;
+
+ECHO "OS =" [ os.name ] ;
+ECHO "name =" $(__name__) ;
+
+# what kind of layout are we doing?
+layout = [ MATCH "^--layout=(.*)" : [ modules.peek : ARGV ] ] ;
+layout ?= versioned ;
+layout-$(layout) = true ;
+
+path-constant TOP : . ;
+
+# possible stage only location
+local stage-locate = [ MATCH "^--stagedir=(.*)" : [ modules.peek : ARGV ] ] ;
+stage-locate ?= stage ;
+path-constant BOOST_STAGE_LOCATE : $(stage-locate) ;
+
+if $(toolset) = "msvc" {
+	using bjam/openssl : : $(TOP)/lib-source/openssl-0.9.8g/include $(TOP)/lib ;
+	using bjam/boost : : $(TOP)/lib-source/boost_1_35_0 $(TOP)/lib ;
+	using bjam/lua : : $(TOP)/lib-source/lua-5.1.2 ;
+	using bjam/cryptopp : : $(TOP)/lib-source/"Crypto++"/src ;
+	using bjam/psdk : : /foo ;
+
+	if [ bjam/lua.isEnabled ] = true {
+		echo "LUA support enabled (disable with --without-lua)" ; 
+		bjam/lua.printEnv ;
+	} else {
+		echo "LUA support DISABLED (enable with --with-lua)" ; 
+	}
+
+	if [ bjam/openssl.isEnabled ] = true {
+		echo "SSL support enabled (disable with --without-openssl)" ; 
+		bjam/openssl.printEnv ;
+	} else {
+		echo "SSL support DISABLED (enable with --with-openssl)" ;
+	}
+
+	if [ bjam/boost.isEnabled ] = true {
+		echo "boost found (disable with --without-boost)" ; 
+		bjam/boost.printEnv ;
+	} else {
+		echo "boost not avaliable! some features DISABLED (for instance regular expressions) (enable with --with-boost)" ; 
+	}
+
+	if [ bjam/cryptopp.isEnabled ] = true {
+		echo "Crypto++ found (disable with --without-cryptopp)" ; 
+		bjam/cryptopp.printEnv ;
+	} else {
+		echo "cryptopp not avaliable! encryption (NSCA) DISABLED (enable with --with-cryptopp)" ; 
+	}
+
+	if [ bjam/psdk.isEnabled ] = true {
+		echo "Platform SDK found (disable with --without-psdk)" ; 
+		bjam/psdk.printEnv ;
+	} else {
+		echo "Plattform SDK not avaliable! Various features wont work (enable with --with-psdk)" ; 
+	}
+	
+	notfile update_version : @update_version ;
+	actions update_version
+	{
+		XAutobuild.exe -f $(TOP) 
+	}
+}
+
+
+
+project master
+	: requirements
+	<include>include 
+	<find-static-library>advapi32
+	<find-static-library>user32
+	<find-static-library>shell32
+	<threading>multi
+	<link>shared 
+	$(result)
+
+	: default-build debug
+
+	: build-dir bjam-tmp-build
+	;
+
+make $(target).exe.manifest : NSClient++.manifest : common.copy ;
+explicit $(target).exe.manifest ;
+
+
+exe $(target)
+
+	: # sources
+	NSClient++.cpp
+	NSCPlugin.cpp
+	include/NSCHelper.cpp
+	include/arrayBuffer.cpp
+	include/ServiceCmd.cpp
+	include/Socket.cpp
+	include/b64/b64.c
+
+	: # requirements
+	<dependency>$(target).exe.manifest
+	#<runtime-link>static
+	<find-static-library>ws2_32
+	<find-static-library>Userenv
+	<find-static-library>ole32
+	<variant>release:<dependency>update_version 
+	: # default build
+
+	: # usage requirements
+# depends $(target).manifest
+	;
+explicit $(target) ;
+
+#
+# Copy various files
+#
+make $(target-config) : nsc.dist : common.copy ;
+explicit $(target-config) ;
+
+make $(target-readme) : docs/readme.txt : common.copy ;
+explicit $(target-readme) ;
+make $(target-guide) : "docs/Nagios Usage Guide.pdf" : common.copy ;
+explicit $(target-guide) ;
+make $(target-refman) : "docs/NSClient++ Reference Manual.pdf" : common.copy ;
+explicit $(target-refman) ;
+
+make $(target-license) : files/license.txt : common.copy ;
+explicit $(target-license) ;
+
+make $(target-changelog) : changelog : common.copy ;
+explicit $(target-changelog) ;
+
+make $(target-counters) : files/counters.defs : common.copy ;
+explicit $(target-counters) ;
+
+all-modules =
+    [ MATCH .*modules/(.*)/.* : [ glob modules/*/Jamfile ] ]
+    ;
+
+# all-modules = NSCAAgent ;
+
+all-scripts =
+    [ MATCH .*scripts/(.+\\..*) : [ glob scripts/* ] ]
+    ;
+local all-scripts-lst ;
+if $(toolset) = "msvc" {
+	if ! ( [ bjam/lua.isEnabled ] = true ) {
+		echo "LUA support disabled skipping build of modules..." ;
+		local result ;
+		for local l in $(all-modules)
+		{
+			if [ MATCH (.*LUA.*) : $(l) ]
+			{
+				echo "Not building module: $(l)" ;
+			} else {
+				result += $(l) ;
+			}
+		}
+		all-modules = $(result) ;
+	}
+	if ! ( [ bjam/psdk.isEnabled ] = true ) {
+		echo "PSDK support disabled skipping build of modules..." ;
+		local result ;
+		for local l in $(all-modules)
+		{
+			if [ MATCH (.*CheckTaskSched.*) : $(l) ] {
+				echo "Not building module: $(l)" ;
+			} else if [ MATCH (.*CheckWMI.*) : $(l) ] {
+				echo "Not building module: $(l)" ;
+			} else {
+				result += $(l) ;
+			}
+		}
+		all-modules = $(result) ;
+	}
+	all-modules-text = "" ;
+	for local l in $(all-modules) {
+		alias $(l) 
+			: # sources
+			modules/$(l) 
+			: # requirements
+			: # default build
+			: # usage requirements
+			<dependency>$(target)
+			;
+		explicit $(l) ;
+		all-modules-text = "$(all-modules-text) $(l)" ;
+	}
+	echo "Building modules: $(all-modules-text)" ;
+	for local l in $(all-scripts) {
+		all-scripts-lst = $(all-scripts-lst) scripts/$(l) ;
+	}
+} else {
+	all-installers =
+		[ MATCH .*helpers/(.*)/.* : [ glob helpers/*installer/Jamfile ] ]
+		;
+	all-installers-text = "" ;
+	for local l in $(all-installers)
+	{
+		alias $(l) : helpers/$(l) ;
+		explicit $(l) ;
+		all-installers-text = "$(all-installers-text) $(l)" ;
+	}
+	echo "Building installers: $(all-installers-text)" ;
+}
+
+all-archive =
+    [ MATCH .*helpers/(.*)/.* : [ glob helpers/*archive/Jamfile ] ]
+    ;
+for local l in $(all-archive)
+{
+	alias $(l) : helpers/$(l) ;
+	echo "Adding archive target for: $(l)" ;
+	explicit $(l) ;
+}
+
+alias cryptopp-headers : helpers/cryptopp-headers ;
+explicit cryptopp-headers ;
+
+alias installer_dll : helpers/installer_dll helpers/installer_dll_fw ;
+explicit installer_dll ;
+
+alias all-helpers-targets : installer_dll ;
+explicit all-helpers-targets ;
+
+alias all-scripts-targets : $(all-scripts-lst) ;
+explicit all-scripts-targets ;
+
+alias all-root-targets : $(target) $(target-config) $(target-readme) $(target-guide) $(target-refman) $(target-license) $(target-changelog) $(target-counters) helpers/systray_helper ;
+explicit all-root-targets ;
+
+alias all-modules-targets : $(all-modules) ;
+explicit all-modules-targets ;
+alias all-installer-targets : $(all-installers) ;
+explicit all-installer-targets ;
+alias all-archive-targets : $(all-archive) ;
+explicit all-archive-targets ;
+
+rule get-root-prefix ( properties * )
+{
+	tag = "UNKNOWN" ;
+    if <architecture>ia64 in $(properties) { 
+		tag = "IA64" ;
+	} else { 
+		if <address-model>64 in $(properties) { 
+			tag = "x64" ; 
+		} else { 
+			tag = "Win32" ; 
+		}
+	}
+    #if <variant>debug in $(properties) {
+	#	tag = "$(tag)-debug" ;
+	#}
+	return $(tag) ;
+}
+rule generate-binary-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/binaries ;
+}
+rule generate-helper-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/helpers ;
+}
+rule generate-scripts-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/binaries/scripts ;
+}
+rule generate-module-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/binaries/modules ;
+}
+
+install dist : all-root-targets : <conditional>@generate-binary-location ;
+explicit dist ;
+
+install dist-modules : all-modules-targets : <conditional>@generate-module-location ;
+explicit dist-modules ;
+
+install dist-helpers : all-helpers-targets : <conditional>@generate-helper-location ;
+explicit dist-helpers ;
+
+install dist-scripts : all-scripts-targets : <conditional>@generate-scripts-location ;
+explicit dist-scripts ;
+
+alias build-binaries : dist dist-modules dist-helpers dist-scripts ;
+explicit build-binaries ;
+
+
+alias build-archives : all-archive-targets : <location>$(BOOST_STAGE_LOCATE)/archive ;
+explicit build-archives ;
+
+alias build-installer : all-installer-targets : <location>$(BOOST_STAGE_LOCATE)/installer ;
+explicit build-installer ;
+
+alias source-archive : helpers/build-source : <location>$(BOOST_STAGE_LOCATE)/archive ;
+explicit source-archive ;
+
+

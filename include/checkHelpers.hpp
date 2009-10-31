@@ -30,8 +30,18 @@ namespace checkHolders {
 
 	typedef enum { warning, critical} ResultType;
 	typedef enum { above = 1, below = -1, same = 0 } checkResultType;
+	class check_exception {
+		std::wstring error_;
+	public:
+		check_exception(std::wstring error) : error_(error) {}
+		std::wstring getMessage() {
+			return error_;
+		}
+	};
 
-
+	struct parse_exception : public check_exception {
+		parse_exception(std::wstring error) : check_exception(error) {}
+	};
 
 	static std::wstring formatAbove(std::wstring str, ResultType what) {
 		if (what == warning)
@@ -48,14 +58,28 @@ namespace checkHolders {
 			return str + _T(" < critical");
 		return str + _T(" < unknown");
 	}
-	std::wstring formatState(std::wstring str, ResultType what) {
+	static std::wstring formatSame(std::wstring str, ResultType what) {
+		if (what == warning)
+			return str + _T(" = warning");
+		else if (what == critical)
+			return str + _T(" = critical");
+		return str + _T(" = unknown");
+	}
+	static std::wstring formatNotSame(std::wstring str, ResultType what) {
+		if (what == warning)
+			return str + _T(" != warning");
+		else if (what == critical)
+			return str + _T(" != critical");
+		return str + _T(" != unknown");
+	}
+	static std::wstring formatState(std::wstring str, ResultType what) {
 		if (what == warning)
 			return str + _T(" (warning)");
 		else if (what == critical)
 			return str + _T(" (critical)");
 		return str + _T(" (unknown)");
 	}
-	std::wstring formatNotFound(std::wstring str, ResultType what) {
+	static std::wstring formatNotFound(std::wstring str, ResultType what) {
 		if (what == warning)
 			return str + _T("not found (warning)");
 		else if (what == critical)
@@ -106,15 +130,22 @@ namespace checkHolders {
 		std::wstring gatherPerfData(typename TContents::TValueType &value) {
 			return crit.gatherPerfData(getAlias(), value, warn, crit);
 		}
+		bool hasBounds() {
+			return warn.hasBounds() || crit.hasBounds();
+		}
 		void runCheck(typename TContents::TValueType &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			std::wstring tstr;
 			if (crit.check(value, getAlias(), tstr, critical)) {
+				//std::wcout << _T("crit") << std::endl;
 				NSCHelper::escalteReturnCodeToCRIT(returnCode);
 			} else if (warn.check(value, getAlias(), tstr, warning)) {
+				//std::wcout << _T("warn") << std::endl;
 				NSCHelper::escalteReturnCodeToWARN(returnCode);
 			}else if (show == showLong) {
+				//std::wcout << _T("long") << std::endl;
 				tstr = getAlias() + _T(": ") + TContents::toStringLong(value);
 			}else if (show == showShort) {
+				//std::wcout << _T("short") << std::endl;
 				tstr = getAlias() + _T(": ") + TContents::toStringShort(value);
 			}
 			if (perfData)
@@ -123,6 +154,7 @@ namespace checkHolders {
 				message += _T(", ");
 			if (!tstr.empty())
 				message += tstr;
+			//std::wcout << _T("result: ") << tstr << _T("--") << std::endl;
 		}
 	};
 
@@ -648,6 +680,7 @@ namespace checkHolders {
 				message = lable + _T(": ") + formatBelow(TNumericHolder::toStringShort(value.count), type);
 				return true;
 			} else {
+				NSC_DEBUG_MSG_STD(_T("Missing bounds for check: ") + lable);
 				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
@@ -723,6 +756,7 @@ namespace checkHolders {
 				return min.gatherPerfData(alias, value, warn.min.getPerfBound(value), crit.min.getPerfBound(value));
 			} else {
 				NSC_DEBUG_MSG_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
+				return min.gatherPerfData(alias, value, 0, 0);
 			}
 			return _T("");
 		}
@@ -748,6 +782,101 @@ namespace checkHolders {
 	typedef MaxMinBounds<NumericBounds<disk_size_type, disk_size_handler<disk_size_type> > > MaxMinBoundsDiscSize;
 	typedef MaxMinBounds<NumericBounds<time_type, time_handler<time_type> > > MaxMinBoundsTime;
 
+
+	template <class THolder = NumericBounds<int, int_handler> >
+	class ExactBounds {
+	public:
+		THolder max;
+		THolder min;
+		THolder eq;
+		THolder neq;
+		typedef ExactBounds<THolder > TMyType;
+		typedef typename THolder::TValueType TValueType;
+
+		ExactBounds() {}
+		ExactBounds(const ExactBounds &other) {
+			max = other.max;
+			min = other.min;
+			eq = other.eq;
+			neq = other.neq;
+		}
+
+		const TMyType& operator=(std::wstring value) {
+			//value_ = value;
+			if (value.substr(0,1) == _T(">")) {
+				max = value.substr(1);
+			} else if (value.substr(0,2) == _T("<>")) {
+				neq = value.substr(2);
+			} else if (value.substr(0,1) == _T("<")) {
+				min = value.substr(1);
+			} else if (value.substr(0,1) == _T("=")) {
+				eq = value.substr(1);
+			} else if (value.substr(0,2) == _T("!=")) {
+				neq = value.substr(2);
+			} else if (value.substr(0,1) == _T("!")) {
+				neq = value.substr(1);
+				/*
+				TODO add support for lists
+			} else if (value.substr(0,3) == _T("in:")) {
+				inList = value.substr(3);
+				*/
+			} else if (value.substr(0,3) == _T("gt:")) {
+				max = value.substr(3);
+			} else if (value.substr(0,3) == _T("lt:")) {
+				min = value.substr(3);
+			} else if (value.substr(0,3) == _T("ne:")) {
+				neq = value.substr(3);
+			} else if (value.substr(0,3) == _T("eq:")) {
+				eq = value.substr(3);
+			} else {
+				throw parse_exception(_T("Unknown filter key: ") + value + _T(" (numeric filters have to have an operator as well ie. foo=>5 or bar==5 foo=gt:6)"));
+			}
+			return *this;
+		}
+
+		bool hasBounds() {
+			return max.hasBounds() || min.hasBounds() || eq.hasBounds() || neq.hasBounds();
+		}
+		static std::wstring toStringLong(typename THolder::TValueType &value) {
+			return THolder::toStringLong(value);
+		}
+		static std::wstring toStringShort(typename THolder::TValueType &value) {
+			return THolder::toStringShort(value);
+		}
+		std::wstring gatherPerfData(std::wstring alias, typename THolder::TValueType &value, TMyType &warn, TMyType &crit) {
+			if (max.hasBounds()) {
+				return max.gatherPerfData(alias, value, warn.max.getPerfBound(value), crit.max.getPerfBound(value));
+			} else if (min.hasBounds()) {
+				return min.gatherPerfData(alias, value, warn.min.getPerfBound(value), crit.min.getPerfBound(value));
+			} else if (neq.hasBounds()) {
+				return neq.gatherPerfData(alias, value, warn.neq.getPerfBound(value), crit.neq.getPerfBound(value));
+			} else if (eq.hasBounds()) {
+				return eq.gatherPerfData(alias, value, warn.eq.getPerfBound(value), crit.eq.getPerfBound(value));
+			} else {
+				NSC_DEBUG_MSG_STD(_T("Missing bounds for: ") + alias);
+			}
+		}
+		bool check(typename THolder::TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
+			if ((max.hasBounds())&&(max.check(value) == above)) {
+				message = lable + _T(": ") + formatAbove(THolder::toStringLong(value), type);
+				return true;
+			} else if ((min.hasBounds())&&(min.check(value) == below)) {
+				message = lable + _T(": ") + formatBelow(THolder::toStringLong(value), type);
+				return true;
+			} else if ((eq.hasBounds())&&(eq.check(value) == same)) {
+				message = lable + _T(": ") + formatSame(THolder::toStringLong(value), type);
+				return true;
+			} else if ((neq.hasBounds())&&(neq.check(value) != same)) {
+				message = lable + _T(": ") + formatNotSame(THolder::toStringLong(value), type);
+				return true;
+			} else {
+				//std::cout << "No bounds specified..." << std::endl;
+			}
+			return false;
+		}
+
+	};
+	typedef ExactBounds<NumericBounds<unsigned long int, int_handler> > ExactBoundsULongInteger;
 
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<int ,int>, int_handler> > MaxMinPercentageBoundsInteger;
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<__int64, __int64>, int64_handler> > MaxMinPercentageBoundsInt64;

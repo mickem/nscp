@@ -1,0 +1,1 @@
+stage\x64\binaries\NSClient++.exe /test

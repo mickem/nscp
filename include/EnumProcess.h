@@ -38,45 +38,57 @@ const int MAX_FILENAME = 256;
 typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
 typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
 typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
+//typedef BOOL ( WINAPI *PROCESSENUMPROC )(DWORD dwProcessId,	DWORD dwAttributes,	LPARAM lpUserDefined	);
+typedef BOOL ( WINAPI *TASKENUMPROCEX )(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined );
+typedef INT (WINAPI *PFVDMEnumTaskWOWEx)(DWORD dwProcessId, TASKENUMPROCEX fp, LPARAM lparam); 
 #else
 // Functions loaded from PSAPI
 typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
 typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
 typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
+typedef BOOL ( WINAPI *TASKENUMPROCEX )(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined );
+typedef INT (WINAPI *PFVDMEnumTaskWOWEx)(DWORD dwProcessId, TASKENUMPROCEX fp, LPARAM lparam); 
 #endif
+
+#define DEFAULT_BUFFER_SIZE 64*1024
 
 class CEnumProcess  
 {
 public:
 
-	class EnumProcException {
-		std::wstring error_;
+	class error_reporter {
 	public:
-		EnumProcException(std::wstring error) : error_(error) {}
-		EnumProcException(std::wstring error, DWORD code) : error_(error) {
-			error_ += _T(":" ) + error::format::from_system(code);
+		virtual void report_error(std::wstring error) = 0;
+		virtual void report_warning(std::wstring error) = 0;
+		virtual void report_debug(std::wstring error) = 0;
+		virtual void report_debug_enter(std::wstring error) = 0;
+		virtual void report_debug_exit(std::wstring error) = 0;
+	};
+	class process_enumeration_exception {
+		std::wstring what_;
+		DWORD error_code_;
+	public:
+		process_enumeration_exception(std::wstring what) : what_(what) {}
+		process_enumeration_exception(DWORD error_code, std::wstring what) : what_(what), error_code_(error_code) {
+			what += error::lookup::last_error(error_code_);
 		}
-		std::wstring getMessage() const {
-			return error_;
+		std::wstring what() {
+			return what_;
+		}
+		DWORD error_code() {
+			return error_code_;
 		}
 	};
 
-	struct CProcessEntry
-	{
-		static const int fill_filename = 0x1;
-		static const int fill_command_line = 0x2;
-		DWORD fill;
+	struct CProcessEntry {
 		std::wstring filename;
 		std::wstring command_line;
 		DWORD  dwPID;
-		// Constructors/Destructor
-		CProcessEntry() : dwPID(0), fill(0) {}
-		CProcessEntry(DWORD toFill) : dwPID(0), fill(toFill) {}
-		CProcessEntry(const CProcessEntry &e) : dwPID(e.dwPID), fill(e.fill), filename(e.filename), command_line(e.command_line) {}
-		virtual ~CProcessEntry() {}
-		bool getCommandLine() const { return (fill&fill_command_line)!=0; }
-		bool getFilename() const { return (fill&fill_filename)!=0; }
 	};
+
+	typedef std::list<CProcessEntry> process_list;
+	process_list enumerate_processes(bool expand_command_line, bool find_16bit = false, CEnumProcess::error_reporter *error_interface = NULL, unsigned int buffer_size = DEFAULT_BUFFER_SIZE);
+	CProcessEntry describe_pid(DWORD pid, bool expand_command_line);
 
 	struct CModuleEntry
 	{
@@ -92,37 +104,22 @@ public:
 	CEnumProcess();
 	virtual ~CEnumProcess();
 
-	BOOL GetModuleNext(DWORD dwPID, CModuleEntry* pEntry);
-	BOOL GetModuleFirst(DWORD dwPID, CModuleEntry* pEntry);
-	BOOL GetProcessNext(CProcessEntry *pEntry);    
-	BOOL GetProcessFirst(CProcessEntry* pEntry);
-	BOOL EnableTokenPrivilege(LPTSTR privilege);
 	std::wstring GetCommandLine(HANDLE hProcess);
+	void enable_token_privilege(LPTSTR privilege);
+	void disable_token_privilege(LPTSTR privilege);
+	bool has_PSAPI() {
+		return PSAPI != NULL;
+	}
 
-	int GetAvailableMethods();
-	int GetSuggestedMethod();
-	int SetMethod(int method);
-
-
-
-protected:
-
-	PVOID GetModulePreferredBase(DWORD dwPID, PVOID pModBase);
-	// General members
-	int m_method;
+private:
 
 	// PSAPI related members
 	HMODULE PSAPI;   //Handle to the module
-	int m_MAX_COUNT; 
-	DWORD* m_pProcesses, *m_pCurrentP; // Process identifiers
-	long m_cProcesses, m_cModules;     // Number of Processes/Modules found
-	HMODULE* m_pModules, *m_pCurrentM; // Handles to Modules 
+	HMODULE VDMDBG;
 	// PSAPI related functions
 	PFEnumProcesses       FEnumProcesses;           // Pointer to EnumProcess
 	PFEnumProcessModules  FEnumProcessModules; // Pointer to EnumProcessModules
 	PFGetModuleFileNameEx FGetModuleFileNameEx;// Pointer to GetModuleFileNameEx
-	BOOL FillPStructPSAPI(DWORD pid, CProcessEntry* pEntry);
-	BOOL FillMStructPSAPI(DWORD dwPID, HMODULE mMod, CModuleEntry* pEntry);
-	LPTSTR lpString;
+	PFVDMEnumTaskWOWEx FVDMEnumTaskWOWEx;
 };
 

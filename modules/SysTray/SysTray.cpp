@@ -71,6 +71,7 @@ bool SysTray::unloadModule() {
 	if (systemInfo::isBelowXP(systemInfo::getOSVersion())) {
 		hide();
 	}
+	hide();
 	return true;
 }
 

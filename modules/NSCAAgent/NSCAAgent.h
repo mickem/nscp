@@ -48,7 +48,11 @@ public:
 	* @return The module name
 	*/
 	std::wstring getModuleName() {
+#ifdef HAVE_LIBCRYPTOPP
+		return _T("NSCAAgent (w/ encryption)");
+#else
 		return _T("NSCAAgent");
+#endif
 	}
 	/**
 	* Module version
@@ -59,7 +63,7 @@ public:
 		return version;
 	}
 	std::wstring getModuleDescription() {
-		return _T("Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.");
+		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
 	}
 
 	bool hasCommandHandler();
@@ -67,11 +71,6 @@ public:
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
 	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args);
 
-	NSCAPI::nagiosReturn checkCPU(const unsigned int argLen, char **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkUpTime(const unsigned int argLen, char **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkServiceState(const unsigned int argLen, char **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkMem(const unsigned int argLen, char **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkProcState(const unsigned int argLen, char **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkCounter(const unsigned int argLen, char **char_args, std::wstring &msg, std::wstring &perf);
+	std::wstring getCryptos();
 
 };

@@ -1,0 +1,8 @@
+; firewall.def : declares the module parameters for gaming.dll
+
+LIBRARY      "firewall"
+
+EXPORTS
+	SchedFirewallExceptionsInstall
+	SchedFirewallExceptionsUninstall
+	ExecFirewallExceptions

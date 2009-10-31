@@ -158,6 +158,9 @@ public:
 	void unload(void);
 	std::wstring getCongifurationMeta();
 	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments);
+	void showTray();
+	void hideTray();
+
 	std::wstring getFilename() {
 		if (file_.empty())
 			return _T("");

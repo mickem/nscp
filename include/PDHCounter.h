@@ -28,7 +28,21 @@
 
 namespace PDH {
 
-
+	class PDHHelpers {
+	public:
+		static std::list<std::wstring> build_list(TCHAR *buffer, DWORD bufferSize) {
+			std::list<std::wstring> ret;
+			DWORD prevPos = 0;
+			for (unsigned int i = 0; i<bufferSize-1; i++) {
+				if (buffer[i] == 0) {
+					std::wstring str = &buffer[prevPos];
+					ret.push_back(str);
+					prevPos = i+1;
+				}
+			}
+			return ret;
+		}
+	};
 
 	class PDHException {
 	private:
@@ -55,7 +69,9 @@ namespace PDH {
 	public:
 		//typedef PDH_FUNCTION (*fpPdhLookupPerfNameByIndex)(IN LPCWSTR szMachineName,IN DWORD dwNameIndex,IN LPWSTR szNameBuffer,IN LPDWORD pcchNameBufferSize);
 		typedef PDH_STATUS (WINAPI *fpPdhLookupPerfNameByIndex)(LPCWSTR,DWORD,LPWSTR,LPDWORD);
+		typedef PDH_STATUS (WINAPI *fpPdhLookupPerfIndexByName)(LPCWSTR,LPCWSTR,LPDWORD);
 		static fpPdhLookupPerfNameByIndex pPdhLookupPerfNameByIndex;
+		static fpPdhLookupPerfIndexByName pPdhLookupPerfIndexByName;
 		static HMODULE PDH_;
 	private:
 		static void lookup_function() {
@@ -69,10 +85,12 @@ namespace PDH {
 #ifdef UNICODE
 			//*(FARPROC *)&pPdhLookupPerfNameByIndex
 			pPdhLookupPerfNameByIndex = (fpPdhLookupPerfNameByIndex)::GetProcAddress(PDH_, "PdhLookupPerfNameByIndexW");
+			pPdhLookupPerfIndexByName = (fpPdhLookupPerfIndexByName)::GetProcAddress(PDH_, "PdhLookupPerfIndexByNameW");
 #else
 			pPdhLookupPerfNameByIndex = (fpPdhLookupPerfNameByIndex)::GetProcAddress(PDH_, "PdhLookupPerfNameByIndexA");
+			pPdhLookupPerfIndexByName = (fpPdhLookupPerfIndexByName)::GetProcAddress(PDH_, "PdhLookupPerfIndexByNameA");
 #endif
-			if (pPdhLookupPerfNameByIndex == NULL) {
+			if (pPdhLookupPerfNameByIndex == NULL || pPdhLookupPerfIndexByName == NULL) {
 				throw PDHException(_T("Failed to find function: PdhLookupPerfNameByIndex!")+ error::lookup::last_error());
 			}
 		}
@@ -82,6 +100,15 @@ namespace PDH {
 			if (pPdhLookupPerfNameByIndex == NULL)
 				throw PDHException(_T("Failed to initalize PdhLookupPerfNameByIndex :("));
 			return pPdhLookupPerfNameByIndex(szMachineName,dwNameIndex,szNameBuffer,pcchNameBufferSize);
+		}
+
+
+
+		static PDH_STATUS PdhLookupPerfIndexByName(LPCTSTR szMachineName,LPCTSTR szName,DWORD *dwIndex) {
+			PDHResolver::lookup_function();
+			if (pPdhLookupPerfIndexByName == NULL)
+				throw PDHException(_T("Failed to initalize PdhLookupPerfIndexByName :("));
+			return pPdhLookupPerfIndexByName(szMachineName,szName,dwIndex);
 		}
 #define PDH_INDEX_BUF_LEN 2048
 		static std::wstring PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex) {
@@ -96,14 +123,37 @@ namespace PDH {
 			delete [] buffer;
 			return ret;
 		}
+		static std::list<std::wstring> PdhExpandCounterPath(std::wstring szWildCardPath, DWORD buffSize = PDH_INDEX_BUF_LEN) {
+			TCHAR *buffer = new TCHAR[buffSize+1];
+			DWORD bufLen = buffSize;
+			PDH_STATUS status = ::PdhExpandCounterPath(szWildCardPath.c_str(),buffer,&bufLen);
+			if (status != ERROR_SUCCESS) {
+				delete [] buffer;
+				if (buffSize == PDH_INDEX_BUF_LEN && bufLen > buffSize)
+					return PdhExpandCounterPath(szWildCardPath, bufLen+10);
+				throw PDHException(_T("RESOLVER"), _T("PdhExpandCounterPath: Could not find index: ") + szWildCardPath, status);
+			}
+			std::list<std::wstring> ret = PDHHelpers::build_list(buffer, bufLen);
+			delete [] buffer;
+			return ret;
+		}
+
+		static DWORD PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR indexName) {
+			DWORD ret;
+			PDH_STATUS status = PDHResolver::PdhLookupPerfIndexByName(szMachineName,indexName, &ret);
+			if (status != ERROR_SUCCESS) {
+				throw PDHException(_T("RESOLVER"), std::wstring(_T("PdhLookupPerfNameByIndex: Could not find index: ")) + indexName, status);
+			}
+			return ret;
+		}
 	};
 
 	class PDHCounter;
 	class PDHCounterListener {
 	public:
 		virtual void collect(const PDHCounter &counter) = 0;
-		virtual void attach(const PDHCounter &counter) = 0;
-		virtual void detach(const PDHCounter &counter) = 0;
+		virtual void attach(const PDHCounter *counter) = 0;
+		virtual void detach(const PDHCounter *counter) = 0;
 		virtual DWORD getFormat() const = 0;
 	};
 
@@ -200,7 +250,7 @@ namespace PDH {
 			if (hCounter_ != NULL)
 				throw PDHException(name_, _T("addToQuery failed (already opened)."));
 			if (listener_)
-				listener_->attach(*this);
+				listener_->attach(this);
 			LPCWSTR name = name_.c_str();
 			if ((status = PdhAddCounter(hQuery, name, 0, &hCounter_)) != ERROR_SUCCESS) {
 				hCounter_ = NULL;
@@ -214,7 +264,7 @@ namespace PDH {
 				return;
 			PDH_STATUS status;
 			if (listener_)
-				listener_->detach(*this);
+				listener_->detach(this);
 			if ((status = PdhRemoveCounter(hCounter_)) != ERROR_SUCCESS)
 				throw PDHException(name_, _T("PdhRemoveCounter failed"), status);
 			hCounter_ = NULL;
@@ -262,8 +312,11 @@ namespace PDH {
 			counters_.push_back(counter);
 			return counter;
 		}
-		std::wstring lookupIndex(DWORD index) {
+		static std::wstring lookupIndex(DWORD index) {
 			return PDHResolver::PdhLookupPerfNameByIndex(NULL, index);
+		}
+		static DWORD lookupIndex(std::wstring name) {
+			return PDHResolver::PdhLookupPerfIndexByName(NULL, name.c_str());
 		}
 		PDHCounter* addCounter(std::wstring name) {
 			PDHCounter *counter = new PDHCounter(name);
@@ -420,22 +473,32 @@ namespace PDH {
 			}
 			return ret;
 		}
-		static str_lst EnumObjectInstances(std::wstring object) {
-			str_lst ret;
-			DWORD bufLen = 4096;
-			DWORD bufLen2 = 0;
-			LPTSTR buf = new char[bufLen+1];
-			PDH_STATUS status = PdhEnumObjectItems(NULL, NULL, object.c_str(), NULL, &bufLen2, buf, &bufLen, PERF_DETAIL_WIZARD, 0);
-			if (status == ERROR_SUCCESS) {
-				char *cp=buf;
-				while(*cp != '\0') {
-					ret.push_back(std::wstring(cp));
-					cp += lstrlen(cp)+1;
-				}
+		*/
+		struct pdh_object_details {
+			typedef std::list<std::wstring> list;
+			list counters;
+			list instances;
+		};
+		static pdh_object_details EnumObjectInstances(std::wstring object, DWORD wanted_counter_len = PDH_INDEX_BUF_LEN, DWORD wanted_instance_len = PDH_INDEX_BUF_LEN) {
+			DWORD counter_len = wanted_counter_len;
+			DWORD instance_len = wanted_instance_len;
+			TCHAR *counter_buffer = new TCHAR[counter_len+1];
+			TCHAR *instance_buffer = new TCHAR[instance_len+1];
+			PDH_STATUS status = PdhEnumObjectItems(NULL, NULL, object.c_str(), counter_buffer, &counter_len, instance_buffer, &instance_len, PERF_DETAIL_WIZARD, 0);
+			if (status != ERROR_SUCCESS) {
+				delete [] counter_buffer;
+				delete [] instance_buffer;
+				if (status == PDH_MORE_DATA && wanted_counter_len == PDH_INDEX_BUF_LEN && wanted_instance_len == PDH_INDEX_BUF_LEN)
+					return EnumObjectInstances(object, counter_len+10, instance_len+10);
+				throw PDHException(_T("RESOLVER"), _T("EnumObjectInstances: Could not find index: ") + object, status);
 			}
+			pdh_object_details ret;
+			ret.counters = PDHHelpers::build_list(counter_buffer, counter_len);
+			ret.instances = PDHHelpers::build_list(instance_buffer, instance_len);
+			delete [] counter_buffer;
+			delete [] instance_buffer;
 			return ret;
 		}
-		*/
 		static bool validate(std::wstring counter, std::wstring &error) {
 			PDH_STATUS status = PdhValidatePath(counter.c_str());
 			switch (status) {

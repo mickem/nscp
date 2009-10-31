@@ -608,84 +608,39 @@ namespace Settings {
 		virtual void load() = 0;
 	};
 
-	class SettingsHandlerImpl : public SettingsCore {
-	private:
-		typedef std::map<SettingsCore::settings_type,SettingsInterface*> instance_list;
-		SettingsInterface* instance_;
-		instance_list instances_;
-		MutexHandler mutexHandler_;
-		/*
-		struct key_description : public SettingsCore::key_description {
-			std::wstring title;
-			std::wstring description;
-			SettingsCore::key_type type;
-			std::wstring defValue;
-			bool advanced;
-			key_description(std::wstring title_, std::wstring description_, SettingsCore::key_type type_, std::wstring defValue_, bool advanced_) 
-			: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) {}
-			key_description() : advanced(false), type(SettingsCore::key_string) {}
-		};
-		*/
-		struct path_description {
-			std::wstring title;
-			std::wstring description;
-			bool advanced;
-			typedef std::map<std::wstring,key_description> keys_type;
-			keys_type keys;
-			path_description(std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) {}
-			path_description() : advanced(false) {}
-			void update(std::wstring title_, std::wstring description_, bool advanced_) {
-				title = title_;
-				description = description_;
-				advanced = advanced_;
-			}
-		};
-		class dummy_logger : public LoggerInterface {
-			void err(std::wstring file, int line, std::wstring message) {}
-			void warn(std::wstring file, int line, std::wstring message) {}
-			void info(std::wstring file, int line, std::wstring message) {}
-			void debug(std::wstring file, int line, std::wstring message) {}
-		};
-		typedef std::map<std::wstring, std::wstring> path_map;
-		path_map path_mappings_;
-		path_map reversed_path_mappings_;
-		std::wstring base_path_;
-		LoggerInterface *logger_;
-		typedef std::map<std::wstring,path_description> reg_paths_type;
-		reg_paths_type registred_paths_;
-		typedef std::map<key_path_type,key_path_type> mapped_paths_type;
-		mapped_paths_type mapped_paths_;
-		mapped_paths_type reversed_mapped_paths_;
-		typedef SettingsInterface::string_list string_list;
-	public:
-		SettingsHandlerImpl() : instance_(NULL), logger_(new dummy_logger()) {}
-		~SettingsHandlerImpl() {
-			destroy_all_instances();
-			set_logger(NULL);
-		}
+class settings_core
+{
+private:
+	typedef struct {
+		typedef enum { sType, iType} typeEnum;
+		typeEnum type;
+		std::wstring sVal;
+		int iVal;
+	} valueStruct;
+	typedef std::map<std::wstring,valueStruct> saveKeyList;
+	typedef std::map<std::wstring,saveKeyList> saveSectionList;
+	saveSectionList data_;
+	std::wstring file_;
+	std::wstring basepath_;
+	bool bHasInternalData;
+	settings_base *settingsManager;
 
-		//////////////////////////////////////////////////////////////////////////
-		/// Set the basepath for the settings subsystem.
-		/// In other words set where the settings files reside
-		///
-		/// @param path the path to the settings files
-		///
-		/// @author mickem
-		void set_base(std::wstring path) {
-			base_path_ = path;
-		}
+public:
+	typedef std::list<std::wstring> sectionList;
+	settings_core(void) : bHasInternalData(false), settingsManager(NULL)
+	{
+	}
 
-		//////////////////////////////////////////////////////////////////////////
-		/// Set the logging interface (will receive log messages)
-		///
-		/// @param logger the new logger to use
-		///
-		/// @author mickem
-		void set_logger(LoggerInterface *logger) {
-			LoggerInterface *old_logger = logger_;
-			logger_ = logger;
-			delete old_logger;
-		}
+	virtual ~settings_core(void)
+	{
+		if (settingsManager)
+			delete settingsManager;
+	}
+	std::wstring getActiveType() {
+		if (!settingsManager)
+			return _T("");
+		return settingsManager->getActiveType();
+	}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get the logging interface (will receive log messages)
@@ -711,138 +666,20 @@ namespace Settings {
 		}
 
 
-		SettingsInterface* get() {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
-				throw SettingsException(_T("Failed to get mutext, cant get settings instance"));
-			if (instance_ == NULL)
-				instance_ = get_default_settings_instance_unsafe();
-			if (instance_ == NULL)
-				throw SettingsException(_T("Failed initialize settings instance"));
-			return instance_;
-		}
-		SettingsInterface* get(SettingsCore::settings_type type) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
-				throw SettingsException(_T("Failed to get mutext, cant get settings instance"));
-			return instance_unsafe(type);
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Overwrite the (current) settings store with default values.
-		///
-		/// @author mickem
-		void update_defaults() {
-			get_logger()->warn(__FILEW__, __LINE__, _T("Updating settings with default values!"));
-			string_list s = get_reg_sections();
-			for (string_list::const_iterator cit = s.begin(); cit != s.end(); ++cit) {
-				string_list k = get_reg_keys(*cit);
-				for (string_list::const_iterator citk = k.begin(); citk != k.end(); ++citk) {
-					SettingsCore::key_description desc = get_registred_key(*cit, *citk);
-					if (!desc.advanced) {
-						if (!get()->has_key(*cit, *citk)) {
-							get_logger()->debug(__FILEW__, __LINE__, _T("Adding: ") + *cit + _T(".") + *citk);
-							if (desc.type == key_string)
-								get()->set_string(*cit, *citk, desc.defValue);
-							else if (desc.type == key_bool)
-								get()->set_bool(*cit, *citk, desc.defValue==_T("true"));
-							else if (desc.type == key_integer)
-								get()->set_int(*cit, *citk, strEx::stoi(desc.defValue));
-							else
-								throw SettingsException(_T("Unknown keytype for: ") + *cit + _T(".") + *citk);
-						} else {
-							get_logger()->debug(__FILEW__, __LINE__, _T("´Skipping (already exists): ") + *cit + _T(".") + *citk);
-						}
-					} else {
-						get_logger()->debug(__FILEW__, __LINE__, _T("´Skipping (advanced): ") + *cit + _T(".") + *citk);
-					}
-				}
-			}
-			get_logger()->info(__FILEW__, __LINE__, _T("DONE Updating settings with default values!"));
-		}
-		void migrate_type(SettingsCore::settings_type from, SettingsCore::settings_type to) {
-#ifdef _DEBUG
-			get_logger()->debug(__FILEW__, __LINE__, _T("Preparing to migrate..."));
-#endif
-			{
-				if (!has_type(from)) {
-#ifdef _DEBUG
-					get_logger()->debug(__FILEW__, __LINE__, _T("Migration needs source..."));
-#endif
-					add_type_impl(from, create_instance(from, type_to_string(from)));
-				}
-				if (!has_type(to)) {
-#ifdef _DEBUG
-					get_logger()->debug(__FILEW__, __LINE__, _T("Migration needs target..."));
-#endif
-					add_type_impl(to, create_instance(to, type_to_string(to)));
-				}
-			}
-			{
-#ifdef _DEBUG
-				get_logger()->debug(__FILEW__, __LINE__, _T("Starting to migrate..."));
-#endif
-				MutexLock mutex(mutexHandler_);
-				if (!mutex.hasMutex())
-					throw SettingsException(_T("migrate_type: Failed to get mutext, cant get settings instance"));
-				SettingsInterface* iFrom = instance_unsafe(from);
-				SettingsInterface* iTo = instance_unsafe(to);
-				if (iTo == NULL||iFrom == NULL)
-					throw new SettingsException(_T("Failed to migrate"));
-				iFrom->save_to(iTo);
-#ifdef _DEBUG
-				get_logger()->debug(__FILEW__, __LINE__, _T("Done migrating..."));
-#endif
-			}
-		}
-		void migrate_to(SettingsCore::settings_type to) {
-			migrate_type(get_settings_type(), to);
-		}
-		void migrate_from(SettingsCore::settings_type from) {
-			migrate_type(from, get_settings_type());
-		}
-		SettingsCore::settings_type get_settings_type() {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
-				throw SettingsException(_T("Failed to get mutext, cant get load settings"));
-			if (instance_ == NULL)
-				throw SettingsException(_T("No settings subsystem selected"));
-			return instance_->get_type();
-		}
-		std::wstring get_settings_type_desc() {
-			return get_type_desc(get_settings_type());
-		}
-		std::wstring get_type_desc(SettingsCore::settings_type type) {
-			if (type == SettingsCore::ini_file)
-				return _T(".INI file (nsc.ini)");
-			if (type == SettingsCore::registry)
-				return _T("registry");
-			if (type == SettingsCore::xml_file)
-				return _T(".XML file (nsc.xml)");
-			return _T("Unknown settings type");
-		}
-		bool has_type(SettingsCore::settings_type type) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
-				throw SettingsException(_T("has_type Failed to get mutext, cant get access settings"));
-			instance_list::const_iterator cit = instances_.find(type);
-			return cit != instances_.end();
-		}
-		void set_type(SettingsCore::settings_type type) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
-				throw SettingsException(_T("set_type Failed to get mutext, cant get access settings"));
-			instance_list::const_iterator cit = instances_.find(type);
-			if (cit == instances_.end())
-				throw SettingsException(_T("Settings was not supported: ") + get_type_desc(type));
-			instance_ = (*cit).second;
-		}
-		void add_type_impl(SettingsCore::settings_type type, SettingsInterface* impl) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
-				throw SettingsException(_T("add_type_impl Failed to get mutext, cant get access settings"));
-			instance_list::iterator it = instances_.find(type);
-			if (it == instances_.end()) {
-				instances_[type] = impl;
+#define UNLIKELY_VALUE_1 -1234
+#define UNLIKELY_VALUE_2 -4321
+	void read(int type = -1) {
+		bool bNew = false;
+		settings_base *sM = settingsManager;
+		if (settingsManager == NULL)
+			throw SettingsException(_T("No settings method specified, cannot start"));
+		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
+			if (type == REGSettings::getType()) {
+				sM = new REGSettings();
+				bNew = true;
+			} else if (type == INISettings::getType()) {
+				sM = new INISettings(basepath_, file_);
+				bNew = true;
 			} else {
 				SettingsInterface* old = (*it).second;
 				(*it).second = impl;
@@ -1060,24 +897,27 @@ namespace Settings {
 				(*it).second.update(title, description, advanced);
 			}
 		}
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Register a key with the settings module.
-		/// A registered key or path will be nicely documented in some of the settings files when converted.
-		///
-		/// @param path The path to register
-		/// @param key The key to register
-		/// @param title The title to use
-		/// @param description the description to use
-		/// @param defValue the default value
-		/// @param advanced advanced options will only be included if they are changed
-		///
-		/// @author mickem
-		void register_key(std::wstring path, std::wstring key, SettingsCore::key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) {
-			reg_paths_type::iterator it = registred_paths_.find(path);
-			if (it == registred_paths_.end()) {
-				registred_paths_[path] = path_description();
-				registred_paths_[path].keys[key] = key_description(title, description, type, defValue, advanced);
+	}
+	void writeSection(std::wstring section, sectionList data) {
+		if (settingsManager == NULL)
+			throw SettingsException(_T("No settings method specified, cannot start"));
+		if (settingsManager->getActiveTypeID() == INISettings::getType())
+			settingsManager->setSection(section, data);
+		else 
+			throw SettingsException(_T("Writing modules to non-INI file is not supported"));
+	}
+	void write(int type = -1) {
+		bool bNew = false;
+		settings_base *sM = settingsManager;
+		if (settingsManager == NULL)
+			throw SettingsException(_T("No settings method specified, cannot start"));
+		if ((type != -1)&&(type != settingsManager->getActiveTypeID())) {
+			if (type == REGSettings::getType()) {
+				sM = new REGSettings();
+				bNew = true;
+			} else if (type == INISettings::getType()) {
+				sM = new INISettings(basepath_, file_);
+				bNew = true;
 			} else {
 				(*it).second.keys[key] = key_description(title, description, type, defValue, advanced);
 			}
@@ -1769,3 +1609,4 @@ namespace Settings {
 }
 typedef Settings::SettingsException SettingsException;
 
+typedef Singleton<settings_core> Settings;		// Implement the settings manager as a singleton

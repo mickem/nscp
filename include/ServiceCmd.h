@@ -35,13 +35,16 @@ namespace serviceControll {
 			error += ss.str();
 		}
 	};
-	void Install(LPCTSTR,LPCTSTR,LPCTSTR,DWORD=SERVICE_WIN32_OWN_PROCESS);
+	void Install(std::wstring,std::wstring,LPCTSTR,DWORD=SERVICE_WIN32_OWN_PROCESS, std::wstring exe=_T(""));
 	void ModifyServiceType(LPCTSTR szName, DWORD dwServiceType);
 	void Uninstall(std::wstring);
 	void Start(std::wstring);
 	bool isStarted(std::wstring);
+	bool isInstalled(std::wstring name);
 	void Stop(std::wstring);
 	void StopNoWait(std::wstring);
 	void SetDescription(std::wstring,std::wstring);
 	DWORD GetServiceType(LPCTSTR szName);
+	std::wstring get_exe_path(std::wstring svc_name);
+
 }

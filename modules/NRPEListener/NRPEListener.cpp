@@ -68,6 +68,7 @@ void NRPEListener::addAllScriptsFrom(std::wstring path) {
 }
 
 bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
+#ifdef USE_SSL
 	if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
 		NSC_DEBUG_MSG(_T("Using compatiblity mode in: NRPE Module"));
 
@@ -99,7 +100,16 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 
 		SETTINGS_MAP_SECTION_A(nrpe::SECTION_HANDLERS,NRPE_HANDLER_SECTION_TITLE);
 		
+#else
+	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1) {
+		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
 	}
+#endif
+	noPerfData_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA,NRPE_SETTINGS_PERFDATA_DEFAULT)==0;
+	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
+	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
+	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
+	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
 
 	SETTINGS_REG_KEY_I(nrpe::PORT);
 	SETTINGS_REG_KEY_S(nrpe::BINDADDR);
@@ -126,6 +136,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	allowNasty_ = SETTINGS_GET_BOOL(nrpe::ALLOW_NASTY);
 	if (buffer_length_ != 1024)
 		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
+	NSC_DEBUG_MSG_STD(_T("Loading all commands (from NRPE)"));
 	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
 	std::list<std::wstring>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
@@ -155,23 +166,31 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
 	try {
-		unsigned short port = SETTINGS_GET_INT(nrpe::PORT);
-		std::wstring host = SETTINGS_GET_STRING(nrpe::BINDADDR);
-		unsigned int backLog = SETTINGS_GET_INT(nrpe::LISTENQUE);
-		if (mode == NSCAPI::normalStart) {
-			if (bUseSSL_) {
-				socket_ssl_.setHandler(this);
-				socket_ssl_.StartListener(host, port, backLog);
-			} else {
-				socket_.setHandler(this);
-				socket_.StartListener(host, port, backLog);
-			}
+		NSC_DEBUG_MSG_STD(_T("Starting NRPE socket..."));
+		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
+		std::wstring host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
+		unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
+#ifdef USE_SSL
+		if (bUseSSL_) {
+			socket_ssl_.setHandler(this);
+			socket_ssl_.StartListener(host, port, backLog);
+		} else {
+#else
+		{
+#endif
+			socket_.setHandler(this);
+			socket_.StartListener(host, port, backLog);
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
+#ifdef USE_SSL
 	} catch (simpleSSL::SSLException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
+		return false;
+#endif
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
 		return false;
 	}
 	root_ = NSCModuleHelper::getBasePath();
@@ -180,11 +199,15 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 }
 bool NRPEListener::unloadModule() {
 	try {
+#ifdef USE_SSL
 		if (bUseSSL_) {
 			socket_ssl_.removeHandler(this);
 			if (socket_ssl_.hasListener())
 				socket_ssl_.StopListener();
 		} else {
+#else
+		{
+#endif
 			socket_.removeHandler(this);
 			if (socket_.hasListener())
 				socket_.StopListener();
@@ -192,9 +215,11 @@ bool NRPEListener::unloadModule() {
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
+#ifdef USE_SSL
 	} catch (simpleSSL::SSLException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
 		return false;
+#endif
 	}
 	return true;
 }
@@ -346,8 +371,14 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 				block.copyFrom(out.getBuffer(), out.getBufferLength());
 			} catch (NRPEPacket::NRPEPacketException e) {
 				NSC_LOG_ERROR_STD(_T("NRPESocketException: ") + e.getMessage());
-				client->close();
-				return;
+				try {
+					NRPEPacket err(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("Could not construct return paket in NRPE handler check clientside (nsclient.log) logs..."), buffer_length_);
+					block.copyFrom(err.getBuffer(), err.getBufferLength());
+				} catch (NRPEPacket::NRPEPacketException e) {
+					NSC_LOG_ERROR_STD(_T("NRPESocketException (again): ") + e.getMessage());
+					client->close();
+					return;
+				}
 			}
 			int maxWait = socketTimeout_*10;
 			for (i=0;i<maxWait;i++) {
@@ -401,7 +432,7 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	}
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
 	if (cmd.first == _T("_NRPE_CHECK")) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") SZVERSION _T(") seem to be doing fine..."), buffer_length_);
+		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") + NSCModuleHelper::getApplicationVersionString() + _T(") seem to be doing fine..."), buffer_length_);
 	}
 	std::wstring msg, perf;
 
@@ -421,6 +452,8 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 			throw NRPEException(_T("Request command contained illegal metachars!"));
 		}
 	}
+	//TODO REMOVE THIS
+	//return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("TEST TEST TEST"), buffer_length_);
 
 	NSCAPI::nagiosReturn ret = -3;
 	try {

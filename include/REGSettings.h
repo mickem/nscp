@@ -230,16 +230,17 @@ private:
 		}
 		DWORD type;
 		DWORD cbData = sizeof(DWORD);
-		BYTE *bData = new BYTE[cbData+1];
-		bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, bData, &cbData);
+		DWORD buffer;
+		//BYTE *bData = new BYTE[cbData+1];
+		bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, reinterpret_cast<LPBYTE>(&buffer), &cbData );
 		if (type != REG_DWORD) {
 			bRet = -1;
 		}
 		RegCloseKey(hTemp);
 		if (bRet == ERROR_SUCCESS) {
-			ret = static_cast<DWORD>(*bData);
+			ret = buffer;
 		}
-		delete [] bData;
+		//delete [] bData;
 		return ret;
 	}
 	static void getValues_(reg_key path, string_list &list) {
@@ -289,6 +290,9 @@ private:
 			}
 			delete [] lpValueName;
 		}
+	}
+	void setSection(std::wstring section, sectionList data)  {
+		std::wcout << _T("Unsupported function call") << std::endl;
 	}
 };
 }

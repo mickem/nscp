@@ -23,10 +23,11 @@
 #include <PDHCounter.h>
 #include <Mutex.h>
 namespace PDHCollectors {
+	typedef PDH::PDHException PDHException;
 	const int format_large = 0x00000400;
 	const int format_long = 0x00000100;
 	const int format_double = 0x00000200;
-
+/*
 	class PDHException {
 		std::wstring error_;
 	public:
@@ -34,6 +35,7 @@ namespace PDHCollectors {
 		std::wstring getError() const { return error_; }
 
 	};
+	*/
 	class TPDHCounterMutex {
 	public:
 		virtual void lock() = 0;
@@ -109,7 +111,8 @@ namespace PDHCollectors {
 	};
 
 	template <class TType, int TCollectionFormat, class TMutextHandler = PDHCounterNoMutex>
-	class StaticPDHCounterListener {};
+	class StaticPDHCounterListener {
+	};
 
 	template <class TType, class TMutextHandler>
 	class StaticPDHCounterListener<TType, format_double, TMutextHandler> : public PDH::PDHCounterListener {
@@ -117,6 +120,7 @@ namespace PDHCollectors {
 		TMutextHandler mutex_;
 		bool hasValue_;
 		std::wstring lastError_;
+		const PDH::PDHCounter *parent_;
 	public:
 		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
@@ -126,18 +130,24 @@ namespace PDHCollectors {
 			value_ = counter.getDoubleValue();
 			hasValue_ = true;
 		}
-		void attach(const PDH::PDHCounter &counter){}
-		void detach(const PDH::PDHCounter &counter){}
+		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
+		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		TType getValue() {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
-				throw PDHException(_T("Could not get mutex"));
+				throw PDHException(get_name(), _T("Could not get mutex"));
 			if (!hasValue_)
-				throw PDHException(_T("No value has been collected yet"));
+				throw PDHException(get_name(), _T("No value has been collected yet"));
 			return value_;
 		}
 		DWORD getFormat() const {
 			return format_double;
+		}
+	private:
+		std::wstring get_name() const {
+			if (parent_ != NULL)
+				return parent_->getName();
+			return _T("<UN ATTACHED>");
 		}
 	};
 
@@ -146,6 +156,7 @@ namespace PDHCollectors {
 		TType value_;
 		TMutextHandler mutex_;
 		bool hasValue_;
+		const PDH::PDHCounter *parent_;
 	public:
 		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
@@ -155,18 +166,24 @@ namespace PDHCollectors {
 			value_ = counter.getIntValue();
 			hasValue_ = true;
 		}
-		void attach(const PDH::PDHCounter &counter){}
-		void detach(const PDH::PDHCounter &counter){}
+		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
+		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		TType getValue() {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
-				throw PDHException(_T("Could not get mutex"));
+				throw PDHException(get_name(), _T("Could not get mutex"));
 			if (!hasValue_)
-				throw PDHException(_T("No value has been collected yet"));
+				throw PDHException(get_name(), _T("No value has been collected yet"));
 			return value_;
 		}
 		DWORD getFormat() const {
 			return format_long;
+		}
+	private:
+		std::wstring get_name() const {
+			if (parent_ != NULL)
+				return parent_->getName();
+			return _T("<UN ATTACHED>");
 		}
 	};
 
@@ -175,6 +192,7 @@ namespace PDHCollectors {
 		TMutextHandler mutex_;
 		TType value_;
 		bool hasValue_;
+		const PDH::PDHCounter *parent_;
 	public:
 		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
@@ -184,18 +202,24 @@ namespace PDHCollectors {
 			value_ = counter.getInt64Value();
 			hasValue_ = true;
 		}
-		void attach(const PDH::PDHCounter &counter){}
-		void detach(const PDH::PDHCounter &counter){}
+		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
+		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		TType getValue() {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
-				throw PDHException(_T("Could not get mutex"));
+				throw PDHException(get_name(), _T("Could not get mutex"));
 			if (!hasValue_)
-				throw PDHException(_T("No value has been collected yet"));
+				throw PDHException(get_name(), _T("No value has been collected yet"));
 			return value_;
 		}
 		DWORD getFormat() const {
 			return format_large;
+		}
+	private:
+		std::wstring get_name() const {
+			if (parent_ != NULL)
+				return parent_->getName();
+			return _T("<UN ATTACHED>");
 		}
 	};
 
@@ -207,6 +231,7 @@ namespace PDHCollectors {
 		TType *buffer;
 		unsigned int current;
 		bool hasValue_;
+		const PDH::PDHCounter *parent_;
 	public:
 		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false) {}
 		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0), hasValue_(false) {
@@ -248,8 +273,8 @@ namespace PDHCollectors {
 
 		virtual void collect(const PDH::PDHCounter &counter) = 0;
 
-		void attach(const PDH::PDHCounter &counter){}
-		void detach(const PDH::PDHCounter &counter){}
+		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
+		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		void pushValue(TType value) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
@@ -266,11 +291,11 @@ namespace PDHCollectors {
 		double getAvrage(unsigned int backItems) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock(true))
-				throw PDHException(_T("Failed to get mutex :("));
+				throw PDHException(get_name(), _T("Failed to get mutex :("));
 			if (!hasValue_)
-				throw PDHException(_T("No value has been collected yet"));
+				throw PDHException(get_name(), _T("No value has been collected yet"));
 			if ((backItems == 0) || (backItems >= length))
-				throw PDHException(_T("Strange error buffer pointers are f*cked up"));
+				throw PDHException(get_name(), _T("Strange error buffer pointers are f*cked up"));
 			double ret = 0;
 			if (current >= backItems) {
 				// Handle "whole" list.
@@ -287,6 +312,12 @@ namespace PDHCollectors {
 		}
 		inline unsigned int getLength() const {
 			return length;
+		}
+	private:
+		std::wstring get_name() const {
+			if (parent_ != NULL)
+				return parent_->getName();
+			return _T("<UN ATTACHED>");
 		}
 	};
 

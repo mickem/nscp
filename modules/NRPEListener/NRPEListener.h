@@ -21,7 +21,9 @@
 
 NSC_WRAPPERS_MAIN();
 #include <Socket.h>
+#ifdef USE_SSL
 #include <SSLSocket.h>
+#endif
 #include <map>
 #include <nrpe/NRPEPacket.hpp>
 #include <execute_process.hpp>
@@ -37,8 +39,11 @@ private:
 		command_type type;
 		std::wstring arguments;
 	};
+
+#ifdef USE_SSL
 	bool bUseSSL_;
 	simpleSSL::Listener socket_ssl_;
+#endif
 	simpleSocket::Listener<> socket_;
 	typedef std::map<strEx::blindstr, command_data> command_list;
 	command_list commands;
@@ -61,7 +66,11 @@ public:
 
 
 	std::wstring getModuleName() {
+#ifdef USE_SSL
+		return _T("NRPE server (w/ SSL)");
+#else
 		return _T("NRPE server");
+#endif
 	}
 	NSCModuleWrapper::module_version getModuleVersion() {
 		NSCModuleWrapper::module_version version = {0, 0, 1 };

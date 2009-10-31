@@ -29,7 +29,6 @@ NSC_WRAPPERS_CLI();
 class CheckSystem {
 private:
 	CheckMemory memoryChecker;
-	int processMethod_;
 	PDHCollectorThread pdhThread;
 
 public:
@@ -80,5 +79,7 @@ public:
 	NSCAPI::nagiosReturn checkMem(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn checkProcState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn checkCounter(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn listCounterInstances(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
+
 
 };

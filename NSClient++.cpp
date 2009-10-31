@@ -21,6 +21,12 @@
 #include <b64/b64.h>
 #include <config.h>
 #include <msvc_wrappers.h>
+#include <Userenv.h>
+#include <remote_processes.hpp>
+#include <Lmcons.h>
+//#ifdef DEBUG
+#include <crtdbg.h>
+//#endif
 #include <settings.h>
 #include <INISettings.h>
 #include <REGSettings.h>
@@ -32,6 +38,9 @@
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
 
+/**
+ * START OF Tray starter MERGE HELPER
+ */
 class tray_starter {
 	struct start_block {
 		std::wstring cmd;
@@ -62,7 +71,7 @@ public:
 	}
 
 	static bool start(DWORD dwSessionId) {
-		std::wstring program = mainClient.getBasePath() +  _T("\\") + SETTINGS_GET_STRING(shared_session::SYSTRAY_EXE);
+		std::wstring program = mainClient.getBasePath() +  _T("\\") + Settings::getInstance()->getString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_SYSTRAY_EXE, NSCLIENT_SETTINGS_SYSTRAY_EXE_DEFAULT);
 		std::wstring cmdln = _T("\"") + program + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
 		return tray_starter::startTrayHelper(dwSessionId, program, cmdln);
 	}
@@ -99,30 +108,30 @@ public:
 			/*
 			LOG_ERROR_STD(_T("Impersonating user: "));
 			if (!ImpersonateLoggedOnUser(hToken)) {
-			LOG_ERROR_STD(_T("Failed to impersonate the user: ") + error::lookup::last_error());
+				LOG_ERROR_STD(_T("Failed to impersonate the user: ") + error::lookup::last_error());
 			}
 
 			wchar_t pszUname[UNLEN + 1];
 			ZeroMemory(pszUname,sizeof(pszUname));
 			DWORD dwSize = UNLEN;
 			if (!GetUserName(pszUname,&dwSize)) {
-			DWORD dwErr = GetLastError();
-			if (!RevertToSelf())
-			LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
-			LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
-			return false;
+				DWORD dwErr = GetLastError();
+				if (!RevertToSelf())
+					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+				LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
+				return false;
 			}
-
+			
 
 			PROFILEINFO info;
 			info.dwSize = sizeof(PROFILEINFO);
 			info.lpUserName = pszUname;
 			if (!LoadUserProfile(hToken, &info)) {
-			DWORD dwErr = GetLastError();
-			if (!RevertToSelf())
-			LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
-			LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
-			return false;
+				DWORD dwErr = GetLastError();
+				if (!RevertToSelf())
+					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+				LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
+				return false;
 			}
 			*/
 			if (!CreateProcessAsUser(hToken, exe.c_str(), buffer, NULL, NULL, FALSE, dwCreationFlags, pEnv, NULL, &StartUPInfo, &ProcessInfo)) {
@@ -130,7 +139,7 @@ public:
 				delete [] buffer;
 				/*
 				if (!RevertToSelf()) {
-				LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
 				}
 				*/
 				if (startThread && dwErr == ERROR_PIPE_NOT_CONNECTED) {
@@ -149,7 +158,7 @@ public:
 				delete [] buffer;
 				/*
 				if (!RevertToSelf()) {
-				LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
 				}
 				*/
 				LOG_MESSAGE_STD(_T("Started tray in other user session: ") + strEx::itos(dwSessionId));
@@ -162,7 +171,16 @@ public:
 	}
 };
 
+/**
+ * End of class tray started (MERGE HELP)
+ */
 
+#define XNSC_DEFINE_SETTING_KEY(name, tag) \
+	name ## _SECTION \
+	
+ /**
+ * RANDOM JUNK (MERGE HELP)
+ */
 
 void display(std::wstring title, std::wstring message) {
 	::MessageBox(NULL, message.c_str(), title.c_str(), MB_OK|MB_ICONERROR);
@@ -287,7 +305,6 @@ namespace settings_manager {
 	};
 
 	typedef Singleton<NSCSettingsImpl> SettingsHandler;
-
 	// Alias to make handling "compatible" with old syntax
 	Settings::SettingsInterface* get_settings() {
 		return SettingsHandler::getInstance()->get();
@@ -333,7 +350,6 @@ namespace settings_manager {
 #define SETTINGS_SET_STRING(key, value) \
 	Settings::get_settings()->set_string(key ## _PATH, key, value);
 
-
 /**
  * Application startup point
  *
@@ -348,60 +364,84 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
-			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
+			bool bGui = false;
+			bool bStart = false;
+			std::wstring service_name, service_description;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else if (_wcsicmp( _T("start"), argv[i]) == 0) {
+					bStart = true;
+				} else {
+					if (service_name.empty())
+						service_name = argv[i];
+					else {
+						if (!service_description.empty())
+							service_description += _T(" ");
+						service_description += argv[i];
+					}
+				}
+			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
+			if (service_description.empty())
+				service_description = SZSERVICEDISPLAYNAME;
 			g_bConsoleLog = true;
 			try {
-				serviceControll::Install(SZSERVICENAME, SZSERVICEDISPLAYNAME, SZDEPENDENCIES);
+				serviceControll::Install(service_name.c_str(), service_description.c_str(), SZDEPENDENCIES);
+				if (bStart)
+					serviceControll::Start(service_name);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
-					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
+					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
 				LOG_ERROR_STD(_T("Service installation failed: ") + e.error_);
 				return -1;
 			}
 			try {
-				serviceControll::SetDescription(SZSERVICENAME, SZSERVICEDESCRIPTION);
-			} catch (const serviceControll::SCException& e) {
-				if (bGui)
-					display(_T("Error uninstalling"), _T("Service installation failed; ") + e.error_);
-				LOG_MESSAGE_STD(_T("Couldn't set service description: ") + e.error_);
-			}
-			LOG_MESSAGE(_T("Service installed!"));
-			return 0;
-		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
-			bool bGui = (argc > 2) && (_wcsicmp( _T("gui"), argv[2] ));
-			g_bConsoleLog = true;
-			try {
-				serviceControll::Uninstall(SZSERVICENAME);
+				serviceControll::SetDescription(service_name, service_description);
 			} catch (const serviceControll::SCException& e) {
 				if (bGui)
 					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
-				LOG_ERROR_STD(_T("Service deinstallation failed; ") + e.error_);
+				LOG_MESSAGE_STD(_T("Couldn't set service description: ") + e.error_);
 			}
-		} else if ( _wcsicmp( _T("settings"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = true;
-			if (argc > 2) {
-				try {
-					//mainClient.setBoot(false);
-					g_bConsoleLog = true;
-					mainClient.enableDebug(true);
-					if (!mainClient.InitiateService()) {
-						std::wcerr << _T("Failed to initiate service") << std::endl;
-						return -1;
-					}
-					if (argc > 3)
-						mainClient.HandleSettingsCLI(argv[2], argc-3, argv+3);
-					else
-						mainClient.HandleSettingsCLI(argv[2], 0, NULL);
-					mainClient.TerminateService();
-					return nRetCode;
-				} catch (Settings::SettingsException e) {
-					std::wcerr << _T("Uncaught exception: ") << e.getError() << std::endl;
-					return -1;
-				} catch (...) {
-					std::wcerr << _T("Uncaught exception...") << std::endl;
-					return -1;
+			if (bGui)
+				display(_T("Service installed"), _T("Service installed successfully!"));
+			LOG_MESSAGE(_T("Service installed!"));
+			return 0;
+		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
+			bool bGui = false;
+			bool bStop = false;
+			std::wstring service_name;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else if (_wcsicmp( _T("stop"), argv[i]) == 0) {
+					bStop = true;
+				} else {
+					service_name = argv[i];
 				}
 			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
+			g_bConsoleLog = true;
+			try {
+				if (bStop)
+					serviceControll::Stop(service_name);
+			} catch (const serviceControll::SCException& e) {
+				LOG_MESSAGE_STD(_T("Failed to stop service (") + service_name + _T(") failed; ") + e.error_);
+			}
+			try {
+				serviceControll::Uninstall(service_name);
+			} catch (const serviceControll::SCException& e) {
+				if (bGui)
+					display(_T("Error uninstalling"), _T("Service de-installation (") + service_name + _T(") failed; ") + e.error_ + _T("\nMaybe the service was not previously installed properly?"));
+				LOG_ERROR_STD(_T("Service deinstallation failed; ") + e.error_);
+				return 0;
+			}
+			if (bGui)
+				display(_T("Service uninstalled"), _T("Service uninstalled successfully!"));
+			LOG_MESSAGE(_T("Service uninstalled!"));
+			return 0;
 		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			std::wstring password;
@@ -420,30 +460,122 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			return 0;
 		} else if ( _wcsicmp( _T("start"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
+			bool bGui = false;
+			std::wstring service_name;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else {
+					service_name = argv[i];
+				}
+			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
 			try {
-				serviceControll::Start(SZSERVICENAME);
+				serviceControll::Start(service_name.c_str());
 			} catch (const serviceControll::SCException& e) {
+				if (bGui)
+					display(_T("Service failed to start"), e.error_);
 				LOG_MESSAGE_STD(_T("Service failed to start: ") + e.error_);
 				return -1;
 			}
 		} else if ( _wcsicmp( _T("stop"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
+			bool bGui = false;
+			std::wstring service_name;
+			for (int i=2;i<argc;i++) {
+				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+					bGui = true;
+				} else {
+					service_name = argv[i];
+				}
+			}
+			if (service_name.empty())
+				service_name = SZSERVICENAME;
 			try {
-				serviceControll::Stop(SZSERVICENAME);
+				serviceControll::Stop(service_name.c_str());
 			} catch (const serviceControll::SCException& e) {
+				if (bGui)
+					display(_T("Service failed to stop"), e.error_);
 				LOG_MESSAGE_STD(_T("Service failed to stop: ") + e.error_);
 				return -1;
 			}
 		} else if ( _wcsicmp( _T("about"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			LOG_MESSAGE(SZAPPNAME _T(" (C) Michael Medin"));
-			LOG_MESSAGE(_T("Version ") SZVERSION);
+			LOG_MESSAGE(SZAPPNAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
+			LOG_MESSAGE(_T("Version: ") SZVERSION);
+			LOG_MESSAGE(_T("Architecture: ") SZARCH);
+
+			std::wstring pluginPath = mainClient.getBasePath() + _T("modules\\");
+			LOG_MESSAGE_STD(_T("Looking at plugins in: ") + pluginPath);
+
+			WIN32_FIND_DATA wfd;
+			HANDLE hFind = FindFirstFile((pluginPath + _T("*.dll")).c_str(), &wfd);
+			if (hFind != INVALID_HANDLE_VALUE) {
+				do {
+					std::wstring file = wfd.cFileName;
+					NSCPlugin *plugin = new NSCPlugin(pluginPath + _T("\\") + file);
+					std::wstring name = _T("<unknown>");
+					std::wstring description = _T("<unknown>");
+					try {
+						plugin->load_dll();
+						name = plugin->getName();
+						description = plugin->getDescription();
+					} catch(const NSPluginException& e) {
+						LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+					} catch (std::exception e) {
+						LOG_ERROR_STD(_T("exception loading plugin: ") + strEx::string_to_wstring(e.what()));
+					} catch (...) {
+						LOG_ERROR_STD(_T("Unknown exception loading plugin"));
+					}
+					LOG_MESSAGE_STD(_T("* ") + name + _T(" (") + file + _T(")"));
+					std::list<std::wstring> list = strEx::splitEx(description, _T("\n"));
+					for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+						LOG_MESSAGE_STD(_T("    ") + *cit);
+					}
+				} while (FindNextFile(hFind, &wfd));
+			} else {
+				LOG_CRITICAL(_T("No plugin was found!"));
+			}
+			FindClose(hFind);
 		} else if ( _wcsicmp( _T("version"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
+		} else if ( _wcsicmp( _T("d"), argv[1]+1 ) == 0 ) {
+			// Run command from command line (like NRPE) but with debug enabled
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
+			mainClient.initCore(true);
+			std::wstring command, args, msg, perf;
+			if (argc > 2)
+				command = argv[2];
+			for (int i=3;i<argc;i++) {
+				if (i!=3) args += _T(" ");
+				args += argv[i];
+			}
+			nRetCode = mainClient.inject(command, args, L' ', true, msg, perf);
+			std::wcout << msg << _T("|") << perf << std::endl;
+			mainClient.exitCore(true);
+			return nRetCode;
+		} else if ( _wcsicmp( _T("c"), argv[1]+1 ) == 0 ) {
+			// Run command from command line (like NRPE)
+			g_bConsoleLog = true;
+			mainClient.enableDebug(false);
+			mainClient.initCore(true);
+			std::wstring command, args, msg, perf;
+			if (argc > 2)
+				command = argv[2];
+			for (int i=3;i<argc;i++) {
+				if (i!=3) args += _T(" ");
+				args += argv[i];
+			}
+			nRetCode = mainClient.inject(command, args, L' ', true, msg, perf);
+			std::wcout << msg << _T("|") << perf << std::endl;
+			mainClient.exitCore(true);
+			return nRetCode;
+			g_bConsoleLog = true;
+			mainClient.enableDebug(false);
 			mainClient.initCore(false);
 			int nRetCode = -1;
 			if (argc>=4)
@@ -452,6 +584,14 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
 			mainClient.exitCore(false);
 			return nRetCode;
+		} else if ( _wcsicmp( _T("svc"), argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
+			try {
+				std::wstring exe = serviceControll::get_exe_path(SZSERVICENAME);
+				LOG_MESSAGE_STD(_T("The Service uses: ") + exe);
+			} catch (const serviceControll::SCException& e) {
+				LOG_ERROR_STD(_T("Failed to find service: ") + e.error_);
+			}
 		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
 			bool server = false;
 			if (argc > 2 && _wcsicmp( _T("server"), argv[2] ) == 0 ) {
@@ -464,7 +604,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					std::wcerr << "Service seems to be started, this is probably not a good idea..." << std::endl;
 				}
 			} catch (const serviceControll::SCException& e) {
-				e; // Empty by design
+				e;// Empty by design
 			}
 			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
@@ -502,6 +642,10 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				} else if (s == _T("reattach")) {
 					std::wcout << _T("Reattaching to session 0") << std::endl;
 					mainClient.startTrayIcon(0);
+//#ifdef DEBUG
+				} else if (s == _T("assert")) {
+					throw "test";
+//#endif
 				} else if (std::cin.peek() < 15) {
 					buff += s;
 					strEx::token t = strEx::getToken(buff, ' ');
@@ -753,7 +897,6 @@ bool NSClientT::initCore(bool boot) {
 	try {
 		if (debug_)
 			settings_manager::get_settings()->set_int(_T("log"), _T("debug"), 1);
-		if (enable_shared_session_)
 			settings_manager::get_settings()->set_int(_T("Settings"), _T("shared_Session"), 1);
 		enable_shared_session_ = SETTINGS_GET_BOOL(settings_def::SHARED_SESSION);
 	} catch (SettingsException e) {
@@ -792,10 +935,10 @@ bool NSClientT::initCore(bool boot) {
 				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
 			} catch (nsclient_session::session_exception e) {
 				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
-				shared_client_ = NULL;
+				shared_client_.reset(NULL);
 			} catch (...) {
 				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
-				shared_client_ = NULL;
+				shared_client_.reset(NULL);
 			}
 		}
 	}
@@ -845,7 +988,7 @@ bool NSClientT::initCore(bool boot) {
 				}
 			}
 		} catch (SettingsException e) {
-			LOG_ERROR_STD(_T("Failed to load plugins: ") + e.getMessage());
+			LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
 		} catch (...) {
 			LOG_ERROR_STD(_T("Unknown exception when loading plugins"));
 			return false;
@@ -856,6 +999,7 @@ bool NSClientT::initCore(bool boot) {
 			LOG_ERROR_STD(_T("Unknown exception loading plugins"));
 			return false;
 		}
+		LOG_DEBUG_STD(_T("NSCLient++ - " SZVERSION) + _T(" Started!"));
 	}
 	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Started!"));
 	return true;
@@ -911,7 +1055,7 @@ void NSClientT::startTrayIcon(DWORD dwSessionId) {
 
 bool NSClientT::exitCore(bool boot) {
 	plugins_loaded_ = false;
-	LOG_MESSAGE(_T("Attempting to stop NSCLient++ - " SZVERSION));
+	LOG_DEBUG(_T("Attempting to stop NSCLient++ - " SZVERSION));
 	if (boot) {
 		try {
 			LOG_DEBUG_STD(_T("Stopping: NON Message Handling Plugins"));
@@ -1170,6 +1314,18 @@ void NSClientT::loadPlugins() {
 				it = plugins_.erase(it);
 				LOG_ERROR_STD(_T("Could not load plugin: ") + (*it)->getModule());
 			}
+	}
+	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
+		LOG_DEBUG_STD(_T("Loading plugin: ") + (*it)->getName() + _T("..."));
+		try {
+			(*it)->load_plugin();
+			++it;
+		} catch(NSPluginException e) {
+			it = plugins_.erase(it);
+			LOG_ERROR_STD(_T("Exception raised when loading plugin: ") + e.error_ + _T(" in module: ") + e.file_ + _T(" plugin has been removed."));
+		} catch(...) {
+			it = plugins_.erase(it);
+			LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin plugin has been removed"));
 		}
 	}
 	plugins_loaded_ = true;
@@ -1356,22 +1512,57 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 
 void NSClientT::listPlugins() {
 	ReadLock readLock(&m_mutexRW, true, 10000);
-	if (!readLock.IsLocked()) {
-		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
-		return;
-	}
-	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
 		try {
-			if ((*it)->isBroken()) {
-				std::wcout << (*it)->getModule() << _T(": ") << _T("broken") << std::endl;
-			} else {
-				std::wcout << (*it)->getModule() << _T(": ") << (*it)->getName() << std::endl;
-			}
-		} catch (NSPluginException e) {
-			LOG_ERROR_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
+			std::wstring msg, perf;
+			int returnCode = shared_client_->inject(command, arrayBuffer::arrayBuffer2string(argument, argLen, _T(" ")), L' ', true, msg, perf);
+			NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, msg, returnCode);
+			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, perf, returnCode);
+		} catch (nsclient_session::session_exception &e) {
+			LOG_ERROR_STD(_T("Failed to inject remote command: ") + e.what());
+			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command: ") + e.what(), NSCAPI::returnCRIT);
+			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
+		} catch (...) {
+			LOG_ERROR_STD(_T("Failed to inject remote command: Unknown exception"));
+			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command:  + e.what()"), NSCAPI::returnCRIT);
+			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
 		}
+	} else {
+		ReadLock readLock(&m_mutexRW, true, 5000);
+		if (!readLock.IsLocked()) {
+			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			return NSCAPI::returnUNKNOWN;
+		}
+		for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
+			try {
+				NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+				switch (c) {
+					case NSCAPI::returnInvalidBufferLen:
+						LOG_ERROR(_T("UNKNOWN: Return buffer to small to handle this command."));
+						return c;
+					case NSCAPI::returnIgnored:
+						break;
+					case NSCAPI::returnOK:
+					case NSCAPI::returnWARN:
+					case NSCAPI::returnCRIT:
+					case NSCAPI::returnUNKNOWN:
+						LOG_DEBUG_STD(_T("Injected Result: ") + NSCHelper::translateReturn(c) + _T(" '") + (std::wstring)(returnMessageBuffer) + _T("'"));
+						LOG_DEBUG_STD(_T("Injected Performance Result: '") +(std::wstring)(returnPerfBuffer) + _T("'"));
+						return c;
+					default:
+						LOG_ERROR_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);
+						return c;
+				}
+			} catch(const NSPluginException& e) {
+				LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+				return NSCAPI::returnCRIT;
+			} catch(...) {
+				LOG_ERROR_STD(_T("Unknown exception raised in module"));
+				return NSCAPI::returnCRIT;
+			}
+		}
+		LOG_MESSAGE_STD(_T("No handler for command: '") + command + _T("'"));
+		return NSCAPI::returnIgnored;
 	}
-
 }
 
 bool NSClientT::logDebug() {
@@ -1382,11 +1573,20 @@ bool NSClientT::logDebug() {
 			else
 				debug_ = log_nodebug;
 		} catch (SettingsException e) {
-			debug_ = log_debug;
+			return true;
 		}
 	}
 	return (debug_ == log_debug);
 }
+void NSClientT::enableDebug(bool debug) {
+	if (debug) {
+		debug_ = log_debug;
+		LOG_DEBUG(_T("Enabling debug mode..."));
+	}
+	else
+		debug_ = log_nodebug;
+}
+
 
 void log_broken_message(std::wstring msg) {
 	OutputDebugString(msg.c_str());
@@ -1447,7 +1647,7 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 			}	
 			std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
 		}
-		if (messageHandlers_.size() == 0 || !plugins_loaded_) {
+		if (!plugins_loaded_) {
 			OutputDebugString(message.c_str());
 			log_cache_.push_back(cached_log_entry(msgType, file, line, message));
 		} else {

@@ -276,6 +276,25 @@ bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
 	}
 }
 
+void NSCPlugin::showTray() {
+	if (fShowTray == NULL)
+		throw NSPluginException(file_, _T("Critical error (ShowTray)"));
+	try {
+		fShowTray();
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in ShowTray."));
+	}
+}
+void NSCPlugin::hideTray() {
+	if (fHideTray == NULL)
+		throw NSPluginException(file_, _T("Critical error (HideTray)"));
+	try {
+		fHideTray();
+	} catch (...) {
+		throw NSPluginException(file_, _T("Unhandled exception in HideTray."));
+	}
+}
+
 /**
  * Load all remote function pointers from the loaded module.
  * These pointers are cached for "speed" which might (?) be dangerous if something changes.

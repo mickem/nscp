@@ -29,6 +29,10 @@
 #include <list>
 #include <functional>
 #include <time.h>
+#include <algorithm>
+#include <locale>
+
+
 #ifdef _DEBUG
 #include <iostream>
 #endif
@@ -60,9 +64,11 @@ namespace strEx {
 		}
 	}
 
-	inline void append_list(std::wstring &lst, std::wstring &append) {
+	inline void append_list(std::wstring &lst, std::wstring &append, std::wstring sep = _T(", ")) {
+		if (append.empty())
+			return;
 		if (!lst.empty())
-			lst += _T(", ");
+			lst += sep;
 		lst += append;
 	}
 
@@ -209,7 +215,10 @@ namespace strEx {
 		std::wstring::size_type len = replace.length();
 		while (pos != std::wstring::npos) {
 			string = string.substr(0,pos)+with+string.substr(pos+len);
-			pos = string.find(replace, pos+1);
+			if (with.find(replace) != std::wstring::npos) // If the replace containes the key look after the replace!
+				pos = string.find(replace, pos+with.length());
+			else
+				pos = string.find(replace, pos+1);
 		}
 	}
 	inline std::wstring ctos(TCHAR c) {
@@ -453,6 +462,25 @@ namespace strEx {
 		return ret;
 	}
 
+
+
+	inline std::wstring trim_right(const std::wstring &source , const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return str.erase( str.find_last_not_of(t) + 1);
+	}
+
+	inline std::wstring trim_left( const std::wstring& source, const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return str.erase(0 , source.find_first_not_of(t) );
+	}
+
+	inline std::wstring trim(const std::wstring& source, const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return trim_left( trim_right( str , t) , t );
+	} 
 	inline std::pair<std::wstring,std::wstring> split(std::wstring str, std::wstring key) {
 		std::wstring::size_type pos = str.find(key);
 		if (pos == std::wstring::npos)
@@ -525,6 +553,48 @@ namespace strEx {
 			return _wcsicmp( x.c_str(), y.c_str() ) < 0;
 		}
 	};
+
+
+
+	class StrICmp
+	{
+	public:
+		StrICmp(const std::string &Lang = "english") : m_locE(Lang.c_str())
+		{
+		}
+		class CharLessI
+		{
+		public:
+			CharLessI(std::locale &locE) : m_locE(locE)
+			{
+			}
+			template<typename T>
+			bool operator()(T c1, T c2)
+			{
+				return std::tolower(c1, m_locE) < std::tolower(c2, m_locE);
+			}
+		private:
+			std::locale &m_locE;
+		};
+		template<typename T>
+		int operator()(const T &s1, const T &s2)
+		{
+			if (std::lexicographical_compare(s1.begin(), s1.end(), s2.begin(), s2.end(), CharLessI(m_locE)))
+				return -1;
+			if (std::lexicographical_compare(s2.begin(), s2.end(), s1.begin(), s1.end(), CharLessI(m_locE)))
+				return 1;
+			return 0;
+		}
+	private:
+		std::locale m_locE;
+	};
+
+	template<typename T>
+	int StrCmpI(const T &s1, const T &s2, const std::string &Lang = "english")
+	{
+		return StrICmp(Lang)(s1, s2);
+	}
+
 
 #ifdef _DEBUG
 	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {

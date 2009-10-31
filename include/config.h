@@ -27,8 +27,8 @@
 #define SZAPPNAME _T("NSClient++")
 
 // Version
-//#define SZBETATAG _T(" ")
-//#define SZBETATAG _T(" RC ")  
+#define SZBETATAG _T(" ")
+//#define SZBETATAG _T(" BETA ") 
 #define SZBETATAG _T(" BETA ") 
 #define SZVERSION STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
@@ -468,6 +468,18 @@ namespace settings {
 #define C_SYSTEM_ENUMPROC_METHOD_AUTO _T("auto")
 #define C_SYSTEM_ENUMPROC_METHOD _T("ProcessEnumerationMethod")
 #define C_SYSTEM_ENUMPROC_METHOD_DEFAULT C_SYSTEM_ENUMPROC_METHOD_AUTO
+
+
+#define EVENTLOG_SECTION_TITLE _T("Eventlog")
+#define EVENTLOG_DEBUG _T("debug")
+#define EVENTLOG_DEBUG_DEFAULT 0
+#define EVENTLOG_LOOKUP_NAMES _T("lookup_names")
+#define EVENTLOG_LOOKUP_NAMES_DEFAULT 1
+#define EVENTLOG_SYNTAX _T("syntax")
+#define EVENTLOG_SYNTAX_DEFAULT _T("")
+#define EVENTLOG_BUFFER _T("buffer_size")
+#define EVENTLOG_BUFFER_DEFAULT 1024*64
+
 */
 /*
 #define NSCA_AGENT_SECTION_TITLE _T("NSCA Agent")
@@ -488,6 +500,26 @@ namespace settings {
 #define NSCA_DEBUG_THREADS_DEFAULT 1
 #define NSCA_CACHE_HOST _T("cache_hostname")
 #define NSCA_CACHE_HOST_DEFAULT 0
+#define NSCA_TIME_DELTA _T("time_delay")
+#define NSCA_TIME_DELTA_DEFAULT _T("0")
+#define NSCA_REPORT _T("report")
+#define NSCA_REPORT_DEFAULT _T("all")
+#define NSCA_READ_TIMEOUT _T("socket_timeout")
+#define NSCA_READ_TIMEOUT_DEFAULT 30
+#define NSCA_STRLEN _T("string_length")
+#define NSCA_STRLEN_DEFAULT 512
+
+#define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
+#define C_SYSTEM_SVC_ALL_0_DEFAULT _T("ignored")
+#define C_SYSTEM_SVC_ALL_1 _T("check_all_services[SERVICE_SYSTEM_START]")
+#define C_SYSTEM_SVC_ALL_1_DEFAULT _T("ignored")
+#define C_SYSTEM_SVC_ALL_2 _T("check_all_services[SERVICE_AUTO_START]")
+#define C_SYSTEM_SVC_ALL_2_DEFAULT _T("started")
+#define C_SYSTEM_SVC_ALL_3 _T("check_all_services[SERVICE_DEMAND_START]")
+#define C_SYSTEM_SVC_ALL_3_DEFAULT _T("ignored")
+#define C_SYSTEM_SVC_ALL_4 _T("check_all_services[SERVICE_DISABLED]")
+#define C_SYSTEM_SVC_ALL_4_DEFAULT _T("stopped")
+
 */
 /*
 #define C_TASKSCHED_SECTION _T("Task Scheduler")
@@ -501,6 +533,10 @@ namespace settings {
 #define LOG_FILENAME_DEFAULT _T("nsclient.log")
 #define LOG_DATEMASK _T("date_mask")
 #define LOG_DATEMASK_DEFAULT _T("%Y-%m-%d %H:%M:%S")
+
+#define LOG_ROOT _T("root_folder")
+#define LOG_ROOT_DEFAULT _T("exe")
+
 */
 // Main Settings
 /*
@@ -518,6 +554,8 @@ namespace settings {
 #define MAIN_ALLOWED_HOSTS_CACHE_DEFAULT 1
 #define MAIN_STRING_LENGTH _T("string_length")
 #define MAIN_STRING_LENGTH_DEFAULT 4096
+#define MAIN_SHARED_SESSION _T("shared_session")
+#define MAIN_SHARED_SESSION_DEFAULT 0
 */
 
 // LOA Config items

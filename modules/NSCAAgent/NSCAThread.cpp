@@ -21,16 +21,74 @@
 #include "NSCAThread.h"
 #include <Settings.h>
 
+#define REPORT_ERROR	0x01
+#define REPORT_WARNING	0x02
+#define REPORT_UNKNOWN	0x04
+#define REPORT_OK		0x08
+
+unsigned int parse_report_string(std::wstring str) {
+	unsigned int report = 0;
+	strEx::splitList lst = strEx::splitEx(str, _T(","));
+	for (strEx::splitList::const_iterator key = lst.begin(); key != lst.end(); ++key) {
+		if (*key == _T("all")) {
+			report = REPORT_ERROR|REPORT_OK|REPORT_UNKNOWN|REPORT_WARNING;
+		} else if (*key == _T("error") || *key == _T("err") || *key == _T("critical") || *key == _T("crit")) {
+			report |= REPORT_ERROR;
+		} else if (*key == _T("warning") || *key == _T("warn")) {
+			report |= REPORT_WARNING;
+		} else if (*key == _T("unknown")) {
+			report |= REPORT_UNKNOWN;
+		} else if (*key == _T("ok")) {
+			report |= REPORT_OK;
+		}
+	}
+	return report;
+}
+std::wstring generate_report_string(unsigned int report) {
+	std::wstring ret;
+	if ((report&REPORT_OK)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("ok");
+	}
+	if ((report&REPORT_WARNING)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("warning");
+	}
+	if ((report&REPORT_ERROR)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("critical");
+	}
+	if ((report&REPORT_UNKNOWN)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("unknown");
+	}
+	return ret;
+}
 
 NSCAThread::NSCAThread() : hStopEvent_(NULL) {
-	checkIntervall_ = SETTINGS_GET_INT(nsca::INTERVAL);
-	hostname_ = SETTINGS_GET_STRING(nsca::HOSTNAME);
-	nscahost_ = SETTINGS_GET_STRING(nsca::SERVER_HOST);
-	nscaport_ = SETTINGS_GET_INT(nsca::SERVER_PORT);
-	encryption_method_ = SETTINGS_GET_INT(nsca::ENCRYPTION);
-	password_ = strEx::wstring_to_string(SETTINGS_GET_STRING(nsca::PASSWORD));
-	cacheNscaHost_ = SETTINGS_GET_BOOL(nsca::CACHE_HOST);
-	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(settings::nsca::CMD_SECTION_PATH);
+	std::wstring tmpstr = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_TIME_DELTA, NSCA_TIME_DELTA_DEFAULT);
+	if (tmpstr[0] == '-' && tmpstr.size() > 2)
+		timeDelta_ = 0 - strEx::stoui_as_time(tmpstr.substr(1));
+	if (tmpstr[0] == '+' && tmpstr.size() > 2)
+		timeDelta_ = strEx::stoui_as_time(tmpstr.substr(1));
+	else
+		timeDelta_ = strEx::stoui_as_time(tmpstr);
+	timeDelta_ = timeDelta_ / 1000;
+	NSC_DEBUG_MSG_STD(_T("Time difference for NSCA server is: ") + strEx::itos(timeDelta_));
+	checkIntervall_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
+	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
+	nscahost_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_SERVER, NSCA_SERVER_DEFAULT);
+	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
+	payload_length_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_STRLEN, NSCA_STRLEN_DEFAULT);
+	read_timeout_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_READ_TIMEOUT, NSCA_READ_TIMEOUT_DEFAULT);
+	std::wstring report = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_REPORT, NSCA_REPORT_DEFAULT);
+	report_ = parse_report_string(report);
+	NSC_DEBUG_MSG_STD(_T("Only reporting: ") + generate_report_string(report_));
+	
+	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
+	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
+	cacheNscaHost_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST, NSCA_CACHE_HOST_DEFAULT) == 1;
+	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
 	}
@@ -118,26 +176,55 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 		NSC_LOG_ERROR_STD(_T("Drift failed... strange..."));
 	}
 	int remain = checkIntervall_;
-	while (((waitStatus = WaitForSingleObject(hStopEvent_, remain*1000)) == WAIT_TIMEOUT)) {
-		MutexLock mutex(mutexHandler);
-		if (!mutex.hasMutex()) 
-			NSC_LOG_ERROR(_T("Failed to get Mutex!"));
-		else {
-			__int64 start, stop;
-			_time64( &start );
+	try {
+		while (((waitStatus = WaitForSingleObject(hStopEvent_, remain*1000)) == WAIT_TIMEOUT)) {
+			MutexLock mutex(mutexHandler);
+			if (!mutex.hasMutex()) 
+				NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+			else {
+				__int64 start, stop;
+				_time64( &start );
 
-			std::list<Command::Result> results;
-			for (std::list<Command>::const_iterator cit = commands_.begin(); cit != commands_.end(); ++cit) {
-				results.push_back((*cit).execute(hostname_));
-			}
-			send(results);
-			_time64( &stop );
-			__int64 elapsed = stop-start;
-			remain = checkIntervall_-static_cast<int>(elapsed);
-			if (remain < 0)
-				remain = 0;
-		} 
+				std::list<Command::Result> results;
+				for (std::list<Command>::const_iterator cit = commands_.begin(); cit != commands_.end(); ++cit) {
+					try {
+						NSC_DEBUG_MSG_STD(_T("Executing (from NSCA): ") + (*cit).alias());
+						Command::Result result = (*cit).execute(hostname_);
+						if (
+							(result.code == NSCAPI::returnOK && ((report_&REPORT_OK)==REPORT_OK) ) ||
+							(result.code == NSCAPI::returnCRIT && ((report_&REPORT_ERROR)==REPORT_ERROR) ) ||
+							(result.code == NSCAPI::returnWARN && ((report_&REPORT_WARNING)==REPORT_WARNING) ) ||
+							(result.code == NSCAPI::returnUNKNOWN && ((report_&REPORT_UNKNOWN)==REPORT_UNKNOWN) )
+							) 
+						{
+							results.push_back(result);
+						} else {
+							NSC_DEBUG_MSG_STD(_T("Ignoring result (it does not match our reporting prefix: ") + (*cit).alias());
+						}
+					} catch (...) {
+						NSC_LOG_ERROR_STD(_T("Unknown exception when executing: ") + (*cit).alias());
+					}
+				}
+				if (!results.empty()) {
+					try {
+						send(results);
+					} catch (...) {
+						NSC_LOG_ERROR_STD(_T("Unknown exception when sending commands to server..."));
+					}
+				} else {
+					NSC_DEBUG_MSG_STD(_T("Nothing to report, thus not reporting anything..."));
+				}
+				_time64( &stop );
+				__int64 elapsed = stop-start;
+				remain = checkIntervall_-static_cast<int>(elapsed);
+				if (remain < 1)
+					remain = 1;
+			} 
+		}
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Unknown exception in NSCA Thread terminating..."));
 	}
+
 
 	if (waitStatus != WAIT_OBJECT_0) {
 		NSC_LOG_ERROR(_T("Something odd happened, terminating NSCA submission thread!"));
@@ -157,6 +244,7 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 	return 0;
 }
 void NSCAThread::send(const std::list<Command::Result> &results) {
+	NSC_DEBUG_MSG_STD(_T("Sending to server..."));
 	try {
 		nsca_encrypt crypt_inst;
 		simpleSocket::Socket socket(true);
@@ -173,10 +261,34 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 			NSC_LOG_ERROR_STD(_T("<<< Could not connect to: ") + nscaaddr_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
 			return;
 		}
-		if (!socket.readAll(inc, sizeof(NSCAPacket::init_packet_struct), sizeof(NSCAPacket::init_packet_struct))) {
-			NSC_LOG_ERROR_STD(_T("<<< Failed to read header from: ") + nscaaddr_ + _T(":") + strEx::itos(nscaport_) + _T(" ") + socket.getLastError());
+		socket.setNonBlock();
+
+		time_t start = time(NULL);
+		unsigned int sz_packet = sizeof(NSCAPacket::init_packet_struct);
+		do {
+			bool lastReadHasMore = false;
+			try {
+				lastReadHasMore = socket.readAll(inc, sz_packet);
+			} catch (simpleSocket::SocketException e) {
+				NSC_LOG_ERROR_STD(_T("Could not read NSCA hdr packet from socket :") + e.getMessage());
+				socket.close();
+				return;
+			}
+			if (inc.getLength() >= sz_packet)
+				break;
+			if (!lastReadHasMore) {
+				NSC_LOG_MESSAGE(_T("Could not read a full NSCA hdr packet from socket, only got: ") + strEx::itos(inc.getLength()));
+				socket.close();
+				return;
+			}
+			Sleep(100);
+		} while ((time(NULL) - start) < read_timeout_);
+		if (inc.getLength() != sz_packet) {
+			NSC_LOG_ERROR_STD(_T("Timeout reading NSCA hdr packet (increase socket_timeout), we only got: ") + strEx::itos(inc.getLength()));
+			socket.close();
 			return;
 		}
+
 		NSCAPacket::init_packet_struct *packet_in = (NSCAPacket::init_packet_struct*) inc.getBuffer();
 		try {
 			crypt_inst.encrypt_init(password_.c_str(),encryption_method_,reinterpret_cast<unsigned char*>(packet_in->iv));
@@ -191,7 +303,7 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 		try {
 			for (std::list<Command::Result>::const_iterator cit = results.begin(); cit != results.end(); ++cit) {
 				try {
-					socket.send((*cit).getBuffer(crypt_inst));
+					socket.send((*cit).getBuffer(crypt_inst, timeDelta_, payload_length_));
 				} catch (NSCAPacket::NSCAException &e) {
 					NSC_LOG_ERROR_STD(_T("Failed to make command: ") + e.getMessage() );
 				}
@@ -204,10 +316,14 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 			return;
 		}
 		socket.close();
+	} catch (simpleSocket::SocketException &e) {
+		NSC_LOG_ERROR_STD(_T("NSCA Socket exception: ") + e.getMessage());
+		return;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("<<< NSCA Configuration missmatch (hint: if you dont use NSCA dot use the NSCA module)!"));
 		return;
 	}
+	NSC_DEBUG_MSG_STD(_T("Finnished sending to server..."));
 }
 
 

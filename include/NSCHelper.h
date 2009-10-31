@@ -218,6 +218,15 @@ namespace NSCModuleWrapper {
 #define NSC_WRAPPERS_CLI() \
 	extern int NSCommandLineExec(const TCHAR*,const unsigned int,TCHAR**)
 
+#ifdef DEBUG
+#define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
+#define NSC_LOG_ERROR_C(msg) { \
+	NSCModuleHelper::Message(NSCAPI::error, _T(__FILE__), __LINE__, msg) \
+	std::wcerr << msg << std::endl; }
+#else
+#define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR_STD(msg)
+#define NSC_LOG_ERROR_C(msg) NSC_LOG_ERROR(msg)
+#endif
 
 
 #define NSC_LOG_ERROR_STD(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())

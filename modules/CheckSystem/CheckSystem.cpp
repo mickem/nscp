@@ -29,7 +29,7 @@
 #include <map>
 #include <set>
 #include <sysinfo.h>
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 #include <boost/regex.hpp>
 #endif
 
@@ -52,7 +52,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
  * Default c-tor
  * @return 
  */
-CheckSystem::CheckSystem() : processMethod_(0), pdhThread(_T("pdhThread")) {}
+CheckSystem::CheckSystem() : pdhThread(_T("pdhThread")) {}
 /**
  * Default d-tor
  * @return 
@@ -63,6 +63,52 @@ CheckSystem::~CheckSystem() {}
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
+bool CheckSystem::loadModule() {
+	pdhThread.createThread();
+	std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
+	CEnumProcess tmp;
+	int method = tmp.GetAvailableMethods();
+	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_AUTO) {
+		OSVERSIONINFO osVer = systemInfo::getOSVersion();
+		/*
+		if (systemInfo::isBelowNT4(osVer)) {
+			NSC_DEBUG_MSG_STD(_T("Autodetected NT4<, using PSAPI process enumeration."));
+			if (method == (method|ENUM_METHOD::PSAPI)) {
+				processMethod_ = ENUM_METHOD::PSAPI;
+			} else {
+				NSC_LOG_ERROR_STD(_T("PSAPI method not available, since you are on NT4 you need to install \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
+				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
+			}
+		} else if (systemInfo::isAboveW2K(osVer)) {
+			NSC_DEBUG_MSG_STD(_T("Autodetected W2K>, using TOOLHELP process enumeration."));
+			if (method == (method|ENUM_METHOD::TOOLHELP)) {
+				processMethod_ = ENUM_METHOD::TOOLHELP;
+			} else {
+				NSC_LOG_ERROR_STD(_T("TOOLHELP was not available, since you are on > W2K you need top manually override the ") C_SYSTEM_ENUMPROC_METHOD _T("option in NSC:ini."));
+			}
+		} else {
+		*/
+			NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
+			processMethod_ = ENUM_METHOD::PSAPI;
+			if (method == (method|ENUM_METHOD::PSAPI)) {
+				processMethod_ = ENUM_METHOD::PSAPI;
+			} else {
+				NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
+				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
+			}
+		//}
+	} else if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
+		NSC_DEBUG_MSG_STD(_T("Using PSAPI method."));
+		if (method == (method|ENUM_METHOD::PSAPI)) {
+			processMethod_ = ENUM_METHOD::PSAPI;
+		} else {
+			NSC_LOG_ERROR_STD(_T("PSAPI method not available, check ") C_SYSTEM_ENUMPROC_METHOD _T(" option."));
+		}
+	} else {
+		NSC_LOG_ERROR_STD(_T("TOOLHELP method has been removed sine we dont really want to support w9x ") C_SYSTEM_ENUMPROC_METHOD _T("."));
+	}
+bool CheckSystem::loadModule() {
+	pdhThread.createThread();
 bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::normalStart) {
 		pdhThread.createThread();
@@ -88,69 +134,8 @@ bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
 		NSCModuleHelper::registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
 		NSCModuleHelper::registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
 		NSCModuleHelper::registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
-
-		/*
-		#define C_SYSTEM_SECTION_TITLE _T("Check System")
-		#define C_SYSTEM_AUTODETECT_PDH _T("auto_detect_pdh")
-		*/
-#define C_SYSTEM_SECTION_TITLE _T("Check System")
-#define C_SYSTEM_CPU_BUFFER_TIME _T("CPUBufferSize") 
-#define C_SYSTEM_CHECK_RESOLUTION _T("CheckResolution")
-
-#define C_SYSTEM_AUTODETECT_PDH _T("auto_detect_pdh")
-#define C_SYSTEM_FORCE_LANGUAGE _T("force_language")
-#define C_SYSTEM_NO_INDEX _T("dont_use_pdh_index")
-#define C_SYSTEM_IGNORE_COLLECTION _T("debug_skip_data_collection")
-
-#define C_SYSTEM_MEM_PAGE_LIMIT _T("MemoryCommitLimit")
-#define C_SYSTEM_MEM_PAGE _T("MemoryCommitByte")
-#define C_SYSTEM_UPTIME _T("SystemSystemUpTime")
-#define C_SYSTEM_CPU _T("SystemTotalProcessorTime")
-#define C_SYSTEM_ENUMPROC_METHOD _T("ProcessEnumerationMethod")
-#define C_SYSTEM_SVC_ALL_0 _T("check_all_services[SERVICE_BOOT_START]")
-#define C_SYSTEM_SVC_ALL_1 _T("check_all_services[SERVICE_SYSTEM_START]")
-#define C_SYSTEM_SVC_ALL_2 _T("check_all_services[SERVICE_AUTO_START]")
-#define C_SYSTEM_SVC_ALL_3 _T("check_all_services[SERVICE_DEMAND_START]")
-#define C_SYSTEM_SVC_ALL_4 _T("check_all_services[SERVICE_DISABLED]")
-#define C_SYSTEM_CPU_METHOD _T("method")
-		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
-			NSC_DEBUG_MSG(_T("Using compatiblity mode in: NSCA module"));
-
-			SETTINGS_MAP_KEY_A(check_system::SVC_BOOT_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_0);
-			SETTINGS_MAP_KEY_A(check_system::SVC_SYSTEM_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_1);
-			SETTINGS_MAP_KEY_A(check_system::SVC_AUTO_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_2);
-			SETTINGS_MAP_KEY_A(check_system::SVC_DEMAND_START,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_3);
-			SETTINGS_MAP_KEY_A(check_system::SVC_DISABLED,		C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_4);
-
-			SETTINGS_MAP_KEY_A(check_system::BUFFER_SIZE,		C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_BUFFER_TIME);
-			SETTINGS_MAP_KEY_A(check_system::INTERVALL,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_CHECK_RESOLUTION);
-			SETTINGS_MAP_KEY_A(check_system::PROC_ENUM,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD);
-			SETTINGS_MAP_KEY_A(check_system::CPU_METHOD,		C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_METHOD);
-			SETTINGS_MAP_KEY_A(check_system::FORCE_LANGUAGE,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_FORCE_LANGUAGE);
-
-			SETTINGS_MAP_KEY_A(check_system::PDH_MEM_CMT_LIM,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE_LIMIT);
-			SETTINGS_MAP_KEY_A(check_system::PDH_MEM_CMT_BYT,	C_SYSTEM_SECTION_TITLE, C_SYSTEM_MEM_PAGE);
-			SETTINGS_MAP_KEY_A(check_system::PDH_SYSUP,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_UPTIME);
-			SETTINGS_MAP_KEY_A(check_system::PDH_CPU,			C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU);
-		}
-		SETTINGS_REG_PATH(check_system::SECTION);
-		SETTINGS_REG_PATH(check_system::COUNTERS_SECTION);
-		SETTINGS_REG_PATH(check_system::SERVICES_SECTION);
-
-		SETTINGS_REG_KEY_S(check_system::SVC_BOOT_START);
-		SETTINGS_REG_KEY_S(check_system::SVC_SYSTEM_START);
-		SETTINGS_REG_KEY_S(check_system::SVC_AUTO_START);
-		SETTINGS_REG_KEY_S(check_system::SVC_DEMAND_START);
-		SETTINGS_REG_KEY_S(check_system::SVC_DISABLED);
-		SETTINGS_REG_KEY_S(check_system::BUFFER_SIZE);
-		SETTINGS_REG_KEY_I(check_system::INTERVALL);
-		SETTINGS_REG_KEY_S(check_system::PROC_ENUM);
-		SETTINGS_REG_KEY_S(check_system::CPU_METHOD);
-		SETTINGS_REG_KEY_S(check_system::FORCE_LANGUAGE);
-		SETTINGS_REG_KEY_S(check_system::PDH_MEM_CMT_LIM);
-		SETTINGS_REG_KEY_S(check_system::PDH_MEM_CMT_BYT);
-		SETTINGS_REG_KEY_S(check_system::PDH_SYSUP);
-		SETTINGS_REG_KEY_S(check_system::PDH_CPU);
+		NSCModuleHelper::registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
+		
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -186,6 +171,11 @@ bool CheckSystem::hasMessageHandler() {
 }
 
 int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args) {
+	if (command == NULL) {
+		std::wcerr << _T("Usage: ... CheckSystem <command>") << std::endl;
+		std::wcerr << _T("Commands: debugpdh, listpdh, pdhlookup, pdhmatch, pdhobject") << std::endl;
+		return -1;
+	}
 	if (_wcsicmp(command, _T("debugpdh")) == 0) {
 		PDH::Enumerations::Objects lst;
 		try {
@@ -326,6 +316,58 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 				}
 			}
 		}
+	} else if (_wcsicmp(command, _T("pdhlookup")) == 0) {
+		try {
+			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			if (name.empty()) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
+				return 0;
+			}
+			DWORD dw = PDH::PDHQuery::lookupIndex(name);
+			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
+			NSC_LOG_MESSAGE_STD(_T("  | Index for '") + name + _T("' is ") + strEx::itos(dw));
+			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
+			return 0;
+		}
+	} else if (_wcsicmp(command, _T("pdhmatch")) == 0) {
+		try {
+			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			if (name.empty()) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
+				return 0;
+			}
+			std::list<std::wstring> list = PDH::PDHResolver::PdhExpandCounterPath(name.c_str());
+			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
+			for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+				NSC_LOG_MESSAGE_STD(_T("  | Found '") + *cit);
+			}
+			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
+			return 0;
+		}
+	} else if (_wcsicmp(command, _T("pdhobject")) == 0) {
+		try {
+			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			if (name.empty()) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
+				return 0;
+			}
+			PDH::Enumerations::pdh_object_details list = PDH::Enumerations::EnumObjectInstances(name.c_str());
+			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
+			for (std::list<std::wstring>::const_iterator cit = list.counters.begin(); cit != list.counters.end(); ++cit) {
+				NSC_LOG_MESSAGE_STD(_T("  | Found Counter: ") + *cit);
+			}
+			for (std::list<std::wstring>::const_iterator cit = list.instances.begin(); cit != list.instances.end(); ++cit) {
+				NSC_LOG_MESSAGE_STD(_T("  | Found Instance: ") + *cit);
+			}
+			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
+			return 0;
+		}
 	}
 	return 0;
 }
@@ -356,6 +398,8 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::blindstr command, c
 		return checkMem(argLen, char_args, msg, perf);
 	} else if (command == _T("checkCounter")) {
 		return checkCounter(argLen, char_args, msg, perf);
+	} else if (command == _T("listCounterInstances")) {
+		return listCounterInstances(argLen, char_args, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -561,6 +605,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 	StateContainer tmpObject;
 	bool bPerfData = true;
 	bool bAutoStart = false;
+	unsigned int truncate = 0;
 
 	tmpObject.data = _T("service");
 	tmpObject.crit.state = _T("started");
@@ -568,6 +613,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
+		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_BOOL_TRUE(_T("CheckAll"), bAutoStart)
@@ -670,8 +716,10 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 //			NSC_LOG_MESSAGE(_T("Service: ") + (*it).data + _T(" (") + strEx::itos(info.m_dwCurrentState) + _T(":") + strEx::itos((*it).warn.state.value_) + _T(":") + strEx::itos((*it).crit.state.value_) + _T(") -- (") + strEx::itos(returnCode) + _T(":") + strEx::itos(x) + _T(")"));
 		}
 	}
+	if ((truncate > 0) && (msg.length() > (truncate-4)))
+		msg = msg.substr(0, truncate-4) + _T("...");
 	if (msg.empty() && returnCode == NSCAPI::returnOK)
-		msg = _T("OK: All services are in their apropriate state.");
+		msg = _T("OK: All services are in their appropriate state.");
 	else if (msg.empty())
 		msg = NSCHelper::translateReturn(returnCode) + _T(": Whooha this is odd.");
 	else if (!bNSClient)
@@ -808,35 +856,50 @@ typedef struct NSPROCDATA__ {
 	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), entry(other.entry), key(other.key) {}
 } NSPROCDATA;
 typedef std::map<std::wstring,NSPROCDATA,strEx::case_blind_string_compare> NSPROCLST;
+
+class NSC_error : public CEnumProcess::error_reporter {
+	void report_error(std::wstring error) {
+		NSC_LOG_ERROR(error);
+	}
+	void report_warning(std::wstring error) {
+		NSC_LOG_MESSAGE(error);
+	}
+	void report_debug(std::wstring error) {
+		NSC_DEBUG_MSG_STD(_T("PROC::: ") + error);
+	}
+	void report_debug_enter(std::wstring error) {
+		NSC_DEBUG_MSG_STD(_T("PROC>>> ") + error);
+	}
+	void report_debug_exit(std::wstring error) {
+		NSC_DEBUG_MSG_STD(_T("PROC<<<") + error);
+	}
+};
+
 /**
 * Get a hash_map with all running processes.
 * @return a hash_map with all running processes
 */
-NSPROCLST GetProcessList(int processMethod, bool getCmdLines)
+NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
 {
 	NSPROCLST ret;
-	if (processMethod == 0) {
-		NSC_LOG_ERROR_STD(_T("ProcessMethod not defined or not available."));
-		return ret;
-	}
 	CEnumProcess enumeration;
-	if (enumeration.SetMethod(processMethod) != processMethod) {
-		NSC_LOG_ERROR_STD(_T("Failed to set process enumeration method"));
-		return ret;
+	if (!enumeration.has_PSAPI()) {
+		NSC_LOG_ERROR_STD(_T("Failed to enumerat processes"));
+		NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
+		NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
+		throw CEnumProcess::process_enumeration_exception(_T("PSAPI not avalible, please see eror log for details."));
 	}
-	int toFill = CEnumProcess::CProcessEntry::fill_filename;
-	if (getCmdLines)
-		toFill |= CEnumProcess::CProcessEntry::fill_command_line;
-	CEnumProcess::CProcessEntry entry(toFill);
-	for (BOOL OK = enumeration.GetProcessFirst(&entry); OK; OK = enumeration.GetProcessNext(&entry) ) {
+	NSC_error err;
+	CEnumProcess::process_list list = enumeration.enumerate_processes(getCmdLines, use16Bit, &err);
+	for (CEnumProcess::process_list::const_iterator entry = list.begin(); entry != list.end(); ++entry) {
 		std::wstring key;
-		if (getCmdLines)
-			key = entry.command_line;
+		if (getCmdLines && !(*entry).command_line.empty())
+			key = (*entry).command_line;
 		else
-			key = entry.filename;
+			key = (*entry).filename;
 		NSPROCLST::iterator it = ret.find(key);
 		if (it == ret.end()) {
-			ret[key].entry = entry;
+			ret[key].entry = (*entry);
 			ret[key].count = 1;
 			ret[key].key = key;
 		} else
@@ -868,6 +931,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 	bool bNSClient = false;
 	StateContainer tmpObject;
 	bool bPerfData = true;
+	bool use16bit = false;
 	bool useCmdLine = false;
 	typedef enum {
 		match_string, match_substring, match_regexp
@@ -886,6 +950,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_BOOL_TRUE(_T("cmdLine"), useCmdLine)
+		MAP_OPTIONS_BOOL_TRUE(_T("16bit"), use16bit)
 		MAP_OPTIONS_MODE(_T("match"), _T("string"), match,  match_string)
 		MAP_OPTIONS_MODE(_T("match"), _T("regexp"), match,  match_regexp)
 		MAP_OPTIONS_MODE(_T("match"), _T("substr"), match,  match_substring)
@@ -910,10 +975,10 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 
 	NSPROCLST runningProcs;
 	try {
-		runningProcs = GetProcessList(processMethod_, useCmdLine);
-	} catch (CEnumProcess::EnumProcException e) {
-		NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getMessage());
-		msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getMessage();
+		runningProcs = GetProcessList(useCmdLine, use16bit);
+	} catch (CEnumProcess::process_enumeration_exception &e) {
+		NSC_LOG_ERROR_STD(_T("ERROR: ") + e.what());
+		msg = static_cast<std::wstring>(_T("ERROR: ")) + e.what();
 		return NSCAPI::returnUNKNOWN;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Unhandled error when processing command"));
@@ -930,7 +995,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 				if ((*proc).first.find((*it).data) != std::wstring::npos)
 					break;
 			}
-#ifndef NO_BOOST_DEP
+#ifdef USE_BOOST
 		} else if (match == match_regexp) {
 			try {
 				boost::wregex filter((*it).data,boost::regex::icase);
@@ -949,7 +1014,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 				return NSCAPI::returnUNKNOWN;
 			}
 #else
-			NSC_LOG_ERROR_STD(_T("NSClient++ is compiled with NO_BOOST_DEP so no regular expression support for you...") + (*proc).first);
+			NSC_LOG_ERROR_STD(_T("NSClient++ is compiled without USEBOOST so no regular expression support for you...") + (*proc).first);
 			msg = _T("Regular expression is not supported: ") + (*proc).first;
 			return NSCAPI::returnUNKNOWN;
 #endif
@@ -1079,6 +1144,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 					msg += _T(",");
 				msg += strEx::itos(static_cast<float>(value));
 			} else {
+				std::wcout << _T("perf data: ") << bPerfData << std::endl;
 				counter.perfData = bPerfData;
 				counter.setDefault(tmpObject);
 				counter.runCheck(value, returnCode, msg, perf);
@@ -1102,6 +1168,50 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
+
+
+
+/**
+ * List all instances for a given counter.
+ *
+ * @param command Command to execute
+ * @param argLen The length of the argument buffer
+ * @param **char_args The argument buffer
+ * @param &msg String to put message in
+ * @param &perf String to put performance data in 
+ * @return The status of the command
+ *
+ * @todo add parsing support for NRPE
+ */
+NSCAPI::nagiosReturn CheckSystem::listCounterInstances(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+{
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
+
+	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (stl_args.empty()) {
+		msg = _T("ERROR: Missing argument exception.");
+		return NSCAPI::returnUNKNOWN;
+	}
+
+	std::wstring counter = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
+	try {
+		PDH::Enumerations::pdh_object_details obj = PDH::Enumerations::EnumObjectInstances(counter);
+		for (PDH::Enumerations::pdh_object_details::list::const_iterator it = obj.instances.begin(); it!=obj.instances.end();++it) {
+			if (!msg.empty())
+				msg += _T(", ");
+			msg += (*it);
+		}
+	} catch (const PDH::PDHException e) {
+		msg = _T("ERROR: Failed to enumerate counter instances: " + e.getError());
+		return NSCAPI::returnUNKNOWN;
+	} catch (...) {
+		msg = _T("ERROR: Failed to enumerate counter instances: <UNKNOWN EXCEPTION>");
+		return NSCAPI::returnUNKNOWN;
+	}
+	return NSCAPI::returnOK;
+}
+
+
 NSC_WRAPPERS_MAIN_DEF(gCheckSystem);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckSystem);

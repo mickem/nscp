@@ -1,0 +1,109 @@
+import feature : feature ;
+import project ;
+import "class" : new ;
+import targets ;
+import property-set ;
+import common ;
+import type ;
+import toolset : flags ;
+
+# Make this module into a project.
+project.initialize $(__name__) ;
+project boost ;
+
+if [ MATCH (--debug-configuration) : [ modules.peek : ARGV ] ]
+{
+   .debug-configuration = true ;
+}
+
+rule initialized ( )
+{
+    return $(.initialized) ;
+}
+
+
+rule isEnabled ( )
+{
+    return $(.enabled) ;
+}
+
+rule isDebug ( )
+{
+    return $(.debug-configuration) ;
+}
+
+rule printEnv ( ) 
+{
+	echo "BOOST LIBRARIES : $(.libraries) change with --with-boost-lib=<path>" ;
+	echo "BOOST HEADERS : $(.headers) change with --with-boost=<path>" ;
+}
+
+
+# Initialize boost support.
+rule init (
+    version ? :
+    headers         # Location of header files
+    libraries *     # Location of libraries, lib and bin subdirs of STLport.
+    )
+{
+
+	if $(.initialized)
+	{
+		errors.error "Attempt the reinitialize boost!" ;
+	}
+	else
+	{
+		.initialized = true ;
+
+		.libraries = $(libraries) ;
+		.headers = $(headers) ;
+		
+	    local project = [ project.current ] ;
+		
+		local has-boost = [ MATCH "^--with-boost=(.*)" : [ modules.peek : ARGV ] ] ;
+		local has-generic-hdr = [ MATCH "^--include-path=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-boost) {
+			.headers = $(has-boost) ;
+		} else if $(has-generic-hdr) {
+			.headers = $(has-generic-hdr) ;
+		}
+		local has-boost-lib = [ MATCH "^--with-boost-lib=(.*)" : [ modules.peek : ARGV ] ] ;
+		local has-generic-lib = [ MATCH "^--library-path=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-boost-lib) {
+			.libraries = $(has-boost-lib) ;
+		} else if $(has-generic-lib) {
+			.libraries = $(has-generic-lib) ;
+		}
+		
+		import toolset : flags ;
+
+		if ( ( --with-boost in  [ modules.peek : ARGV ] ) || $(has-boost) || $(has-boost-lib) )  
+			&& ! ( --without-boost in  [ modules.peek : ARGV ] ) {
+			.enabled = true ;
+		} else {
+			.enabled = false ;
+		}
+				
+		project.pop-current ;
+	}
+}
+
+alias regexp 
+	: # source
+	: # requirements
+	: # default-build
+	: # usage-requirements
+		<conditional>@usage-requirements
+	;
+
+
+rule usage-requirements ( properties * )
+{
+	local result ;
+	if ( $(.enabled) = true ) {
+		result += <define>USE_BOOST ;
+		result += <include>$(.headers) ;
+		result += <library-path>$(.libraries) ;
+	}
+	return $(result) ;
+}

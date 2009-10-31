@@ -1,0 +1,122 @@
+#============================================================================
+# Rules for creating MSI/MSM files via WiX
+# Copyright (C)2008 by Frank Richter
+#
+#    This library is free software; you can redistribute it and/or modify it
+#    under the terms of the GNU Library General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or (at your
+#    option) any later version.
+#
+#    This library is distributed in the hope that it will be useful, but
+#    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+#    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Library General Public
+#    License for more details.
+#
+#    You should have received a copy of the GNU Library General Public License
+#    along with this library; if not, write to the Free Software Foundation,
+#    Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+#============================================================================
+
+CMD.GENMSM ?= $(TOP)/bin/cs-genwix-msm.py ;
+CMD.CANDLE ?= candle ;
+CMD.LIGHT ?= light ;
+
+LOCATE.MSI ?= $(BUILDTOP)/out/msi ;
+LOCATE.MSM ?= $(BUILDTOP)/out/msi ;
+LOCATE.MSI.TEMP ?= $(BUILDTOP)/out/msi/temp ;
+
+WIX_FLAGS = -v -nologo ; #-pedantic
+CANDLEFLAGS = ;
+LIGHTFLAGS = -ext WixUIExtension -cultures:en-us -ss -sval ;
+
+# MSIMergeModule msmfile : wxs [: preprocvars]
+rule MSIMergeModule
+{
+  local target = $(1) ;
+  local mod_src = $(2) ;
+  local env = $(3) ;
+  
+  SEARCH on $(mod_src) = $(SEARCH_SOURCE) ;
+  local mod_obj = $(mod_src:S=.wixobj) ;
+  MakeLocate $(mod_obj) : $(LOCATE.MSI.TEMP) ;
+  Depends $(mod_obj) : $(mod_src) ;
+  VARS on $(mod_obj)  = $(env) ;
+  CompileWXS $(mod_obj) : $(mod_src) ;
+  Clean mergemodulesclean : $(mod_obj) ;
+  
+  Depends $(target) : $(mod_obj) ;
+  LinkWIXOBJ $(target) : $(mod_obj) ;
+  Clean mergemodulesclean : $(target) ;
+  
+  Depends mergemodules : $(target) ;
+  Depends clean : mergemodulesclean ;
+}
+
+# MSIMergeModuleFromList id : filelist : version [: subdir]
+rule MSIMergeModuleFromList
+{
+  local target = $(1) ;
+  local mod_src = $(target).wxs ;
+  local filelistfile = [ ListFile $(2) ] ;
+  
+  MakeLocate $(mod_src) : $(LOCATE.MSI.TEMP) ;
+  VERSION on $(mod_src) = $(3) ;
+  ID on $(mod_src) = $(target) ;
+  SUBDIR on $(mod_src) = $(4) ;
+  Depends $(mod_src) : $(filelistfile) ;
+  GenerateMSMSource $(mod_src) : $(filelistfile) ;
+  Clean mergemodulesclean : $(mod_src) ;
+  
+  local mod_msm = $(mod_src:S=.msm) ;
+  MakeLocate $(mod_msm) : $(LOCATE.MSM) ;
+  MSIMergeModule $(mod_msm) : $(mod_src) ;
+  
+  Depends $(target) : $(mod_msm) ;
+  NotFile $(target) ;
+  Depends mergemodules : $(target) ;
+  Depends clean : mergemodulesclean ;
+}
+
+## MSIPackage msifile : wxs [: preprocvars [: objfile]]
+rule MSIPackage
+{
+  local target = $(1) ;
+  local mod_src = $(2) ;
+  local env = $(3) ;
+  
+  SEARCH on $(mod_src) = $(SEARCH_SOURCE) ;
+  local mod_obj = $(4:E=$(mod_src:S=)) ;
+  mod_obj = $(mod_obj).wixobj ;
+  MakeLocate $(mod_obj) : $(LOCATE.MSI.TEMP) ;
+  Depends $(mod_obj) : $(mod_src) ;
+  VARS on $(mod_obj)  = $(env) ;
+  CompileWXS $(mod_obj) : $(mod_src) ;
+  Clean mergemodulesclean : $(mod_obj) ;
+  
+  Depends $(target) : $(mod_obj) ;
+  LIGHTFLAGS.EXTRA on $(target) = -cc $(LOCATE.MSI.TEMP)/cabinets -reusecab ;
+  LinkWIXOBJ $(target) : $(mod_obj) ;
+  Clean msiclean : $(target) ;
+  
+  Depends msi : $(target) ;
+  Depends clean : msiclean ;
+}
+
+actions together GenerateMSMSource 
+{
+  $(CMD.GENMSM) -o $(<) --id $(ID) --version $(VERSION) \
+    --subdirmap=$(SUBDIR) \
+    $(>)
+}
+
+actions CompileWXS
+{
+  candle $(WIX_FLAGS) $(CANDLEFLAGS) $(>) -out $(<) \
+    -d$(VARS)
+}
+
+actions LinkWIXOBJ
+{
+  light $(WIX_FLAGS) $(LIGHTFLAGS) $(LIGHTFLAGS.EXTRA) $(>) -out $(<)
+}

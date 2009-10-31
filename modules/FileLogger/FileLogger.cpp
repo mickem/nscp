@@ -70,6 +70,7 @@ std::wstring getFolder(std::wstring key) {
 }
 std::wstring FileLogger::getFileName() {
 	if (file_.empty()) {
+		file_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_FILENAME, LOG_FILENAME_DEFAULT);
 		file_ = SETTINGS_GET_STRING(log::FILENAME);
 		if (file_.empty())
 			file_ = settings::log::FILENAME_DEFAULT;

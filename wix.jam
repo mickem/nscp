@@ -1,0 +1,97 @@
+# Copyright (C) Reece H. Dunn 2005.
+# Based on the wix.jam file by Peter Foley.
+#
+# Use, modification and distribution is subject to the Boost Software
+# License Version 1.0. (See accompanying file LICENSE_1_0.txt or
+# http://www.boost.org/LICENSE_1_0.txt)
+
+import feature : feature get-values ;
+import common ;
+import toolset : flags ;
+import type ;
+import generators ;
+
+
+feature.extend toolset : wix ;
+
+
+space = " " ;
+
+
+type.register WXS    : wxs ;    # WiX Source file
+type.register WXI    : wxi ;    # WiX Include file
+type.register WXL    : wxl ;    # WiX Localisation file
+type.register WIXOBJ : wixobj ; # WiX Object file
+type.register WIXLIB : wixlib ; # WiX Library file
+type.register MSI    : msi ;    # Installer
+type.register MSM    : msm ;    # Merge Module
+
+
+feature linkoptions : : free ;
+feature compileoptions : : free ;
+
+feature identical-rows : no yes : optional ;
+feature unresolved-references : no yes : optional ;
+
+feature search-path : : path free ;
+
+feature localisation : : path free ;
+
+rule init ( version ? : command * : options * )
+{
+    compiler = candle ;
+    linker = light ;
+    local condition = [ common.check-init-parameters wix : version $(version) ] ;
+	
+	local prefix ;
+	
+	local wix-location = [ MATCH "^--wix=(.*)" : [ modules.peek : ARGV ] ] ;
+	if $(wix-location) {
+		prefix = $(wix-location)\\bin\\ ;
+	} else {
+		command = [ common.get-invocation-command wix : candle.exe : $(command) ] ;
+		if $(command) {
+			local abs-path = [ common.get-absolute-tool-path $(command[-1]) ] ;
+			local prefix = $(abs-path)\\ ;
+		} else {
+			echo "Could not find WIX location (please use --wix=<path> to specify the location)" ;
+		}
+	}
+
+    flags wix.compile .CC $(condition) : $(prefix)$(compiler) ;
+    flags wix.link    .LD $(condition) : $(prefix)$(linker) ;
+	
+	echo "Using WIX Compiler: $(prefix)$(compiler)" ;
+}
+
+## Compiler
+
+generators.register-standard wix.compile.wxs : WXS : WIXOBJ ;
+
+flags wix.compile OPTIONS <compileoptions> ;
+
+flags wix.compile INCLUDES <include> ;
+flags wix.compile DEFINES <define> ;
+
+actions compile.wxs
+{
+    echo "$(.CC)" -nologo "$(OPTIONS)" -d"$(DEFINES)" -I"$(INCLUDES)" -out "$(<)"  "$(>)"
+    "$(.CC)" -nologo "$(OPTIONS)" -d"$(DEFINES)" -I"$(INCLUDES)" -out "$(<)"  "$(>)"
+}
+
+## Linker
+
+generators.register-composing wix.link.msi : WIXOBJ WIXLIB : MSI ;
+
+flags wix.link OPTIONS <linkoptions> ;
+flags wix.link LOCALISATION <localisation> ;
+flags wix.link SEARCH_PATH <search-path> ;
+
+flags wix.link OPTIONS <identical-rows>yes : -ai ;
+flags wix.link OPTIONS <unresolved-references>yes : -au ;
+
+actions link.msi
+{
+    echo "$(.LD)" -nologo -b$(space)"$(SEARCH_PATH)" "$(OPTIONS)" -loc$(space)"$(LOCALISATION)" -out "$(<)" "$(>)"
+    "$(.LD)" -nologo -b$(space)"$(SEARCH_PATH)" "$(OPTIONS)" -loc$(space)"$(LOCALISATION)" -out "$(<)" "$(>)"
+}

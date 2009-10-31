@@ -30,18 +30,11 @@
 //////////////////////////////////////////////////////////////////////
 
 
-CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP(NULL), m_pCurrentM(NULL), lpString(NULL), PSAPI(NULL)
+CEnumProcess::CEnumProcess() : PSAPI(NULL), VDMDBG(NULL), FVDMEnumTaskWOWEx(NULL)
 {
-	lpString = new TCHAR[MAX_FILENAME+1];
-
 	PSAPI = ::LoadLibrary(_TEXT("PSAPI"));
 	if (PSAPI)  
 	{
-		// Setup variables
-		m_MAX_COUNT = 256;
-		m_cProcesses = 0;
-		m_cModules   = 0;
-
 		// Find PSAPI functions
 		FEnumProcesses = (PFEnumProcesses)::GetProcAddress(PSAPI, "EnumProcesses");
 		FEnumProcessModules = (PFEnumProcessModules)::GetProcAddress(PSAPI, "EnumProcessModules");
@@ -52,167 +45,189 @@ CEnumProcess::CEnumProcess() : m_pProcesses(NULL), m_pModules(NULL), m_pCurrentP
 #endif
 	}
 
-	// Find the preferred method of enumeration
-	m_method = ENUM_METHOD::NONE;
-	int method = GetAvailableMethods();
-	if (method == (method|ENUM_METHOD::PSAPI))    m_method = ENUM_METHOD::PSAPI;
-
+	VDMDBG = ::LoadLibrary(_TEXT("VDMDBG"));
+	if (VDMDBG)
+	{
+		// Find VDMdbg functions
+		FVDMEnumTaskWOWEx = (PFVDMEnumTaskWOWEx)::GetProcAddress(VDMDBG, "VDMEnumTaskWOWEx");
+	}
 }
 
 CEnumProcess::~CEnumProcess()
 {
-	delete [] lpString;
-	if (m_pProcesses) {delete[] m_pProcesses;}
-	if (m_pModules)   {delete[] m_pModules;}
 	if (PSAPI) FreeLibrary(PSAPI);
+	if (VDMDBG) FreeLibrary(VDMDBG);
 }
 
-
-
-int CEnumProcess::GetAvailableMethods() {
-	int res = 0;
-	// Does all psapi functions exist?
-	if (PSAPI&&FEnumProcesses&&FEnumProcessModules&&FGetModuleFileNameEx) 
-		res += ENUM_METHOD::PSAPI;
-	return res;
-}
-
-int CEnumProcess::SetMethod(int method) {
-	int avail = GetAvailableMethods();
-	if (avail == (method|avail)) 
-		m_method = method;
-	return m_method;
-}
-
-int CEnumProcess::GetSuggestedMethod()
+struct find_16bit_container {
+	std::list<CEnumProcess::CProcessEntry> *target;
+	DWORD pid;
+};
+BOOL CALLBACK Enum16Proc( DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined )
 {
-	return m_method;
+	find_16bit_container *container = reinterpret_cast<find_16bit_container*>(lpUserDefined);
+	CEnumProcess::CProcessEntry pEntry;
+	pEntry.dwPID = container->pid;
+	pEntry.command_line = strEx::string_to_wstring(pszFileName);
+	std::wstring::size_type pos = pEntry.command_line.find_last_of(_T("\\"));
+	if (pos != std::wstring::npos)
+		pEntry.filename = pEntry.command_line.substr(++pos);
+	else
+		pEntry.filename = pEntry.command_line;
+	container->target->push_back(pEntry);
+	return FALSE;
 }
-// Retrieves the first process in the enumeration. Should obviously be called before
-// GetProcessNext
-////////////////////////////////////////////////////////////////////////////////////
-BOOL CEnumProcess::GetProcessFirst(CEnumProcess::CProcessEntry *pEntry)
+
+
+void CEnumProcess::enable_token_privilege(LPTSTR privilege)
 {
-	if (ENUM_METHOD::NONE == m_method) {
-		return FALSE; 
-	} else if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
-		// Use PSAPI functions
-		// ----------------------
-		if (m_pProcesses) {delete[] m_pProcesses;}
-		m_pProcesses = new DWORD[m_MAX_COUNT];
-		m_pCurrentP = m_pProcesses;
-		DWORD cbNeeded = 0;
-		BOOL OK = FEnumProcesses(m_pProcesses, m_MAX_COUNT*sizeof(DWORD), &cbNeeded);
-
-		// We might need more memory here..
-		if (cbNeeded >= m_MAX_COUNT*sizeof(DWORD)) 
-		{
-			m_MAX_COUNT += 256;
-			return GetProcessFirst(pEntry); // Try again.
-		}
-
-		if (!OK) return FALSE;
-		m_cProcesses = cbNeeded/sizeof(DWORD); 
-		return FillPStructPSAPI(*m_pProcesses, pEntry);
-	} else {
-		return FALSE;
+	HANDLE hToken;                       
+	TOKEN_PRIVILEGES token_privileges;                 
+	DWORD dwSize;                       
+	ZeroMemory (&token_privileges, sizeof(token_privileges));
+	token_privileges.PrivilegeCount = 1;
+	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
+		throw process_enumeration_exception(_T("Failed to open process token: ") + error::lookup::last_error());
+	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid)) { 
+		CloseHandle (hToken);
+		throw process_enumeration_exception(_T("Failed to lookup privilege: ") + error::lookup::last_error());
 	}
-	return TRUE;
-}
-
-// Returns the following process
-////////////////////////////////////////////////////////////////
-BOOL CEnumProcess::GetProcessNext(CEnumProcess::CProcessEntry *pEntry)
-{
-	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-
-	// Use ToolHelp functions
-	// ----------------------
-	if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
-		// Use PSAPI functions
-		// ----------------------
-		if (--m_cProcesses <= 0) return FALSE;
-		FillPStructPSAPI(*++m_pCurrentP, pEntry);
-	} else {
-		return FALSE;
+	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize)) { 
+		CloseHandle (hToken);
+		throw process_enumeration_exception(_T("Failed to adjust token privilege: ") + error::lookup::last_error());
 	}
-	return TRUE;
+	CloseHandle (hToken);
 }
 
-
-BOOL CEnumProcess::GetModuleFirst(DWORD dwPID, CEnumProcess::CModuleEntry *pEntry)
+void CEnumProcess::disable_token_privilege(LPTSTR privilege)
 {
-	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-	if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
-		// Use PSAPI functions
-		// ----------------------
-		if (m_pModules) {delete[] m_pModules;}
-		m_pModules = new HMODULE[m_MAX_COUNT];
-		m_pCurrentM = m_pModules;
-		DWORD cbNeeded = 0;
-		HANDLE hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, dwPID);
-		if (hProc)
-		{
-			BOOL OK = FEnumProcessModules(hProc, m_pModules, m_MAX_COUNT*sizeof(HMODULE), &cbNeeded);
-			CloseHandle(hProc);
-
-			// We might need more memory here..
-			if (cbNeeded >= m_MAX_COUNT*sizeof(HMODULE)) 
-			{
-				m_MAX_COUNT += 256;
-				return GetModuleFirst(dwPID, pEntry); // Try again.
-			}
-
-			if (!OK) return FALSE;
-
-			m_cModules = cbNeeded/sizeof(HMODULE); 
-			return FillMStructPSAPI(dwPID, *m_pCurrentM, pEntry);
-		}
-		return FALSE;
-	} else {
-		return FALSE;
-	}
-}
-
-
-BOOL CEnumProcess::GetModuleNext(DWORD dwPID, CEnumProcess::CModuleEntry *pEntry)
-{
-	if (ENUM_METHOD::NONE == m_method) return FALSE; 
-	if ((ENUM_METHOD::PSAPI|m_method) == m_method) {
-		// Use PSAPI functions
-		// ----------------------
-		if (--m_cModules <= 0) return FALSE;
-		return FillMStructPSAPI(dwPID, *++m_pCurrentM, pEntry);
-	} else {
-		return FALSE;
-	}
-
-}
-
-
-BOOL CEnumProcess::EnableTokenPrivilege (LPTSTR privilege)
-{
-	HANDLE hToken;                        
-	TOKEN_PRIVILEGES token_privileges;                  
-	DWORD dwSize;                        
+	HANDLE hToken;                       
+	TOKEN_PRIVILEGES token_privileges;                 
+	DWORD dwSize;                       
 	ZeroMemory (&token_privileges, sizeof (token_privileges));
 	token_privileges.PrivilegeCount = 1;
 	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
-		return FALSE;
-	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid))
-	{ 
+		throw process_enumeration_exception(_T("Failed to open process token: ") + error::lookup::last_error());
+	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid)) { 
 		CloseHandle (hToken);
-		return FALSE;
+		throw process_enumeration_exception(_T("Failed to lookup privilege: ") + error::lookup::last_error());
 	}
-
-	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize))
-	{ 
+	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_REMOVED;
+	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize)) { 
 		CloseHandle (hToken);
-		return FALSE;
+		throw process_enumeration_exception(_T("Failed to adjust token privilege: ") + error::lookup::last_error());
 	}
 	CloseHandle (hToken);
-	return TRUE;
+}
+
+CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command_line, bool find_16bit, CEnumProcess::error_reporter *error_interface, unsigned int buffer_size) {
+	if (error_interface!=NULL)
+		error_interface->report_debug_enter(_T("enumerate_processes"));
+	try {
+		if (error_interface!=NULL)
+			error_interface->report_debug_enter(_T("enable_token_privilege"));
+		enable_token_privilege(SE_DEBUG_NAME);
+		if (error_interface!=NULL)
+			error_interface->report_debug_exit(_T("enable_token_privilege"));
+	} catch (process_enumeration_exception &e) {
+		if (error_interface!=NULL)
+			error_interface->report_warning(e.what());
+	} 
+
+	std::list<CProcessEntry> ret;
+	DWORD *dwPIDs = new DWORD[buffer_size+1];
+	DWORD cbNeeded = 0;
+	if (error_interface!=NULL)
+		error_interface->report_debug_enter(_T("FEnumProcesses"));
+	BOOL OK = FEnumProcesses(dwPIDs, buffer_size*sizeof(DWORD), &cbNeeded);
+	if (error_interface!=NULL)
+		error_interface->report_debug_exit(_T("FEnumProcesses"));
+	if (cbNeeded >= DEFAULT_BUFFER_SIZE*sizeof(DWORD)) {
+		delete [] dwPIDs;
+		if (error_interface!=NULL)
+			error_interface->report_debug(_T("Need larger buffer: ") + strEx::itos(buffer_size));
+		return enumerate_processes(expand_command_line, find_16bit, error_interface, buffer_size * 10); 
+	}
+	if (!OK) {
+		delete [] dwPIDs;
+		throw process_enumeration_exception(_T("Failed to enumerate process: ") + error::lookup::last_error());
+	}
+	unsigned int process_count = cbNeeded/sizeof(DWORD);
+	for (unsigned int i = 0;i <process_count; ++i) {
+		if (dwPIDs[i] == 0)
+			continue;
+		CProcessEntry entry;
+		try {
+			if (error_interface!=NULL)
+				error_interface->report_debug_enter(_T("describe_pid"));
+			try {
+				entry = describe_pid(dwPIDs[i], expand_command_line);
+			} catch (process_enumeration_exception &e) {
+				if (error_interface!=NULL)
+					error_interface->report_warning(e.what());
+				entry = describe_pid(dwPIDs[i], false);
+			}
+			if (error_interface!=NULL)
+				error_interface->report_debug_exit(_T("describe_pid"));
+			if (VDMDBG!=NULL&&find_16bit) {
+				if (error_interface!=NULL)
+					error_interface->report_debug(_T("Looking for 16bit apps"));
+				if( _wcsicmp(entry.filename.substr(0,9).c_str(), _T("NTVDM.EXE")) == 0) {
+					find_16bit_container container;
+					container.target = &ret;
+					container.pid = entry.dwPID;
+					FVDMEnumTaskWOWEx(entry.dwPID, (TASKENUMPROCEX)&Enum16Proc, (LPARAM) &container);
+				}
+			}
+			ret.push_back(entry);
+		} catch (process_enumeration_exception &e) {
+			if (error_interface!=NULL)
+				error_interface->report_error(_T("Unhandled exception describing PID: ") + strEx::itos(dwPIDs[i]) + _T(": ") + e.what());
+		} catch (...) {
+			if (error_interface!=NULL)
+				error_interface->report_error(_T("Unknown exception describing PID: ") + strEx::itos(dwPIDs[i]));
+		}
+	}
+	delete [] dwPIDs;
+	if (error_interface!=NULL)
+		error_interface->report_debug_exit(_T("enumerate_processes"));
+	return ret;
+}
+
+CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_command_line) {
+	CProcessEntry entry;
+	entry.dwPID = pid;
+	// Open process to get filename
+	DWORD openArgs = PROCESS_QUERY_INFORMATION|PROCESS_VM_READ;
+	if (expand_command_line)
+		openArgs |= PROCESS_VM_OPERATION;
+	HANDLE hProc = OpenProcess(openArgs, FALSE, pid);
+	if (!hProc) {
+		throw process_enumeration_exception(GetLastError(), _T("Failed to open process: ") + strEx::itos(pid) + _T(": "));
+	}
+	if (expand_command_line) {
+		entry.command_line = GetCommandLine(hProc);
+	}
+	HMODULE hMod;
+	DWORD size;
+	// Get the first module (the process itself)
+	if( FEnumProcessModules(hProc, &hMod, sizeof(hMod), &size) ) {
+		TCHAR buffer[MAX_FILENAME+1];
+		if( !FGetModuleFileNameEx( hProc, hMod, reinterpret_cast<LPTSTR>(&buffer), MAX_FILENAME) ) { 
+			CloseHandle(hProc);
+			throw process_enumeration_exception(_T("Failed to find name for: ") + strEx::itos(pid) + _T(": ") + error::lookup::last_error());
+		} else {
+			std::wstring path = buffer;
+			std::wstring::size_type pos = path.find_last_of(_T("\\"));
+			if (pos != std::wstring::npos) {
+				path = path.substr(++pos);
+			}
+			entry.filename = path;
+		}
+	}
+	CloseHandle(hProc);
+	return entry;
 }
 
 // Process data block is found in an NT machine.
@@ -232,14 +247,14 @@ std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess)
 
 	MEMORY_BASIC_INFORMATION mbi;
 	if (VirtualQueryEx (hProcess, PROCESS_DATA_BLOCK_ADDRESS, &mbi, sizeof(mbi) ) == 0)
-		throw EnumProcException(_T("VirtualQueryEx failed"), GetLastError());
+		throw process_enumeration_exception(_T("VirtualQueryEx failed: ") + error::lookup::last_error());
 	LPBYTE lpBuffer = (LPBYTE)malloc (sysinfo.dwPageSize);
 	if (lpBuffer == NULL)
-		throw EnumProcException(_T("Failed to allocate buffer"));
+		throw process_enumeration_exception(_T("Failed to allocate buffer"));
 	SIZE_T dwBytesRead;
 	if (!ReadProcessMemory( hProcess, mbi.BaseAddress, (LPVOID)lpBuffer, sysinfo.dwPageSize, &dwBytesRead)) {
 		free(lpBuffer);
-		throw EnumProcException(_T("ReadProcessMemory failed"), GetLastError());
+		throw process_enumeration_exception(_T("ReadProcessMemory failed: ") + error::lookup::last_error());
 	}
 	LPBYTE lpPos = lpPos = lpBuffer + ((DWORD)PROCESS_DATA_BLOCK_ADDRESS - (DWORD)mbi.BaseAddress);
 
@@ -269,98 +284,4 @@ std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess)
 	delete [] buffer;
 	return ret;
 }
-
-
-BOOL CEnumProcess::FillPStructPSAPI(DWORD dwPID, CEnumProcess::CProcessEntry* pEntry)
-{
-	pEntry->dwPID = dwPID;
-	// Open process to get filename
-	bool bCmdLine = pEntry->getCommandLine();
-	DWORD openArgs = PROCESS_QUERY_INFORMATION|PROCESS_VM_READ;
-	if (bCmdLine)
-		openArgs |= PROCESS_VM_OPERATION;
-	HANDLE hProc = OpenProcess(openArgs, FALSE, dwPID);
-	if (!hProc) {
-		pEntry->filename = _T("N/A (security restriction)");
-		return TRUE;
-	}
-	if (bCmdLine) {
-		try {
-			pEntry->command_line = GetCommandLine(hProc);
-		} catch (EnumProcException &e) {
-			pEntry->command_line = _T("ERROR: " + e.getMessage(););
-		} catch (...) {
-			pEntry->command_line = _T("ERROR: Failed to get CommandLine.");
-		}
-	}
-	HMODULE hMod;
-	DWORD size;
-	// Get the first module (the process itself)
-	if( FEnumProcessModules(hProc, &hMod, sizeof(hMod), &size) ) {
-		//Get filename
-		//GetModuleFileNameEx
-
-		if( !FGetModuleFileNameEx( hProc, hMod, lpString, MAX_FILENAME) ) { 
-			pEntry->filename = _T("N/A (error)");
-		} else {
-			std::wstring path = lpString;
-			std::wstring::size_type pos = path.find_last_of(_T("\\"));
-			if (pos != std::wstring::npos) {
-				path = path.substr(++pos);
-			}
-			pEntry->filename = path;
-		}
-	}
-	CloseHandle(hProc);
-	return TRUE;
-}
-
-
-BOOL CEnumProcess::FillMStructPSAPI(DWORD dwPID, HMODULE mMod, CEnumProcess::CModuleEntry *pEntry)
-{
-	HANDLE hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, dwPID);
-	if (hProc)
-	{
-		if( !FGetModuleFileNameEx( hProc, mMod, lpString, MAX_FILENAME) )
-		{
-			pEntry->sFilename = _T("N/A (error)");
-		} else {
-			pEntry->sFilename = lpString;
-		}
-		pEntry->pLoadBase = (PVOID) mMod;
-		pEntry->pPreferredBase = GetModulePreferredBase(dwPID, (PVOID)mMod);
-		CloseHandle(hProc);
-		return TRUE;
-	}
-	return FALSE;
-}
-
-
-
-PVOID CEnumProcess::GetModulePreferredBase(DWORD dwPID, PVOID pModBase)
-{
-	if (ENUM_METHOD::NONE == m_method) return NULL; 
-	HANDLE hProc = OpenProcess(PROCESS_VM_READ, FALSE, dwPID);
-	if (hProc)
-	{
-		IMAGE_DOS_HEADER idh;
-		IMAGE_NT_HEADERS inh;
-		//Read DOS header
-		ReadProcessMemory(hProc, pModBase, &idh, sizeof(idh), NULL);
-
-		if (IMAGE_DOS_SIGNATURE == idh.e_magic) // DOS header OK?
-			// Read NT headers at offset e_lfanew 
-			ReadProcessMemory(hProc, (PBYTE)pModBase + idh.e_lfanew, &inh, sizeof(inh), NULL);
-
-		CloseHandle(hProc); 
-
-		if (IMAGE_NT_SIGNATURE == inh.Signature) //NT signature OK?
-			// Get the preferred base...
-			return (PVOID) inh.OptionalHeader.ImageBase; 
-
-	}
-
-	return NULL; //didn't find anything useful..
-}
-
 

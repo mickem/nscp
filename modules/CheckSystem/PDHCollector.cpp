@@ -108,6 +108,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			memCl = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(30);
 			memCb = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(26);
 		} else {
+			settings_core settings;
 			NSC_LOG_ERROR_STD(_T("REPORT THIS: counters.defs file handling has not been (re)added!!!"));
 			return false;
 			/*

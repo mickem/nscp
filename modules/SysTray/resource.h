@@ -2,6 +2,7 @@
 // Microsoft Visual C++ generated include file.
 // Used by SysTray.rc
 //
+#define IDOK                            1
 #define IDR_POPUP                       4
 #define IDD_NSTRAYDLG                   102
 #define IDI_NSCP						103
@@ -21,6 +22,7 @@
 #define ID_POPUP_SHOWLOG                40008
 #define ID_POPUP_STOPSERVICE            40009
 #define ID_Menu                         40010
+#define IDC_STATIC                      -1
 
 // Next default values for new objects
 // 

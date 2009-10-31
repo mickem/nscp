@@ -3,7 +3,333 @@ TODO:
  * Fix configuration GUI (low priority)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
+ * Fixa dependonservice LanManWorkStation (old win)
+ * Fix RtlStringFromGUID problem on NT4
 
+2009-10-11 MickeM
+ + Added argument support to NRPE Client
+   This is temporarily enabled by the same options under the NRPE section. BUT this will change int he future so be ware when using them.
+
+2009-09-20 MickeM
+ * Fixed alias in CheckWMI (now works)
+ + Added columnSyntax to CheckWMI to allow formating of returned data (default is %column%=%value%)
+ + Added columnSeparator to CheckWMI to allow formating of returned data (default is ", ")
+
+2009-09-13 MickeM
+ * Fixed some more issues with the installer should not "work" on Windows 2008 as well as slightly simpler to configure.
+
+2009-09-06 MickeM
+ + Added new option to [NSCA Agent] string_length=<size> of the NSCA_MAX_PLUGINOUTPUT_LENGTH option on the NSCA server.
+ * Readded all the "installer configuration" crap which I accidentaly removed when I fixed the installer... *sigh*
+
+2009-08-30 MickeM
+ + Added -c and -d command line options like so:
+   NSClient++ -c CheckFile2 path=c:\test pattern=*.txt MaxCrit=1 filter+written=gt:2h
+   NSClient++ -c <command> <argument 1> <argument 2> ...
+   -d Is the same thing but with debug enabled.
+ + Added uninstall of old client (sort of broken but works)
+
+2009-08-29 MickeM
+ * Fixed issue with CheckFile (directory)
+ * Rewrote the CA:s in the installer to work "better" (hopefully) in general it should be have more like a propper installer.
+
+2009-07-18 MickeM
+ * Fixed issue with no loggers avalible and "memory leak"
+ * Added "firewall exception" to installer
+ * Fixed an issue with the socket data buffer
+ * Added new option to NSC.ini [NSCA] socket_timeout=30 (timeout in seconds when reading from NSCA sockets)
+ * Fixed issue with NSCA socket.
+
+2009-07-05 MickeM
+ * Fixed issue with CheckExternalScripts and script_dir: not adding the commands properly.
+ * Fixed issue with CheckExternalScripts and script_dir: not using relative paths (#310).
+
+2009-06-20 MickeM
+ * Fixed issue with CheckDisk and paths not working out properly
+
+2009-06-10 MickeM - 0.3.6
+ ! Release the new version
+
+2009-06-10 MickeM 
+ * Fixed so CheckEventLog only reports invalid buffersizes once
+
+2009-06-07 MickeM 
+ * Fixed issue with CheckFileAge incorrectly working in recursive mode.
+ * Finalized the installer
+
+2009-05-22 MickeM 
+ * Fixed time_delay option in NSCA config (now uses the correct base was 1000 times to large before)
+
+2009-05-21 MickeM 
+ * Fixed issue with eventlog parsing and 64 bit machines (descriptions option)
+ * Fixed issue with "modern windows" and installing the service (should not have the correct privlaiges)
+
+2009-05-17 MickeM 
+ * Changed default buffer size for process enumeration (64K now instead of 1K should I hope work better on 64bit OS:es)
+
+2009-05-10 MickeM 
+ + Added write support for modules to installer
+
+2009-05-03 MickeM 
+ * Fixed another quite serious memory leak!
+   And this was a hard one, took me hours and hours and hours (read weeks) to track down, but here we are!
+ * A lot of other fixes as I have been through much of the code looking for the memmory leak above.
+
+2009-03-30 MickeM 
+ + Added new option to NSCA module for specifying report options.
+	report=all (report=warning,critical) etc etc to specify which kind of return datat to get default value is all.
+ + Added so password and host ate stored in the installer (if changed)
+
+2009-03-29 MickeM 
+ * Fixed a lot of issues with the installer and added a start on exit (and donate) on the finnish dialog.
+
+2009-03-15 MickeM 
+ * New service name (displayname)
+ * New service description
+
+2009-03-14 MickeM 
+ * Rebuilt installer UI (still missing write config function)
+ * Added debug entry to log filename used by debug log metrics.
+ * Fixed so alias will not require the allow_nasty_metachars option set under external sripts module.
+
+2009-03-02 MickeM 
+ * Added catch handlers and error logging to NSCA Thread
+ * Fixed issue with CheckProcState and administrator login!
+ + Added debug module to installer
+ + Added option max-dir-depth to CheckFile and CheckFile2 like so:
+   CheckFile "file=c:\test\*.txt" filter-size=<24g "syntax=%filename%: %size%" MaxCrit=1 max-dir-depth=0
+   Will only find files on the "first level" where as max-dir-depth=1 would find all parents and children etc. (-1 is the default and means find all)
+ * Fixed issue with finding sub-folders and *.txt now it will always look for subfolders if they are present
+
+2009-02-26 MickeM 
+ * Fixed issue with debug logging (not it can be disabled again)
+
+2009-02-23 MickeM 
+ * Fixed build issues so NSCA now has all cryuptos avalible (verify with nsclient++ /about)
+
+2009-02-11 MickeM 
+ * Fixed so that performance data is always(?) renderd regardless of if we have bounds or not.
+   This was primarily to fix issues where we have might not "unexpectedly" get performance data (might still be some issues here so let me know).
+
+2009-02-06 MickeM 
+ * Fixed so that arguments ($ARG1$) are parsed properly for alias in CheckExternalScript
+
+2009-02-05 MickeM 
+ * Fixed so the error message for "to small eventlog buffer" specifies the required size.
+ * Changed so that event log buffer problems are "ignored in the result" (still logged in the error log).
+
+2009-02-03 MickeM 
+ * Added support for changing the time when using NSCA with the time_delay in NSC.ini
+   time_delay=+4h or time_delay=-1h etc should can now be used when system time not the same as NSCA time.
+
+2009-01-30 MickeM 
+ * Added support for changing name and description of service from the /install command line
+   NSClient++ /install [gui] [start] [service name] [description]
+   NSClient++ /uninstall [gui] [stop] [service name]
+   NSClient++ /start [gui] [service name]
+   NSClient++ /stop [gui] [service name]
+
+2009-01-28 MickeM 
+ * Slightly improved error handling around socket creation
+ * Fixed some pretty minor issues with the SysTray module (uncreation as well as new boost build).
+
+2009-01-25 MickeM 
+ * Fixed issue with checkVersion (#242)
+ * Fixed spelling error (#244)
+ * Fixed crash in CheckFile when a file was locked in exclusive mode (#254)
+ + Improved error handling in all CheckDIsk/CheckFile checks. Should report errors better now.
+ * Updated the config file a bit: remving "beta" from a bunch of modules no longer in beta.  (#270)
+ + Added more filter operatos to all numeric filters so they accept eq:, ne:, gt:, lt: in addition to =, >, <, <>, !, !=, in: (#269)
+
+2009-01-23 MickeM 
+ + Added better support for numerical hit matching in the eventlog module. You can now use exact and detailed matching.
+    You can now use the following syntax:
+    CheckEventLog ... warn=ne:1 crit=eq:0 ...
+    To generate a warning if the number of hits are != 1 and a critical if the number of hits are = 0.
+    Other operators avalible are: =, >, <, <>, !, !=, eq:, ne:, gt:, lt:
+
+2009-01-23 MickeM 
+ * Cleaned up the checkProcState code and it is not a lot better.
+   - Removed race conditions (crashes?) as well as improved perfoamnce and better error handling.
+ + Added new option 16bit to checkProcState. When set checkProcState will enumerate all 16 bit processes found running under NTVDM.
+ * Fixed NRPE version reported "incorrectly". (Version is now takedn from NSClient++)
+
+2009-01-21 MickeM 
+ + Added experimental 16 bit process support to checkProcState
+
+2009-01-20 MickeM 
+ * Fixed issue with CheckWMI when no filter was specified.
+
+2009-01-17 MickeM
+ + Added new command line option pdhlookup (to CheckSystem) to lookup index from names.
+   Probably not usefull to anyone but me :) Usage: "nsclient++ -noboot CheckSystem pdhlookup Antal bindningsreferenser"
+ * Fixed so PDH Collectors use the same exception as the rest of the PDH stuff (might give better errors when PDH breaks, but I doubt it)
+ * removed debug output from -noboot
+ + Added new command line pdhmatch option to use pattern matching on PDH queries
+   Usage: nsclient++ -noboot CheckSystem pdhmatch \Process(*)\Antal trådar
+ * Improved error reporting in the PDH subsystem.
+ + Added new module A_DebugLogMetrics.dll which can be used to generate debug info.
+   Enable the module and a file called process_info.csv will be created under %APP_DATA%/nsclient++/process_info.csv which contains metrics.
+ * Fixed handle leak in CheckExternalProcess and NRPEListsner (executing commands).
+
+2009-01-13 MickeM
+ * Fixed issue with 64-bit installer (now installs under Program Files (and not x86)
+ + Brand new build enviornment based upon boost build!!!
+   Use batch file to build (release-build.bat or modify to make your own)
+ * Modified /about so it now shows a lot of usefull(?) info.
+
+2008-11-13 MickeM
+ + Added truncate option to checkServiceState
+
+2008-09-24 MickeM
+ * Imroved the installer (now auto-updates the version when built)
+
+2008-09-24 MickeM - 0.3.5
+ * Fixed issue with CheckServiceState and CheckAll (it now works)
+ + Added new check: CheckFile2 which has the same syntax as the event log filtering.
+    Usage: CheckFile2 file=c:\test\*.txt filter=in filter+creation=<24h "syntax=%filename% was created %creation%" MinWarn=0 MinCrit=0
+
+2008-09-18 MickeM - 0.3.4
+ * Changed so "missing services" are treated as stopped.
+    CheckServiceState missing=stopped ShowAll
+	OK: missing: not found
+ * Fixed issue with : in service name.
+ + Added some "reasonable default cheks" under [External Alias] for the CheckExternalScripts.dll module. 
+
+2008-09-17 MickeM - 0.3.4 RC-6
+ * Added option [EventLog] lookup_names=0 to disable the evetlog name lookup (default is on)
+
+2008-09-17 MickeM
+ * Fixed issue on all filters so == takes the "usual" 2 equalsigns (old still works).
+ * Added so tray icon can get "propper" name from core for "description".
+ * Added lookup of "long" eventlog names (you can now use the alias used in the event viewer)
+
+2008-09-16 MickeM - 0.3.4 RC-5
+ * Fixed an issue with the session launcher
+
+2008-09-15 MickeM
+ * Fixed so NSCLient++ can load with "broken plugins" (before it printed an error and exited)
+ + Added a very basic simple .net plugin (and a wrapper)
+
+2008-09-14 MickeM - 0.3.4 RC-4
+ * Fixed an issue with the session launcher
+ * Fixed an issue with the uninstaller (should not "fail" when problems uninstalling)
+
+2008-09-14 MickeM - 0.3.4 RC-4
+ * Fixed issue with OS detection (again)
+ * Fixed issue with plugin unloading (again)
+ * Fixed issue with SSL socket not unloading properly
+ * Fixed issue with "login" and "no session" (should work now I hope) (#222)
+ * Changed so all projects build under "tmp" instead of under respecitve directory. (simpler to remove all "tmp" files now)
+
+2008-09-12 MickeM
+ * Thanks to everyone who listened in on my session at NETWAYS Nagios Konferenz 2008!
+
+2008-09-09 MickeM - 0.3.4 RC-3
+ * Improved error handling for the WMI checks.
+ + CheckWMI: Added support for extracting numbers from strings 
+ * Fixed performance data for "large float values" to be rendered without scientific notation. (#151)
+ * Fixed issue with & and some commands via check_nt.
+ * Fixed a crash on exit (which I added in Rc1).
+ * Added 10 "bytes" the CPU buffer: (#174)
+ + Added new option to [EventLog] section buffer_size to change the size of the buffer used when scanning the evenlotg (defaults to 64k).
+ * Fixed error handling in CHeckEventLog so errors are repoorted properly (#184)
+
+2008-09-08 MickeM - 0.3.4 RC-2
+ * Fixed issue in windows 2008 with system tray (shared_session).
+ * Fixed installer issue (should run (i hope) service installer on install now on 64 bit os)
+ * Fixed issue with unloading plugins and log (causing "timeouts" when exiting some times)
+
+2008-09-07 MickeM
+ + Added sample powershell script as well as a workaround for making them run.
+ * Fixed an issue making powershell scripts (and possibly others) not timeout properly.
+ + Added upgrade support to the installer (still need to add support for keeping .ini file so be ware)
+
+2008-09-06 MickeM
+ * Improved error reporting in the eventlogchecker
+ * *BREAKING CHANGE* filter=new is now the default so unless you use the new filtering you need to specify filter=old instead!
+   I Recomend everyone to stop using the "old" filtering.
+
+2008-09-04 MickeM
+ * Fixed issues with new service stuff on NT4 and W2K (should work fine now)
+ + Added some DebugOutput to service handling features so if you experience tropubel try using sysinternals DebugView too se logging before the agent startes.
+ * Fixed a memory leak in the error formating code
+
+2008-08-24 MickeM
+ * Changed NSCA "general problem" error message to be more descriptive.
+ * Fixed issue with CheckCPU not returning a valid performance unit (%) see issue #219 for details.
+
+2008-08-16 MickeM
+ * *WARNING* THIS IS VERY VERY UNSTABEL (possibly)
+ * *WARNING* A lot of new untested code here so dont run in production enviornments :)
+ + Added shared session so system tray can communicate with master
+ + Added new system tray handlig (via TS so FUS should work with it)
+ + Added new option [System] / shared_session=0 (or 1) to enable / disable the new shared memory framework (it is for now disabled by default)
+   If you want to try this remember to change that option but also beware! it is dagerous and not finnished and and also there is as of now no security at all.
+
+2008-08-09 MickeM
+ + Added ChangeWindowMessageFilter so systray should maybe work on vista and beyond!
+
+2008-07-28 MickeM
+ * Improved the error handling for the check proc state.
+ * Removed all (I think) asserts replacing them with exceptions (should I hope reduce crashes and instead leave some form of errors)
+
+2008-07-25 MickeM
+ + Built a garage at the summer house
+ * cut down all the reeds and shrubbs at the summer house.
+
+2008-07-03 MickeM
+ * Fixed (again) issue with performance data and CheckDriveSize (when using "Min" bounds)
+ + Added some more error messages for when counters are not found.
+ * Fixed an issue with the new namespace option
+
+2008-07-02 MickeM
+ ! 0.3.3 Released (take 2)
+ + Added new option alias to controll the name for performance counters when using checkfile use like so:
+    checkfile alias=foo file=C:\boot.ini filter-written=>1000d syntax=gurka MaxCrit=1
+ * Fixed issue with performance data and CheckDriveSize (when using "Min" bounds)
+ ! 0.3.3 Released (take 1)
+ * Fixed some issues (?) with the installer the w32 and x64 are now different components (GUIDs).
+
+2008-07-02 MickeM
+ + Fixed some issues (?) with the installer the w32 and x64 are now different components (GUIDs).
+
+2008-07-01 MickeM
+ + Added new option (namespace) to CheckWMI and CheckWMIValue use like so:
+   CheckWMI namespace=root\\cimv2 MaxCrit=3 MinWarn=1 "Query:load=Select * from win32_Processor"
+
+2008-06-30 MickeM
+ * Fixed issue with CheckFile and performance data ( #156 )
+ + Added option (InvalidStatus) to CheckCounter to allow other then UNKNOWN return state when counters are missing ( #167 ).
+   *NOTICE* this is all reasons (so if the counter is missing or some such the same will happen not just when the instance is missing)
+   Message will reflect reason.
+ * Fixed issue in the arraybuffer (one of the plit functions had a problem with multiple chars of the same) ( #190 )
+
+2008-06-25 MickeM
+ * Fixed issue with CheckDriveSize and CheckAllOthers (#188)
+
+2008-06-24 MickeM
+ + Added new check (to CheckHelpers): CheckOK: Just return OK (anything passed along will be used as a message).
+ + Added new check (to CheckHelpers): CheckWARNING: Just return WARN (anything passed along will be used as a message).
+ + Added new check (to CheckHelpers): CheckCRITICAL: Just return CRIT (anything passed along will be used as a message).
+ + Added new check (to CheckHelpers): CheckVersion: Just return the nagios version (along with OK status).
+ * Better error messages in the check service thingy.
+
+2008-06-18 MickeM
+ * Fixed an issue in regards to reading the return packet in the in the NRPEClient (now it works).
+   Before only the first 1024 bytes were used.
+
+2008-06-15 MickeM
+ * Applied patches from Jeff Goldschrafe <goldschr AT cshl.edu>
+   + CheckDriveSize now uses "all drives" when no drive is specified.
+   * Fixed misspellt Container
+
+2008-06-14 MickeM
+ * Fixed error message from external commands (better reporting now)
+
+2008-05-14 MickeM
+ * Fixed memoryleak in the service checker.
+     I am really sorry I usualy write better code then this.
  + Added some "reasonable default cheks" under [External Alias] for the CheckExternalScripts.dll module. 
 
 2008-09-17 MickeM - 0.3.4 RC-6

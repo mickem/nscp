@@ -17,14 +17,17 @@
 ;CheckHelpers.dll
 ;CheckWMI.dll
 ;
+; Script to check external scripts and/or internal aliases.
+;CheckExternalScripts.dll
+;
+; NSCA Agent if you enable this NSClient++ will talk to NSCA hosts repeatedly (so dont enable unless you want to use NSCA)
+;NSCAAgent.dll
+;
+; LUA script module used to write your own "check deamon".
+;LUAScript.dll
+;
 ; RemoteConfiguration IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
 ;RemoteConfiguration.dll
-; NSCA Agent is a new beta module use with care!
-;NSCAAgent.dll
-; LUA script module used to write your own "check deamon" (sort of) early beta.
-;LUAScript.dll
-; Script to check external scripts and/or internal aliases, early beta.
-;CheckExternalScripts.dll
 ; Check other hosts through NRPE extreme beta and probably a bit dangerous! :)
 ;NRPEClient.dll
 ; Extreamly early beta of a task-schedule checker
@@ -187,12 +190,20 @@ use_file=1
 ;check_powershell_warn=cmd /c echo scripts\powershell.ps1 | powershell.exe -command -
 
 [External Alias]
-;alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
-;alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
-;alias_service=checkServiceState CheckAll
-;alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
+alias_cpu=checkCPU warn=80 crit=90 time=5m time=1m time=30s
+alias_cpu_ex=checkCPU warn=$ARG1$ crit=$ARG2$ time=5m time=1m time=30s
+alias_disk=CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED
+alias_service=checkServiceState CheckAll
+alias_process=checkProcState $ARG1$=started
+alias_mem=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=physical
+alias_up=checkUpTime MinWarn=1d MinWarn=1h
+alias_file_age=checkFile2 filter=out "file=$ARG1$" filter-written=>1d MaxWarn=1 MaxCrit=1 "syntax=%filename% %write%"
+alias_file_size=checkFile2 filter=out "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=1 MaxCrit=1 "syntax=%filename% %size%"
+alias_file_size_in_dir=checkFile2 filter=out pattern=*.txt "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=1 MaxCrit=1 "syntax=%filename% %size%"
+alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+alias_event_log2=CheckEventLog file=application file=system filter=new filter=in MaxWarn=1 MaxCrit=1 filter+generated=<2d "filter+eventSource==Service Control Manager" filter+severity==error truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+check_ok=CheckOK Everything is fine!
 ;alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
-
 
 
 
@@ -265,35 +276,6 @@ use_file=1
 ;my_mem_check=checkMem MaxWarn=80% MaxCrit=90% ShowAll type=page
 ;my_svc_check=checkServiceState CheckAll exclude=wampmysqld exclude=MpfService
 ;host_check=check_ok
-
-[NRPE Handlers]
-;# COMMAND DEFINITIONS
-;# Command definitions that this daemon will run.
-;# Can be either NRPE syntax:
-;command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10
-;# Or simplified syntax:
-;test=c:\test.bat foo $ARG1$ bar
-;check_disk1=/usr/local/nagios/libexec/check_disk -w 5 -c 10
-;# Or even loopback (inject) syntax (to run internal commands)
-;# This is a way to run "NSClient" commands and other internal module commands such as check eventlog etc.
-;check_cpu=inject checkCPU warn=80 crit=90 5 10 15
-;check_eventlog=inject CheckEventLog Application warn.require.eventType=error warn.require.eventType=warning critical.require.eventType=error critical.exclude.eventType=info truncate=1024 descriptions
-;check_disk_c=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M File:WIN=c:\ATI\*.*
-;# But be careful:
-; dont_check=inject dont_check This will "loop forever" so be careful with the inject command...
-;# Check some escapings...
-; check_escape=inject CheckFileSize ShowAll MaxWarn=1024M MaxCrit=4096M "File: foo \" WIN=c:\\WINDOWS\\*.*"
-;# Some real world samples
-;nrpe_cpu=inject checkCPU warn=80 crit=90 5 10 15
-;nrpe_ok=scripts\ok.bat
-;check_multi_line=scripts\multi_line.bat
-;#
-;# The sample scripts
-;#
-;check_long=scripts\long.bat
-;check_ok=scripts\ok.bat
-;check_nok=scripts\xlong.bat
-;check_vbs=cscript.exe //T:30 //NoLogo scripts\check_vb.vbs
 
 ;# REMOTE NRPE PROXY COMMANDS
 ;  A list of commands that check other hosts.

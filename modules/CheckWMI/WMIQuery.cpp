@@ -92,6 +92,8 @@ WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query)
 						value.setNumeric(column, vValue.intVal);
 					} else if (vValue.vt == VT_I4) {
 						value.setNumeric(column, vValue.lVal);
+					} else if (vValue.vt == VT_UI1) {
+						value.setNumeric(column, vValue.uintVal);
 					} else if (vValue.vt == VT_UINT) {
 						value.setNumeric(column, vValue.uintVal);
 					} else if (vValue.vt == VT_BSTR) {

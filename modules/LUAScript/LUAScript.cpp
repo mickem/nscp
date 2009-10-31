@@ -78,7 +78,7 @@ bool LUAScript::loadScript(const std::wstring file) {
 		NSC_LOG_ERROR_STD(_T("Could not load script: ") + file + _T(", ") + e.getMessage());
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);
-		assert(false);
+		//assert(false);
 	}
 	return false;
 }
