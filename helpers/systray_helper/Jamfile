@@ -1,0 +1,23 @@
+local target = nstray ;
+
+exe $(target)
+
+	: # sources
+	systray_helper.cpp
+	TrayWidget.cpp
+	#include/NSCHelper.cpp
+	#include/arrayBuffer.cpp
+	#include/ServiceCmd.cpp
+	../../include/ServiceCmd.cpp
+	systray_helper.rc
+
+	: # requirements
+	<user-interface>gui
+	#<runtime-link>static
+	<find-static-library>Userenv
+	<find-static-library>ole32
+	<find-static-library>gdi32
+	: # default build
+
+	: # usage requirements
+	;
