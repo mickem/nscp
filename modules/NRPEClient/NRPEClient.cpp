@@ -116,13 +116,13 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::blindstr command, co
 		return NSCAPI::returnIgnored;
 
 	std::wstring args = (*cit).second.arguments;
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 1) {
+	if (SETTINGS_GET_BOOL(nrpe::ALLOW_ARGS) == 1) {
 		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
 		arrayBuffer::arrayList::const_iterator cit2 = arr.begin();
 		int i=1;
 
 		for (;cit2!=arr.end();cit2++,i++) {
-			if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META, NRPE_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0) {
+			if (SETTINGS_GET_INT(nrpe::ALLOW_NASTY) == 0) {
 				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;

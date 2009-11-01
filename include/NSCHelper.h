@@ -131,8 +131,6 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIGetAllCommandNames)(arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIReleaseAllCommandNamessBuffer)(arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(const TCHAR*,const TCHAR*);
-	typedef NSCAPI::errorReturn (*lpNSAPISettingsAddKeyMapping)(const TCHAR*, const TCHAR*, const TCHAR*, const TCHAR*);
-	typedef NSCAPI::errorReturn (*lpNSAPISettingsAddPathMapping)(const TCHAR*, const TCHAR*);
 	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(const TCHAR*, const TCHAR*, int, const TCHAR*, const TCHAR*, const TCHAR*, int);
 	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(const TCHAR*, const TCHAR*, const TCHAR*, int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
@@ -146,8 +144,6 @@ namespace NSCModuleHelper
 	std::list<std::wstring> getSettingsSection(std::wstring section);
 	std::wstring getSettingsString(std::wstring section, std::wstring key, std::wstring defaultValue);
 	int getSettingsInt(std::wstring section, std::wstring key, int defaultValue);
-	void settings_add_mapping(std::wstring src_path, std::wstring src_key, std::wstring dst_path, std::wstring dst_key);
-	void settings_add_mapping(std::wstring src, std::wstring dst);
 	void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
 	void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 	void settings_save();
@@ -445,7 +441,3 @@ namespace NSCModuleWrapper {
 	NSCModuleHelper::settings_register_key(settings::key ## _PATH, settings::key, NSCAPI::key_integer, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _DEFAULT==1?_T("1"):_T("0"), settings::key ## _ADVANCED);
 #define SETTINGS_REG_PATH(key) \
 	NSCModuleHelper::settings_register_path(settings::key ## _PATH, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _ADVANCED);
-#define SETTINGS_MAP_KEY_A(name, section, key) \
-	NSCModuleHelper::settings_add_mapping(settings::name ## _PATH, settings::name, section, key);
-#define SETTINGS_MAP_SECTION_A(name, section) \
-	NSCModuleHelper::settings_add_mapping(settings::name ## _PATH, section);

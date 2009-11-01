@@ -66,27 +66,6 @@ void CheckExternalScripts::addAllScriptsFrom(std::wstring path) {
 }
 
 bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
-
-
-	if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
-		NSC_DEBUG_MSG(_T("Using compatiblity mode in: External Scripts"));
-
-#define EXTSCRIPT_SECTION_TITLE _T("External Script")
-#define EXTSCRIPT_SETTINGS_ALLOW_ARGUMENTS _T("allow_arguments")
-#define EXTSCRIPT_SETTINGS_ALLOW_NASTY_META _T("allow_nasty_meta_chars")
-#define EXTSCRIPT_SETTINGS_TIMEOUT _T("command_timeout")
-#define EXTSCRIPT_SETTINGS_SCRIPTDIR _T("script_dir")
-#define EXTSCRIPT_SCRIPT_SECTION_TITLE _T("External Scripts")
-#define EXTSCRIPT_ALIAS_SECTION_TITLE _T("External Alias")
-
-		SETTINGS_MAP_KEY_A(external_scripts::TIMEOUT,		EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT);
-		SETTINGS_MAP_KEY_A(external_scripts::SCRIPT_PATH,	EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR);
-		SETTINGS_MAP_KEY_A(external_scripts::ALLOW_ARGS,	EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_ARGUMENTS);
-		SETTINGS_MAP_KEY_A(external_scripts::ALLOW_NASTY,	EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META);
-
-		SETTINGS_MAP_SECTION_A(external_scripts::SCRIPT_SECTION,EXTSCRIPT_SCRIPT_SECTION_TITLE);
-		SETTINGS_MAP_SECTION_A(external_scripts::ALIAS_SECTION,EXTSCRIPT_ALIAS_SECTION_TITLE);
-	}
 	SETTINGS_REG_PATH(external_scripts::SECTION);
 	SETTINGS_REG_PATH(external_scripts::SCRIPT_SECTION);
 	SETTINGS_REG_PATH(external_scripts::ALIAS_SECTION);
@@ -163,7 +142,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 		int i=1;
 
 		for (;cit2!=arr.end();cit2++,i++) {
-			if ((!isAlias) && (NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META_DEFAULT) == 0)) {
+			if (isAlias || allowNasty_) {
 				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;

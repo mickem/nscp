@@ -2,7 +2,7 @@
 
 #include <string>
 #include <windows.h>
-#include <TSettings.h>
+#include <settings/Settings.h>
 #include <msvc_wrappers.h>
 #include <error.hpp>
 #define BUFF_LEN 4096
@@ -291,8 +291,10 @@ private:
 			delete [] lpValueName;
 		}
 	}
+	/*
 	void setSection(std::wstring section, sectionList data)  {
 		std::wcout << _T("Unsupported function call") << std::endl;
 	}
+	*/
 };
 }

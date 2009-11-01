@@ -159,8 +159,6 @@ namespace NSCModuleHelper {
 	lpNSAPIGetAllCommandNames fNSAPIGetAllCommandNames= NULL;
 	lpNSAPIReleaseAllCommandNamessBuffer fNSAPIReleaseAllCommandNamessBuffer= NULL;
 	lpNSAPIRegisterCommand fNSAPIRegisterCommand= NULL;
-	lpNSAPISettingsAddPathMapping fNSAPISettingsAddPathMapping = NULL;
-	lpNSAPISettingsAddKeyMapping fNSAPISettingsAddKeyMapping = NULL;
 	lpNSAPISettingsRegKey fNSAPISettingsRegKey = NULL;
 	lpNSAPISettingsRegPath fNSAPISettingsRegPath = NULL;
 	lpNSAPIGetPluginList fNSAPIGetPluginList = NULL;
@@ -434,17 +432,6 @@ int NSCModuleHelper::getSettingsInt(std::wstring section, std::wstring key, int 
 	if (!fNSAPIGetSettingsInt)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
-}
-
-void NSCModuleHelper::settings_add_mapping(std::wstring src_path, std::wstring src_key, std::wstring dst_path, std::wstring dst_key) {
-	if (!fNSAPISettingsAddKeyMapping)
-		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	fNSAPISettingsAddKeyMapping(src_path.c_str(), src_key.c_str(), dst_path.c_str(), dst_key.c_str());
-}
-void NSCModuleHelper::settings_add_mapping(std::wstring src, std::wstring dst) {
-	if (!fNSAPISettingsAddPathMapping)
-		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	fNSAPISettingsAddPathMapping(src.c_str(), dst.c_str());
 }
 
 void NSCModuleHelper::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
@@ -749,9 +736,6 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIGetAllCommandNames = (NSCModuleHelper::lpNSAPIGetAllCommandNames)f(_T("NSAPIGetAllCommandNames"));
 	NSCModuleHelper::fNSAPIReleaseAllCommandNamessBuffer = (NSCModuleHelper::lpNSAPIReleaseAllCommandNamessBuffer)f(_T("NSAPIReleaseAllCommandNamessBuffer"));
 	NSCModuleHelper::fNSAPIRegisterCommand = (NSCModuleHelper::lpNSAPIRegisterCommand)f(_T("NSAPIRegisterCommand"));
-
-	NSCModuleHelper::fNSAPISettingsAddKeyMapping = (NSCModuleHelper::lpNSAPISettingsAddKeyMapping)f(_T("NSAPISettingsAddKeyMapping"));
-	NSCModuleHelper::fNSAPISettingsAddPathMapping = (NSCModuleHelper::lpNSAPISettingsAddPathMapping)f(_T("NSAPISettingsAddPathMapping"));
 
 	NSCModuleHelper::fNSAPISettingsRegKey = (NSCModuleHelper::lpNSAPISettingsRegKey)f(_T("NSAPISettingsRegKey"));
 	NSCModuleHelper::fNSAPISettingsRegPath = (NSCModuleHelper::lpNSAPISettingsRegPath)f(_T("NSAPISettingsRegPath"));

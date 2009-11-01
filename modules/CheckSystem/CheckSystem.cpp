@@ -63,69 +63,10 @@ CheckSystem::~CheckSystem() {}
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
-bool CheckSystem::loadModule() {
-	pdhThread.createThread();
-	std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
-	CEnumProcess tmp;
-	int method = tmp.GetAvailableMethods();
-	if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_AUTO) {
-		OSVERSIONINFO osVer = systemInfo::getOSVersion();
-		/*
-		if (systemInfo::isBelowNT4(osVer)) {
-			NSC_DEBUG_MSG_STD(_T("Autodetected NT4<, using PSAPI process enumeration."));
-			if (method == (method|ENUM_METHOD::PSAPI)) {
-				processMethod_ = ENUM_METHOD::PSAPI;
-			} else {
-				NSC_LOG_ERROR_STD(_T("PSAPI method not available, since you are on NT4 you need to install \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-			}
-		} else if (systemInfo::isAboveW2K(osVer)) {
-			NSC_DEBUG_MSG_STD(_T("Autodetected W2K>, using TOOLHELP process enumeration."));
-			if (method == (method|ENUM_METHOD::TOOLHELP)) {
-				processMethod_ = ENUM_METHOD::TOOLHELP;
-			} else {
-				NSC_LOG_ERROR_STD(_T("TOOLHELP was not available, since you are on > W2K you need top manually override the ") C_SYSTEM_ENUMPROC_METHOD _T("option in NSC:ini."));
-			}
-		} else {
-		*/
-			NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
-			processMethod_ = ENUM_METHOD::PSAPI;
-			if (method == (method|ENUM_METHOD::PSAPI)) {
-				processMethod_ = ENUM_METHOD::PSAPI;
-			} else {
-				NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-				NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-			}
-		//}
-	} else if (wantedMethod == C_SYSTEM_ENUMPROC_METHOD_PSAPI) {
-		NSC_DEBUG_MSG_STD(_T("Using PSAPI method."));
-		if (method == (method|ENUM_METHOD::PSAPI)) {
-			processMethod_ = ENUM_METHOD::PSAPI;
-		} else {
-			NSC_LOG_ERROR_STD(_T("PSAPI method not available, check ") C_SYSTEM_ENUMPROC_METHOD _T(" option."));
-		}
-	} else {
-		NSC_LOG_ERROR_STD(_T("TOOLHELP method has been removed sine we dont really want to support w9x ") C_SYSTEM_ENUMPROC_METHOD _T("."));
-	}
-bool CheckSystem::loadModule() {
-	pdhThread.createThread();
+
 bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::normalStart) {
 		pdhThread.createThread();
-	}
-	std::wstring wantedMethod = SETTINGS_GET_STRING(check_system::PROC_ENUM);
-	if (wantedMethod == settings::check_system::PROC_ENUM_TH) {
-		NSC_LOG_ERROR_STD(_T("TOOLHELP method has been removed sine we dont really want to support w9x."));
-	} else {
-		CEnumProcess tmp;
-		int method = tmp.GetAvailableMethods();
-		NSC_DEBUG_MSG_STD(_T("Autodetected failed, using PSAPI process enumeration."));
-		if (method == (method|ENUM_METHOD::PSAPI)) {
-			processMethod_ = ENUM_METHOD::PSAPI;
-		} else {
-			NSC_LOG_ERROR_STD(_T("PSAPI method not available. Try installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-			NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-		}
 	}
 	try {
 		NSCModuleHelper::registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
@@ -135,7 +76,6 @@ bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
 		NSCModuleHelper::registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
 		NSCModuleHelper::registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
 		NSCModuleHelper::registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
-		
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {

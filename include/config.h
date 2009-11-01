@@ -29,7 +29,7 @@
 // Version
 #define SZBETATAG _T(" ")
 //#define SZBETATAG _T(" BETA ") 
-#define SZBETATAG _T(" BETA ") 
+//#define SZBETATAG _T(" BETA ") 
 #define SZVERSION STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
 
@@ -182,6 +182,9 @@ namespace settings {
 
 		DEFINE_SETTING_S(OBFUSCATED_PWD, NSCLIENT_SECTION, GENERIC_KEY_OBFUSCATED_PWD, "");
 		DESCRIBE_SETTING(OBFUSCATED_PWD, "OBFUSCATED PASSWORD", "This is the same as the password option but here you can store the password in an obfuscated manner. *NOTICE* obfuscation is *NOT* the same as encryption, someone with access to this file can still figure out the password. Its just a bit harder to do it at first glance.");
+
+		DEFINE_SETTING_S(SYSTRAY_EXE, NSCLIENT_SECTION, "systray_exe", "nstray.exe");
+		DESCRIBE_SETTING(SYSTRAY_EXE, "TODO", "TODO");
 	}
 
 	// NSClient Setting headlines
@@ -211,8 +214,8 @@ namespace settings {
 		DEFINE_SETTING_B(CACHE_ALLOWED, NRPE_SECTION_PROTOCOL, GENERIC_KEY_SOCK_CACHE_ALLOWED, false);
 		DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache looked up hosts if you check dynamic/changing hosts set this to false.");
 
-		DEFINE_SETTING_B(USE_SSL, NRPE_SECTION_PROTOCOL, GENERIC_KEY_USE_SSL, true);
-		DESCRIBE_SETTING(USE_SSL, "USE SSL SOCKET", "This option controls if SSL should be used on the socket.");
+		DEFINE_SETTING_B(KEYUSE_SSL, NRPE_SECTION_PROTOCOL, GENERIC_KEY_USE_SSL, true);
+		DESCRIBE_SETTING(KEYUSE_SSL, "USE SSL SOCKET", "This option controls if SSL should be used on the socket.");
 
 		DEFINE_SETTING_I(PAYLOAD_LENGTH, NRPE_SECTION_PROTOCOL, "payload length", 1024);
 		DESCRIBE_SETTING_ADVANCED(PAYLOAD_LENGTH, "PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.");
@@ -405,6 +408,19 @@ namespace settings {
 
 		DEFINE_PATH(CMD_SECTION, NSCA_CMD_SECTION);
 		DESCRIBE_SETTING(CMD_SECTION, "NSCA COMMAND SECTION", "Commands to check and report to the NSCA server");
+
+		DEFINE_SETTING_S(REPORT_MODE, NSCA_SERVER_SECTION, "report", "all");
+		DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+
+		DEFINE_SETTING_S(TIME_DELTA_DEFAULT, NSCA_SECTION, "delay", "0");
+		DESCRIBE_SETTING(TIME_DELTA_DEFAULT, "TODO", "TODO");
+		
+		DEFINE_SETTING_I(PAYLOAD_LENGTH, NSCA_SECTION, "payload length", 512);
+		DESCRIBE_SETTING_ADVANCED(PAYLOAD_LENGTH, "PAYLOAD LENGTH", "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA server to use the same value for it to work.");
+
+		DEFINE_SETTING_I(READ_TIMEOUT, NSCA_SERVER_SECTION, GENERIC_KEY_SOCK_READ_TIMEOUT, 30);
+		DESCRIBE_SETTING(READ_TIMEOUT, "SOCKET TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.");
+
 	}
 
 	namespace task_scheduler {

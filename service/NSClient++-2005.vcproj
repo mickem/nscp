@@ -2692,10 +2692,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\include\INISettings.h"
-				>
-			</File>
-			<File
 				RelativePath=".\include\Mutex.h"
 				>
 			</File>
@@ -2728,15 +2724,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\include\OLDSettings.hpp"
-				>
-			</File>
-			<File
 				RelativePath=".\include\PDHCounter.h"
-				>
-			</File>
-			<File
-				RelativePath=".\include\REGSettings.h"
 				>
 			</File>
 			<File
@@ -2752,7 +2740,19 @@
 				>
 			</File>
 			<File
-				RelativePath=".\include\Settings.h"
+				RelativePath=".\include\settings\Settings.h"
+				>
+			</File>
+			<File
+				RelativePath=".\include\settings\settings_ini.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\include\settings\settings_old.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\include\settings\settings_registry.hpp"
 				>
 			</File>
 			<File
@@ -3109,174 +3109,6 @@
 						Name="VCCustomBuildTool"
 						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(TargetDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(TargetDir)$(InputFileName)"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\Doxyfile"
-				>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|x64"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs="html"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|x64"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|x64"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|x64"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|x64"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|x64"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Itanium"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Itanium"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Itanium"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Itanium"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
-						Outputs=".\Doc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Itanium"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="doxygen.exe $(InputPath)&#x0D;&#x0A;"
 					/>
 				</FileConfiguration>
 			</File>

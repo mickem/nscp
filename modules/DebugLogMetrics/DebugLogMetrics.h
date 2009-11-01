@@ -35,8 +35,8 @@ private:
 	typedef std::map<strEx::blindstr, command_data> command_list;
 	command_list commands;
 	command_list alias;
-	unsigned int timeout;
-	std::wstring scriptDirectory_;
+//	unsigned int timeout;
+//	std::wstring scriptDirectory_;
 	std::wstring root_;
 	PDHCollectorThread pdhThread;
 
@@ -44,7 +44,7 @@ public:
 	DebugLogMetrics();
 	virtual ~DebugLogMetrics();
 	// Module calls
-	bool loadModule();
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 

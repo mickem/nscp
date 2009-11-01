@@ -4,7 +4,9 @@ namespace file_helpers {
 	class checks {
 	public:
 		static bool is_directory(std::wstring path) {
-			DWORD dwAtt = ::GetFileAttributes(path.c_str());
+			return is_directory(::GetFileAttributes(path.c_str()));
+		}
+		static bool is_directory(DWORD dwAtt) {
 			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
 				return false;
 			} else if ((dwAtt&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {

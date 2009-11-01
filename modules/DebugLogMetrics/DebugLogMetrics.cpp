@@ -37,9 +37,9 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 DebugLogMetrics::DebugLogMetrics() : pdhThread(_T("debugThread")) {}
 DebugLogMetrics::~DebugLogMetrics() {}
 
-bool DebugLogMetrics::loadModule() {
-	timeout = NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
-	scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
+bool DebugLogMetrics::loadModule(NSCAPI::moduleLoadMode mode) {
+//	timeout = SETTINGS_GET_INT() NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
+//	scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
 	root_ = NSCModuleHelper::getBasePath();
 	pdhThread.createThread(_T("NSClient++"));
 	return true;

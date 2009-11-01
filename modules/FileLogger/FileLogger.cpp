@@ -70,7 +70,6 @@ std::wstring getFolder(std::wstring key) {
 }
 std::wstring FileLogger::getFileName() {
 	if (file_.empty()) {
-		file_ = NSCModuleHelper::getSettingsString(LOG_SECTION_TITLE, LOG_FILENAME, LOG_FILENAME_DEFAULT);
 		file_ = SETTINGS_GET_STRING(log::FILENAME);
 		if (file_.empty())
 			file_ = settings::log::FILENAME_DEFAULT;
@@ -91,16 +90,6 @@ bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
 	getFileName();
 
 	try {
-		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
-#define LOG_SECTION_TITLE _T("log")
-#define LOG_FILENAME _T("file") 
-#define LOG_DATEMASK _T("date_mask")
-			NSC_DEBUG_MSG(_T("Using compatibility mode in: LOGGING module"));
-
-			SETTINGS_MAP_KEY_A(log::FILENAME,	LOG_SECTION_TITLE, LOG_FILENAME);
-			SETTINGS_MAP_KEY_A(log::DATEMASK,	LOG_SECTION_TITLE, LOG_DATEMASK);
-			SETTINGS_MAP_KEY_A(log::DEBUG_LOG,	LOG_SECTION_TITLE, _T("debug"));
-		}
 		SETTINGS_REG_PATH(log::SECTION);
 
 		SETTINGS_REG_KEY_S(log::FILENAME);

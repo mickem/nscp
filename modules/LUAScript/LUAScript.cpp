@@ -43,11 +43,6 @@ LUAScript::~LUAScript() {
 bool LUAScript::loadModule(NSCAPI::moduleLoadMode mode) {
 	//LUA Scripts
 	try {
-		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
-			NSC_DEBUG_MSG(_T("Using compatiblity mode in: EventLog Checker"));
-#define LUA_SCRIPT_SECTION_TITLE _T("LUA Scripts")
-			SETTINGS_MAP_SECTION_A(lua::SECTION,	LUA_SCRIPT_SECTION_TITLE);
-		}
 		SETTINGS_REG_PATH(lua::SECTION);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);

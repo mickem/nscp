@@ -4,8 +4,8 @@ rem #
 rem # Set the path to the boost build jam binary
 rem #
 rem SET jam=C:\src\tools\boost-jam-3.1.17\bin.ntx86\bjam.exe
-rem SET jam=D:\source\tools\bjam.exe
-set jam=C:\src\tools\nightly\boost-build\jam_src\bin.ntx86\bjam.exe
+SET jam=D:\source\tools\bjam.exe
+rem set jam=C:\src\tools\nightly\boost-build\jam_src\bin.ntx86\bjam.exe
 
 rem #
 rem ########################
@@ -13,26 +13,25 @@ rem #
 rem # Set the path to the boost build path (usualy inside the boost library location)
 rem #
 rem SET BOOST_BUILD_PATH=D:\tools\boost-build
- SET BOOST_BUILD_PATH=C:\src\lib-src\boost_1_39_0\tools\build\v2
-rem  SET BOOST_BUILD_PATH=C:\src\tools\beta\boost-build
-rem set BOOST_BUILD_PATH=D:\source\boost-build
-rem set BOOST_BUILD_PATH=C:\src\tools\nightly\boost-build\
-
+rem SET BOOST_BUILD_PATH=C:\src\lib-src\boost_1_39_0\tools\build\v2
+rem SET BOOST_BUILD_PATH=D:\source\boost-build
+SET BOOST_BUILD_PATH=D:\source\boost-build-39
+rem SET BOOST_BUILD_PATH=D:\source\boost-build-nightly
 rem #
 rem ########################
 rem #
 rem # Set the path to your extra include directpy (openssl/boost/*)
 rem #
-SET TARGET_INC_DIR=C:\src\include
-rem set TARGET_INC_DIR=d:\source\include
+rem SET TARGET_INC_DIR=C:\src\include
+SET TARGET_INC_DIR=d:\source\include
 SET NSCP_INCLUDE=%TARGET_INC_DIR%
 rem #
 rem ########################
 rem #
 rem # Set the path to your extra library directory (openssl/boost/*)
 rem #
-SET TARGET_LIB_DIR=c:\src\lib
-rem SET TARGET_LIB_DIR=D:\source\lib
+rem SET TARGET_LIB_DIR=c:\src\lib
+SET TARGET_LIB_DIR=D:\source\lib
 rem #
 rem # Setup various relative paths (might need to tweak)
 rem #
@@ -44,15 +43,16 @@ rem ########################
 rem #
 rem # Set the path to your Lua sources
 rem #
-rem set LUA_SOURCE=D:\source\NSCP-stable\lib-source\LUA\src\lua-5.1.2
-set LUA_SOURCE=C:\src\lib-src\lua-5.1.4
+rem SET LUA_SOURCE=D:\source\NSCP-stable\lib-source\LUA\src\lua-5.1.2
+rem SET LUA_SOURCE=C:\src\lib-src\lua-5.1.4
+SET LUA_SOURCE=D:\source\libs-c\lua-5.1.2
 rem #
 rem ########################
 rem #
 rem # Set the path to your Platform SDK
 rem #
-rem SET PLATTFORM_SDK=D:\Program\Microsoft Platform SDK for Windows Server 2003 R2
-SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
+SET PLATTFORM_SDK=D:\Program\Microsoft Platform SDK for Windows Server 2003 R2
+rem SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
 rem #
 rem # Setup various relative paths (might need to tweak)
 rem #
@@ -66,20 +66,23 @@ rem ########################
 rem #
 rem # Set the path to your WiX installation
 rem #
-SET WIX_PATH=C:\Program Files\Windows Installer XML
+rem SET WIX_PATH=C:\Program Files\Windows Installer XML
+SET WIX_PATH=d:\Program\Windows Installer XML
 rem #
 rem ########################
 rem #
 rem # Set the path to your Crypt++ sources
 rem #
-rem SET CRYPTOPP_SOURCE=D:\source\libs-c\crypto++-5.6.0
-SET CRYPTOPP_SOURCE="C:\src\lib-src\Crypto++5.6.0"
+SET CRYPTOPP_SOURCE=D:\source\libs-c\crypto++-5.6.0
+rem SET CRYPTOPP_SOURCE="C:\src\lib-src\Crypto++5.6.0"
 rem ########################
 rem #
 rem #
 rem #
 
-SET TOOLS_DIR=c:\src\tools\;%ProgramFiles%\7-Zip\
+SET XAUTOBUILD=D:\source\tools\XAutobuild.exe
+
+SET TOOLS_DIR=c:\src\tools\;%ProgramFiles%\7-Zip\;d:\source\tools\
 
 
 set PATH=%PATH%;%TOOLS_DIR%

@@ -69,53 +69,17 @@ void NRPEListener::addAllScriptsFrom(std::wstring path) {
 
 bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 #ifdef USE_SSL
-	if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
-		NSC_DEBUG_MSG(_T("Using compatiblity mode in: NRPE Module"));
-
-#define NRPE_SECTION_TITLE _T("NRPE")
-#define NRPE_SETTINGS_READ_TIMEOUT _T("socket_timeout")
-#define NRPE_SETTINGS_PORT _T("port")
-#define NRPE_SETTINGS_BINDADDR _T("bind_to_address")
-#define NRPE_SETTINGS_LISTENQUE _T("socket_back_log")
-#define NRPE_SETTINGS_USE_SSL _T("use_ssl")
-#define NRPE_SETTINGS_STRLEN _T("string_length")
-#define NRPE_SETTINGS_PERFDATA _T("performance_data")
-#define NRPE_HANDLER_SECTION_TITLE _T("NRPE Handlers")
-#define NRPE_SETTINGS_SCRIPTDIR _T("script_dir")
-#define NRPE_SETTINGS_TIMEOUT _T("command_timeout")
-#define NRPE_SETTINGS_ALLOW_ARGUMENTS _T("allow_arguments")
-#define NRPE_SETTINGS_ALLOW_NASTY_META _T("allow_nasty_meta_chars")
-
-		SETTINGS_MAP_KEY_A(nrpe::PORT,			NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT);
-		SETTINGS_MAP_KEY_A(nrpe::BINDADDR,		NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR);
-		SETTINGS_MAP_KEY_A(nrpe::LISTENQUE,		NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE);
-		SETTINGS_MAP_KEY_A(nrpe::READ_TIMEOUT,	NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT);
-		SETTINGS_MAP_KEY_A(nrpe::USE_SSL,		NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL);
-		SETTINGS_MAP_KEY_A(nrpe::PAYLOAD_LENGTH,NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN);
-		SETTINGS_MAP_KEY_A(nrpe::ALLOW_PERFDATA,NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA);
-		SETTINGS_MAP_KEY_A(nrpe::SCRIPT_PATH,	NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR);
-		SETTINGS_MAP_KEY_A(nrpe::CMD_TIMEOUT,	NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT);
-		SETTINGS_MAP_KEY_A(nrpe::ALLOW_ARGS,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS);
-		SETTINGS_MAP_KEY_A(nrpe::ALLOW_NASTY,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META);
-
-		SETTINGS_MAP_SECTION_A(nrpe::SECTION_HANDLERS,NRPE_HANDLER_SECTION_TITLE);
 		
 #else
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1) {
 		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
 	}
 #endif
-	noPerfData_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA,NRPE_SETTINGS_PERFDATA_DEFAULT)==0;
-	timeout = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT ,NRPE_SETTINGS_TIMEOUT_DEFAULT);
-	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
-	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
-	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
-
 	SETTINGS_REG_KEY_I(nrpe::PORT);
 	SETTINGS_REG_KEY_S(nrpe::BINDADDR);
 	SETTINGS_REG_KEY_I(nrpe::LISTENQUE);
 	SETTINGS_REG_KEY_I(nrpe::READ_TIMEOUT);
-	SETTINGS_REG_KEY_B(nrpe::USE_SSL);
+	SETTINGS_REG_KEY_B(nrpe::KEYUSE_SSL);
 	SETTINGS_REG_KEY_I(nrpe::PAYLOAD_LENGTH);
 	SETTINGS_REG_KEY_B(nrpe::ALLOW_PERFDATA);
 	SETTINGS_REG_KEY_S(nrpe::SCRIPT_PATH);
@@ -126,7 +90,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	SETTINGS_REG_PATH(nrpe::SECTION);
 	SETTINGS_REG_PATH(nrpe::SECTION_HANDLERS);
 
-	bUseSSL_ = SETTINGS_GET_BOOL(nrpe::USE_SSL)==1;
+	bUseSSL_ = SETTINGS_GET_BOOL(nrpe::KEYUSE_SSL)==1;
 	noPerfData_ = SETTINGS_GET_INT(nrpe::ALLOW_PERFDATA)==0;
 	timeout = SETTINGS_GET_INT(nrpe::CMD_TIMEOUT);
 	socketTimeout_ = SETTINGS_GET_INT(nrpe::READ_TIMEOUT);
@@ -137,7 +101,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	if (buffer_length_ != 1024)
 		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
 	NSC_DEBUG_MSG_STD(_T("Loading all commands (from NRPE)"));
-	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(NRPE_HANDLER_SECTION_TITLE);
+	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(settings::nrpe::SECTION_HANDLERS_PATH);
 	std::list<std::wstring>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
 		std::wstring command_name;
@@ -148,7 +112,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 		} else {
 			command_name = (*it);
 		}
-		std::wstring s = NSCModuleHelper::getSettingsString(NRPE_HANDLER_SECTION_TITLE, (*it), _T(""));
+		std::wstring s = NSCModuleHelper::getSettingsString(settings::nrpe::SECTION_HANDLERS_PATH, (*it), _T(""));
 		if (command_name.empty() || s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
 		} else {
@@ -167,19 +131,21 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
 	try {
 		NSC_DEBUG_MSG_STD(_T("Starting NRPE socket..."));
-		unsigned short port = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT, NRPE_SETTINGS_PORT_DEFAULT);
-		std::wstring host = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR, NRPE_SETTINGS_BINDADDR_DEFAULT);
-		unsigned int backLog = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE, NRPE_SETTINGS_LISTENQUE_DEFAULT);
+		unsigned short port = SETTINGS_GET_INT(nrpe::PORT);
+		std::wstring host = SETTINGS_GET_STRING(nrpe::BINDADDR);
+		unsigned int backLog = SETTINGS_GET_INT(nrpe::LISTENQUE);
+		if (mode == NSCAPI::normalStart) {
 #ifdef USE_SSL
-		if (bUseSSL_) {
-			socket_ssl_.setHandler(this);
-			socket_ssl_.StartListener(host, port, backLog);
-		} else {
+			if (bUseSSL_) {
+				socket_ssl_.setHandler(this);
+				socket_ssl_.StartListener(host, port, backLog);
+			} else {
 #else
-		{
+			{
 #endif
-			socket_.setHandler(this);
-			socket_.StartListener(host, port, backLog);
+				socket_.setHandler(this);
+				socket_.StartListener(host, port, backLog);
+			}
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.getMessage());
@@ -197,6 +163,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 
 	return true;
 }
+
 bool NRPEListener::unloadModule() {
 	try {
 #ifdef USE_SSL

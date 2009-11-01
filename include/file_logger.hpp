@@ -5,34 +5,39 @@
 #include <stdio.h>
 #include <string>
 
-namespace logging {
+
+namespace simple_file {
 
 #ifndef CSIDL_COMMON_APPDATA 
 #define CSIDL_COMMON_APPDATA 0x0023 
 #define CSIDL_LOCAL_APPDATA  0x001c
 #endif
 	typedef BOOL (WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
-
-	__inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
-		static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
-		if (!__SHGetSpecialFolderPath) {
-			HMODULE hDLL = LoadLibrary(_T("shell32.dll"));
-			if (hDLL != NULL)
-				__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+		static BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
+			static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
+			if (!__SHGetSpecialFolderPath) {
+				HMODULE hDLL = LoadLibrary(_T("shell32.dll"));
+				if (hDLL != NULL) { 
+					__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+				}
+			}
+			if(__SHGetSpecialFolderPath)
+				return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
+			return FALSE;
 		}
-		if(__SHGetSpecialFolderPath)
-			return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
-		return FALSE;
-	}
 
-	class file_logger {
+
+	class file_appender {
 		std::wstring file_;
-		std::wstring datemask_;
 		std::wstring path_;
 		std::wstring filename_;
 	public:
-		file_logger(std::wstring path, std::wstring filename) : path_(path), filename_(filename), datemask_(_T("%Y-%m-%d %H:%M:%S")) {
-			_tzset();
+		file_appender(std::wstring path, std::wstring filename) : path_(path), filename_(filename) {}
+		file_appender() {}
+
+		void set_file(std::wstring path, std::wstring filename) {
+			path_ = path;
+			filename_ = filename;
 		}
 
 		inline std::wstring getFileName() {
@@ -50,6 +55,63 @@ namespace logging {
 				file_ = path + _T("\\") + filename;
 			}
 			return file_;
+		}
+	private:
+		inline std::wstring getFolder() {
+			TCHAR buf[MAX_PATH+1];
+			if (!_SHGetSpecialFolderPath(NULL, buf, CSIDL_LOCAL_APPDATA, FALSE)) {
+				return _T("") + error::lookup::last_error();
+			}
+			return buf;
+		}
+		bool directoryExists(std::wstring path) {
+			DWORD dwAtt = ::GetFileAttributes(path.c_str());
+			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
+				return false;
+			} else if ((dwAtt&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
+				return true;
+			}
+			return false;
+		}
+
+		HANDLE openAppendOrNew(std::wstring file) {
+			DWORD numberOfBytesWritten = 0;
+			HANDLE hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			if (hFile == INVALID_HANDLE_VALUE) {
+				hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+				if (hFile != INVALID_HANDLE_VALUE) {
+					WORD wBOM = 0xFEFF;
+					::WriteFile(hFile, &wBOM, sizeof(WORD), &numberOfBytesWritten, NULL);
+				} else {
+					int x = 5;
+				}
+			}
+			return hFile;
+		}
+	public:
+
+		bool writeEntry(std::wstring line) {
+			DWORD numberOfBytesWritten;
+			HANDLE hFile = openAppendOrNew(getFileName());
+			if (hFile == INVALID_HANDLE_VALUE) {
+				return false;
+			}
+			if (::SetFilePointer(hFile, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+				// Ingore this error!
+			}
+			::WriteFile(hFile, line.c_str(), (static_cast<DWORD>(line.length()))*(sizeof(TCHAR)), &numberOfBytesWritten, NULL);
+			::CloseHandle(hFile);
+			return true;
+		}
+	};
+}
+
+namespace logging {
+	class file_logger : public simple_file::file_appender {
+		std::wstring datemask_;
+	public:
+		file_logger(std::wstring path, std::wstring filename) : file_appender(path, filename), datemask_(_T("%Y-%m-%d %H:%M:%S")) {
+			_tzset();
 		}
 		void log(const std::wstring category, const wchar_t* file, const int line, const wchar_t* message) {
 			TCHAR buffer[65];
@@ -70,55 +132,5 @@ namespace logging {
 				std::wcerr << _T("Failed to write: ") << logline;
 			}
 		}
-	private:
-
-		inline std::wstring getFolder() {
-			TCHAR buf[MAX_PATH+1];
-			if (!_SHGetSpecialFolderPath(NULL, buf, CSIDL_LOCAL_APPDATA, FALSE)) {
-				return _T("") + error::lookup::last_error();
-			}
-			return buf;
-		}
-
-		bool directoryExists(std::wstring path) {
-			DWORD dwAtt = ::GetFileAttributes(path.c_str());
-			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
-				return false;
-			} else if ((dwAtt&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
-				return true;
-			}
-			return false;
-		}
-
-		HANDLE openAppendOrNew(std::wstring file) {
-			DWORD numberOfBytesWritten = 0;
-			HANDLE hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			if (hFile == INVALID_HANDLE_VALUE) {
-				hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-				if (hFile != INVALID_HANDLE_VALUE) {
-					WORD wBOM = 0xFEFF;
-					::WriteFile(hFile, &wBOM, sizeof(WORD), &numberOfBytesWritten, NULL);
-				} else {
-					int x = 5;
-				}
-			}
-			return hFile;
-		}
-
-		bool writeEntry(std::wstring line) {
-			DWORD numberOfBytesWritten;
-			HANDLE hFile = openAppendOrNew(getFileName());
-			if (hFile == INVALID_HANDLE_VALUE) {
-				return false;
-			}
-			if (::SetFilePointer(hFile, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
-				// Ingore this error!
-			}
-			::WriteFile(hFile, line.c_str(), (static_cast<DWORD>(line.length()))*(sizeof(TCHAR)), &numberOfBytesWritten, NULL);
-			::CloseHandle(hFile);
-			return true;
-		}
-
-
 	};
 }

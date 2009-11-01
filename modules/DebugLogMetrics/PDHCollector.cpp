@@ -19,7 +19,6 @@
 
 #include "stdafx.h"
 #include "PDHCollector.h"
-#include <Settings.h>
 #include <sysinfo.h>
 
 
@@ -39,7 +38,6 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 		OSVERSIONINFO osVer = systemInfo::getOSVersion();
 		if (!systemInfo::isNTBased(osVer)) {
 			NSC_LOG_ERROR_STD(_T("Detected Windows 3.x or Windows 9x, PDH will be disabled."));
-			NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
 			return false;
 		}
 		if (systemInfo::isBelowNT4(osVer)) {
@@ -47,12 +45,10 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			return false;
 		}
 	} catch (const systemInfo::SystemInfoException &e) {
-		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
-		NSC_LOG_ERROR_STD(_T("The Error: ") + e.getError());
+		NSC_LOG_ERROR_STD(_T("Unable to detect operating system: ") + e.getError());
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("To manual set performance counters you need to first set ") C_SYSTEM_AUTODETECT_PDH _T("=0 in the config file, and then you also need to configure the various counter."));
-		NSC_LOG_ERROR_STD(_T("The Error: UNKNOWN_EXCEPTION"));
+		NSC_LOG_ERROR_STD(_T("Unable to detect operating system: <UNKNOWN EXCEPTION>"));
 		return false;
 	}
 

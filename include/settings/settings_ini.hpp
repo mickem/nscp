@@ -2,7 +2,7 @@
 
 #include <string>
 #include <map>
-#include <Settings.h>
+#include <settings/Settings.h>
 #include <simpleini/SimpleIni.h>
 
 namespace Settings {

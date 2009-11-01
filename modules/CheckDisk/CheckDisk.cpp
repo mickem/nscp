@@ -82,7 +82,7 @@ struct get_size : public baseFinderFunction
 	bool error;
 	get_size() : size(0), error(false) { }
 	result_type operator()(argument_type ffd) {
-		if (!is_directory(ffd.wfd.dwFileAttributes)) {
+		if (!file_helpers::checks::is_directory(ffd.wfd.dwFileAttributes)) {
 			size += (ffd.wfd.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)ffd.wfd.nFileSizeLow;
 		}
 		return true;
@@ -111,7 +111,7 @@ void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, i
 	DWORD fileAttr = GetFileAttributes(dir.c_str());
 	NSC_DEBUG_MSG_STD(_T("Input is: ") + dir + _T(" / ") + strEx::ihextos(fileAttr));
 
-	if (!is_directory(fileAttr)) {
+	if (!file_helpers::checks::is_directory(fileAttr)) {
 		NSC_DEBUG_MSG_STD(_T("Found a file dont do recursive scan: ") + dir);
 		// It is a file check it an return (dont check recursivly)
 		pattern_type single_path = split_path_ex(dir);
@@ -138,7 +138,7 @@ void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, i
 	hFind = FindFirstFile(dir_pattern.c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (is_directory(wfd.dwFileAttributes)) {
+			if (file_helpers::checks::is_directory(wfd.dwFileAttributes)) {
 				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
 					recursive_scan<finder_function>(dir + _T("\\") + wfd.cFileName, pattern, current_level+1, max_level, f, errors);
 			}
@@ -474,7 +474,7 @@ struct find_first_file_info : public baseFinderFunction
 //	std::wstring message;
 	find_first_file_info() : error(false) {}
 	result_type operator()(argument_type ffd) {
-		if (is_directory(ffd.wfd.dwFileAttributes))
+		if (file_helpers::checks::is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 		BY_HANDLE_FILE_INFORMATION _info;
 
@@ -513,7 +513,7 @@ struct file_filter_function : public baseFinderFunction
 
 	file_filter_function() : hit_count(0), error(false), bFilterIn(true), bFilterAll(true) {}
 	result_type operator()(argument_type ffd) {
-		if (is_directory(ffd.wfd.dwFileAttributes))
+		if (file_helpers::checks::is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 		BY_HANDLE_FILE_INFORMATION _info;
 
@@ -586,7 +586,7 @@ struct file_filter_function_ex : public baseFinderFunction
 
 	file_filter_function_ex() : hit_count(0), error(false), debug_(false), bFilterIn(true), bFilterAll(true) {}
 	result_type operator()(argument_type ffd) {
-		if (is_directory(ffd.wfd.dwFileAttributes))
+		if (file_helpers::checks::is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 		BY_HANDLE_FILE_INFORMATION _info;
 
@@ -645,65 +645,6 @@ struct file_filter_function_ex : public baseFinderFunction
 		error = true;
 	}
 };
-
-
-		if ((ffd.wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
-			return true;
-		BY_HANDLE_FILE_INFORMATION _info;
-
-		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
-		if (hFile == INVALID_HANDLE_VALUE) {
-			setError(_T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
-		}
-		GetFileInformationByHandle(hFile, &_info);
-		CloseHandle(hFile);
-		file_info info(_info, ffd.wfd.cFileName);
-		info.ullNow = now;
-
-		bool bMatch = !bFilterIn;
-		for (filterlist_type::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
-			bool bTmpMatched = (*cit3).second.matchFilter(info);
-			int mode = (*cit3).first;
-
-			if ((mode == filter_minus)&&(bTmpMatched)) {
-				// a -<filter> hit so thrash item and bail out!
-				//if (debug_)
-					NSC_DEBUG_MSG_STD(_T("Matched: - ") + (*cit3).second.getValue() + _T(" for: ") + info.render(syntax));
-				bMatch = false;
-				break;
-			} else if ((mode == filter_plus)&&(!bTmpMatched)) {
-				// a +<filter> missed hit so thrash item and bail out!
-				//if (debug_)
-					NSC_DEBUG_MSG_STD(_T("Matched (missed): + ") + (*cit3).second.getValue() + _T(" for: ") + info.render(syntax));
-				bMatch = false;
-				break;
-			} else if (bTmpMatched) {
-				if (debug_)
-					NSC_DEBUG_MSG_STD(_T("Matched: . (contiunue): ") + (*cit3).second.getValue() + _T(" for: ") + info.render(syntax));
-				bMatch = true;
-			}
-		}
-
-		NSC_DEBUG_MSG_STD(_T("result: ") + strEx::itos(bFilterIn) + _T(" -- ") + strEx::itos(bMatch));
-		if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
-			strEx::append_list(message, info.render(syntax));
-			if (alias.length() < 16)
-				strEx::append_list(alias, info.filename);
-			else
-				strEx::append_list(alias, std::wstring(_T("...")));
-			hit_count++;
-		}
-		return true;
-	}
-	inline const bool hasError() const {
-		return error;
-	}
-	inline void setError(std::wstring) {
-		error = true;
-	}
-};
-
 
 NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -893,76 +834,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 			recursive_scan<file_filter_function_ex>(*pit, pattern, 0, max_dir_depth, finder, &errors);
 			if (finder.hasError()) {
 				message = _T("Error when scanning: ") + (*pit) + _T(" check log for details.");
-				return NSCAPI::returnUNKNOWN;
-			}
-		}
-		message = finder.message;
-		if (!alias.empty())
-			query.alias = alias;
-		else
-			query.alias = finder.alias;
-		if (query.alias.empty())
-			query.alias = _T("no files found");
-		query.runCheck(finder.hit_count, returnCode, message, perf);
-		if ((truncate > 0) && (message.length() > (truncate-4)))
-			message = message.substr(0, truncate-4) + _T("...");
-		if (message.empty())
-			message = _T("CheckFile ok");
-		return returnCode;
-}
-
-	bool bPerfData = true;
-
-	try {
-		MAP_OPTIONS_BEGIN(stl_args)
-			MAP_OPTIONS_NUMERIC_ALL(query, _T(""))
-			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
-			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_STR(_T("syntax"), syntax)
-			MAP_OPTIONS_PUSH(_T("path"), paths)
-			MAP_OPTIONS_STR(_T("alias"), alias)
-			MAP_OPTIONS_PUSH(_T("file"), paths)
-			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterIn, _T("in"), _T("out"))
-			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterAll, _T("all"), _T("any"))
-			/*
-			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-size"), fileSize, finder.filter_chain)
-			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-creation"), fileCreation, finder.filter_chain)
-			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-written"), fileWritten, finder.filter_chain)
-			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-accessed"), fileAccessed, finder.filter_chain)
-			*/
-
-			MAP_FILTER(_T("filter+size"), size, filter_plus)
-			MAP_FILTER(_T("filter+creation"), creation, filter_plus)
-			MAP_FILTER(_T("filter+written"), written, filter_plus)
-			MAP_FILTER(_T("filter+accessed"), accessed, filter_plus)
-
-			MAP_FILTER(_T("filter.size"), size, filter_normal)
-			MAP_FILTER(_T("filter.creation"), creation, filter_normal)
-			MAP_FILTER(_T("filter.written"), written, filter_normal)
-			MAP_FILTER(_T("filter.accessed"), accessed, filter_normal)
-
-			MAP_FILTER(_T("filter-size"), size, filter_minus)
-			MAP_FILTER(_T("filter-creation"), creation, filter_minus)
-			MAP_FILTER(_T("filter-written"), written, filter_minus)
-			MAP_FILTER(_T("filter-accessed"), accessed, filter_minus)
-
-			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
-			MAP_OPTIONS_END()
-	} catch (filters::parse_exception e) {
-		message = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	} catch (filters::filter_exception e) {
-		message = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-		}
-		FILETIME now;
-		GetSystemTimeAsFileTime(&now);
-		finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
-		finder.syntax = syntax;
-		for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-			recursive_scan<file_filter_function_ex>((*pit), finder);
-			if (finder.hasError()) {
-				message = _T("Error when scanning: ") + (*pit);
 				return NSCAPI::returnUNKNOWN;
 			}
 		}

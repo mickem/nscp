@@ -198,14 +198,6 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 		}
 		delete [] buf;
 		sh = ::OpenService(scman,short_name.c_str(),SERVICE_QUERY_STATUS);
-		if (bufLen >= SC_BUF_LEN) {
-			::CloseServiceHandle(scman);
-			throw NTServiceException(name, "Service name to long to handle", GetLastError());
-		}
-		buf[bufLen] = 0;
-		*/
-		sh = ::OpenService(scman,buf,SERVICE_QUERY_STATUS);
-		delete [] buf;
 		if (sh == NULL) {
 			DWORD dwErr = GetLastError();
 			::CloseServiceHandle(scman);

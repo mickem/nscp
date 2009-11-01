@@ -19,7 +19,6 @@
 
 #include "stdafx.h"
 #include "NSCAThread.h"
-#include <Settings.h>
 
 #define REPORT_ERROR	0x01
 #define REPORT_WARNING	0x02
@@ -66,7 +65,7 @@ std::wstring generate_report_string(unsigned int report) {
 }
 
 NSCAThread::NSCAThread() : hStopEvent_(NULL) {
-	std::wstring tmpstr = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_TIME_DELTA, NSCA_TIME_DELTA_DEFAULT);
+	std::wstring tmpstr = SETTINGS_GET_STRING(nsca::TIME_DELTA_DEFAULT);
 	if (tmpstr[0] == '-' && tmpstr.size() > 2)
 		timeDelta_ = 0 - strEx::stoui_as_time(tmpstr.substr(1));
 	if (tmpstr[0] == '+' && tmpstr.size() > 2)
@@ -75,20 +74,22 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 		timeDelta_ = strEx::stoui_as_time(tmpstr);
 	timeDelta_ = timeDelta_ / 1000;
 	NSC_DEBUG_MSG_STD(_T("Time difference for NSCA server is: ") + strEx::itos(timeDelta_));
-	checkIntervall_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL, NSCA_INTERVAL_DEFAULT);
-	hostname_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME, NSCA_HOSTNAME_DEFAULT);
-	nscahost_ = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_SERVER, NSCA_SERVER_DEFAULT);
-	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
-	payload_length_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_STRLEN, NSCA_STRLEN_DEFAULT);
-	read_timeout_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_READ_TIMEOUT, NSCA_READ_TIMEOUT_DEFAULT);
-	std::wstring report = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_REPORT, NSCA_REPORT_DEFAULT);
+	checkIntervall_ = SETTINGS_GET_INT(nsca::INTERVAL);
+	hostname_ = SETTINGS_GET_STRING(nsca::HOSTNAME);
+	nscahost_ = SETTINGS_GET_STRING(nsca::SERVER_HOST);
+	nscaport_ = SETTINGS_GET_INT(nsca::SERVER_PORT);
+	payload_length_ = SETTINGS_GET_INT(nsca::PAYLOAD_LENGTH);
+	read_timeout_ = SETTINGS_GET_INT(nsca::READ_TIMEOUT);
+	std::wstring report = SETTINGS_GET_STRING(nsca::REPORT_MODE);
 	report_ = parse_report_string(report);
 	NSC_DEBUG_MSG_STD(_T("Only reporting: ") + generate_report_string(report_));
 	
-	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
-	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
-	cacheNscaHost_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST, NSCA_CACHE_HOST_DEFAULT) == 1;
-	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
+	encryption_method_ = SETTINGS_GET_INT(nsca::ENCRYPTION);
+	password_ = strEx::wstring_to_string(SETTINGS_GET_STRING(nsca::PASSWORD));
+	cacheNscaHost_ = SETTINGS_GET_INT(nsca::CACHE_HOST);
+	read_timeout_ = SETTINGS_GET_INT(nsca::READ_TIMEOUT);
+
+	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(settings::nsca::CMD_SECTION_TITLE);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
 	}

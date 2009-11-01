@@ -46,15 +46,6 @@ CheckEventLog::~CheckEventLog() {
 
 bool CheckEventLog::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
-
-		if (SETTINGS_GET_BOOL(settings_def::COMPATIBLITY)) {
-			NSC_DEBUG_MSG(_T("Using compatiblity mode in: EventLog Checker"));
-#define EVENTLOG_SECTION_TITLE _T("Eventlog")
-#define EVENTLOG_DEBUG _T("debug")
-#define EVENTLOG_SYNTAX _T("syntax")
-			SETTINGS_MAP_KEY_A(event_log::DEBUG_KEY,	EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG);
-			SETTINGS_MAP_KEY_A(event_log::SYNTAX,		EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX);
-		}
 		SETTINGS_REG_PATH(event_log::SECTION);
 		SETTINGS_REG_KEY_B(event_log::DEBUG_KEY);
 		SETTINGS_REG_KEY_S(event_log::SYNTAX);
@@ -63,7 +54,7 @@ bool CheckEventLog::loadModule(NSCAPI::moduleLoadMode mode) {
 		debug_ = SETTINGS_GET_BOOL(event_log::DEBUG_KEY);
 		lookup_names_ = SETTINGS_GET_BOOL(event_log::LOOKUP_NAMES);
 		syntax_ = SETTINGS_GET_STRING(event_log::SYNTAX);
-		buffer_ = SETTINGS_GET_INT(event_log::BUFFER_SIZE);
+		buffer_length_ = SETTINGS_GET_INT(event_log::BUFFER_SIZE);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -641,7 +632,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				DWORD err = GetLastError();
 				if (err == ERROR_INSUFFICIENT_BUFFER) {
 					if (!buffer_error_reported) {
-						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + EVENTLOG_BUFFER + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
+						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + settings::event_log::BUFFER_SIZE + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
 						buffer_error_reported = true;
 					}
 				} else if (err == ERROR_HANDLE_EOF) {
@@ -746,7 +737,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				dwRead -= pevlr->Length; 
 				pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length); 
 			} 
-		}
 		} 
 		DWORD err = GetLastError();
 		if (err == ERROR_INSUFFICIENT_BUFFER) {
@@ -782,11 +772,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		message = _T("No bounds specified!");
 		return NSCAPI::returnUNKNOWN;
 	}
-	if (!bPerfData)
-		query.perfData = false;
-	if (query.alias.empty())
-		query.alias = _T("eventlog");
-	query.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");
 	if (message.empty())

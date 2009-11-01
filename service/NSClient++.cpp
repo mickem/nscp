@@ -15,7 +15,7 @@
 #include "stdafx.h"
 #include <winsvc.h>
 #include "NSClient++.h"
-#include <Settings.h>
+#include <settings/Settings.h>
 #include <charEx.h>
 #include <Socket.h>
 #include <b64/b64.h>
@@ -27,10 +27,9 @@
 //#ifdef DEBUG
 #include <crtdbg.h>
 //#endif
-#include <settings.h>
-#include <INISettings.h>
-#include <REGSettings.h>
-#include <OLDSettings.hpp>
+#include <settings/settings_ini.hpp>
+#include <settings/settings_registry.hpp>
+#include <settings/settings_old.hpp>
 #include <Userenv.h>
 #include <remote_processes.hpp>
 #include <Lmcons.h>
@@ -71,7 +70,7 @@ public:
 	}
 
 	static bool start(DWORD dwSessionId) {
-		std::wstring program = mainClient.getBasePath() +  _T("\\") + Settings::getInstance()->getString(NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_SYSTRAY_EXE, NSCLIENT_SETTINGS_SYSTRAY_EXE_DEFAULT);
+		std::wstring program = mainClient.getBasePath() +  _T("\\") + SETTINGS_GET_STRING(nsclient::SYSTRAY_EXE);
 		std::wstring cmdln = _T("\"") + program + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
 		return tray_starter::startTrayHelper(dwSessionId, program, cmdln);
 	}
@@ -234,7 +233,6 @@ public:
 	}
 };
 
-
 #define SETTINGS_GET_BOOL(key) \
 	settings_manager::get_settings()->get_bool(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
 
@@ -302,9 +300,11 @@ namespace settings_manager {
 				return new Settings::REGSettings(this, context);
 			throw SettingsException(_T("Undefined settings type: ") + SettingsCore::type_to_string(type));
 		}
+
 	};
 
 	typedef Singleton<NSCSettingsImpl> SettingsHandler;
+
 	// Alias to make handling "compatible" with old syntax
 	Settings::SettingsInterface* get_settings() {
 		return SettingsHandler::getInstance()->get();
@@ -316,16 +316,12 @@ namespace settings_manager {
 		SettingsHandler::destroyInstance();
 	}
 
+
 	bool init_settings() {
 		try {
 			get_core()->set_logger(new NSC_logger());
 			get_core()->set_base(mainClient.getBasePath());
 			get_core()->boot(_T("boot.ini"));
-#define MAIN_MODULES_SECTION_OLD _T("modules")
-#define MAIN_SECTION_TITLE _T("Settings")
-#define MAIN_STRING_LENGTH _T("string_length")
-			get_core()->add_mapping(MAIN_MODULES_SECTION, MAIN_MODULES_SECTION_OLD);
-			get_core()->add_mapping(settings::settings_def::PAYLOAD_LEN_PATH, settings::settings_def::PAYLOAD_LEN, MAIN_SECTION_TITLE, MAIN_STRING_LENGTH);
 			get_core()->register_key(SETTINGS_REG_KEY_I_GEN(settings_def::PAYLOAD_LEN, Settings::SettingsCore::key_integer));
 			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::ALLOWED_HOSTS, Settings::SettingsCore::key_string));
 			get_core()->register_key(SETTINGS_REG_KEY_B_GEN(protocol_def::CACHE_ALLOWED, Settings::SettingsCore::key_bool));
@@ -994,7 +990,7 @@ bool NSClientT::initCore(bool boot) {
 			return false;
 		}
 		try {
-			loadPlugins();
+			loadPlugins(boot?NSCAPI::normalStart:NSCAPI::dontStart);
 		} catch (...) {
 			LOG_ERROR_STD(_T("Unknown exception loading plugins"));
 			return false;
@@ -1142,7 +1138,6 @@ void WINAPI NSClientT::service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
 DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
 	return mainClient.service_ctrl_ex(dwControl, dwEventType, lpEventData, lpContext);
 }
-
 /**
  * Forward this to the main service dispatcher helper class
  * @param dwCtrlCode 
@@ -1164,7 +1159,6 @@ void NSClientT::service_on_session_changed(DWORD dwSessionId, bool logon, DWORD 
 	}
 	tray_starter::start(dwSessionId);
 }
-
 
 //////////////////////////////////////////////////////////////////////////
 // Member functions
@@ -1291,7 +1285,7 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 	}
 }
 
-void NSClientT::loadPlugins() {
+void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 	bool hasBroken = false;
 	{
 		ReadLock readLock(&m_mutexRW, true, 10000);
@@ -1314,11 +1308,12 @@ void NSClientT::loadPlugins() {
 				it = plugins_.erase(it);
 				LOG_ERROR_STD(_T("Could not load plugin: ") + (*it)->getModule());
 			}
+		}
 	}
 	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
 		LOG_DEBUG_STD(_T("Loading plugin: ") + (*it)->getName() + _T("..."));
 		try {
-			(*it)->load_plugin();
+			(*it)->load_plugin(mode);
 			++it;
 		} catch(NSPluginException e) {
 			it = plugins_.erase(it);
@@ -1512,57 +1507,22 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 
 void NSClientT::listPlugins() {
 	ReadLock readLock(&m_mutexRW, true, 10000);
-		try {
-			std::wstring msg, perf;
-			int returnCode = shared_client_->inject(command, arrayBuffer::arrayBuffer2string(argument, argLen, _T(" ")), L' ', true, msg, perf);
-			NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, msg, returnCode);
-			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, perf, returnCode);
-		} catch (nsclient_session::session_exception &e) {
-			LOG_ERROR_STD(_T("Failed to inject remote command: ") + e.what());
-			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command: ") + e.what(), NSCAPI::returnCRIT);
-			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
-		} catch (...) {
-			LOG_ERROR_STD(_T("Failed to inject remote command: Unknown exception"));
-			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command:  + e.what()"), NSCAPI::returnCRIT);
-			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
-		}
-	} else {
-		ReadLock readLock(&m_mutexRW, true, 5000);
-		if (!readLock.IsLocked()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
-			return NSCAPI::returnUNKNOWN;
-		}
-		for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
-			try {
-				NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
-				switch (c) {
-					case NSCAPI::returnInvalidBufferLen:
-						LOG_ERROR(_T("UNKNOWN: Return buffer to small to handle this command."));
-						return c;
-					case NSCAPI::returnIgnored:
-						break;
-					case NSCAPI::returnOK:
-					case NSCAPI::returnWARN:
-					case NSCAPI::returnCRIT:
-					case NSCAPI::returnUNKNOWN:
-						LOG_DEBUG_STD(_T("Injected Result: ") + NSCHelper::translateReturn(c) + _T(" '") + (std::wstring)(returnMessageBuffer) + _T("'"));
-						LOG_DEBUG_STD(_T("Injected Performance Result: '") +(std::wstring)(returnPerfBuffer) + _T("'"));
-						return c;
-					default:
-						LOG_ERROR_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);
-						return c;
-				}
-			} catch(const NSPluginException& e) {
-				LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
-				return NSCAPI::returnCRIT;
-			} catch(...) {
-				LOG_ERROR_STD(_T("Unknown exception raised in module"));
-				return NSCAPI::returnCRIT;
-			}
-		}
-		LOG_MESSAGE_STD(_T("No handler for command: '") + command + _T("'"));
-		return NSCAPI::returnIgnored;
+	if (!readLock.IsLocked()) {
+		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+		return;
 	}
+	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
+		try {
+			if ((*it)->isBroken()) {
+				std::wcout << (*it)->getModule() << _T(": ") << _T("broken") << std::endl;
+			} else {
+				std::wcout << (*it)->getModule() << _T(": ") << (*it)->getName() << std::endl;
+			}
+		} catch (NSPluginException e) {
+			LOG_ERROR_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
+		}
+	}
+
 }
 
 bool NSClientT::logDebug() {
@@ -1578,15 +1538,6 @@ bool NSClientT::logDebug() {
 	}
 	return (debug_ == log_debug);
 }
-void NSClientT::enableDebug(bool debug) {
-	if (debug) {
-		debug_ = log_debug;
-		LOG_DEBUG(_T("Enabling debug mode..."));
-	}
-	else
-		debug_ = log_nodebug;
-}
-
 
 void log_broken_message(std::wstring msg) {
 	OutputDebugString(msg.c_str());
@@ -1948,31 +1899,6 @@ NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR* cmd,const TCHAR* desc) {
 	mainClient.registerCommand(cmd, desc);
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPISettingsAddKeyMapping(const TCHAR* source_path, const TCHAR* source_key, const TCHAR* destination_path, const TCHAR* destination_key) {
-	try {
-		settings_manager::get_core()->add_mapping(source_path, source_key, destination_path, destination_key);
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to add mapping: ") + e.getMessage());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to add mapping"));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPISettingsAddPathMapping(const TCHAR* src, const TCHAR* dst) {
-	try {
-		settings_manager::get_core()->add_mapping(src, dst);
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to add mapping: ") + e.getMessage());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to add mapping"));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-
 NSCAPI::errorReturn NSAPISettingsRegKey(const TCHAR* path, const TCHAR* key, int type, const TCHAR* title, const TCHAR* description, const TCHAR* defVal, int advanced) {
 	try {
 		if (type == NSCAPI::key_string)
@@ -2099,11 +2025,6 @@ LPVOID NSAPILoader(TCHAR*buffer) {
 		return &NSAPIReleaseAllCommandNamessBuffer;
 	if (_wcsicmp(buffer, _T("NSAPIRegisterCommand")) == 0)
 		return &NSAPIRegisterCommand;
-	if (_wcsicmp(buffer, _T("NSAPISettingsAddKeyMapping")) == 0)
-		return &NSAPISettingsAddKeyMapping;
-	if (_wcsicmp(buffer, _T("NSAPISettingsAddPathMapping")) == 0)
-		return &NSAPISettingsAddPathMapping;
-
 	if (_wcsicmp(buffer, _T("NSAPISettingsRegKey")) == 0)
 		return &NSAPISettingsRegKey;
 	if (_wcsicmp(buffer, _T("NSAPISettingsRegPath")) == 0)

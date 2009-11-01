@@ -114,7 +114,6 @@ private:
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), boot_(true) {}
 	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false) {}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
@@ -122,9 +121,6 @@ public:
 			debug_ = log_debug;
 		else
 			debug_ = log_nodebug;
-	}
-	void setBoot(bool boot = true) {
-		boot_ = boot;
 	}
 
 	// Service helper functions
@@ -148,7 +144,7 @@ public:
 
 	void addPlugins(const std::list<std::wstring> plugins);
 	plugin_type loadPlugin(const std::wstring plugin);
-	void loadPlugins(void);
+	void loadPlugins(NSCAPI::moduleLoadMode mode);
 	void unloadPlugins(bool unloadLoggers);
 	std::wstring describeCommand(std::wstring command);
 	std::list<std::wstring> getAllCommandNames();
@@ -217,14 +213,11 @@ NSCAPI::errorReturn NSAPIDescribeCommand(const TCHAR*,TCHAR*,unsigned int);
 NSCAPI::errorReturn NSAPIGetAllCommandNames(TCHAR***, unsigned int *);
 NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(TCHAR***, unsigned int *);
 NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR*,const TCHAR*);
-NSCAPI::errorReturn NSAPISettingsAddKeyMapping(const TCHAR*, const TCHAR*, const TCHAR*, const TCHAR*);
-NSCAPI::errorReturn NSAPISettingsAddPathMapping(const TCHAR*, const TCHAR*);
 NSCAPI::errorReturn NSAPISettingsRegKey(const TCHAR*, const TCHAR*, int, const TCHAR*, const TCHAR*, const TCHAR*, int);
 NSCAPI::errorReturn NSAPISettingsRegPath(const TCHAR*, const TCHAR*, const TCHAR*, int);
 NSCAPI::errorReturn NSAPIGetPluginList(int*, NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPIReleasePluginList(int,NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPISettingsSave(void);
-
 
 
 //////////////////////////////////////////////////////////////////////////
