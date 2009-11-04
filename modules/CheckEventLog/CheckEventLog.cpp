@@ -29,6 +29,7 @@
 #include <error.hpp>
 #include <map>
 #include <vector>
+#include <config.h>
 
 CheckEventLog gCheckEventLog;
 
@@ -632,7 +633,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				DWORD err = GetLastError();
 				if (err == ERROR_INSUFFICIENT_BUFFER) {
 					if (!buffer_error_reported) {
-						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + settings::event_log::BUFFER_SIZE + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
+						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + setting_keys::event_log::BUFFER_SIZE + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
 						buffer_error_reported = true;
 					}
 				} else if (err == ERROR_HANDLE_EOF) {
@@ -740,8 +741,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		} 
 		DWORD err = GetLastError();
 		if (err == ERROR_INSUFFICIENT_BUFFER) {
-			NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small (set the value of ") + settings::event_log::BUFFER_SIZE_TITLE + _T("): ") + error::lookup::last_error(err));
-			message = std::wstring(_T("EvenlogBuffer is too small (set the value of ")) + settings::event_log::BUFFER_SIZE_TITLE + _T("): ") + error::lookup::last_error(err);
+			NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small (set the value of ") + setting_keys::event_log::BUFFER_SIZE_TITLE + _T("): ") + error::lookup::last_error(err));
+			message = std::wstring(_T("EvenlogBuffer is too small (set the value of ")) + setting_keys::event_log::BUFFER_SIZE_TITLE + _T("): ") + error::lookup::last_error(err);
 			return NSCAPI::returnUNKNOWN;
 		} else if (err != ERROR_HANDLE_EOF) {
 			NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));

@@ -18,7 +18,6 @@
 #include <settings/Settings.h>
 #include <charEx.h>
 #include <Socket.h>
-#include <b64/b64.h>
 #include <config.h>
 #include <msvc_wrappers.h>
 #include <Userenv.h>
@@ -27,16 +26,25 @@
 //#ifdef DEBUG
 #include <crtdbg.h>
 //#endif
-#include <settings/settings_ini.hpp>
-#include <settings/settings_registry.hpp>
-#include <settings/settings_old.hpp>
 #include <Userenv.h>
 #include <remote_processes.hpp>
 #include <Lmcons.h>
+#include "core_api.h"
+#include "settings_manager_impl.h"
+#include <settings/macros.h>
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
 
+#define SETTINGS_GET_BOOL_CORE(key) \
+	settings_manager::get_settings()->get_bool(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
+
+#define SETTINGS_GET_STRING_CORE(key) \
+	settings_manager::get_settings()->get_string(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
+/*
+#define SETTINGS_SET_STRING_CORE(key, value) \
+	Settings::get_settings()->set_string(setting_keys::key ## _PATH, setting_keys::key, value);
+*/
 /**
  * START OF Tray starter MERGE HELPER
  */
@@ -70,7 +78,8 @@ public:
 	}
 
 	static bool start(DWORD dwSessionId) {
-		std::wstring program = mainClient.getBasePath() +  _T("\\") + SETTINGS_GET_STRING(nsclient::SYSTRAY_EXE);
+		std::wstring program = mainClient.getBasePath() +  _T("\\") + 
+			SETTINGS_GET_STRING_CORE(settings_def::SYSTRAY_EXE);
 		std::wstring cmdln = _T("\"") + program + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
 		return tray_starter::startTrayHelper(dwSessionId, program, cmdln);
 	}
@@ -185,166 +194,6 @@ void display(std::wstring title, std::wstring message) {
 	::MessageBox(NULL, message.c_str(), title.c_str(), MB_OK|MB_ICONERROR);
 }
 
-class NSC_logger : public Settings::LoggerInterface {
-public:
-	//////////////////////////////////////////////////////////////////////////
-	/// Log an ERROR message.
-	///
-	/// @param file the file where the event happened
-	/// @param line the line where the event happened
-	/// @param message the message to log
-	///
-	/// @author mickem
-	void err(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::error, file.c_str(), line, message.c_str());
-	}
-	//////////////////////////////////////////////////////////////////////////
-	/// Log an WARNING message.
-	///
-	/// @param file the file where the event happened
-	/// @param line the line where the event happened
-	/// @param message the message to log
-	///
-	/// @author mickem
-	void warn(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::warning, file.c_str(), line, message.c_str());
-	}
-	//////////////////////////////////////////////////////////////////////////
-	/// Log an INFO message.
-	///
-	/// @param file the file where the event happened
-	/// @param line the line where the event happened
-	/// @param message the message to log
-	///
-	/// @author mickem
-	void info(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::log, file.c_str(), line, message.c_str());
-	}
-	//////////////////////////////////////////////////////////////////////////
-	/// Log an DEBUG message.
-	///
-	/// @param file the file where the event happened
-	/// @param line the line where the event happened
-	/// @param message the message to log
-	///
-	/// @author mickem
-	void debug(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::debug, file.c_str(), line, message.c_str());
-	}
-};
-
-#define SETTINGS_GET_BOOL(key) \
-	settings_manager::get_settings()->get_bool(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
-
-namespace settings_manager {
-	class NSCSettingsImpl : public Settings::SettingsHandlerImpl {
-	private:
-		std::wstring boot_;
-		bool old_;
-	public:
-		NSCSettingsImpl() : old_(false) {}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a string form the boot file.
-		///
-		/// @param section section to read a value from.
-		/// @param key the key to read.
-		/// @param def a default value.
-		/// @return the value of the key or the default value.
-		///
-		/// @author mickem
-		std::wstring get_boot_string(std::wstring section, std::wstring key, std::wstring def) {
-			TCHAR* buffer = new TCHAR[1024];
-			GetPrivateProfileString(section.c_str(), key.c_str(), def.c_str(), buffer, 1023, boot_.c_str());
-			std::wstring ret = buffer;
-			delete [] buffer;
-			return ret;
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Boot the settings subsystem from the given file (boot.ini).
-		///
-		/// @param file the file to use when booting.
-		///
-		/// @author mickem
-		void boot(std::wstring file = _T("boot.ini")) {
-			boot_ = get_base() + _T("\\") + file;
-			std::wstring subsystem = get_boot_string(_T("settings"), _T("type"), _T("old"));
-			get_logger()->debug(__FILEW__, __LINE__, _T("Trying to boot: ") + subsystem);
-			settings_type type = string_to_type(subsystem);
-			std::wstring context = get_boot_string(_T("settings"), _T("context"), subsystem);
-			Settings::SettingsInterface *impl = create_instance(type, context);
-			if (impl == NULL)
-				throw Settings::SettingsException(_T("Could not create settings instance: ") + subsystem);
-			add_type_impl(type, create_instance(type, context));
-			set_type(type);
-			if (old_)
-				get()->set_bool(settings::settings_def::COMPATIBLITY_PATH, settings::settings_def::COMPATIBLITY, true);
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Create an instance of a given type.
-		/// Used internally to create instances of various settings types.
-		///
-		/// @param type the type to create
-		/// @param context the context to use
-		/// @return a new instance of given type.
-		///
-		/// @author mickem
-		Settings::SettingsInterface* create_instance(settings_type type, std::wstring context) {
-			get_logger()->debug(__FILEW__, __LINE__, _T("Trying to create: ") + SettingsCore::type_to_string(type) + _T(": ") + context);
-			if (type == SettingsCore::old_ini_file) {
-				old_ = true;
-				return new Settings::OLDSettings(this, context);
-			} 
-			if (type == SettingsCore::ini_file)
-				return new Settings::INISettings(this, context);
-			if (type == SettingsCore::registry)
-				return new Settings::REGSettings(this, context);
-			throw SettingsException(_T("Undefined settings type: ") + SettingsCore::type_to_string(type));
-		}
-
-	};
-
-	typedef Singleton<NSCSettingsImpl> SettingsHandler;
-
-	// Alias to make handling "compatible" with old syntax
-	Settings::SettingsInterface* get_settings() {
-		return SettingsHandler::getInstance()->get();
-	}
-	Settings::SettingsCore* get_core() {
-		return SettingsHandler::getInstance();
-	}
-	void destroy_settings() {
-		SettingsHandler::destroyInstance();
-	}
-
-
-	bool init_settings() {
-		try {
-			get_core()->set_logger(new NSC_logger());
-			get_core()->set_base(mainClient.getBasePath());
-			get_core()->boot(_T("boot.ini"));
-			get_core()->register_key(SETTINGS_REG_KEY_I_GEN(settings_def::PAYLOAD_LEN, Settings::SettingsCore::key_integer));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::ALLOWED_HOSTS, Settings::SettingsCore::key_string));
-			get_core()->register_key(SETTINGS_REG_KEY_B_GEN(protocol_def::CACHE_ALLOWED, Settings::SettingsCore::key_bool));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::MASTER_KEY, Settings::SettingsCore::key_string));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::PWD, Settings::SettingsCore::key_string));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::OBFUSCATED_PWD, Settings::SettingsCore::key_string));
-
-		} catch (SettingsException e) {
-			LOG_CRITICAL_STD(_T("Failed to initialize settings: ") + e.getError());
-			return false;
-		} catch (...) {
-			LOG_CRITICAL(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
-			return false;
-		}
-		return true;
-	}
-
-}
-
-#define SETTINGS_GET_STRING(key) \
-	Settings::get_settings()->get_string(key ## _PATH, key, key ## _DEFAULT)
-#define SETTINGS_SET_STRING(key, value) \
-	Settings::get_settings()->set_string(key ## _PATH, key, value);
 
 /**
  * Application startup point
@@ -441,7 +290,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			std::wstring password;
-			if (!settings_manager::init_settings()) {
+			if (!settings_manager::init_settings(mainClient.getBasePath())) {
 				std::wcout << _T("Could not find settings") << std::endl;;
 				return 1;
 			}
@@ -887,14 +736,14 @@ void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring 
  */
 bool NSClientT::initCore(bool boot) {
 	LOG_MESSAGE(_T("Attempting to start NSCLient++ - " SZVERSION));
-	if (!settings_manager::init_settings()) {
+	if (!settings_manager::init_settings(getBasePath())) {
 		return false;
 	}
 	try {
 		if (debug_)
 			settings_manager::get_settings()->set_int(_T("log"), _T("debug"), 1);
 			settings_manager::get_settings()->set_int(_T("Settings"), _T("shared_Session"), 1);
-		enable_shared_session_ = SETTINGS_GET_BOOL(settings_def::SHARED_SESSION);
+		enable_shared_session_ = SETTINGS_GET_BOOL_CORE(settings_def::SHARED_SESSION);
 	} catch (SettingsException e) {
 		LOG_ERROR_STD(_T("Could not find settings: ") + e.getMessage());
 	}
@@ -962,6 +811,7 @@ bool NSClientT::initCore(bool boot) {
 		try {
 			Settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 			for (Settings::string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+				LOG_DEBUG_STD(_T("Processing plugin: " + *cit));
 				try {
 					if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, *cit) == _T("disabled")) {
 						LOG_DEBUG_STD(_T("Not booting: " + *cit + _T(" since it is disabled.")));
@@ -1394,10 +1244,10 @@ unsigned int NSClientT::getBufferLength() {
 			len = settings_manager::get_settings()->get_int(SETTINGS_KEY(settings_def::PAYLOAD_LEN));
 		} catch (SettingsException &e) {
 			LOG_DEBUG_STD(_T("Failed to get length: ") + e.getMessage());
-			return settings::settings_def::PAYLOAD_LEN_DEFAULT;
+			return setting_keys::settings_def::PAYLOAD_LEN_DEFAULT;
 		} catch (...) {
 			LOG_ERROR(_T("Failed to get length: :("));
-			return settings::settings_def::PAYLOAD_LEN_DEFAULT;
+			return setting_keys::settings_def::PAYLOAD_LEN_DEFAULT;
 		}
 	}
 	return len;
@@ -1527,6 +1377,7 @@ void NSClientT::listPlugins() {
 
 bool NSClientT::logDebug() {
 	if (debug_ == log_unknown) {
+		debug_ = log_looking;
 		try {
 			if (settings_manager::get_settings()->get_int(_T("log"), _T("debug"), 0) == 1)
 				debug_ = log_debug;
@@ -1535,7 +1386,8 @@ bool NSClientT::logDebug() {
 		} catch (SettingsException e) {
 			return true;
 		}
-	}
+	} else if (debug_ == log_looking) 
+		return true;
 	return (debug_ == log_debug);
 }
 
@@ -1552,6 +1404,8 @@ void log_broken_message(std::wstring msg) {
  * @param message The message as a human readable string.
  */
 void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, std::wstring message) {
+	strEx::replace(message, _T("\n"), _T(" "));
+	strEx::replace(message, _T("\r"), _T(" "));
 	if ((msgType == NSCAPI::debug)&&(!logDebug())) {
 		return;
 	}
@@ -1658,66 +1512,6 @@ std::wstring NSClientT::getBasePath(void) {
 }
 
 
-NSCAPI::errorReturn NSAPIGetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* defaultValue, TCHAR* buffer, unsigned int bufLen) {
-	try {
-		return NSCHelper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to getString: ") + key);
-		return NSCAPI::hasFailed;
-	}
-}
-int NSAPIGetSettingsInt(const TCHAR* section, const TCHAR* key, int defaultValue) {
-	try {
-		return settings_manager::get_settings()->get_int(section, key, defaultValue);
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
-		return defaultValue;
-	}
-}
-NSCAPI::errorReturn NSAPIGetBasePath(TCHAR*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath(), NSCAPI::isSuccess);
-}
-NSCAPI::errorReturn NSAPIGetApplicationName(TCHAR*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, SZAPPNAME, NSCAPI::isSuccess);
-}
-NSCAPI::errorReturn NSAPIGetApplicationVersionStr(TCHAR*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, SZVERSION, NSCAPI::isSuccess);
-}
-void NSAPIMessage(int msgType, const TCHAR* file, const int line, const TCHAR* message) {
-	mainClient.reportMessage(msgType, file, line, message);
-}
-void NSAPIStopServer(void) {
-	serviceControll::StopNoWait(SZSERVICENAME);
-}
-NSCAPI::nagiosReturn NSAPIInject(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) {
-	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
-}
-NSCAPI::errorReturn NSAPIGetSettingsSection(const TCHAR* section, TCHAR*** aBuffer, unsigned int * bufLen) {
-	try {
-		unsigned int len = 0;
-		*aBuffer = arrayBuffer::list2arrayBuffer(settings_manager::get_settings()->get_keys(section), len);
-		*bufLen = len;
-		return NSCAPI::isSuccess;
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to get section: ") + e.getMessage());
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to getSection: ") + section);
-	}
-	return NSCAPI::hasFailed;
-}
-NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(TCHAR*** aBuffer, unsigned int * bufLen) {
-	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
-	*bufLen = 0;
-	*aBuffer = NULL;
-	return NSCAPI::isSuccess;
-}
-
-NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
-	if (mainClient.logDebug())
-		return NSCAPI::istrue;
-	return NSCAPI::isfalse;
-}
-
 std::wstring Encrypt(std::wstring str, unsigned int algorithm) {
 	unsigned int len = 0;
 	NSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
@@ -1743,301 +1537,6 @@ std::wstring Decrypt(std::wstring str, unsigned int algorithm) {
 		return ret;
 	}
 	return _T("");
-}
-
-NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen) {
-	if (algorithm != NSCAPI::xor) {
-		LOG_ERROR(_T("Unknown algortihm requested."));
-		return NSCAPI::hasFailed;
-	}
-	std::wstring key = settings_manager::get_settings()->get_string(SETTINGS_KEY(protocol_def::MASTER_KEY));
-	int tcharInBufLen = 0;
-	char *c = charEx::tchar_to_char(inBuffer, inBufLen, tcharInBufLen);
-	std::wstring::size_type j=0;
-	for (int i=0;i<tcharInBufLen;i++,j++) {
-		if (j > key.size())
-			j = 0;
-		c[i] ^= key[j];
-	}
-	size_t cOutBufLen = b64::b64_encode(reinterpret_cast<void*>(c), tcharInBufLen, NULL, NULL);
-	if (!outBuf) {
-		*outBufLen = static_cast<unsigned int>(cOutBufLen*2); // TODO: Guessing wildly here but no proper way to tell without a lot of extra work
-		return NSCAPI::isSuccess;
-	}
-	char *cOutBuf = new char[cOutBufLen+1];
-	size_t len = b64::b64_encode(reinterpret_cast<void*>(c), tcharInBufLen, cOutBuf, cOutBufLen);
-	delete [] c;
-	if (len == 0) {
-		LOG_ERROR(_T("Invalid out buffer length."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	int realOutLen;
-	TCHAR *realOut = charEx::char_to_tchar(cOutBuf, cOutBufLen, realOutLen);
-	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
-		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	wcsncpy_s(outBuf, *outBufLen, realOut, realOutLen);
-	delete [] realOut;
-	outBuf[realOutLen] = 0;
-	*outBufLen = static_cast<unsigned int>(realOutLen);
-	return NSCAPI::isSuccess;
-}
-
-NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen) {
-	if (algorithm != NSCAPI::xor) {
-		LOG_ERROR(_T("Unknown algortihm requested."));
-		return NSCAPI::hasFailed;
-	}
-	int inBufLenC = 0;
-	char *inBufferC = charEx::tchar_to_char(inBuffer, inBufLen, inBufLenC);
-	size_t cOutLen =  b64::b64_decode(inBufferC, inBufLenC, NULL, NULL);
-	if (!outBuf) {
-		*outBufLen = static_cast<unsigned int>(cOutLen*2); // TODO: Guessing wildly here but no proper way to tell without a lot of extra work
-		return NSCAPI::isSuccess;
-	}
-	char *cOutBuf = new char[cOutLen+1];
-	size_t len = b64::b64_decode(inBufferC, inBufLenC, reinterpret_cast<void*>(cOutBuf), cOutLen);
-	delete [] inBufferC;
-	if (len == 0) {
-		LOG_ERROR(_T("Invalid out buffer length."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	int realOutLen;
-
-	std::wstring key = settings_manager::get_settings()->get_string(SETTINGS_KEY(protocol_def::MASTER_KEY));
-	std::wstring::size_type j=0;
-	for (int i=0;i<cOutLen;i++,j++) {
-		if (j > key.size())
-			j = 0;
-		cOutBuf[i] ^= key[j];
-	}
-
-	TCHAR *realOut = charEx::char_to_tchar(cOutBuf, cOutLen, realOutLen);
-	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
-		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	wcsncpy_s(outBuf, *outBufLen, realOut, realOutLen);
-	delete [] realOut;
-	outBuf[realOutLen] = 0;
-	*outBufLen = static_cast<unsigned int>(realOutLen);
-	return NSCAPI::isSuccess;
-}
-
-NSCAPI::errorReturn NSAPISetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* value) {
-	try {
-		settings_manager::get_settings()->set_string(section, key, value);
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to setString: ") + key);
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPISetSettingsInt(const TCHAR* section, const TCHAR* key, int value) {
-	try {
-		settings_manager::get_settings()->set_int(section, key, value);
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to setInt: ") + key);
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIWriteSettings(int type) {
-	try {
-		if (type == NSCAPI::settings_registry)
-			settings_manager::get_core()->migrate_to(Settings::SettingsCore::registry);
-		else if (type == NSCAPI::settings_inifile)
-			settings_manager::get_core()->migrate_to(Settings::SettingsCore::ini_file);
-		else
-			settings_manager::get_settings()->save();
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to write settings: ") + e.getMessage());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to write settings"));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIReadSettings(int type) {
-	try {
-		if (type == NSCAPI::settings_registry)
-			settings_manager::get_core()->migrate_from(Settings::SettingsCore::registry);
-		else if (type == NSCAPI::settings_inifile)
-			settings_manager::get_core()->migrate_from(Settings::SettingsCore::ini_file);
-		else
-			settings_manager::get_settings()->reload();
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to read settings: ") + e.getMessage());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to read settings"));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIRehash(int flag) {
-	return NSCAPI::hasFailed;
-}
-NSCAPI::errorReturn NSAPIDescribeCommand(const TCHAR* command, TCHAR* buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.describeCommand(command), NSCAPI::isSuccess);
-}
-NSCAPI::errorReturn NSAPIGetAllCommandNames(arrayBuffer::arrayBuffer* aBuffer, unsigned int *bufLen) {
-	unsigned int len = 0;
-	*aBuffer = arrayBuffer::list2arrayBuffer(mainClient.getAllCommandNames(), len);
-	*bufLen = len;
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(TCHAR*** aBuffer, unsigned int * bufLen) {
-	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
-	*bufLen = 0;
-	*aBuffer = NULL;
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR* cmd,const TCHAR* desc) {
-	mainClient.registerCommand(cmd, desc);
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPISettingsRegKey(const TCHAR* path, const TCHAR* key, int type, const TCHAR* title, const TCHAR* description, const TCHAR* defVal, int advanced) {
-	try {
-		if (type == NSCAPI::key_string)
-			settings_manager::get_core()->register_key(path, key, Settings::SettingsCore::key_string, title, description, defVal, advanced);
-		if (type == NSCAPI::key_bool)
-			settings_manager::get_core()->register_key(path, key, Settings::SettingsCore::key_bool, title, description, defVal, advanced);
-		if (type == NSCAPI::key_integer)
-			settings_manager::get_core()->register_key(path, key, Settings::SettingsCore::key_integer, title, description, defVal, advanced);
-		return NSCAPI::hasFailed;
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed register key: ") + e.getMessage());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed register key"));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-
-
-NSCAPI::errorReturn NSAPISettingsRegPath(const TCHAR* path, const TCHAR* title, const TCHAR* description, int advanced) {
-	try {
-		settings_manager::get_core()->register_path(path, title, description, advanced);
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed register path: ") + e.getMessage());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed register path"));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-
-//int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
-TCHAR* copyString(const std::wstring &str) {
-	int sz = str.size();
-	TCHAR *tc = new TCHAR[sz+2];
-	wcsncpy_s(tc, sz+1, str.c_str(), sz);
-	return tc;
-}
-NSCAPI::errorReturn NSAPIGetPluginList(int *len, NSCAPI::plugin_info *list[]) {
-	NSClientT::plugin_info_list plugList= mainClient.get_all_plugins();
-	*len = plugList.size();
-
-	*list = new NSCAPI::plugin_info[*len+1];
-	int i=0;
-	for(NSClientT::plugin_info_list::const_iterator cit = plugList.begin(); cit != plugList.end(); ++cit,i++) {
-		(*list)[i].dll = copyString((*cit).dll);
-		(*list)[i].name = copyString((*cit).name);
-		(*list)[i].version = copyString((*cit).version);
-		(*list)[i].description = copyString((*cit).description);
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIReleasePluginList(int len, NSCAPI::plugin_info *list[]) {
-	for (int i=0;i<len;i++) {
-		delete [] (*list)[i].dll;
-		delete [] (*list)[i].name;
-		delete [] (*list)[i].version;
-		delete [] (*list)[i].description;
-	}
-	delete [] *list;
-	return NSCAPI::isSuccess;
-}
-
-
-NSCAPI::errorReturn NSAPISettingsSave(void) {
-	try {
-		settings_manager::get_settings()->save();
-	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to save: ") + e.getMessage());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to save"));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-
-
-
-LPVOID NSAPILoader(TCHAR*buffer) {
-	if (_wcsicmp(buffer, _T("NSAPIGetApplicationName")) == 0)
-		return &NSAPIGetApplicationName;
-	if (_wcsicmp(buffer, _T("NSAPIGetApplicationVersionStr")) == 0)
-		return &NSAPIGetApplicationVersionStr;
-	if (_wcsicmp(buffer, _T("NSAPIGetSettingsString")) == 0)
-		return &NSAPIGetSettingsString;
-	if (_wcsicmp(buffer, _T("NSAPIGetSettingsSection")) == 0)
-		return &NSAPIGetSettingsSection;
-	if (_wcsicmp(buffer, _T("NSAPIReleaseSettingsSectionBuffer")) == 0)
-		return &NSAPIReleaseSettingsSectionBuffer;
-	if (_wcsicmp(buffer, _T("NSAPIGetSettingsInt")) == 0)
-		return &NSAPIGetSettingsInt;
-	if (_wcsicmp(buffer, _T("NSAPIMessage")) == 0)
-		return &NSAPIMessage;
-	if (_wcsicmp(buffer, _T("NSAPIStopServer")) == 0)
-		return &NSAPIStopServer;
-	if (_wcsicmp(buffer, _T("NSAPIInject")) == 0)
-		return &NSAPIInject;
-	if (_wcsicmp(buffer, _T("NSAPIGetBasePath")) == 0)
-		return &NSAPIGetBasePath;
-	if (_wcsicmp(buffer, _T("NSAPICheckLogMessages")) == 0)
-		return &NSAPICheckLogMessages;
-	if (_wcsicmp(buffer, _T("NSAPIEncrypt")) == 0)
-		return &NSAPIEncrypt;
-	if (_wcsicmp(buffer, _T("NSAPIDecrypt")) == 0)
-		return &NSAPIDecrypt;
-	if (_wcsicmp(buffer, _T("NSAPISetSettingsString")) == 0)
-		return &NSAPISetSettingsString;
-	if (_wcsicmp(buffer, _T("NSAPISetSettingsInt")) == 0)
-		return &NSAPISetSettingsInt;
-	if (_wcsicmp(buffer, _T("NSAPIWriteSettings")) == 0)
-		return &NSAPIWriteSettings;
-	if (_wcsicmp(buffer, _T("NSAPIReadSettings")) == 0)
-		return &NSAPIReadSettings;
-	if (_wcsicmp(buffer, _T("NSAPIRehash")) == 0)
-		return &NSAPIRehash;
-	if (_wcsicmp(buffer, _T("NSAPIDescribeCommand")) == 0)
-		return &NSAPIDescribeCommand;
-	if (_wcsicmp(buffer, _T("NSAPIGetAllCommandNames")) == 0)
-		return &NSAPIGetAllCommandNames;
-	if (_wcsicmp(buffer, _T("NSAPIReleaseAllCommandNamessBuffer")) == 0)
-		return &NSAPIReleaseAllCommandNamessBuffer;
-	if (_wcsicmp(buffer, _T("NSAPIRegisterCommand")) == 0)
-		return &NSAPIRegisterCommand;
-	if (_wcsicmp(buffer, _T("NSAPISettingsRegKey")) == 0)
-		return &NSAPISettingsRegKey;
-	if (_wcsicmp(buffer, _T("NSAPISettingsRegPath")) == 0)
-		return &NSAPISettingsRegPath;
-	if (_wcsicmp(buffer, _T("NSAPIGetPluginList")) == 0)
-		return &NSAPIGetPluginList;
-	if (_wcsicmp(buffer, _T("NSAPIReleasePluginList")) == 0)
-		return &NSAPIReleasePluginList;
-	if (_wcsicmp(buffer, _T("NSAPISettingsSave")) == 0)
-		return &NSAPISettingsSave;
-
-	LOG_ERROR_STD(_T("Function not found: ") + buffer);
-	return NULL;
 }
 
 

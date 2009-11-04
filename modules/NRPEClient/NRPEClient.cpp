@@ -49,7 +49,7 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
 	try {
 		SETTINGS_REG_PATH(nrpe::CH_SECTION);
-		commands = NSCModuleHelper::getSettingsSection(settings::nrpe::CH_SECTION_PATH);
+		commands = NSCModuleHelper::getSettingsSection(setting_keys::nrpe::CH_SECTION_PATH);
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -57,7 +57,7 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 	}
 	for (std::list<std::wstring>::const_iterator it = commands.begin(); it != commands.end(); ++it) {
 		NSC_DEBUG_MSG_STD(*it);
-		std::wstring s = NSCModuleHelper::getSettingsString(settings::nrpe::CH_SECTION_PATH, (*it), _T(""));
+		std::wstring s = NSCModuleHelper::getSettingsString(setting_keys::nrpe::CH_SECTION_PATH, (*it), _T(""));
 		if (s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid NRPE-client entry: ") + (*it));
 		} else {
@@ -184,6 +184,9 @@ NRPEClient::nrpe_connection_data NRPEClient::get_ConectionData(boost::program_op
 	return ret;
 }
 #endif
+
+using boost::asio::ip::tcp;
+
 int NRPEClient::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args) {
 #ifndef USE_BOOST
 	NSC_LOG_ERROR_STD(_T("Could not execute ") + std::wstring(command) + _T(" boost not avalible!"));
@@ -259,12 +262,51 @@ NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPa
 }
 NRPEPacket NRPEClient::send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet)
 {
+	boost::asio::io_service io_service;
+	tcp::resolver resolver(io_service);
+	tcp::resolver::query query("127.0.0.1", boost::lexical_cast<std::string>(port));
+
+	tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+	tcp::resolver::iterator end;
+
+	tcp::socket socket(io_service);
+	boost::system::error_code error = boost::asio::error::host_not_found;
+	while (error && endpoint_iterator != end)
+	{
+		tcp::resolver::endpoint_type ep = *endpoint_iterator;
+		NSC_DEBUG_MSG_STD(_T("Connectiing to: ") + boost::lexical_cast<std::wstring>(ep.address().to_string()) + _T(":") + boost::lexical_cast<std::wstring>(ep.port()))
+		socket.close();
+		socket.connect(*endpoint_iterator++, error);
+	}
+	if (error)
+		throw boost::system::system_error(error);
+
+	for (;;)
+	{
+		std::vector<char> buf(packet.getBufferLength());
+		boost::system::error_code error;
+
+		size_t len = socket.write_some(boost::asio::buffer(packet.getBuffer(), packet.getBufferLength()), error);
+
+		len = socket.read_some(boost::asio::buffer(buf), error);
+
+		if (error == boost::asio::error::eof)
+			break; // Connection closed cleanly by peer.
+		else if (error)
+			throw boost::system::system_error(error); // Some other error.
+		packet.readFrom(&buf[0], buf.size());
+	}
+
+
+
+/*
 	simpleSocket::Socket socket(true);
 	socket.connect(host, port);
 	socket.sendAll(packet.getBuffer(), packet.getBufferLength());
 	simpleSocket::DataBuffer buffer;
 	socket.readAll(buffer);
 	packet.readFrom(buffer.getBuffer(), buffer.getLength());
+	*/
 	return packet;
 }
 

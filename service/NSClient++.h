@@ -31,6 +31,7 @@
 #include <com_helpers.hpp>
 #include <nsclient_session.hpp>
 
+
 /**
  * @ingroup NSClient++
  * Main NSClient++ core class. This is the service core and as such is responsible for pretty much everything.
@@ -102,7 +103,7 @@ private:
 	MutexRW  m_mutexRW;
 	MutexRW  m_mutexRWcmdDescriptions;
 	cmdMap cmdDescriptions_;
-	typedef enum log_status {log_unknown, log_debug, log_nodebug };
+	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
 	log_status debug_;
 	com_helper::initialize_com com_helper_;
 	std::auto_ptr<nsclient_session::shared_client_session> shared_client_;
@@ -180,45 +181,11 @@ private:
 
 typedef service_helper::NTService<NSClientT> NSClient;
 
+extern NSClient mainClient;	// Global core instance forward declaration.
+
 
 std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
 std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
-
-//////////////////////////////////////////////////////////////////////////
-// Various NSAPI callback functions (available for plug-ins to make calls back to the core.
-// <b>NOTICE</b> No threading is allowed so technically every thread is responsible for marshaling things back. 
-// Though I think this is not the case at the moment.
-//
-
-LPVOID NSAPILoader(TCHAR*buffer);
-NSCAPI::errorReturn NSAPIGetApplicationName(TCHAR*buffer, unsigned int bufLen);
-NSCAPI::errorReturn NSAPIGetBasePath(TCHAR*buffer, unsigned int bufLen);
-NSCAPI::errorReturn NSAPIGetApplicationVersionStr(TCHAR*buffer, unsigned int bufLen);
-NSCAPI::errorReturn NSAPIGetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* defaultValue, TCHAR* buffer, unsigned int bufLen);
-int NSAPIGetSettingsInt(const TCHAR* section, const TCHAR* key, int defaultValue);
-void NSAPIMessage(int msgType, const TCHAR* file, const int line, const TCHAR* message);
-void NSAPIStopServer(void);
-NSCAPI::nagiosReturn NSAPIInject(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen);
-NSCAPI::errorReturn NSAPIGetSettingsSection(const TCHAR*, TCHAR***, unsigned int *);
-NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(TCHAR*** aBuffer, unsigned int * bufLen);
-NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
-NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen);
-NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen);
-NSCAPI::errorReturn NSAPISetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* value);
-NSCAPI::errorReturn NSAPISetSettingsInt(const TCHAR* section, const TCHAR* key, int value);
-NSCAPI::errorReturn NSAPIWriteSettings(int type);
-NSCAPI::errorReturn NSAPIReadSettings(int type);
-NSCAPI::errorReturn NSAPIRehash(int flag);
-NSCAPI::errorReturn NSAPIDescribeCommand(const TCHAR*,TCHAR*,unsigned int);
-NSCAPI::errorReturn NSAPIGetAllCommandNames(TCHAR***, unsigned int *);
-NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(TCHAR***, unsigned int *);
-NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR*,const TCHAR*);
-NSCAPI::errorReturn NSAPISettingsRegKey(const TCHAR*, const TCHAR*, int, const TCHAR*, const TCHAR*, const TCHAR*, int);
-NSCAPI::errorReturn NSAPISettingsRegPath(const TCHAR*, const TCHAR*, const TCHAR*, int);
-NSCAPI::errorReturn NSAPIGetPluginList(int*, NSCAPI::plugin_info*[]);
-NSCAPI::errorReturn NSAPIReleasePluginList(int,NSCAPI::plugin_info*[]);
-NSCAPI::errorReturn NSAPISettingsSave(void);
-
 
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging

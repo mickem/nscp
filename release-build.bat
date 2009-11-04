@@ -17,6 +17,7 @@ if "%1" == "" goto args_build_all
 if "%1" == "" goto args_done
 if "%1" == "w32" set w32=1
 if "%1" == "x64" set x64=1
+if "%1" == "ia64" set ia64=1
 if "%1" == "hdr" set hdr=1
 if "%1" == "src" set hdr=1
 if "%1" == "clean" set clean=1
@@ -65,6 +66,11 @@ call :build_one address-model=64 variant=release debug-symbols=on debug-store=da
 IF DEFINED _ERROR goto :error
 :no_build_x64
 rem call build.bat runtime-link=static variant=release architecture=ia64 --library-path=%TARGET_LIB_IA64_DIR%
+
+if not "%ia64%" == "1" goto no_build_ia64
+call :build_one address-model=64 architecture=ia64 variant=release debug-symbols=on debug-store=database --build-type=complete "--library-path=%TARGET_LIB_IA64_DIR%" "--with-psdk-lib=%PLATTFORM_SDK_LIB_IA64%"
+IF DEFINED _ERROR goto :error
+:no_build_ia64
 
 
 if not "%upload%" == "1" goto no_build_upload

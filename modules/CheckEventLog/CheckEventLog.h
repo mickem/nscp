@@ -20,7 +20,7 @@
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
 
-#include <config.h>
+#include <settings/macros.h>
 #include <strEx.h>
 #include <utils.h>
 #include <checkHelpers.hpp>

@@ -417,27 +417,27 @@ namespace NSCModuleWrapper {
 	}
 
 #define SETTINGS_MAKE_NAME(key) \
-	std::wstring(settings::key ## _PATH + _T(".") + settings::key)
+	std::wstring(setting_keys::key ## _PATH + _T(".") + setting_keys::key)
 
 #define SETTINGS_GET_STRING(key) \
-	NSCModuleHelper::getSettingsString(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
+	NSCModuleHelper::getSettingsString(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
 #define SETTINGS_GET_INT(key) \
-	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
+	NSCModuleHelper::getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
 #define SETTINGS_GET_BOOL(key) \
-	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, settings::key ## _DEFAULT)
+	NSCModuleHelper::getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
 
 #define SETTINGS_GET_STRING_FALLBACK(key, fallback) \
-	NSCModuleHelper::getSettingsString(settings::key ## _PATH, settings::key, NSCModuleHelper::getSettingsString(settings::fallback ## _PATH, settings::fallback, settings::fallback ## _DEFAULT))
+	NSCModuleHelper::getSettingsString(setting_keys::key ## _PATH, setting_keys::key, NSCModuleHelper::getSettingsString(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
 #define SETTINGS_GET_INT_FALLBACK(key, fallback) \
-	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, NSCModuleHelper::getSettingsInt(settings::fallback ## _PATH, settings::fallback, settings::fallback ## _DEFAULT))
+	NSCModuleHelper::getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, NSCModuleHelper::getSettingsInt(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
 #define SETTINGS_GET_BOOL_FALLBACK(key, fallback) \
-	NSCModuleHelper::getSettingsInt(settings::key ## _PATH, settings::key, NSCModuleHelper::getSettingsInt(settings::fallback ## _PATH, settings::fallback, settings::fallback ## _DEFAULT))
+	NSCModuleHelper::getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, NSCModuleHelper::getSettingsInt(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
 
 #define SETTINGS_REG_KEY_S(key) \
-	NSCModuleHelper::settings_register_key(settings::key ## _PATH, settings::key, NSCAPI::key_string, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _DEFAULT, settings::key ## _ADVANCED);
+	NSCModuleHelper::settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_string, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT, setting_keys::key ## _ADVANCED);
 #define SETTINGS_REG_KEY_I(key) \
-	NSCModuleHelper::settings_register_key(settings::key ## _PATH, settings::key, NSCAPI::key_integer, settings::key ## _TITLE, settings::key ## _DESC, strEx::itos(settings::key ## _DEFAULT), settings::key ## _ADVANCED);
+	NSCModuleHelper::settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, strEx::itos(setting_keys::key ## _DEFAULT), setting_keys::key ## _ADVANCED);
 #define SETTINGS_REG_KEY_B(key) \
-	NSCModuleHelper::settings_register_key(settings::key ## _PATH, settings::key, NSCAPI::key_integer, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _DEFAULT==1?_T("1"):_T("0"), settings::key ## _ADVANCED);
+	NSCModuleHelper::settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT==1?_T("1"):_T("0"), setting_keys::key ## _ADVANCED);
 #define SETTINGS_REG_PATH(key) \
-	NSCModuleHelper::settings_register_path(settings::key ## _PATH, settings::key ## _TITLE, settings::key ## _DESC, settings::key ## _ADVANCED);
+	NSCModuleHelper::settings_register_path(setting_keys::key ## _PATH, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _ADVANCED);

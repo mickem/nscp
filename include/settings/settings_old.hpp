@@ -15,12 +15,12 @@ namespace Settings {
 	public:
 		OLDSettings(Settings::SettingsCore *core, std::wstring context) :Settings::SettingsInterfaceImpl(core, context) {
 			add_mapping(MAIN_MODULES_SECTION, MAIN_MODULES_SECTION_OLD);
-			add_mapping(settings::settings_def::PAYLOAD_LEN_PATH, settings::settings_def::PAYLOAD_LEN, MAIN_SECTION_TITLE, MAIN_STRING_LENGTH);
+			add_mapping(setting_keys::settings_def::PAYLOAD_LEN_PATH, setting_keys::settings_def::PAYLOAD_LEN, MAIN_SECTION_TITLE, MAIN_STRING_LENGTH);
 
 #define SETTINGS_MAP_KEY_A(name, section, key) \
-	add_mapping(settings::name ## _PATH, settings::name, section, key);
+	add_mapping(setting_keys::name ## _PATH, setting_keys::name, section, key);
 #define SETTINGS_MAP_SECTION_A(name, section) \
-	add_mapping(settings::name ## _PATH, section);
+	add_mapping(setting_keys::name ## _PATH, section);
 
 
 #define EXTSCRIPT_SECTION_TITLE _T("External Script")
@@ -42,7 +42,6 @@ namespace Settings {
 #define LOG_SECTION_TITLE _T("log")
 #define LOG_FILENAME _T("file") 
 #define LOG_DATEMASK _T("date_mask")
-			NSC_DEBUG_MSG(_T("Using compatibility mode in: LOGGING module"));
 
 			SETTINGS_MAP_KEY_A(log::FILENAME,	LOG_SECTION_TITLE, LOG_FILENAME);
 			SETTINGS_MAP_KEY_A(log::DATEMASK,	LOG_SECTION_TITLE, LOG_DATEMASK);
@@ -140,6 +139,7 @@ namespace Settings {
 			path_map::iterator it = sections_.find(path_new);
 			if (it == sections_.end())
 				return path_new;
+			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Mapping: ") + path_new + _T(" to ") + (*it).second);
 			return (*it).second;
 		}
 		SettingsCore::key_path_type map_key(SettingsCore::key_path_type new_key) {
@@ -391,9 +391,9 @@ namespace Settings {
 		///
 		/// @author mickem
 		virtual void get_real_keys(std::wstring path, string_list &list) {
+			std::wstring mapped_path = map_path(path);
+			int_read_section(mapped_path, list);
 			/*
-			std::wstring mapped_path = get_core()->reverse_map_path(path);
-			int_read_section(path, list);
 			Settings::SettingsCore::mapped_key_list_type mapped_keys = get_core()->find_maped_keys(path);
 			for (Settings::SettingsCore::mapped_key_list_type::const_iterator cit = mapped_keys.begin(); cit != mapped_keys.end(); ++cit) {
 				if (has_key((*cit).dst.first, (*cit).dst.second))
@@ -413,12 +413,12 @@ namespace Settings {
 			return ret != UNLIKELY_STRING;
 		}
 		void int_read_section(std::wstring section, string_list &list, unsigned int bufferLength = BUFF_LEN) {
+			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading (OLD) section: ") + section);
 			// @TODO this is not correct!
-			std::wstring mapped = map_path(section);
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
 				throw SettingsException(_T("getSections:: Failed to allocate memory for buffer!"));
-			unsigned int count = GetPrivateProfileSection(mapped.c_str(), buffer, bufferLength, get_file_name().c_str());
+			unsigned int count = GetPrivateProfileSection(section.c_str(), buffer, bufferLength, get_file_name().c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
 				int_read_section(section, list, bufferLength*10);

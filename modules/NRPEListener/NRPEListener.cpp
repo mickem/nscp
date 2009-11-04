@@ -101,7 +101,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	if (buffer_length_ != 1024)
 		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
 	NSC_DEBUG_MSG_STD(_T("Loading all commands (from NRPE)"));
-	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(settings::nrpe::SECTION_HANDLERS_PATH);
+	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(setting_keys::nrpe::SECTION_HANDLERS_PATH);
 	std::list<std::wstring>::const_iterator it;
 	for (it = commands.begin(); it != commands.end(); ++it) {
 		std::wstring command_name;
@@ -112,7 +112,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 		} else {
 			command_name = (*it);
 		}
-		std::wstring s = NSCModuleHelper::getSettingsString(settings::nrpe::SECTION_HANDLERS_PATH, (*it), _T(""));
+		std::wstring s = NSCModuleHelper::getSettingsString(setting_keys::nrpe::SECTION_HANDLERS_PATH, (*it), _T(""));
 		if (command_name.empty() || s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
 		} else {

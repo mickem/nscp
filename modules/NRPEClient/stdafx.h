@@ -20,9 +20,12 @@
 ***************************************************************************/
 #pragma once
 
+#define _WIN32_WINNT 0x0400
+
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 // Windows Header Files:
 #include <windows.h>
+#include <winsock2.h>
 
 #include <string>
 #include <functional>
@@ -32,6 +35,9 @@
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>
+
+#include <boost/array.hpp>
+#include <boost/asio.hpp>
 
 #ifdef MEMCHECK
 #include <vld.h>

@@ -23,6 +23,7 @@
 #include <Singleton.h>
 #include <string>
 #include <map>
+#include <Mutex.h>
 #define BUFF_LEN 4096
 
 namespace Settings {

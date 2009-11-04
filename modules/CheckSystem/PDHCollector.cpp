@@ -40,7 +40,7 @@ PDHCollector::~PDHCollector()
 bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 	std::wstring method = SETTINGS_GET_STRING(check_system::CPU_METHOD);
 
-	if (method == settings::check_system::CPU_METHOD_PDH_MANUAL) {
+	if (method == setting_keys::check_system::CPU_METHOD_PDH_MANUAL) {
 		NSC_DEBUG_MSG_STD(_T("Autodetect disabled from nsc.ini via: ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD));
 		return false;
 	}
@@ -80,7 +80,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			section = _T("0000") + strEx::ihextos(langId);
 			section = _T("0x") + section.substr(section.length()-4);
 		}
-		if (bUseIndex&&(method==settings::check_system::CPU_METHOD_PDH_NO_INDEX)) {
+		if (bUseIndex&&(method==setting_keys::check_system::CPU_METHOD_PDH_NO_INDEX)) {
 			NSC_DEBUG_MSG_STD(_T("We wanted to use index but were forced not to use them due to: ") + SETTINGS_MAKE_NAME(check_system::CPU_METHOD));
 			bUseIndex = false;
 		}

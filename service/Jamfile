@@ -23,6 +23,8 @@ exe $(target)
 	: # sources
 	NSClient++.cpp
 	NSCPlugin.cpp
+	core_api.cpp
+	settings_manager_impl.cpp
 	../include/NSCHelper.cpp
 	../include/arrayBuffer.cpp
 	../include/ServiceCmd.cpp

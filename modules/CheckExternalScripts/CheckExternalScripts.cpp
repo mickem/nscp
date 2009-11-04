@@ -22,9 +22,10 @@
 #include "CheckExternalScripts.h"
 #include <strEx.h>
 #include <time.h>
-#include <config.h>
+#include <settings/macros.h>
 #include <msvc_wrappers.h>
 #include <file_helpers.hpp>
+#include <config.h>
 
 CheckExternalScripts gCheckExternalScripts;
 
@@ -79,11 +80,11 @@ bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
 	allowArgs_ = SETTINGS_GET_BOOL(nrpe::ALLOW_ARGS);
 	allowNasty_ = SETTINGS_GET_BOOL(nrpe::ALLOW_NASTY);
 	std::list<std::wstring>::const_iterator it;
-	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(settings::external_scripts::SCRIPT_SECTION_PATH);
+	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(setting_keys::external_scripts::SCRIPT_SECTION_PATH);
 	for (it = commands.begin(); it != commands.end(); ++it) {
 		if ((*it).empty())
 			continue;
-		std::wstring s = NSCModuleHelper::getSettingsString(settings::external_scripts::SCRIPT_SECTION_PATH, (*it), _T(""));
+		std::wstring s = NSCModuleHelper::getSettingsString(setting_keys::external_scripts::SCRIPT_SECTION_PATH, (*it), _T(""));
 		if (s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
 		} else {
@@ -92,11 +93,11 @@ bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
 		}
 	}
 
-	commands = NSCModuleHelper::getSettingsSection(settings::external_scripts::ALIAS_SECTION_PATH);
+	commands = NSCModuleHelper::getSettingsSection(setting_keys::external_scripts::ALIAS_SECTION_PATH);
 	for (it = commands.begin(); it != commands.end(); ++it) {
 		if ((*it).empty())
 			continue;
-		std::wstring s = NSCModuleHelper::getSettingsString(settings::external_scripts::ALIAS_SECTION_PATH, (*it), _T(""));
+		std::wstring s = NSCModuleHelper::getSettingsString(setting_keys::external_scripts::ALIAS_SECTION_PATH, (*it), _T(""));
 		if (s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
 		} else {

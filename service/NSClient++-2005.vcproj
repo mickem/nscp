@@ -23,7 +23,7 @@
 	<Configurations>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
@@ -125,7 +125,7 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
@@ -225,10 +225,9 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="1"
@@ -283,7 +282,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib Userenv.lib"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
+				OutputFile="$(OutDir)\NSClient++.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				ModuleDefinitionFile=""
@@ -319,7 +318,7 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
@@ -414,7 +413,8 @@
 		</Configuration>
 		<Configuration
 			Name="Distribution|Win32"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			>
 			<Tool
@@ -446,6 +446,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -474,7 +475,7 @@
 		</Configuration>
 		<Configuration
 			Name="Distribution|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
@@ -577,7 +578,7 @@
 		</Configuration>
 		<Configuration
 			Name="Nightly|Win32"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
@@ -672,7 +673,7 @@
 		</Configuration>
 		<Configuration
 			Name="Nightly|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
@@ -766,7 +767,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug-MemCheck|Win32"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			>
 			<Tool
@@ -798,6 +800,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -826,7 +829,7 @@
 		</Configuration>
 		<Configuration
 			Name="Debug-MemCheck|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
 			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
@@ -921,7 +924,8 @@
 		</Configuration>
 		<Configuration
 			Name="OP5|Win32"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			>
 			<Tool
@@ -953,6 +957,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -981,8 +986,8 @@
 		</Configuration>
 		<Configuration
 			Name="OP5|x64"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\modules"
+			IntermediateDirectory="$(SolutionDir)\tmp\$(PlatformName)\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -1823,6 +1828,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\core_api.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\include\NSCHelper.cpp"
 				>
 				<FileConfiguration
@@ -2077,6 +2086,10 @@
 						PrecompiledHeaderFile=" "
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\settings_manager_impl.cpp"
+				>
 			</File>
 			<File
 				RelativePath="..\include\Socket.cpp"
@@ -2377,6 +2390,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\core_api.h"
+				>
+			</File>
+			<File
 				RelativePath=".\include\error.hpp"
 				>
 			</File>
@@ -2433,19 +2450,31 @@
 				>
 			</File>
 			<File
-				RelativePath=".\include\settings\Settings.h"
+				RelativePath=".\setting_keys.h"
 				>
 			</File>
 			<File
-				RelativePath=".\include\settings\settings_ini.hpp"
+				RelativePath="..\include\settings\Settings.h"
 				>
 			</File>
 			<File
-				RelativePath=".\include\settings\settings_old.hpp"
+				RelativePath="..\include\settings\settings_ini.hpp"
 				>
 			</File>
 			<File
-				RelativePath=".\include\settings\settings_registry.hpp"
+				RelativePath=".\settings_logger_impl.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\settings_manager_impl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\include\settings\settings_old.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\include\settings\settings_registry.hpp"
 				>
 			</File>
 			<File
@@ -2476,6 +2505,11 @@
 				RelativePath=".\tray_manager.hpp"
 				>
 			</File>
+			<Filter
+				Name="NewFilter1"
+				Filter="settings"
+				>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Resource Files"
@@ -2502,6 +2536,7 @@
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
+					ExcludedFromBuild="true"
 					>
 					<Tool
 						Name="VCCustomBuildTool"

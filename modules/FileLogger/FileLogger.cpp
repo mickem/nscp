@@ -72,7 +72,7 @@ std::wstring FileLogger::getFileName() {
 	if (file_.empty()) {
 		file_ = SETTINGS_GET_STRING(log::FILENAME);
 		if (file_.empty())
-			file_ = settings::log::FILENAME_DEFAULT;
+			file_ = setting_keys::log::FILENAME_DEFAULT;
 		if (file_.find(_T("\\")) == std::wstring::npos) {
 			std::wstring root = getFolder(SETTINGS_GET_STRING(log::ROOT));
 			std::wstring::size_type pos = root.find_last_not_of(L'\\');
