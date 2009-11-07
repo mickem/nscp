@@ -1044,7 +1044,7 @@ int NSClientT::commandLineExec(const TCHAR* module, const TCHAR* command, const 
 		plugin->load_plugin(NSCAPI::dontStart);
 		return plugin->commandLineExec(command, argLen, args);
 	} catch (NSPluginException e) {
-		LOG_MESSAGE_STD(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
+		LOG_MESSAGE_STD(_T("Failed to load (") + e.file_ + _T("): ") + e.error_);
 	}
 	try {
 		plugin_type plugin = loadPlugin(getBasePath() + _T("modules\\") + module + _T(".dll"));
