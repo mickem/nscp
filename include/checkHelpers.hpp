@@ -276,19 +276,19 @@ namespace checkHolders {
 			return strEx::stoi(s);
 		}
 		static std::wstring print(__int64 value) {
-			return strEx::itos(value);
+			return boost::lexical_cast<std::wstring>(value);
 		}
 		static std::wstring get_perf_unit(__int64 value) {
 			return _T("");
 		}
 		static std::wstring print_perf(__int64 value, std::wstring unit) {
-			return strEx::itos(value);
+			return boost::lexical_cast<std::wstring>(value);
 		}
 		static std::wstring print_unformated(__int64 value) {
-			return strEx::itos(value);
+			return boost::lexical_cast<std::wstring>(value);
 		}
 		static std::wstring print_percent(__int64 value) {
-			return strEx::itos(value) + _T("%");
+			return boost::lexical_cast<std::wstring>(value) + _T("%");
 		}
 		static std::wstring key_prefix() {
 			return _T("");

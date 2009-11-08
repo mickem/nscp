@@ -26,6 +26,7 @@
 #include <tchar.h>
 #include <string>
 #include <NSCHelper.h>
+#include <nsc_module_wrapper.hpp>
 #include <assert.h>
 
 #ifdef MEMCHECK

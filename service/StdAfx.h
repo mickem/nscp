@@ -19,23 +19,23 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-
+#ifdef WIN32
 #define _WINSOCKAPI_
 //#include <WinSock2.h>
+#include <tchar.h>
 
 #define _WIN32_DCOM
 #include <objbase.h>
 
 #define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
-
+#endif 
 
 #define COMPILE_NEWAPIS_STUBS
 #define WANT_GETLONGPATHNAME_WRAPPER
 //#include <NewAPIs.h>
 
 #include <iostream>
-#include <tchar.h>
 #include <string>
 #include <list>
 #include <sstream>

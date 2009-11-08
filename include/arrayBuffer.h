@@ -19,8 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-
-#include <tchar.h>
+#include <unicode_char.hpp>
 #include <string>
 #include <list>
 #include <iostream>
@@ -53,15 +52,15 @@ namespace arrayBuffer {
 	public:
 		ArrayBufferException(std::wstring error) {}
 	};
-	typedef TCHAR* arrayBufferItem;
+	typedef wchar_t* arrayBufferItem;
 	typedef arrayBufferItem* arrayBuffer;
 	typedef std::list<std::wstring> arrayList;
 	void set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument);
-	arrayList arrayBuffer2list(const unsigned int argLen, TCHAR **argument);
+	arrayList arrayBuffer2list(const unsigned int argLen, wchar_t **argument);
 	arrayBuffer list2arrayBuffer(const arrayList lst, unsigned int &argLen);
-	arrayBuffer split2arrayBuffer(const TCHAR* buffer, TCHAR splitChar, unsigned int &argLen);
-	arrayBuffer split2arrayBuffer(const std::wstring inBuf, TCHAR splitChar, unsigned int &argLen, bool escape = false);
-	std::wstring arrayBuffer2string(TCHAR **argument, const unsigned int argLen, std::wstring join);
+	arrayBuffer split2arrayBuffer(const wchar_t* buffer, wchar_t splitChar, unsigned int &argLen);
+	arrayBuffer split2arrayBuffer(const std::wstring inBuf, wchar_t splitChar, unsigned int &argLen, bool escape = false);
+	std::wstring arrayBuffer2string(wchar_t **argument, const unsigned int argLen, std::wstring join);
 	arrayBuffer createEmptyArrayBuffer(unsigned int &argLen);
 	arrayBuffer createArrayBuffer(unsigned int &argLen);
 	void destroyArrayBuffer(arrayBuffer argument, const unsigned int argLen);
@@ -69,7 +68,7 @@ namespace arrayBuffer {
 		arrayBufferItem* ret = new arrayBufferItem[argLen];
 		for (unsigned int i=0; i<argLen; i++) {
 			size_t s = wcslen(other[i]);
-			ret[i] = new TCHAR[s+2];
+			ret[i] = new wchar_t[s+2];
 			wcsncpy_s(ret[i], s+2, other[i], s);
 		}
 		return ret;
@@ -77,8 +76,8 @@ namespace arrayBuffer {
 
 #ifdef _DEBUG
 	void test_createEmptyArrayBuffer();
-	void test_split2arrayBuffer_str(std::wstring buffer, TCHAR splitter, int OUT_argLen);
-	void test_split2arrayBuffer_char(TCHAR* buffer, TCHAR splitter, int OUT_argLen);
+	void test_split2arrayBuffer_str(std::wstring buffer, wchar_t splitter, int OUT_argLen);
+	void test_split2arrayBuffer_char(wchar_t* buffer, wchar_t splitter, int OUT_argLen);
 	void run_testArrayBuffer();
 #endif
 }

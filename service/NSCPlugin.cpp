@@ -30,8 +30,7 @@
  * @param file The file (DLL) to load as a NSC plug in.
  */
 NSCPlugin::NSCPlugin(const std::wstring file)
-	: file_(file)
-	,hModule_(NULL)
+	: module_(file)
 	,fLoadModule(NULL)
 	,fGetName(NULL)
 	,fHasCommandHandler(NULL)
@@ -49,9 +48,9 @@ NSCPlugin::NSCPlugin(const std::wstring file)
 	,broken_(false)
 {
 }
-
+/*
 NSCPlugin::NSCPlugin(NSCPlugin &other)
-	:hModule_(NULL)
+	:module_()
 	,fLoadModule(NULL)
 	,fGetName(NULL)
 	,fHasCommandHandler(NULL)
@@ -79,7 +78,7 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 		bLoaded_ = other.bLoaded_;
 	}
 }
-
+*/
 /**
  * Default d-tor
  */
@@ -95,7 +94,7 @@ NSCPlugin::~NSCPlugin() {
  * @throws NSPluginException if the module is not loaded.
  */
 std::wstring NSCPlugin::getName() {
-	TCHAR *buffer = new TCHAR[1024];
+	wchar_t *buffer = new wchar_t[1024];
 	if (!getName_(buffer, 1023)) {
 		return _T("Could not get name");
 	}
@@ -104,9 +103,9 @@ std::wstring NSCPlugin::getName() {
 	return ret;
 }
 std::wstring NSCPlugin::getDescription() {
-	TCHAR *buffer = new TCHAR[4096];
+	wchar_t *buffer = new wchar_t[4096];
 	if (!getDescription_(buffer, 4095)) {
-		throw NSPluginException(file_, _T("Could not get description"));
+		throw NSPluginException(module_, _T("Could not get description"));
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
@@ -120,18 +119,20 @@ std::wstring NSCPlugin::getDescription() {
  * Exceptions include but are not limited to: DLL fails to load, DLL is not a correct plug in.
  */
 void NSCPlugin::load_dll() {
-	if (isLoaded())
-		throw NSPluginException(file_, _T("Module already loaded"));
-	hModule_ = LoadLibrary(file_.c_str());
-	if (!hModule_)
-		throw NSPluginException(file_, _T("Could not load library: ") + error::lookup::last_error() + _T(" for file: ") + file_);
+	if (module_.is_loaded())
+		throw NSPluginException(module_, _T("Module already loaded"));
+	try {
+		module_.load_library();
+	} catch (dll::dll_exception &e) {
+		throw NSPluginException(module_, e.what());
+	}
 	loadRemoteProcs_();
 	bLoaded_ = true;
 }
 
 bool NSCPlugin::load_plugin(NSCAPI::moduleLoadMode mode) {
 	if (!fLoadModule)
-		throw NSPluginException(file_, _T("Critical error (fLoadModule)"));
+		throw NSPluginException(module_, _T("Critical error (fLoadModule)"));
 	return fLoadModule(mode);
 }
 
@@ -155,13 +156,13 @@ bool NSCPlugin::isBroken() {
  */
 bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
 	if (!isLoaded())
-		throw NSPluginException(file_, _T("Library is not loaded"));
+		throw NSPluginException(module_, _T("Library is not loaded"));
 	if (!fGetVersion)
-		throw NSPluginException(file_, _T("Critical error (fGetVersion)"));
+		throw NSPluginException(module_, _T("Critical error (fGetVersion)"));
 	try {
 		return fGetVersion(major, minor, revision)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getVersion."));
+		throw NSPluginException(module_, _T("Unhandled exception in getVersion."));
 	}
 }
 /**
@@ -171,13 +172,13 @@ bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
  */
 bool NSCPlugin::hasCommandHandler() {
 	if (!isLoaded())
-		throw NSPluginException(file_, _T("Module not loaded"));
+		throw NSPluginException(module_, _T("Module not loaded"));
 	try {
 		if (fHasCommandHandler())
 			return true;
 		return false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in hasCommandHandler."));
+		throw NSPluginException(module_, _T("Unhandled exception in hasCommandHandler."));
 	}
 }
 /**
@@ -187,7 +188,7 @@ bool NSCPlugin::hasCommandHandler() {
 */
 bool NSCPlugin::hasMessageHandler() {
 	if (!isLoaded())
-		throw NSPluginException(file_, _T("Module not loaded"));
+		throw NSPluginException(module_, _T("Module not loaded"));
 	try {
 		if (fHasMessageHandler()) {
 			lastIsMsgPlugin_ = true;
@@ -195,7 +196,7 @@ bool NSCPlugin::hasMessageHandler() {
 		}
 		return false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in hasMessageHandler."));
+		throw NSPluginException(module_, _T("Unhandled exception in hasMessageHandler."));
 	}
 }
 /**
@@ -213,13 +214,13 @@ bool NSCPlugin::hasMessageHandler() {
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
  */
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const TCHAR* command, const unsigned int argLen, TCHAR **arguments, TCHAR* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	if (!isLoaded())
-		throw NSPluginException(file_, _T("Library is not loaded"));
+		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {
 		return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in handleCommand."));
+		throw NSPluginException(module_, _T("Unhandled exception in handleCommand."));
 	}
 }
 /**
@@ -231,13 +232,13 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const TCHAR* command, const unsign
  * @param line The line in the file that generated the message generally __LINE__
  * @throws NSPluginException if the module is not loaded.
  */
-void NSCPlugin::handleMessage(int msgType, const TCHAR* file, const int line, const TCHAR *message) {
+void NSCPlugin::handleMessage(int msgType, const wchar_t* file, const int line, const wchar_t *message) {
 	if (!fHandleMessage)
-		throw NSPluginException(file_, _T("Library is not loaded"));
+		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {
 		fHandleMessage(msgType, file, line, message);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in handleMessage."));
+		throw NSPluginException(module_, _T("Unhandled exception in handleMessage."));
 	}
 }
 /**
@@ -246,53 +247,52 @@ void NSCPlugin::handleMessage(int msgType, const TCHAR* file, const int line, co
  */
 void NSCPlugin::unload() {
 	if (!isLoaded())
-		throw NSPluginException(file_, _T("Library is not loaded"));
+		throw NSPluginException(module_, _T("Library is not loaded"));
+	bLoaded_ = false;
 	if (!fUnLoadModule)
-		throw NSPluginException(file_, _T("Critical error (fUnLoadModule)"));
+		throw NSPluginException(module_, _T("Critical error (fUnLoadModule)"));
 	try {
 		fUnLoadModule();
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in handleMessage."));
+		throw NSPluginException(module_, _T("Unhandled exception in handleMessage."));
 	}
-	FreeLibrary(hModule_);
-	hModule_ = NULL;
-	bLoaded_ = false;
+	module_.unload_library();
 }
-bool NSCPlugin::getName_(TCHAR* buf, unsigned int buflen) {
+bool NSCPlugin::getName_(wchar_t* buf, unsigned int buflen) {
 	if (fGetName == NULL)
-		return false;//throw NSPluginException(file_, _T("Critical error (fGetName)"));
+		return false;//throw NSPluginException(module_, _T("Critical error (fGetName)"));
 	try {
 		return fGetName(buf, buflen)?true:false;
 	} catch (...) {
-		return false; //throw NSPluginException(file_, _T("Unhandled exception in getName."));
+		return false; //throw NSPluginException(module_, _T("Unhandled exception in getName."));
 	}
 }
-bool NSCPlugin::getDescription_(TCHAR* buf, unsigned int buflen) {
+bool NSCPlugin::getDescription_(wchar_t* buf, unsigned int buflen) {
 	if (fGetDescription == NULL)
-		throw NSPluginException(file_, _T("Critical error (fGetDescription)"));
+		throw NSPluginException(module_, _T("Critical error (fGetDescription)"));
 	try {
 		return fGetDescription(buf, buflen)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getDescription."));
+		throw NSPluginException(module_, _T("Unhandled exception in getDescription."));
 	}
 }
 
 void NSCPlugin::showTray() {
 	if (fShowTray == NULL)
-		throw NSPluginException(file_, _T("Critical error (ShowTray)"));
+		throw NSPluginException(module_, _T("Critical error (ShowTray)"));
 	try {
 		fShowTray();
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in ShowTray."));
+		throw NSPluginException(module_, _T("Unhandled exception in ShowTray."));
 	}
 }
 void NSCPlugin::hideTray() {
 	if (fHideTray == NULL)
-		throw NSPluginException(file_, _T("Critical error (HideTray)"));
+		throw NSPluginException(module_, _T("Critical error (HideTray)"));
 	try {
 		fHideTray();
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in HideTray."));
+		throw NSPluginException(module_, _T("Unhandled exception in HideTray."));
 	}
 }
 
@@ -304,87 +304,87 @@ void NSCPlugin::hideTray() {
  */
 void NSCPlugin::loadRemoteProcs_(void) {
 
-	fLoadModule = (lpLoadModule)GetProcAddress(hModule_, "NSLoadModule");
+	fLoadModule = (lpLoadModule)module_.load_proc("NSLoadModule");
 	if (!fLoadModule)
-		throw NSPluginException(file_, _T("Could not load NSLoadModule"));
+		throw NSPluginException(module_, _T("Could not load NSLoadModule"));
 
-	fModuleHelperInit = (lpModuleHelperInit)GetProcAddress(hModule_, "NSModuleHelperInit");
+	fModuleHelperInit = (lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
 	if (!fModuleHelperInit)
-		throw NSPluginException(file_, _T("Could not load NSModuleHelperInit"));
+		throw NSPluginException(module_, _T("Could not load NSModuleHelperInit"));
 
 	try {
 		fModuleHelperInit(NSAPILoader);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getDescription."));
+		throw NSPluginException(module_, _T("Unhandled exception in getDescription."));
 	}
 	
-	fGetName = (lpGetName)GetProcAddress(hModule_, "NSGetModuleName");
+	fGetName = (lpGetName)module_.load_proc("NSGetModuleName");
 	if (!fGetName)
-		throw NSPluginException(file_, _T("Could not load NSGetModuleName"));
+		throw NSPluginException(module_, _T("Could not load NSGetModuleName"));
 
-	fGetVersion = (lpGetVersion)GetProcAddress(hModule_, "NSGetModuleVersion");
+	fGetVersion = (lpGetVersion)module_.load_proc("NSGetModuleVersion");
 	if (!fGetVersion)
-		throw NSPluginException(file_, _T("Could not load NSGetModuleVersion"));
+		throw NSPluginException(module_, _T("Could not load NSGetModuleVersion"));
 
-	fGetDescription = (lpGetDescription)GetProcAddress(hModule_, "NSGetModuleDescription");
+	fGetDescription = (lpGetDescription)module_.load_proc("NSGetModuleDescription");
 	if (!fGetDescription)
-		throw NSPluginException(file_, _T("Could not load NSGetModuleDescription"));
+		throw NSPluginException(module_, _T("Could not load NSGetModuleDescription"));
 
-	fHasCommandHandler = (lpHasCommandHandler)GetProcAddress(hModule_, "NSHasCommandHandler");
+	fHasCommandHandler = (lpHasCommandHandler)module_.load_proc("NSHasCommandHandler");
 	if (!fHasCommandHandler)
-		throw NSPluginException(file_, _T("Could not load NSHasCommandHandler"));
+		throw NSPluginException(module_, _T("Could not load NSHasCommandHandler"));
 
-	fHasMessageHandler = (lpHasMessageHandler)GetProcAddress(hModule_, "NSHasMessageHandler");
+	fHasMessageHandler = (lpHasMessageHandler)module_.load_proc("NSHasMessageHandler");
 	if (!fHasMessageHandler)
-		throw NSPluginException(file_, _T("Could not load NSHasMessageHandler"));
+		throw NSPluginException(module_, _T("Could not load NSHasMessageHandler"));
 
-	fHandleCommand = (lpHandleCommand)GetProcAddress(hModule_, "NSHandleCommand");
+	fHandleCommand = (lpHandleCommand)module_.load_proc("NSHandleCommand");
 	if (!fHandleCommand)
-		throw NSPluginException(file_, _T("Could not load NSHandleCommand"));
+		throw NSPluginException(module_, _T("Could not load NSHandleCommand"));
 
-	fHandleMessage = (lpHandleMessage)GetProcAddress(hModule_, "NSHandleMessage");
+	fHandleMessage = (lpHandleMessage)module_.load_proc("NSHandleMessage");
 	if (!fHandleMessage)
-		throw NSPluginException(file_, _T("Could not load NSHandleMessage"));
+		throw NSPluginException(module_, _T("Could not load NSHandleMessage"));
 
-	fUnLoadModule = (lpUnLoadModule)GetProcAddress(hModule_, "NSUnloadModule");
+	fUnLoadModule = (lpUnLoadModule)module_.load_proc("NSUnloadModule");
 	if (!fUnLoadModule)
-		throw NSPluginException(file_, _T("Could not load NSUnloadModule"));
+		throw NSPluginException(module_, _T("Could not load NSUnloadModule"));
 
-	fGetConfigurationMeta = (lpGetConfigurationMeta)GetProcAddress(hModule_, "NSGetConfigurationMeta");
-	fCommandLineExec = (lpCommandLineExec)GetProcAddress(hModule_, "NSCommandLineExec");
+	fGetConfigurationMeta = (lpGetConfigurationMeta)module_.load_proc("NSGetConfigurationMeta");
+	fCommandLineExec = (lpCommandLineExec)module_.load_proc("NSCommandLineExec");
 
-	fShowTray = (lpShowTray)GetProcAddress(hModule_, "ShowIcon");
-	fHideTray = (lpHideTray)GetProcAddress(hModule_, "HideIcon");
+	fShowTray = (lpShowTray)module_.load_proc("ShowIcon");
+	fHideTray = (lpHideTray)module_.load_proc("HideIcon");
 
 }
 
 
 std::wstring NSCPlugin::getCongifurationMeta() 
 {
-	TCHAR *buffer = new TCHAR[4097];
+	wchar_t *buffer = new wchar_t[4097];
 	if (!getConfigurationMeta_(buffer, 4096)) {
-		throw NSPluginException(file_, _T("Could not get metadata"));
+		throw NSPluginException(module_, _T("Could not get metadata"));
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
-bool NSCPlugin::getConfigurationMeta_(TCHAR* buf, unsigned int buflen) {
+bool NSCPlugin::getConfigurationMeta_(wchar_t* buf, unsigned int buflen) {
 	if (fGetConfigurationMeta == NULL)
-		throw NSPluginException(file_, _T("Critical error (getCongifurationMeta)"));
+		throw NSPluginException(module_, _T("Critical error (getCongifurationMeta)"));
 	try {
 		return fGetConfigurationMeta(buflen, buf)?true:false;
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in getConfigurationMeta."));
+		throw NSPluginException(module_, _T("Unhandled exception in getConfigurationMeta."));
 	}
 }
 
-int NSCPlugin::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments) {
+int NSCPlugin::commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t **arguments) {
 	if (fCommandLineExec== NULL)
-		throw NSPluginException(file_, _T("Module does not support CommandLineExec"));
+		throw NSPluginException(module_, _T("Module does not support CommandLineExec"));
 	try {
 		return fCommandLineExec(command, argLen, arguments);
 	} catch (...) {
-		throw NSPluginException(file_, _T("Unhandled exception in commandLineExec."));
+		throw NSPluginException(module_, _T("Unhandled exception in commandLineExec."));
 	}
 }

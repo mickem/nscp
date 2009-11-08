@@ -100,12 +100,12 @@ public:
 		WMIResult() : isNumeric(false), numeric(0) {}
 		void setString(std::wstring a, std::wstring s) {
 			string = s;
-			numeric = strEx::stoi64(s);
+			numeric = boost::lexical_cast<long long>(s);
 			alias = a;
 		}
 		void setNumeric(std::wstring a, long long n) {
 			numeric = n;
-			string = strEx::itos(n);
+			string = to_wstring(n);
 			alias = a;
 		}
 		void setBoth(std::wstring a, long long n, std::wstring s) {

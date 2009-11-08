@@ -147,6 +147,7 @@ public:
 	bool verifyCRC() { return calculatedCRC32_ == crc32_; }
 	unsigned int getBufferLength() const { return getBufferLength(buffer_length_); }
 	static unsigned int getBufferLength(unsigned int buffer_length) { return sizeof(packet)+buffer_length*sizeof(char); }
+	unsigned int getInternalBufferLength() const { return buffer_length_; }
 
 
 	std::wstring toString() {

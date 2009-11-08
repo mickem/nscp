@@ -1,6 +1,6 @@
 #pragma once
 
-
+#include <unicode_char.hpp>
 
 #define DEFINE_SETTING_S(name, path, key, value) \
 	const std::wstring name ## _PATH = _T(path); \
@@ -38,7 +38,7 @@
 #define SETTINGS_REG_KEY_S_GEN(key, type) \
 	setting_keys::key ## _PATH, setting_keys::key, type, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT, setting_keys::key ## _ADVANCED
 #define SETTINGS_REG_KEY_I_GEN(key, type) \
-	setting_keys::key ## _PATH, setting_keys::key, type, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, strEx::itos(setting_keys::key ## _DEFAULT), setting_keys::key ## _ADVANCED
+	setting_keys::key ## _PATH, setting_keys::key, type, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, boost::lexical_cast<std::wstring>(setting_keys::key ## _DEFAULT), setting_keys::key ## _ADVANCED
 #define SETTINGS_REG_KEY_B_GEN(key, type) \
 	setting_keys::key ## _PATH, setting_keys::key, type, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT==1?_T("1"):_T("0"), setting_keys::key ## _ADVANCED
 #define SETTINGS_REG_PATH_GEN(key) \
@@ -56,6 +56,11 @@
 #define GENERIC_KEY_PWD "password"
 #define GENERIC_KEY_OBFUSCATED_PWD "obfuscated password"
 #define GENERIC_KEY_USE_SSL "use ssl"
+
+
+// Main Registry ROOT
+#define NS_HKEY_ROOT HKEY_LOCAL_MACHINE
+#define NS_REG_ROOT _T("SOFTWARE\\NSClient++")
 
 
 
@@ -216,7 +221,7 @@ namespace setting_keys {
 		DEFINE_SETTING_S(SYNTAX, EVENT_LOG_SECTION, "syntax", "");
 		DESCRIBE_SETTING(SYNTAX, "SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).");
 
-		DEFINE_SETTING_I(BUFFER_SIZE, EVENT_LOG_SECTION, "buffer_size", 4096);
+		DEFINE_SETTING_I(BUFFER_SIZE, EVENT_LOG_SECTION, "buffer_size", 65535);
 		DESCRIBE_SETTING(BUFFER_SIZE, "BUFFER SIZE", "The size of the bugfer to use when getting messages this affects the speed and maximum size of messages you can recieve.");
 	}
 

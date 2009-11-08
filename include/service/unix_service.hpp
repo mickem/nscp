@@ -20,26 +20,87 @@
 ***************************************************************************/
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-// Windows Header Files:
-#include <windows.h>
-
-#define COMPILE_NEWAPIS_STUBS
-#define WANT_GETLONGPATHNAME_WRAPPER
-//#include <NewAPIs.h>
-
-#include <iostream>
-#include <tchar.h>
 #include <string>
-#include <hash_map>
-#include <list>
-#include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
-#include <config.h>
-#include <utils.h>
-#include <error.hpp>
 
-#ifdef MEMCHECK
-#include <vld.h>
-#endif
+namespace service_helper_impl {
+/**
+ * @ingroup NSClient++
+ * Helper class to implement a NT service
+ *
+ * @version 1.0
+ * first version
+ *
+ * @date 02-13-2005
+ *
+ * @author mickem
+ *
+ * @par license
+ * This code is absolutely free to use and modify. The code is provided "as is" with
+ * no expressed or implied warranty. The author accepts no liability if it causes
+ * any damage to your computer, causes your pet to fall ill, increases baldness
+ * or makes your car start emitting strange noises when you start it up.
+ * This code has no bugs, just undocumented features!
+ * 
+ * @todo 
+ *
+ * @bug 
+ *
+ */
+template <class TBase>
+class unix_service : public TBase
+{
+public:
+private:
+public:
+	unix_service(std::wstring name) {
+	}
+	virtual ~unix_service() {
+	}
+
+	bool StartServiceCtrlDispatcher() {
+		return false;
+	}
+
+
+
+
+	void service_main(unsigned int dwArgc, wchar_t *lpszArgv)
+	{
+
+	}
+
+
+
+	unsigned int service_ctrl_ex(unsigned int dwCtrlCode, unsigned int dwEventType, void* lpEventData, void* lpContext) {
+		return 0;
+	}
+
+	/**
+	* Actual code of the service that does the work.
+	*
+	* @param dwArgc 
+	* @param *lpszArgv 
+	*
+	* @author mickem
+	*
+	* @date 03-13-2004
+	*
+	*/
+	void ServiceStart(unsigned int dwArgc, char *lpszArgv) {
+	}
+
+
+
+	/**
+	* Stops the service
+	*
+	*
+	* @author mickem
+	*
+	* @date 03-13-2004
+	*
+	*/
+	void ServiceStop() {
+	}
+};
+}

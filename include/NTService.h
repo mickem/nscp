@@ -23,7 +23,7 @@
 #include <string>
 #include <sysinfo.h>
 
-namespace service_helper {
+namespace service_helper_impl {
 	class service_exception {
 		std::wstring what_;
 	public:

@@ -19,8 +19,10 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
+#ifdef WIN32
 #include <windows.h>
 #include <tchar.h>
+#endif
 
 namespace charEx {
 	/**
@@ -29,10 +31,10 @@ namespace charEx {
 	 * @param split The char to split by
 	 * @return a list with strings
 	 */
-	inline std::list<std::wstring> split(const TCHAR* buffer, TCHAR split) {
+	inline std::list<std::wstring> split(const wchar_t* buffer, wchar_t split) {
 		std::list<std::wstring> ret;
-		const TCHAR *start = buffer;
-		for (const TCHAR *p = buffer;*p!='\0';p++) {
+		const wchar_t *start = buffer;
+		for (const wchar_t *p = buffer;*p!='\0';p++) {
 			if (*p==split) {
 				std::wstring str(start, p-start);
 				ret.push_back(str);
@@ -43,7 +45,7 @@ namespace charEx {
 		return ret;
 	}
 
-
+/*
 	inline char* tchar_to_char( const wchar_t* pStr, int len, int &nChars) {
 		if (pStr == NULL)
 			throw std::exception();
@@ -77,24 +79,24 @@ namespace charEx {
 		if (len == -1)
 			--nChars;
 		if (nChars == 0) {
-			TCHAR *ret = new TCHAR[1];
+			wchar_t *ret = new wchar_t[1];
 			ret[0] = 0;
 			return ret;
 		}
 
 		// convert the narrow string to a wide string 
-		TCHAR *ret = new TCHAR[nChars+1];
+		wchar_t *ret = new wchar_t[nChars+1];
 		MultiByteToWideChar(CP_ACP, 0 ,pStr ,len, const_cast<wchar_t*>(ret), nChars);
 		return ret;
 	}
+*/
 
 
-
-	typedef std::pair<std::wstring,TCHAR*> token;
-	inline token getToken(TCHAR *buffer, TCHAR split) {
+	typedef std::pair<std::wstring,wchar_t*> token;
+	inline token getToken(wchar_t *buffer, wchar_t split) {
 		if (buffer == NULL)
 			throw std::exception();
-		TCHAR *p = wcschr(buffer, split);
+		wchar_t *p = wcschr(buffer, split);
 		if (!p)
 			return token(buffer, NULL);
 		if (!p[1])
@@ -103,7 +105,7 @@ namespace charEx {
 		return token(std::wstring(buffer, p-buffer-1), p);
 	}
 #ifdef _DEBUG
-	inline void test_getToken(TCHAR* in1, TCHAR in2, std::wstring out1, TCHAR * out2) {
+	inline void test_getToken(wchar_t* in1, wchar_t in2, std::wstring out1, wchar_t * out2) {
 		token t = getToken(in1, in2);
 		std::wcout << _T("charEx::test_getToken(") << in1 << _T(", ") << in2 << _T(") : ");
 		if (t.first == out1)  {

@@ -360,7 +360,8 @@ public:
 		delete [] pArgs;
 		return ret;
 	}
-	SYSTEMTIME get_time(DWORD time) {
+	// SYSTEMTIME 
+	boost::posix_time::ptime get_time(DWORD time) {
 		FILETIME FileTime, LocalFileTime;
 		SYSTEMTIME SysTime;
 		__int64 lgTemp;
@@ -371,15 +372,20 @@ public:
 		FileTime.dwLowDateTime = (DWORD) lgTemp;
 		FileTime.dwHighDateTime = (DWORD)(lgTemp >> 32);
 
+		return boost::date_time::time_from_ftime<boost::posix_time::ptime>(FileTime);
+
+
+/*
 		FileTimeToLocalFileTime(&FileTime, &LocalFileTime);
 		FileTimeToSystemTime(&LocalFileTime, &SysTime);
 		return SysTime;
+		*/
 	}
 
-	SYSTEMTIME get_time_generated() {
+	boost::posix_time::ptime get_time_generated() {
 		return get_time(pevlr_->TimeGenerated);
 	}
-	SYSTEMTIME get_time_written() {
+	boost::posix_time::ptime get_time_written() {
 		return get_time(pevlr_->TimeWritten);
 	}
 

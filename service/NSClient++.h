@@ -21,8 +21,7 @@
 #pragma once
 
 #include <config.h>
-#include <ServiceCmd.h>
-#include <NTService.h>
+#include <service/system_service.hpp>
 #include "NSCPlugin.h"
 #include <Mutex.h>
 #include <NSCAPI.h>
@@ -30,7 +29,8 @@
 #include <map>
 #include <com_helpers.hpp>
 #include <nsclient_session.hpp>
-
+#include <boost/thread/thread.hpp>
+#include <boost/thread/locks.hpp>
 
 /**
  * @ingroup NSClient++
@@ -98,8 +98,8 @@ private:
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
 	std::wstring basePath;
-	MutexHandler internalVariables;
-	MutexHandler messageMutex;
+	boost::timed_mutex internalVariables;
+	boost::timed_mutex messageMutex;
 	MutexRW  m_mutexRW;
 	MutexRW  m_mutexRWcmdDescriptions;
 	cmdMap cmdDescriptions_;
@@ -179,13 +179,13 @@ private:
 	void load_all_plugins(int mode);
 };
 
-typedef service_helper::NTService<NSClientT> NSClient;
+typedef service_helper::impl<NSClientT>::system_service NSClient;
 
 extern NSClient mainClient;	// Global core instance forward declaration.
 
 
-std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
-std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
+std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
+std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging

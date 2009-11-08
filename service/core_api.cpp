@@ -25,6 +25,7 @@
 #include <settings/Settings.h>
 #include "settings_manager_impl.h"
 #include <b64/b64.h>
+#include <NSCHelper.h>
 
 
 
@@ -57,7 +58,9 @@ void NSAPIMessage(int msgType, const TCHAR* file, const int line, const TCHAR* m
 	mainClient.reportMessage(msgType, file, line, message);
 }
 void NSAPIStopServer(void) {
+#ifdef WIN32
 	serviceControll::StopNoWait(SZSERVICENAME);
+#endif
 }
 NSCAPI::nagiosReturn NSAPIInject(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
@@ -89,10 +92,13 @@ NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 }
 
 NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen) {
-	if (algorithm != NSCAPI::xor) {
+	if (algorithm != NSCAPI::encryption_xor) {
 		LOG_ERROR(_T("Unknown algortihm requested."));
 		return NSCAPI::hasFailed;
 	}
+	/*
+	TODO reimplement this
+
 	std::wstring key = settings_manager::get_settings()->get_string(SETTINGS_KEY(protocol_def::MASTER_KEY));
 	int tcharInBufLen = 0;
 	char *c = charEx::tchar_to_char(inBuffer, inBufLen, tcharInBufLen);
@@ -124,14 +130,16 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 	delete [] realOut;
 	outBuf[realOutLen] = 0;
 	*outBufLen = static_cast<unsigned int>(realOutLen);
+	*/
 	return NSCAPI::isSuccess;
 }
 
 NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen) {
-	if (algorithm != NSCAPI::xor) {
+	if (algorithm != NSCAPI::encryption_xor) {
 		LOG_ERROR(_T("Unknown algortihm requested."));
 		return NSCAPI::hasFailed;
 	}
+	/*
 	int inBufLenC = 0;
 	char *inBufferC = charEx::tchar_to_char(inBuffer, inBufLen, inBufLenC);
 	size_t cOutLen =  b64::b64_decode(inBufferC, inBufLenC, NULL, NULL);
@@ -165,6 +173,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 	delete [] realOut;
 	outBuf[realOutLen] = 0;
 	*outBufLen = static_cast<unsigned int>(realOutLen);
+	*/
 	return NSCAPI::isSuccess;
 }
 

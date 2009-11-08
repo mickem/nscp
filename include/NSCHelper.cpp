@@ -20,8 +20,11 @@
 ***************************************************************************/
 
 #include <NSCHelper.h>
+#include <nsc_module_wrapper.hpp>
 #include <msvc_wrappers.h>
-#include <config.h>
+#include <settings/macros.h>
+#include <arrayBuffer.h>
+//#include <config.h>
 #include <strEx.h>
 
 #ifdef DEBUG
@@ -66,7 +69,7 @@ NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLe
 * @param defaultReturnCode The default return code
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-int NSCHelper::wrapReturnString(TCHAR *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
+int NSCHelper::wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
 	// @todo deprecate this
 	if (str.length() >= bufLen) {
 		std::wstring sstr = str.substr(0, min(10, str.length()));
@@ -214,7 +217,7 @@ void NSCModuleHelper::Message(int msgType, std::wstring file, int line, std::wst
  * @param returnPerfBufferLen returnPerfBuffer
  * @return The returned status of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const wchar_t* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));

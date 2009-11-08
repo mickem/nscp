@@ -4,6 +4,7 @@
 #include <map>
 #include <settings/Settings.h>
 #include <simpleini/SimpleIni.h>
+#include <settings/macros.h>
 
 #define MAIN_MODULES_SECTION_OLD _T("modules")
 #define MAIN_SECTION_TITLE _T("Settings")

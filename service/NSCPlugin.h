@@ -21,8 +21,9 @@
 #pragma once
 
 #include <NSCAPI.h>
-#include <NSCHelper.h>
+//#include <NSCHelper.h>
 #include <sstream>
+#include <dll/dll.hpp>
 
 /**
  * @ingroup NSClient++
@@ -57,8 +58,8 @@ public:
 	 * @param file DLL filename (for which the exception is thrown)
 	 * @param error An error message (human readable format)
 	 */
-	NSPluginException(std::wstring file, std::wstring error) : error_(error) {
-		file_ = getModule(file);
+	NSPluginException(dll::dll &module, std::wstring error) : error_(error) {
+		file_ = getModule(module.get_file());
 	}
 	std::wstring getModule(std::wstring file) {
 		if (file.empty())
@@ -104,22 +105,21 @@ public:
 class NSCPlugin {
 private:
 	bool bLoaded_;			// Status of plug in
-	HMODULE hModule_;		// module handle to the DLL (once it is loaded)
-	std::wstring file_;		// Name of the DLL file
+	dll::dll module_;
 	bool broken_;
 
-	typedef INT (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
-	typedef INT (*lpLoadModule)(int);
-	typedef INT (*lpGetName)(TCHAR*,unsigned int);
-	typedef INT (*lpGetDescription)(TCHAR*,unsigned int);
-	typedef INT (*lpGetVersion)(int*,int*,int*);
-	typedef INT (*lpHasCommandHandler)();
-	typedef INT (*lpHasMessageHandler)();
-	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const TCHAR*,const unsigned int, TCHAR**,TCHAR*,unsigned int,TCHAR *,unsigned int);
-	typedef INT (*lpCommandLineExec)(const TCHAR*,const unsigned int,TCHAR**);
-	typedef INT (*lpHandleMessage)(int,const TCHAR*,const int,const TCHAR*);
-	typedef INT (*lpUnLoadModule)();
-	typedef INT (*lpGetConfigurationMeta)(int, TCHAR*);
+	typedef int (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
+	typedef int (*lpLoadModule)(int);
+	typedef int (*lpGetName)(wchar_t*,unsigned int);
+	typedef int (*lpGetDescription)(wchar_t*,unsigned int);
+	typedef int (*lpGetVersion)(int*,int*,int*);
+	typedef int (*lpHasCommandHandler)();
+	typedef int (*lpHasMessageHandler)();
+	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const unsigned int, wchar_t**,wchar_t*,unsigned int,wchar_t *,unsigned int);
+	typedef int (*lpCommandLineExec)(const wchar_t*,const unsigned int,wchar_t**);
+	typedef int (*lpHandleMessage)(int,const wchar_t*,const int,const wchar_t*);
+	typedef int (*lpUnLoadModule)();
+	typedef int (*lpGetConfigurationMeta)(int, wchar_t*);
 	typedef void (*lpShowTray)();
 	typedef void (*lpHideTray)();
 
@@ -153,36 +153,31 @@ public:
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
 	bool hasMessageHandler(void);
-	NSCAPI::nagiosReturn handleCommand(const TCHAR *command, const unsigned int argLen, TCHAR **arguments, TCHAR* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen);
-	void handleMessage(int msgType, const TCHAR* file, const int line, const TCHAR *message);
+	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen);
+	void handleMessage(int msgType, const wchar_t* file, const int line, const wchar_t *message);
 	void unload(void);
 	std::wstring getCongifurationMeta();
-	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR **arguments);
+	int commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t **arguments);
 	void showTray();
 	void hideTray();
 
 	std::wstring getFilename() {
-		if (file_.empty())
+		std::wstring file = module_.get_file();
+		if (file.empty())
 			return _T("");
-		std::wstring::size_type pos = file_.find_last_of(_T("\\"));
-		if (pos != std::wstring::npos && ++pos < file_.length()) {
-			return file_.substr(pos);
+		std::wstring::size_type pos = file.find_last_of(_T("\\"));
+		if (pos != std::wstring::npos && ++pos < file.length()) {
+			return file.substr(pos);
 		}
-		return file_;
+		return file;
 	}
 	std::wstring getModule() {
-		if (file_.empty())
-			return _T("");
-		std::wstring ret = file_;
-		std::wstring::size_type pos = ret.find_last_of(_T("\\"));
-		if (pos != std::wstring::npos && ++pos < ret.length()) {
-			ret = ret.substr(pos);
-		}
-		pos = ret.find_last_of(_T("."));
+		std::wstring file = getFilename();
+		std::wstring::size_type pos = file.find_last_of(_T("."));
 		if (pos != std::wstring::npos) {
-			ret = ret.substr(0, pos);
+			file = file.substr(0, pos);
 		}
-		return ret;
+		return file;
 	}
 	bool getLastIsMsgPlugin() {
 		return lastIsMsgPlugin_;
@@ -193,10 +188,10 @@ public:
 
 private:
 	bool lastIsMsgPlugin_;
-	bool getName_(TCHAR* buf, unsigned int buflen);
-	bool getDescription_(TCHAR* buf, unsigned int buflen);
+	bool getName_(wchar_t* buf, unsigned int buflen);
+	bool getDescription_(wchar_t* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);
-	bool getConfigurationMeta_(TCHAR* buf, unsigned int buflen);
+	bool getConfigurationMeta_(wchar_t* buf, unsigned int buflen);
 };
 
 

@@ -2092,130 +2092,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\include\Socket.cpp"
-				>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Distribution|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Nightly|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug-MemCheck|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="OP5|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-						PrecompiledHeaderThrough=" "
-						PrecompiledHeaderFile=" "
-					/>
-				</FileConfiguration>
-			</File>
-			<File
 				RelativePath="StdAfx.cpp"
 				>
 				<FileConfiguration
@@ -2394,11 +2270,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\include\dll\dll.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\include\error.hpp"
 				>
 			</File>
 			<File
 				RelativePath=".\include\event_handler.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\include\dll\impl_unix.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\include\dll\impl_w32.hpp"
 				>
 			</File>
 			<File
@@ -2410,7 +2298,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\include\NSCAPI.h"
+				RelativePath="..\include\NSCAPI.h"
 				>
 			</File>
 			<File
@@ -2430,7 +2318,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\include\NTService.h"
+				RelativePath="..\include\NTService.h"
 				>
 			</File>
 			<File
@@ -2486,10 +2374,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\include\Socket.h"
-				>
-			</File>
-			<File
 				RelativePath="StdAfx.h"
 				>
 			</File>
@@ -2503,6 +2387,10 @@
 			</File>
 			<File
 				RelativePath=".\tray_manager.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\include\unicode_char.hpp"
 				>
 			</File>
 			<Filter

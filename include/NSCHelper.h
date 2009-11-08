@@ -26,16 +26,18 @@
 #include <iostream>
 #include <charEx.h>
 #include <arrayBuffer.h>
-#include <windows.h>
+#ifdef WIN32
+//#include <windows.h>
+#endif
 
 
 namespace NSCHelper
 {
 #ifdef DEBUG
-	NSCAPI::nagiosReturn wrapReturnString(TCHAR *buffer, unsigned int bufLen, std::wstring str, NSCAPI::nagiosReturn defaultReturnCode);
-	NSCAPI::errorReturn wrapReturnString(TCHAR *buffer, unsigned int bufLen, std::wstring str, NSCAPI::errorReturn defaultReturnCode);
+	NSCAPI::nagiosReturn wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, NSCAPI::nagiosReturn defaultReturnCode);
+	NSCAPI::errorReturn wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, NSCAPI::errorReturn defaultReturnCode);
 #else
-	int wrapReturnString(TCHAR *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode);
+	int wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode);
 #endif
 	std::wstring translateMessageType(NSCAPI::messageTypes msgType);
 	std::wstring translateReturn(NSCAPI::nagiosReturn returnCode);
@@ -107,32 +109,33 @@ namespace NSCModuleHelper
 	};
 	typedef std::list<plugin_info_type> plugin_info_list;
 	// Types for the Callbacks into the main program
-	typedef NSCAPI::errorReturn (*lpNSAPIGetBasePath)(TCHAR*,unsigned int);
-	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(TCHAR*,unsigned int);
-	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(TCHAR*,unsigned int);
-	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const TCHAR*,const TCHAR*,const TCHAR*,TCHAR*,unsigned int);
-	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const TCHAR*, const TCHAR*, int);
-	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const TCHAR*, arrayBuffer::arrayBuffer*, unsigned int *);
+	
+	typedef NSCAPI::errorReturn (*lpNSAPIGetBasePath)(wchar_t*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(wchar_t*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(wchar_t*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const wchar_t*,const wchar_t*,const wchar_t*,wchar_t*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const wchar_t*, const wchar_t*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const wchar_t*, arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(arrayBuffer::arrayBuffer*, unsigned int *);
-	typedef void (*lpNSAPIMessage)(int, const TCHAR*, const int, const TCHAR*);
+	typedef void (*lpNSAPIMessage)(int, const wchar_t*, const int, const wchar_t*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
-	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const TCHAR*, const unsigned int, TCHAR **, TCHAR *, unsigned int, TCHAR *, unsigned int);
-	typedef void* (*lpNSAPILoader)(TCHAR*);
+	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const unsigned int, wchar_t **, wchar_t *, unsigned int, wchar_t *, unsigned int);
+	
 	typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
-	typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const TCHAR*, unsigned int, TCHAR*, unsigned int *);
-	typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const TCHAR*, unsigned int, TCHAR*, unsigned int *);
-	typedef NSCAPI::errorReturn (*lpNSAPISetSettingsString)(const TCHAR*, const TCHAR*, const TCHAR*);
-	typedef NSCAPI::errorReturn (*lpNSAPISetSettingsInt)(const TCHAR*, const TCHAR*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
+	typedef NSCAPI::errorReturn (*lpNSAPISetSettingsString)(const wchar_t*, const wchar_t*, const wchar_t*);
+	typedef NSCAPI::errorReturn (*lpNSAPISetSettingsInt)(const wchar_t*, const wchar_t*, int);
 	typedef NSCAPI::errorReturn (*lpNSAPIWriteSettings)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIReadSettings)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIRehash)(int);
-	typedef NSCAPI::errorReturn (*lpNSAPIDescribeCommand)(const TCHAR*,TCHAR*,unsigned int);
+	typedef NSCAPI::errorReturn (*lpNSAPIDescribeCommand)(const wchar_t*,wchar_t*,unsigned int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetAllCommandNames)(arrayBuffer::arrayBuffer*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIReleaseAllCommandNamessBuffer)(arrayBuffer::arrayBuffer*, unsigned int *);
-	typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(const TCHAR*,const TCHAR*);
-	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(const TCHAR*, const TCHAR*, int, const TCHAR*, const TCHAR*, const TCHAR*, int);
-	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(const TCHAR*, const TCHAR*, const TCHAR*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(const wchar_t*,const wchar_t*);
+	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
+	typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(const wchar_t*, const wchar_t*, const wchar_t*, int);
 	typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
 	typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSCAPI::plugin_info *list[]);
 	typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
@@ -149,18 +152,18 @@ namespace NSCModuleHelper
 	void settings_save();
 
 	void Message(int msgType, std::wstring file, int line, std::wstring message);
-	NSCAPI::nagiosReturn InjectCommandRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen);
-	NSCAPI::nagiosReturn InjectCommand(const TCHAR* command, const unsigned int argLen, TCHAR **argument, std::wstring & message, std::wstring & perf);
-	NSCAPI::nagiosReturn InjectCommand(const TCHAR* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
-	NSCAPI::nagiosReturn InjectSplitAndCommand(const TCHAR* command, TCHAR* buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf);
-	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
+	NSCAPI::nagiosReturn InjectCommandRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
+	NSCAPI::nagiosReturn InjectCommand(const wchar_t* command, const unsigned int argLen, wchar_t **argument, std::wstring & message, std::wstring & perf);
+	NSCAPI::nagiosReturn InjectCommand(const wchar_t* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
+	NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
+	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
 	void StopService(void);
 	void Exit(void);
 	std::wstring getBasePath();
 	bool logDebug();
 	bool checkLogMessages(int type);
-	std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
-	std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::xor);
+	std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
+	std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 	NSCAPI::errorReturn SetSettingsString(std::wstring section, std::wstring key, std::wstring value);
 	NSCAPI::errorReturn SetSettingsInt(std::wstring section, std::wstring key, int value);
 	NSCAPI::errorReturn WriteSettings(int type);
@@ -174,247 +177,6 @@ namespace NSCModuleHelper
 	unsigned int getBufferLength();
 };
 
-namespace NSCModuleWrapper {
-	struct module_version {
-		int major;
-		int minor;
-		int revision;
-	};
-
-	BOOL wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call);
-	HINSTANCE getModule();
-
-	int wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f);;
-	NSCAPI::errorReturn wrapGetModuleName(TCHAR* buf, unsigned int buflen, std::wstring str);
-	NSCAPI::errorReturn wrapGetConfigurationMeta(TCHAR* buf, unsigned int buflen, std::wstring str);
-	int wrapLoadModule(bool success);
-	NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
-	NSCAPI::boolReturn wrapHasCommandHandler(bool has);
-	NSCAPI::boolReturn wrapHasMessageHandler(bool has);
-	int wrapUnloadModule(bool success);
-	NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::wstring retMessage, const std::wstring retPerformance, TCHAR *returnBufferMessage, unsigned int returnBufferMessageLen, TCHAR *returnBufferPerf, unsigned int returnBufferPerfLen);
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Module wrappers (definitions)
-#define NSC_WRAPPERS_MAIN() \
-	extern "C" int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f); \
-	extern int NSLoadModule(int mode); \
-	extern int NSGetModuleName(TCHAR* buf, int buflen); \
-	extern int NSGetModuleDescription(TCHAR* buf, int buflen); \
-	extern int NSGetModuleVersion(int *major, int *minor, int *revision); \
-	extern NSCAPI::boolReturn NSHasCommandHandler(); \
-	extern NSCAPI::boolReturn NSHasMessageHandler(); \
-	extern void NSHandleMessage(int msgType, TCHAR* file, int line, TCHAR* message); \
-	extern NSCAPI::nagiosReturn NSHandleCommand(const TCHAR* IN_cmd, const unsigned int IN_argsLen, TCHAR **IN_args, \
-		TCHAR *OUT_retBufMessage, unsigned int IN_retBufMessageLen, TCHAR *OUT_retBufPerf, unsigned int IN_retBufPerfLen); \
-	extern int NSUnloadModule(); \
-	extern int NSGetConfigurationMeta(int IN_retBufLen, TCHAR *OUT_retBuf)
-
-#define NSC_WRAPPERS_CLI() \
-	extern int NSCommandLineExec(const TCHAR*,const unsigned int,TCHAR**)
-
-#ifdef DEBUG
-#define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
-#define NSC_LOG_ERROR_C(msg) { \
-	NSCModuleHelper::Message(NSCAPI::error, _T(__FILE__), __LINE__, msg) \
-	std::wcerr << msg << std::endl; }
-#else
-#define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR_STD(msg)
-#define NSC_LOG_ERROR_C(msg) NSC_LOG_ERROR(msg)
-#endif
-
-
-#define NSC_LOG_ERROR_STD(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
-#define NSC_LOG_ERROR(msg) \
-	NSCModuleHelper::Message(NSCAPI::error, _T(__FILE__), __LINE__, msg)
-
-#define NSC_LOG_CRITICAL_STD(msg) NSC_LOG_CRITICAL(((std::wstring)msg).c_str())
-#define NSC_LOG_CRITICAL(msg) \
-	NSCModuleHelper::Message(NSCAPI::critical, _T(__FILE__), __LINE__, msg)
-
-#define NSC_LOG_MESSAGE_STD(msg) NSC_LOG_MESSAGE(((std::wstring)msg).c_str())
-#define NSC_LOG_MESSAGE(msg) \
-	NSCModuleHelper::Message(NSCAPI::log, _T(__FILE__), __LINE__, msg)
-
-//#define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG(((std::wstring)msg).c_str())
-#define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG((std::wstring)msg)
-#define NSC_DEBUG_MSG(msg) \
-	NSCModuleHelper::Message(NSCAPI::debug, _T(__FILE__), __LINE__, msg)
-
-/*
-#define NSC_DEBUG_MSG_STD(msg)
-#define NSC_DEBUG_MSG(msg)
-*/
-//////////////////////////////////////////////////////////////////////////
-// Message wrappers below this point
-
-#define NSC_WRAPPERS_MAIN_DEF(toObject) \
-	extern int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) { \
-		try { \
-			return NSCModuleWrapper::wrapModuleHelperInit(f); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSLoadModule(int mode) { \
-		try { \
-			return NSCModuleWrapper::wrapLoadModule(toObject.loadModule(mode)); \
-		} catch (NSCModuleHelper::NSCMHExcpetion e) { \
-			NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
-			return NSCAPI::hasFailed; \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSGetModuleName(TCHAR* buf, int buflen) { \
-		try { \
-			return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSGetModuleDescription(TCHAR* buf, int buflen) { \
-		try { \
-			return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleDescription()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { \
-		try { \
-			return NSCModuleWrapper::wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSUnloadModule() { \
-		try { \
-			return NSCModuleWrapper::wrapUnloadModule(toObject.unloadModule()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	}
-#define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
-	extern void NSHandleMessage(int msgType, TCHAR* file, int line, TCHAR* message) { \
-		try { \
-			toObject.handleMessage(msgType, file, line, message); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: handleMessage(...)")); \
-		} \
-	} \
-	extern NSCAPI::boolReturn NSHasMessageHandler() { \
-		try { \
-			return NSCModuleWrapper::wrapHasMessageHandler(toObject.hasMessageHandler()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasMessageHandler(...)")); \
-			return NSCAPI::isfalse; \
-		} \
-	}
-#define NSC_WRAPPERS_IGNORE_MSG_DEF() \
-	extern void NSHandleMessage(int msgType, TCHAR* file, int line, TCHAR* message) {} \
-	extern NSCAPI::boolReturn NSHasMessageHandler() { return NSCAPI::isfalse; }
-#define NSC_WRAPPERS_HANDLE_CMD_DEF(toObject) \
-	extern NSCAPI::nagiosReturn NSHandleCommand(const TCHAR* IN_cmd, const unsigned int IN_argsLen, TCHAR **IN_args, \
-									TCHAR *OUT_retBufMessage, unsigned int IN_retBufMessageLen, TCHAR *OUT_retBufPerf, unsigned int IN_retBufPerfLen) \
-	{ \
-		try { \
-			std::wstring message, perf; \
-			NSCAPI::nagiosReturn retCode = toObject.handleCommand(IN_cmd, IN_argsLen, IN_args, message, perf); \
-			return NSCModuleWrapper::wrapHandleCommand(retCode, message, perf, OUT_retBufMessage, IN_retBufMessageLen, OUT_retBufPerf, IN_retBufPerfLen); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
-			return NSCAPI::returnIgnored; \
-		} \
-	} \
-	extern NSCAPI::boolReturn NSHasCommandHandler() { \
-		try { \
-			return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasCommandHandler(...)")); \
-			return NSCAPI::isfalse; \
-		} \
-	}
-#define NSC_WRAPPERS_IGNORE_CMD_DEF() \
-	extern NSCAPI::nagiosReturn NSHandleCommand(const TCHAR* IN_cmd, const unsigned int IN_argsLen, TCHAR **IN_args, \
-									TCHAR *OUT_retBufMessage, unsigned int IN_retBufMessageLen, TCHAR *OUT_retBufPerf, unsigned int IN_retBufPerfLen) { \
-		return NSCAPI::returnIgnored; \
-	} \
-	extern NSCAPI::boolReturn NSHasCommandHandler() { return NSCAPI::isfalse; }
-
-
-#define NSC_WRAPPERS_HANDLE_CONFIGURATION(toObject) \
-	extern int NSGetConfigurationMeta(int IN_retBufLen, TCHAR *OUT_retBuf) \
-	{ \
-		try { \
-			return NSCModuleWrapper::wrapGetConfigurationMeta(OUT_retBuf, IN_retBufLen, toObject.getConfigurationMeta()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetConfigurationMeta(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	}
-
-#define NSC_WRAPPERS_CLI_DEF(toObject) \
-	extern int NSCommandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args) { \
-		try { \
-			return toObject.commandLineExec(command, argLen, args); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: commandLineExec(...)")); \
-			std::wcerr << _T("Unknown exception in: commandLineExec(...)") << std::endl; \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-
-//////////////////////////////////////////////////////////////////////////
-#define MODULE_SETTINGS_START(class, name, description) \
-	std::wstring class::getConfigurationMeta() { \
-	return (std::wstring)_T("<module name=\"") + name + _T("\" description=\"") + description + _T("\">") \
-	_T("<pages>")
-
-
-#define ADVANCED_PAGE(title) \
-	_T("<page title=\"") title _T("\" advanced=\"true\">") \
-	_T("<items>")
-
-#define PAGE(title) \
-	_T("<page title=\"") title _T("\">") \
-	_T("<items>")
-
-#define ITEM_EDIT_TEXT(caption, description) \
-	_T("<item type=\"text\" caption=\"") caption _T("\" description=\"") description _T("\"><options>")
-
-#define ITEM_EDIT_OPTIONAL_LIST(caption, description) \
-	_T("<item type=\"optional_list\" caption=\"") caption _T("\" description=\"") description _T("\"><options>")
-
-#define ITEM_CHECK_BOOL(caption, description) \
-	_T("<item type=\"bool\" caption=\"") caption _T("\" description=\"") description _T("\"><options>")
-
-#define ITEM_MAP_TO(type) \
-	_T("</options><mapper type=\"") type _T("\">") \
-	_T("<options>")
-
-#define OPTION(key, value) \
-	_T("<option key=\"") key _T("\" value=\"") value _T("\"/>")
-
-#define ITEM_END() \
-	_T("</options>") \
-	_T("</mapper>") \
-	_T("</item>")
-
-#define PAGE_END() \
-	_T("</items>") \
-	_T("</page>")
-
-#define MODULE_SETTINGS_END() \
-			_T("</pages>") \
-		_T("</module>"); \
-	}
 
 #define SETTINGS_MAKE_NAME(key) \
 	std::wstring(setting_keys::key ## _PATH + _T(".") + setting_keys::key)
@@ -436,7 +198,7 @@ namespace NSCModuleWrapper {
 #define SETTINGS_REG_KEY_S(key) \
 	NSCModuleHelper::settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_string, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT, setting_keys::key ## _ADVANCED);
 #define SETTINGS_REG_KEY_I(key) \
-	NSCModuleHelper::settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, strEx::itos(setting_keys::key ## _DEFAULT), setting_keys::key ## _ADVANCED);
+	NSCModuleHelper::settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, boost::lexical_cast<std::wstring>(setting_keys::key ## _DEFAULT), setting_keys::key ## _ADVANCED);
 #define SETTINGS_REG_KEY_B(key) \
 	NSCModuleHelper::settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT==1?_T("1"):_T("0"), setting_keys::key ## _ADVANCED);
 #define SETTINGS_REG_PATH(key) \

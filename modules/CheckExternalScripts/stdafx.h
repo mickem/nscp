@@ -29,7 +29,10 @@
 
 #include <utils.h>
 
+#include <boost/lexical_cast.hpp>
+
 #include <NSCAPI.h>
+#include <nsc_module_wrapper.hpp>
 #include <NSCHelper.h>
 
 #ifdef MEMCHECK

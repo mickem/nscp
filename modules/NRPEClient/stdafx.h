@@ -35,11 +35,13 @@
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>
+#include <nsc_module_wrapper.hpp>
 
 #include <boost/array.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/asio.hpp>
+#include <boost/optional.hpp>
 #include <boost/bind.hpp>
+#include <boost/asio/ssl.hpp>
 
 #ifdef MEMCHECK
 #include <vld.h>

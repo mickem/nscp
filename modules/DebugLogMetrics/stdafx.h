@@ -32,6 +32,7 @@
 
 #include <NSCAPI.h>
 #include <NSCHelper.h>
+#include <nsc_module_wrapper.hpp>
 
 #ifdef MEMCHECK
 #include <vld.h>

@@ -12,26 +12,29 @@
 // You are free to use/modify this code but leave this header intact.
 //
 //////////////////////////////////////////////////////////////////////////
-#include "stdafx.h"
-#include <winsvc.h>
+#include "StdAfx.h"
 #include "NSClient++.h"
 #include <settings/Settings.h>
 #include <charEx.h>
-#include <Socket.h>
+//#include <Socket.h>
 #include <config.h>
 #include <msvc_wrappers.h>
+#ifdef WIN32
 #include <Userenv.h>
-#include <remote_processes.hpp>
 #include <Lmcons.h>
 //#ifdef DEBUG
 #include <crtdbg.h>
 //#endif
-#include <Userenv.h>
+#endif
 #include <remote_processes.hpp>
-#include <Lmcons.h>
+//#include <winsvc.h>
+//#include <Userenv.h>
+//#include <Lmcons.h>
+#include <remote_processes.hpp>
 #include "core_api.h"
 #include "settings_manager_impl.h"
 #include <settings/macros.h>
+#include <NSCHelper.h>
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
@@ -208,7 +211,9 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	srand( (unsigned)time( NULL ) );
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
-		if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
+		if (false) {
+#ifdef WIN32
+		} if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
 			bool bGui = false;
 			bool bStart = false;
 			std::wstring service_name, service_description;
@@ -287,22 +292,6 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				display(_T("Service uninstalled"), _T("Service uninstalled successfully!"));
 			LOG_MESSAGE(_T("Service uninstalled!"));
 			return 0;
-		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = true;
-			std::wstring password;
-			if (!settings_manager::init_settings(mainClient.getBasePath())) {
-				std::wcout << _T("Could not find settings") << std::endl;;
-				return 1;
-			}
-			std::wcout << _T("Enter password to encrypt (has to be a single word): ");
-			std::wcin >> password;
-			std::wstring xor_pwd = Encrypt(password);
-			std::wcout << _T("obfuscated_password=") << xor_pwd << std::endl;
-			std::wstring outPasswd = Decrypt(xor_pwd);
-			if (password != outPasswd) 
-				std::wcout << _T("ERROR: Password did not match: ") << outPasswd<< std::endl;
-			settings_manager::destroy_settings();
-			return 0;
 		} else if ( _wcsicmp( _T("start"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			bool bGui = false;
@@ -345,6 +334,31 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				LOG_MESSAGE_STD(_T("Service failed to stop: ") + e.error_);
 				return -1;
 			}
+		} else if ( _wcsicmp( _T("svc"), argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
+			try {
+				std::wstring exe = serviceControll::get_exe_path(SZSERVICENAME);
+				LOG_MESSAGE_STD(_T("The Service uses: ") + exe);
+			} catch (const serviceControll::SCException& e) {
+				LOG_ERROR_STD(_T("Failed to find service: ") + e.error_);
+			}
+#endif
+		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
+			std::wstring password;
+			if (!settings_manager::init_settings(mainClient.getBasePath())) {
+				std::wcout << _T("Could not find settings") << std::endl;;
+				return 1;
+			}
+			std::wcout << _T("Enter password to encrypt (has to be a single word): ");
+			std::wcin >> password;
+			std::wstring xor_pwd = Encrypt(password);
+			std::wcout << _T("obfuscated_password=") << xor_pwd << std::endl;
+			std::wstring outPasswd = Decrypt(xor_pwd);
+			if (password != outPasswd) 
+				std::wcout << _T("ERROR: Password did not match: ") << outPasswd<< std::endl;
+			settings_manager::destroy_settings();
+			return 0;
 		} else if ( _wcsicmp( _T("about"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
@@ -390,17 +404,12 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			// Run command from command line (like NRPE) but with debug enabled
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			mainClient.enableDebug(true);
-			mainClient.initCore(true);
-			std::wstring command, args, msg, perf;
-			if (argc > 2)
-				command = argv[2];
-			for (int i=3;i<argc;i++) {
-				if (i!=3) args += _T(" ");
-				args += argv[i];
-			}
-			nRetCode = mainClient.inject(command, args, L' ', true, msg, perf);
-			std::wcout << msg << _T("|") << perf << std::endl;
+			mainClient.enableDebug(false);
+			mainClient.initCore(false);
+			if (argc>=4)
+				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
+			else
+				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
 			mainClient.exitCore(true);
 			return nRetCode;
 		} else if ( _wcsicmp( _T("c"), argv[1]+1 ) == 0 ) {
@@ -419,24 +428,6 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			std::wcout << msg << _T("|") << perf << std::endl;
 			mainClient.exitCore(true);
 			return nRetCode;
-			g_bConsoleLog = true;
-			mainClient.enableDebug(false);
-			mainClient.initCore(false);
-			int nRetCode = -1;
-			if (argc>=4)
-				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
-			else if (argc>=3)
-				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
-			mainClient.exitCore(false);
-			return nRetCode;
-		} else if ( _wcsicmp( _T("svc"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = true;
-			try {
-				std::wstring exe = serviceControll::get_exe_path(SZSERVICENAME);
-				LOG_MESSAGE_STD(_T("The Service uses: ") + exe);
-			} catch (const serviceControll::SCException& e) {
-				LOG_ERROR_STD(_T("Failed to find service: ") + e.error_);
-			}
 		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
 			bool server = false;
 			if (argc > 2 && _wcsicmp( _T("server"), argv[2] ) == 0 ) {
@@ -444,6 +435,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			}
 			std::wcout << "Launching test mode - " << (server?_T("server mode"):_T("client mode")) << std::endl;
 			LOG_MESSAGE_STD(_T("Booting: " SZSERVICEDISPLAYNAME ));
+#ifdef WIN32
 			try {
 				if (serviceControll::isStarted(SZSERVICENAME)) {
 					std::wcerr << "Service seems to be started, this is probably not a good idea..." << std::endl;
@@ -451,6 +443,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			} catch (const serviceControll::SCException& e) {
 				e;// Empty by design
 			}
+#endif
 			g_bConsoleLog = true;
 			mainClient.enableDebug(true);
 			if (!mainClient.initCore(true)) {
@@ -787,7 +780,7 @@ bool NSClientT::initCore(bool boot) {
 			}
 		}
 	}
-
+/*
 	try {
 		simpleSocket::WSAStartup();
 	} catch (simpleSocket::SocketException e) {
@@ -797,7 +790,7 @@ bool NSClientT::initCore(bool boot) {
 		LOG_ERROR_STD(_T("Unknown exception iniating socket..."));
 		return false;
 	}
-
+*/
 	try {
 		com_helper_.initialize();
 	} catch (com_helper::com_exception e) {
@@ -920,6 +913,7 @@ bool NSClientT::exitCore(bool boot) {
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception uniniating COM..."));
 	}
+	/*
 	LOG_DEBUG_STD(_T("Stopping: Socket Helpers"));
 	try {
 		simpleSocket::WSACleanup();
@@ -928,6 +922,7 @@ bool NSClientT::exitCore(bool boot) {
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception uniniating socket..."));
 	}
+	*/
 	LOG_DEBUG_STD(_T("Stopping: Settings instance"));
 	settings_manager::destroy_settings();
 	try {
@@ -978,7 +973,7 @@ void NSClientT::TerminateService(void) {
  */
 void WINAPI NSClientT::service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
 	try {
-		mainClient.service_main(dwArgc, lpszArgv);
+		//WTF!!! mainClient.service_main(dwArgc, lpszArgv);
 	} catch (service_helper::service_exception e) {
 		LOG_ERROR_STD(_T("Unknown service error: ") + e.what());
 	} catch (...) {
@@ -1044,7 +1039,7 @@ int NSClientT::commandLineExec(const TCHAR* module, const TCHAR* command, const 
 		plugin->load_plugin(NSCAPI::dontStart);
 		return plugin->commandLineExec(command, argLen, args);
 	} catch (NSPluginException e) {
-		LOG_MESSAGE_STD(_T("Failed to load (") + e.file_ + _T("): ") + e.error_);
+		LOG_MESSAGE_STD(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
 	}
 	try {
 		plugin_type plugin = loadPlugin(getBasePath() + _T("modules\\") + module + _T(".dll"));
@@ -1404,91 +1399,96 @@ void log_broken_message(std::wstring msg) {
  * @param message The message as a human readable string.
  */
 void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, std::wstring message) {
-	strEx::replace(message, _T("\n"), _T(" "));
-	strEx::replace(message, _T("\r"), _T(" "));
-	if ((msgType == NSCAPI::debug)&&(!logDebug())) {
-		return;
-	}
-	if (shared_server_.get() != NULL && shared_server_->hasClients()) {
-		try {
-			shared_server_->sendLogMessageToClients(msgType, file, line, message);
-		} catch (nsclient_session::session_exception e) {
-			log_broken_message(_T("Failed to send message to clients: ") + e.what());
-		}
-	}
-	std::wstring file_stl = file;
-	std::wstring::size_type pos = file_stl.find_last_of(_T("\\"));
-	if (pos != std::wstring::npos)
-		file_stl = file_stl.substr(pos);
-	{
-		ReadLock readLock(&m_mutexRW, true, 5000);
-		if (!readLock.IsLocked()) {
-			log_broken_message(_T("Message was lost as the (mutexRW) core was locked: ") + message);
+	try {
+		strEx::replace(message, _T("\n"), _T(" "));
+		strEx::replace(message, _T("\r"), _T(" "));
+		if ((msgType == NSCAPI::debug)&&(!logDebug())) {
 			return;
 		}
-		MutexLock lock(messageMutex);
-		if (!lock.hasMutex()) {
-			log_broken_message(_T("Message was lost as the core was locked: ") + message);
-			return;
+		if (shared_server_.get() != NULL && shared_server_->hasClients()) {
+			try {
+				shared_server_->sendLogMessageToClients(msgType, file, line, message);
+			} catch (nsclient_session::session_exception e) {
+				log_broken_message(_T("Failed to send message to clients: ") + e.what());
+			}
 		}
-		if (g_bConsoleLog) {
-			std::string k = "?";
-			switch (msgType) {
-			case NSCAPI::critical:
-				k ="c";
-				break;
-			case NSCAPI::warning:
-				k ="w";
-				break;
-			case NSCAPI::error:
-				k ="e";
-				break;
-			case NSCAPI::log:
-				k ="l";
-				break;
-			case NSCAPI::debug:
-				k ="d";
-				break;
-			}	
-			std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
-		}
-		if (!plugins_loaded_) {
-			OutputDebugString(message.c_str());
-			log_cache_.push_back(cached_log_entry(msgType, file, line, message));
-		} else {
-			if (log_cache_.size() > 0) {
-				for (log_cache_type::const_iterator cit=log_cache_.begin();cit!=log_cache_.end();++cit) {
-					for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
-						try {
-							messageHandlers_[i]->handleMessage((*cit).msgType, (_T("CACHE") + (*cit).file).c_str(), (*cit).line, (*cit).message.c_str());
-						} catch(const NSPluginException& e) {
-							log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
-							return;
-						} catch(...) {
-							log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
-							return;
+		std::wstring file_stl = file;
+		std::wstring::size_type pos = file_stl.find_last_of(_T("\\"));
+		if (pos != std::wstring::npos)
+			file_stl = file_stl.substr(pos);
+		{
+			ReadLock readLock(&m_mutexRW, true, 5000);
+			if (!readLock.IsLocked()) {
+				log_broken_message(_T("Message was lost as the (mutexRW) core was locked: ") + message);
+				return;
+			}
+			boost::unique_lock<boost::timed_mutex> lock(messageMutex, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!lock.owns_lock()) {
+				log_broken_message(_T("Message was lost as the core was locked: ") + message);
+				return;
+			}
+			if (g_bConsoleLog) {
+				std::string k = "?";
+				switch (msgType) {
+				case NSCAPI::critical:
+					k ="c";
+					break;
+				case NSCAPI::warning:
+					k ="w";
+					break;
+				case NSCAPI::error:
+					k ="e";
+					break;
+				case NSCAPI::log:
+					k ="l";
+					break;
+				case NSCAPI::debug:
+					k ="d";
+					break;
+				}	
+				std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
+			}
+			if (!plugins_loaded_) {
+				log_broken_message(message);
+				cached_log_entry entry(msgType, file, line, message);
+				log_cache_.push_back(entry);
+			} else {
+				if (log_cache_.size() > 0) {
+					for (log_cache_type::const_iterator cit=log_cache_.begin();cit!=log_cache_.end();++cit) {
+						for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
+							try {
+								messageHandlers_[i]->handleMessage((*cit).msgType, (_T("CACHE") + (*cit).file).c_str(), (*cit).line, (*cit).message.c_str());
+							} catch(const NSPluginException& e) {
+								log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
+								return;
+							} catch(...) {
+								log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
+								return;
+							}
 						}
 					}
+					log_cache_.clear();
 				}
-				log_cache_.clear();
-			}
-			for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
-				try {
-					messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
-				} catch(const NSPluginException& e) {
-					log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
-					return;
-				} catch(...) {
-					log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
-					return;
+				for (pluginList::size_type i = 0; i< messageHandlers_.size(); i++) {
+					try {
+						messageHandlers_[i]->handleMessage(msgType, file, line, message.c_str());
+					} catch(const NSPluginException& e) {
+						log_broken_message(_T("Caught: ") + e.error_ + _T(" when trying to log a message..."));
+						return;
+					} catch(...) {
+						log_broken_message(_T("Caught: Unknown Exception when trying to log a message..."));
+						return;
+					}
 				}
 			}
 		}
+	} catch (...) {
+		log_broken_message(_T("Caught UNKNOWN Exception when trying to log a message: ") + message);
 	}
 }
 std::wstring NSClientT::getBasePath(void) {
-	MutexLock lock(internalVariables);
-	if (!lock.hasMutex()) {
+	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	if (!lock.owns_lock()) {
 		LOG_ERROR(_T("FATAL ERROR: Could not get mutex."));
 		return _T("FATAL ERROR");
 	}

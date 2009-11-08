@@ -21,7 +21,9 @@
 #pragma once
 
 #include "../AutoBuild.h"
+/*
 #include <tchar.h> 
+*/
 #include <string>
 #include <settings/macros.h>
 // Application Name
@@ -196,7 +198,3 @@
 /*
 #define LUA_SCRIPT_SECTION_TITLE _T("LUA Scripts")
 */
-
-// Main Registry ROOT
-#define NS_HKEY_ROOT HKEY_LOCAL_MACHINE
-#define NS_REG_ROOT _T("SOFTWARE\\NSClient++")

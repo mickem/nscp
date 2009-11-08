@@ -364,10 +364,10 @@ public:
 		return _T("%");
 	}
 	static std::wstring print_perf(__int64 value, std::wstring unit) {
-		return strEx::itos(value);
+		return to_wstring(value);
 	}
 	static std::wstring print_percent(int value) {
-		return strEx::itos(value) + _T("%");
+		return to_wstring(value) + _T("%");
 	}
 	static std::wstring key_prefix() {
 		return _T("average load ");

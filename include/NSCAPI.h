@@ -21,7 +21,7 @@
 #pragma once
 
 
-#include <tchar.h>
+#include <unicode_char.hpp>
 
 namespace NSCAPI {
 
@@ -78,7 +78,7 @@ namespace NSCAPI {
 	typedef int moduleLoadMode;
 #endif
 
-	const int xor = 1;
+	const int encryption_xor = 1;
 
 	// Settings types
 	const int settings_default = 0;
@@ -95,12 +95,16 @@ namespace NSCAPI {
 	typedef int messageTypes;		// Message type
 
 	struct plugin_info {
-		TCHAR *dll;
-		TCHAR *name;
-		TCHAR *description;
-		TCHAR *version;
+		wchar_t *dll;
+		wchar_t *name;
+		wchar_t *description;
+		wchar_t *version;
 	};
 	typedef plugin_info* plugin_info_list;
 
 
 };
+
+namespace NSCModuleHelper {
+	typedef void* (*lpNSAPILoader)(wchar_t*);
+}

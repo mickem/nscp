@@ -34,6 +34,7 @@
 #include <hash_map>
 #include <list>
 #include <NSCAPI.h>
+#include <nsc_module_wrapper.hpp>
 #include <NSCHelper.h>
 #include <config.h>
 #include <utils.h>

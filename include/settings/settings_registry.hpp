@@ -5,6 +5,7 @@
 #include <settings/Settings.h>
 #include <msvc_wrappers.h>
 #include <error.hpp>
+#include <settings/macros.h>
 #define BUFF_LEN 4096
 
 
