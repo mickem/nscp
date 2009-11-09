@@ -84,6 +84,7 @@ bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
 	for (it = commands.begin(); it != commands.end(); ++it) {
 		if ((*it).empty())
 			continue;
+		NSC_DEBUG_MSG_STD(_T("Looking under: ") + setting_keys::external_scripts::SCRIPT_SECTION_PATH + _T(", ") + (*it));
 		std::wstring s = NSCModuleHelper::getSettingsString(setting_keys::external_scripts::SCRIPT_SECTION_PATH, (*it), _T(""));
 		if (s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));

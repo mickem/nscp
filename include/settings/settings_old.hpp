@@ -144,10 +144,13 @@ namespace Settings {
 			return (*it).second;
 		}
 		SettingsCore::key_path_type map_key(SettingsCore::key_path_type new_key) {
-			key_map::iterator it = keys_.find(new_key);
-			if (it == keys_.end())
-				return new_key;
-			return (*it).second;
+			key_map::iterator it1 = keys_.find(new_key);
+			if (it1 != keys_.end())
+				return (*it1).second;
+			path_map::iterator it2 = sections_.find(new_key.first);
+			if (it2 != sections_.end())
+				return SettingsCore::key_path_type((*it2).second, new_key.second);
+			return new_key;
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
@@ -175,6 +178,7 @@ namespace Settings {
 #define UNLIKELY_STRING _T("$$$EMPTY_KEY$$$")
 
 		std::wstring internal_get_value(std::wstring path, std::wstring key, int bufferSize = 1024) {
+			get_core()->get_logger()->quick_debug(path + _T("//") + key);
 			TCHAR* buffer = new TCHAR[bufferSize+2];
 			if (buffer == NULL)
 				throw SettingsException(_T("Out of memmory error!"));
@@ -236,7 +240,7 @@ namespace Settings {
 			if (buffer == NULL)
 				throw SettingsException(_T("has_key_int:: Failed to allocate memory for buffer!"));
 			std::wstring mapped = map_path(path);
-			unsigned int count = ::GetPrivateProfileSection(mapped.c_str(), buffer, BUFF_LEN, get_file_name().c_str());
+			unsigned int count = ::GetPrivateProfileSection(mapped.c_str(), buffer, bufferLength-2, get_file_name().c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
 				return has_key_int(path, key, bufferLength*10);

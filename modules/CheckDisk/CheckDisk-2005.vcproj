@@ -345,6 +345,7 @@
 		</Configuration>
 		<Configuration
 			Name="Distribution|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			>
@@ -638,6 +639,7 @@
 		</Configuration>
 		<Configuration
 			Name="Debug-MemCheck|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			>
@@ -780,6 +782,7 @@
 		</Configuration>
 		<Configuration
 			Name="OP5|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			>

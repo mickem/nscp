@@ -663,7 +663,7 @@ namespace strEx {
 	struct case_blind_string_compare : public std::binary_function<std::wstring, std::wstring, bool>
 	{
 		bool operator() (const std::wstring& x, const std::wstring& y) const {
-			return StrCmpI<std::wstring>(x,y);
+			return StrCmpI<std::wstring>(x,y) < 0;
 			//return _wcsicmp( x.c_str(), y.c_str() ) < 0;
 		}
 	};

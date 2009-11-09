@@ -1012,8 +1012,8 @@ int NSClientT::commandLineExec(const TCHAR* module, const TCHAR* command, const 
 	std::wstring sModule = module;
 	std::wstring moduleList = _T("");
 	{
-		ReadLock readLock(&m_mutexRW, true, 10000);
-		if (!readLock.IsLocked()) {
+		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!readLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return -1;
 		}
@@ -1058,8 +1058,8 @@ int NSClientT::commandLineExec(const TCHAR* module, const TCHAR* command, const 
  * @param plugins A list with plug-ins (DLL files) to load
  */
 void NSClientT::addPlugins(const std::list<std::wstring> plugins) {
-	ReadLock readLock(&m_mutexRW, true, 10000);
-	if (!readLock.IsLocked()) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+	if (!readLock.owns_lock()) {
 		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 		return;
 	}
@@ -1073,8 +1073,8 @@ void NSClientT::addPlugins(const std::list<std::wstring> plugins) {
  */
 void NSClientT::unloadPlugins(bool unloadLoggers) {
 	{
-		WriteLock writeLock(&m_mutexRW, true, 10000);
-		if (!writeLock.IsLocked()) {
+		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+		if (!writeLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
@@ -1083,8 +1083,8 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			messageHandlers_.clear();
 	}
 	{
-		ReadLock readLock(&m_mutexRW, true, 10000);
-		if (!readLock.IsLocked()) {
+		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+		if (!readLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
@@ -1107,8 +1107,8 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 		}
 	}
 	{
-		WriteLock writeLock(&m_mutexRW, true, 10000);
-		if (!writeLock.IsLocked()) {
+		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+		if (!writeLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
@@ -1133,8 +1133,8 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 	bool hasBroken = false;
 	{
-		ReadLock readLock(&m_mutexRW, true, 10000);
-		if (!readLock.IsLocked()) {
+		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+		if (!readLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
@@ -1184,8 +1184,8 @@ NSClientT::plugin_type NSClientT::loadPlugin(const std::wstring file) {
 NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 	plugin->load_dll();
 	{
-		WriteLock writeLock(&m_mutexRW, true, 10000);
-		if (!writeLock.IsLocked()) {
+		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+		if (!writeLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return plugin;
 		}
@@ -1201,8 +1201,8 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 
 
 std::wstring NSClientT::describeCommand(std::wstring command) {
-	ReadLock readLock(&m_mutexRWcmdDescriptions, true, 5000);
-	if (!readLock.IsLocked()) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRWcmdDescriptions, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
 		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex when trying to get command list."));
 		return _T("Failed to get mutex when describing command: ") + command;
 	}
@@ -1213,8 +1213,8 @@ std::wstring NSClientT::describeCommand(std::wstring command) {
 }
 std::list<std::wstring> NSClientT::getAllCommandNames() {
 	std::list<std::wstring> lst;
-	ReadLock readLock(&m_mutexRWcmdDescriptions, true, 5000);
-	if (!readLock.IsLocked()) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRWcmdDescriptions, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
 		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex when trying to get command list."));
 		return lst;
 	}
@@ -1224,8 +1224,8 @@ std::list<std::wstring> NSClientT::getAllCommandNames() {
 	return lst;
 }
 void NSClientT::registerCommand(std::wstring cmd, std::wstring desc) {
-	WriteLock writeLock(&m_mutexRWcmdDescriptions, true, 10000);
-	if (!writeLock.IsLocked()) {
+	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRWcmdDescriptions, boost::get_system_time() + boost::posix_time::seconds(10));
+	if (!writeLock.owns_lock()) {
 		LOG_ERROR_STD(_T("FATAL ERROR: Failed to describe command:") + cmd);
 		return;
 	}
@@ -1312,8 +1312,8 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
 		}
 	} else {
-		ReadLock readLock(&m_mutexRW, true, 5000);
-		if (!readLock.IsLocked()) {
+		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+		if (!readLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return NSCAPI::returnUNKNOWN;
 		}
@@ -1351,8 +1351,8 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 }
 
 void NSClientT::listPlugins() {
-	ReadLock readLock(&m_mutexRW, true, 10000);
-	if (!readLock.IsLocked()) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	if (!readLock.owns_lock()) {
 		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 		return;
 	}
@@ -1417,12 +1417,12 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 		if (pos != std::wstring::npos)
 			file_stl = file_stl.substr(pos);
 		{
-			ReadLock readLock(&m_mutexRW, true, 5000);
-			if (!readLock.IsLocked()) {
+			boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!readLock.owns_lock()) {
 				log_broken_message(_T("Message was lost as the (mutexRW) core was locked: ") + message);
 				return;
 			}
-			boost::unique_lock<boost::timed_mutex> lock(messageMutex, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			boost::unique_lock<boost::timed_mutex> lock(messageMutex, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!lock.owns_lock()) {
 				log_broken_message(_T("Message was lost as the core was locked: ") + message);
 				return;
@@ -1487,7 +1487,7 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 	}
 }
 std::wstring NSClientT::getBasePath(void) {
-	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		LOG_ERROR(_T("FATAL ERROR: Could not get mutex."));
 		return _T("FATAL ERROR");

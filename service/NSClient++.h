@@ -23,14 +23,16 @@
 #include <config.h>
 #include <service/system_service.hpp>
 #include "NSCPlugin.h"
-#include <Mutex.h>
+//#include <Mutex.h>
 #include <NSCAPI.h>
-#include <MutexRW.h>
+//#include <MutexRW.h>
 #include <map>
 #include <com_helpers.hpp>
 #include <nsclient_session.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
+
 
 /**
  * @ingroup NSClient++
@@ -100,8 +102,8 @@ private:
 	std::wstring basePath;
 	boost::timed_mutex internalVariables;
 	boost::timed_mutex messageMutex;
-	MutexRW  m_mutexRW;
-	MutexRW  m_mutexRWcmdDescriptions;
+	boost::shared_mutex m_mutexRW;
+	boost::shared_mutex m_mutexRWcmdDescriptions;
 	cmdMap cmdDescriptions_;
 	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
 	log_status debug_;
