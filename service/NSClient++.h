@@ -136,9 +136,11 @@ public:
 	void TerminateService(void);
 	bool initCore(bool boot);
 	bool exitCore(bool boot);
+#ifdef WIN32x
 	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);
 	static DWORD WINAPI service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext);
+#endif
 	void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
 
 	// Member functions

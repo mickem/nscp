@@ -974,7 +974,7 @@ bool NSClientT::exitCore(bool boot) {
 void NSClientT::TerminateService(void) {
 	exitCore(true);
 }
-
+#ifdef WIN32x
 /**
  * Forward this to the main service dispatcher helper class
  * @param dwArgc 
@@ -999,7 +999,7 @@ DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventT
 void WINAPI NSClientT::service_ctrl_dispatch(unsigned long dwCtrlCode) {
 	mainClient.service_ctrl_ex(dwCtrlCode, NULL, NULL, NULL);
 }
-
+#endif
 
 void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon, unsigned long dwEventType) {
 // 	if (shared_server_.get() == NULL) {
