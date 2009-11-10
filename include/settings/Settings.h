@@ -23,7 +23,9 @@
 #include <Singleton.h>
 #include <string>
 #include <map>
-#include <Mutex.h>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/locks.hpp>
+#include <strEx.h>
 #define BUFF_LEN 4096
 
 namespace Settings {
@@ -614,7 +616,7 @@ namespace Settings {
 		typedef std::map<SettingsCore::settings_type,SettingsInterface*> instance_list;
 		SettingsInterface* instance_;
 		instance_list instances_;
-		MutexHandler mutexHandler_;
+		boost::timed_mutex mutexHandler_;
 		/*
 		struct key_description : public SettingsCore::key_description {
 			std::wstring title;
@@ -713,8 +715,8 @@ namespace Settings {
 
 
 		SettingsInterface* get() {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("Failed to get mutext, cant get settings instance"));
 			if (instance_ == NULL)
 				instance_ = get_default_settings_instance_unsafe();
@@ -723,8 +725,8 @@ namespace Settings {
 			return instance_;
 		}
 		SettingsInterface* get(SettingsCore::settings_type type) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("Failed to get mutext, cant get settings instance"));
 			return instance_unsafe(type);
 		}
@@ -782,8 +784,8 @@ namespace Settings {
 #ifdef _DEBUG
 				get_logger()->debug(__FILEW__, __LINE__, _T("Starting to migrate..."));
 #endif
-				MutexLock mutex(mutexHandler_);
-				if (!mutex.hasMutex())
+				boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+				if (!mutex.owns_lock())
 					throw SettingsException(_T("migrate_type: Failed to get mutext, cant get settings instance"));
 				SettingsInterface* iFrom = instance_unsafe(from);
 				SettingsInterface* iTo = instance_unsafe(to);
@@ -802,8 +804,8 @@ namespace Settings {
 			migrate_type(from, get_settings_type());
 		}
 		SettingsCore::settings_type get_settings_type() {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("Failed to get mutext, cant get load settings"));
 			if (instance_ == NULL)
 				throw SettingsException(_T("No settings subsystem selected"));
@@ -822,15 +824,15 @@ namespace Settings {
 			return _T("Unknown settings type");
 		}
 		bool has_type(SettingsCore::settings_type type) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("has_type Failed to get mutext, cant get access settings"));
 			instance_list::const_iterator cit = instances_.find(type);
 			return cit != instances_.end();
 		}
 		void set_type(SettingsCore::settings_type type) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("set_type Failed to get mutext, cant get access settings"));
 			instance_list::const_iterator cit = instances_.find(type);
 			if (cit == instances_.end())
@@ -838,8 +840,8 @@ namespace Settings {
 			instance_ = (*cit).second;
 		}
 		void add_type_impl(SettingsCore::settings_type type, SettingsInterface* impl) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("add_type_impl Failed to get mutext, cant get access settings"));
 			instance_list::iterator it = instances_.find(type);
 			if (it == instances_.end()) {
@@ -1149,8 +1151,8 @@ namespace Settings {
 
 
 		void add_instance(SettingsInterface *instance) {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("load_all_instance Failed to get mutext, cant get access settings"));
 			instance_list::iterator it = instances_.find(instance->get_type());
 			if (it == instances_.end())
@@ -1171,8 +1173,8 @@ namespace Settings {
 
 	private:
 		void destroy_all_instances() {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("destroy_all_instances Failed to get mutext, cant get access settings"));
 			instance_ = NULL;
 			for (instance_list::iterator it = instances_.begin(); it != instances_.end(); ++it) {
@@ -1185,8 +1187,8 @@ namespace Settings {
 			instances_.clear();
 		}
 		SettingsInterface *get_default_settings_instance_unsafe() {
-			MutexLock mutex(mutexHandler_);
-			if (!mutex.hasMutex())
+			boost::unique_lock<boost::timed_mutex> mutex(mutexHandler_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!mutex.owns_lock())
 				throw SettingsException(_T("destroy_all_instances Failed to get mutext, cant get access settings"));
 			instance_ = NULL;
 			for (instance_list::iterator it = instances_.begin(); it != instances_.end(); ++it) {

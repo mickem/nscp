@@ -28,7 +28,7 @@
 //#include <MutexRW.h>
 #include <map>
 #include <com_helpers.hpp>
-#include <nsclient_session.hpp>
+//#include <nsclient_session.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
@@ -59,7 +59,7 @@
  * @bug 
  *
  */
-class NSClientT : public nsclient_session::session_handler_interface {
+class NSClientT /*: public nsclient_session::session_handler_interface*/ {
 
 public:
 	struct plugin_info_type {
@@ -108,8 +108,10 @@ private:
 	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
 	log_status debug_;
 	com_helper::initialize_com com_helper_;
+	/*
 	std::auto_ptr<nsclient_session::shared_client_session> shared_client_;
 	std::auto_ptr<nsclient_session::shared_server_session> shared_server_;
+	*/
 	log_cache_type log_cache_;
 	bool plugins_loaded_;
 	bool enable_shared_session_;

@@ -80,105 +80,106 @@ public:
 		return 0;
 	}
 
-	static bool start(DWORD dwSessionId) {
+	static bool start(unsigned long  dwSessionId) {
 		std::wstring program = mainClient.getBasePath() +  _T("\\") + 
 			SETTINGS_GET_STRING_CORE(settings_def::SYSTRAY_EXE);
 		std::wstring cmdln = _T("\"") + program + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
 		return tray_starter::startTrayHelper(dwSessionId, program, cmdln);
 	}
 
-	static bool startTrayHelper(DWORD dwSessionId, std::wstring exe, std::wstring cmdline, bool startThread = true) {
-		HANDLE hToken = NULL;
-		if (!remote_processes::GetSessionUserToken(dwSessionId, &hToken)) {
-			LOG_ERROR_STD(_T("Failed to query user token: ") + error::lookup::last_error());
-			return false;
-		} else {
-			STARTUPINFO          StartUPInfo;
-			PROCESS_INFORMATION  ProcessInfo;
-
-			ZeroMemory(&StartUPInfo,sizeof(STARTUPINFO));
-			ZeroMemory(&ProcessInfo,sizeof(PROCESS_INFORMATION));
-			StartUPInfo.wShowWindow = SW_HIDE;
-			StartUPInfo.lpDesktop = L"Winsta0\\Default";
-			StartUPInfo.cb = sizeof(STARTUPINFO);
-
-			wchar_t *buffer = new wchar_t[cmdline.size()+10];
-			wcscpy(buffer, cmdline.c_str());
-			LOG_MESSAGE_STD(_T("Running: ") + exe);
-			LOG_MESSAGE_STD(_T("Running: ") + cmdline);
-
-			LPVOID pEnv =NULL;
-			DWORD dwCreationFlags = CREATE_NO_WINDOW; //0; //DETACHED_PROCESS
-
-			if(CreateEnvironmentBlock(&pEnv,hToken,TRUE)) {
-				dwCreationFlags|=CREATE_UNICODE_ENVIRONMENT;
-			} else {
-				LOG_ERROR_STD(_T("Failed to create enviornment: ") + error::lookup::last_error());
-				pEnv=NULL;
-			}
-			/*
-			LOG_ERROR_STD(_T("Impersonating user: "));
-			if (!ImpersonateLoggedOnUser(hToken)) {
-				LOG_ERROR_STD(_T("Failed to impersonate the user: ") + error::lookup::last_error());
-			}
-
-			wchar_t pszUname[UNLEN + 1];
-			ZeroMemory(pszUname,sizeof(pszUname));
-			DWORD dwSize = UNLEN;
-			if (!GetUserName(pszUname,&dwSize)) {
-				DWORD dwErr = GetLastError();
-				if (!RevertToSelf())
-					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
-				LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
-				return false;
-			}
-			
-
-			PROFILEINFO info;
-			info.dwSize = sizeof(PROFILEINFO);
-			info.lpUserName = pszUname;
-			if (!LoadUserProfile(hToken, &info)) {
-				DWORD dwErr = GetLastError();
-				if (!RevertToSelf())
-					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
-				LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
-				return false;
-			}
-			*/
-			if (!CreateProcessAsUser(hToken, exe.c_str(), buffer, NULL, NULL, FALSE, dwCreationFlags, pEnv, NULL, &StartUPInfo, &ProcessInfo)) {
-				DWORD dwErr = GetLastError();
-				delete [] buffer;
-				/*
-				if (!RevertToSelf()) {
-					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
-				}
-				*/
-				if (startThread && dwErr == ERROR_PIPE_NOT_CONNECTED) {
-					LOG_MESSAGE(_T("Failed to start trayhelper: starting a background thread to do it instead..."));
-					Thread<tray_starter> *pThread = new Thread<tray_starter>(_T("tray-starter-thread"));
-					pThread->createThread(tray_starter::init(dwSessionId, exe, cmdline));
-					return false;
-				} else if (dwErr == ERROR_PIPE_NOT_CONNECTED) {
-					LOG_ERROR_STD(_T("Thread failed to start trayhelper (will try again): ") + error::format::from_system(dwErr));
-					return false;
-				} else {
-					LOG_ERROR_STD(_T("Failed to start trayhelper: ") + error::format::from_system(dwErr));
-					return true;
-				}
-			} else {
-				delete [] buffer;
-				/*
-				if (!RevertToSelf()) {
-					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
-				}
-				*/
-				LOG_MESSAGE_STD(_T("Started tray in other user session: ") + strEx::itos(dwSessionId));
-			}
-
-
-			CloseHandle(hToken);
-			return true;
-		}
+	static bool startTrayHelper(unsigned long dwSessionId, std::wstring exe, std::wstring cmdline, bool startThread = true) {
+// 		HANDLE hToken = NULL;
+// 		if (!remote_processes::GetSessionUserToken(dwSessionId, &hToken)) {
+// 			LOG_ERROR_STD(_T("Failed to query user token: ") + error::lookup::last_error());
+// 			return false;
+// 		} else {
+// 			STARTUPINFO          StartUPInfo;
+// 			PROCESS_INFORMATION  ProcessInfo;
+// 
+// 			ZeroMemory(&StartUPInfo,sizeof(STARTUPINFO));
+// 			ZeroMemory(&ProcessInfo,sizeof(PROCESS_INFORMATION));
+// 			StartUPInfo.wShowWindow = SW_HIDE;
+// 			StartUPInfo.lpDesktop = L"Winsta0\\Default";
+// 			StartUPInfo.cb = sizeof(STARTUPINFO);
+// 
+// 			wchar_t *buffer = new wchar_t[cmdline.size()+10];
+// 			wcscpy(buffer, cmdline.c_str());
+// 			LOG_MESSAGE_STD(_T("Running: ") + exe);
+// 			LOG_MESSAGE_STD(_T("Running: ") + cmdline);
+// 
+// 			LPVOID pEnv =NULL;
+// 			DWORD dwCreationFlags = CREATE_NO_WINDOW; //0; //DETACHED_PROCESS
+// 
+// 			if(CreateEnvironmentBlock(&pEnv,hToken,TRUE)) {
+// 				dwCreationFlags|=CREATE_UNICODE_ENVIRONMENT;
+// 			} else {
+// 				LOG_ERROR_STD(_T("Failed to create enviornment: ") + error::lookup::last_error());
+// 				pEnv=NULL;
+// 			}
+// 			/*
+// 			LOG_ERROR_STD(_T("Impersonating user: "));
+// 			if (!ImpersonateLoggedOnUser(hToken)) {
+// 				LOG_ERROR_STD(_T("Failed to impersonate the user: ") + error::lookup::last_error());
+// 			}
+// 
+// 			wchar_t pszUname[UNLEN + 1];
+// 			ZeroMemory(pszUname,sizeof(pszUname));
+// 			DWORD dwSize = UNLEN;
+// 			if (!GetUserName(pszUname,&dwSize)) {
+// 				DWORD dwErr = GetLastError();
+// 				if (!RevertToSelf())
+// 					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+// 				LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
+// 				return false;
+// 			}
+// 			
+// 
+// 			PROFILEINFO info;
+// 			info.dwSize = sizeof(PROFILEINFO);
+// 			info.lpUserName = pszUname;
+// 			if (!LoadUserProfile(hToken, &info)) {
+// 				DWORD dwErr = GetLastError();
+// 				if (!RevertToSelf())
+// 					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+// 				LOG_ERROR_STD(_T("Failed to get username: ") + error::format::from_system(dwErr));
+// 				return false;
+// 			}
+// 			*/
+// 			if (!CreateProcessAsUser(hToken, exe.c_str(), buffer, NULL, NULL, FALSE, dwCreationFlags, pEnv, NULL, &StartUPInfo, &ProcessInfo)) {
+// 				DWORD dwErr = GetLastError();
+// 				delete [] buffer;
+// 				/*
+// 				if (!RevertToSelf()) {
+// 					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+// 				}
+// 				*/
+// 				if (startThread && dwErr == ERROR_PIPE_NOT_CONNECTED) {
+// 					LOG_MESSAGE(_T("Failed to start trayhelper: starting a background thread to do it instead..."));
+// 					Thread<tray_starter> *pThread = new Thread<tray_starter>(_T("tray-starter-thread"));
+// 					pThread->createThread(tray_starter::init(dwSessionId, exe, cmdline));
+// 					return false;
+// 				} else if (dwErr == ERROR_PIPE_NOT_CONNECTED) {
+// 					LOG_ERROR_STD(_T("Thread failed to start trayhelper (will try again): ") + error::format::from_system(dwErr));
+// 					return false;
+// 				} else {
+// 					LOG_ERROR_STD(_T("Failed to start trayhelper: ") + error::format::from_system(dwErr));
+// 					return true;
+// 				}
+// 			} else {
+// 				delete [] buffer;
+// 				/*
+// 				if (!RevertToSelf()) {
+// 					LOG_ERROR_STD(_T("Failed to revert to self: ") + error::lookup::last_error());
+// 				}
+// 				*/
+// 				LOG_MESSAGE_STD(_T("Started tray in other user session: ") + strEx::itos(dwSessionId));
+// 			}
+// 
+// 
+// 			CloseHandle(hToken);
+// 			return true;
+// 		}
+		return false;
 	}
 };
 
@@ -745,39 +746,39 @@ bool NSClientT::initCore(bool boot) {
 		LOG_MESSAGE_STD(_T("Enabling shared session..."));
 		if (boot) {
 			LOG_MESSAGE_STD(_T("Starting shared session..."));
-			try {
-				shared_server_.reset(new nsclient_session::shared_server_session(this));
-				if (!shared_server_->session_exists()) {
-					shared_server_->create_new_session();
-				} else {
-					LOG_ERROR_STD(_T("Session already exists cant create a new one!"));
-				}
-				startTrayIcons();
-			} catch (nsclient_session::session_exception e) {
-				LOG_ERROR_STD(_T("Failed to create new session: ") + e.what());
-				shared_server_.reset(NULL);
-			} catch (...) {
-				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
-				shared_server_.reset(NULL);
-			}
+// 			try {
+// 				shared_server_.reset(new nsclient_session::shared_server_session(this));
+// 				if (!shared_server_->session_exists()) {
+// 					shared_server_->create_new_session();
+// 				} else {
+// 					LOG_ERROR_STD(_T("Session already exists cant create a new one!"));
+// 				}
+// 				startTrayIcons();
+// 			} catch (nsclient_session::session_exception e) {
+// 				LOG_ERROR_STD(_T("Failed to create new session: ") + e.what());
+// 				shared_server_.reset(NULL);
+// 			} catch (...) {
+// 				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
+// 				shared_server_.reset(NULL);
+// 			}
 		} else {
 			LOG_MESSAGE_STD(_T("Attaching to shared session..."));
-			try {
-				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
-				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
-				if (shared_client_->session_exists()) {
-					shared_client_->attach_to_session(id);
-				} else {
-					LOG_ERROR_STD(_T("No session was found cant attach!"));
-				}
-				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
-			} catch (nsclient_session::session_exception e) {
-				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
-				shared_client_.reset(NULL);
-			} catch (...) {
-				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
-				shared_client_.reset(NULL);
-			}
+// 			try {
+// 				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
+// 				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
+// 				if (shared_client_->session_exists()) {
+// 					shared_client_->attach_to_session(id);
+// 				} else {
+// 					LOG_ERROR_STD(_T("No session was found cant attach!"));
+// 				}
+// 				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
+// 			} catch (nsclient_session::session_exception e) {
+// 				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
+// 				shared_client_.reset(NULL);
+// 			} catch (...) {
+// 				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
+// 				shared_client_.reset(NULL);
+// 			}
 		}
 	}
 /*
@@ -862,34 +863,34 @@ bool NSClientT::InitiateService() {
 }
 
 void NSClientT::startTrayIcons() {
-	if (shared_server_.get() == NULL) {
-		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
-		return;
-	}
-	remote_processes::PWTS_SESSION_INFO list;
-	DWORD count;
-	if (!remote_processes::_WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE , 0, 1, &list, &count)) {
-		LOG_ERROR_STD(_T("Failed to enumerate sessions:" ) + error::lookup::last_error());
-	} else {
-		LOG_DEBUG_STD(_T("Found ") + strEx::itos(count) + _T(" sessions"));
-		for (DWORD i=0;i<count;i++) {
-			LOG_DEBUG_STD(_T("Found session: ") + strEx::itos(list[i].SessionId) + _T(" state: ") + strEx::itos(list[i].State));
-			if (list[i].State == remote_processes::_WTS_CONNECTSTATE_CLASS::WTSActive) {
-				startTrayIcon(list[i].SessionId);
-			}
-		}
-	}
+// 	if (shared_server_.get() == NULL) {
+// 		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
+// 		return;
+// 	}
+// 	remote_processes::PWTS_SESSION_INFO list;
+// 	DWORD count;
+// 	if (!remote_processes::_WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE , 0, 1, &list, &count)) {
+// 		LOG_ERROR_STD(_T("Failed to enumerate sessions:" ) + error::lookup::last_error());
+// 	} else {
+// 		LOG_DEBUG_STD(_T("Found ") + strEx::itos(count) + _T(" sessions"));
+// 		for (DWORD i=0;i<count;i++) {
+// 			LOG_DEBUG_STD(_T("Found session: ") + strEx::itos(list[i].SessionId) + _T(" state: ") + strEx::itos(list[i].State));
+// 			if (list[i].State == remote_processes::_WTS_CONNECTSTATE_CLASS::WTSActive) {
+// 				startTrayIcon(list[i].SessionId);
+// 			}
+// 		}
+// 	}
 }
 void NSClientT::startTrayIcon(DWORD dwSessionId) {
-	if (shared_server_.get() == NULL) {
-		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
-		return;
-	}
-	if (!shared_server_->re_attach_client(dwSessionId)) {
-		if (!tray_starter::start(dwSessionId)) {
-			LOG_ERROR_STD(_T("Failed to start session (") + strEx::itos(dwSessionId) + _T("): " ) + error::lookup::last_error());
-		}
-	}
+// 	if (shared_server_.get() == NULL) {
+// 		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
+// 		return;
+// 	}
+// 	if (!shared_server_->re_attach_client(dwSessionId)) {
+// 		if (!tray_starter::start(dwSessionId)) {
+// 			LOG_ERROR_STD(_T("Failed to start session (") + strEx::itos(dwSessionId) + _T("): " ) + error::lookup::last_error());
+// 		}
+// 	}
 }
 
 bool NSClientT::exitCore(bool boot) {
@@ -925,23 +926,23 @@ bool NSClientT::exitCore(bool boot) {
 	*/
 	LOG_DEBUG_STD(_T("Stopping: Settings instance"));
 	settings_manager::destroy_settings();
+// 	try {
+// 		if (shared_client_.get() != NULL) {
+// 			LOG_DEBUG_STD(_T("Stopping: shared client"));
+// 			shared_client_->set_handler(NULL);
+// 			shared_client_->close_session();
+// 		}
+// 	} catch(nsclient_session::session_exception &e) {
+// 		LOG_ERROR_STD(_T("Exception closing shared client session: ") + e.what());
+// 	} catch(...) {
+// 		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
+// 	}
 	try {
-		if (shared_client_.get() != NULL) {
-			LOG_DEBUG_STD(_T("Stopping: shared client"));
-			shared_client_->set_handler(NULL);
-			shared_client_->close_session();
-		}
-	} catch(nsclient_session::session_exception &e) {
-		LOG_ERROR_STD(_T("Exception closing shared client session: ") + e.what());
-	} catch(...) {
-		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
-	}
-	try {
-		if (shared_server_.get() != NULL) {
-			LOG_DEBUG_STD(_T("Stopping: shared server"));
-			shared_server_->set_handler(NULL);
-			shared_server_->close_session();
-		}
+// 		if (shared_server_.get() != NULL) {
+// 			LOG_DEBUG_STD(_T("Stopping: shared server"));
+// 			shared_server_->set_handler(NULL);
+// 			shared_server_->close_session();
+// 		}
 	} catch(...) {
 		LOG_ERROR_STD(_T("UNknown exception raised: When closing shared session"));
 	}
@@ -987,16 +988,16 @@ DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventT
  * Forward this to the main service dispatcher helper class
  * @param dwCtrlCode 
  */
-void WINAPI NSClientT::service_ctrl_dispatch(DWORD dwCtrlCode) {
+void WINAPI NSClientT::service_ctrl_dispatch(unsigned long dwCtrlCode) {
 	mainClient.service_ctrl_ex(dwCtrlCode, NULL, NULL, NULL);
 }
 
 
-void NSClientT::service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType) {
-	if (shared_server_.get() == NULL) {
-		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
-		return;
-	}
+void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon, unsigned long dwEventType) {
+// 	if (shared_server_.get() == NULL) {
+// 		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
+// 		return;
+// 	}
 	LOG_DEBUG_STD(_T("Got session change: ") + strEx::itos(dwSessionId));
 	if (!logon) {
 		LOG_DEBUG_STD(_T("Not a logon event: ") + strEx::itos(dwEventType));
@@ -1249,7 +1250,7 @@ unsigned int NSClientT::getBufferLength() {
 }
 
 NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
-	if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
+	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
 			return shared_client_->inject(command, arguments, splitter, escape, msg, perf);
 		} catch (nsclient_session::session_exception &e) {
@@ -1259,7 +1260,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 			LOG_ERROR_STD(_T("Failed to inject remote command: Unknown exception"));
 			return NSCAPI::returnCRIT;
 		}
-	} else {
+	} else */{
 		unsigned int aLen = 0;
 		TCHAR ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
 		unsigned int buf_len = getBufferLength();
@@ -1296,7 +1297,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 	if (logDebug()) {
 		LOG_DEBUG_STD(_T("Injecting: ") + (std::wstring) command + _T(": ") + arrayBuffer::arrayBuffer2string(argument, argLen, _T(", ")));
 	}
-	if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
+	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
 			std::wstring msg, perf;
 			int returnCode = shared_client_->inject(command, arrayBuffer::arrayBuffer2string(argument, argLen, _T(" ")), L' ', true, msg, perf);
@@ -1311,7 +1312,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned i
 			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command:  + e.what()"), NSCAPI::returnCRIT);
 			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
 		}
-	} else {
+	} else */{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
@@ -1405,13 +1406,13 @@ void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, st
 		if ((msgType == NSCAPI::debug)&&(!logDebug())) {
 			return;
 		}
-		if (shared_server_.get() != NULL && shared_server_->hasClients()) {
-			try {
-				shared_server_->sendLogMessageToClients(msgType, file, line, message);
-			} catch (nsclient_session::session_exception e) {
-				log_broken_message(_T("Failed to send message to clients: ") + e.what());
-			}
-		}
+// 		if (shared_server_.get() != NULL && shared_server_->hasClients()) {
+// 			try {
+// 				shared_server_->sendLogMessageToClients(msgType, file, line, message);
+// 			} catch (nsclient_session::session_exception e) {
+// 				log_broken_message(_T("Failed to send message to clients: ") + e.what());
+// 			}
+// 		}
 		std::wstring file_stl = file;
 		std::wstring::size_type pos = file_stl.find_last_of(_T("\\"));
 		if (pos != std::wstring::npos)

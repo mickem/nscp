@@ -4,6 +4,7 @@
 #include <map>
 #include <settings/Settings.h>
 #include <simpleini/SimpleIni.h>
+#include <error.hpp>
 
 namespace Settings {
 	class INISettings : public Settings::SettingsInterfaceImpl {
