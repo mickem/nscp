@@ -3,7 +3,7 @@
 #include <string>
 #include <map>
 #include <settings/Settings.h>
-#include <simpleini/SimpleIni.h>
+#include <simpleini/simpleini.h>
 #include <error.hpp>
 
 namespace Settings {

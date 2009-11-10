@@ -19,6 +19,8 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
+#include <types.hpp>
+
 #ifdef WIN32
 #define _WINSOCKAPI_
 //#include <WinSock2.h>
@@ -47,6 +49,8 @@
 #include <memory>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+
 #ifdef MEMCHECK
 #include <vld.h>
 #endif

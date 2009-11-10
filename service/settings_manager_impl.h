@@ -3,8 +3,10 @@
 #include "settings_logger_impl.hpp"
 #include <settings/Settings.h>
 #include <settings/settings_ini.hpp>
+#ifdef WIN32
 #include <settings/settings_old.hpp>
 #include <settings/settings_registry.hpp>
+#endif
 
 namespace settings_manager {
 	class NSCSettingsImpl : public Settings::SettingsHandlerImpl {
@@ -58,14 +60,16 @@ namespace settings_manager {
 		/// @author mickem
 		Settings::SettingsInterface* create_instance(settings_type type, std::wstring context) {
 			get_logger()->debug(__FILEW__, __LINE__, _T("Trying to create: ") + SettingsCore::type_to_string(type) + _T(": ") + context);
+#ifdef WIN32
 			if (type == SettingsCore::old_ini_file) {
 				old_ = true;
 				return new Settings::OLDSettings(this, context);
 			} 
-			if (type == SettingsCore::ini_file)
-				return new Settings::INISettings(this, context);
 			if (type == SettingsCore::registry)
 				return new Settings::REGSettings(this, context);
+#endif
+			if (type == SettingsCore::ini_file)
+				return new Settings::INISettings(this, context);
 			throw SettingsException(_T("Undefined settings type: ") + SettingsCore::type_to_string(type));
 		}
 

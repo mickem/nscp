@@ -24,7 +24,6 @@
 #include <Lmcons.h>
 //#ifdef DEBUG
 #include <crtdbg.h>
-#include "boost/filesystem.hpp" 
 //#endif
 #endif
 #include <remote_processes.hpp>
@@ -797,6 +796,7 @@ bool NSClientT::initCore(bool boot) {
 		return false;
 	}
 */
+#ifdef WIN32
 	try {
 		com_helper_.initialize();
 	} catch (com_helper::com_exception e) {
@@ -806,6 +806,7 @@ bool NSClientT::initCore(bool boot) {
 		LOG_ERROR_STD(_T("Unknown exception iniating COM..."));
 		return false;
 	}
+#endif
 	if (boot) {
 		try {
 			Settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
@@ -911,6 +912,7 @@ bool NSClientT::exitCore(bool boot) {
 			LOG_ERROR_STD(_T("Unknown exception raised when unloading non msg plugins"));
 		}
 	}
+#ifdef WIN32
 	LOG_DEBUG_STD(_T("Stopping: COM helper"));
 	try {
 		com_helper_.unInitialize();
@@ -919,6 +921,7 @@ bool NSClientT::exitCore(bool boot) {
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception uniniating COM..."));
 	}
+#endif
 	/*
 	LOG_DEBUG_STD(_T("Stopping: Socket Helpers"));
 	try {

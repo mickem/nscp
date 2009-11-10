@@ -27,12 +27,13 @@
 #include <NSCAPI.h>
 //#include <MutexRW.h>
 #include <map>
+#ifdef WIN32
 #include <com_helpers.hpp>
+#endif
 //#include <nsclient_session.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
-
 
 /**
  * @ingroup NSClient++
@@ -107,7 +108,9 @@ private:
 	cmdMap cmdDescriptions_;
 	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
 	log_status debug_;
+#ifdef WIN32
 	com_helper::initialize_com com_helper_;
+#endif
 	/*
 	std::auto_ptr<nsclient_session::shared_client_session> shared_client_;
 	std::auto_ptr<nsclient_session::shared_server_session> shared_server_;
@@ -191,6 +194,10 @@ extern NSClient mainClient;	// Global core instance forward declaration.
 std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 
+#ifndef __FILEW__
+#define R(x) _T(x)
+#define __FILEW__ R(__FILE__)
+#endif
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging
 // Generally names are of the form LOG_<severity>[_STD] 
@@ -198,17 +205,17 @@ std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encrypti
 //
 #define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
 #define LOG_ERROR(msg) \
-	NSAPIMessage(NSCAPI::error, _T(__FILE__), __LINE__, msg)
+	NSAPIMessage(NSCAPI::error, __FILEW__, __LINE__, msg)
 #define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
 #define LOG_CRITICAL(msg) \
-	NSAPIMessage(NSCAPI::critical, _T(__FILE__), __LINE__, msg)
+	NSAPIMessage(NSCAPI::critical, __FILEW__, __LINE__, msg)
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
 #define LOG_MESSAGE(msg) \
-	NSAPIMessage(NSCAPI::log, _T(__FILE__), __LINE__, msg)
+	NSAPIMessage(NSCAPI::log, __FILEW__, __LINE__, msg)
 
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
 #define LOG_DEBUG(msg) \
-	NSAPIMessage(NSCAPI::debug, _T(__FILE__), __LINE__, msg)
+	NSAPIMessage(NSCAPI::debug, __FILEW__, __LINE__, msg)
 /*
 #define LOG_DEBUG_STD(msg)
 #define LOG_DEBUG(msg)
