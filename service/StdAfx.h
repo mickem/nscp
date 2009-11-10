@@ -46,6 +46,7 @@
 #include <charEx.h>
 #include <memory>
 
+#include <boost/algorithm/string.hpp>
 #ifdef MEMCHECK
 #include <vld.h>
 #endif

@@ -24,6 +24,7 @@
 #include <Lmcons.h>
 //#ifdef DEBUG
 #include <crtdbg.h>
+#include "boost/filesystem.hpp" 
 //#endif
 #endif
 #include <remote_processes.hpp>
@@ -199,6 +200,10 @@ void display(std::wstring title, std::wstring message) {
 }
 
 
+bool is_module( std::wstring file ) 
+{
+	return boost::ends_with(file, _T(".dll"));
+}
 /**
  * Application startup point
  *
@@ -369,35 +374,34 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			std::wstring pluginPath = mainClient.getBasePath() + _T("modules\\");
 			LOG_MESSAGE_STD(_T("Looking at plugins in: ") + pluginPath);
 
-			WIN32_FIND_DATA wfd;
-			HANDLE hFind = FindFirstFile((pluginPath + _T("*.dll")).c_str(), &wfd);
-			if (hFind != INVALID_HANDLE_VALUE) {
-				do {
-					std::wstring file = wfd.cFileName;
-					NSCPlugin *plugin = new NSCPlugin(pluginPath + _T("\\") + file);
-					std::wstring name = _T("<unknown>");
-					std::wstring description = _T("<unknown>");
-					try {
-						plugin->load_dll();
-						name = plugin->getName();
-						description = plugin->getDescription();
-					} catch(const NSPluginException& e) {
-						LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
-					} catch (std::exception e) {
-						LOG_ERROR_STD(_T("exception loading plugin: ") + strEx::string_to_wstring(e.what()));
-					} catch (...) {
-						LOG_ERROR_STD(_T("Unknown exception loading plugin"));
+			boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
+			for ( boost::filesystem::wdirectory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
+				if ( !is_directory(itr->status()) ) {
+					std::wstring file= itr->leaf();
+					if (is_module(pluginPath + _T("\\") + file)) {
+						NSCPlugin *plugin = new NSCPlugin(pluginPath + _T("\\") + file);
+						std::wstring name = _T("<unknown>");
+						std::wstring description = _T("<unknown>");
+						try {
+							plugin->load_dll();
+							name = plugin->getName();
+							description = plugin->getDescription();
+						} catch(const NSPluginException& e) {
+							LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+						} catch (std::exception e) {
+							LOG_ERROR_STD(_T("exception loading plugin: ") + strEx::string_to_wstring(e.what()));
+						} catch (...) {
+							LOG_ERROR_STD(_T("Unknown exception loading plugin"));
+						}
+						LOG_MESSAGE_STD(_T("* ") + name + _T(" (") + file + _T(")"));
+						std::list<std::wstring> list = strEx::splitEx(description, _T("\n"));
+						for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+							LOG_MESSAGE_STD(_T("    ") + *cit);
+						}
 					}
-					LOG_MESSAGE_STD(_T("* ") + name + _T(" (") + file + _T(")"));
-					std::list<std::wstring> list = strEx::splitEx(description, _T("\n"));
-					for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-						LOG_MESSAGE_STD(_T("    ") + *cit);
-					}
-				} while (FindNextFile(hFind, &wfd));
-			} else {
-				LOG_CRITICAL(_T("No plugin was found!"));
+				}
 			}
-			FindClose(hFind);
+			return false;
 		} else if ( _wcsicmp( _T("version"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
@@ -540,31 +544,31 @@ void migrate() {}
 
 NSClientT::plugin_info_list NSClientT::get_all_plugins() {
 	plugin_info_list ret;
-	std::wstring modPath = getBasePath() + _T("modules\\");
-
-	WIN32_FIND_DATA wfd;
-	HANDLE hFind = FindFirstFile((modPath + _T("*.dll")).c_str(), &wfd);
-	if (hFind != INVALID_HANDLE_VALUE) {
-		do {
-			plugin_info_type info;
-			info.dll = wfd.cFileName;
-			try {
-				LOG_DEBUG_STD(_T("Attempting to fake load: ") + wfd.cFileName);
-				NSCPlugin plugin(modPath + wfd.cFileName);
-				plugin.load_dll();
-				plugin.load_plugin(NSCAPI::dontStart);
-				info.name = plugin.getName();
-				info.description = plugin.getDescription();
-				plugin.unload();
-			} catch (NSPluginException e) {
-				LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
-			} catch (...) {
-				LOG_CRITICAL_STD(_T("Unknown Error loading: ") + wfd.cFileName);
+	std::wstring pluginPath = getBasePath() + _T("modules\\");
+	boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
+	for ( boost::filesystem::wdirectory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
+		if ( !is_directory(itr->status()) ) {
+			std::wstring file= itr->leaf();
+			if (is_module(pluginPath + _T("\\") + file)) {
+				plugin_info_type info;
+				info.dll = itr->leaf();
+				try {
+					LOG_DEBUG_STD(_T("Attempting to fake load: ") + file);
+					NSCPlugin plugin(pluginPath + _T("\\") + file);
+					plugin.load_dll();
+					plugin.load_plugin(NSCAPI::dontStart);
+					info.name = plugin.getName();
+					info.description = plugin.getDescription();
+					plugin.unload();
+				} catch (NSPluginException e) {
+					LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
+				} catch (...) {
+					LOG_CRITICAL_STD(_T("Unknown Error loading: ") + file);
+				}
+				ret.push_back(info);
 			}
-			ret.push_back(info);
-		} while (FindNextFile(hFind, &wfd));
+		}
 	}
-	FindClose(hFind);
 	return ret;
 }
 
@@ -572,45 +576,46 @@ NSClientT::plugin_info_list NSClientT::get_all_plugins() {
 void NSClientT::load_all_plugins(int mode) {
 	std::wstring modPath = getBasePath() + _T("modules\\");
 
-	WIN32_FIND_DATA wfd;
-	HANDLE hFind = FindFirstFile((modPath + _T("*.dll")).c_str(), &wfd);
-	if (hFind != INVALID_HANDLE_VALUE) {
-		do {
-			if (settings_manager::get_settings()->has_key(MAIN_MODULES_SECTION, wfd.cFileName)) {
-				if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, wfd.cFileName) == _T("disabled")) {
+	boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
+	for ( boost::filesystem::wdirectory_iterator itr( modPath ); itr != end_itr; ++itr ) {
+		if ( !is_directory(itr->status()) ) {
+			std::wstring file= itr->leaf();
+			if (is_module(modPath + _T("\\") + file)) {
+				if (settings_manager::get_settings()->has_key(MAIN_MODULES_SECTION, file)) {
+					if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, file) == _T("disabled")) {
+						try {
+							LOG_DEBUG_STD(_T("Attempting to fake load: ") + file);
+							NSCPlugin plugin(modPath + file);
+							plugin.load_dll();
+							plugin.load_plugin(mode);
+							plugin.unload();
+						} catch (NSPluginException e) {
+							LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
+						} catch (...) {
+							LOG_CRITICAL_STD(_T("Unknown Error loading: ") + file);
+						}
+					}
+				} else {
+					std::wstring desc;
 					try {
-						LOG_DEBUG_STD(_T("Attempting to fake load: ") + wfd.cFileName);
-						NSCPlugin plugin(modPath + wfd.cFileName);
+						NSCPlugin plugin(modPath + file);
 						plugin.load_dll();
 						plugin.load_plugin(mode);
+						desc = plugin.getName() + _T(" - ");
+						desc += plugin.getDescription();
 						plugin.unload();
 					} catch (NSPluginException e) {
+						desc += _T("unknown module");
 						LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
 					} catch (...) {
-						LOG_CRITICAL_STD(_T("Unknown Error loading: ") + wfd.cFileName);
+						desc += _T("unknown module");
+						LOG_CRITICAL_STD(_T("Unknown Error loading: ") + file);
 					}
+					settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, file, Settings::SettingsCore::key_string, desc, desc, _T("disabled"), false);
 				}
-			} else {
-				std::wstring desc;
-				try {
-					NSCPlugin plugin(modPath + wfd.cFileName);
-					plugin.load_dll();
-					plugin.load_plugin(mode);
-					desc = plugin.getName() + _T(" - ");
-					desc += plugin.getDescription();
-					plugin.unload();
-				} catch (NSPluginException e) {
-					desc += _T("unknown module");
-					LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
-				} catch (...) {
-					desc += _T("unknown module");
-					LOG_CRITICAL_STD(_T("Unknown Error loading: ") + wfd.cFileName);
-				}
-				settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, wfd.cFileName, Settings::SettingsCore::key_string, desc, desc, _T("disabled"), false);
 			}
-		} while (FindNextFile(hFind, &wfd));
+		} 
 	}
-	FindClose(hFind);
 }
 
 void NSClientT::HandleSettingsCLI(TCHAR* arg, int argc, TCHAR* argv[]) {
