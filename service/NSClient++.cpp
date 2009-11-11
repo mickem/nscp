@@ -26,11 +26,11 @@
 #include <crtdbg.h>
 //#endif
 #endif
-#include <remote_processes.hpp>
+//#include <remote_processes.hpp>
 //#include <winsvc.h>
 //#include <Userenv.h>
 //#include <Lmcons.h>
-#include <remote_processes.hpp>
+//#include <remote_processes.hpp>
 #include "core_api.h"
 #include "settings_manager_impl.h"
 #include <settings/macros.h>
@@ -67,6 +67,7 @@ public:
 		return sb;
 	}
 	DWORD threadProc(LPVOID lpParameter) {
+#ifdef WIN32
 		start_block* param = static_cast<start_block*>(lpParameter);
 		DWORD dwSessionId = param->sessionId;
 		std::wstring cmd = param->cmd;
@@ -77,6 +78,7 @@ public:
 			if (startTrayHelper(dwSessionId, cmd, cmdline, false))
 				break;
 		}
+#endif
 		return 0;
 	}
 
@@ -195,7 +197,10 @@ public:
  */
 
 void display(std::wstring title, std::wstring message) {
+#ifdef WIN32
 	::MessageBox(NULL, message.c_str(), title.c_str(), MB_OK|MB_ICONERROR);
+#endif
+	std::wcout << title << std::endl << message << std::endl;
 }
 
 
@@ -211,21 +216,40 @@ bool is_module( std::wstring file )
  * @param envp[] Environment array
  * @return exit status
  */
-int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
+int nscp_main(int argc, wchar_t* argv[]);
+
+#ifdef WIN32
+int wmain(int argc, wchar_t* argv[], wchar_t* envp[]) { return nscp_main(argc, argv); }
+#else
+int main(int argc, char* argv[]) { 
+	wchar_t **wargv = new wchar_t*[argc];
+	for (int i=0;i<argc;i++) {
+		std::wstring s = to_wstring(argv[i]);
+		wargv[i] = new wchar_t[s.length()+10];
+		wcscpy(wargv[i], s.c_str());
+	}
+	int ret = nscp_main(argc, wargv); 
+	for (int i=0;i<argc;i++) {
+		delete [] wargv[i];
+	}
+	delete [] wargv;
+}
+#endif
+int nscp_main(int argc, wchar_t* argv[])
 {
 	srand( (unsigned)time( NULL ) );
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if (false) {
 #ifdef WIN32
-		} if ( _wcsicmp( _T("install"), argv[1]+1 ) == 0 ) {
+		} if ( wcscasecmp( _T("install"), argv[1]+1 ) == 0 ) {
 			bool bGui = false;
 			bool bStart = false;
 			std::wstring service_name, service_description;
 			for (int i=2;i<argc;i++) {
-				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
 					bGui = true;
-				} else if (_wcsicmp( _T("start"), argv[i]) == 0) {
+				} else if (wcscasecmp( _T("start"), argv[i]) == 0) {
 					bStart = true;
 				} else {
 					if (service_name.empty())
@@ -263,14 +287,14 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				display(_T("Service installed"), _T("Service installed successfully!"));
 			LOG_MESSAGE(_T("Service installed!"));
 			return 0;
-		} else if ( _wcsicmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
 			bool bGui = false;
 			bool bStop = false;
 			std::wstring service_name;
 			for (int i=2;i<argc;i++) {
-				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
 					bGui = true;
-				} else if (_wcsicmp( _T("stop"), argv[i]) == 0) {
+				} else if (wcscasecmp( _T("stop"), argv[i]) == 0) {
 					bStop = true;
 				} else {
 					service_name = argv[i];
@@ -297,12 +321,12 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				display(_T("Service uninstalled"), _T("Service uninstalled successfully!"));
 			LOG_MESSAGE(_T("Service uninstalled!"));
 			return 0;
-		} else if ( _wcsicmp( _T("start"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("start"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			bool bGui = false;
 			std::wstring service_name;
 			for (int i=2;i<argc;i++) {
-				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
 					bGui = true;
 				} else {
 					service_name = argv[i];
@@ -318,12 +342,12 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				LOG_MESSAGE_STD(_T("Service failed to start: ") + e.error_);
 				return -1;
 			}
-		} else if ( _wcsicmp( _T("stop"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("stop"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			bool bGui = false;
 			std::wstring service_name;
 			for (int i=2;i<argc;i++) {
-				if (_wcsicmp( _T("gui"), argv[i]) == 0) {
+				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
 					bGui = true;
 				} else {
 					service_name = argv[i];
@@ -339,7 +363,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				LOG_MESSAGE_STD(_T("Service failed to stop: ") + e.error_);
 				return -1;
 			}
-		} else if ( _wcsicmp( _T("svc"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("svc"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			try {
 				std::wstring exe = serviceControll::get_exe_path(SZSERVICENAME);
@@ -348,7 +372,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				LOG_ERROR_STD(_T("Failed to find service: ") + e.error_);
 			}
 #endif
-		} else if ( _wcsicmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			std::wstring password;
 			if (!settings_manager::init_settings(mainClient.getBasePath())) {
@@ -364,7 +388,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				std::wcout << _T("ERROR: Password did not match: ") << outPasswd<< std::endl;
 			settings_manager::destroy_settings();
 			return 0;
-		} else if ( _wcsicmp( _T("about"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("about"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
 			LOG_MESSAGE(_T("Version: ") SZVERSION);
@@ -401,12 +425,12 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				}
 			}
 			return false;
-		} else if ( _wcsicmp( _T("version"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("version"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			LOG_MESSAGE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
-		} else if ( _wcsicmp( _T("d"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("d"), argv[1]+1 ) == 0 ) {
 			// Run command from command line (like NRPE) but with debug enabled
-		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("noboot"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			mainClient.enableDebug(false);
 			mainClient.initCore(false);
@@ -416,7 +440,7 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
 			mainClient.exitCore(true);
 			return nRetCode;
-		} else if ( _wcsicmp( _T("c"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("c"), argv[1]+1 ) == 0 ) {
 			// Run command from command line (like NRPE)
 			g_bConsoleLog = true;
 			mainClient.enableDebug(false);
@@ -432,13 +456,13 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			std::wcout << msg << _T("|") << perf << std::endl;
 			mainClient.exitCore(true);
 			return nRetCode;
-		} else if ( _wcsicmp( _T("test"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("test"), argv[1]+1 ) == 0 ) {
 			bool server = false;
-			if (argc > 2 && _wcsicmp( _T("server"), argv[2] ) == 0 ) {
+			if (argc > 2 && wcscasecmp( _T("server"), argv[2] ) == 0 ) {
 				server = true;
 			}
 			std::wcout << "Launching test mode - " << (server?_T("server mode"):_T("client mode")) << std::endl;
-			LOG_MESSAGE_STD(_T("Booting: " SZSERVICEDISPLAYNAME ));
+			LOG_MESSAGE_STD(_T("Booting: ") SZSERVICEDISPLAYNAME );
 #ifdef WIN32
 			try {
 				if (serviceControll::isStarted(SZSERVICENAME)) {
@@ -617,7 +641,7 @@ void NSClientT::load_all_plugins(int mode) {
 	}
 }
 
-void NSClientT::HandleSettingsCLI(TCHAR* arg, int argc, TCHAR* argv[]) {
+void NSClientT::HandleSettingsCLI(wchar_t* arg, int argc, wchar_t* argv[]) {
 	std::wstring sarg = arg;
 	try {
 		if (sarg == _T("migrate")) {
@@ -733,7 +757,7 @@ void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring 
  * @author mickem
  */
 bool NSClientT::initCore(bool boot) {
-	LOG_MESSAGE(_T("Attempting to start NSCLient++ - " SZVERSION));
+	LOG_MESSAGE(_T("Attempting to start NSCLient++ - ") SZVERSION);
 	if (!settings_manager::init_settings(getBasePath())) {
 		return false;
 	}
@@ -814,7 +838,7 @@ bool NSClientT::initCore(bool boot) {
 				LOG_DEBUG_STD(_T("Processing plugin: " + *cit));
 				try {
 					if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, *cit) == _T("disabled")) {
-						LOG_DEBUG_STD(_T("Not booting: " + *cit + _T(" since it is disabled.")));
+						LOG_DEBUG_STD(_T("Not booting: ") + *cit + _T(" since it is disabled."));
 						continue;
 					}
 				} catch (...) {
@@ -845,9 +869,9 @@ bool NSClientT::initCore(bool boot) {
 			LOG_ERROR_STD(_T("Unknown exception loading plugins"));
 			return false;
 		}
-		LOG_DEBUG_STD(_T("NSCLient++ - " SZVERSION) + _T(" Started!"));
+		LOG_DEBUG_STD(_T("NSCLient++ - ") SZVERSION _T(" Started!"));
 	}
-	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Started!"));
+	LOG_MESSAGE_STD(_T("NSCLient++ - ") SZVERSION _T(" Started!"));
 	return true;
 }
 
@@ -901,7 +925,7 @@ void NSClientT::startTrayIcon(DWORD dwSessionId) {
 
 bool NSClientT::exitCore(bool boot) {
 	plugins_loaded_ = false;
-	LOG_DEBUG(_T("Attempting to stop NSCLient++ - " SZVERSION));
+	LOG_DEBUG(_T("Attempting to stop NSCLient++ - ") SZVERSION);
 	if (boot) {
 		try {
 			LOG_DEBUG_STD(_T("Stopping: NON Message Handling Plugins"));
@@ -964,7 +988,7 @@ bool NSClientT::exitCore(bool boot) {
 			LOG_ERROR_STD(_T("UNknown exception raised: When stopping message plguins"));
 		}
 	}
-	LOG_MESSAGE_STD(_T("NSCLient++ - " SZVERSION) + _T(" Stopped succcessfully"));
+	LOG_MESSAGE_STD(_T("NSCLient++ - ") SZVERSION _T(" Stopped succcessfully"));
 	return true;
 }
 /**
@@ -1017,7 +1041,7 @@ void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
-int NSClientT::commandLineExec(const TCHAR* module, const TCHAR* command, const unsigned int argLen, TCHAR** args) {
+int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, const unsigned int argLen, wchar_t** args) {
 	std::wstring sModule = module;
 	std::wstring moduleList = _T("");
 	{
@@ -1257,7 +1281,7 @@ unsigned int NSClientT::getBufferLength() {
 	return len;
 }
 
-NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
+NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
 			return shared_client_->inject(command, arguments, splitter, escape, msg, perf);
@@ -1270,10 +1294,10 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 		}
 	} else */{
 		unsigned int aLen = 0;
-		TCHAR ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
+		wchar_t ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
 		unsigned int buf_len = getBufferLength();
-		TCHAR * mBuf = new TCHAR[buf_len+1]; mBuf[0] = '\0';
-		TCHAR * pBuf = new TCHAR[buf_len+1]; pBuf[0] = '\0';
+		wchar_t * mBuf = new wchar_t[buf_len+1]; mBuf[0] = '\0';
+		wchar_t * pBuf = new wchar_t[buf_len+1]; pBuf[0] = '\0';
 		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, buf_len, pBuf, buf_len);
 		arrayBuffer::destroyArrayBuffer(aBuf, aLen);
 		if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
@@ -1301,7 +1325,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
  * @param returnPerfBufferLen Length of returnPerfBuffer
  * @return The command status
  */
-NSCAPI::nagiosReturn NSClientT::injectRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	if (logDebug()) {
 		LOG_DEBUG_STD(_T("Injecting: ") + (std::wstring) command + _T(": ") + arrayBuffer::arrayBuffer2string(argument, argLen, _T(", ")));
 	}
@@ -1396,7 +1420,9 @@ bool NSClientT::logDebug() {
 }
 
 void log_broken_message(std::wstring msg) {
+#ifdef WIN32
 	OutputDebugString(msg.c_str());
+#endif
 	std::wcout << msg << std::endl;
 }
 /**
@@ -1407,7 +1433,7 @@ void log_broken_message(std::wstring msg) {
  * @param line  Line number, generally __LINE__
  * @param message The message as a human readable string.
  */
-void NSClientT::reportMessage(int msgType, const TCHAR* file, const int line, std::wstring message) {
+void NSClientT::reportMessage(int msgType, const wchar_t* file, const int line, std::wstring message) {
 	try {
 		strEx::replace(message, _T("\n"), _T(" "));
 		strEx::replace(message, _T("\r"), _T(" "));
@@ -1504,12 +1530,14 @@ std::wstring NSClientT::getBasePath(void) {
 	if (!basePath.empty())
 		return basePath;
 	unsigned int buf_len = 4096;
-	TCHAR* buffer = new TCHAR[buf_len+1];
+#ifdef WIN32
+	wchar_t* buffer = new wchar_t[buf_len+1];
 	GetModuleFileName(NULL, buffer, buf_len);
 	std::wstring path = buffer;
 	std::wstring::size_type pos = path.rfind('\\');
 	basePath = path.substr(0, pos) + _T("\\");
 	delete [] buffer;
+#endif
 	try {
 		settings_manager::get_core()->set_base(basePath);
 	} catch (SettingsException e) {
@@ -1525,7 +1553,7 @@ std::wstring Encrypt(std::wstring str, unsigned int algorithm) {
 	unsigned int len = 0;
 	NSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
-	TCHAR *buf = new TCHAR[len+1];
+	wchar_t *buf = new wchar_t[len+1];
 	NSCAPI::errorReturn ret = NSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::wstring ret = buf;
@@ -1538,7 +1566,7 @@ std::wstring Decrypt(std::wstring str, unsigned int algorithm) {
 	unsigned int len = 0;
 	NSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
-	TCHAR *buf = new TCHAR[len+1];
+	wchar_t *buf = new wchar_t[len+1];
 	NSCAPI::errorReturn ret = NSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::wstring ret = buf;
@@ -1547,5 +1575,3 @@ std::wstring Decrypt(std::wstring str, unsigned int algorithm) {
 	}
 	return _T("");
 }
-
-

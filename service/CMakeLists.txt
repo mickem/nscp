@@ -27,15 +27,26 @@ SET(BUILD_SHARED_LIBS ${SHARED_LIBS})
 
 SET(NSCP_LOCAL_INCLUDE_PATH "${PROJECT_BINARY_DIR}/../include" CACHE PATH "directory containing NSCP specific includes")
 
+
+set(Boost_USE_STATIC_LIBS   ON)
+set(Boost_USE_MULTITHREADED ON)
+
+
 IF(WIN32)
-  SET(USERLIB_ROOT "c:/libraries" CACHE PATH "directory containing the dependency libraries")
+  #SET(USERLIB_ROOT "c:/libraries" CACHE PATH "directory containing the dependency libraries")
   SET(LIB_INSTALL_DIR "lib" CACHE STRING "Default path for libraries within ${CMAKE_INSTALL_PREFIX}")
   SET(RUNDIR "c:/nscp" CACHE PATH "Not really used in WIN32")
-  SET(CONFIGURATION c:/witty/wt_config.xml CACHE PATH "Path for the wt configuration file")
-  SET(DEPLOYROOT c:/nscp/ CACHE PATH "Path to deploy examples into")
-  SET(BOOST_DIR ${USERLIB_ROOT} CACHE PATH "Use boost in directory")
-  SET(BOOST_VERSION "1_34_1" CACHE STRING "Use boost version in BOOST_DIR")
-  OPTION(BOOST_DYNAMIC "Link to boost DLLs (OFF means static link)" OFF)
+  #SET(CONFIGURATION c:/witty/wt_config.xml CACHE PATH "Path for the wt configuration file")
+  #SET(DEPLOYROOT c:/nscp/ CACHE PATH "Path to deploy examples into")
+  #SET(BOOST_DIR ${USERLIB_ROOT} CACHE PATH "Use boost in directory")
+  SET(BOOST_LIBRARYDIR c:/src/lib/x86 CACHE PATH "")
+  SET(BOOST_INCLUDEDIR c:/src/include/boost-1_39 CACHE PATH "")
+  
+  SET(BOOST_LIB_PREFIX lib CACHE STRING "Look for Boost libraries prefixed with this")
+  SET(BOOST_LIB_SUFFIX vc80-mt CACHE STRING "Look for Boost libraries ending with this")
+
+  #SET(BOOST_VERSION "1_34_1" CACHE STRING "Use boost version in BOOST_DIR")
+  #OPTION(BOOST_DYNAMIC "Link to boost DLLs (OFF means static link)" OFF)
 
 ELSE(WIN32)
 
@@ -50,8 +61,10 @@ ELSE(WIN32)
   SET(BOOST_VERSION "1_34_1" CACHE STRING "Boost libraries version signature")
 ENDIF(WIN32)
 
-INCLUDE(../cmake/WtFindBoost.txt)
-INCLUDE(../cmake/WtFindAsio.txt)
+find_package(Boost COMPONENTS system filesystem thread REQUIRED)
+
+#INCLUDE(../cmake/WtFindBoost.txt)
+#INCLUDE(../cmake/WtFindAsio.txt)
 INCLUDE(../cmake/WtFindSsl.txt)
 
 # Boost is used nearly everywhere, so we can put these here
@@ -91,10 +104,17 @@ add_executable (NSCP
 	settings_manager_impl.cpp
 	../include/NSCHelper.cpp
 	../include/arrayBuffer.cpp
-	../include/ServiceCmd.cpp
+#	../include/ServiceCmd.cpp
 	../include/b64/b64.c
 )
-target_link_libraries (NSCP  ${EXTRA_LIBS})
+
+target_link_libraries(NSCP 
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_LIBRARIES}
+  ${EXTRA_LIBS}
+)
+
+
 
 
 INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION

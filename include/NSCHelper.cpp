@@ -72,7 +72,7 @@ NSCAPI::errorReturn NSCHelper::wrapReturnString(char *buffer, unsigned int bufLe
 int NSCHelper::wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
 	// @todo deprecate this
 	if (str.length() >= bufLen) {
-		std::wstring sstr = str.substr(0, min(10, str.length()));
+		std::wstring sstr = str.substr(0, bufLen-2);
 		NSC_DEBUG_MSG_STD(_T("String (") + strEx::itos(str.length()) + _T(") to long to fit inside buffer(") + strEx::itos(bufLen) + _T(") : ") + sstr);
 		return NSCAPI::isInvalidBufferLen;
 	}
@@ -217,7 +217,7 @@ void NSCModuleHelper::Message(int msgType, std::wstring file, int line, std::wst
  * @param returnPerfBufferLen returnPerfBuffer
  * @return The returned status of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const wchar_t* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
@@ -232,13 +232,13 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const wchar_t* command, c
  * @param perf The return performance data buffer
  * @return The return of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, const unsigned int argLen, TCHAR **argument, std::wstring & message, std::wstring & perf) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const wchar_t* command, const unsigned int argLen, wchar_t **argument, std::wstring & message, std::wstring & perf) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int buf_len = getBufferLength();
-	TCHAR *msgBuffer = new TCHAR[buf_len+1];
-	TCHAR *perfBuffer = new TCHAR[buf_len+1];
+	wchar_t *msgBuffer = new wchar_t[buf_len+1];
+	wchar_t *perfBuffer = new wchar_t[buf_len+1];
 	msgBuffer[0] = 0;
 	perfBuffer[0] = 0;
 	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, argument, msgBuffer, buf_len, perfBuffer, buf_len);
@@ -275,7 +275,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, const 
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const wchar_t* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
@@ -283,9 +283,9 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, std::l
 
 
 	unsigned int argLen;
-	TCHAR ** aBuffer = arrayBuffer::list2arrayBuffer(argument, argLen);
-	TCHAR *msgBuffer = new TCHAR[buf_len+1];
-	TCHAR *perfBuffer = new TCHAR[buf_len+1];
+	wchar_t ** aBuffer = arrayBuffer::list2arrayBuffer(argument, argLen);
+	wchar_t *msgBuffer = new wchar_t[buf_len+1];
+	wchar_t *perfBuffer = new wchar_t[buf_len+1];
 	msgBuffer[0] = 0;
 	perfBuffer[0] = 0;
 	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, aBuffer, msgBuffer, buf_len, perfBuffer, buf_len);
@@ -319,17 +319,17 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const TCHAR* command, std::l
  * Parses a string by splitting and makes the array and also manages return buffers and such.
  * @param command The command to execute
  * @param buffer The buffer to split
- * @param splitChar The char to use as splitter
+ * @param spliwchar_t The char to use as splitter
  * @param message The return message buffer
  * @param perf The return performance data buffer
  * @return The result of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const TCHAR* command, TCHAR* buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf)
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf)
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int argLen = 0;
-	TCHAR ** aBuffer;
+	wchar_t ** aBuffer;
 	if (buffer)
 		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen);
 	else
@@ -342,24 +342,26 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const TCHAR* command
  * A wrapper around the InjetCommand that is simpler to use.
  * @param command The command to execute
  * @param buffer The buffer to split
- * @param splitChar The char to use as splitter
+ * @param spliwchar_t The char to use as splitter
  * @param message The return message buffer
  * @param perf The return performance data buffer
  * @return The result of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, TCHAR splitChar, std::wstring & message, std::wstring & perf, bool escape)
+namespace NSCModuleHelper {
+NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t spliwchar_t, std::wstring & message, std::wstring & perf, int escape)
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int argLen = 0;
-	TCHAR ** aBuffer;
+	wchar_t ** aBuffer;
 	if (buffer.empty())
 		aBuffer= arrayBuffer::createEmptyArrayBuffer(argLen);
 	else
-		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen, escape);
+		aBuffer= arrayBuffer::split2arrayBuffer(buffer, spliwchar_t, argLen, escape);
 	NSCAPI::nagiosReturn ret = InjectCommand(command.c_str(), argLen, aBuffer, message, perf);
 	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
 	return ret;
+}
 }
 /**
  * Ask the core to shutdown (only works when run as a service, o/w does nothing ?
@@ -391,7 +393,7 @@ std::wstring NSCModuleHelper::getSettingsString(std::wstring section, std::wstri
 	if (!fNSAPIGetSettingsString)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int buf_len = getBufferLength();
-	TCHAR *buffer = new TCHAR[buf_len+1];
+	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Settings could not be retrieved."));
@@ -436,25 +438,25 @@ int NSCModuleHelper::getSettingsInt(std::wstring section, std::wstring key, int 
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
-
-void NSCModuleHelper::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
+namespace NSCModuleHelper {
+void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, int advanced) {
 	if (!fNSAPISettingsRegKey)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	fNSAPISettingsRegKey(path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
 }
-void NSCModuleHelper::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
 	if (!fNSAPISettingsRegPath)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	fNSAPISettingsRegPath(path.c_str(), title.c_str(), description.c_str(), advanced);
 }
 
 
-void NSCModuleHelper::settings_save() {
+void settings_save() {
 	if (!fNSAPISettingsSave)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	fNSAPISettingsSave();
 }
-
+}
 
 
 /**
@@ -485,7 +487,7 @@ std::wstring NSCModuleHelper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int buf_len = getBufferLength();
-	TCHAR *buffer = new TCHAR[buf_len+1];
+	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetApplicationName(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Application name could not be retrieved"));
@@ -503,7 +505,7 @@ std::wstring NSCModuleHelper::getBasePath() {
 	if (!fNSAPIGetBasePath)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int buf_len = getBufferLength();
-	TCHAR *buffer = new TCHAR[buf_len+1];
+	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetBasePath(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Base path could not be retrieved"));
@@ -541,7 +543,7 @@ std::wstring NSCModuleHelper::Encrypt(std::wstring str, unsigned int algorithm) 
 	// @todo investigate potential problems with static_cast<unsigned int>
 	fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
-	TCHAR *buf = new TCHAR[len+1];
+	wchar_t *buf = new wchar_t[len+1];
 	NSCAPI::errorReturn ret = fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::wstring ret = buf;
@@ -557,7 +559,7 @@ std::wstring NSCModuleHelper::Decrypt(std::wstring str, unsigned int algorithm) 
 	// @todo investigate potential problems with: static_cast<unsigned int>(str.size())
 	fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
 	len+=2;
-	TCHAR *buf = new TCHAR[len+1];
+	wchar_t *buf = new wchar_t[len+1];
 	NSCAPI::errorReturn ret = fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
 	if (ret == NSCAPI::isSuccess) {
 		std::wstring ret = buf;
@@ -637,7 +639,7 @@ std::wstring NSCModuleHelper::describeCommand(std::wstring command) {
 	if (!fNSAPIDescribeCommand)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int buf_len = getBufferLength();
-	TCHAR *buffer = new TCHAR[buf_len+1];
+	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIDescribeCommand(command.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		throw NSCMHExcpetion(_T("Base path could not be retrieved"));
@@ -667,7 +669,7 @@ std::wstring NSCModuleHelper::getApplicationVersionString() {
 	if (!fNSAPIGetApplicationVersionStr)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	unsigned int buf_len = getBufferLength();
-	TCHAR *buffer = new TCHAR[buf_len+1];
+	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetApplicationVersionStr(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
 		return _T("");
@@ -678,7 +680,9 @@ std::wstring NSCModuleHelper::getApplicationVersionString() {
 }
 
 namespace NSCModuleWrapper {
+#ifdef WIN32
 	HINSTANCE hModule_ = NULL;
+#endif
 }
 /**
  * Used to help store the module handle (and possibly other things in the future)
@@ -686,7 +690,8 @@ namespace NSCModuleWrapper {
  * @param ul_reason_for_call cf. DllMain
  * @return TRUE
  */
-BOOL NSCModuleWrapper::wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call)
+#ifdef WIN32
+int NSCModuleWrapper::wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call)
 {
 	switch (ul_reason_for_call)
 	{
@@ -708,6 +713,7 @@ HINSTANCE NSCModuleWrapper::getModule() {
 	return hModule_;
 }
 
+#endif
 /**
  * Wrapper function around the ModuleHelperInit call.
  * This wrapper retrieves all pointers and stores them for future use.
@@ -758,11 +764,11 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 * @param str String to store inside the buffer
 * @	 copy status
 */
-NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleName(TCHAR* buf, unsigned int bufLen, std::wstring str) {
+NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleName(wchar_t* buf, unsigned int bufLen, std::wstring str) {
 	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);
 }
 
-NSCAPI::errorReturn NSCModuleWrapper::wrapGetConfigurationMeta(TCHAR* buf, unsigned int bufLen, std::wstring str) {
+NSCAPI::errorReturn NSCModuleWrapper::wrapGetConfigurationMeta(wchar_t* buf, unsigned int bufLen, std::wstring str) {
 	return NSCHelper::wrapReturnString(buf, bufLen, str, NSCAPI::isSuccess);
 }
 /**
@@ -810,7 +816,7 @@ NSCAPI::boolReturn NSCModuleWrapper::wrapHasMessageHandler(bool has) {
  * @param returnBufferPerfLen The return performance data buffer length
  * @return the return code
  */
-NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::wstring retMessage, const std::wstring retPerformance, TCHAR *returnBufferMessage, unsigned int returnBufferMessageLen, TCHAR *returnBufferPerf, unsigned int returnBufferPerfLen) {
+NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::wstring retMessage, const std::wstring retPerformance, wchar_t *returnBufferMessage, unsigned int returnBufferMessageLen, wchar_t *returnBufferPerf, unsigned int returnBufferPerfLen) {
 	if (retMessage.empty())
 		return NSCAPI::returnIgnored;
 	NSCAPI::nagiosReturn ret = NSCHelper::wrapReturnString(returnBufferMessage, returnBufferMessageLen, retMessage, retResult);

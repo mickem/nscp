@@ -75,7 +75,7 @@ public:
 		wcsncpy(serviceName_, name.c_str(), name.length());
 		dispatchTable = new SERVICE_TABLE_ENTRY[2];
 		dispatchTable[0].lpServiceName = serviceName_;
-		dispatchTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)TBase::service_main_dispatch;
+		//dispatchTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)TBase::service_main_dispatch;
 		dispatchTable[1].lpServiceName = NULL;
 		dispatchTable[1].lpServiceProc = NULL;
 	}

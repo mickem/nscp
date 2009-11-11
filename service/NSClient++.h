@@ -19,7 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-
+#include <types.hpp>
 #include <config.h>
 #include <service/system_service.hpp>
 #include "NSCPlugin.h"
@@ -145,12 +145,12 @@ public:
 
 	// Member functions
 	std::wstring getBasePath(void);
-	NSCAPI::nagiosReturn injectRAW(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen);
-	NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf);
+	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
+	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-	void reportMessage(int msgType, const TCHAR* file, const int line, std::wstring message);
-	int commandLineExec(const TCHAR* module, const TCHAR* command, const unsigned int argLen, TCHAR** args);
+	void reportMessage(int msgType, const wchar_t* file, const int line, std::wstring message);
+	int commandLineExec(const wchar_t* module, const wchar_t* command, const unsigned int argLen, wchar_t** args);
 
 	void addPlugins(const std::list<std::wstring> plugins);
 	plugin_type loadPlugin(const std::wstring plugin);
@@ -160,7 +160,7 @@ public:
 	std::list<std::wstring> getAllCommandNames();
 	void registerCommand(std::wstring cmd, std::wstring desc);
 	unsigned int getBufferLength();
-	void HandleSettingsCLI(TCHAR* arg, int argc, TCHAR* argv[]);
+	void HandleSettingsCLI(wchar_t* arg, int argc, wchar_t* argv[]);
 	void startTrayIcons();
 	void startTrayIcon(DWORD dwSessionId);
 
@@ -171,10 +171,10 @@ public:
 	// Shared session interface:
 	void session_error(std::wstring file, unsigned int line, std::wstring msg);
 	void session_info(std::wstring file, unsigned int line, std::wstring msg);
-	void session_log_message(int msgType, const TCHAR* file, const int line, std::wstring message) {
+	void session_log_message(int msgType, const wchar_t* file, const int line, std::wstring message) {
 		reportMessage(msgType, file, line, message);
 	}
-	int session_inject(std::wstring command, std::wstring arguments, TCHAR splitter, bool escape, std::wstring &msg, std::wstring & perf) {
+	int session_inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 		return inject(command, arguments, splitter, escape, msg, perf);
 	}
 	std::pair<std::wstring,std::wstring> session_get_name() {
@@ -196,10 +196,6 @@ extern NSClient mainClient;	// Global core instance forward declaration.
 std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 
-#ifndef __FILEW__
-#define R(x) _T(x)
-#define __FILEW__ R(__FILE__)
-#endif
 //////////////////////////////////////////////////////////////////////////
 // Log macros to simplify logging
 // Generally names are of the form LOG_<severity>[_STD] 

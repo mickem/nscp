@@ -44,7 +44,7 @@
 #include <vector>
 
 #include "config.h"
-#include <singleton.h>
+#include <Singleton.h>
 #include <charEx.h>
 #include <memory>
 

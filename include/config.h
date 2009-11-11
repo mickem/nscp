@@ -27,33 +27,40 @@
 #include <string>
 #include <settings/macros.h>
 // Application Name
-#define SZAPPNAME _T("NSClient++")
+
+#ifndef WSTR
+#define WSTR(x) _T(x)
+#endif
+
+#define SZAPPNAME WSTR("NSClient++")
 
 // Version
-#define SZBETATAG _T(" ")
-//#define SZBETATAG _T(" BETA ") 
-//#define SZBETATAG _T(" BETA ") 
-#define SZVERSION STRPRODUCTVER SZBETATAG STRPRODUCTDATE
+#define SZBETATAG " "
+//#define SZBETATAG " BETA "
+//#define SZBETATAG " BETA "
+#define _SZVERSION WSTR(STRPRODUCTVER) WSTR(SZBETATAG) WSTR(STRPRODUCTDATE)
+#define SZVERSION _SZVERSION
+//STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
 
 #if defined(_M_IX86)
-#define SZARCH _T("w32")
+#define SZARCH WSTR("w32")
 #elif defined(_M_X64)
-#define SZARCH _T("x64")
+#define SZARCH WSTR("x64")
 #elif defined(_M_IA64)
-#define SZARCH _T("ia64")
+#define SZARCH WSTR("ia64")
 #else
-#define SZARCH _T("unknown")
+#define SZARCH WSTR("unknown")
 #endif
 
 // internal name of the service
-#define SZSERVICENAME        _T("NSClientpp")
+#define SZSERVICENAME        WSTR("NSClientpp")
 
 // Description of service
-#define SZSERVICEDESCRIPTION _T("Nagios Windows Agent (Provides performance data for Nagios server)")
+#define SZSERVICEDESCRIPTION WSTR("Nagios Windows Agent (Provides performance data for Nagios server)")
 
 // displayed name of the service
-#define SZSERVICEDISPLAYNAME SZSERVICENAME _T(" (Nagios) ") SZVERSION _T(" ") SZARCH
+#define SZSERVICEDISPLAYNAME SZSERVICENAME WSTR(" (Nagios) ") SZVERSION WSTR(" ") SZARCH
 
 // list of service dependencies - "dep1\0dep2\0\0"
 #define SZDEPENDENCIES       _T("")

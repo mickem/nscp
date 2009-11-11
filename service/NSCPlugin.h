@@ -153,7 +153,7 @@ public:
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
 	bool hasMessageHandler(void);
-	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen);
+	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t* returnPerfBuffer, unsigned int returnPerfBufferLen);
 	void handleMessage(int msgType, const wchar_t* file, const int line, const wchar_t *message);
 	void unload(void);
 	std::wstring getCongifurationMeta();

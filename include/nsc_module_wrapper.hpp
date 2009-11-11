@@ -11,10 +11,10 @@ namespace NSCModuleWrapper {
 		int minor;
 		int revision;
 	};
-
+#ifdef WIN32
 	int wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call);
 	HINSTANCE getModule();
-
+#endif
 	int wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f);;
 	NSCAPI::errorReturn wrapGetModuleName(wchar_t* buf, unsigned int buflen, std::wstring str);
 	NSCAPI::errorReturn wrapGetConfigurationMeta(wchar_t* buf, unsigned int buflen, std::wstring str);

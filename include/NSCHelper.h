@@ -26,6 +26,7 @@
 #include <iostream>
 #include <charEx.h>
 #include <arrayBuffer.h>
+#include <types.hpp>
 #ifdef WIN32
 //#include <windows.h>
 #endif

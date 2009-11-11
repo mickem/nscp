@@ -251,6 +251,8 @@ enum SI_Error {
 # define SI_NEWLINE_W   L"\n"
 #endif // _WIN32
 
+#define SI_CONVERT_ICU
+
 #if defined(SI_CONVERT_ICU)
 # include <unicode/ustring.h>
 #endif

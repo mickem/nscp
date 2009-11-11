@@ -1,10 +1,10 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "settings_manager_impl.h"
 
 #define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
 #define LOG_CRITICAL(msg) \
-	NSAPIMessage(NSCAPI::critical, _T(__FILE__), __LINE__, msg)
+	NSAPIMessage(NSCAPI::critical, __FILEW__, __LINE__, msg)
 
 namespace settings_manager {
 	// Alias to make handling "compatible" with old syntax

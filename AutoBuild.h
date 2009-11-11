@@ -4,7 +4,7 @@
 #define INCREMENT_VERSION TRUE
 #define FILEVER        0,4,0,33
 #define PRODUCTVER     0,4,0,33
-#define STRFILEVER     _T("0.4.0.33")
-#define STRPRODUCTVER  _T("0.4.0.33")
-#define STRPRODUCTDATE  _T("2009-11-01")
+#define STRFILEVER     "a0.4.0.33"
+#define STRPRODUCTVER  "a0.4.0.33"
+#define STRPRODUCTDATE  "2009-11-01"
 #endif // AUTOBUILD_H

@@ -12,16 +12,18 @@
 // You are free to use/modify this code but leave this header intact.
 //
 //////////////////////////////////////////////////////////////////////////
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "NSClient++.h"
 #include "core_api.h"
 #include <charEx.h>
 #include <config.h>
 #include <msvc_wrappers.h>
-#include <settings/settings_ini.hpp>
-#include <settings/settings_registry.hpp>
-#include <settings/settings_old.hpp>
+//#include <settings/settings_ini.hpp>
+//#include <settings/settings_registry.hpp>
+//#include <settings/settings_old.hpp>
+#ifdef WIN32x
 #include <Userenv.h>
+#endif
 #include <settings/Settings.h>
 #include "settings_manager_impl.h"
 #include <b64/b64.h>
@@ -29,7 +31,7 @@
 
 
 
-NSCAPI::errorReturn NSAPIGetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* defaultValue, TCHAR* buffer, unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue, wchar_t* buffer, unsigned int bufLen) {
 	try {
 		return NSCHelper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
 	} catch (...) {
@@ -37,7 +39,7 @@ NSCAPI::errorReturn NSAPIGetSettingsString(const TCHAR* section, const TCHAR* ke
 		return NSCAPI::hasFailed;
 	}
 }
-int NSAPIGetSettingsInt(const TCHAR* section, const TCHAR* key, int defaultValue) {
+int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultValue) {
 	try {
 		return settings_manager::get_settings()->get_int(section, key, defaultValue);
 	} catch (SettingsException e) {
@@ -45,16 +47,16 @@ int NSAPIGetSettingsInt(const TCHAR* section, const TCHAR* key, int defaultValue
 		return defaultValue;
 	}
 }
-NSCAPI::errorReturn NSAPIGetBasePath(TCHAR*buffer, unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath(), NSCAPI::isSuccess);
 }
-NSCAPI::errorReturn NSAPIGetApplicationName(TCHAR*buffer, unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, SZAPPNAME, NSCAPI::isSuccess);
 }
-NSCAPI::errorReturn NSAPIGetApplicationVersionStr(TCHAR*buffer, unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, SZVERSION, NSCAPI::isSuccess);
 }
-void NSAPIMessage(int msgType, const TCHAR* file, const int line, const TCHAR* message) {
+void NSAPIMessage(int msgType, const wchar_t* file, const int line, const wchar_t* message) {
 	mainClient.reportMessage(msgType, file, line, message);
 }
 void NSAPIStopServer(void) {
@@ -62,10 +64,10 @@ void NSAPIStopServer(void) {
 	serviceControll::StopNoWait(SZSERVICENAME);
 #endif
 }
-NSCAPI::nagiosReturn NSAPIInject(const TCHAR* command, const unsigned int argLen, TCHAR **argument, TCHAR *returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR *returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
-NSCAPI::errorReturn NSAPIGetSettingsSection(const TCHAR* section, TCHAR*** aBuffer, unsigned int * bufLen) {
+NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** aBuffer, unsigned int * bufLen) {
 	try {
 		unsigned int len = 0;
 		*aBuffer = arrayBuffer::list2arrayBuffer(settings_manager::get_settings()->get_keys(section), len);
@@ -78,7 +80,7 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const TCHAR* section, TCHAR*** aBuff
 	}
 	return NSCAPI::hasFailed;
 }
-NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(TCHAR*** aBuffer, unsigned int * bufLen) {
+NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsigned int * bufLen) {
 	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
 	*bufLen = 0;
 	*aBuffer = NULL;
@@ -91,7 +93,7 @@ NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 	return NSCAPI::isfalse;
 }
 
-NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen) {
+NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
 	if (algorithm != NSCAPI::encryption_xor) {
 		LOG_ERROR(_T("Unknown algortihm requested."));
 		return NSCAPI::hasFailed;
@@ -121,7 +123,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 		return NSCAPI::isInvalidBufferLen;
 	}
 	int realOutLen;
-	TCHAR *realOut = charEx::char_to_tchar(cOutBuf, cOutBufLen, realOutLen);
+	wchar_t *realOut = charEx::char_to_tchar(cOutBuf, cOutBufLen, realOutLen);
 	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
 		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
 		return NSCAPI::isInvalidBufferLen;
@@ -134,7 +136,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 	return NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, unsigned int inBufLen, TCHAR* outBuf, unsigned int *outBufLen) {
+NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
 	if (algorithm != NSCAPI::encryption_xor) {
 		LOG_ERROR(_T("Unknown algortihm requested."));
 		return NSCAPI::hasFailed;
@@ -164,7 +166,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 		cOutBuf[i] ^= key[j];
 	}
 
-	TCHAR *realOut = charEx::char_to_tchar(cOutBuf, cOutLen, realOutLen);
+	wchar_t *realOut = charEx::char_to_tchar(cOutBuf, cOutLen, realOutLen);
 	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
 		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
 		return NSCAPI::isInvalidBufferLen;
@@ -177,7 +179,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const TCHAR* inBuffer, 
 	return NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn NSAPISetSettingsString(const TCHAR* section, const TCHAR* key, const TCHAR* value) {
+NSCAPI::errorReturn NSAPISetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* value) {
 	try {
 		settings_manager::get_settings()->set_string(section, key, value);
 	} catch (...) {
@@ -186,7 +188,7 @@ NSCAPI::errorReturn NSAPISetSettingsString(const TCHAR* section, const TCHAR* ke
 	}
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPISetSettingsInt(const TCHAR* section, const TCHAR* key, int value) {
+NSCAPI::errorReturn NSAPISetSettingsInt(const wchar_t* section, const wchar_t* key, int value) {
 	try {
 		settings_manager::get_settings()->set_int(section, key, value);
 	} catch (...) {
@@ -232,7 +234,7 @@ NSCAPI::errorReturn NSAPIReadSettings(int type) {
 NSCAPI::errorReturn NSAPIRehash(int flag) {
 	return NSCAPI::hasFailed;
 }
-NSCAPI::errorReturn NSAPIDescribeCommand(const TCHAR* command, TCHAR* buffer, unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIDescribeCommand(const wchar_t* command, wchar_t* buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.describeCommand(command), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetAllCommandNames(arrayBuffer::arrayBuffer* aBuffer, unsigned int *bufLen) {
@@ -241,17 +243,17 @@ NSCAPI::errorReturn NSAPIGetAllCommandNames(arrayBuffer::arrayBuffer* aBuffer, u
 	*bufLen = len;
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(TCHAR*** aBuffer, unsigned int * bufLen) {
+NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(wchar_t*** aBuffer, unsigned int * bufLen) {
 	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
 	*bufLen = 0;
 	*aBuffer = NULL;
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPIRegisterCommand(const TCHAR* cmd,const TCHAR* desc) {
+NSCAPI::errorReturn NSAPIRegisterCommand(const wchar_t* cmd,const wchar_t* desc) {
 	mainClient.registerCommand(cmd, desc);
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPISettingsRegKey(const TCHAR* path, const TCHAR* key, int type, const TCHAR* title, const TCHAR* description, const TCHAR* defVal, int advanced) {
+NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {
 	try {
 		if (type == NSCAPI::key_string)
 			settings_manager::get_core()->register_key(path, key, Settings::SettingsCore::key_string, title, description, defVal, advanced);
@@ -271,7 +273,7 @@ NSCAPI::errorReturn NSAPISettingsRegKey(const TCHAR* path, const TCHAR* key, int
 }
 
 
-NSCAPI::errorReturn NSAPISettingsRegPath(const TCHAR* path, const TCHAR* title, const TCHAR* description, int advanced) {
+NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
 	try {
 		settings_manager::get_core()->register_path(path, title, description, advanced);
 	} catch (SettingsException e) {
@@ -284,10 +286,10 @@ NSCAPI::errorReturn NSAPISettingsRegPath(const TCHAR* path, const TCHAR* title, 
 	return NSCAPI::isSuccess;
 }
 
-//int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
-TCHAR* copyString(const std::wstring &str) {
+//int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
+wchar_t* copyString(const std::wstring &str) {
 	int sz = str.size();
-	TCHAR *tc = new TCHAR[sz+2];
+	wchar_t *tc = new wchar_t[sz+2];
 	wcsncpy_s(tc, sz+1, str.c_str(), sz);
 	return tc;
 }
@@ -332,61 +334,61 @@ NSCAPI::errorReturn NSAPISettingsSave(void) {
 
 
 
-LPVOID NSAPILoader(TCHAR*buffer) {
-	if (_wcsicmp(buffer, _T("NSAPIGetApplicationName")) == 0)
-		return &NSAPIGetApplicationName;
-	if (_wcsicmp(buffer, _T("NSAPIGetApplicationVersionStr")) == 0)
-		return &NSAPIGetApplicationVersionStr;
-	if (_wcsicmp(buffer, _T("NSAPIGetSettingsString")) == 0)
-		return &NSAPIGetSettingsString;
-	if (_wcsicmp(buffer, _T("NSAPIGetSettingsSection")) == 0)
-		return &NSAPIGetSettingsSection;
-	if (_wcsicmp(buffer, _T("NSAPIReleaseSettingsSectionBuffer")) == 0)
-		return &NSAPIReleaseSettingsSectionBuffer;
-	if (_wcsicmp(buffer, _T("NSAPIGetSettingsInt")) == 0)
-		return &NSAPIGetSettingsInt;
-	if (_wcsicmp(buffer, _T("NSAPIMessage")) == 0)
-		return &NSAPIMessage;
-	if (_wcsicmp(buffer, _T("NSAPIStopServer")) == 0)
-		return &NSAPIStopServer;
-	if (_wcsicmp(buffer, _T("NSAPIInject")) == 0)
-		return &NSAPIInject;
-	if (_wcsicmp(buffer, _T("NSAPIGetBasePath")) == 0)
-		return &NSAPIGetBasePath;
-	if (_wcsicmp(buffer, _T("NSAPICheckLogMessages")) == 0)
-		return &NSAPICheckLogMessages;
-	if (_wcsicmp(buffer, _T("NSAPIEncrypt")) == 0)
-		return &NSAPIEncrypt;
-	if (_wcsicmp(buffer, _T("NSAPIDecrypt")) == 0)
-		return &NSAPIDecrypt;
-	if (_wcsicmp(buffer, _T("NSAPISetSettingsString")) == 0)
-		return &NSAPISetSettingsString;
-	if (_wcsicmp(buffer, _T("NSAPISetSettingsInt")) == 0)
-		return &NSAPISetSettingsInt;
-	if (_wcsicmp(buffer, _T("NSAPIWriteSettings")) == 0)
-		return &NSAPIWriteSettings;
-	if (_wcsicmp(buffer, _T("NSAPIReadSettings")) == 0)
-		return &NSAPIReadSettings;
-	if (_wcsicmp(buffer, _T("NSAPIRehash")) == 0)
-		return &NSAPIRehash;
-	if (_wcsicmp(buffer, _T("NSAPIDescribeCommand")) == 0)
-		return &NSAPIDescribeCommand;
-	if (_wcsicmp(buffer, _T("NSAPIGetAllCommandNames")) == 0)
-		return &NSAPIGetAllCommandNames;
-	if (_wcsicmp(buffer, _T("NSAPIReleaseAllCommandNamessBuffer")) == 0)
-		return &NSAPIReleaseAllCommandNamessBuffer;
-	if (_wcsicmp(buffer, _T("NSAPIRegisterCommand")) == 0)
-		return &NSAPIRegisterCommand;
-	if (_wcsicmp(buffer, _T("NSAPISettingsRegKey")) == 0)
-		return &NSAPISettingsRegKey;
-	if (_wcsicmp(buffer, _T("NSAPISettingsRegPath")) == 0)
-		return &NSAPISettingsRegPath;
-	if (_wcsicmp(buffer, _T("NSAPIGetPluginList")) == 0)
-		return &NSAPIGetPluginList;
-	if (_wcsicmp(buffer, _T("NSAPIReleasePluginList")) == 0)
-		return &NSAPIReleasePluginList;
-	if (_wcsicmp(buffer, _T("NSAPISettingsSave")) == 0)
-		return &NSAPISettingsSave;
+LPVOID NSAPILoader(wchar_t*buffer) {
+	if (wcscasecmp(buffer, _T("NSAPIGetApplicationName")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetApplicationName);
+	if (wcscasecmp(buffer, _T("NSAPIGetApplicationVersionStr")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetApplicationVersionStr);
+	if (wcscasecmp(buffer, _T("NSAPIGetSettingsString")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsString);
+	if (wcscasecmp(buffer, _T("NSAPIGetSettingsSection")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsSection);
+	if (wcscasecmp(buffer, _T("NSAPIReleaseSettingsSectionBuffer")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIReleaseSettingsSectionBuffer);
+	if (wcscasecmp(buffer, _T("NSAPIGetSettingsInt")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsInt);
+	if (wcscasecmp(buffer, _T("NSAPIMessage")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIMessage);
+	if (wcscasecmp(buffer, _T("NSAPIStopServer")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIStopServer);
+	if (wcscasecmp(buffer, _T("NSAPIInject")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIInject);
+	if (wcscasecmp(buffer, _T("NSAPIGetBasePath")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetBasePath);
+	if (wcscasecmp(buffer, _T("NSAPICheckLogMessages")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPICheckLogMessages);
+	if (wcscasecmp(buffer, _T("NSAPIEncrypt")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIEncrypt);
+	if (wcscasecmp(buffer, _T("NSAPIDecrypt")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIDecrypt);
+	if (wcscasecmp(buffer, _T("NSAPISetSettingsString")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISetSettingsString);
+	if (wcscasecmp(buffer, _T("NSAPISetSettingsInt")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISetSettingsInt);
+	if (wcscasecmp(buffer, _T("NSAPIWriteSettings")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIWriteSettings);
+	if (wcscasecmp(buffer, _T("NSAPIReadSettings")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIReadSettings);
+	if (wcscasecmp(buffer, _T("NSAPIRehash")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIRehash);
+	if (wcscasecmp(buffer, _T("NSAPIDescribeCommand")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIDescribeCommand);
+	if (wcscasecmp(buffer, _T("NSAPIGetAllCommandNames")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetAllCommandNames);
+	if (wcscasecmp(buffer, _T("NSAPIReleaseAllCommandNamessBuffer")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIReleaseAllCommandNamessBuffer);
+	if (wcscasecmp(buffer, _T("NSAPIRegisterCommand")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIRegisterCommand);
+	if (wcscasecmp(buffer, _T("NSAPISettingsRegKey")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISettingsRegKey);
+	if (wcscasecmp(buffer, _T("NSAPISettingsRegPath")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISettingsRegPath);
+	if (wcscasecmp(buffer, _T("NSAPIGetPluginList")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetPluginList);
+	if (wcscasecmp(buffer, _T("NSAPIReleasePluginList")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIReleasePluginList);
+	if (wcscasecmp(buffer, _T("NSAPISettingsSave")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISettingsSave);
 
 	LOG_ERROR_STD(_T("Function not found: ") + buffer);
 	return NULL;

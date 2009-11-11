@@ -2,8 +2,8 @@
 
 #include "settings_logger_impl.hpp"
 #include <settings/Settings.h>
-#include <settings/settings_ini.hpp>
 #ifdef WIN32
+#include <settings/settings_ini.hpp>
 #include <settings/settings_old.hpp>
 #include <settings/settings_registry.hpp>
 #endif
@@ -25,11 +25,15 @@ namespace settings_manager {
 		///
 		/// @author mickem
 		std::wstring get_boot_string(std::wstring section, std::wstring key, std::wstring def) {
-			TCHAR* buffer = new TCHAR[1024];
+#ifdef WIN32
+			wchar_t* buffer = new wchar_t[1024];
 			GetPrivateProfileString(section.c_str(), key.c_str(), def.c_str(), buffer, 1023, boot_.c_str());
 			std::wstring ret = buffer;
 			delete [] buffer;
 			return ret;
+#else
+			return _T("ini");
+#endif
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Boot the settings subsystem from the given file (boot.ini).
@@ -67,9 +71,9 @@ namespace settings_manager {
 			} 
 			if (type == SettingsCore::registry)
 				return new Settings::REGSettings(this, context);
-#endif
 			if (type == SettingsCore::ini_file)
 				return new Settings::INISettings(this, context);
+#endif
 			throw SettingsException(_T("Undefined settings type: ") + SettingsCore::type_to_string(type));
 		}
 

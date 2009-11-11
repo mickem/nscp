@@ -18,7 +18,7 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "NSClient++.h"
 #include <error.hpp>
 #include "core_api.h"
@@ -214,7 +214,7 @@ bool NSCPlugin::hasMessageHandler() {
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
  */
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, TCHAR* returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t* returnPerfBuffer, unsigned int returnPerfBufferLen) {
 	if (!isLoaded())
 		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {

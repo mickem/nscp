@@ -1,7 +1,17 @@
 #pragma once
 
 
+#ifndef WIN32
+typedef unsigned long DWORD;
+typedef void* LPVOID;
+#endif
+
+
 #ifdef WIN32
-#else
-typedef unsigned long DWORD
+#define wcscasecmp _wcsicmp
+#endif
+
+#ifndef __FILEW__
+#define WSTR(x) _T(x)
+#define __FILEW__ WSTR(__FILE__)
 #endif

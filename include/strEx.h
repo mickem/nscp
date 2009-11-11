@@ -31,7 +31,6 @@
 #include <locale>
 #include <iostream>
 #include <string>
-#include <locale> 
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/lexical_cast.hpp>
@@ -70,9 +69,7 @@ namespace boost
 		std::string result;
 		std::locale loc;
 		for(unsigned int i= 0; i < arg.size(); ++i)
-		{
-			result += std::use_facet<std::ctype<wchar_t> >(loc).narrow(arg[i]);
-		}
+			result += std::use_facet<std::ctype<char> >(loc).narrow(arg[i], 0);
 		return result;
 	}
 }

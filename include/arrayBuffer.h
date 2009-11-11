@@ -23,6 +23,8 @@
 #include <string>
 #include <list>
 #include <iostream>
+#include <types.hpp>
+#include <msvc_wrappers.h>
 /**
  * @ingroup NSClient++
  *

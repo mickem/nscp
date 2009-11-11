@@ -20,6 +20,7 @@
 ***************************************************************************/
 #pragma once
 
+#include <types.hpp>
 #include <Singleton.h>
 #include <string>
 #include <map>
@@ -753,10 +754,10 @@ namespace Settings {
 							else
 								throw SettingsException(_T("Unknown keytype for: ") + *cit + _T(".") + *citk);
 						} else {
-							get_logger()->debug(__FILEW__, __LINE__, _T("´Skipping (already exists): ") + *cit + _T(".") + *citk);
+							get_logger()->debug(__FILEW__, __LINE__, _T("Skipping (already exists): ") + *cit + _T(".") + *citk);
 						}
 					} else {
-						get_logger()->debug(__FILEW__, __LINE__, _T("´Skipping (advanced): ") + *cit + _T(".") + *citk);
+						get_logger()->debug(__FILEW__, __LINE__, _T("Skipping (advanced): ") + *cit + _T(".") + *citk);
 					}
 				}
 			}
@@ -1255,7 +1256,7 @@ namespace Settings {
 				if (type==SettingsCore::key_integer)
 					return int_val;
 				if (type==SettingsCore::key_bool)
-					return int_val==1?TRUE:FALSE;
+					return int_val==1?1:0;
 				return -1;
 			}
 			bool get_bool() const {
