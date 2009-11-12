@@ -3,6 +3,7 @@
 #include <string>
 #include <map>
 #include <settings/Settings.h>
+
 #include <simpleini/simpleini.h>
 #include <error.hpp>
 
@@ -226,8 +227,10 @@ namespace Settings {
 #if __STDC_WANT_SECURE_LIB__
 			if (_wfopen_s(&fp, filename.c_str(), L"rb") != 0)
 				return false;
-#else
+#elif WIN32
 			fp = _wfopen(filename.c_str(), L"rb");
+#else
+			fp = fopen(to_string(filename).c_str(), "rb");
 #endif
 			if (!fp)
 				return false;

@@ -251,8 +251,6 @@ enum SI_Error {
 # define SI_NEWLINE_W   L"\n"
 #endif // _WIN32
 
-#define SI_CONVERT_ICU
-
 #if defined(SI_CONVERT_ICU)
 # include <unicode/ustring.h>
 #endif
@@ -263,6 +261,9 @@ enum SI_Error {
 #elif defined(SI_CONVERT_ICU)
 # define SI_HAS_WIDE_FILE
 # define SI_WCHAR_T     UChar
+#else
+# define SI_HAS_WIDE_FILE
+# define SI_WCHAR_T     wchar_t
 #endif
 
 
@@ -1127,11 +1128,15 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::LoadFile(
     SI_Error rc = LoadFile(fp);
     fclose(fp);
     return rc;
+#else //_WIN32
+#if SI_CONVERT_ICU
+	char szFile[256];
+	u_austrncpy(szFile, a_pwszFile, sizeof(szFile));
+	return LoadFile(szFile);
 #else // SI_CONVERT_ICU
-    char szFile[256];
-    u_austrncpy(szFile, a_pwszFile, sizeof(szFile));
-    return LoadFile(szFile);
-#endif
+	return LoadFile(to_string(std::wstring(a_pwszFile)).c_str());
+#endif // SI_CONVERT_ICU
+#endif //_WIN32
 }
 #endif // SI_HAS_WIDE_FILE
 
@@ -1943,11 +1948,15 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::SaveFile(
     SI_Error rc = SaveFile(fp, a_bAddSignature);
     fclose(fp);
     return rc;
+#else // _WIN32
+#ifdef SI_CONVERT_ICU
+	char szFile[256];
+	u_austrncpy(szFile, a_pwszFile, sizeof(szFile));
+	return SaveFile(szFile, a_bAddSignature);
 #else // SI_CONVERT_ICU
-    char szFile[256];
-    u_austrncpy(szFile, a_pwszFile, sizeof(szFile));
-    return SaveFile(szFile, a_bAddSignature);
-#endif
+	return SaveFile(to_string(std::wstring(a_pwszFile)).c_str(), a_bAddSignature);
+#endif // SI_CONVERT_ICU
+#endif // _WIN32
 }
 #endif // SI_HAS_WIDE_FILE
 

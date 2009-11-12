@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 	
 PROJECT(NSCP)
-SET(CMAKE_MODULE_PATH ${NSCP_SOURCE_DIR})
+#SET(CMAKE_MODULE_PATH ${NSCP_SOURCE_DIR})
 
 SET(VERSION_SERIES 0)
 SET(VERSION_MAJOR 4)
@@ -61,11 +61,34 @@ ELSE(WIN32)
   SET(BOOST_VERSION "1_34_1" CACHE STRING "Boost libraries version signature")
 ENDIF(WIN32)
 
-find_package(Boost COMPONENTS system filesystem thread REQUIRED)
+#SET(CMAKE_MODULE_PATH "../cmake/")
+FIND_PACKAGE(Boost COMPONENTS system filesystem thread REQUIRED)
 
 #INCLUDE(../cmake/WtFindBoost.txt)
 #INCLUDE(../cmake/WtFindAsio.txt)
 INCLUDE(../cmake/WtFindSsl.txt)
+#INCLUDE(../cmake/FindICU.cmake)
+
+#IF(NOT WIN32)
+#	FIND_PACKAGE(ICU REQUIRED)
+#	IF(NOT ICU_FOUND)
+#		MESSAGE(FATAL_ERROR "ICU package not found..")
+#	ELSE(NOT ICU_FOUND)
+#		ADD_DEFINITIONS( -DSI_CONVERT_ICU )
+#	ENDIF(NOT ICU_FOUND)
+#ENDIF(NOT WIN32)
+
+IF(NOT WIN32)
+	FIND_PACKAGE(Threads REQUIRED)
+	IF (NOT CMAKE_USE_PTHREADS_INIT)
+	  message(FATAL_ERROR "Could not find POSIX threads")
+	ELSE (NOT CMAKE_USE_PTHREADS_INIT)
+	  #add_definitions(-D_REENTRANT)
+	ENDIF (NOT CMAKE_USE_PTHREADS_INIT)
+	FIND_PACKAGE(Threads REQUIRED)
+ENDIF(NOT WIN32)
+
+
 
 # Boost is used nearly everywhere, so we can put these here
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
@@ -104,6 +127,7 @@ add_executable (NSCP
 	settings_manager_impl.cpp
 	../include/NSCHelper.cpp
 	../include/arrayBuffer.cpp
+	../include/simpleini/ConvertUTF.c
 #	../include/ServiceCmd.cpp
 	../include/b64/b64.c
 )
@@ -111,6 +135,7 @@ add_executable (NSCP
 target_link_libraries(NSCP 
   ${Boost_FILESYSTEM_LIBRARY}
   ${Boost_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
   ${EXTRA_LIBS}
 )
 
