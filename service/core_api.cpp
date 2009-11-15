@@ -48,7 +48,7 @@ int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultV
 	}
 }
 NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath(), NSCAPI::isSuccess);
+	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath().string(), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
 	return NSCHelper::wrapReturnString(buffer, bufLen, SZAPPNAME, NSCAPI::isSuccess);

@@ -104,33 +104,4 @@ namespace charEx {
 		p++;
 		return token(std::wstring(buffer, p-buffer-1), p);
 	}
-#ifdef _DEBUG
-	inline void test_getToken(wchar_t* in1, wchar_t in2, std::wstring out1, wchar_t * out2) {
-		token t = getToken(in1, in2);
-		std::wcout << _T("charEx::test_getToken(") << in1 << _T(", ") << in2 << _T(") : ");
-		if (t.first == out1)  {
-			if ((t.second == NULL) && (out2 == NULL))
-				std::wcout << _T("Succeeded") << std::endl;
-			else if (t.second == NULL)
-				std::wcout << _T("Failed [NULL=") << out2 << _T("]") << std::endl;
-			else if (out2 == NULL)
-				std::wcout << _T("Failed [") << t.second << _T("=NULL]") << std::endl;
-			else if (wcscmp(t.second, out2) == 0)
-				std::wcout << _T("Succeeded") << std::endl;
-			else
-				std::wcout << _T("Failed") << std::endl;
-		} else
-			std::wcout << _T("Failed [") << out1 << _T("=") << t.first << _T("]") << std::endl;
-	}
-	inline void run_test_getToken() {
-		test_getToken(_T(""), '&', _T(""), NULL);
-		test_getToken(_T("&"), '&', _T(""), NULL);
-		test_getToken(_T("&&"), '&', _T(""), _T("&"));
-		test_getToken(_T("foo"), '&', _T("foo"), NULL);
-		test_getToken(_T("foo&"), '&', _T("foo"), NULL);
-		test_getToken(_T("foo&bar"), '&', _T("foo"), _T("bar"));
-		test_getToken(_T("foo&bar&test"), '&', _T("foo"), _T("bar&test"));
-	}
-#endif
-
 };

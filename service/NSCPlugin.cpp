@@ -19,8 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include "StdAfx.h"
-#include "NSClient++.h"
-#include <error.hpp>
+#include "NSCPlugin.h"
 #include "core_api.h"
 /**
  * Default c-tor
@@ -29,8 +28,8 @@
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-NSCPlugin::NSCPlugin(const std::wstring file)
-	: module_(file)
+NSCPlugin::NSCPlugin(const boost::filesystem::wpath file)
+	: module_(file.string())
 	,fLoadModule(NULL)
 	,fGetName(NULL)
 	,fHasCommandHandler(NULL)
@@ -47,6 +46,7 @@ NSCPlugin::NSCPlugin(const std::wstring file)
 	,lastIsMsgPlugin_(false)
 	,broken_(false)
 {
+
 }
 /*
 NSCPlugin::NSCPlugin(NSCPlugin &other)
@@ -304,57 +304,61 @@ void NSCPlugin::hideTray() {
  */
 void NSCPlugin::loadRemoteProcs_(void) {
 
-	fLoadModule = (lpLoadModule)module_.load_proc("NSLoadModule");
-	if (!fLoadModule)
-		throw NSPluginException(module_, _T("Could not load NSLoadModule"));
-
-	fModuleHelperInit = (lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
-	if (!fModuleHelperInit)
-		throw NSPluginException(module_, _T("Could not load NSModuleHelperInit"));
-
 	try {
-		fModuleHelperInit(NSAPILoader);
-	} catch (...) {
-		throw NSPluginException(module_, _T("Unhandled exception in getDescription."));
+		fLoadModule = (lpLoadModule)module_.load_proc("NSLoadModule");
+		if (!fLoadModule)
+			throw NSPluginException(module_, _T("Could not load NSLoadModule"));
+
+		fModuleHelperInit = (lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
+		if (!fModuleHelperInit)
+			throw NSPluginException(module_, _T("Could not load NSModuleHelperInit"));
+
+		try {
+			fModuleHelperInit(NSAPILoader);
+		} catch (...) {
+			throw NSPluginException(module_, _T("Unhandled exception in getDescription."));
+		}
+
+		fGetName = (lpGetName)module_.load_proc("NSGetModuleName");
+		if (!fGetName)
+			throw NSPluginException(module_, _T("Could not load NSGetModuleName"));
+
+		fGetVersion = (lpGetVersion)module_.load_proc("NSGetModuleVersion");
+		if (!fGetVersion)
+			throw NSPluginException(module_, _T("Could not load NSGetModuleVersion"));
+
+		fGetDescription = (lpGetDescription)module_.load_proc("NSGetModuleDescription");
+		if (!fGetDescription)
+			throw NSPluginException(module_, _T("Could not load NSGetModuleDescription"));
+
+		fHasCommandHandler = (lpHasCommandHandler)module_.load_proc("NSHasCommandHandler");
+		if (!fHasCommandHandler)
+			throw NSPluginException(module_, _T("Could not load NSHasCommandHandler"));
+
+		fHasMessageHandler = (lpHasMessageHandler)module_.load_proc("NSHasMessageHandler");
+		if (!fHasMessageHandler)
+			throw NSPluginException(module_, _T("Could not load NSHasMessageHandler"));
+
+		fHandleCommand = (lpHandleCommand)module_.load_proc("NSHandleCommand");
+		if (!fHandleCommand)
+			throw NSPluginException(module_, _T("Could not load NSHandleCommand"));
+
+		fHandleMessage = (lpHandleMessage)module_.load_proc("NSHandleMessage");
+		if (!fHandleMessage)
+			throw NSPluginException(module_, _T("Could not load NSHandleMessage"));
+
+		fUnLoadModule = (lpUnLoadModule)module_.load_proc("NSUnloadModule");
+		if (!fUnLoadModule)
+			throw NSPluginException(module_, _T("Could not load NSUnloadModule"));
+
+		fGetConfigurationMeta = (lpGetConfigurationMeta)module_.load_proc("NSGetConfigurationMeta");
+		fCommandLineExec = (lpCommandLineExec)module_.load_proc("NSCommandLineExec");
+
+		fShowTray = (lpShowTray)module_.load_proc("ShowIcon");
+		fHideTray = (lpHideTray)module_.load_proc("HideIcon");
+	} catch (dll::dll_exception &e) {
+		throw NSPluginException(module_, _T("Unhandled exception when loading proces: ") + e.what());
 	}
-	
-	fGetName = (lpGetName)module_.load_proc("NSGetModuleName");
-	if (!fGetName)
-		throw NSPluginException(module_, _T("Could not load NSGetModuleName"));
-
-	fGetVersion = (lpGetVersion)module_.load_proc("NSGetModuleVersion");
-	if (!fGetVersion)
-		throw NSPluginException(module_, _T("Could not load NSGetModuleVersion"));
-
-	fGetDescription = (lpGetDescription)module_.load_proc("NSGetModuleDescription");
-	if (!fGetDescription)
-		throw NSPluginException(module_, _T("Could not load NSGetModuleDescription"));
-
-	fHasCommandHandler = (lpHasCommandHandler)module_.load_proc("NSHasCommandHandler");
-	if (!fHasCommandHandler)
-		throw NSPluginException(module_, _T("Could not load NSHasCommandHandler"));
-
-	fHasMessageHandler = (lpHasMessageHandler)module_.load_proc("NSHasMessageHandler");
-	if (!fHasMessageHandler)
-		throw NSPluginException(module_, _T("Could not load NSHasMessageHandler"));
-
-	fHandleCommand = (lpHandleCommand)module_.load_proc("NSHandleCommand");
-	if (!fHandleCommand)
-		throw NSPluginException(module_, _T("Could not load NSHandleCommand"));
-
-	fHandleMessage = (lpHandleMessage)module_.load_proc("NSHandleMessage");
-	if (!fHandleMessage)
-		throw NSPluginException(module_, _T("Could not load NSHandleMessage"));
-
-	fUnLoadModule = (lpUnLoadModule)module_.load_proc("NSUnloadModule");
-	if (!fUnLoadModule)
-		throw NSPluginException(module_, _T("Could not load NSUnloadModule"));
-
-	fGetConfigurationMeta = (lpGetConfigurationMeta)module_.load_proc("NSGetConfigurationMeta");
-	fCommandLineExec = (lpCommandLineExec)module_.load_proc("NSCommandLineExec");
-
-	fShowTray = (lpShowTray)module_.load_proc("ShowIcon");
-	fHideTray = (lpHideTray)module_.load_proc("HideIcon");
 
 }
 

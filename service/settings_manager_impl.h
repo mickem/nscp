@@ -2,8 +2,8 @@
 
 #include "settings_logger_impl.hpp"
 #include <settings/Settings.h>
-#ifdef WIN32
 #include <settings/settings_ini.hpp>
+#ifdef WIN32
 #include <settings/settings_old.hpp>
 #include <settings/settings_registry.hpp>
 #endif
@@ -11,7 +11,7 @@
 namespace settings_manager {
 	class NSCSettingsImpl : public Settings::SettingsHandlerImpl {
 	private:
-		std::wstring boot_;
+		boost::filesystem::wpath boot_;
 		bool old_;
 	public:
 		NSCSettingsImpl() : old_(false) {}
@@ -27,12 +27,12 @@ namespace settings_manager {
 		std::wstring get_boot_string(std::wstring section, std::wstring key, std::wstring def) {
 #ifdef WIN32
 			wchar_t* buffer = new wchar_t[1024];
-			GetPrivateProfileString(section.c_str(), key.c_str(), def.c_str(), buffer, 1023, boot_.c_str());
+			GetPrivateProfileString(section.c_str(), key.c_str(), def.c_str(), buffer, 1023, boot_.string().c_str());
 			std::wstring ret = buffer;
 			delete [] buffer;
 			return ret;
 #else
-			return _T("ini");
+			return def;
 #endif
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -42,9 +42,13 @@ namespace settings_manager {
 		///
 		/// @author mickem
 		void boot(std::wstring file = _T("boot.ini")) {
-			boot_ = get_base() + _T("\\") + file;
+			boot_ = get_base() / file;
+#ifdef WIN32
 			std::wstring subsystem = get_boot_string(_T("settings"), _T("type"), _T("old"));
-			get_logger()->debug(__FILEW__, __LINE__, _T("Trying to boot: ") + subsystem + _T(" from base: ") + boot_);
+#else
+			std::wstring subsystem = get_boot_string(_T("settings"), _T("type"), _T("ini"));
+#endif
+			get_logger()->debug(__FILEW__, __LINE__, _T("Trying to boot: ") + subsystem + _T(" from base: ") + boot_.string());
 			settings_type type = string_to_type(subsystem);
 			std::wstring context = get_boot_string(_T("settings"), _T("context"), subsystem);
 			Settings::SettingsInterface *impl = create_instance(type, context);
@@ -71,9 +75,9 @@ namespace settings_manager {
 			} 
 			if (type == SettingsCore::registry)
 				return new Settings::REGSettings(this, context);
+#endif
 			if (type == SettingsCore::ini_file)
 				return new Settings::INISettings(this, context);
-#endif
 			throw SettingsException(_T("Undefined settings type: ") + SettingsCore::type_to_string(type));
 		}
 
@@ -85,5 +89,5 @@ namespace settings_manager {
 	Settings::SettingsInterface* get_settings();
 	Settings::SettingsCore* get_core();
 	void destroy_settings();
-	bool init_settings(std::wstring path);
+	bool init_settings(boost::filesystem::wpath path);
 }

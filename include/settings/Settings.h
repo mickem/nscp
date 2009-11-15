@@ -26,6 +26,7 @@
 #include <map>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
+#include <boost/filesystem/path.hpp>
 #include <strEx.h>
 #define BUFF_LEN 4096
 
@@ -368,7 +369,7 @@ namespace Settings {
 		/// @param path the path to the settings files
 		///
 		/// @author mickem
-		virtual void set_base(std::wstring path) = 0;
+		virtual void set_base(boost::filesystem::wpath path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get the basepath for the settings subsystem.
@@ -377,7 +378,7 @@ namespace Settings {
 		/// @return the path to the settings files
 		///
 		/// @author mickem
-		virtual std::wstring get_base() = 0;
+		virtual boost::filesystem::wpath get_base() = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the logging interface (will receive log messages)
@@ -653,7 +654,7 @@ namespace Settings {
 		typedef std::map<std::wstring, std::wstring> path_map;
 		//path_map path_mappings_;
 		//path_map reversed_path_mappings_;
-		std::wstring base_path_;
+		boost::filesystem::wpath base_path_;
 		LoggerInterface *logger_;
 		typedef std::map<std::wstring,path_description> reg_paths_type;
 		reg_paths_type registred_paths_;
@@ -675,7 +676,7 @@ namespace Settings {
 		/// @param path the path to the settings files
 		///
 		/// @author mickem
-		void set_base(std::wstring path) {
+		void set_base(boost::filesystem::wpath path) {
 			base_path_ = path;
 		}
 
@@ -710,7 +711,7 @@ namespace Settings {
 		/// @return the path to the settings files
 		///
 		/// @author mickem
-		std::wstring get_base() {
+		boost::filesystem::wpath get_base() {
 			return base_path_;
 		}
 

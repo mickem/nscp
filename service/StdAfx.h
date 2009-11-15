@@ -20,15 +20,10 @@
 ***************************************************************************/
 #pragma once
 #include <types.hpp>
-
+/*
 #ifdef WIN32
 #define _WINSOCKAPI_
-//#include <WinSock2.h>
 #include <tchar.h>
-
-#define _WIN32_DCOM
-#include <objbase.h>
-
 #define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #endif 
@@ -36,21 +31,23 @@
 #define COMPILE_NEWAPIS_STUBS
 #define WANT_GETLONGPATHNAME_WRAPPER
 //#include <NewAPIs.h>
-
+*/
 #include <iostream>
 #include <string>
 #include <list>
 #include <sstream>
 #include <vector>
+#include <memory>
+#include <map>
 
 #include "config.h"
 #include <Singleton.h>
 #include <charEx.h>
-#include <memory>
+#include <error.hpp>
+#include <NSCAPI.h>
 
+#include <boost/thread/thread.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-
-#ifdef MEMCHECK
-#include <vld.h>
-#endif

@@ -1,13 +1,17 @@
 #pragma once
 
+typedef wchar_t TCHAR;
+
 
 #ifndef WIN32
 typedef unsigned long DWORD;
 typedef void* LPVOID;
+typedef int BOOL;
 #endif
 
 
 #ifdef WIN32
+#include <windows.h>
 #define wcscasecmp _wcsicmp
 #endif
 

@@ -1,11 +1,14 @@
 #pragma once
 
+#define _WIN32_DCOM
+#define _WIN32_WINNT 0x0400
+
 #include <error.hpp>
-/*
+#include <windows.h>
+#include <objbase.h>
 #include <atlbase.h>
 #include <atlsafe.h>
-#include <windows.h>
-*/
+
 namespace com_helper {
 
 	class com_exception {

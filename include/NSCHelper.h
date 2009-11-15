@@ -22,8 +22,9 @@
 
 #include <string>
 #include <list>
-#include <NSCAPI.h>
 #include <iostream>
+
+#include <NSCAPI.h>
 #include <charEx.h>
 #include <arrayBuffer.h>
 #include <types.hpp>

@@ -446,25 +446,13 @@ namespace Settings {
 
 		inline std::wstring get_file_name() {
 			if (filename_.empty()) {
-				filename_ = get_core()->get_base() + _T("\\") + get_core()->get_boot_string(get_context(), _T("file"), _T("nsc.ini"));
+				filename_ = (get_core()->get_base() / get_core()->get_boot_string(get_context(), _T("file"), _T("nsc.ini"))).string();
 				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading old settings from: ") + filename_);
 			}
 			return filename_;
 		}
 		bool file_exists() {
-			std::wstring filename = get_file_name();
-			FILE * fp = NULL;
-			bool found = false;
-#if __STDC_WANT_SECURE_LIB__
-			if (_wfopen_s(&fp, filename.c_str(), L"rb") != 0)
-				return false;
-#else
-			fp = _wfopen(filename.c_str(), L"rb");
-#endif
-			if (!fp)
-				return false;
-			fclose(fp);
-			return true;
+			return boost::filesystem::is_regular_file(get_file_name());
 		}
 	};
 }

@@ -729,7 +729,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
 	NSCModuleHelper::fNSAPIReleaseSettingsSectionBuffer = (NSCModuleHelper::lpNSAPIReleaseSettingsSectionBuffer)f(_T("NSAPIReleaseSettingsSectionBuffer"));
 	NSCModuleHelper::fNSAPIMessage = (NSCModuleHelper::lpNSAPIMessage)f(_T("NSAPIMessage"));
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
-	NSCModuleHelper::fNSAPIExit = (NSCModuleHelper::lpNSAPIExit)f(_T("NSAPIExit"));
+	//NSCModuleHelper::fNSAPIExit = (NSCModuleHelper::lpNSAPIExit)f(_T("NSAPIExit"));
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f(_T("NSAPIInject"));
 	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f(_T("NSAPIGetBasePath"));
 	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f(_T("NSAPICheckLogMessages"));

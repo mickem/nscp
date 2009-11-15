@@ -34,6 +34,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 //#include <boost/date_time/local_time/local_date_time.hpp>
 //#include <boost/date_time/gregorian/conversion.hpp>
 //boost::local_time::local_date_time 
@@ -581,19 +582,21 @@ namespace strEx {
 	template<class _E>
 	struct blind_traits : public std::char_traits<_E>
 	{
+		
 		static bool eq(const _E& x, const _E& y) {
-			return tolower( x ) == tolower( y ); 
+			return boost::algorithm::iequals(x,y);
 		}
 		static bool lt(const _E& x, const _E& y) {
-			return tolower( x ) < tolower( y ); 
+			return ilexicographical_compare(x, y);
 		}
-
+/*
 		static int compare(const _E *x, const _E *y, size_t n) { 
+			return ilexicographical_compare(x, y);
 			return _wcsnicmp( x, y, n );
 		}
 
 		//  There's no memichr(), so we roll our own.  It ain't rocket science.
-		static const _E * /*__cdecl*/ find(const _E *buf, size_t len, const _E& ch) {
+		static const _E * / *__cdecl* / find(const _E *buf, size_t len, const _E& ch) {
 			//  Jerry says that x86s have special mojo for memchr(), so the 
 			//  memchr() calls end up being reasonably efficient in practice.
 			const _E *pu = (const _E *)memchr(buf, ch, len);
@@ -612,12 +615,13 @@ namespace strEx {
 		static bool eq_int_type(const long& ch1, const long& ch2) { 
 			return std::char_traits<_E>::eq_int_type( tolower( ch1 ), tolower( ch2 ) ); 
 		}
+		*/
 	};
 
 	//  And here's our case-blind string class.
 	//typedef std::basic_string<char, blind_traits<char>, std::allocator<char> >  blindstr;
 	typedef std::basic_string<wchar_t, blind_traits<wchar_t>, std::allocator<wchar_t> >  blindstr;
-
+/*
 	class StrICmp
 	{
 	public:
@@ -664,6 +668,7 @@ namespace strEx {
 			//return _wcsicmp( x.c_str(), y.c_str() ) < 0;
 		}
 	};
+	*/
 
 #ifdef _DEBUG
 	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {

@@ -19,21 +19,15 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
+#ifdef WIN32
+#include <com_helpers.hpp>
+#endif
+
 #include <types.hpp>
 #include <config.h>
 #include <service/system_service.hpp>
 #include "NSCPlugin.h"
-//#include <Mutex.h>
-#include <NSCAPI.h>
-//#include <MutexRW.h>
-#include <map>
-#ifdef WIN32
-#include <com_helpers.hpp>
-#endif
 //#include <nsclient_session.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/shared_mutex.hpp>
 
 /**
  * @ingroup NSClient++
@@ -100,7 +94,7 @@ private:
 	pluginList plugins_;
 	pluginList commandHandlers_;
 	pluginList messageHandlers_;
-	std::wstring basePath;
+	boost::filesystem::wpath  basePath;
 	boost::timed_mutex internalVariables;
 	boost::timed_mutex messageMutex;
 	boost::shared_mutex m_mutexRW;
@@ -144,7 +138,7 @@ public:
 	void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
 
 	// Member functions
-	std::wstring getBasePath(void);
+	boost::filesystem::wpath  getBasePath(void);
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);
@@ -153,7 +147,7 @@ public:
 	int commandLineExec(const wchar_t* module, const wchar_t* command, const unsigned int argLen, wchar_t** args);
 
 	void addPlugins(const std::list<std::wstring> plugins);
-	plugin_type loadPlugin(const std::wstring plugin);
+	plugin_type loadPlugin(const boost::filesystem::wpath plugin);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
 	void unloadPlugins(bool unloadLoggers);
 	std::wstring describeCommand(std::wstring command);

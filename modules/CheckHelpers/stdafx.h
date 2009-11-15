@@ -20,9 +20,8 @@
 ***************************************************************************/
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-// Windows Header Files:
-#include <windows.h>
+#include <types.hpp>
+#include <unicode_char.hpp>
 
 #include <string>
 #include <functional>
@@ -31,6 +30,3 @@
 #include <nsc_module_wrapper.hpp>
 #include <NSCHelper.h>
 
-#ifdef MEMCHECK
-#include <vld.h>
-#endif

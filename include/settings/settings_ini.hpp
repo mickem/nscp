@@ -2,15 +2,18 @@
 
 #include <string>
 #include <map>
-#include <settings/Settings.h>
 
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
+
+#include <settings/Settings.h>
 #include <simpleini/simpleini.h>
 #include <error.hpp>
 
 namespace Settings {
 	class INISettings : public Settings::SettingsInterfaceImpl {
 	private:
-		std::wstring filename_;
+		boost::filesystem::wpath filename_;
 		bool is_loaded_;
 		CSimpleIni ini;
 
@@ -183,7 +186,7 @@ namespace Settings {
 		/// @author mickem
 		virtual void save() {
 			SettingsInterfaceImpl::save();
-			SI_Error rc = ini.SaveFile(get_file_name().c_str());
+			SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to save file"));
 		}
@@ -198,7 +201,7 @@ namespace Settings {
 				is_loaded_ = true;
 				return;
 			}
-			SI_Error rc = ini.LoadFile(get_file_name().c_str());
+			SI_Error rc = ini.LoadFile(get_file_name().string().c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));
 			is_loaded_ = true;
@@ -213,29 +216,15 @@ namespace Settings {
 				error_str = _T("I/O error: ") + error::lookup::last_error();
 			throw SettingsException(msg + _T(": ") + get_context() + _T(" - ") + error_str);
 		}
-		std::wstring get_file_name() {
+		boost::filesystem::wpath get_file_name() {
 			if (filename_.empty()) {
-				filename_ = get_core()->get_base() + _T("\\") + get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini"));
-				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading INI settings from: ") + filename_);
+				filename_ = get_core()->get_base() / boost::filesystem::wpath(get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini")));
+				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading INI settings from: ") + filename_.string());
 			}
 			return filename_;
 		}
 		bool file_exists() {
-			std::wstring filename = get_file_name();
-			FILE * fp = NULL;
-			bool found = false;
-#if __STDC_WANT_SECURE_LIB__
-			if (_wfopen_s(&fp, filename.c_str(), L"rb") != 0)
-				return false;
-#elif WIN32
-			fp = _wfopen(filename.c_str(), L"rb");
-#else
-			fp = fopen(to_string(filename).c_str(), "rb");
-#endif
-			if (!fp)
-				return false;
-			fclose(fp);
-			return true;
+			return boost::filesystem::is_regular(get_file_name());
 		}
 	};
 }

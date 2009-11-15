@@ -140,7 +140,7 @@ private:
 	lpHideTray fHideTray;
 
 public:
-	NSCPlugin(const std::wstring file);
+	NSCPlugin(const boost::filesystem::wpath file);
 	NSCPlugin(NSCPlugin &other);
 	virtual ~NSCPlugin(void);
 

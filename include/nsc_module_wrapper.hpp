@@ -30,20 +30,20 @@ namespace NSCModuleWrapper {
 // Module wrappers (definitions)
 #define NSC_WRAPPERS_MAIN() \
 	extern "C" int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f); \
-	extern int NSLoadModule(int mode); \
-	extern int NSGetModuleName(wchar_t* buf, int buflen); \
-	extern int NSGetModuleDescription(wchar_t* buf, int buflen); \
-	extern int NSGetModuleVersion(int *major, int *minor, int *revision); \
-	extern NSCAPI::boolReturn NSHasCommandHandler(); \
-	extern NSCAPI::boolReturn NSHasMessageHandler(); \
-	extern void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message); \
-	extern NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* IN_cmd, const unsigned int IN_argsLen, wchar_t **IN_args, \
+	extern "C" int NSLoadModule(int mode); \
+	extern "C" int NSGetModuleName(wchar_t* buf, int buflen); \
+	extern "C" int NSGetModuleDescription(wchar_t* buf, int buflen); \
+	extern "C" int NSGetModuleVersion(int *major, int *minor, int *revision); \
+	extern "C" NSCAPI::boolReturn NSHasCommandHandler(); \
+	extern "C" NSCAPI::boolReturn NSHasMessageHandler(); \
+	extern "C" void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message); \
+	extern "C" NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* IN_cmd, const unsigned int IN_argsLen, wchar_t **IN_args, \
 		wchar_t *OUT_retBufMessage, unsigned int IN_retBufMessageLen, wchar_t *OUT_retBufPerf, unsigned int IN_retBufPerfLen); \
-	extern int NSUnloadModule(); \
-	extern int NSGetConfigurationMeta(int IN_retBufLen, wchar_t *OUT_retBuf)
+	extern "C" int NSUnloadModule(); \
+	extern "C" int NSGetConfigurationMeta(int IN_retBufLen, wchar_t *OUT_retBuf)
 
 #define NSC_WRAPPERS_CLI() \
-	extern int NSCommandLineExec(const wchar_t*,const unsigned int,wchar_t**)
+	extern "C" int NSCommandLineExec(const wchar_t*,const unsigned int,wchar_t**)
 
 #ifdef DEBUG
 #define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())

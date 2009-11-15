@@ -17,7 +17,7 @@ namespace settings_manager {
 	void destroy_settings() {
 		SettingsHandler::destroyInstance();
 	}
-	bool init_settings(std::wstring path) {
+	bool init_settings(boost::filesystem::wpath path) {
 		try {
 			get_core()->set_logger(new settings_logger());
 			get_core()->set_base(path);
