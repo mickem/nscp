@@ -45,8 +45,9 @@ NSCPlugin::NSCPlugin(const boost::filesystem::wpath file)
 	,bLoaded_(false)
 	,lastIsMsgPlugin_(false)
 	,broken_(false)
+	,plugin_id_(0)
 {
-
+	plugin_id_ = ++last_plugin_id_;
 }
 /*
 NSCPlugin::NSCPlugin(NSCPlugin &other)

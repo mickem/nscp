@@ -26,7 +26,11 @@
 #include <types.hpp>
 #include <config.h>
 #include <service/system_service.hpp>
+
 #include "NSCPlugin.h"
+#include "commands.hpp"
+#include "logger.hpp"
+
 //#include <nsclient_session.hpp>
 
 /**
@@ -54,7 +58,7 @@
  * @bug 
  *
  */
-class NSClientT /*: public nsclient_session::session_handler_interface*/ {
+class NSClientT : public nsclient::logger /*: public nsclient_session::session_handler_interface*/ {
 
 public:
 	struct plugin_info_type {
@@ -87,9 +91,9 @@ private:
 		std::wstring message;
 	};
 
-	typedef NSCPlugin* plugin_type;
+	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 	typedef std::vector<plugin_type> pluginList;
-	typedef std::map<std::wstring,std::wstring> cmdMap;
+	//typedef std::map<std::wstring,std::wstring> cmdMap;
 	typedef std::list<cached_log_entry> log_cache_type;
 	pluginList plugins_;
 	pluginList commandHandlers_;
@@ -98,8 +102,8 @@ private:
 	boost::timed_mutex internalVariables;
 	boost::timed_mutex messageMutex;
 	boost::shared_mutex m_mutexRW;
-	boost::shared_mutex m_mutexRWcmdDescriptions;
-	cmdMap cmdDescriptions_;
+	//boost::shared_mutex m_mutexRWcmdDescriptions;
+	//cmdMap cmdDescriptions_;
 	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
 	log_status debug_;
 #ifdef WIN32
@@ -113,10 +117,12 @@ private:
 	bool plugins_loaded_;
 	bool enable_shared_session_;
 
+	nsclient::commands commands_;
+
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false) {}
+	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false), commands_(this) {}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
 		if (debug)
@@ -136,6 +142,11 @@ public:
 	static DWORD WINAPI service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext);
 #endif
 	void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
+
+
+	// Logger impl
+	void nsclient_log_error(std::wstring file, int line, std::wstring error);
+
 
 	// Member functions
 	boost::filesystem::wpath  getBasePath(void);

@@ -46,8 +46,10 @@
 #include <error.hpp>
 #include <NSCAPI.h>
 
+#include <boost/shared_ptr.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/foreach.hpp>

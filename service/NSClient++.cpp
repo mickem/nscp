@@ -1059,17 +1059,19 @@ int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, co
 			return -1;
 		}
 		for (pluginList::size_type i=0;i<plugins_.size();++i) {
-			NSCPlugin *p = plugins_[i];
+			plugin_type p = plugins_[i];
 			if (!moduleList.empty())
 				moduleList += _T(", ");
-			moduleList += p->getModule();
-			if (p->getModule() == sModule) {
-				LOG_DEBUG_STD(_T("Found module: ") + p->getName() + _T("..."));
-				try {
-					return p->commandLineExec(command, argLen, args);
-				} catch (NSPluginException e) {
-					LOG_ERROR_STD(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);
-					return -1;
+			if (p) {
+				moduleList += p->getModule();
+				if (p->getModule() == sModule) {
+					LOG_DEBUG_STD(_T("Found module: ") + p->getName() + _T("..."));
+					try {
+						return p->commandLineExec(command, argLen, args);
+					} catch (NSPluginException e) {
+						LOG_ERROR_STD(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);
+						return -1;
+					}
 				}
 			}
 		}
@@ -1122,8 +1124,8 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			return;
 		}
 		for (pluginList::reverse_iterator it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
-			NSCPlugin *p = *it;
-			if (p == NULL)
+			plugin_type p = *it;
+			if (!p)
 				continue;
 			try {
 				if (unloadLoggers || !p->hasMessageHandler()) {
@@ -1145,12 +1147,13 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
+		commands_.remove_all();
 		for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
-			NSCPlugin *p = (*it);
+			plugin_type p = (*it);
 			try {
-				if (p != NULL && (unloadLoggers|| !p->isLoaded())) {
+				if (!p && (unloadLoggers|| !p->isLoaded())) {
 					it = plugins_.erase(it);
-					delete p;
+					//delete p;
 					continue;
 				}
 			} catch(NSPluginException e) {
@@ -1208,7 +1211,8 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
  * @param file The DLL file
  */
 NSClientT::plugin_type NSClientT::loadPlugin(const boost::filesystem::wpath file) {
-	return addPlugin(new NSCPlugin(file));
+	plugin_type plugin(new NSCPlugin(file));
+	return addPlugin(plugin);
 }
 /**
  * Load and add a plugin to various internal structures
@@ -1234,35 +1238,13 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 
 
 std::wstring NSClientT::describeCommand(std::wstring command) {
-	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRWcmdDescriptions, boost::get_system_time() + boost::posix_time::seconds(5));
-	if (!readLock.owns_lock()) {
-		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex when trying to get command list."));
-		return _T("Failed to get mutex when describing command: ") + command;
-	}
-	cmdMap::const_iterator cit = cmdDescriptions_.find(command);
-	if (cit == cmdDescriptions_.end())
-		return _T("Command not found: ") + command + _T(", maybe it has not been register?");
-	return (*cit).second;
+	return commands_.describe(command);
 }
 std::list<std::wstring> NSClientT::getAllCommandNames() {
-	std::list<std::wstring> lst;
-	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRWcmdDescriptions, boost::get_system_time() + boost::posix_time::seconds(5));
-	if (!readLock.owns_lock()) {
-		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex when trying to get command list."));
-		return lst;
-	}
-	for (cmdMap::const_iterator cit = cmdDescriptions_.begin(); cit != cmdDescriptions_.end(); ++cit) {
-		lst.push_back((*cit).first);
-	}
-	return lst;
+	return commands_.list();
 }
-void NSClientT::registerCommand(std::wstring cmd, std::wstring desc) {
-	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRWcmdDescriptions, boost::get_system_time() + boost::posix_time::seconds(10));
-	if (!writeLock.owns_lock()) {
-		LOG_ERROR_STD(_T("FATAL ERROR: Failed to describe command:") + cmd);
-		return;
-	}
-	cmdDescriptions_[cmd] = desc;
+void NSClientT::registerCommand(unsigned int id, std::wstring cmd, std::wstring desc) {
+	return commands_.register_command(id, cmd, desc);
 }
 
 unsigned int NSClientT::getBufferLength() {
@@ -1576,4 +1558,8 @@ std::wstring Decrypt(std::wstring str, unsigned int algorithm) {
 		return ret;
 	}
 	return _T("");
+}
+
+void NSClientT::nsclient_log_error(std::wstring file, int line, std::wstring error) {
+	NSAPIMessage(NSCAPI::error, file.c_str(), line, error);
 }

@@ -2138,6 +2138,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\commands.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\include\config.h"
 				>
 			</File>

@@ -107,6 +107,8 @@ private:
 	bool bLoaded_;			// Status of plug in
 	dll::dll module_;
 	bool broken_;
+	static unsigned int last_plugin_id_;
+	unsigned int plugin_id_;
 
 	typedef int (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
 	typedef int (*lpLoadModule)(int);
@@ -185,6 +187,7 @@ public:
 	bool isLoaded() const {
 		return bLoaded_;
 	}
+	unsigned int get_id() const { return plugin_id_; }
 
 private:
 	bool lastIsMsgPlugin_;
@@ -193,5 +196,8 @@ private:
 	void loadRemoteProcs_(void);
 	bool getConfigurationMeta_(wchar_t* buf, unsigned int buflen);
 };
+
+unsigned int NSCPlugin::last_plugin_id_ = 0;
+
 
 
