@@ -167,7 +167,7 @@ public:
 //	std::wstring inject(const std::wstring buffer);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	void reportMessage(int msgType, const wchar_t* file, const int line, std::wstring message);
-	int commandLineExec(const wchar_t* module, const wchar_t* command, const unsigned int argLen, wchar_t** args);
+	int commandLineExec(const wchar_t* module, const unsigned int argLen, wchar_t** args);
 
 	void addPlugins(const std::list<std::wstring> plugins);
 	plugin_type loadPlugin(const boost::filesystem::wpath plugin);

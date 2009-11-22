@@ -8,6 +8,10 @@ typedef unsigned long DWORD;
 typedef void* LPVOID;
 typedef int BOOL;
 #endif
+#ifdef WIN32
+typedef short int16_t;
+typedef unsigned long u_int32_t;
+#endif
 
 
 #ifdef WIN32

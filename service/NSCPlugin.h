@@ -118,7 +118,7 @@ private:
 	typedef int (*lpHasCommandHandler)();
 	typedef int (*lpHasMessageHandler)();
 	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const unsigned int, wchar_t**,wchar_t*,unsigned int,wchar_t *,unsigned int);
-	typedef int (*lpCommandLineExec)(const wchar_t*,const unsigned int,wchar_t**);
+	typedef int (*lpCommandLineExec)(const unsigned int,wchar_t**);
 	typedef int (*lpHandleMessage)(int,const wchar_t*,const int,const wchar_t*);
 	typedef int (*lpUnLoadModule)();
 	typedef int (*lpGetConfigurationMeta)(int, wchar_t*);
@@ -159,7 +159,7 @@ public:
 	void handleMessage(int msgType, const wchar_t* file, const int line, const wchar_t *message);
 	void unload(void);
 	std::wstring getCongifurationMeta();
-	int commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t **arguments);
+	int commandLineExec(const unsigned int argLen, wchar_t **arguments);
 	void showTray();
 	void hideTray();
 

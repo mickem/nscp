@@ -43,7 +43,7 @@ namespace NSCModuleWrapper {
 	extern "C" int NSGetConfigurationMeta(int IN_retBufLen, wchar_t *OUT_retBuf)
 
 #define NSC_WRAPPERS_CLI() \
-	extern "C" int NSCommandLineExec(const wchar_t*,const unsigned int,wchar_t**)
+	extern "C" int NSCommandLineExec(const unsigned int,wchar_t**)
 
 #ifdef DEBUG
 #define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
@@ -192,9 +192,9 @@ namespace NSCModuleWrapper {
 	}
 
 #define NSC_WRAPPERS_CLI_DEF(toObject) \
-	extern int NSCommandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args) { \
+	extern int NSCommandLineExec(const unsigned int argLen,wchar_t** args) { \
 		try { \
-			return toObject.commandLineExec(command, argLen, args); \
+			return toObject.commandLineExec(argLen, args); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: commandLineExec(...)")); \
 			std::wcerr << _T("Unknown exception in: commandLineExec(...)") << std::endl; \

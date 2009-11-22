@@ -390,11 +390,11 @@ bool NSCPlugin::getConfigurationMeta_(wchar_t* buf, unsigned int buflen) {
 	}
 }
 
-int NSCPlugin::commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t **arguments) {
+int NSCPlugin::commandLineExec(const unsigned int argLen, wchar_t **arguments) {
 	if (fCommandLineExec== NULL)
 		throw NSPluginException(module_, _T("Module does not support CommandLineExec"));
 	try {
-		return fCommandLineExec(command, argLen, arguments);
+		return fCommandLineExec(argLen, arguments);
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in commandLineExec."));
 	}

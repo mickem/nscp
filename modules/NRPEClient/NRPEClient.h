@@ -20,15 +20,9 @@
 ***************************************************************************/
 
 NSC_WRAPPERS_MAIN();
-#include <Socket.h>
-#ifdef USE_SSL
-#include <SSLSocket.h>
-#endif
 #include <map>
-#include <nrpe/NRPEPacket.hpp>
-#ifdef USE_BOOST
+#include <nrpe/nrpepacket.hpp>
 #include <boost/program_options.hpp>
-#endif
 
 
 class NRPEClient {
@@ -41,17 +35,25 @@ private:
 		std::wstring command;
 		std::wstring arguments;
 		std::wstring command_line;
+		std::vector<std::wstring> argument_vector;
 		int port;
 		int timeout;
 		unsigned int buffer_length;
-		bool ssl;
+		bool no_ssl;
 		nrpe_connection_data(unsigned int buffer_length_ = 1024) 
 			: host(_T("127.0.0.1")), 
 			port(5666), 
 			timeout(10), 
-			ssl(true), 
+			no_ssl(false), 
 			buffer_length(buffer_length_) 
 		{}
+		void parse_arguments() {
+			for (std::vector<std::wstring>::const_iterator cit = argument_vector.begin(); cit != argument_vector.end(); ++cit) {
+				if (!arguments.empty())
+					arguments += _T("!");
+				arguments += *cit;
+			}
+		}
 		std::wstring get_cli(std::wstring arguments_) {
 			if (command_line.empty()) {
 				command_line = command;
@@ -69,7 +71,7 @@ private:
 			ss << _T("host: ") << host;
 			ss << _T(", port: ") << port;
 			ss << _T(", timeout: ") << timeout;
-			ss << _T(", ssl: ") << ssl;
+			ss << _T(", no_ssl: ") << no_ssl;
 			ss << _T(", buffer_length: ") << buffer_length;
 			return ss.str();
 		}
@@ -106,9 +108,6 @@ public:
 	}
 	std::wstring getModuleDescription() {
 		return _T("A simple client for checking remote NRPE servers (think proxy).\n")
-#ifndef USE_BOOST
-		_T("BOOST support is missing (this is probably very bad)!\n")
-#endif
 #ifndef USE_SSL
 		_T("SSL support is missing (so you cant use encryption)!")
 #endif
@@ -118,7 +117,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
+	int commandLineExec(const unsigned int argLen,TCHAR** args);
 	std::wstring getConfigurationMeta();
 
 private:
@@ -126,11 +125,9 @@ private:
 	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	void initSSL();
-#ifdef USE_BOOST
-	boost::program_options::options_description NRPEClient::get_optionDesc();
-	boost::program_options::positional_options_description NRPEClient::get_optionsPositional();
-	nrpe_connection_data NRPEClient::get_ConectionData(boost::program_options::variables_map &vm);
-#endif
+	boost::program_options::options_description get_optionDesc();
+	boost::program_options::positional_options_description get_optionsPositional();
+	nrpe_connection_data get_ConectionData(boost::program_options::variables_map &vm);
 
 
 private:

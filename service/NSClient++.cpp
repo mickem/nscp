@@ -353,10 +353,10 @@ int nscp_main(int argc, wchar_t* argv[])
 			g_bConsoleLog = true;
 			mainClient.enableDebug(false);
 			mainClient.initCore(false);
-			if (argc>=4)
-				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
+			if (argc>=3)
+				nRetCode = mainClient.commandLineExec(argv[2], argc-3, &argv[3]);
 			else
-				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
+				nRetCode = mainClient.commandLineExec(argv[2], 0, NULL);
 			mainClient.exitCore(true);
 			return nRetCode;
 		} else if ( wcscasecmp( _T("c"), argv[1]+1 ) == 0 ) {
@@ -403,11 +403,12 @@ int nscp_main(int argc, wchar_t* argv[])
 		return nRetCode;
 	} else if (argc > 2) {
 		g_bConsoleLog = true;
+		std::wcout << _T(" * * * * * * * ") << std::endl;
 		mainClient.initCore(true);
 		if (argc>=3)
-			nRetCode = mainClient.commandLineExec(argv[1], argv[2], argc-3, &argv[3]);
+			nRetCode = mainClient.commandLineExec(argv[1], argc-2, &argv[2]);
 		else
-			nRetCode = mainClient.commandLineExec(argv[1], argv[2], 0, NULL);
+			nRetCode = mainClient.commandLineExec(argv[1], 0, NULL);
 		mainClient.exitCore(true);
 		return nRetCode;
 	} else if (argc > 1) {
@@ -887,7 +888,7 @@ void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
-int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, const unsigned int argLen, wchar_t** args) {
+int NSClientT::commandLineExec(const wchar_t* module, const unsigned int argLen, wchar_t** args) {
 	std::wstring sModule = module;
 	std::wstring moduleList = _T("");
 	{
@@ -905,7 +906,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, co
 				if (p->getModule() == sModule) {
 					LOG_DEBUG_STD(_T("Found module: ") + p->getName() + _T("..."));
 					try {
-						return p->commandLineExec(command, argLen, args);
+						return p->commandLineExec(argLen, args);
 					} catch (NSPluginException e) {
 						LOG_ERROR_CORE_STD(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);
 						return -1;
@@ -918,7 +919,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, co
 		plugin_type plugin = loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(module));
 		LOG_DEBUG_STD(_T("Loading plugin: ") + plugin->getName() + _T("..."));
 		plugin->load_plugin(NSCAPI::dontStart);
-		return plugin->commandLineExec(command, argLen, args);
+		return plugin->commandLineExec(argLen, args);
 	} catch (NSPluginException e) {
 		LOG_MESSAGE_STD(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
 	}

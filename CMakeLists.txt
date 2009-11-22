@@ -127,15 +127,18 @@ include_directories("${PROJECT_BINARY_DIR}")
 MESSAGE(STATUS "Build path: ${PROJECT_BINARY_DIR}")
 ADD_SUBDIRECTORY("service")
 
+SET(ALL_MODULE_NAMES)
 FILE(GLOB ALL_MODULES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "modules/*/CMakeLists.txt")
 foreach(CURRENT_MODULE ${ALL_MODULES})
 	get_filename_component(CURRENT_MODULE_PATH ${CURRENT_MODULE} PATH)
-	message(STATUS "Adding module: ${CURRENT_MODULE_PATH}")
+	get_filename_component(CURRENT_MODULE_NAME ${CURRENT_MODULE_PATH} NAME)
+	message(STATUS "Adding module: ${CURRENT_MODULE_PATH} (${CURRENT_MODULE_NAME})")
 	ADD_SUBDIRECTORY("${CURRENT_MODULE_PATH}")
+	SET(ALL_MODULE_NAMES ${ALL_MODULE_NAMES} ${CURRENT_MODULE_NAME})
 endforeach(CURRENT_MODULE ${ALL_MODULES})
 
 
-SET_TARGET_PROPERTIES("nsclient++" "CheckHelpers" PROPERTIES 
+SET_TARGET_PROPERTIES("nsclient++" ${ALL_MODULE_NAMES} PROPERTIES 
         RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
 		LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/modules"
         MODULE_OUTPUT_DIRECTORY  "${PROJECT_BINARY_DIR}/modules"
@@ -144,5 +147,5 @@ SET_TARGET_PROPERTIES("nsclient++" "CheckHelpers" PROPERTIES
 
 if (MSVC_IDE)
     # hack to get around the "Debug" and "Release" directories cmake tries to add on Windows
-    set_target_properties ("nsclient++" "CheckHelpers" PROPERTIES PREFIX "../")
+    set_target_properties ("nsclient++" ${ALL_MODULE_NAMES} PROPERTIES PREFIX "../")
 endif()

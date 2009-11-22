@@ -20,9 +20,8 @@
 ***************************************************************************/
 #pragma once
 
+#include <types.hpp>
 
-typedef short int16_t;
-typedef unsigned long u_int32_t;
 
 class NRPEPacket {
 public:
@@ -78,7 +77,7 @@ public:
 		,buffer_length_(0)
 	{
 	}
-	NRPEPacket(NRPEPacket &other) : tmpBuffer(NULL) {
+	NRPEPacket(const NRPEPacket &other) : tmpBuffer(NULL) {
 		payload_ = other.payload_;
 		type_ = other.type_;
 		version_ = other.version_;
@@ -87,6 +86,18 @@ public:
 		calculatedCRC32_ = other.calculatedCRC32_;
 		buffer_length_ = other.buffer_length_;
 	}
+	NRPEPacket& operator=(NRPEPacket const& other) {
+		tmpBuffer=NULL;
+		payload_ = other.payload_;
+		type_ = other.type_;
+		version_ = other.version_;
+		result_ = other.result_;
+		crc32_ = other.crc32_;
+		calculatedCRC32_ = other.calculatedCRC32_;
+		buffer_length_ = other.buffer_length_;
+		return *this;
+	}
+
 	~NRPEPacket() {
 		delete [] tmpBuffer;
 	}
@@ -97,7 +108,7 @@ public:
 	const char* getBuffer() {
 		delete [] tmpBuffer;
 		tmpBuffer = new char[getBufferLength()+1];
-		ZeroMemory(tmpBuffer, getBufferLength()+1);
+		//TODO readd this ZeroMemory(tmpBuffer, getBufferLength()+1);
 		packet *p = reinterpret_cast<packet*>(tmpBuffer);
 		p->result_code = htons(NSCHelper::nagios2int(result_));
 		p->packet_type = htons(type_);
@@ -105,7 +116,7 @@ public:
 		if (payload_.length() >= buffer_length_-1)
 			throw NRPEPacketException(_T("To much data cant create return packet (truncate datat)"));
 		//ZeroMemory(p->buffer, buffer_length_-1);
-		strncpy_s(p->buffer, buffer_length_-1, strEx::wstring_to_string(payload_).c_str(), payload_.length());
+		strncpy(p->buffer, to_string(payload_).c_str(), payload_.length());
 		p->buffer[payload_.length()] = 0;
 		p->crc32_value = 0;
 		p->crc32_value = htonl(calculate_crc32(tmpBuffer, getBufferLength()));
