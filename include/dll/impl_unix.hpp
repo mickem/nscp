@@ -69,8 +69,7 @@ namespace dll {
 				void *ep = NULL;
 #if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
 				ep = (void*) dlsym(handle_, name.c_str());
-				if (ep == NULL)
-					throw dll_exception(_T("Failed to load process from module: ") + module_.string() + _T(" because: ") + to_wstring(dlerror()));
+				return ep;
 #elif defined(HP)
 				int rcode = shl_findsym((shl_t)&handle_, name.c_str(), TYPE_PROCEDURE, &ep);
 				if (rcode == -1)

@@ -33,6 +33,10 @@
 
 //#include <nsclient_session.hpp>
 
+
+class NSClientT;
+typedef service_helper::impl<NSClientT>::system_service NSClient;
+
 /**
  * @ingroup NSClient++
  * Main NSClient++ core class. This is the service core and as such is responsible for pretty much everything.
@@ -116,7 +120,6 @@ private:
 	log_cache_type log_cache_;
 	bool plugins_loaded_;
 	bool enable_shared_session_;
-
 	nsclient::commands commands_;
 
 
@@ -132,8 +135,6 @@ public:
 	}
 
 	// Service helper functions
-	bool InitiateService();
-	void TerminateService(void);
 	bool initCore(bool boot);
 	bool exitCore(bool boot);
 #ifdef WIN32x
@@ -147,9 +148,20 @@ public:
 	// Logger impl
 	void nsclient_log_error(std::wstring file, int line, std::wstring error);
 
+	// Service API
+	static NSClient* get_global_instance();
+	void handle_error(unsigned int line, wchar_t *file, std::wstring message) {
+		reportMessage(NSCAPI::error, file, line, message);
+	}
+	void handle_startup();
+	void handle_shutdown();
+#ifdef _WIN32
+	void handle_session_change(unsigned long dwSessionId, bool logon);
+#endif
+
 
 	// Member functions
-	boost::filesystem::wpath  getBasePath(void);
+	boost::filesystem::wpath getBasePath(void);
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);
@@ -163,7 +175,7 @@ public:
 	void unloadPlugins(bool unloadLoggers);
 	std::wstring describeCommand(std::wstring command);
 	std::list<std::wstring> getAllCommandNames();
-	void registerCommand(std::wstring cmd, std::wstring desc);
+	void registerCommand(unsigned int id, std::wstring cmd, std::wstring desc);
 	unsigned int getBufferLength();
 	void HandleSettingsCLI(wchar_t* arg, int argc, wchar_t* argv[]);
 	void startTrayIcons();
@@ -172,6 +184,7 @@ public:
 	bool logDebug();
 	void listPlugins();
 	plugin_info_list get_all_plugins();
+	std::list<std::wstring> list_commands();
 
 	// Shared session interface:
 	void session_error(std::wstring file, unsigned int line, std::wstring msg);
@@ -193,7 +206,6 @@ private:
 	void load_all_plugins(int mode);
 };
 
-typedef service_helper::impl<NSClientT>::system_service NSClient;
 
 extern NSClient mainClient;	// Global core instance forward declaration.
 
@@ -201,24 +213,6 @@ extern NSClient mainClient;	// Global core instance forward declaration.
 std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 
-//////////////////////////////////////////////////////////////////////////
-// Log macros to simplify logging
-// Generally names are of the form LOG_<severity>[_STD] 
-// Where _STD indicates that strings are force wrapped inside a std::wstring
-//
-#define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
-#define LOG_ERROR(msg) \
-	NSAPIMessage(NSCAPI::error, __FILEW__, __LINE__, msg)
-#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
-#define LOG_CRITICAL(msg) \
-	NSAPIMessage(NSCAPI::critical, __FILEW__, __LINE__, msg)
-#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
-#define LOG_MESSAGE(msg) \
-	NSAPIMessage(NSCAPI::log, __FILEW__, __LINE__, msg)
-
-#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
-#define LOG_DEBUG(msg) \
-	NSAPIMessage(NSCAPI::debug, __FILEW__, __LINE__, msg)
 /*
 #define LOG_DEBUG_STD(msg)
 #define LOG_DEBUG(msg)

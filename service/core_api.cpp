@@ -28,7 +28,24 @@
 #include "settings_manager_impl.h"
 #include <b64/b64.h>
 #include <NSCHelper.h>
+#ifdef _WIN32
+#include <ServiceCmd.h>
+#endif
 
+#define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
+#define LOG_ERROR(msg) \
+	NSAPIMessage(NSCAPI::error, __FILEW__, __LINE__, msg)
+
+#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
+#define LOG_CRITICAL(msg) \
+	NSAPIMessage(NSCAPI::critical, __FILEW__, __LINE__, msg)
+#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
+#define LOG_MESSAGE(msg) \
+	NSAPIMessage(NSCAPI::log, __FILEW__, __LINE__, msg)
+
+#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
+#define LOG_DEBUG(msg) \
+	NSAPIMessage(NSCAPI::debug, __FILEW__, __LINE__, msg)
 
 
 NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue, wchar_t* buffer, unsigned int bufLen) {
@@ -249,8 +266,14 @@ NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(wchar_t*** aBuffer, unsig
 	*aBuffer = NULL;
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPIRegisterCommand(const wchar_t* cmd,const wchar_t* desc) {
-	mainClient.registerCommand(cmd, desc);
+NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,const wchar_t* desc) {
+	try {
+		mainClient.registerCommand(id, cmd, desc);
+	} catch (...) {
+		LOG_ERROR_STD(_T("Unknown exception registrying command: ") + std::wstring(cmd) + _T(", from: ") + to_wstring(id));
+		return NSCAPI::isSuccess;
+
+	}
 	return NSCAPI::isSuccess;
 }
 NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {

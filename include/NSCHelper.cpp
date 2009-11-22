@@ -169,6 +169,7 @@ namespace NSCModuleHelper {
 	lpNSAPISettingsSave fNSAPISettingsSave = NULL;
 
 	unsigned int buffer_length;
+	unsigned int id_;
 
 }
 
@@ -651,7 +652,7 @@ std::wstring NSCModuleHelper::describeCommand(std::wstring command) {
 void NSCModuleHelper::registerCommand(std::wstring command, std::wstring description) {
 	if (!fNSAPIRegisterCommand)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	fNSAPIRegisterCommand(command.c_str(), description.c_str());
+	fNSAPIRegisterCommand(id_, command.c_str(), description.c_str());
 }
 
 
@@ -720,7 +721,8 @@ HINSTANCE NSCModuleWrapper::getModule() {
  * @param f A function pointer to a function that can be used to load function from the core.
  * @return NSCAPI::success or NSCAPI::failure
  */
-int NSCModuleWrapper::wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) {
+int NSCModuleWrapper::wrapModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f) {
+	NSCModuleHelper::id_ = id;
 	NSCModuleHelper::fNSAPIGetApplicationName = (NSCModuleHelper::lpNSAPIGetApplicationName)f(_T("NSAPIGetApplicationName"));
 	NSCModuleHelper::fNSAPIGetApplicationVersionStr = (NSCModuleHelper::lpNSAPIGetApplicationVersionStr)f(_T("NSAPIGetApplicationVersionStr"));
 	NSCModuleHelper::fNSAPIGetSettingsInt = (NSCModuleHelper::lpNSAPIGetSettingsInt)f(_T("NSAPIGetSettingsInt"));

@@ -8,14 +8,17 @@ LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 SET(service_SRCS
+	StdAfx.cpp
 	NSClient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
 	settings_manager_impl.cpp
+
 	${NSCP_INCLUDE_PATH}/NSCHelper.cpp
 	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
 	${NSCP_INCLUDE_PATH}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDE_PATH}/b64/b64.c
+
 )
 
 IF(WIN32)
@@ -23,6 +26,18 @@ IF(WIN32)
 		${NSCP_INCLUDE_PATH}/ServiceCmd.cpp
 	)
 	SET(service_SRCS ${service_SRCS}
+		StdAfx.h
+		NSClient++.h
+		NSCPlugin.h
+		core_api.h
+		settings_manager_impl.h
+		simple_client.hpp
+		
+		commands.hpp
+		logger.hpp
+		settings_logger_impl.hpp
+		service_manager.hpp
+		
 		${NSCP_INCLUDE_PATH}/settings/Settings.h
 		${NSCP_INCLUDE_PATH}/charEx.h
 		${NSCP_INCLUDE_PATH}/config.h
@@ -37,9 +52,15 @@ IF(WIN32)
 		${NSCP_INCLUDE_PATH}/dll/dll.hpp
 		${NSCP_INCLUDE_PATH}/dll/impl_unix.hpp
 		${NSCP_INCLUDE_PATH}/dll/impl_w32.hpp
-		core_api.h
-		settings_manager_impl.h
+#		${NSCP_INCLUDE_PATH}/nsclient_session.hpp
+
+		${NSCP_INCLUDE_PATH}/service/system_service.hpp
+		${NSCP_INCLUDE_PATH}/service/win32_service.hpp
 	)
+	SET(service_SRCS ${service_SRCS}
+		${NSCP_INCLUDE_PATH}/service/unix_service.hpp
+	)
+	
 	ADD_DEFINITIONS(-D_WIN32_DCOM)
 
 ENDIF(WIN32)

@@ -15,7 +15,7 @@ namespace NSCModuleWrapper {
 	int wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call);
 	HINSTANCE getModule();
 #endif
-	int wrapModuleHelperInit(NSCModuleHelper::lpNSAPILoader f);;
+	int wrapModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f);;
 	NSCAPI::errorReturn wrapGetModuleName(wchar_t* buf, unsigned int buflen, std::wstring str);
 	NSCAPI::errorReturn wrapGetConfigurationMeta(wchar_t* buf, unsigned int buflen, std::wstring str);
 	int wrapLoadModule(bool success);
@@ -29,7 +29,7 @@ namespace NSCModuleWrapper {
 //////////////////////////////////////////////////////////////////////////
 // Module wrappers (definitions)
 #define NSC_WRAPPERS_MAIN() \
-	extern "C" int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f); \
+	extern "C" int NSModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f); \
 	extern "C" int NSLoadModule(int mode); \
 	extern "C" int NSGetModuleName(wchar_t* buf, int buflen); \
 	extern "C" int NSGetModuleDescription(wchar_t* buf, int buflen); \
@@ -81,9 +81,9 @@ namespace NSCModuleWrapper {
 // Message wrappers below this point
 
 #define NSC_WRAPPERS_MAIN_DEF(toObject) \
-	extern int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) { \
+	extern int NSModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f) { \
 		try { \
-			return NSCModuleWrapper::wrapModuleHelperInit(f); \
+			return NSCModuleWrapper::wrapModuleHelperInit(id, f); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
 			return NSCAPI::hasFailed; \

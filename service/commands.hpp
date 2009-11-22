@@ -9,9 +9,15 @@ namespace nsclient {
 	class commands : boost::noncopyable {
 	public:
 		class command_exception : public std::exception {
+			std::string what_;
 		public:
-			command_exception(std::wstring error) : std::exception(to_string(error).c_str()) {}
-			command_exception(std::string error) : std::exception(error.c_str()) {}
+			command_exception(std::wstring error) throw() : what_(to_string(error).c_str()) {}
+			command_exception(std::string error) throw() : what_(error.c_str()) {}
+			virtual ~command_exception() throw() {};
+
+			virtual const char* what() const throw() {
+				return what_.c_str();
+			}
 
 		};
 

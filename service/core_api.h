@@ -51,7 +51,7 @@ NSCAPI::errorReturn NSAPIRehash(int flag);
 NSCAPI::errorReturn NSAPIDescribeCommand(const wchar_t*,wchar_t*,unsigned int);
 NSCAPI::errorReturn NSAPIGetAllCommandNames(wchar_t***, unsigned int *);
 NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(wchar_t***, unsigned int *);
-NSCAPI::errorReturn NSAPIRegisterCommand(const wchar_t*,const wchar_t*);
+NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int, const wchar_t*,const wchar_t*);
 NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
 NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t*, const wchar_t*, const wchar_t*, int);
 NSCAPI::errorReturn NSAPIGetPluginList(int*, NSCAPI::plugin_info*[]);

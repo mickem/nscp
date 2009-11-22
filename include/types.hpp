@@ -15,7 +15,9 @@ typedef int BOOL;
 #define wcscasecmp _wcsicmp
 #endif
 
+#ifndef WIN32
 #ifndef __FILEW__
 #define WSTR(x) _T(x)
 #define __FILEW__ WSTR(__FILE__)
+#endif
 #endif

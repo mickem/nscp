@@ -110,7 +110,7 @@ private:
 	static unsigned int last_plugin_id_;
 	unsigned int plugin_id_;
 
-	typedef int (*lpModuleHelperInit)(NSCModuleHelper::lpNSAPILoader f);
+	typedef int (*lpModuleHelperInit)(unsigned int, NSCModuleHelper::lpNSAPILoader f);
 	typedef int (*lpLoadModule)(int);
 	typedef int (*lpGetName)(wchar_t*,unsigned int);
 	typedef int (*lpGetDescription)(wchar_t*,unsigned int);
@@ -197,7 +197,6 @@ private:
 	bool getConfigurationMeta_(wchar_t* buf, unsigned int buflen);
 };
 
-unsigned int NSCPlugin::last_plugin_id_ = 0;
 
 
 

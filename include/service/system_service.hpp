@@ -7,7 +7,7 @@ namespace service_helper {
 		std::wstring what_;
 	public:
 		service_exception(std::wstring what) : what_(what) {
-#ifdef WIN32
+#ifdef _WIN32
 			OutputDebugString((std::wstring(_T("ERROR:")) + what).c_str());
 #else
 			std::wcout << what << std::endl;
@@ -19,9 +19,8 @@ namespace service_helper {
 	};
 }
 
-#ifdef WIN32
-#include <ServiceCmd.h>
-#include <NTService.h>
+#ifdef _WIN32
+#include <service/win32_service.hpp>
 #else 
 #include <service/unix_service.hpp>
 #endif
@@ -30,8 +29,8 @@ namespace service_helper {
 	template<class T>
 	class impl {
 	public:
-#ifdef WIN32
-		typedef service_helper_impl::NTService<T> system_service;
+#ifdef _WIN32
+		typedef service_helper_impl::win32_service<T> system_service;
 #else
 		typedef service_helper_impl::unix_service<T> system_service;
 #endif

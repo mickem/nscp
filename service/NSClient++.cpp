@@ -35,9 +35,36 @@
 #include "settings_manager_impl.h"
 #include <settings/macros.h>
 #include <NSCHelper.h>
+#include "simple_client.hpp"
+#include "service_manager.hpp"
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
+
+
+//////////////////////////////////////////////////////////////////////////
+// Log macros to simplify logging
+// Generally names are of the form LOG_<severity>[_STD] 
+// Where _STD indicates that strings are force wrapped inside a std::wstring
+//
+#define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
+#define LOG_ERROR(msg) \
+	NSAPIMessage(NSCAPI::error, __FILEW__, __LINE__, msg)
+
+#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
+#define LOG_CRITICAL(msg) \
+	NSAPIMessage(NSCAPI::critical, __FILEW__, __LINE__, msg)
+#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
+#define LOG_MESSAGE(msg) \
+	NSAPIMessage(NSCAPI::log, __FILEW__, __LINE__, msg)
+
+#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
+#define LOG_DEBUG(msg) \
+	NSAPIMessage(NSCAPI::debug, __FILEW__, __LINE__, msg)
+
+#define LOG_ERROR_CORE(msg) reportMessage(NSCAPI::error, __FILEW__, __LINE__, msg)
+#define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::wstring(msg))
+
 
 #define SETTINGS_GET_BOOL_CORE(key) \
 	settings_manager::get_settings()->get_bool(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
@@ -240,137 +267,21 @@ int nscp_main(int argc, wchar_t* argv[])
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if (false) {
-#ifdef WIN32
 		} if ( wcscasecmp( _T("install"), argv[1]+1 ) == 0 ) {
-			bool bGui = false;
-			bool bStart = false;
-			std::wstring service_name, service_description;
-			for (int i=2;i<argc;i++) {
-				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
-					bGui = true;
-				} else if (wcscasecmp( _T("start"), argv[i]) == 0) {
-					bStart = true;
-				} else {
-					if (service_name.empty())
-						service_name = argv[i];
-					else {
-						if (!service_description.empty())
-							service_description += _T(" ");
-						service_description += argv[i];
-					}
-				}
-			}
-			if (service_name.empty())
-				service_name = SZSERVICENAME;
-			if (service_description.empty())
-				service_description = SZSERVICEDISPLAYNAME;
-			g_bConsoleLog = true;
-			try {
-				serviceControll::Install(service_name.c_str(), service_description.c_str(), SZDEPENDENCIES);
-				if (bStart)
-					serviceControll::Start(service_name);
-			} catch (const serviceControll::SCException& e) {
-				if (bGui)
-					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
-				LOG_ERROR_STD(_T("Service installation failed: ") + e.error_);
-				return -1;
-			}
-			try {
-				serviceControll::SetDescription(service_name, service_description);
-			} catch (const serviceControll::SCException& e) {
-				if (bGui)
-					display(_T("Error installing"), _T("Service installation failed; ") + e.error_);
-				LOG_MESSAGE_STD(_T("Couldn't set service description: ") + e.error_);
-			}
-			if (bGui)
-				display(_T("Service installed"), _T("Service installed successfully!"));
-			LOG_MESSAGE(_T("Service installed!"));
-			return 0;
+			nsclient::client::service_manager mgr(argc-1,&argv[1]);
+			return mgr.install();
 		} else if ( wcscasecmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
-			bool bGui = false;
-			bool bStop = false;
-			std::wstring service_name;
-			for (int i=2;i<argc;i++) {
-				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
-					bGui = true;
-				} else if (wcscasecmp( _T("stop"), argv[i]) == 0) {
-					bStop = true;
-				} else {
-					service_name = argv[i];
-				}
-			}
-			if (service_name.empty())
-				service_name = SZSERVICENAME;
-			g_bConsoleLog = true;
-			try {
-				if (bStop)
-					serviceControll::Stop(service_name);
-			} catch (const serviceControll::SCException& e) {
-				LOG_MESSAGE_STD(_T("Failed to stop service (") + service_name + _T(") failed; ") + e.error_);
-			}
-			try {
-				serviceControll::Uninstall(service_name);
-			} catch (const serviceControll::SCException& e) {
-				if (bGui)
-					display(_T("Error uninstalling"), _T("Service de-installation (") + service_name + _T(") failed; ") + e.error_ + _T("\nMaybe the service was not previously installed properly?"));
-				LOG_ERROR_STD(_T("Service deinstallation failed; ") + e.error_);
-				return 0;
-			}
-			if (bGui)
-				display(_T("Service uninstalled"), _T("Service uninstalled successfully!"));
-			LOG_MESSAGE(_T("Service uninstalled!"));
-			return 0;
+			nsclient::client::service_manager mgr(argc-1,&argv[1]);
+			return mgr.uninstall();
 		} else if ( wcscasecmp( _T("start"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = true;
-			bool bGui = false;
-			std::wstring service_name;
-			for (int i=2;i<argc;i++) {
-				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
-					bGui = true;
-				} else {
-					service_name = argv[i];
-				}
-			}
-			if (service_name.empty())
-				service_name = SZSERVICENAME;
-			try {
-				serviceControll::Start(service_name.c_str());
-			} catch (const serviceControll::SCException& e) {
-				if (bGui)
-					display(_T("Service failed to start"), e.error_);
-				LOG_MESSAGE_STD(_T("Service failed to start: ") + e.error_);
-				return -1;
-			}
+			nsclient::client::service_manager mgr(argc-1,&argv[1]);
+			return mgr.start();
 		} else if ( wcscasecmp( _T("stop"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = true;
-			bool bGui = false;
-			std::wstring service_name;
-			for (int i=2;i<argc;i++) {
-				if (wcscasecmp( _T("gui"), argv[i]) == 0) {
-					bGui = true;
-				} else {
-					service_name = argv[i];
-				}
-			}
-			if (service_name.empty())
-				service_name = SZSERVICENAME;
-			try {
-				serviceControll::Stop(service_name.c_str());
-			} catch (const serviceControll::SCException& e) {
-				if (bGui)
-					display(_T("Service failed to stop"), e.error_);
-				LOG_MESSAGE_STD(_T("Service failed to stop: ") + e.error_);
-				return -1;
-			}
+			nsclient::client::service_manager mgr(argc-1,&argv[1]);
+			return mgr.stop();
 		} else if ( wcscasecmp( _T("svc"), argv[1]+1 ) == 0 ) {
-			g_bConsoleLog = true;
-			try {
-				std::wstring exe = serviceControll::get_exe_path(SZSERVICENAME);
-				LOG_MESSAGE_STD(_T("The Service uses: ") + exe);
-			} catch (const serviceControll::SCException& e) {
-				LOG_ERROR_STD(_T("Failed to find service: ") + e.error_);
-			}
-#endif
+			nsclient::client::service_manager mgr(argc-1,&argv[1]);
+			return mgr.print_command();
 		} else if ( wcscasecmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			std::wstring password;
@@ -476,70 +387,13 @@ int nscp_main(int argc, wchar_t* argv[])
 				if (serviceControll::isStarted(SZSERVICENAME)) {
 					std::wcerr << "Service seems to be started, this is probably not a good idea..." << std::endl;
 				}
-			} catch (const serviceControll::SCException& e) {
-				e;// Empty by design
+			} catch (...) {
+				// Empty by design
 			}
 #endif
+			nsclient::simple_client client(&mainClient);
 			g_bConsoleLog = true;
-			mainClient.enableDebug(true);
-			if (!mainClient.initCore(true)) {
-				LOG_ERROR_STD(_T("Service *NOT* started!"));
-				return -1;
-			}
-			LOG_MESSAGE_STD(_T("Using settings from: ") + settings_manager::get_core()->get_settings_type_desc());
-			LOG_MESSAGE(_T("Enter command to inject or exit to terminate..."));
-/*
-			Settings::get_settings()->clear_cache();
-			LOG_MESSAGE_STD( _T("test 001: ") + SETTINGS_GET_STRING(NSCLIENT_TEST1) );
-			LOG_MESSAGE_STD( _T("test 002: ") + SETTINGS_GET_STRING(NSCLIENT_TEST2) );
-			LOG_MESSAGE_STD( _T("test 003: ") + SETTINGS_GET_STRING(NSCLIENT_TEST3) );
-			LOG_MESSAGE_STD( _T("test 004: ") + SETTINGS_GET_STRING(NSCLIENT_TEST4) );
-
-			Settings::get_settings()->save_to(_T("test.ini"));
-*/
-			std::wstring s = _T("");
-			std::wstring buff = _T("");
-			while (true) {
-				std::wcin >> s;
-				if (s == _T("exit")) {
-					std::wcout << _T("Exiting...") << std::endl;
-					break;
-				} else if (s == _T("plugins")) {
-					std::wcout << _T("Listing plugins...") << std::endl;
-					mainClient.listPlugins();
-				} else if (s == _T("off") && buff == _T("debug ")) {
-					std::wcout << _T("Setting debug log off...") << std::endl;
-					mainClient.enableDebug(false);
-				} else if (s == _T("on") && buff == _T("debug ")) {
-					std::wcout << _T("Setting debug log on...") << std::endl;
-					mainClient.enableDebug(true);
-				} else if (s == _T("reattach")) {
-					std::wcout << _T("Reattaching to session 0") << std::endl;
-					mainClient.startTrayIcon(0);
-//#ifdef DEBUG
-				} else if (s == _T("assert")) {
-					throw "test";
-//#endif
-				} else if (std::cin.peek() < 15) {
-					buff += s;
-					strEx::token t = strEx::getToken(buff, ' ');
-					std::wstring msg, perf;
-					NSCAPI::nagiosReturn ret = mainClient.inject(t.first, t.second, ' ', true, msg, perf);
-					if (ret == NSCAPI::returnIgnored) {
-						std::wcout << _T("No handler for command: ") << t.first << std::endl;
-					} else {
-						std::wcout << NSCHelper::translateReturn(ret) << _T(":");
-						std::cout << strEx::wstring_to_string(msg);
-						if (!perf.empty())
-							std::cout << "|" << strEx::wstring_to_string(perf);
-						std::wcout << std::endl;
-					}
-					buff = _T("");
-				} else {
-					buff += s + _T(" ");
-				}
-			}
-			mainClient.exitCore(true);
+			client.start();
 			return 0;
 		} else {
 			std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt -settings") << std::endl;
@@ -564,14 +418,21 @@ int nscp_main(int argc, wchar_t* argv[])
 		std::wcerr << _T("Usage: [-noboot] <ModuleName> <commnd> [arguments]") << std::endl;
 		return -1;
 	}
-	std::wcout << _T("Running as service...") << std::endl;
-	if (!mainClient.StartServiceCtrlDispatcher()) {
-		LOG_MESSAGE(_T("We failed to start the service"));
+	try {
+		std::wcout << _T("Running as service...") << std::endl;
+		mainClient.enableDebug(true);
+		mainClient.start_and_wait();
+	} catch (...) {
+		std::wcerr << _T("Unknown exception in service") << std::endl;
 	}
 	return nRetCode;
 }
 
 void migrate() {}
+
+std::list<std::wstring> NSClientT::list_commands() {
+	return commands_.list();
+}
 
 NSClientT::plugin_info_list NSClientT::get_all_plugins() {
 	plugin_info_list ret;
@@ -654,7 +515,7 @@ void NSClientT::HandleSettingsCLI(wchar_t* arg, int argc, wchar_t* argv[]) {
 	try {
 		if (sarg == _T("migrate")) {
 			if (argc == 0) {
-				LOG_ERROR_STD(_T("In correct syntax: nsclient++ -settings migrate <to>"));
+				LOG_ERROR_CORE_STD(_T("In correct syntax: nsclient++ -settings migrate <to>"));
 				return;
 			}
 			std::wstring to = argv[0];
@@ -666,11 +527,11 @@ void NSClientT::HandleSettingsCLI(wchar_t* arg, int argc, wchar_t* argv[]) {
 			}
 		} else if (sarg == _T("generate")) {
 			if (argc == 0) {
-				LOG_ERROR_STD(_T("In correct syntax: nsclient++ -settings generate <what>"));
-				LOG_ERROR_STD(_T("     where <what> is one of ths following:"));
-				LOG_ERROR_STD(_T("      trac"));
-				LOG_ERROR_STD(_T("      default"));
-				LOG_ERROR_STD(_T("      <type>"));
+				LOG_ERROR_CORE_STD(_T("In correct syntax: nsclient++ -settings generate <what>"));
+				LOG_ERROR_CORE_STD(_T("     where <what> is one of ths following:"));
+				LOG_ERROR_CORE_STD(_T("      trac"));
+				LOG_ERROR_CORE_STD(_T("      default"));
+				LOG_ERROR_CORE_STD(_T("      <type>"));
 				return;
 			}
 			std::wstring arg1 = argv[0];
@@ -727,11 +588,11 @@ void NSClientT::HandleSettingsCLI(wchar_t* arg, int argc, wchar_t* argv[]) {
 				}
 			}
 		} else {
-			LOG_ERROR_STD(_T("In correct syntax: nsclient++ -settings <keyword>"));
-			LOG_ERROR_STD(_T(" <keyword> : "));
-			LOG_ERROR_STD(_T("   migrate - migrate to a new setings subsystem"));
-			LOG_ERROR_STD(_T("   copy    - copy settings from one subsystem to another"));
-			LOG_ERROR_STD(_T("   set     - Set a setting system as the default store"));
+			LOG_ERROR_CORE_STD(_T("In correct syntax: nsclient++ -settings <keyword>"));
+			LOG_ERROR_CORE_STD(_T(" <keyword> : "));
+			LOG_ERROR_CORE_STD(_T("   migrate - migrate to a new setings subsystem"));
+			LOG_ERROR_CORE_STD(_T("   copy    - copy settings from one subsystem to another"));
+			LOG_ERROR_CORE_STD(_T("   set     - Set a setting system as the default store"));
 		}
 
 
@@ -769,13 +630,14 @@ bool NSClientT::initCore(bool boot) {
 	if (!settings_manager::init_settings(getBasePath())) {
 		return false;
 	}
+	LOG_MESSAGE(_T("Got settings subsystem..."));
 	try {
 		if (debug_)
 			settings_manager::get_settings()->set_int(_T("log"), _T("debug"), 1);
 			settings_manager::get_settings()->set_int(_T("Settings"), _T("shared_Session"), 1);
 		enable_shared_session_ = SETTINGS_GET_BOOL_CORE(settings_def::SHARED_SESSION);
 	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Could not find settings: ") + e.getMessage());
+		LOG_ERROR_CORE_STD(_T("Could not find settings: ") + e.getMessage());
 	}
 
 	if (enable_shared_session_) {
@@ -832,10 +694,10 @@ bool NSClientT::initCore(bool boot) {
 	try {
 		com_helper_.initialize();
 	} catch (com_helper::com_exception e) {
-		LOG_ERROR_STD(_T("COM exception: ") + e.getMessage());
+		LOG_ERROR_CORE_STD(_T("COM exception: ") + e.getMessage());
 		return false;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Unknown exception iniating COM..."));
+		LOG_ERROR_CORE(_T("Unknown exception iniating COM..."));
 		return false;
 	}
 #endif
@@ -855,48 +717,31 @@ bool NSClientT::initCore(bool boot) {
 				try {
 					loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(*cit));
 				} catch(const NSPluginException& e) {
-					LOG_ERROR_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
+					LOG_ERROR_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
 					//return false;
 				} catch (std::exception e) {
-					LOG_ERROR_STD(_T("exception loading plugin: ") + (*cit) + strEx::string_to_wstring(e.what()));
+					LOG_ERROR_CORE_STD(_T("exception loading plugin: ") + (*cit) + strEx::string_to_wstring(e.what()));
 					return false;
 				} catch (...) {
-					LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + (*cit));
+					LOG_ERROR_CORE_STD(_T("Unknown exception loading plugin: ") + (*cit));
 					return false;
 				}
 			}
 		} catch (SettingsException e) {
-			LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
+			LOG_ERROR_CORE_STD(_T("Failed to set settings file") + e.getMessage());
 		} catch (...) {
-			LOG_ERROR_STD(_T("Unknown exception when loading plugins"));
+			LOG_ERROR_CORE_STD(_T("Unknown exception when loading plugins"));
 			return false;
 		}
 		try {
 			loadPlugins(boot?NSCAPI::normalStart:NSCAPI::dontStart);
 		} catch (...) {
-			LOG_ERROR_STD(_T("Unknown exception loading plugins"));
+			LOG_ERROR_CORE_STD(_T("Unknown exception loading plugins"));
 			return false;
 		}
 		LOG_DEBUG_STD(_T("NSCLient++ - ") SZVERSION _T(" Started!"));
 	}
 	LOG_MESSAGE_STD(_T("NSCLient++ - ") SZVERSION _T(" Started!"));
-	return true;
-}
-
-/**
- * Service control handler startup point.
- * When the program is started as a service this will be the entry point.
- */
-bool NSClientT::InitiateService() {
-	if (!initCore(true))
-		return false;
-/*
-	DWORD dwSessionId = remote_processes::getActiveSessionId();
-	if (dwSessionId != 0xFFFFFFFF)
-		tray_starter::start(dwSessionId);
-	else
-		LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
-		*/
 	return true;
 }
 
@@ -939,9 +784,9 @@ bool NSClientT::exitCore(bool boot) {
 			LOG_DEBUG_STD(_T("Stopping: NON Message Handling Plugins"));
 			mainClient.unloadPlugins(false);
 		} catch(NSPluginException e) {
-			LOG_ERROR_STD(_T("Exception raised when unloading non msg plguins: ") + e.error_ + _T(" in module: ") + e.file_);
+			LOG_ERROR_CORE_STD(_T("Exception raised when unloading non msg plguins: ") + e.error_ + _T(" in module: ") + e.file_);
 		} catch(...) {
-			LOG_ERROR_STD(_T("Unknown exception raised when unloading non msg plugins"));
+			LOG_ERROR_CORE_STD(_T("Unknown exception raised when unloading non msg plugins"));
 		}
 	}
 #ifdef WIN32
@@ -949,9 +794,9 @@ bool NSClientT::exitCore(bool boot) {
 	try {
 		com_helper_.unInitialize();
 	} catch (com_helper::com_exception e) {
-		LOG_ERROR_STD(_T("COM exception: ") + e.getMessage());
+		LOG_ERROR_CORE_STD(_T("COM exception: ") + e.getMessage());
 	} catch (...) {
-		LOG_ERROR_STD(_T("Unknown exception uniniating COM..."));
+		LOG_ERROR_CORE_STD(_T("Unknown exception uniniating COM..."));
 	}
 #endif
 	/*
@@ -984,27 +829,20 @@ bool NSClientT::exitCore(bool boot) {
 // 			shared_server_->close_session();
 // 		}
 	} catch(...) {
-		LOG_ERROR_STD(_T("UNknown exception raised: When closing shared session"));
+		LOG_ERROR_CORE_STD(_T("UNknown exception raised: When closing shared session"));
 	}
 	if (boot) {
 		try {
 			LOG_DEBUG_STD(_T("Stopping: Message handling Plugins"));
 			mainClient.unloadPlugins(true);
 		} catch(NSPluginException e) {
-			LOG_ERROR_STD(_T("Exception raised when unloading msg plugins: ") + e.error_ + _T(" in module: ") + e.file_);
+			LOG_ERROR_CORE_STD(_T("Exception raised when unloading msg plugins: ") + e.error_ + _T(" in module: ") + e.file_);
 		} catch(...) {
-			LOG_ERROR_STD(_T("UNknown exception raised: When stopping message plguins"));
+			LOG_ERROR_CORE_STD(_T("UNknown exception raised: When stopping message plguins"));
 		}
 	}
 	LOG_MESSAGE_STD(_T("NSCLient++ - ") SZVERSION _T(" Stopped succcessfully"));
 	return true;
-}
-/**
- * Service control handler termination point.
- * When the program is stopped as a service this will be the "exit point".
- */
-void NSClientT::TerminateService(void) {
-	exitCore(true);
 }
 #ifdef WIN32x
 /**
@@ -1055,7 +893,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, co
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return -1;
 		}
 		for (pluginList::size_type i=0;i<plugins_.size();++i) {
@@ -1069,7 +907,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, co
 					try {
 						return p->commandLineExec(command, argLen, args);
 					} catch (NSPluginException e) {
-						LOG_ERROR_STD(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);
+						LOG_ERROR_CORE_STD(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);
 						return -1;
 					}
 				}
@@ -1084,7 +922,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, co
 	} catch (NSPluginException e) {
 		LOG_MESSAGE_STD(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
 	}
-	LOG_ERROR_STD(_T("Module not found: ") + module + _T(" available modules are: ") + moduleList);
+	LOG_ERROR_CORE_STD(_T("Module not found: ") + std::wstring(module) + _T(" available modules are: ") + moduleList);
 	return 0;
 }
 
@@ -1095,7 +933,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const wchar_t* command, co
 void NSClientT::addPlugins(const std::list<std::wstring> plugins) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 	if (!readLock.owns_lock()) {
-		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 		return;
 	}
 	std::list<std::wstring>::const_iterator it;
@@ -1110,7 +948,7 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
 		commandHandlers_.clear();
@@ -1120,7 +958,7 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
 		for (pluginList::reverse_iterator it = plugins_.rbegin(); it != plugins_.rend(); ++it) {
@@ -1135,16 +973,16 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 					LOG_DEBUG_STD(_T("Skipping log plugin: ") + p->getModule() + _T("..."));
 				}
 			} catch(NSPluginException e) {
-				LOG_ERROR_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
+				LOG_ERROR_CORE_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
 			} catch(...) {
-				LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin"));
+				LOG_ERROR_CORE_STD(_T("Unknown exception raised when unloading plugin"));
 			}
 		}
 	}
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
 		commands_.remove_all();
@@ -1157,9 +995,9 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 					continue;
 				}
 			} catch(NSPluginException e) {
-				LOG_ERROR_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
+				LOG_ERROR_CORE_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
 			} catch(...) {
-				LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin"));
+				LOG_ERROR_CORE(_T("Unknown exception raised when unloading plugin"));
 			}
 			it++;
 		}
@@ -1171,7 +1009,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
 		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
@@ -1179,15 +1017,15 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 			try {
 				if (!(*it)->load_plugin(NSCAPI::normalStart)) {
 					it = plugins_.erase(it);
-					LOG_ERROR_STD(_T("Plugin refused to load: ") + (*it)->getModule());
+					LOG_ERROR_CORE_STD(_T("Plugin refused to load: ") + (*it)->getModule());
 				}
 				++it;
 			} catch (NSPluginException e) {
 				it = plugins_.erase(it);
-				LOG_ERROR_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
+				LOG_ERROR_CORE_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
 			} catch (...) {
 				it = plugins_.erase(it);
-				LOG_ERROR_STD(_T("Could not load plugin: ") + (*it)->getModule());
+				LOG_ERROR_CORE_STD(_T("Could not load plugin: ") + (*it)->getModule());
 			}
 		}
 	}
@@ -1198,10 +1036,10 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 			++it;
 		} catch(NSPluginException e) {
 			it = plugins_.erase(it);
-			LOG_ERROR_STD(_T("Exception raised when loading plugin: ") + e.error_ + _T(" in module: ") + e.file_ + _T(" plugin has been removed."));
+			LOG_ERROR_CORE_STD(_T("Exception raised when loading plugin: ") + e.error_ + _T(" in module: ") + e.file_ + _T(" plugin has been removed."));
 		} catch(...) {
 			it = plugins_.erase(it);
-			LOG_ERROR_STD(_T("Unknown exception raised when unloading plugin plugin has been removed"));
+			LOG_ERROR_CORE(_T("Unknown exception raised when unloading plugin plugin has been removed"));
 		}
 	}
 	plugins_loaded_ = true;
@@ -1223,7 +1061,7 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return plugin;
 		}
 		plugins_.insert(plugins_.end(), plugin);
@@ -1256,7 +1094,7 @@ unsigned int NSClientT::getBufferLength() {
 			LOG_DEBUG_STD(_T("Failed to get length: ") + e.getMessage());
 			return setting_keys::settings_def::PAYLOAD_LEN_DEFAULT;
 		} catch (...) {
-			LOG_ERROR(_T("Failed to get length: :("));
+			LOG_ERROR_CORE(_T("Failed to get length: :("));
 			return setting_keys::settings_def::PAYLOAD_LEN_DEFAULT;
 		}
 	}
@@ -1329,7 +1167,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned
 	} else */{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return NSCAPI::returnUNKNOWN;
 		}
 		for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
@@ -1337,7 +1175,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned
 				NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 				switch (c) {
 					case NSCAPI::returnInvalidBufferLen:
-						LOG_ERROR(_T("UNKNOWN: Return buffer to small to handle this command."));
+						LOG_ERROR_CORE(_T("UNKNOWN: Return buffer to small to handle this command."));
 						return c;
 					case NSCAPI::returnIgnored:
 						break;
@@ -1349,14 +1187,14 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned
 						LOG_DEBUG_STD(_T("Injected Performance Result: '") +(std::wstring)(returnPerfBuffer) + _T("'"));
 						return c;
 					default:
-						LOG_ERROR_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);
+						LOG_ERROR_CORE_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);
 						return c;
 				}
 			} catch(const NSPluginException& e) {
-				LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+				LOG_ERROR_CORE_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
 				return NSCAPI::returnCRIT;
 			} catch(...) {
-				LOG_ERROR_STD(_T("Unknown exception raised in module"));
+				LOG_ERROR_CORE(_T("Unknown exception raised in module"));
 				return NSCAPI::returnCRIT;
 			}
 		}
@@ -1368,7 +1206,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned
 void NSClientT::listPlugins() {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
-		LOG_ERROR(_T("FATAL ERROR: Could not get read-mutex."));
+		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 		return;
 	}
 	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
@@ -1379,7 +1217,7 @@ void NSClientT::listPlugins() {
 				std::wcout << (*it)->getModule() << _T(": ") << (*it)->getName() << std::endl;
 			}
 		} catch (NSPluginException e) {
-			LOG_ERROR_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
+			LOG_ERROR_CORE_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
 		}
 	}
 
@@ -1506,7 +1344,7 @@ void NSClientT::reportMessage(int msgType, const wchar_t* file, const int line, 
 boost::filesystem::wpath NSClientT::getBasePath(void) {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
-		LOG_ERROR(_T("FATAL ERROR: Could not get mutex."));
+		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
 		return _T("FATAL ERROR");
 	}
 	if (!basePath.empty())
@@ -1525,9 +1363,9 @@ boost::filesystem::wpath NSClientT::getBasePath(void) {
 	try {
 		settings_manager::get_core()->set_base(basePath);
 	} catch (SettingsException e) {
-		LOG_ERROR_STD(_T("Failed to set settings file: ") + e.getMessage());
+		LOG_ERROR_CORE_STD(_T("Failed to set settings file: ") + e.getMessage());
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to set settings file"));
+		LOG_ERROR_CORE_STD(_T("Failed to set settings file"));
 	}
 	return basePath;
 }
@@ -1561,5 +1399,30 @@ std::wstring Decrypt(std::wstring str, unsigned int algorithm) {
 }
 
 void NSClientT::nsclient_log_error(std::wstring file, int line, std::wstring error) {
-	NSAPIMessage(NSCAPI::error, file.c_str(), line, error);
+	reportMessage(NSCAPI::error, file.c_str(), line, error);
 }
+
+
+
+// Service API
+NSClient* NSClientT::get_global_instance() {
+	return &mainClient;
+}
+void NSClientT::handle_startup() {
+	initCore(true);
+/*
+	DWORD dwSessionId = remote_processes::getActiveSessionId();
+	if (dwSessionId != 0xFFFFFFFF)
+		tray_starter::start(dwSessionId);
+	else
+		LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
+		*/
+}
+void NSClientT::handle_shutdown() {
+	exitCore(true);
+}
+#ifdef _WIN32
+void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {
+
+}
+#endif

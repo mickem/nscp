@@ -21,6 +21,10 @@
 #include "StdAfx.h"
 #include "NSCPlugin.h"
 #include "core_api.h"
+
+unsigned int NSCPlugin::last_plugin_id_ = 0;
+
+
 /**
  * Default c-tor
  * Initializes the plug in name but does not load the actual plug in.<br>
@@ -315,7 +319,7 @@ void NSCPlugin::loadRemoteProcs_(void) {
 			throw NSPluginException(module_, _T("Could not load NSModuleHelperInit"));
 
 		try {
-			fModuleHelperInit(NSAPILoader);
+			fModuleHelperInit(get_id(), NSAPILoader);
 		} catch (...) {
 			throw NSPluginException(module_, _T("Unhandled exception in getDescription."));
 		}
@@ -359,6 +363,8 @@ void NSCPlugin::loadRemoteProcs_(void) {
 		fHideTray = (lpHideTray)module_.load_proc("HideIcon");
 	} catch (dll::dll_exception &e) {
 		throw NSPluginException(module_, _T("Unhandled exception when loading proces: ") + e.what());
+	} catch (...) {
+		throw NSPluginException(module_, _T("Unhandled exception when loading proces: <UNKNOWN>"));
 	}
 
 }
