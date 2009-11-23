@@ -6,11 +6,13 @@
 template<class charT>
 class basic_command_line_parser_ex : public boost::program_options::basic_command_line_parser<charT> {
 public:
+	/*
 	static boost::program_options::basic_parsed_options<charT> parse_command_line(int argc, charT* argv[], const boost::program_options::options_description& desc,
 		int style = 0, boost::function1<std::pair<std::string, std::string>, const std::string&> ext = boost::program_options::ext_parser())
 	{
 		return basic_command_line_parser_ex<charT>(argc, argv).options(desc).style(style).extra_parser(ext).run();
 	}
+	*/
 
 	template<class charTx, class Iterator>
 		std::vector<std::basic_string<charTx> > 
@@ -30,12 +32,8 @@ public:
 			make_vector<charT, charT**>(argv, argv+argc)
 			)
 		{}
-		/*
-#ifdef _WIN32
-		basic_command_line_parser_ex(const std::wstring args) 
-			: boost::program_options::basic_command_line_parser<charT>(boost::program_options::split_winmain(args))
+		basic_command_line_parser_ex(std::vector<charT> v) 
+			: boost::program_options::basic_command_line_parser<charT>(v)
 		{}
-#endif
-		*/
 
 };

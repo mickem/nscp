@@ -35,6 +35,7 @@ target_link_libraries(${TARGET}
   ${Boost_FILESYSTEM_LIBRARY}
   ${Boost_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
+  ${OPENSSL_LIBRARIES}
   ${EXTRA_LIBS}
 )
 

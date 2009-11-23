@@ -22,7 +22,6 @@
 NSC_WRAPPERS_MAIN();
 #include <map>
 #include <nrpe/nrpepacket.hpp>
-#include <boost/program_options.hpp>
 
 
 class NRPEClient {
@@ -85,7 +84,6 @@ private:
 	typedef std::map<strEx::blindstr, nrpe_connection_data> command_list;
 	command_list commands;
 	unsigned int buffer_length_;
-	bool bInitSSL;
 
 public:
 	NRPEClient();
@@ -124,10 +122,7 @@ private:
 	nrpe_result_data  execute_nrpe_command(nrpe_connection_data con, std::wstring arguments);
 	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
 	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
-	void initSSL();
-	boost::program_options::options_description get_optionDesc();
-	boost::program_options::positional_options_description get_optionsPositional();
-	nrpe_connection_data get_ConectionData(boost::program_options::variables_map &vm);
+	void add_options(po::options_description &desc, nrpe_connection_data command_data);
 
 
 private:

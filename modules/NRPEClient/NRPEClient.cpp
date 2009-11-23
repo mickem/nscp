@@ -25,8 +25,9 @@
 #include <config.h>
 #include <msvc_wrappers.h>
 //#include <execute_process.hpp>
-#include <program_options_ex.hpp>
 #include <strEx.h>
+
+
 
 NRPEClient gNRPEClient;
 
@@ -38,7 +39,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 }
 #endif
 
-NRPEClient::NRPEClient() : buffer_length_(0), bInitSSL(false) {
+NRPEClient::NRPEClient() : buffer_length_(0) {
 }
 
 NRPEClient::~NRPEClient() {
@@ -66,31 +67,51 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 	}
 	return true;
 }
-void NRPEClient::initSSL() {
-	if (bInitSSL)
-		return;
-#ifdef USE_SSL
-	simpleSSL::SSL_init();
-#endif
-	bInitSSL = true;
+
+void NRPEClient::add_options(po::options_description &desc, nrpe_connection_data command_data) {
+	desc.add_options()
+		("help,h", "Show this help message.")
+		("host,H", po::wvalue<std::wstring>(&command_data.host), "The address of the host running the NRPE daemon")
+		("port,p", po::value<int>(&command_data.port), "The port on which the daemon is running (default=5666)")
+		("command,c", po::wvalue<std::wstring>(&command_data.command), "The name of the command that the remote daemon should run")
+		("timeout,t", po::value<int>(&command_data.timeout), "Number of seconds before connection times out (default=10)")
+		("buffer-length,l", po::value<unsigned int>(&command_data.buffer_length), std::string("Length of payload (has to be same as on the server (default=" + to_string(buffer_length_) + ")").c_str())
+		("no-ssl,n", po::value<bool>(&command_data.no_ssl)->zero_tokens()->default_value(false), "Do not initial an ssl handshake with the server, talk in plaintext.")
+		("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data.argument_vector), "list of arguments")
+		;
 }
+
 
 void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 	try {
-		/*
-		TODO: reimplem,ent this!
-		boost::program_options::options_description desc = get_optionDesc();
-		boost::program_options::positional_options_description p = get_optionsPositional();
 
+		NRPEClient::nrpe_connection_data command_data;
 		boost::program_options::variables_map vm;
-		boost::program_options::store(
-			basic_command_line_parser_ex<wchar_t>(args).options(desc).positional(p).run()
-			, vm);
-		boost::program_options::notify(vm); 
-		nrpe_connection_data cd = get_ConectionData(vm);
-		NSC_DEBUG_MSG_STD(_T("Added NRPE Client: ") + key.c_str() + _T(" = ") + cd.toString());
-		commands[key] = cd;
-		*/
+
+		po::options_description desc("Allowed options");
+		buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
+		add_options(desc, command_data);
+
+		po::positional_options_description p;
+		p.add("arguments", -1);
+
+		std::vector<std::wstring> list;
+		//explicit escaped_list_separator(Char e = '\\', Char c = ',',Char q = '\"')
+		boost::escaped_list_separator<wchar_t> sep(L'\\', L' ', L'\"');
+		typedef boost::tokenizer<boost::escaped_list_separator<wchar_t>,std::wstring::const_iterator, std::wstring > tokenizer_t;
+		tokenizer_t tok(args, sep);
+		for(tokenizer_t::iterator beg=tok.begin(); beg!=tok.end();++beg){
+			std::wcout << *beg << std::endl;
+			list.push_back(*beg);
+		}
+
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(list).options(desc).positional(p).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+		command_data.parse_arguments();
+
+		NSC_DEBUG_MSG_STD(_T("Added NRPE Client: ") + key.c_str() + _T(" = ") + command_data.toString());
+		commands[key] = command_data;
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + strEx::string_to_wstring(e.what()));
 	} catch (...) {
@@ -137,28 +158,6 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::blindstr command, co
 	return r.result;
 }
 
-boost::program_options::options_description NRPEClient::get_optionDesc() {
-	boost::program_options::options_description desc("Allowed options");
-	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
-	desc.add_options()
-		("help,h", "Show this help message.")
-		("host,H", boost::program_options::wvalue<std::wstring>(), "The address of the host running the NRPE daemon")
-		("port,p", boost::program_options::value<int>(), "The port on which the daemon is running (default=5666)")
-		("command,c", boost::program_options::wvalue<std::wstring>(), "The name of the command that the remote daemon should run")
-		("timeout,t", boost::program_options::value<int>(), "Number of seconds before connection times out (default=10)")
-		("buffer-length,l", boost::program_options::value<int>(), std::string("Length of payload (has to be same as on the server (default=" + strEx::s::itos(buffer_length_) + ")").c_str())
-		("no-ssl,n", "Do not initial an ssl handshake with the server, talk in plaintext.")
-		("arguments,a", boost::program_options::wvalue<std::vector<std::wstring> >(), "list of arguments")
-		;
-	return desc;
-}
-boost::program_options::positional_options_description NRPEClient::get_optionsPositional() {
-	boost::program_options::positional_options_description p;
-	p.add("arguments", -1);
-	return p;
-}
-
-namespace po = boost::program_options;
 int NRPEClient::commandLineExec(const unsigned int argLen, TCHAR** args) {
 	try {
 
@@ -167,16 +166,7 @@ int NRPEClient::commandLineExec(const unsigned int argLen, TCHAR** args) {
 
 		po::options_description desc("Allowed options");
 		buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
-		desc.add_options()
-			("help,h", "Show this help message.")
-			("host,H", po::wvalue<std::wstring>(&command_data.host), "The address of the host running the NRPE daemon")
-			("port,p", po::value<int>(&command_data.port), "The port on which the daemon is running (default=5666)")
-			("command,c", po::wvalue<std::wstring>(&command_data.command), "The name of the command that the remote daemon should run")
-			("timeout,t", po::value<int>(&command_data.timeout), "Number of seconds before connection times out (default=10)")
-			("buffer-length,l", po::value<unsigned int>(&command_data.buffer_length), std::string("Length of payload (has to be same as on the server (default=" + to_string(buffer_length_) + ")").c_str())
-			("no-ssl,n", po::value<bool>(&command_data.no_ssl)->zero_tokens()->default_value(false), "Do not initial an ssl handshake with the server, talk in plaintext.")
-			("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data.argument_vector), "list of arguments")
-			;
+		add_options(desc, command_data);
 
 		po::positional_options_description p;
 		p.add("arguments", -1);
@@ -184,8 +174,6 @@ int NRPEClient::commandLineExec(const unsigned int argLen, TCHAR** args) {
 		po::store(parsed, vm);
 		po::notify(vm);
 		command_data.parse_arguments();
-
-		std::wcout << _T("parsed data: ") << command_data.toString()<< std::endl;
 
 		if (vm.count("help")) {
 			std::cout << desc << "\n";
@@ -228,7 +216,6 @@ NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPa
 	return send_nossl(host, port, timeout, packet);
 #else
 	
-	initSSL();
 	simpleSSL::Socket socket(true);
 	socket.connect(host, port);
 	NSC_DEBUG_MSG_STD(_T(">>>length: ") + strEx::itos(packet.getBufferLength()));

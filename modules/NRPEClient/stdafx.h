@@ -45,4 +45,7 @@
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
 #endif
+#include <program_options_ex.hpp>
+namespace po = boost::program_options;
+
 
