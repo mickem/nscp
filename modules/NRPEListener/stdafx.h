@@ -26,6 +26,8 @@
 
 #include <string>
 #include <functional>
+#include <map>
+#include <vector>
 
 #include <config.h>
 #include <utils.h>
@@ -33,7 +35,19 @@
 #include <NSCAPI.h>
 #include <NSCHelper.h>
 #include <nsc_module_wrapper.hpp>
+#include <nrpe/nrpepacket.hpp>
 
-#ifdef MEMCHECK
-#include <vld.h>
+#include <boost/thread.hpp>
+#include <boost/bind.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/array.hpp>
+#include <boost/asio.hpp>
+#include <boost/optional.hpp>
+#include <boost/bind.hpp>
+#include <boost/logic/tribool.hpp>
+#include <boost/utility.hpp>
+#include <boost/tuple/tuple.hpp>
+
+#ifdef USE_SSL
+#include <boost/asio/ssl.hpp>
 #endif

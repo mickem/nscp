@@ -25,3 +25,19 @@ typedef unsigned long u_int32_t;
 #define __FILEW__ WSTR(__FILE__)
 #endif
 #endif
+
+
+#include <boost/detail/endian.hpp>
+
+enum EEndian
+{
+	LITTLE_ENDIAN_ORDER,
+	BIG_ENDIAN_ORDER,
+#if defined(BOOST_LITTLE_ENDIAN)
+	HOST_ENDIAN_ORDER = LITTLE_ENDIAN_ORDER
+#elif defined(BOOST_BIG_ENDIAN)
+	HOST_ENDIAN_ORDER = BIG_ENDIAN_ORDER
+#else
+#error "Impossible de determiner l'indianness du systeme cible."
+#endif
+};

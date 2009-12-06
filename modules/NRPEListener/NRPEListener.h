@@ -19,16 +19,12 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-NSC_WRAPPERS_MAIN();
-#include <Socket.h>
-#ifdef USE_SSL
-#include <SSLSocket.h>
-#endif
-#include <map>
-#include <nrpe/NRPEPacket.hpp>
-#include <execute_process.hpp>
+#include <socket_helpers.hpp>
+#include "nrpe_server.hpp"
 
-class NRPEListener : public simpleSocket::ListenerHandler {
+NSC_WRAPPERS_MAIN();
+
+class NRPEListener {
 private:
 	typedef enum {
 		inject, script, script_dir,
@@ -40,22 +36,12 @@ private:
 		std::wstring arguments;
 	};
 
-#ifdef USE_SSL
-	bool bUseSSL_;
-	simpleSSL::Listener socket_ssl_;
-#endif
-	simpleSocket::Listener<> socket_;
-	typedef std::map<strEx::blindstr, command_data> command_list;
-	command_list commands;
 	unsigned int timeout;
-	unsigned int socketTimeout_;
 	socketHelpers::allowedHosts allowedHosts;
 	bool noPerfData_;
-	std::wstring scriptDirectory_;
 	unsigned int buffer_length_;
 	std::wstring root_;
-	bool allowNasty_;
-	bool allowArgs_;
+	bool bUseSSL_;
 
 public:
 	NRPEListener();
@@ -84,18 +70,12 @@ public:
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
+	boost::shared_ptr<nrpe::server::server> server_;
 
 private:
 	class NRPEException {
 		std::wstring error_;
 	public:
-/*		NRPESocketException(simpleSSL::SSLException e) {
-			error_ = e.getMessage();
-		}
-		NRPEException(NRPEPacket::NRPEPacketException e) {
-			error_ = e.getMessage();
-		}
-		*/
 		NRPEException(std::wstring s) {
 			error_ = s;
 		}
@@ -103,22 +83,5 @@ private:
 			return error_;
 		}
 	};
-
-
-private:
-	void onAccept(simpleSocket::Socket *client);
-	void onClose();
-
-
-	NRPEPacket handlePacket(NRPEPacket p);
-	int executeNRPECommand(std::wstring command, std::wstring &msg, std::wstring &perf);
-	void addAllScriptsFrom(std::wstring path);
-	void addCommand(command_type type, strEx::blindstr key, std::wstring args = _T("")) {
-		addCommand(key, command_data(type, args));
-	}
-	void addCommand(strEx::blindstr key, command_data args) {
-		commands[key] = args;
-	}
-
 };
 

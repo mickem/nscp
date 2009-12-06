@@ -68,7 +68,7 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 	return true;
 }
 
-void NRPEClient::add_options(po::options_description &desc, nrpe_connection_data command_data) {
+void NRPEClient::add_options(po::options_description &desc, nrpe_connection_data &command_data) {
 	desc.add_options()
 		("help,h", "Show this help message.")
 		("host,H", po::wvalue<std::wstring>(&command_data.host), "The address of the host running the NRPE daemon")
@@ -101,7 +101,6 @@ void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 		typedef boost::tokenizer<boost::escaped_list_separator<wchar_t>,std::wstring::const_iterator, std::wstring > tokenizer_t;
 		tokenizer_t tok(args, sep);
 		for(tokenizer_t::iterator beg=tok.begin(); beg!=tok.end();++beg){
-			std::wcout << *beg << std::endl;
 			list.push_back(*beg);
 		}
 
@@ -191,17 +190,17 @@ int NRPEClient::commandLineExec(const unsigned int argLen, TCHAR** args) {
 }
 NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_data con, std::wstring arguments) {
 	try {
-		NRPEPacket packet;
+		nrpe::packet packet;
 		if (!con.no_ssl) {
 #ifdef USE_SSL
-			packet = send_ssl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(arguments), con.buffer_length));
+			packet = send_ssl(con.host, con.port, con.timeout, nrpe::packet::make_request(con.get_cli(arguments), con.buffer_length));
 #else
 			return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)!"));
 #endif
 		} else
-			packet = send_nossl(con.host, con.port, con.timeout, NRPEPacket::make_request(con.get_cli(arguments), con.buffer_length));
+			packet = send_nossl(con.host, con.port, con.timeout, nrpe::packet::make_request(con.get_cli(arguments), con.buffer_length));
 		return nrpe_result_data(packet.getResult(), packet.getPayload());
-	} catch (NRPEPacket::NRPEPacketException &e) {
+	} catch (nrpe::nrpe_packet_exception &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.getMessage());
 	} catch (std::runtime_error &e) {
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + boost::lexical_cast<std::wstring>(e.what()));
@@ -322,14 +321,16 @@ public:
 		socket_.close();
 	}
 
-	void send(NRPEPacket &packet, boost::posix_time::seconds timeout) {
-		std::vector<char> buf(packet.getBufferLength());
-		write_with_timeout(socket_, socket_, boost::asio::buffer(packet.getBuffer(), packet.getBufferLength()), timeout);
+	void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
+		std::vector<char> buf(packet.get_packet_length());
+		write_with_timeout(socket_, socket_, boost::asio::buffer(packet.create_buffer(), packet.get_packet_length()), timeout);
 	}
-	NRPEPacket recv(const NRPEPacket &packet, boost::posix_time::seconds timeout) {
-		std::vector<char> buf(packet.getBufferLength());
+	nrpe::packet recv(const nrpe::packet &packet, boost::posix_time::seconds timeout) {
+		std::vector<char> buf(packet.get_packet_length());
+		std::cout <<  "About to read: " << buf.size() << std::endl;
 		read_with_timeout(socket_, socket_, boost::asio::buffer(buf), timeout);
-		return NRPEPacket(&buf[0], buf.size(), packet.getInternalBufferLength());
+		std::cout <<  "Read data: " << buf.size() << std::endl;
+		return nrpe::packet(&buf[0], buf.size(), packet.get_payload_length());
 	}
 };
 #ifdef USE_SSL
@@ -369,21 +370,21 @@ public:
 
 	}
 
-	void send(NRPEPacket &packet, boost::posix_time::seconds timeout) {
+	void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
 		NSC_LOG_CRITICAL(_T("Writing..."));
-		std::vector<char> buf(packet.getBufferLength());
-		write_with_timeout(socket_, socket_.lowest_layer(), boost::asio::buffer(packet.getBuffer(), packet.getBufferLength()), timeout);
+		std::vector<char> buf(packet.get_packet_length());
+		write_with_timeout(socket_, socket_.lowest_layer(), boost::asio::buffer(packet.create_buffer(), packet.get_packet_length()), timeout);
 		NSC_LOG_CRITICAL(_T("Written..."));
 	}
-	NRPEPacket recv(const NRPEPacket &packet, boost::posix_time::seconds timeout) {
+	nrpe::packet recv(const nrpe::packet &packet, boost::posix_time::seconds timeout) {
 		NSC_LOG_CRITICAL(_T("Reading..."));
-		std::vector<char> buf(packet.getBufferLength());
+		std::vector<char> buf(packet.get_packet_length());
 		read_with_timeout(socket_, socket_.lowest_layer(), boost::asio::buffer(buf), timeout);
-		return NRPEPacket(&buf[0], buf.size(), packet.getInternalBufferLength());
+		return nrpe::packet(&buf[0], buf.size(), packet.get_payload_length());
 		NSC_LOG_CRITICAL(_T("Read..."));
 	}
 };
-NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet)
+nrpe::packet NRPEClient::send_ssl(std::wstring host, int port, int timeout, nrpe::packet packet)
 {
 	boost::asio::io_service io_service;
 	boost::asio::ssl::context ctx(io_service, boost::asio::ssl::context::sslv23);
@@ -396,7 +397,7 @@ NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPa
 }
 #endif
 
-NRPEPacket NRPEClient::send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet)
+nrpe::packet NRPEClient::send_nossl(std::wstring host, int port, int timeout, nrpe::packet packet)
 {
 	boost::asio::io_service io_service;
 	nrpe_socket socket(io_service, host, port);

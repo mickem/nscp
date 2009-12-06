@@ -1030,6 +1030,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 			}
 		}
 	}
+	/*
 	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
 		LOG_DEBUG_STD(_T("Loading plugin: ") + (*it)->getName() + _T("..."));
 		try {
@@ -1043,6 +1044,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 			LOG_ERROR_CORE(_T("Unknown exception raised when unloading plugin plugin has been removed"));
 		}
 	}
+	*/
 	plugins_loaded_ = true;
 }
 /**

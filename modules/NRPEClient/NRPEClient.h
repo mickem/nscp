@@ -72,6 +72,8 @@ private:
 			ss << _T(", timeout: ") << timeout;
 			ss << _T(", no_ssl: ") << no_ssl;
 			ss << _T(", buffer_length: ") << buffer_length;
+			ss << _T(", command: ") << command;
+			ss << _T(", argument: ") << arguments;
 			return ss.str();
 		}
 	};
@@ -120,9 +122,9 @@ public:
 
 private:
 	nrpe_result_data  execute_nrpe_command(nrpe_connection_data con, std::wstring arguments);
-	NRPEPacket send_nossl(std::wstring host, int port, int timeout, NRPEPacket packet);
-	NRPEPacket send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet);
-	void add_options(po::options_description &desc, nrpe_connection_data command_data);
+	nrpe::packet send_nossl(std::wstring host, int port, int timeout, nrpe::packet packet);
+	nrpe::packet send_ssl(std::wstring host, int port, int timeout, nrpe::packet packet);
+	void add_options(po::options_description &desc, nrpe_connection_data &command_data);
 
 
 private:

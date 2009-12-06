@@ -440,7 +440,7 @@ int NSCModuleHelper::getSettingsInt(std::wstring section, std::wstring key, int 
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
 namespace NSCModuleHelper {
-void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, int advanced) {
+void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
 	if (!fNSAPISettingsRegKey)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	fNSAPISettingsRegKey(path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
