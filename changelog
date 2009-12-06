@@ -3,8 +3,21 @@ TODO:
  * Fix configuration GUI (low priority)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Improved socket performance (would be nice if we could be used as a "hub")
- * Fixa dependonservice LanManWorkStation (old win)
+ * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
+
+2009-12-06 MickeM
+ + Added != to all string filters
+ + Sorted out the alias handling it is now wither what you specify or "files found" (this makes performance data work)
+ + Added version to CheckFile2
+   CheckFile2 path=D:\tmp pattern=*.exe filter+version=!=1.0 "syntax=%filename%: %version%" MaxWarn=1
+   CheckFile2 path=D:\tmp pattern=*.exe filter+version=!=6.0.2900.5512 "syntax=%filename%: %version%" MaxWarn=1
+ + Added line count to CheckFile2 to count lines
+   CheckFile2 path=D:\tmp pattern=*.txt filter+line-count=!=2 "syntax=%filename%: %line-count%" MaxWarn=1
+   CheckFile2 path=D:\tmp pattern=*.txt filter+line-count=ne:3 "syntax=%filename%: %line-count%" MaxWarn=1
+
+2009-xx-x MickeM - 0.3.7
+ ! Release the new version
 
 2009-10-11 MickeM
  + Added argument support to NRPE Client

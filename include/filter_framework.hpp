@@ -52,6 +52,12 @@ namespace filters {
 				return str == filter;
 			}
 		};
+		struct not_string_filter {
+			static bool filter(std::wstring filter, std::wstring str) {
+				std::wcout << str << _T("=") << filter << _T(": ") << (!(bool)(str == filter)) << std::endl;
+				return !(str == filter);
+			}
+		};
 #ifdef USE_BOOST
 		struct regexp_string_filter {
 			static bool filter(boost::wregex filter, std::wstring str) {
@@ -224,10 +230,12 @@ namespace filters {
 	typedef filter_one<boost::wregex, std::wstring, handlers::regexp_handler, filter::regexp_string_filter> regexp_string_filter;
 #endif
 	typedef filter_one<std::wstring, std::wstring, handlers::string_handler, filter::exact_string_filter> exact_string_filter;
+	typedef filter_one<std::wstring, std::wstring, handlers::string_handler, filter::not_string_filter> not_string_filter;
 
 	struct filter_all_strings {
 		sub_string_filter sub;
 		exact_string_filter exact;
+		not_string_filter not;
 		std::wstring value_;
 #ifdef USE_BOOST
 		regexp_string_filter regexp;
@@ -239,7 +247,9 @@ namespace filters {
 #ifdef USE_BOOST
 				|| regexp.hasFilter() 
 #endif
-				|| exact.hasFilter();
+				|| exact.hasFilter()
+				|| not.hasFilter()
+				;
 		}
 		bool matchFilter(const std::wstring str) const {
 			if ((sub.hasFilter())&&(sub.matchFilter(str)))
@@ -249,6 +259,8 @@ namespace filters {
 				return true;
 #endif
 			else if ((exact.hasFilter())&&(exact.matchFilter(str)))
+				return true;
+			else if ((not.hasFilter())&&(not.matchFilter(str)))
 				return true;
 			return false;
 		}
@@ -269,6 +281,10 @@ namespace filters {
 #endif
 			} else if (t.first.length() > 1 && t.first[0] == L'=') {
 				exact = t.first.substr(1);
+			} else if (t.first.length() > 2 && t.first[0] == L'!' && t.first[1] == L'=') {
+				not = t.first.substr(2);
+			} else if (t.first.length() > 1 && t.first[0] == L'!') {
+				not = t.first.substr(1);
 			} else {
 				exact = t.first;
 			}
@@ -364,6 +380,7 @@ namespace filters {
 		}
 	};
 	typedef filter_all_numeric<unsigned long long, checkHolders::time_handler<unsigned long long> > filter_all_times;
+	typedef filter_all_numeric<unsigned long, checkHolders::int_handler > filter_all_num_ul;
 
 	template <typename TFilterType, typename TValueType>
 	struct chained_filter {

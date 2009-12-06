@@ -1,6 +1,11 @@
 local target = CheckDisk ;
 local source = $(target) ;
 
+project 
+	: requirements
+	<find-static-library>version
+	;
+
 lib $(target)
 
 	: # sources

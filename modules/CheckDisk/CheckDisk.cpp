@@ -407,8 +407,18 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 
 
 struct file_info {
-	file_info() : ullCreationTime(0) {}
-	file_info(const BY_HANDLE_FILE_INFORMATION info, std::wstring filename_) : filename(filename_), ullCreationTime(0) {
+	file_info() 
+		: ullCreationTime(0)
+		, cached_version(false, _T("")) 
+		, cached_count(false, 0)
+	{}
+	file_info(const BY_HANDLE_FILE_INFORMATION info, std::wstring path_, std::wstring filename_) 
+		: path(path_)
+		, filename(filename_)
+		, ullCreationTime(0)
+		, cached_version(false, _T("")) 
+		, cached_count(false, 0)
+	{
 		ullSize = ((info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow);
 		ullCreationTime = ((info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime);
 		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
@@ -421,16 +431,70 @@ struct file_info {
 	unsigned long long ullLastWriteTime;
 	unsigned long long ullNow;
 	std::wstring filename;
+	std::wstring path;
+	std::pair<bool,std::wstring> cached_version;
+	std::pair<bool,unsigned long> cached_count;
 
 	std::wstring render(std::wstring syntax) {
+		strEx::replace(syntax, _T("%path%"), path);
 		strEx::replace(syntax, _T("%filename%"), filename);
 		strEx::replace(syntax, _T("%creation%"), strEx::format_filetime(ullCreationTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%access%"), strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%size%"), strEx::itos_as_BKMG(ullSize));
+		if (cached_version.first)
+			strEx::replace(syntax, _T("%version%"), cached_version.second);
+		if (cached_count.first)
+			strEx::replace(syntax, _T("%line-count%"), strEx::itos(cached_count.second));
 		return syntax;
 	}
 
+	std::wstring get_version() {
+		if (cached_version.first)
+			return cached_version.second;
+		std::wstring fullpath = path+_T("\\")+filename;
+
+		DWORD dwDummy;
+		DWORD dwFVISize = GetFileVersionInfoSize(fullpath.c_str(),&dwDummy);
+		LPBYTE lpVersionInfo = new BYTE[dwFVISize+1];
+		GetFileVersionInfo(fullpath.c_str(),0,dwFVISize,lpVersionInfo);
+		UINT uLen;
+		VS_FIXEDFILEINFO *lpFfi;
+		VerQueryValue( lpVersionInfo , _T("\\") , (LPVOID *)&lpFfi , &uLen );
+		DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
+		DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;
+		delete [] lpVersionInfo;
+		DWORD dwLeftMost = HIWORD(dwFileVersionMS);
+		DWORD dwSecondLeft = LOWORD(dwFileVersionMS);
+		DWORD dwSecondRight = HIWORD(dwFileVersionLS);
+		DWORD dwRightMost = LOWORD(dwFileVersionLS);
+		cached_version.second = strEx::itos(dwLeftMost) + _T(".") +
+			strEx::itos(dwSecondLeft) + _T(".") +
+			strEx::itos(dwSecondRight) + _T(".") +
+			strEx::itos(dwRightMost);
+		cached_version.first = true;
+		return cached_version.second;
+	}
+
+	unsigned long get_line_count() {
+		if (cached_count.first)
+			return cached_count.second;
+
+		unsigned long count = 0;
+		std::wstring fullpath = path+_T("\\")+filename;
+		FILE * pFile = fopen(strEx::wstring_to_string(fullpath).c_str(),"r");;
+		if (pFile==NULL) 
+			return 0;
+		char c;
+		do {
+			c = fgetc (pFile);
+			if (c == '\n') count++;
+		} while (c != EOF);
+		fclose (pFile);
+		cached_count.second = count;
+		cached_count.first = true;
+		return cached_count.second;
+	}
 };
 
 struct file_filter {
@@ -438,13 +502,15 @@ struct file_filter {
 	filters::filter_all_times creation;
 	filters::filter_all_times accessed;
 	filters::filter_all_times written;
+	filters::filter_all_strings version;
+	filters::filter_all_num_ul line_count;
 	static const __int64 MSECS_TO_100NS = 10000;
 
 	inline bool hasFilter() {
 		return size.hasFilter() || creation.hasFilter() || 
 			accessed.hasFilter() || written.hasFilter();
 	}
-	bool matchFilter(const file_info &value) const {
+	bool matchFilter(file_info &value) const {
 		if ((size.hasFilter())&&(size.matchFilter(value.ullSize)))
 			return true;
 		else if ((creation.hasFilter())&&(creation.matchFilter((value.ullNow-value.ullCreationTime)/MSECS_TO_100NS)))
@@ -452,6 +518,10 @@ struct file_filter {
 		else if ((accessed.hasFilter())&&(accessed.matchFilter((value.ullNow-value.ullLastAccessTime)/MSECS_TO_100NS)))
 			return true;
 		else if ((written.hasFilter())&&(written.matchFilter((value.ullNow-value.ullLastWriteTime)/MSECS_TO_100NS)))
+			return true;
+		else if ((version.hasFilter())&&(version.matchFilter(value.get_version())))
+			return true;
+		else if ((line_count.hasFilter())&&(line_count.matchFilter(value.get_line_count())))
 			return true;
 		return false;
 	}
@@ -465,6 +535,10 @@ struct file_filter {
 			return _T("accessed: ") + accessed.getValue();
 		if (written.hasFilter())
 			return _T("written: ") + written.getValue();
+		if (version.hasFilter())
+			return _T("written: ") + version.getValue();
+		if (line_count.hasFilter())
+			return _T("written: ") + line_count.getValue();
 		return _T("UNknown...");
 	}
 
@@ -490,7 +564,7 @@ struct find_first_file_info : public baseFinderFunction
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
-		info = file_info(_info, ffd.wfd.cFileName);
+		info = file_info(_info, ffd.path, ffd.wfd.cFileName);
 		return false;
 	}
 	inline const bool hasError() const {
@@ -529,7 +603,7 @@ struct file_filter_function : public baseFinderFunction
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
-		file_info info(_info, ffd.wfd.cFileName);
+		file_info info(_info, ffd.path, ffd.wfd.cFileName);
 		info.ullNow = now;
 
 		for (std::list<file_filter>::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
@@ -584,7 +658,7 @@ struct file_filter_function_ex : public baseFinderFunction
 	bool debug_;
 	std::wstring message;
 	std::wstring syntax;
-	std::wstring alias;
+	//std::wstring alias;
 	unsigned long long now;
 	unsigned int hit_count;
 
@@ -602,7 +676,7 @@ struct file_filter_function_ex : public baseFinderFunction
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
-		file_info info(_info, ffd.wfd.cFileName);
+		file_info info(_info, ffd.path, ffd.wfd.cFileName);
 		info.ullNow = now;
 
 		bool bMatch = !bFilterIn;
@@ -632,10 +706,12 @@ struct file_filter_function_ex : public baseFinderFunction
 		NSC_DEBUG_MSG_STD(_T("result: ") + strEx::itos(bFilterIn) + _T(" -- ") + strEx::itos(bMatch));
 		if ((bFilterIn&&bMatch)||(!bFilterIn&&!bMatch)) {
 			strEx::append_list(message, info.render(syntax));
+			/*
 			if (alias.length() < 16)
 				strEx::append_list(alias, info.filename);
 			else
 				strEx::append_list(alias, std::wstring(_T("...")));
+				*/
 			hit_count++;
 		}
 		return true;
@@ -762,8 +838,13 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 	return returnCode;
 }
 
-#define MAP_FILTER(value, obj, filtermode) \
-			else if (p__.first == value) { file_filter filter; filter.obj = p__.second; finder.filter_chain.push_back(filteritem_type(file_filter_function_ex::filtermode, filter)); }
+#define MAP_FILTER(value, obj) \
+		else if (p__.first == _T("filter+"##value)) { file_filter filter; filter.obj = p__.second; \
+			finder.filter_chain.push_back(filteritem_type(file_filter_function_ex::filter_plus, filter)); } \
+		else if (p__.first == _T("filter-"##value)) { file_filter filter; filter.obj = p__.second; \
+			finder.filter_chain.push_back(filteritem_type(file_filter_function_ex::filter_minus, filter)); } \
+		else if (p__.first == _T("filter."##value)) { file_filter filter; filter.obj = p__.second; \
+			finder.filter_chain.push_back(filteritem_type(file_filter_function_ex::filter_normal, filter)); }
 
 NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -806,21 +887,25 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-accessed"), fileAccessed, finder.filter_chain)
 			*/
 
-			MAP_FILTER(_T("filter+size"), size, filter_plus)
-			MAP_FILTER(_T("filter+creation"), creation, filter_plus)
-			MAP_FILTER(_T("filter+written"), written, filter_plus)
-			MAP_FILTER(_T("filter+accessed"), accessed, filter_plus)
-
+			MAP_FILTER(_T("size"), size)
+			MAP_FILTER(_T("creation"), creation)
+			MAP_FILTER(_T("written"), written)
+			MAP_FILTER(_T("accessed"), accessed)
+			MAP_FILTER(_T("version"), version)
+			MAP_FILTER(_T("line-count"), line_count)
+/*
 			MAP_FILTER(_T("filter.size"), size, filter_normal)
 			MAP_FILTER(_T("filter.creation"), creation, filter_normal)
 			MAP_FILTER(_T("filter.written"), written, filter_normal)
 			MAP_FILTER(_T("filter.accessed"), accessed, filter_normal)
+			MAP_FILTER(_T("filter.version"), version, filter_normal)
 
 			MAP_FILTER(_T("filter-size"), size, filter_minus)
 			MAP_FILTER(_T("filter-creation"), creation, filter_minus)
 			MAP_FILTER(_T("filter-written"), written, filter_minus)
 			MAP_FILTER(_T("filter-accessed"), accessed, filter_minus)
-
+			MAP_FILTER(_T("filter-version"), version, filter_minus)
+*/
 			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
 			MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
@@ -846,12 +931,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 		if (!alias.empty())
 			query.alias = alias;
 		else
-			query.alias = finder.alias;
-		if (query.alias.empty())
-			query.alias = _T("no files found");
+			query.alias = _T("found files");
 		query.runCheck(finder.hit_count, returnCode, message, perf);
-		if ((truncate > 0) && (message.length() > (truncate-4)))
+		if ((truncate > 0) && (message.length() > (truncate-4))) {
 			message = message.substr(0, truncate-4) + _T("...");
+			perf = _T("");
+		}
 		if (message.empty())
 			message = _T("CheckFile ok");
 		return returnCode;
