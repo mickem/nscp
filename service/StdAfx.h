@@ -20,18 +20,7 @@
 ***************************************************************************/
 #pragma once
 #include <types.hpp>
-/*
-#ifdef WIN32
-#define _WINSOCKAPI_
-#include <tchar.h>
-#define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
-#include <windows.h>
-#endif 
 
-#define COMPILE_NEWAPIS_STUBS
-#define WANT_GETLONGPATHNAME_WRAPPER
-//#include <NewAPIs.h>
-*/
 #include <iostream>
 #include <string>
 #include <list>

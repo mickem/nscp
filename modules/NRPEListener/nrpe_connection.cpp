@@ -23,18 +23,15 @@ namespace nrpe {
 
 		void connection::start() {
 			parser_.set_payload_length(handler_.get_payload_length());
-			std::cout << "Starting..." << std::endl;
 			socket_.async_read_some(boost::asio::buffer(buffer_),
 				strand_.wrap(
 					boost::bind(&connection::handle_read, shared_from_this(),
 					boost::asio::placeholders::error,
 					boost::asio::placeholders::bytes_transferred)
 				));
-			std::cout << "Starting...done" << std::endl;
 		}
 
 		void connection::handle_read(const boost::system::error_code& e, std::size_t bytes_transferred) {
-			std::cout << "read: " << buffer_.c_array() << ": " << bytes_transferred << "(" << e << ")" << std::endl;
 			if (!e) {
 				bool result;
 				buffer_type::iterator begin = buffer_.begin();
@@ -102,11 +99,6 @@ namespace nrpe {
 				boost::system::error_code ignored_ec;
 				socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
 			}
-
-			// No new asynchronous operations are started. This means that all shared_ptr
-			// references to the connection object will disappear and the object will be
-			// destroyed automatically after this handler returns. The connection class's
-			// destructor closes the socket.
 		}
 
 	} // namespace server

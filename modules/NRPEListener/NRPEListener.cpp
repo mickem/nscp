@@ -27,11 +27,13 @@
 
 NRPEListener gNRPEListener;
 
+#ifdef _WIN32
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
 	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
 	return TRUE;
 }
+#endif
 
 NRPEListener::NRPEListener() : noPerfData_(false), buffer_length_(0) {
 }

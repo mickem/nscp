@@ -349,7 +349,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const wchar_t* comma
  * @return The result of the command
  */
 namespace NSCModuleHelper {
-NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t spliwchar_t, std::wstring & message, std::wstring & perf, int escape)
+NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t spliwchar_t, std::wstring & message, std::wstring & perf, bool escape)
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));

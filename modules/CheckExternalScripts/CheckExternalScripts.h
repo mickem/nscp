@@ -32,7 +32,7 @@ private:
 		std::wstring command;
 		std::wstring arguments;
 	};
-	typedef std::map<strEx::blindstr, command_data> command_list;
+	typedef std::map<std::wstring, command_data> command_list;
 	command_list commands;
 	command_list alias;
 	unsigned int timeout;
@@ -80,10 +80,12 @@ private:
 
 private:
 	void addAllScriptsFrom(std::wstring path);
-	void addCommand(strEx::blindstr key, std::wstring cmd, std::wstring args) {
+	void addCommand(std::wstring key, std::wstring cmd, std::wstring args) {
+		boost::to_lower(key);
 		commands[key] = command_data(cmd, args);
 	}
-	void addAlias(strEx::blindstr key, std::wstring cmd, std::wstring args) {
+	void addAlias(std::wstring key, std::wstring cmd, std::wstring args) {
+		boost::to_lower(key);
 		alias[key] = command_data(cmd, args);
 	}
 };

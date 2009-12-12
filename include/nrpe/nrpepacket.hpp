@@ -54,15 +54,14 @@ namespace nrpe {
 			return value;
 		return SwapBytes<T, sizeof(T)>(value);
 	}
+
 	template<class T>
 	inline T ntoh(T value) {
-		std::cout << "Swaping (in): " << value << " => " << EndianSwapBytes<EEndian::BIG_ENDIAN_ORDER, EEndian::HOST_ENDIAN_ORDER, T>(value) << std::endl;
-		return EndianSwapBytes<EEndian::BIG_ENDIAN_ORDER, EEndian::HOST_ENDIAN_ORDER, T>(value);
+		return EndianSwapBytes<BIG_ENDIAN_ORDER, HOST_ENDIAN_ORDER, T >(value);
 	}
-	template<class T>
+	template<typename T>
 	inline T hton(T value) {
-		std::cout << "Swaping (out): " << value << " => " << EndianSwapBytes<EEndian::HOST_ENDIAN_ORDER, EEndian::BIG_ENDIAN_ORDER, T>(value) << std::endl;
-		return EndianSwapBytes<EEndian::HOST_ENDIAN_ORDER, EEndian::BIG_ENDIAN_ORDER, T>(value);
+		return EndianSwapBytes<HOST_ENDIAN_ORDER, BIG_ENDIAN_ORDER, T >(value);
 	}
 
 
@@ -107,13 +106,17 @@ namespace nrpe {
 		}
 	};
 
-	class nrpe_packet_exception {
+	class nrpe_exception {
 		std::wstring error_;
 	public:
-		nrpe_packet_exception(std::wstring error) : error_(error) {}
+		nrpe_exception(std::wstring error) : error_(error) {}
 		std::wstring getMessage() {
 			return error_;
 		}
+	};
+	class nrpe_packet_exception : public nrpe_exception {
+	public:
+		nrpe_packet_exception(std::wstring error) : nrpe_exception(error) {}
 	};
 
 	class packet {

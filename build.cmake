@@ -1,6 +1,6 @@
 SET(Boost_DEBUG 1)
 
-set(Boost_USE_STATIC_LIBS   ON)
+#set(Boost_USE_STATIC_LIBS   ON)
 set(BOOST_USE_MULTITHREADED ON)
 
 SET(BOOST_INCLUDEDIR c:/src/include/boost-1_39)

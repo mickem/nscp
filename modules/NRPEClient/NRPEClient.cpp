@@ -31,7 +31,7 @@
 
 NRPEClient gNRPEClient;
 
-#ifdef WIN32
+#ifdef _WIN32
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
 	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);

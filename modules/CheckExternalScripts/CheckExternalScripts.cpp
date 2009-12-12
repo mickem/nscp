@@ -20,50 +20,47 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "CheckExternalScripts.h"
-#include <strEx.h>
 #include <time.h>
+
 #include <settings/macros.h>
 #include <msvc_wrappers.h>
-#include <file_helpers.hpp>
 #include <config.h>
+#include <strEx.h>
+#include <file_helpers.hpp>
+
+#include <boost/regex.hpp>
+#include <boost/filesystem.hpp>
+
 
 CheckExternalScripts gCheckExternalScripts;
-
+#ifdef _WIN32
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
 	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
 	return TRUE;
 }
+#endif
 
 CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
-void CheckExternalScripts::addAllScriptsFrom(std::wstring path) {
-	file_helpers::patterns::pattern_type pattern = file_helpers::patterns::split_pattern(path);
-	if (!file_helpers::checks::exists(pattern.first)) 
-		pattern.first = NSCModuleHelper::getBasePath() + _T("\\") + pattern.first;
-	if (!file_helpers::checks::exists(pattern.first))
-		NSC_LOG_ERROR_STD(_T("Path was not found: ") + pattern.first);
-/* TODO: do we need this?
-	std::wstring::size_type pos = path.find_last_of('*');
-	if (pos == std::wstring::npos) {
-		path += _T("*.*");
+void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
+	boost::filesystem::wpath path = str_path;
+	if (path.has_relative_path())
+		path = NSCModuleHelper::getBasePath() / path;
+	file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
+	if (!boost::filesystem::is_directory(split_path.first))
+		NSC_LOG_ERROR_STD(_T("Path was not found: ") + split_path.first.string());
+
+	boost::wregex pattern(split_path.second);
+	boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
+	for ( boost::filesystem::wdirectory_iterator itr( split_path.first ); itr != end_itr; ++itr ) {
+		if ( !is_directory(itr->status()) ) {
+			std::wstring name = itr->path().leaf();
+			if (regex_match(name, pattern))
+				addCommand(name, (split_path.first / name).string(), _T(""));
+		}
 	}
-	*/
-	WIN32_FIND_DATA wfd;
-	std::wstring real_path = file_helpers::patterns::combine_pattern(pattern);
-	HANDLE hFind = FindFirstFile(real_path.c_str(), &wfd);
-	if (hFind != INVALID_HANDLE_VALUE) {
-		do {
-			if ((wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY) {
-				addCommand(wfd.cFileName, pattern.first + _T("\\") + wfd.cFileName, _T(""));
-			}
-		} while (FindNextFile(hFind, &wfd));
-	} else {
-		NSC_LOG_ERROR_STD(_T("No scripts found in path: ") + real_path);
-		return;
-	}
-	FindClose(hFind);
 }
 
 bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
@@ -127,10 +124,12 @@ bool CheckExternalScripts::hasMessageHandler() {
 
 
 NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
-	command_list::const_iterator cit = commands.find(command);
+	std::wstring cmd = command.c_str();
+	boost::to_lower(cmd);
+	command_list::const_iterator cit = commands.find(cmd);
 	bool isAlias = false;
 	if (cit == commands.end()) {
-		cit = alias.find(command);
+		cit = alias.find(cmd);
 		if (cit == alias.end())
 			return NSCAPI::returnIgnored;
 		isAlias = true;
@@ -156,7 +155,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 	if (isAlias) {
 		return NSCModuleHelper::InjectSplitAndCommand(cd.command, args, ' ', message, perf, true);
 	} else {
-		int result = process::executeProcess(root_, cd.command + _T(" ") + args, message, perf, timeout);
+		int result = process::executeProcess(process::exec_arguments(root_, cd.command + _T(" ") + args, timeout), message, perf);
 		if (!NSCHelper::isNagiosReturnCode(result)) {
 			NSC_LOG_ERROR_STD(_T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result));
 			return NSCAPI::returnUNKNOWN;

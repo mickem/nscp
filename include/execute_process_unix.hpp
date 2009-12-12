@@ -1,5 +1,5 @@
 /**************************************************************************
-*   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
+*   Copyright (C) 2004-2008 by Michael Medin <michael@medin.name>         *
 *                                                                         *
 *   This code is part of NSClient++ - http://trac.nakednuns.org/nscp      *
 *                                                                         *
@@ -20,17 +20,10 @@
 ***************************************************************************/
 #pragma once
 
-#include <string>
-#include <functional>
-#include <utils.h>
+namespace process {
+	int executeProcess(process::exec_arguments arguments, std::wstring &msg, std::wstring &perf) {
+		NSCAPI::nagiosReturn result;
+		return result;
+	}
+}
 
-#include <boost/lexical_cast.hpp>
-
-#include <types.hpp>
-#include <NSCAPI.h>
-#include <nsc_module_wrapper.hpp>
-#include <NSCHelper.h>
-
-#ifdef MEMCHECK
-#include <vld.h>
-#endif
