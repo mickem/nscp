@@ -60,6 +60,10 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 			else if (p__.first == (_T("warn") postfix)) { obj.warn = p__.second; } \
 			else if (p__.first == (_T("crit") postfix)) { obj.crit = p__.second; } \
 
+#define MAP_OPTIONS_EXACT_NUMERIC_ALL_MULTI(obj, postfix) \
+			else if (p__.first == (_T("warn") postfix)) { obj.set_warn_bound(p__.second); } \
+			else if (p__.first == (_T("crit") postfix)) { obj.set_crit_bound(p__.second); } \
+
 #define MAP_OPTIONS_PUSH_WTYPE(type, value, obj, list) \
 			else if (p__.first == value) { type o; o.obj = p__.second; list.push_back(o); }
 #define MAP_OPTIONS_PUSH(value, list) \

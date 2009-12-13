@@ -29,6 +29,23 @@ namespace file_helpers {
 			return true;
 		}
 	};
+	class meta {
+	public:
+		static std::wstring get_path(std::wstring file) {
+			std::wstring::size_type pos = file.find_last_of('\\');
+			if (pos == std::wstring::npos) {
+				return file;
+			}
+			return file.substr(0, pos);
+		}
+		static std::wstring get_filename(std::wstring file) {
+			std::wstring::size_type pos = file.find_last_of('\\');
+			if (pos == std::wstring::npos || ++pos == std::wstring::npos) {
+				return _T("");
+			}
+			return file.substr(pos);
+		}
+	};
 
 	class patterns {
 	public:

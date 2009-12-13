@@ -56,6 +56,7 @@ public:
 	NSCAPI::nagiosReturn CheckFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 	NSCAPI::nagiosReturn CheckFile2(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 	NSCAPI::nagiosReturn getFileAge(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn CheckSingleFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 
 private:
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
