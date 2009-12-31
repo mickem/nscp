@@ -222,22 +222,33 @@ public:
 	inline DWORD eventType() const {
 		return pevlr_->EventType;
 	}
-/*
+
 	std::wstring userSID() const {
 		if (pevlr_->UserSidOffset == 0)
-			return "";
+			return _T("");
 		PSID p = reinterpret_cast<PSID>(reinterpret_cast<LPBYTE>(pevlr_) + + pevlr_->UserSidOffset);
-		LPSTR user = new CHAR[1025];
-		LPSTR domain = new CHAR[1025];
-		DWORD userLen = 1024;
-		DWORD domainLen = 1024;
+		DWORD userLen = 0;
+		DWORD domainLen = 0;
 		SID_NAME_USE sidName;
+
+		LookupAccountSid(NULL, p, NULL, &userLen, NULL, &domainLen, &sidName);
+		LPTSTR user = new TCHAR[userLen+10];
+		LPTSTR domain = new TCHAR[domainLen+10];
+
 		LookupAccountSid(NULL, p, user, &userLen, domain, &domainLen, &sidName);
 		user[userLen] = 0;
 		domain[domainLen] = 0;
-		return std::wstring(domain) + "\\" + std::wstring(user);
+		std::wstring ustr = user;
+		std::wstring dstr = domain;
+		delete [] user;
+		delete [] domain;
+		if (!dstr.empty())
+			dstr = dstr + _T("\\");
+		if (ustr.empty() && dstr.empty())
+			return _T("missing");
+
+		return dstr + ustr;
 	}
-	*/
 
 	std::wstring enumStrings() const {
 		std::wstring ret;
@@ -393,6 +404,7 @@ public:
 		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
 		strEx::replace(syntax, _T("%strings%"), enumStrings());
 		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));
+		strEx::replace(syntax, _T("%user%"), userSID());
 		return syntax;
 	}
 };

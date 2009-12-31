@@ -168,11 +168,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 	bool bFilterRemovable = false;
 	bool bFilterFixed = false;
 	bool bFilterCDROM = false;
-	bool bCheckAll = false;
+	bool bCheckAllDrives = false;
 	bool bCheckAllOthers = false;
 	bool bNSClient = false;
 	bool bPerfData = true;
 	std::list<DriveContainer> drives;
+	std::wstring strCheckAll;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("Drive"), tmpObject.data, drives.push_back(tmpObject))
@@ -184,7 +185,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemote, _T("REMOTE"))
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
+		//MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
+		MAP_OPTIONS_STR(CHECK_ALL, strCheckAll)
 		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL_OTHERS, bCheckAllOthers)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 			else if (p2.first == _T("Drive")) {
@@ -198,10 +200,34 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 	MAP_OPTIONS_END()
 	bFilter = bFilterFixed || bFilterCDROM  || bFilterRemote || bFilterRemovable;
 
-	if (drives.size() == 0)
-		bCheckAll = true;
+	if ((drives.size() == 0) && strCheckAll.empty())
+		bCheckAllDrives = true;
 
-	if (bCheckAll) {
+	if (strCheckAll == _T("volumes")) {
+
+		DWORD bufSize = GetLogicalDriveStrings(0, NULL)+5;
+		TCHAR *buffer = new TCHAR[bufSize+10];
+		if (GetLogicalDriveStrings(bufSize, buffer)>0) {
+			while (buffer[0] != 0) {
+				std::wstring drv = buffer;
+
+				UINT drvType = GetDriveType(drv.c_str());
+				if ( ((!bFilter)&&(drvType == DRIVE_FIXED))  ||
+					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
+					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
+					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
+					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) )
+					drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
+
+				buffer = &buffer[drv.size()];
+				buffer++;
+			}
+		} else {
+			NSC_LOG_ERROR_STD(_T("Failed to get buffer size: ") + error::lookup::last_error());
+		}
+	}
+
+	if (bCheckAllDrives) {
 		DWORD dwDrives = GetLogicalDrives();
 		int idx = 0;
 		while (dwDrives != 0) {
@@ -428,6 +454,10 @@ struct file_info {
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{
+		std::wcout << _T("[") << filename_ << _T("]") << std::endl;
+		std::cout << "C: " << info.ftCreationTime.dwHighDateTime << ":" << info.ftCreationTime.dwLowDateTime << std::endl;
+		std::cout << "A: " << info.ftLastAccessTime.dwHighDateTime << ":" << info.ftLastAccessTime.dwLowDateTime << std::endl;
+		std::cout << "M: " << info.ftLastWriteTime.dwHighDateTime << ":" << info.ftLastWriteTime.dwLowDateTime << std::endl;
 		ullSize = ((info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow);
 		ullCreationTime = ((info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime);
 		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
@@ -446,21 +476,37 @@ struct file_info {
 	};
 
 	unsigned long long ullSize;
-	unsigned long long ullCreationTime;
-	unsigned long long ullLastAccessTime;
-	unsigned long long ullLastWriteTime;
-	unsigned long long ullNow;
+	__int64 ullCreationTime;
+	__int64 ullLastAccessTime;
+	__int64 ullLastWriteTime;
+	__int64 ullNow;
 	std::wstring filename;
 	std::wstring path;
 	std::pair<bool,std::wstring> cached_version;
 	std::pair<bool,unsigned long> cached_count;
 
+	static const __int64 MSECS_TO_100NS = 10000;
+
+	__int64 get_creation() {
+		return (ullNow-ullCreationTime)/MSECS_TO_100NS;
+	}
+	__int64 get_access() {
+		return (ullNow-ullLastAccessTime)/MSECS_TO_100NS;
+	}
+	__int64 get_write() {
+		return (ullNow-ullLastWriteTime)/MSECS_TO_100NS;
+	}
 	std::wstring render(std::wstring syntax) {
 		strEx::replace(syntax, _T("%path%"), path);
 		strEx::replace(syntax, _T("%filename%"), filename);
 		strEx::replace(syntax, _T("%creation%"), strEx::format_filetime(ullCreationTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%access%"), strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
+/*
+		strEx::replace(syntax, _T("%creation-d%"), strEx::format_filetime(ullCreationTime, DATE_FORMAT));
+		strEx::replace(syntax, _T("%access-d%"), strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
+		strEx::replace(syntax, _T("%write-d%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
+*/
 		strEx::replace(syntax, _T("%size%"), strEx::itos_as_BKMG(ullSize));
 		if (cached_version.first)
 			strEx::replace(syntax, _T("%version%"), cached_version.second);
@@ -530,7 +576,6 @@ struct file_filter {
 	filters::filter_all_times written;
 	filters::filter_all_strings version;
 	filters::filter_all_num_ul line_count;
-	static const __int64 MSECS_TO_100NS = 10000;
 
 	inline bool hasFilter() {
 		return size.hasFilter() || creation.hasFilter() || 
@@ -539,11 +584,11 @@ struct file_filter {
 	bool matchFilter(file_info &value) const {
 		if ((size.hasFilter())&&(size.matchFilter(value.ullSize)))
 			return true;
-		else if ((creation.hasFilter())&&(creation.matchFilter((value.ullNow-value.ullCreationTime)/MSECS_TO_100NS)))
+		else if (creation.hasFilter()&&creation.matchFilter(value.get_creation()))
 			return true;
-		else if ((accessed.hasFilter())&&(accessed.matchFilter((value.ullNow-value.ullLastAccessTime)/MSECS_TO_100NS)))
+		else if (accessed.hasFilter()&&accessed.matchFilter(value.get_access()))
 			return true;
-		else if ((written.hasFilter())&&(written.matchFilter((value.ullNow-value.ullLastWriteTime)/MSECS_TO_100NS)))
+		else if (written.hasFilter()&&written.matchFilter(value.get_write()))
 			return true;
 		else if ((version.hasFilter())&&(version.matchFilter(value.get_version())))
 			return true;
@@ -969,6 +1014,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 		GetSystemTimeAsFileTime(&now);
 		finder.debug_ = debug;
 		finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
+		if (debug)
+			NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(finder.now));
 		finder.syntax = syntax;
 		NSC_error errors;
 		for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {

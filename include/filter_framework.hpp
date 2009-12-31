@@ -54,7 +54,6 @@ namespace filters {
 		};
 		struct not_string_filter {
 			static bool filter(std::wstring filter, std::wstring str) {
-				std::wcout << str << _T("=") << filter << _T(": ") << (!(bool)(str == filter)) << std::endl;
 				return !(str == filter);
 			}
 		};
@@ -379,7 +378,7 @@ namespace filters {
 			return value_;
 		}
 	};
-	typedef filter_all_numeric<unsigned long long, checkHolders::time_handler<unsigned long long> > filter_all_times;
+	typedef filter_all_numeric<__int64, checkHolders::time_handler<__int64> > filter_all_times;
 	typedef filter_all_numeric<unsigned long, checkHolders::int_handler > filter_all_num_ul;
 
 	template <typename TFilterType, typename TValueType>

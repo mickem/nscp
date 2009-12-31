@@ -24,6 +24,7 @@
 #include <strEx.h>
 
 #define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T("; ")
+#define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax + _T("; ")
 
 namespace checkHolders {
 
@@ -693,25 +694,40 @@ namespace checkHolders {
 			return value_;
 		}
 		std::wstring gatherPerfData(std::wstring alias, TType &value, typename TType::TValueType warn, typename TType::TValueType crit) {
+			unsigned int value_p, warn_p, crit_p;
+			TType::TValueType value_v, warn_v, crit_v;
 			if (type_ == percentage_upper) {
-				return 
-					MAKE_PERFDATA(alias, THandler::print_unformated(value.getUpperPercentage()), _T("%"), 
-					THandler::print_unformated(warn), THandler::print_unformated(crit));
+				value_p = value.getUpperPercentage();
+				warn_p = warn;
+				crit_p = crit;
+				warn_v = static_cast<double>(value.total)*static_cast<double>(warn)/100.0;
+				crit_v = value.total*(double(crit)/100);;
 			} else if (type_ == percentage_lower) {
-					return 
-						MAKE_PERFDATA(alias, THandler::print_unformated(value.getLowerPercentage()), _T("%"), 
-						THandler::print_unformated(warn), THandler::print_unformated(crit));
+				value_p = value.getLowerPercentage();
+				warn_p = warn;
+				crit_p = crit;
+				warn_v = static_cast<double>(value.total)*static_cast<double>(warn)/100.0;
+				crit_v = value.total*(double(crit)/100);
 			} else if (type_ == value_upper) {
-				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
-				return 
-					MAKE_PERFDATA(alias, THandler::print_perf((value.value), unit), unit, 
-					THandler::print_perf(value.total-warn, unit), THandler::print_perf(value.total-crit, unit));
+				value_p = value.getUpperPercentage();
+				warn_p = 100-(warn*100/value.total);
+				crit_p = 100-(crit*100/value.total);
+				warn_v = warn;
+				crit_v = crit;
 			} else {
-				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
-				return 
-					MAKE_PERFDATA(alias, THandler::print_perf(value.value, unit), unit, 
-					THandler::print_perf(warn, unit), THandler::print_perf(crit, unit));
+				value_p = value.getLowerPercentage();
+				warn_p = 100-(warn*100/value.total);
+				crit_p = 100-(crit*100/value.total);
+				warn_v = warn;
+				crit_v = crit;
 			}
+			std::wstring unit = THandler::get_perf_unit(min(warn_v, min(crit_v, value.value)));
+			return 
+				MAKE_PERFDATA(alias + _T(" %"), THandler::print_unformated(value_p), _T("%"), THandler::print_unformated(warn_p), THandler::print_unformated(crit_p))
+				+ 
+				MAKE_PERFDATA_EX(alias, THandler::print_perf(value.value, unit), unit, THandler::print_perf(warn_v, unit), THandler::print_perf(crit_v, unit), 
+					THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
+				;
 		}
 	private:
 		void setUpper(std::wstring s) {
