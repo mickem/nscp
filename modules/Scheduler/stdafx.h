@@ -23,24 +23,12 @@
 #include <string>
 #include <functional>
 
-#include <boost/array.hpp>
-#include <boost/optional.hpp>
-#include <boost/bind.hpp>
-#include <program_options_ex.hpp>
+#include <boost/thread.hpp>
 
-#include <boost/asio.hpp>
-#ifdef USE_SSL
-#include <boost/asio/ssl.hpp>
-#endif
-
-
-#include <config.h>
-#include <utils.h>
 #include <types.hpp>
+#include <unicode_char.hpp>
 
 #include <NSCAPI.h>
-#include <NSCHelper.h>
 #include <nsc_module_wrapper.hpp>
-namespace po = boost::program_options;
-
+#include <NSCHelper.h>
 

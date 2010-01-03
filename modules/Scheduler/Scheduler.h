@@ -18,29 +18,39 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
-
-#include <string>
-#include <functional>
-
-#include <boost/array.hpp>
-#include <boost/optional.hpp>
-#include <boost/bind.hpp>
-#include <program_options_ex.hpp>
-
-#include <boost/asio.hpp>
-#ifdef USE_SSL
-#include <boost/asio/ssl.hpp>
-#endif
-
-
+NSC_WRAPPERS_MAIN();
 #include <config.h>
-#include <utils.h>
-#include <types.hpp>
+#include <strEx.h>
 
-#include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
-namespace po = boost::program_options;
+#include "simple_scheduler.hpp"
 
 
+class Scheduler {
+private:
+	scheduler::simple_scheduler scheduler_;
+
+
+public:
+	Scheduler() {}
+	virtual ~Scheduler() {}
+	// Module calls
+	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool unloadModule();
+
+
+	void add_schedule(std::wstring command);
+
+	std::wstring getModuleName() {
+		return _T("Scheduler");
+	}
+	NSCModuleWrapper::module_version getModuleVersion() {
+		NSCModuleWrapper::module_version version = {0, 3, 0 };
+		return version;
+	}
+	std::wstring getModuleDescription() {
+		return _T("A scheduler which schedules checks at regular intervals");
+	}
+
+	bool hasCommandHandler();
+	bool hasMessageHandler();
+};

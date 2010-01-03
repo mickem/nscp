@@ -18,29 +18,38 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
-
-#include <string>
-#include <functional>
-
-#include <boost/array.hpp>
-#include <boost/optional.hpp>
-#include <boost/bind.hpp>
-#include <program_options_ex.hpp>
-
-#include <boost/asio.hpp>
-#ifdef USE_SSL
-#include <boost/asio/ssl.hpp>
-#endif
-
-
-#include <config.h>
+#include "stdafx.h"
+#include "Scheduler.h"
+#include <strEx.h>
+#include <time.h>
 #include <utils.h>
-#include <types.hpp>
 
-#include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
-namespace po = boost::program_options;
+Scheduler gInstance;
 
 
+bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
+	if (mode == NSCAPI::normalStart) {
+		scheduler_.start();
+	}
+	add_schedule(_T("test 001"));
+	add_schedule(_T("test 002"));
+	return true;
+}
+
+
+void Scheduler::add_schedule(std::wstring command) {
+	scheduler::target item;
+	item.command = command;
+	item.duration = boost::posix_time::time_duration(0,0,5);
+	std::wcout << _T("*** DURATION ") << item.duration << _T(" ***") << std::endl;
+	scheduler_.add_task(item);
+}
+bool Scheduler::unloadModule() {
+	scheduler_.stop();
+	return true;
+}
+
+NSC_WRAP_DLL();
+NSC_WRAPPERS_MAIN_DEF(gInstance);
+NSC_WRAPPERS_IGNORE_MSG_DEF();
+NSC_WRAPPERS_IGNORE_CMD_DEF();

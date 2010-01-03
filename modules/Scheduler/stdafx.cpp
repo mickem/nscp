@@ -18,29 +18,4 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
-
-#include <string>
-#include <functional>
-
-#include <boost/array.hpp>
-#include <boost/optional.hpp>
-#include <boost/bind.hpp>
-#include <program_options_ex.hpp>
-
-#include <boost/asio.hpp>
-#ifdef USE_SSL
-#include <boost/asio/ssl.hpp>
-#endif
-
-
-#include <config.h>
-#include <utils.h>
-#include <types.hpp>
-
-#include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
-namespace po = boost::program_options;
-
-
+#include "stdafx.h"
