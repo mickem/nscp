@@ -753,9 +753,18 @@ namespace Settings {
 							else if (desc.type == key_integer)
 								get()->set_int(*cit, *citk, strEx::stoi(desc.defValue));
 							else
-								throw SettingsException(_T("Unknown keytype for: ") + *cit + _T(".") + *citk);
+								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + *cit + _T(".") + *citk);
 						} else {
-							get_logger()->debug(__FILEW__, __LINE__, _T("Skipping (already exists): ") + *cit + _T(".") + *citk);
+							std::wstring val = get()->get_string(*cit, *citk);
+							get_logger()->debug(__FILEW__, __LINE__, _T("Setting old (already exists): ") + *cit + _T(".") + *citk + _T(" = ") + val);
+							if (desc.type == key_string)
+								get()->set_string(*cit, *citk, val);
+							else if (desc.type == key_bool)
+								get()->set_bool(*cit, *citk, val==_T("true"));
+							else if (desc.type == key_integer)
+								get()->set_int(*cit, *citk, strEx::stoi(val));
+							else
+								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + *cit + _T(".") + *citk);
 						}
 					} else {
 						get_logger()->debug(__FILEW__, __LINE__, _T("Skipping (advanced): ") + *cit + _T(".") + *citk);

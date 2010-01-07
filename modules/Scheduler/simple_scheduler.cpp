@@ -17,73 +17,111 @@ namespace scheduler {
 		target_list_type::iterator it = targets_.find(id);
 		targets_.erase(it);
 	}
-	target simple_scheduler::get_task(int id) {
+	boost::optional<target> simple_scheduler::get_task(int id) {
 		boost::mutex::scoped_lock l(mutex_);
 		target_list_type::iterator it = targets_.find(id);
-		if (it == targets_.end())
-			return target::empty();
-		return (*it).second;
+ 		if (it == targets_.end())
+			return boost::optional<target>();
+		return boost::optional<target>((*it).second);
 	}
 
 	void simple_scheduler::start() {
+		running_ = true;
 		if (!queue_.empty())
 			start_thread();
 	}
 	void simple_scheduler::stop() {
-		if (thread_)
-			return;
+		running_ = false;
+		//if (!thread_)
+		//	return;
 		stop_requested_ = true;
-		thread_->join();
+		threads_.interrupt_all();
+		threads_.join_all();
+		/*
+		if (!threads.join_all(boost::posix_time::seconds(5))) {
+			std::wcout << _T("FAILED TO TERMINATE!!!") << std::endl;
+		} else {
+			std::wcout << _T("THREAD TERMINATED NICELY!") << std::endl;
+		}
+		*/
 	}
 
 	void simple_scheduler::start_thread() {
+		if (!running_)
+			return;
 		stop_requested_ = false;
-		thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&simple_scheduler::thread_proc, this)));
+		int missing_threads = thread_count_ - threads_.size();
+		if (missing_threads > 0 && missing_threads <= thread_count_) {
+			for (int i=0;i<missing_threads;i++) {
+				std::wcout << _T("***START_THREAD***") << std::endl;
+				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this));
+			}
+		}
+		//thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&simple_scheduler::thread_proc, this)));
 	}
 
 	void simple_scheduler::thread_proc() {
 		int iteration = 0;
-		schedule_instance instance;
+		schedule_queue_type::value_type instance;
 		while (!stop_requested_) {
-			{
-				boost::mutex::scoped_lock l(mutex_);
-				//std::wcout << _T("#### COUNT: ") << queue_.size() << _T(" ####") << std::endl;
-				if (queue_.empty())
-					return;
-				instance = queue_.top();
-				queue_.pop();
-			}
-			target item = get_task(instance.schedule_id);
-			//boost::posix_time::ptime delay = now() + instance.time;
-			
+			instance = queue_.pop();
+			if (!instance)
+				return;
+
 			try {
-				boost::thread::sleep(instance.time);
+
+				boost::posix_time::time_duration off = now() - (*instance).time;
+				if (off.total_seconds() > 0) {
+					std::wcout << _T("MISSED IT!") << off.total_seconds() << std::endl;
+				}
+				boost::thread::sleep((*instance).time);
+			} catch (boost::thread_interrupted  &e) {
+				if (!queue_.push(*instance))
+					std::wcout << _T("ERROR") << std::endl;
+				if (stop_requested_)
+					return;
+				continue;
 			} catch (...) {
-				std::wcout << _T("Excepting...") << std::endl;
+				if (!queue_.push(*instance))
+					std::wcout << _T("ERROR") << std::endl;
+				std::wcout << _T("ERROR!!!") << std::endl;
 				return;
 			}
-			boost::posix_time::ptime ctime = now();
-			execute(item);
-			reschedule(item,ctime);
+
+			boost::posix_time::ptime now_time = now();
+			boost::optional<target> item = get_task((*instance).schedule_id);
+			if (item) {
+				try {
+					execute(*item);
+					reschedule(*item,now_time);
+				} catch (...) {
+					std::wcout << _T("UNKNOWN ERROR RUNING TASK: ") << std::endl;
+					reschedule(*item);
+				}
+			} else {
+				std::wcout << _T("Task not found: ") << (*instance).schedule_id << std::endl;
+			}
 		}
 	}
 
 	void simple_scheduler::reschedule(target item) {
-		reschedule(item, now());
+		reschedule_wnext(item, now() + boost::posix_time::seconds(rand()%item.duration.total_seconds()));
 	}
 	void simple_scheduler::reschedule(target item, boost::posix_time::ptime now) {
-		boost::mutex::scoped_lock l(mutex_);
+		reschedule_wnext(item, now + item.duration);
+	}
+	void simple_scheduler::reschedule_wnext(target item, boost::posix_time::ptime next) {
 		schedule_instance instance;
 		instance.schedule_id = item.id;
-		instance.time = now + item.duration;
-		queue_.push(instance);
-		if (!thread_)
-			start_thread();
+		instance.time = next;
+		if (!queue_.push(instance)) {
+			std::wcout << _T("ERROR") << std::endl;
+		}
+		start_thread();
 	}
 	void simple_scheduler::execute(target item) {
-		std::wcout << _T("Running: ") << item.command << std::endl;
+		//std::wcout << _T("Running: ") << item.command << std::endl;
 	}
-
 
 }
 

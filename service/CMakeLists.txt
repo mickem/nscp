@@ -32,6 +32,7 @@ IF(WIN32)
 		core_api.h
 		settings_manager_impl.h
 		simple_client.hpp
+		settings_client.hpp
 		
 		commands.hpp
 		logger.hpp

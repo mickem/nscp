@@ -252,7 +252,7 @@ void NSCPlugin::handleMessage(int msgType, const wchar_t* file, const int line, 
  */
 void NSCPlugin::unload() {
 	if (!isLoaded())
-		throw NSPluginException(module_, _T("Library is not loaded"));
+		return;
 	bLoaded_ = false;
 	if (!fUnLoadModule)
 		throw NSPluginException(module_, _T("Critical error (fUnLoadModule)"));

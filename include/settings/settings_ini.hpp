@@ -77,7 +77,7 @@ namespace Settings {
 		///
 		/// @author mickem
 		virtual bool has_real_key(SettingsCore::key_path_type key) {
-			return false;
+			return ini.GetValue(key.first.c_str(), key.second.c_str()) != NULL;
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get the type this settings store represent.
@@ -114,9 +114,11 @@ namespace Settings {
 					comment += desc.description;
 				strEx::replace(comment, _T("\n"), _T(" "));
 				get_core()->get_logger()->quick_debug(_T("saving: ") + key.first + _T("//") + key.second);
+				
+				ini.Delete(key.first.c_str(), key.second.c_str());
 				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), comment.c_str());
 			} catch (KeyNotFoundException e) {
-				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str());
+				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), _T("; Undocumented key"));
 			} catch (SettingsException e) {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {

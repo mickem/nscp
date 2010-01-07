@@ -365,7 +365,8 @@ namespace strEx {
 	}
 	inline unsigned stoui_as_time(std::wstring time, unsigned int smallest_unit = 1000) {
 		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
-		unsigned int value = boost::lexical_cast<unsigned int>(time.c_str());
+		std::wstring::size_type pend = time.find_first_not_of(_T("0123456789"));
+		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
 		if (p == std::wstring::npos)
 			return value * smallest_unit;
 		else if ( (time[p] == 's') || (time[p] == 'S') )

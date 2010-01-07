@@ -200,10 +200,12 @@ public:
 	}
 
 
+	public:
+		void load_all_plugins(int mode);
 
-private:
-	plugin_type addPlugin(plugin_type plugin);
-	void load_all_plugins(int mode);
+
+	private:
+		plugin_type addPlugin(plugin_type plugin);
 };
 
 

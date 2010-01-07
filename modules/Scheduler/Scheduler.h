@@ -38,7 +38,9 @@ public:
 	bool unloadModule();
 
 
-	void add_schedule(std::wstring command);
+	void add_schedule(std::wstring command, scheduler::target def);
+	scheduler::target read_schedule(std::wstring path, scheduler::target def);
+	scheduler::target read_schedule(std::wstring path);
 
 	std::wstring getModuleName() {
 		return _T("Scheduler");

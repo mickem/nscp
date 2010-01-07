@@ -36,6 +36,7 @@
 #include <settings/macros.h>
 #include <NSCHelper.h>
 #include "simple_client.hpp"
+#include "settings_client.hpp"
 #include "service_manager.hpp"
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
@@ -395,6 +396,14 @@ int nscp_main(int argc, wchar_t* argv[])
 			g_bConsoleLog = true;
 			client.start();
 			return 0;
+		} else if ( _wcsicmp( _T("settings"), argv[1]+1 ) == 0 ) {
+			nsclient::settings_client client(&mainClient);
+			g_bConsoleLog = true;
+			if (argc > 2)
+				client.parse(argv[2], argc-3, argv+3);
+			else
+				client.help();
+			return 0;
 		} else {
 			std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt -settings") << std::endl;
 			std::wcerr << _T("Usage: [-noboot] <ModuleName> <commnd> [arguments]") << std::endl;
@@ -490,8 +499,10 @@ void NSClientT::load_all_plugins(int mode) {
 					}
 				} else {
 					std::wstring desc;
+					std::wstring name = file.string();
 					try {
 						NSCPlugin plugin(modPath / file);
+						name = plugin.getModule();
 						plugin.load_dll();
 						plugin.load_plugin(mode);
 						desc = plugin.getName() + _T(" - ");
@@ -504,7 +515,7 @@ void NSClientT::load_all_plugins(int mode) {
 						desc += _T("unknown module");
 						LOG_CRITICAL_STD(_T("Unknown Error loading: ") + file.string());
 					}
-					settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, file.string(), Settings::SettingsCore::key_string, desc, desc, _T("disabled"), false);
+					settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, name, Settings::SettingsCore::key_string, desc, desc, _T("disabled"), false);
 				}
 			}
 		} 
@@ -642,9 +653,9 @@ bool NSClientT::initCore(bool boot) {
 	}
 
 	if (enable_shared_session_) {
-		LOG_MESSAGE_STD(_T("Enabling shared session..."));
+		LOG_DEBUG_STD(_T("Enabling shared session..."));
 		if (boot) {
-			LOG_MESSAGE_STD(_T("Starting shared session..."));
+			LOG_MESSAGE_STD(_T("shared session not ported yet!..."));
 // 			try {
 // 				shared_server_.reset(new nsclient_session::shared_server_session(this));
 // 				if (!shared_server_->session_exists()) {
@@ -661,7 +672,7 @@ bool NSClientT::initCore(bool boot) {
 // 				shared_server_.reset(NULL);
 // 			}
 		} else {
-			LOG_MESSAGE_STD(_T("Attaching to shared session..."));
+			LOG_MESSAGE_STD(_T("shared session not ported yet!..."));
 // 			try {
 // 				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
 // 				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
@@ -1017,10 +1028,10 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 			LOG_DEBUG_STD(_T("Loading plugin: ") + (*it)->getName() + _T("..."));
 			try {
 				if (!(*it)->load_plugin(NSCAPI::normalStart)) {
-					it = plugins_.erase(it);
 					LOG_ERROR_CORE_STD(_T("Plugin refused to load: ") + (*it)->getModule());
-				}
-				++it;
+					it = plugins_.erase(it);
+				} else
+					++it;
 			} catch (NSPluginException e) {
 				it = plugins_.erase(it);
 				LOG_ERROR_CORE_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
@@ -1072,7 +1083,7 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 			commandHandlers_.insert(commandHandlers_.end(), plugin);
 		if (plugin->hasMessageHandler())
 			messageHandlers_.insert(messageHandlers_.end(), plugin);
-		settings_manager::get_core()->register_key(_T("/modules"), plugin->getFilename(), Settings::SettingsCore::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
+		settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), Settings::SettingsCore::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
 	}
 	return plugin;
 }
@@ -1245,8 +1256,9 @@ bool NSClientT::logDebug() {
 void log_broken_message(std::wstring msg) {
 #ifdef WIN32
 	OutputDebugString(msg.c_str());
+#else
+	std::wcout << _T("--BROKEN MESSAGE: ") << msg << _T("--") << std::endl;
 #endif
-	std::wcout << msg << std::endl;
 }
 /**
  * Report a message to all logging enabled modules.

@@ -82,6 +82,10 @@ namespace setting_keys {
 #define CHECK_SYSTEM_COUNTERS_SECTION "/settings/system/PDH counters"
 #define CHECK_SYSTEM_SERVICES_SECTION "/settings/system/services"
 #define NSCA_SECTION "/settings/NSCA"
+#define SCHEDULER_SECTION "/settings/scheduler"
+#define SCHEDULER_SECTION_SCH "/settings/scheduler/schedules"
+#define SCHEDULER_SECTION_FAKE "/settings/scheduler/schedules/<schedule name>"
+#define SCHEDULER_SECTION_DEF "/settings/scheduler/default"
 #define NSCA_SERVER_SECTION "/settings/NSCA/server"
 #define NSCA_CMD_SECTION "/settings/NSCA/server/commands"
 #define TASK_SCHED_SECTION "/settings/Task Scheduler"
@@ -309,6 +313,7 @@ namespace setting_keys {
 
 	}
 
+
 	namespace nsca {
 		DEFINE_PATH(SECTION, NSCA_SECTION);
 		DESCRIBE_SETTING(SECTION, "NSCA SECTION", "Section for NSCA passive check module.");
@@ -348,12 +353,51 @@ namespace setting_keys {
 
 		DEFINE_SETTING_S(TIME_DELTA_DEFAULT, NSCA_SECTION, "delay", "0");
 		DESCRIBE_SETTING(TIME_DELTA_DEFAULT, "TODO", "TODO");
-		
+
 		DEFINE_SETTING_I(PAYLOAD_LENGTH, NSCA_SECTION, "payload length", 512);
 		DESCRIBE_SETTING_ADVANCED(PAYLOAD_LENGTH, "PAYLOAD LENGTH", "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA server to use the same value for it to work.");
 
 		DEFINE_SETTING_I(READ_TIMEOUT, NSCA_SERVER_SECTION, GENERIC_KEY_SOCK_READ_TIMEOUT, 30);
 		DESCRIBE_SETTING(READ_TIMEOUT, "SOCKET TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.");
+
+	}
+
+	namespace scheduler {
+		DEFINE_PATH(SECTION, SCHEDULER_SECTION);
+		DESCRIBE_SETTING(SECTION, "SCHEDULER SECTION", "Section for the Scheduler module.");
+
+		DEFINE_PATH(SCHEDULES_SECTION, SCHEDULER_SECTION_SCH);
+		DESCRIBE_SETTING(SCHEDULES_SECTION, "SCHEDULES SECTION", "Section for defining schedules for the Scheduler module.");
+
+		DEFINE_PATH(DEFAULT_SCHEDULE_SECTION, SCHEDULER_SECTION_DEF);
+		DESCRIBE_SETTING(DEFAULT_SCHEDULE_SECTION, "DEFAULT SCHEDULER SECTION", "Default settings for all scheduled commands");
+
+		DEFINE_SETTING_I(THREADS, SCHEDULER_SECTION, "debug threads", 1);
+		DESCRIBE_SETTING_ADVANCED(THREADS, "THREADS", "Number of threads to use int he thread pool (increase if you have many scheduled items)");
+
+		DEFINE_SETTING_S(INTERVAL, SCHEDULER_SECTION_FAKE, "interval", "5m");
+		DESCRIBE_SETTING(INTERVAL, "SCHEDULE INTERVAL", "Time in seconds between each check");
+
+		DEFINE_SETTING_S(COMMAND, SCHEDULER_SECTION_FAKE, "command", "check_ok");
+		DESCRIBE_SETTING(COMMAND, "SCHEDULE COMMAND", "Command to run");
+
+		DEFINE_SETTING_S(CHANNEL, SCHEDULER_SECTION_FAKE, "channel", "NSCA");
+		DESCRIBE_SETTING(CHANNEL, "SCHEDULE CHANNEL", "Channel to send results on");
+
+		DEFINE_SETTING_S(REPORT_MODE, SCHEDULER_SECTION_FAKE, "report", "all");
+		DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+
+		DEFINE_SETTING_S(INTERVAL_D, SCHEDULER_SECTION_DEF, "interval", "5m");
+		DESCRIBE_SETTING(INTERVAL_D, "SCHEDULE INTERVAL", "Time in seconds between each check");
+
+		DEFINE_SETTING_S(COMMAND_D, SCHEDULER_SECTION_DEF, "command", "check_ok");
+		DESCRIBE_SETTING(COMMAND_D, "SCHEDULE COMMAND", "Command to run");
+
+		DEFINE_SETTING_S(CHANNEL_D, SCHEDULER_SECTION_DEF, "channel", "NSCA");
+		DESCRIBE_SETTING(CHANNEL_D, "SCHEDULE CHANNEL", "Channel to send results on");
+
+		DEFINE_SETTING_S(REPORT_MODE_D, SCHEDULER_SECTION_DEF, "report", "all");
+		DESCRIBE_SETTING(REPORT_MODE_D, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
 
 	}
 
