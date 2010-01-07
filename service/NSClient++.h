@@ -177,7 +177,6 @@ public:
 	std::list<std::wstring> getAllCommandNames();
 	void registerCommand(unsigned int id, std::wstring cmd, std::wstring desc);
 	unsigned int getBufferLength();
-	void HandleSettingsCLI(wchar_t* arg, int argc, wchar_t* argv[]);
 	void startTrayIcons();
 	void startTrayIcon(DWORD dwSessionId);
 
