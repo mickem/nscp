@@ -90,11 +90,11 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 
 scheduler::target Scheduler::read_defaut_schedule(std::wstring path) {
 	scheduler::target item;
-	item.channel = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::CHANNEL, setting_keys::scheduler::CHANNEL_DEFAULT);
-	item.command = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::COMMAND, setting_keys::scheduler::COMMAND_PATH);
-	std::wstring report = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::REPORT_MODE, setting_keys::scheduler::REPORT_MODE_PATH);
+	item.channel = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::CHANNEL_D, setting_keys::scheduler::CHANNEL_D_DEFAULT);
+	item.command = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::COMMAND_D, setting_keys::scheduler::COMMAND_D_DEFAULT);
+	std::wstring report = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::REPORT_MODE_D, setting_keys::scheduler::REPORT_MODE_D_DEFAULT);
 	item.report = NSCHelper::report::parse(report);
-	std::wstring duration = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::INTERVAL, setting_keys::scheduler::INTERVAL_DEFAULT);
+	std::wstring duration = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::INTERVAL_D, setting_keys::scheduler::INTERVAL_D_DEFAULT);
 	item.duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(duration, 1));
 	return item;
 }
@@ -109,7 +109,6 @@ void Scheduler::add_schedule(std::wstring alias, std::wstring command, scheduler
 	item.report = NSCHelper::report::parse(report);
 	std::wstring duration = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::INTERVAL, to_wstring(def.duration.total_seconds()) + _T("s"));
 	item.duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(duration, 1));
-	//std::wcout << _T("Added: ") << item.to_string() << std::endl;
 	scheduler_.add_task(item);
 }
 
@@ -123,7 +122,6 @@ void Scheduler::handle_schedule(scheduler::target item) {
 	try {
 		std::wstring msg, perf;
 		NSCAPI::nagiosReturn code = NSCModuleHelper::InjectCommand(item.command.c_str(), item.arguments, msg, perf);
-		std::wcout << _T("Testing: ") << item.report << _T(" .. ") << code << _T("?") << std::endl;
 		if (NSCHelper::report::matches(item.report, code)) {
 			NSCModuleHelper::NotifyChannel(item.channel, item.alias, code, msg, perf);
 		}
