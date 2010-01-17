@@ -377,6 +377,7 @@ int nscp_main(int argc, wchar_t* argv[])
 			mainClient.exitCore(true);
 			return nRetCode;
 		} else if ( wcscasecmp( _T("test"), argv[1]+1 ) == 0 ) {
+			g_bConsoleLog = true;
 			bool server = false;
 			if (argc > 2 && wcscasecmp( _T("server"), argv[2] ) == 0 ) {
 				server = true;
@@ -393,7 +394,6 @@ int nscp_main(int argc, wchar_t* argv[])
 			}
 #endif
 			nsclient::simple_client client(&mainClient);
-			g_bConsoleLog = true;
 			client.start();
 			return 0;
 		} else if ( wcscasecmp( _T("settings"), argv[1]+1 ) == 0 ) {
@@ -1204,25 +1204,27 @@ void NSClientT::reportMessage(int msgType, const wchar_t* file, const int line, 
 				return;
 			}
 			if (g_bConsoleLog) {
-				std::string k = "?";
+				std::wstring k = _T("?");
 				switch (msgType) {
 				case NSCAPI::critical:
-					k ="c";
+					k =_T("c");
 					break;
 				case NSCAPI::warning:
-					k ="w";
+					k =_T("w");
 					break;
 				case NSCAPI::error:
-					k ="e";
+					k =_T("e");
 					break;
 				case NSCAPI::log:
-					k ="l";
+					k =_T("l");
 					break;
 				case NSCAPI::debug:
-					k ="d";
+					k =_T("d");
 					break;
-				}	
-				std::cout << k << " " << strEx::wstring_to_string(file_stl) << "(" << line << ") " << strEx::wstring_to_string(message) << std::endl;
+				default:
+					k =_T("?");
+				}
+				std::wcout << k << _T(" ") << file_stl << _T("(") << line << _T(") ") << message << std::endl;
 			}
 			if (!plugins_loaded_) {
 				log_broken_message(message);

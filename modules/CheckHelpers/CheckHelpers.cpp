@@ -46,6 +46,7 @@ bool CheckHelpers::loadModule(NSCAPI::moduleLoadMode mode) {
 		NSCModuleHelper::registerCommand(_T("CheckAlwaysWARNING"), _T("Run another check and regardless of its return code return WARN."));
 		NSCModuleHelper::registerCommand(_T("CheckMultiple"), _T("Run more then one check and return the worst state."));
 		NSCModuleHelper::registerCommand(_T("CheckOK"), _T("Just return OK (anything passed along will be used as a message)."));
+		NSCModuleHelper::registerCommand(_T("check_ok"), _T("Just return OK (anything passed along will be used as a message)."));
 		NSCModuleHelper::registerCommand(_T("CheckWARNING"), _T("Just return WARN (anything passed along will be used as a message)."));
 		NSCModuleHelper::registerCommand(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
 		NSCModuleHelper::registerCommand(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
@@ -92,6 +93,8 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, 
 		msg = NSCModuleHelper::getApplicationVersionString();
 		return NSCAPI::returnOK;
 	} else if (command == _T("CheckOK")) {
+		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);
+	} else if (command == _T("check_ok")) {
 		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);
 	} else if (command == _T("CheckWARNING")) {
 		return checkSimpleStatus(NSCAPI::returnWARN, argLen, char_args, msg, perf);

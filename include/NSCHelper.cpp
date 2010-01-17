@@ -107,7 +107,7 @@ unsigned int NSCHelper::report::parse(std::wstring str) {
 }
 bool NSCHelper::report::matches(unsigned int report, NSCAPI::nagiosReturn code) {
 	return (
-		(code == NSCAPI::returnOK && (report&REPORT_OK)==REPORT_OK) ||
+		(code == NSCAPI::returnOK && ((report&REPORT_OK)==REPORT_OK) ) ||
 		(code == NSCAPI::returnCRIT && ((report&REPORT_ERROR)==REPORT_ERROR) ) ||
 		(code == NSCAPI::returnWARN && ((report&REPORT_WARNING)==REPORT_WARNING) ) ||
 		(code == NSCAPI::returnUNKNOWN && ((report&REPORT_UNKNOWN)==REPORT_UNKNOWN) ) ||

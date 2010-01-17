@@ -123,6 +123,7 @@ void Scheduler::handle_schedule(scheduler::target item) {
 	try {
 		std::wstring msg, perf;
 		NSCAPI::nagiosReturn code = NSCModuleHelper::InjectCommand(item.command.c_str(), item.arguments, msg, perf);
+		std::wcout << _T("Testing: ") << item.report << _T(" .. ") << code << _T("?") << std::endl;
 		if (NSCHelper::report::matches(item.report, code)) {
 			NSCModuleHelper::NotifyChannel(item.channel, item.alias, code, msg, perf);
 		}
