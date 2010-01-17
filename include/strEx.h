@@ -381,6 +381,24 @@ namespace strEx {
 			return value * 7 * 24 * 60 * 60 * 1000;
 		return value * smallest_unit;
 	}
+	inline unsigned stoui_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
+		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
+		std::wstring::size_type pend = time.find_first_not_of(_T("0123456789"));
+		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
+		if (p == std::wstring::npos)
+			return value * smallest_unit;
+		else if ( (time[p] == 's') || (time[p] == 'S') )
+			return value;
+		else if ( (time[p] == 'm') || (time[p] == 'M') )
+			return value * 60;
+		else if ( (time[p] == 'h') || (time[p] == 'H') )
+			return value * 60 * 60;
+		else if ( (time[p] == 'd') || (time[p] == 'D') )
+			return value * 24 * 60 * 60;
+		else if ( (time[p] == 'w') || (time[p] == 'W') )
+			return value * 7 * 24 * 60 * 60;
+		return value * smallest_unit;
+	}
 
 	inline unsigned long long stoi64_as_time(std::wstring time, unsigned int smallest_unit = 1000) {
 		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));

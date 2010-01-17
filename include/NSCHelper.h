@@ -94,6 +94,12 @@ namespace NSCHelper
 		if (currentReturnCode != NSCAPI::returnCRIT)
 			currentReturnCode = NSCAPI::returnWARN;
 	}
+
+	namespace report {
+		unsigned int parse(std::wstring str);
+		bool matches(unsigned int report, NSCAPI::nagiosReturn code);
+		std::wstring to_string(unsigned int report);
+	}
 };
 
 namespace NSCModuleHelper
@@ -123,7 +129,9 @@ namespace NSCModuleHelper
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
 	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const unsigned int, wchar_t **, wchar_t *, unsigned int, wchar_t *, unsigned int);
-	
+
+	typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const wchar_t*, const wchar_t*);
+
 	typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
 	typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
@@ -157,6 +165,7 @@ namespace NSCModuleHelper
 	NSCAPI::nagiosReturn InjectCommandRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
 	NSCAPI::nagiosReturn InjectCommand(const wchar_t* command, const unsigned int argLen, wchar_t **argument, std::wstring & message, std::wstring & perf);
 	NSCAPI::nagiosReturn InjectCommand(const wchar_t* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
+	NSCAPI::errorReturn NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring message, std::wstring perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
 	void StopService(void);

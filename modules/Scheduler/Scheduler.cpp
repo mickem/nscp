@@ -51,16 +51,17 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 		scheduler_.set_threads(SETTINGS_GET_INT(scheduler::THREADS));
 
 		if (mode == NSCAPI::normalStart) {
+			scheduler_.set_handler(this);
 			scheduler_.start();
 		}
 
 		bool found = false;
-		scheduler::target def = read_schedule(setting_keys::scheduler::DEFAULT_SCHEDULE_SECTION_PATH);
+		scheduler::target def = read_defaut_schedule(setting_keys::scheduler::DEFAULT_SCHEDULE_SECTION_PATH);
 		std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(setting_keys::scheduler::SCHEDULES_SECTION_PATH);
 
 		for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 			found = true;
-			add_schedule(*cit, def);
+			add_schedule(*cit, NSCModuleHelper::getSettingsString(setting_keys::scheduler::SCHEDULES_SECTION_PATH, *cit, _T("")), def);
 		}
 
 		if (!found) {
@@ -87,50 +88,55 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 	return true;
 }
 
-scheduler::target Scheduler::read_schedule(std::wstring path) {
+scheduler::target Scheduler::read_defaut_schedule(std::wstring path) {
 	scheduler::target item;
 	item.channel = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::CHANNEL, setting_keys::scheduler::CHANNEL_DEFAULT);
 	item.command = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::COMMAND, setting_keys::scheduler::COMMAND_PATH);
-	/*
-	std::wstring report = SETTINGS_GET_STRING(scheduler::REPORT_MODE);
-	item.report = parse_report_string(report);
-	*/
+	std::wstring report = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::REPORT_MODE, setting_keys::scheduler::REPORT_MODE_PATH);
+	item.report = NSCHelper::report::parse(report);
 	std::wstring duration = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::INTERVAL, setting_keys::scheduler::INTERVAL_DEFAULT);
-	item.duration = boost::posix_time::seconds(strEx::stoui_as_time(duration));
+	item.duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(duration, 1));
 	return item;
 }
-scheduler::target Scheduler::read_schedule(std::wstring path, scheduler::target def) {
-	scheduler::target item;
-	
-	item.channel = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::CHANNEL, def.channel);
-	item.command = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::COMMAND, def.command);
-	/*
-	std::wstring report = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::REPORT_MODE, def.report);
-	item.report = parse_report_string(report);
-	*/
-	std::wstring duration = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::INTERVAL, to_wstring(def.duration.total_seconds()) + _T("s"));
-	item.duration = boost::posix_time::seconds(strEx::stoui_as_time(duration));
-	return item;
-}
-
-void Scheduler::add_schedule(std::wstring command, scheduler::target def) {
-	NSC_DEBUG_MSG_STD(_T("Adding scheduled command: ") + command);
-	scheduler::target item = read_schedule(setting_keys::scheduler::SCHEDULES_SECTION_PATH + _T("/") + command, def);
-
-// 	std::wstring report = SETTINGS_GET_STRING(scheduler::REPORT_MODE);
-// 	report_ = parse_report_string(report);
-
+void Scheduler::add_schedule(std::wstring alias, std::wstring command, scheduler::target def) {
+	scheduler::target item;	
+	std::wstring detail_path = setting_keys::scheduler::SCHEDULES_SECTION_PATH + _T("/") + alias;
+	item.alias = alias;
 	item.command = command;
-	item.set_duration(boost::posix_time::seconds(5));
+	item.channel = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::CHANNEL, def.channel);
+	item.command = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::COMMAND, item.command);
+	std::wstring report = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::REPORT_MODE, NSCHelper::report::to_string(def.report));
+	item.report = NSCHelper::report::parse(report);
+	std::wstring duration = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::INTERVAL, to_wstring(def.duration.total_seconds()) + _T("s"));
+	item.duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(duration, 1));
+	//std::wcout << _T("Added: ") << item.to_string() << std::endl;
 	scheduler_.add_task(item);
-	/*
-	std::wcout << _T("*** DURATION ") << item.duration << _T(" ***") << std::endl;
-	*/
 }
+
 bool Scheduler::unloadModule() {
+	scheduler_.unset_handler();
 	scheduler_.stop();
 	return true;
 }
+
+void Scheduler::handle_schedule(scheduler::target item) {
+	try {
+		std::wstring msg, perf;
+		NSCAPI::nagiosReturn code = NSCModuleHelper::InjectCommand(item.command.c_str(), item.arguments, msg, perf);
+		if (NSCHelper::report::matches(item.report, code)) {
+			NSCModuleHelper::NotifyChannel(item.channel, item.alias, code, msg, perf);
+		}
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Exception handling: ") + item.alias + _T(": ") + e.msg_);
+		scheduler_.remove_task(item.id);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Unknown Exception handling: ") + item.alias);
+		scheduler_.remove_task(item.id);
+	}
+}
+
+
+
 
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gInstance);

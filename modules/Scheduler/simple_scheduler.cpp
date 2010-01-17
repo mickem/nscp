@@ -92,7 +92,8 @@ namespace scheduler {
 			boost::optional<target> item = get_task((*instance).schedule_id);
 			if (item) {
 				try {
-					execute(*item);
+					if (handler_)
+						handler_->handle_schedule(*item);
 					reschedule(*item,now_time);
 				} catch (...) {
 					std::wcout << _T("UNKNOWN ERROR RUNING TASK: ") << std::endl;
@@ -119,10 +120,6 @@ namespace scheduler {
 		}
 		start_thread();
 	}
-	void simple_scheduler::execute(target item) {
-		//std::wcout << _T("Running: ") << item.command << std::endl;
-	}
-
 }
 
 

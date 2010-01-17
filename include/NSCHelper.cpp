@@ -82,6 +82,60 @@ int NSCHelper::wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstri
 #endif
 
 
+#define REPORT_ERROR	0x01
+#define REPORT_WARNING	0x02
+#define REPORT_UNKNOWN	0x04
+#define REPORT_OK		0x08
+
+unsigned int NSCHelper::report::parse(std::wstring str) {
+	unsigned int report = 0;
+	strEx::splitList lst = strEx::splitEx(str, _T(","));
+	for (strEx::splitList::const_iterator key = lst.begin(); key != lst.end(); ++key) {
+		if (*key == _T("all")) {
+			report |= REPORT_ERROR|REPORT_OK|REPORT_UNKNOWN|REPORT_WARNING;
+		} else if (*key == _T("error") || *key == _T("err") || *key == _T("critical") || *key == _T("crit")) {
+			report |= REPORT_ERROR;
+		} else if (*key == _T("warning") || *key == _T("warn")) {
+			report |= REPORT_WARNING;
+		} else if (*key == _T("unknown")) {
+			report |= REPORT_UNKNOWN;
+		} else if (*key == _T("ok")) {
+			report |= REPORT_OK;
+		}
+	}
+	return report;
+}
+bool NSCHelper::report::matches(unsigned int report, NSCAPI::nagiosReturn code) {
+	return (
+		(code == NSCAPI::returnOK && (report&REPORT_OK)==REPORT_OK) ||
+		(code == NSCAPI::returnCRIT && ((report&REPORT_ERROR)==REPORT_ERROR) ) ||
+		(code == NSCAPI::returnWARN && ((report&REPORT_WARNING)==REPORT_WARNING) ) ||
+		(code == NSCAPI::returnUNKNOWN && ((report&REPORT_UNKNOWN)==REPORT_UNKNOWN) ) ||
+		( (code != NSCAPI::returnOK) && (code != NSCAPI::returnCRIT) && (code != NSCAPI::returnWARN) && (code != NSCAPI::returnUNKNOWN) )
+		);
+}
+std::wstring NSCHelper::report::to_string(unsigned int report) {
+	std::wstring ret;
+	if ((report&REPORT_OK)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("ok");
+	}
+	if ((report&REPORT_WARNING)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("warning");
+	}
+	if ((report&REPORT_ERROR)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("critical");
+	}
+	if ((report&REPORT_UNKNOWN)!=0) {
+		if (!ret.empty())	ret += _T(",");
+		ret += _T("unknown");
+	}
+	return ret;
+}
+
+
 /**
  * Translate a message type into a human readable string.
  *
@@ -150,6 +204,7 @@ namespace NSCModuleHelper {
 	lpNSAPIStopServer fNSAPIStopServer = NULL;
 	lpNSAPIExit fNSAPIExit = NULL;
 	lpNSAPIInject fNSAPIInject = NULL;
+	lpNSAPINotify fNSAPINotify = NULL;
 	lpNSAPICheckLogMessages fNSAPICheckLogMessages = NULL;
 	lpNSAPIEncrypt fNSAPIEncrypt = NULL;
 	lpNSAPIDecrypt fNSAPIDecrypt = NULL;
@@ -224,6 +279,13 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const wchar_t* command, c
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	return fNSAPIInject(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
 }
+
+NSCAPI::errorReturn NSCModuleHelper::NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring message, std::wstring perf) {
+	if (!fNSAPINotify)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	return fNSAPINotify(channel.c_str(), command.c_str(), code, message.c_str(), perf.c_str());
+}
+
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
  * @param command Command to inject (password should not be included.
@@ -733,6 +795,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(unsigned int id, NSCModuleHelper::lpN
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
 	//NSCModuleHelper::fNSAPIExit = (NSCModuleHelper::lpNSAPIExit)f(_T("NSAPIExit"));
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f(_T("NSAPIInject"));
+	NSCModuleHelper::fNSAPINotify = (NSCModuleHelper::lpNSAPINotify)f(_T("NSAPINotify"));
 	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f(_T("NSAPIGetBasePath"));
 	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f(_T("NSAPICheckLogMessages"));
 	NSCModuleHelper::fNSAPIDecrypt = (NSCModuleHelper::lpNSAPIDecrypt)f(_T("NSAPIDecrypt"));

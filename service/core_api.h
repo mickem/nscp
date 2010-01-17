@@ -57,3 +57,4 @@ NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t*, const wchar_t*, const w
 NSCAPI::errorReturn NSAPIGetPluginList(int*, NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPIReleasePluginList(int,NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPISettingsSave(void);
+NSCAPI::errorReturn NSAPINotify(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const wchar_t*, const wchar_t*);

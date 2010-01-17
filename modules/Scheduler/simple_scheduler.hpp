@@ -8,8 +8,10 @@
 #include <boost/thread.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
 #include <boost/optional.hpp>
+#include <unicode_char.hpp>
 
 namespace scheduler {
+
 
 	class task_not_found {
 		int id_;
@@ -20,13 +22,15 @@ namespace scheduler {
 	class target {
 	public:
 		int id;
+		std::wstring alias;
+
 		std::wstring command;
 		std::list<std::wstring> arguments;
 		std::wstring tag;
+
 		boost::posix_time::time_duration duration;
 		std::wstring  channel;
-		//std::wstring duration;
-
+		unsigned int report;
 
 		void set_duration(boost::posix_time::time_duration duration_) {
 			duration = duration_;
@@ -36,14 +40,32 @@ namespace scheduler {
 		target() : duration(boost::posix_time::minutes(0))
 		{}
 		
- 		target(const target &other) : id(other.id), command(other.command), duration(other.duration) {}
+ 		target(const target &other) : id(other.id), alias(other.alias)
+			, command(other.command), arguments(other.arguments), tag(other.tag)
+			, duration(other.duration), report(other.report), channel(other.channel) {}
 		target& operator=(target const& other) {
-			command = other.command;
-			duration = other.duration;
 			id = other.id;
+			alias = other.alias;
+
+			command = other.command;
+			arguments = other.arguments;
+			tag = other.tag;
+
+			duration = other.duration;
+			report = other.report;
+			channel = other.channel;
 			return *this;
 		}
  		~target() {}
+		std::wstring to_string() {
+			std::wstringstream ss;
+			ss << alias << _T("[") << id << _T("] = {command: ") << command << _T(", channel") << channel << _T("}");
+			return ss.str();
+		}
+	};
+	class schedule_handler {
+	public:
+		virtual void handle_schedule(target item) = 0;
 	};
 	struct schedule_instance {
 		boost::posix_time::ptime time;
@@ -111,12 +133,20 @@ namespace scheduler {
 		boost::thread_group threads_;
 		//boost::shared_ptr<boost::thread> thread_;
 		boost::mutex mutex_;
+		schedule_handler* handler_;
 
 	public:
 
-		simple_scheduler() : target_id_(0), stop_requested_(false), running_(false), thread_count_(10) {}
+		simple_scheduler() : target_id_(0), stop_requested_(false), running_(false), thread_count_(10), handler_(NULL) {}
 		~simple_scheduler() {}
 
+
+		void set_handler(schedule_handler* handler) {
+			handler_ = handler;
+		}
+		void unset_handler() {
+			handler_ = NULL;
+		}
 
 		int add_task(target item);
 		void remove_task(int id);
@@ -137,7 +167,6 @@ namespace scheduler {
 		void reschedule(target item);
 		void reschedule(target item, boost::posix_time::ptime now);
 		void reschedule_wnext(target item, boost::posix_time::ptime next);
-		void execute(target item);
 		void start_thread();
 
 		inline boost::posix_time::ptime now() {

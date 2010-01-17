@@ -25,7 +25,7 @@ NSC_WRAPPERS_MAIN();
 #include "simple_scheduler.hpp"
 
 
-class Scheduler {
+class Scheduler : public scheduler::schedule_handler {
 private:
 	scheduler::simple_scheduler scheduler_;
 
@@ -38,9 +38,9 @@ public:
 	bool unloadModule();
 
 
-	void add_schedule(std::wstring command, scheduler::target def);
-	scheduler::target read_schedule(std::wstring path, scheduler::target def);
-	scheduler::target read_schedule(std::wstring path);
+	void add_schedule(std::wstring alias, std::wstring command, scheduler::target def);
+	scheduler::target read_defaut_schedule(std::wstring path);
+	void handle_schedule(scheduler::target item);
 
 	std::wstring getModuleName() {
 		return _T("Scheduler");
