@@ -396,7 +396,7 @@ int nscp_main(int argc, wchar_t* argv[])
 			g_bConsoleLog = true;
 			client.start();
 			return 0;
-		} else if ( _wcsicmp( _T("settings"), argv[1]+1 ) == 0 ) {
+		} else if ( wcscasecmp( _T("settings"), argv[1]+1 ) == 0 ) {
 			nsclient::settings_client client(&mainClient);
 			g_bConsoleLog = true;
 			if (argc > 2)

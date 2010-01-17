@@ -1,4 +1,7 @@
 #include "simple_scheduler.hpp"
+
+#include <boost/bind.hpp>
+
 #include <unicode_char.hpp>
 
 namespace scheduler {
