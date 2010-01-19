@@ -24,14 +24,6 @@
 #include <functional>
 #include <map>
 #include <vector>
-#include <config.h>
-#include <utils.h>
-
-#include <types.hpp>
-#include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
-#include <nrpe/nrpepacket.hpp>
 
 #include <boost/thread.hpp>
 #include <boost/bind.hpp>
@@ -47,3 +39,13 @@
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
 #endif
+
+#include <config.h>
+#include <utils.h>
+
+#include <types.hpp>
+#include <NSCAPI.h>
+#include <NSCHelper.h>
+#include <nsc_module_wrapper.hpp>
+#include <nrpe/nrpepacket.hpp>
+

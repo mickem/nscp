@@ -1,0 +1,54 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+
+SET(TARGET NRPEServer)
+	
+PROJECT(${TARGET})
+
+SET(SRCS
+	stdafx.cpp
+	"${TARGET}.cpp"
+	nrpe_server.cpp
+	nrpe_connection.cpp
+	nrpe_handler.cpp
+	${NSCP_INCLUDE_PATH}/NSCHelper.cpp
+	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
+	${NSCP_INCLUDE_PATH}/utils.cpp
+	${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.cpp
+)
+
+ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+
+IF(WIN32)
+	SET(SRCS ${SRCS}
+		stdafx.h
+		"${TARGET}.h"
+		nrpe_server.hpp
+		nrpe_connection.hpp
+		nrpe_handler.hpp
+		nrpe_parser.hpp
+		${NSCP_INCLUDE_PATH}/strEx.h
+		${NSCP_INCLUDE_PATH}/config.h
+		${NSCP_INCLUDE_PATH}/utils.h
+		${NSCP_INCLUDE_PATH}/NSCAPI.h
+		${NSCP_INCLUDE_PATH}/NSCHelper.h
+		${NSCP_INCLUDE_PATH}/nsc_module_wrapper.hpp
+		${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.hpp
+		${NSCP_INCLUDE_PATH}/socket_helpers.hpp
+		"${TARGET}.def"
+	)
+ENDIF(WIN32)
+
+add_library(${TARGET} MODULE ${SRCS})
+
+target_link_libraries(${TARGET}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${OPENSSL_LIBRARIES}
+  ${EXTRA_LIBS}
+)
+
+
+#INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION
+#    ${CMAKE_INSTALL_PREFIX}/${WT_CMAKE_FINDER_INSTALL_DIR} )
+
