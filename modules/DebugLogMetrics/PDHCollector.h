@@ -20,7 +20,8 @@
 ***************************************************************************/
 #pragma once
 
-#include "PDHCollectors.h"
+#include <pdh/collectors.hpp>
+#include <pdh/query.hpp>
 #include <thread.h>
 #include <MutexRW.h>
 #include <file_logger.hpp>

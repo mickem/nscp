@@ -6,6 +6,28 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2009-01-24 MickeM
+ * Fixed so files locked for reading can be chcked (basic checks)
+ * Improved speed of file chyecking (does not check file data twice)
+
+2009-01-23 MickeM
+ + Added checks for missing path and missing filter on CheckFile2 thus
+    CheckFile2 without paths and/or filters will have status unknown.
+ * Changed "missing" disks are now a critical error and not unknown
+ * Improved CheckDriveSize bad FilterType error message
+ + Added checks for missing counters to CheckCounter
+ + Added new thread safe PDH subsystem (switch using the new option pdh_subsystem=thread-safe (normal mode is fast).
+   The reason for this new subsystem is to allow reloading counters and get around some quirks in various PDH implementations (mainly HP)
+   Added benefits of this new mode is that you can now reload counters which are changed during runtime.
+   This is done by adding the reload flag to the CheckCounter command.
+   THIS IS AN ADVANCED FEATURE (so dont use unless you know what you are doing)
+ + Added new index option to CheckCounter to allow looking up index and thus you can use the same checks on multiple locales and also use characters not present in "NRPE charset)
+    CheckCounter index "Counter=\1450(_Total)\1458" ShowAll MaxWarn=500 MaxCrit=1000
+   same as
+    CheckCounter "Counter=\\Utskriftskö(_Total)\\Utskrifter" ShowAll MaxWarn=500 MaxCrit=1000
+   To find index you can use the command line options:
+    nsclient++ -noboot CheckSystem pdhlookup Utskrifter
+
 2009-12-31 MickeM
  * Fixed CheckFile* time handling so it is "signed"
    This means you can check for "future dates" as well as future dates works correctly:

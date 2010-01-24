@@ -1,13 +1,6 @@
 local target = CheckSystem ;
 local source = $(target) ;
 
-project 
-	: requirements
-	<find-static-library>Pdh
-	;
-
-
-
 lib $(target)
 
 	: # sources
@@ -16,9 +9,10 @@ lib $(target)
 	../../include/NSCHelper.cpp
 	../../include/arrayBuffer.cpp
 	../../include/EnumProcess.cpp
-	../../include/PDHCounter.cpp
 	../../include/EnumNtSrv.cpp
 	../../include/sysinfo.cpp
+	../../include/pdh/basic_impl.cpp
+	../../include/pdh/core.cpp
 
 	: # requirements
 	<def-file>$(source).def

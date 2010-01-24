@@ -20,6 +20,7 @@
 ***************************************************************************/
 #pragma once
 
+#include <pdh.hpp>
 #include "PDHCollector.h"
 #include <CheckMemory.h>
 

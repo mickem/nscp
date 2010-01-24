@@ -139,6 +139,8 @@
 #define C_SYSTEM_NO_INDEX_DEFAULT 0
 #define C_SYSTEM_IGNORE_COLLECTION _T("debug_skip_data_collection")
 #define C_SYSTEM_IGNORE_COLLECTION_DEFAULT 0
+#define C_SYSTEM_PDH_SUBSYSTEM _T("pdh_subsystem")
+#define C_SYSTEM_PDH_SUBSYSTEM_DEFAULT _T("fast")
 
 #define C_SYSTEM_MEM_PAGE_LIMIT _T("MemoryCommitLimit")
 #define C_SYSTEM_MEM_PAGE_LIMIT_DEFAULT _T("\\Memory\\Commit Limit")

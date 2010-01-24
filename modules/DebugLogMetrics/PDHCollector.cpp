@@ -21,6 +21,7 @@
 #include "PDHCollector.h"
 #include <Settings.h>
 #include <sysinfo.h>
+#include <pdh/enumerations.hpp>
 
 
 PDHCollector::PDHCollector() : hStopEvent_(NULL), hStoreEvent_(NULL) {
@@ -58,7 +59,7 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 
 	// Open counters via .defs file or index.
 	try {
-		std::wstring process_counter_name = pdh.lookupIndex(230);
+		std::wstring process_counter_name = PDH::PDHResolver::lookupIndex(230);
 		PDH::Enumerations::pdh_object_details list = PDH::Enumerations::EnumObjectInstances(process_counter_name);
 		int count = 0;
 		for (PDH::Enumerations::pdh_object_details::list::const_iterator cit = list.instances.begin(); cit != list.instances.end(); ++cit) {
@@ -68,11 +69,11 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 		}
 		PDHCollectors::StaticPDHCounterListener<unsigned int, PDHCollectors::format_long, PDHCollectors::PDHCounterNormalMutex> *pid_list = 
 			new PDHCollectors::StaticPDHCounterListener<unsigned int, PDHCollectors::format_long, PDHCollectors::PDHCounterNormalMutex>[count];
-		std::wstring name = _T("\\") + process_counter_name + _T("(") + process_name_ + _T(")\\") + pdh.lookupIndex(784);
+		std::wstring name = _T("\\") + process_counter_name + _T("(") + process_name_ + _T(")\\") + PDH::PDHResolver::lookupIndex(784);
 		NSC_DEBUG_MSG_STD(_T("Adding counter: ") + name);
 		pdh.addCounter(name, &pid_list[0]);
 		for (int i=1;i<count;i++) {
-			name = _T("\\") + process_counter_name + _T("(") + process_name_ + _T("#") + strEx::itos(i) + _T(")\\") + pdh.lookupIndex(784);
+			name = _T("\\") + process_counter_name + _T("(") + process_name_ + _T("#") + strEx::itos(i) + _T(")\\") + PDH::PDHResolver::lookupIndex(784);
 			NSC_DEBUG_MSG_STD(_T("Adding counter: ") + name);
 			pdh.addCounter(name, &pid_list[i]);
 		}
@@ -109,9 +110,9 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 		list_.push_back(new pdh_value(182));
 		list_.push_back(new pdh_value(184));
 
-		std::wstring base_name = _T("\\") + pdh.lookupIndex(230) + _T("(") + my_process_name + _T(")\\");
+		std::wstring base_name = _T("\\") + PDH::PDHResolver::lookupIndex(230) + _T("(") + my_process_name + _T(")\\");
 		for (pdh_list::iterator it = list_.begin(); it != list_.end(); ++it) {
-			(*it)->key = pdh.lookupIndex((*it)->index);
+			(*it)->key = PDH::PDHResolver::lookupIndex((*it)->index);
 			std::wstring name = base_name + (*it)->key;
 			NSC_DEBUG_MSG_STD(_T("Adding counter: ") + name);
 			pdh.addCounter(name, &(*it)->value);

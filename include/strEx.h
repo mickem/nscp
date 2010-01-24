@@ -210,6 +210,14 @@ namespace strEx {
 		return format_date(static_cast<time_t>(filetime), format);
 	}
 
+	inline void strip_CRLF(wchar_t *string) {
+		int len = wcslen(string);
+		for (int i=0;i<len;i++) {
+			if (string[i] == 10 || string[i] == 13)
+				string[i] = L' ';
+		}
+	}
+
 	inline void replace(std::wstring &string, std::wstring replace, std::wstring with) {
 		std::wstring::size_type pos = string.find(replace);
 		std::wstring::size_type len = replace.length();

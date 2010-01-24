@@ -16,6 +16,7 @@ namespace error {
 			}
 			TCHAR *szBuf = new TCHAR[dwRet + 100];
 			wsprintf(szBuf, _T("%d: %s"), dwError, lpMsgBuf); 
+			strEx::strip_CRLF(szBuf);
 			std::wstring str = szBuf;
 			delete [] szBuf;
 			LocalFree(lpMsgBuf);
@@ -29,7 +30,8 @@ namespace error {
 				return _T("failed to lookup error code: ") + strEx::itos(dwError) + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
 			}
 			TCHAR *szBuf = new TCHAR[dwRet + 100];
-			wsprintf(szBuf, _T("%d: %s"), dwError, lpMsgBuf); 
+			wsprintf(szBuf, _T("%s (%X)"), lpMsgBuf, dwError);
+			strEx::strip_CRLF(szBuf);
 			std::wstring str = szBuf;
 			delete [] szBuf;
 			LocalFree(lpMsgBuf);
@@ -48,7 +50,8 @@ namespace error {
 				return _T("failed to lookup error code: ") + strEx::itos(dwError) + _T(" from DLL: ") + module + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
 			}
 			TCHAR *szBuf = new TCHAR[dwRet + 100];
-			wsprintf(szBuf, _T("%d: %s"), dwError, lpMsgBuf); 
+			wsprintf(szBuf, _T("%s (%X)"), lpMsgBuf, dwError);
+			strEx::strip_CRLF(szBuf);
 			std::wstring str = szBuf;
 			delete [] szBuf;
 			LocalFree(lpMsgBuf);

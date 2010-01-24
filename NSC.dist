@@ -178,8 +178,9 @@ use_file=1
 ;  This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'"\[]{}) characters in arguments.
 ;allow_nasty_meta_chars=0
 ;
-;# COMMAND ALLOW NASTY META CHARS
-;  This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'"\[]{}) characters in arguments.
+;# SCRIPT DIRECTORY
+;  All files in this directory will become check commands.
+;  *WARNING* This is undoubtedly dangerous so use with care!
 ;script_dir=c:\my\script\dir
 
 [External Scripts]

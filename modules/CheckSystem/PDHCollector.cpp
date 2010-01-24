@@ -29,6 +29,13 @@ PDHCollector::PDHCollector() : hStopEvent_(NULL) {
 	std::wstring s = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_CPU_BUFFER_TIME, C_SYSTEM_CPU_BUFFER_TIME_DEFAULT);
 	unsigned int i = strEx::stoui_as_time(s, checkIntervall_*100);
 	cpu.resize(i/(checkIntervall_*100)+10);
+	std::wstring subsystem = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_PDH_SUBSYSTEM, C_SYSTEM_PDH_SUBSYSTEM_DEFAULT);
+	if (subsystem == C_SYSTEM_PDH_SUBSYSTEM_DEFAULT) {
+	} else if (subsystem == _T("thread-safe")) {
+		PDH::PDHFactory::set_threadSafe();
+	} else {
+		NSC_LOG_ERROR_STD(_T("Unknown PDH subsystem (") + subsystem + _T(") valid values are: fast and thread-safe"));
+	}
 }
 
 PDHCollector::~PDHCollector() 
@@ -101,10 +108,10 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 		std::wstring memCb;
 		if (bUseIndex) {
 			NSC_DEBUG_MSG_STD(_T("Using index to retrive counternames"));
-			proc = _T("\\") + pdh.lookupIndex(238) + _T("(_total)\\") + pdh.lookupIndex(6);
-			uptime = _T("\\") + pdh.lookupIndex(2) + _T("\\") + pdh.lookupIndex(674);
-			memCl = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(30);
-			memCb = _T("\\") + pdh.lookupIndex(4) + _T("\\") + pdh.lookupIndex(26);
+			proc = _T("\\") + PDH::PDHResolver::lookupIndex(238) + _T("(_total)\\") + PDH::PDHResolver::lookupIndex(6);
+			uptime = _T("\\") + PDH::PDHResolver::lookupIndex(2) + _T("\\") + PDH::PDHResolver::lookupIndex(674);
+			memCl = _T("\\") + PDH::PDHResolver::lookupIndex(4) + _T("\\") + PDH::PDHResolver::lookupIndex(30);
+			memCb = _T("\\") + PDH::PDHResolver::lookupIndex(4) + _T("\\") + PDH::PDHResolver::lookupIndex(26);
 		} else {
 			settings_core settings;
 			settings.setFile(NSCModuleHelper::getBasePath(),  _T("counters.defs"), true);

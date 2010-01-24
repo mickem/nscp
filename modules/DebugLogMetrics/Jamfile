@@ -1,19 +1,15 @@
 local target = A_DebugLogMetrics ;
 local source = DebugLogMetrics ;
 
-project 
-	: requirements
-	<find-static-library>Pdh
-	;
-
 lib $(target)
 
 	: # sources
 	$(source).cpp
 	PDHCollector.cpp
 	../../include/NSCHelper.cpp
-	../../include/PDHCounter.cpp
 	../../include/arrayBuffer.cpp
+	../../include/pdh/basic_impl.cpp
+	../../include/pdh/core.cpp
 
 	: # requirements
 	<def-file>$(source).def

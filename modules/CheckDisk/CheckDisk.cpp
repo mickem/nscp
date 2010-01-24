@@ -74,6 +74,7 @@ public:
 };
 
 
+
 struct file_finder_data {
 	file_finder_data(const WIN32_FIND_DATA wfd_, const std::wstring path_, error_reporter *errors_) : wfd(wfd_), path(path_), errors(errors_) {}
 	const WIN32_FIND_DATA wfd;
@@ -168,6 +169,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 	bool bFilterRemovable = false;
 	bool bFilterFixed = false;
 	bool bFilterCDROM = false;
+	bool bFilterNoRootDir = false;
 	bool bCheckAllDrives = false;
 	bool bCheckAllOthers = false;
 	bool bNSClient = false;
@@ -183,6 +185,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterCDROM, _T("CDROM"))
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemovable, _T("REMOVABLE"))
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemote, _T("REMOTE"))
+		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterNoRootDir, _T("NO_ROOT_DIR"))
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		//MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
@@ -212,11 +215,14 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 				std::wstring drv = buffer;
 
 				UINT drvType = GetDriveType(drv.c_str());
-				if ( ((!bFilter)&&(drvType == DRIVE_FIXED))  ||
+				if ( 
+					((!bFilter)&&(drvType == DRIVE_FIXED))  ||
 					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
 					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
 					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
-					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) )
+					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ||
+					((bFilter)&&(bFilterNoRootDir)&&(drvType==DRIVE_NO_ROOT_DIR)) 
+					)
 					drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
 
 				buffer = &buffer[drv.size()];
@@ -239,7 +245,9 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
 					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
 					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
-					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) )
+					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ||
+					((bFilter)&&(bFilterNoRootDir)&&(drvType==DRIVE_NO_ROOT_DIR)) 
+					)
 					drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
 			}
 			idx++;
@@ -259,7 +267,9 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
 					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
 					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
-					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) )  
+					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ||
+					((bFilter)&&(bFilterNoRootDir)&&(drvType==DRIVE_NO_ROOT_DIR)) 
+					)  
 				{
 					bool bFound = false;
 					for (std::list<DriveContainer>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
@@ -288,11 +298,14 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 		if ((!bFilter)&&!((drvType == DRIVE_FIXED)||(drvType == DRIVE_NO_ROOT_DIR))) {
 			message = _T("UNKNOWN: Drive is not a fixed drive: ") + drive.getAlias() + _T(" (it is a ") + get_filter(drvType) + _T(" drive)");
 			return NSCAPI::returnUNKNOWN;
-		} else if ( (bFilter)&&( (!bFilterFixed)&&((drvType==DRIVE_FIXED)||(drvType==DRIVE_NO_ROOT_DIR))) ||
+		} else if ( (bFilter)&&
+			(
+			((!bFilterFixed)&&((drvType==DRIVE_FIXED)||(drvType==DRIVE_NO_ROOT_DIR))) ||
 			((!bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
 			((!bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
-			((!bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ) {
-				message = _T("UNKNOWN: Drive does not match the current filter: ") + drive.getAlias() + _T(" (it is a ") + get_filter(drvType) + _T(" drive)");
+			((!bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) 
+			)) {
+				message = _T("UNKNOWN: Drive does not match the current filter: ") + drive.getAlias() + _T(" (add FilterType=") + get_filter(drvType) + _T(" to check this drive)");
 				return NSCAPI::returnUNKNOWN;
 		}
 
@@ -300,8 +313,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 		ULARGE_INTEGER totalNumberOfBytes;
 		ULARGE_INTEGER totalNumberOfFreeBytes;
 		if (!GetDiskFreeSpaceEx(drive.data.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
-			message = _T("UNKNOWN: Could not get free space for: ") + drive.getAlias() + _T(" ") + drive.data + _T(" reason: ") + error::lookup::last_error();
-			return NSCAPI::returnUNKNOWN;
+			message = _T("CRITICAL: Could not get free space for: ") + drive.getAlias() + _T(" ") + drive.data + _T(" reason: ") + error::lookup::last_error();
+			return NSCAPI::returnCRIT;
 		}
 
 		if (bNSClient) {
@@ -328,15 +341,15 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 
 std::wstring CheckDisk::get_filter(unsigned int drvType) {
 	if (drvType==DRIVE_FIXED)
-		return _T("fixed");
+		return _T("FIXED");
 	if (drvType==DRIVE_NO_ROOT_DIR)
-		return _T("no_root");
+		return _T("NO_ROOT_DIR");
 	if (drvType==DRIVE_CDROM)
-		return _T("cdrom");
+		return _T("CDROM");
 	if (drvType==DRIVE_REMOTE)
-		return _T("remote");
+		return _T("REMOTE");
 	if (drvType==DRIVE_REMOVABLE)
-		return _T("removable");
+		return _T("REMOVABLE");
 	return _T("unknown: ") + strEx::itos(drvType);
 }
 
@@ -436,6 +449,39 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 
 
 struct file_info {
+
+	std::wstring error;
+	bool has_error;
+
+	static file_info get(std::wstring path, std::wstring file) {
+		return get_2(path, file);
+	}
+	static file_info get(file_finder_data data) {
+		return file_info(data.wfd, data.path, data.wfd.cFileName);
+	}
+
+	static file_info get_2(std::wstring path, std::wstring file) {
+		WIN32_FILE_ATTRIBUTE_DATA data;
+		if (!GetFileAttributesEx((path + _T("\\") + file).c_str(), GetFileExInfoStandard, reinterpret_cast<LPVOID>(&data))) {
+			file_info ret;
+			ret.error = _T("Could not open file (2) ") + path + _T("\\") + file + _T(": ") + error::lookup::last_error();
+			return ret;
+		}
+		return file_info(data, path, file);
+	}
+	static file_info get_1(std::wstring path, std::wstring file) {
+		HANDLE hFile = CreateFile((path + _T("\\") + file).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, 0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			file_info ret;
+			ret.error = _T("Could not open file (1) ") + path + _T("\\") + file + _T(": ") + error::lookup::last_error();
+			return ret;
+		}
+		BY_HANDLE_FILE_INFORMATION _info;
+		GetFileInformationByHandle(hFile, &_info);
+		CloseHandle(hFile);
+		return file_info(_info, path, file);
+	}
+
 	file_info() 
 		: ullCreationTime(0)
 		, ullLastAccessTime(0)
@@ -444,6 +490,21 @@ struct file_info {
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{}
+	file_info(const WIN32_FILE_ATTRIBUTE_DATA info, std::wstring path_, std::wstring filename_) 
+		: path(path_)
+		, filename(filename_)
+		, ullCreationTime(0)
+		, ullLastAccessTime(0)
+		, ullLastWriteTime(0)
+		, ullSize(0)
+		, cached_version(false, _T("")) 
+		, cached_count(false, 0)
+	{
+		ullSize = ((info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow);
+		ullCreationTime = ((info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime);
+		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
+		ullLastWriteTime = ((info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime);
+	};
 	file_info(const BY_HANDLE_FILE_INFORMATION info, std::wstring path_, std::wstring filename_) 
 		: path(path_)
 		, filename(filename_)
@@ -454,10 +515,21 @@ struct file_info {
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{
-		std::wcout << _T("[") << filename_ << _T("]") << std::endl;
-		std::cout << "C: " << info.ftCreationTime.dwHighDateTime << ":" << info.ftCreationTime.dwLowDateTime << std::endl;
-		std::cout << "A: " << info.ftLastAccessTime.dwHighDateTime << ":" << info.ftLastAccessTime.dwLowDateTime << std::endl;
-		std::cout << "M: " << info.ftLastWriteTime.dwHighDateTime << ":" << info.ftLastWriteTime.dwLowDateTime << std::endl;
+		ullSize = ((info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow);
+		ullCreationTime = ((info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime);
+		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
+		ullLastWriteTime = ((info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime);
+	};
+	file_info(const WIN32_FIND_DATA info, std::wstring path_, std::wstring filename_) 
+		: path(path_)
+		, filename(filename_)
+		, ullCreationTime(0)
+		, ullLastAccessTime(0)
+		, ullLastWriteTime(0)
+		, ullSize(0)
+		, cached_version(false, _T("")) 
+		, cached_count(false, 0)
+	{
 		ullSize = ((info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow);
 		ullCreationTime = ((info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime);
 		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
@@ -625,9 +697,17 @@ struct find_first_file_info : public baseFinderFunction
 	result_type operator()(argument_type ffd) {
 		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
+
+		file_info info = file_info::get(ffd);
+		if (!info.error.empty()) {
+			setError(ffd.errors, info.error);
+			return false;
+		}
+		return false;
+		/*
 		BY_HANDLE_FILE_INFORMATION _info;
 
-		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
 			setError(ffd.errors, _T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
@@ -637,6 +717,7 @@ struct find_first_file_info : public baseFinderFunction
 		CloseHandle(hFile);
 		info = file_info(_info, ffd.path, ffd.wfd.cFileName);
 		return false;
+		*/
 	}
 	inline const bool hasError() const {
 		return error;
@@ -664,9 +745,16 @@ struct file_filter_function : public baseFinderFunction
 	result_type operator()(argument_type ffd) {
 		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
+
+		file_info info = file_info::get(ffd);
+		if (!info.error.empty()) {
+			setError(ffd.errors, info.error);
+			return true;
+		}
+		/*
 		BY_HANDLE_FILE_INFORMATION _info;
 
-		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
 			setError(ffd.errors, _T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
@@ -676,6 +764,7 @@ struct file_filter_function : public baseFinderFunction
 		CloseHandle(hFile);
 		file_info info(_info, ffd.path, ffd.wfd.cFileName);
 		info.ullNow = now;
+		*/
 
 		for (std::list<file_filter>::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
 			bool bMatch = bFilterAll;
@@ -740,9 +829,16 @@ struct file_filter_function_ex : public baseFinderFunction
 	result_type operator()(argument_type ffd) {
 		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
+
+		file_info info = file_info::get(ffd);
+		if (!info.error.empty()) {
+			setError(ffd.errors, info.error);
+			return true;
+		}
+		/*
 		BY_HANDLE_FILE_INFORMATION _info;
 
-		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+		HANDLE hFile = CreateFile((ffd.path + _T("\\") + ffd.wfd.cFileName).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
 			setError(ffd.errors, _T("Could not open file: ") + ffd.path + _T("\\") + ffd.wfd.cFileName + _T(": ") + error::lookup::last_error());
@@ -752,6 +848,7 @@ struct file_filter_function_ex : public baseFinderFunction
 		CloseHandle(hFile);
 		file_info info(_info, ffd.path, ffd.wfd.cFileName);
 		info.ullNow = now;
+		*/
 
 		bool bMatch = !bFilterIn;
 		for (filterlist_type::const_iterator cit3 = filter_chain.begin(); cit3 != filter_chain.end(); ++cit3 ) {
@@ -807,6 +904,10 @@ struct file_filter_function_ex : public baseFinderFunction
 		strEx::replace(syntax, _T("%matches%"), strEx::itos(hit_count));
 		strEx::replace(syntax, _T("%files%"), strEx::itos(file_count));
 		return syntax;
+	}
+
+	bool has_filter() {
+		return !filter_chain.empty();
 	}
 
 };
@@ -1009,39 +1110,63 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 	} catch (filters::filter_exception e) {
 		message = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
+	}
+	if (paths.empty()) {
+		message = _T("Missing path argument");
+		return NSCAPI::returnUNKNOWN;
+	}
+	if (!finder.has_filter()) {
+		message = _T("Missing filter argument");
+		return NSCAPI::returnUNKNOWN;
+	}
+	FILETIME now;
+	GetSystemTimeAsFileTime(&now);
+	finder.debug_ = debug;
+	finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
+	if (debug)
+		NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(finder.now));
+	finder.syntax = syntax;
+	NSC_error errors;
+	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
+		recursive_scan<file_filter_function_ex>(*pit, pattern, 0, max_dir_depth, finder, &errors, debug);
+		if (!ignoreError && finder.hasError()) {
+			message = _T("Error when scanning: ") + (*pit) + _T(" check log for details (") + strEx::itos(finder.error_count) + _T(": ") + finder.last_error + _T(")");
+			return NSCAPI::returnUNKNOWN;
 		}
-		FILETIME now;
-		GetSystemTimeAsFileTime(&now);
-		finder.debug_ = debug;
-		finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
-		if (debug)
-			NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(finder.now));
-		finder.syntax = syntax;
-		NSC_error errors;
-		for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-			recursive_scan<file_filter_function_ex>(*pit, pattern, 0, max_dir_depth, finder, &errors, debug);
-			if (!ignoreError && finder.hasError()) {
-				message = _T("Error when scanning: ") + (*pit) + _T(" check log for details (") + strEx::itos(finder.error_count) + _T(": ") + finder.last_error + _T(")");
-				return NSCAPI::returnUNKNOWN;
-			}
-		}
-		message  = finder.render(masterSyntax);
-		if (!alias.empty())
-			query.alias = alias;
-		else
-			query.alias = _T("found files");
-		query.runCheck(finder.hit_count, returnCode, message, perf);
-		if ((truncate > 0) && (message.length() > (truncate-4))) {
-			message = message.substr(0, truncate-4) + _T("...");
-			//perf = _T("");
-		}
-		if (message.empty())
-			message = _T("CheckFile ok");
-		return returnCode;
+	}
+	message  = finder.render(masterSyntax);
+	if (!alias.empty())
+		query.alias = alias;
+	else
+		query.alias = _T("found files");
+	query.runCheck(finder.hit_count, returnCode, message, perf);
+	if ((truncate > 0) && (message.length() > (truncate-4))) {
+		message = message.substr(0, truncate-4) + _T("...");
+		//perf = _T("");
+	}
+	if (message.empty())
+		message = _T("CheckFile ok");
+	return returnCode;
 }
 struct file_container : public file_info {
 	std::wstring error_;
-	
+
+	static file_container get(std::wstring file, unsigned long long now) {
+
+		BY_HANDLE_FILE_INFORMATION _info;
+
+		HANDLE hFile = CreateFile(file.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			return file_container(file, _T("Could not open file: ") + file);
+		}
+		GetFileInformationByHandle(hFile, &_info);
+		CloseHandle(hFile);
+		file_container info(_info, file);
+		info.ullNow = now;
+		return info;
+	}
+
 
 	file_container(const BY_HANDLE_FILE_INFORMATION info, std::wstring file) : file_info(info, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
 	file_container(std::wstring file, std::wstring error) : error_(error), file_info(file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
@@ -1120,22 +1245,6 @@ struct check_file_factories {
 	}
 };
 
-file_container get_file_info(std::wstring file, unsigned long long now) {
-
-	BY_HANDLE_FILE_INFORMATION _info;
-
-	HANDLE hFile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-		0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
-	if (hFile == INVALID_HANDLE_VALUE) {
-		return file_container(file, _T("Could not open file: ") + file);
-	}
-	GetFileInformationByHandle(hFile, &_info);
-	CloseHandle(hFile);
-	file_container info(_info, file);
-	info.ullNow = now;
-	return info;
-}
-
 #define MAP_FACTORY_PB(value, obj) \
 		else if ((p__.first == _T("check")) && (p__.second == ##value)) { checker.add_check(check_file_factories::obj()); }
 
@@ -1191,7 +1300,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(const unsigned int argLen, TCHAR
 	unsigned __int64 nowi64 = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
 	//finder.syntax = syntax;
 	for (std::list<std::wstring>::const_iterator pit = files.begin(); pit != files.end(); ++pit) {
-		file_container info = get_file_info(*pit, nowi64);
+		file_container info = file_container::get(*pit, nowi64);
 		checker.alias = info.render(syntax);
 		checker.runCheck(info, returnCode, message, perf);
 	}
