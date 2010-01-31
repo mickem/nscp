@@ -1715,7 +1715,18 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::AddEntry(
             m_data.insert(oEntry);
         iSection = i.first;
         bInserted = true;
-    }
+	} else if (a_pComment && (!a_pKey || !a_pValue)) {
+		Entry oKey(iSection->first.pItem, iSection->first.nOrder);
+		oKey.pComment = a_pComment;
+
+		typename TSection::value_type oEntry(oKey, iSection->second);
+		typedef typename TSection::iterator SectionIterator;
+		m_data.erase(iSection);
+		std::pair<SectionIterator,bool> i = m_data.insert(oEntry);
+
+
+		iSection = i.first;
+	}
     if (!a_pKey || !a_pValue) {
         // section only entries are specified with pItem and pVal as NULL
         return bInserted ? SI_INSERTED : SI_UPDATED;
@@ -2018,7 +2029,7 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::Save(
             a_oOutput.Write(convert.Data());
             a_oOutput.Write(SI_NEWLINE_A);
             bNeedNewLine = false;
-        }
+		}
 
         if (bNeedNewLine) {
             a_oOutput.Write(SI_NEWLINE_A);
@@ -2073,8 +2084,8 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::Save(
                 if (!convert.ConvertToStore(iValue->pItem)) {
                     return SI_FAIL;
                 }
+				a_oOutput.Write("=");
 				if (iValue->pItem != NULL && !IsEmpty(iValue->pItem)) {
-					a_oOutput.Write("=");
 					if (m_bAllowMultiLine && IsMultiLineData(iValue->pItem)) {
 						// multi-line data needs to be processed specially to ensure
 						// that we use the correct newline format for the current system

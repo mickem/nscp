@@ -4,9 +4,6 @@ SET(TARGET NRPEClient)
 	
 PROJECT(${TARGET})
 
-# Workaround for bug 0003353 in cmake (aparently not fixed)
-SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
-
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
@@ -21,9 +18,9 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
+		"${TARGET}.def"
 		${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.hpp
 		${NSCP_INCLUDE_PATH}/socket_helpers.hpp
-		"${TARGET}.def"
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

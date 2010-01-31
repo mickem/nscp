@@ -122,6 +122,10 @@ namespace Settings {
 			throw SettingsException(_T("Invalid settings type."));
 		}
 	}
+	virtual void set_real_path(std::wstring path) {
+		// NOT Supported (and not needed) so silently ignored!
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	/// Get all (sub) sections (given a path).
 	/// If the path is empty all root sections will be returned

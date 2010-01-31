@@ -184,6 +184,7 @@ namespace service_helper_impl {
 			} catch (...) {
 				handle_error(__LINE__, __FILEW__, _T("Unknown service error!"));
 			}
+			return 0;
 		}
 		static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
 			try {

@@ -324,7 +324,7 @@ int nscp_main(int argc, wchar_t* argv[])
 								plugin->load_dll();
 								name = plugin->getName();
 								description = plugin->getDescription();
-							} catch(const NSPluginException& e) {
+							} catch(NSPluginException& e) {
 								LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
 							} catch (std::exception e) {
 								LOG_ERROR_STD(_T("exception loading plugin: ") + strEx::string_to_wstring(e.what()));

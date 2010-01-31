@@ -24,6 +24,7 @@
 #include <Singleton.h>
 #include <string>
 #include <map>
+#include <set>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
@@ -126,6 +127,21 @@ namespace Settings {
 				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) {}
 			key_description() : advanced(false), type(SettingsCore::key_string) {}
 		};
+		struct path_description {
+			std::wstring title;
+			std::wstring description;
+			bool advanced;
+			typedef std::map<std::wstring,key_description> keys_type;
+			keys_type keys;
+			path_description(std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) {}
+			path_description() : advanced(false) {}
+			void update(std::wstring title_, std::wstring description_, bool advanced_) {
+				title = title_;
+				description = description_;
+				advanced = advanced_;
+			}
+		};
+
 		struct mapped_key {
 			mapped_key(key_path_type src_, key_path_type dst_) : src(src_), dst(dst_) {}
 			key_path_type src;
@@ -278,6 +294,7 @@ namespace Settings {
 		/// @author mickem
 		virtual key_description get_registred_key(std::wstring path, std::wstring key) = 0;
 
+		virtual SettingsCore::path_description get_registred_path(std::wstring path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all registered sections
@@ -549,6 +566,7 @@ namespace Settings {
 		/// @author mickem
 		virtual bool has_key(std::wstring path, std::wstring key) = 0;
 
+		virtual void add_path(std::wstring path) = 0;
 		// Misc Functions
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a context.
@@ -631,20 +649,6 @@ namespace Settings {
 			key_description() : advanced(false), type(SettingsCore::key_string) {}
 		};
 		*/
-		struct path_description {
-			std::wstring title;
-			std::wstring description;
-			bool advanced;
-			typedef std::map<std::wstring,key_description> keys_type;
-			keys_type keys;
-			path_description(std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) {}
-			path_description() : advanced(false) {}
-			void update(std::wstring title_, std::wstring description_, bool advanced_) {
-				title = title_;
-				description = description_;
-				advanced = advanced_;
-			}
-		};
 		class dummy_logger : public LoggerInterface {
 			void err(std::wstring file, int line, std::wstring message) {}
 			void warn(std::wstring file, int line, std::wstring message) {}
@@ -656,7 +660,7 @@ namespace Settings {
 		//path_map reversed_path_mappings_;
 		boost::filesystem::wpath base_path_;
 		LoggerInterface *logger_;
-		typedef std::map<std::wstring,path_description> reg_paths_type;
+		typedef std::map<std::wstring,SettingsCore::path_description> reg_paths_type;
 		reg_paths_type registred_paths_;
 		typedef std::map<key_path_type,key_path_type> mapped_paths_type;
 		//mapped_paths_type mapped_paths_;
@@ -738,36 +742,35 @@ namespace Settings {
 		/// @author mickem
 		void update_defaults() {
 			get_logger()->warn(__FILEW__, __LINE__, _T("Updating settings with default values!"));
-			string_list s = get_reg_sections();
-			for (string_list::const_iterator cit = s.begin(); cit != s.end(); ++cit) {
-				string_list k = get_reg_keys(*cit);
-				for (string_list::const_iterator citk = k.begin(); citk != k.end(); ++citk) {
-					SettingsCore::key_description desc = get_registred_key(*cit, *citk);
+			BOOST_FOREACH(std::wstring path, get_reg_sections()) {
+				get()->add_path(path);
+				BOOST_FOREACH(std::wstring key, get_reg_keys(path)) {
+					SettingsCore::key_description desc = get_registred_key(path, key);
 					if (!desc.advanced) {
-						if (!get()->has_key(*cit, *citk)) {
-							get_logger()->debug(__FILEW__, __LINE__, _T("Adding: ") + *cit + _T(".") + *citk);
+						if (!get()->has_key(path, key)) {
+							get_logger()->debug(__FILEW__, __LINE__, _T("Adding: ") + path + _T(".") + key);
 							if (desc.type == key_string)
-								get()->set_string(*cit, *citk, desc.defValue);
+								get()->set_string(path, key, desc.defValue);
 							else if (desc.type == key_bool)
-								get()->set_bool(*cit, *citk, desc.defValue==_T("true"));
+								get()->set_bool(path, key, desc.defValue==_T("true"));
 							else if (desc.type == key_integer)
-								get()->set_int(*cit, *citk, strEx::stoi(desc.defValue));
+								get()->set_int(path, key, strEx::stoi(desc.defValue));
 							else
-								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + *cit + _T(".") + *citk);
+								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						} else {
-							std::wstring val = get()->get_string(*cit, *citk);
-							get_logger()->debug(__FILEW__, __LINE__, _T("Setting old (already exists): ") + *cit + _T(".") + *citk + _T(" = ") + val);
+							std::wstring val = get()->get_string(path, key);
+							get_logger()->debug(__FILEW__, __LINE__, _T("Setting old (already exists): ") + path + _T(".") + key + _T(" = ") + val);
 							if (desc.type == key_string)
-								get()->set_string(*cit, *citk, val);
+								get()->set_string(path, key, val);
 							else if (desc.type == key_bool)
-								get()->set_bool(*cit, *citk, val==_T("true"));
+								get()->set_bool(path, key, val==_T("true"));
 							else if (desc.type == key_integer)
-								get()->set_int(*cit, *citk, strEx::stoi(val));
+								get()->set_int(path, key, strEx::stoi(val));
 							else
-								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + *cit + _T(".") + *citk);
+								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						}
 					} else {
-						get_logger()->debug(__FILEW__, __LINE__, _T("Skipping (advanced): ") + *cit + _T(".") + *citk);
+						get_logger()->debug(__FILEW__, __LINE__, _T("Skipping (advanced): ") + path + _T(".") + key);
 					}
 				}
 			}
@@ -1125,6 +1128,13 @@ namespace Settings {
 			}
 			throw KeyNotFoundException(path, key);
 		}
+		SettingsCore::path_description get_registred_path(std::wstring path) {
+			reg_paths_type::const_iterator cit = registred_paths_.find(path);
+			if (cit != registred_paths_.end()) {
+				return (*cit).second;
+			}
+			throw KeyNotFoundException(path);
+		}
 
 
 
@@ -1281,7 +1291,9 @@ namespace Settings {
 		};
 		typedef SettingsCore::key_path_type cache_key_type;
 		typedef std::map<cache_key_type,conainer> cache_type;
+		typedef std::set<std::wstring> path_cache_type;
 		cache_type settings_cache_;
+		path_cache_type path_cache_;
 		std::wstring context_;
 
 		//SettingsInterfaceImpl() : core_(NULL) {}
@@ -1375,6 +1387,10 @@ namespace Settings {
 		/// @author mickem
 		virtual void set_string(std::wstring path, std::wstring key, std::wstring value) {
 			settings_cache_[cache_key_type(path,key)] = value;
+		}
+
+		virtual void add_path(std::wstring path) {
+			path_cache_.insert(path);
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -1667,8 +1683,16 @@ namespace Settings {
 		///
 		/// @author mickem
 		virtual void save() {
+			BOOST_FOREACH(std::wstring path, path_cache_) {
+				set_real_path(path);
+			}
+			std::set<std::wstring> sections;
 			for (cache_type::const_iterator cit = settings_cache_.begin(); cit != settings_cache_.end(); ++cit) {
 				set_real_value((*cit).first, (*cit).second);
+				sections.insert((*cit).first.first);
+			}
+			BOOST_FOREACH(std::wstring str, get_core()->get_reg_sections()) {
+				set_real_path(str);
 			}
 		}
 		/////////////////////////////////////////////////////////////////////////
@@ -1756,6 +1780,15 @@ namespace Settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(SettingsCore::key_path_type key, conainer value) = 0;
+
+		//////////////////////////////////////////////////////////////////////////
+		/// Write a value to the resulting context.
+		///
+		/// @param key The key to write to
+		/// @param value The value to write
+		///
+		/// @author mickem
+		virtual void set_real_path(std::wstring path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists

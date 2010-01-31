@@ -388,6 +388,9 @@ void NSCPlugin::loadRemoteProcs_(void) {
 
 		fShowTray = (lpShowTray)module_.load_proc("ShowIcon");
 		fHideTray = (lpHideTray)module_.load_proc("HideIcon");
+		
+	} catch (NSPluginException &e) {
+		throw e;
 	} catch (dll::dll_exception &e) {
 		throw NSPluginException(module_, _T("Unhandled exception when loading proces: ") + e.what());
 	} catch (...) {

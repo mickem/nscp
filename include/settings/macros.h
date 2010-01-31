@@ -250,6 +250,7 @@ namespace setting_keys {
 
 		DEFINE_PATH(ALIAS_SECTION, EXTSCRIPT_ALIAS_SECTION);
 		DESCRIBE_SETTING(ALIAS_SECTION, "EXTERNAL SCRIPT ALIAS SECTION", "Works like the \"inject\" concept of NRPE scripts module. But in short a list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)");
+
 	}
 
 	namespace check_system {

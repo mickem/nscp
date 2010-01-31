@@ -123,7 +123,7 @@ bool CheckExternalScripts::hasMessageHandler() {
 }
 
 
-NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	std::wstring cmd = command.c_str();
 	boost::to_lower(cmd);
 	command_list::const_iterator cit = commands.find(cmd);
@@ -138,18 +138,15 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 	const command_data cd = (*cit).second;
 	std::wstring args = cd.arguments;
 	if (isAlias || allowArgs_) {
-		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
-		arrayBuffer::arrayList::const_iterator cit2 = arr.begin();
 		int i=1;
-
-		for (;cit2!=arr.end();cit2++,i++) {
+		BOOST_FOREACH(wstring str, arguments) {
 			if (isAlias || allowNasty_) {
-				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+				if (str.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;
 				}
 			}
-			strEx::replace(args, _T("$ARG") + strEx::itos(i) + _T("$"), (*cit2));
+			strEx::replace(args, _T("$ARG") + strEx::itos(i) + _T("$"), str);
 		}
 	}
 	if (isAlias) {

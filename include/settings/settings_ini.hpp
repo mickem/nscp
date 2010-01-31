@@ -125,6 +125,24 @@ namespace Settings {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
+
+		virtual void set_real_path(std::wstring path) {
+			try {
+				get_core()->get_logger()->quick_debug(_T("Setting path: ") + path);
+				const SettingsCore::path_description desc = get_core()->get_registred_path(path);
+				if (!desc.description.empty()) {
+					std::wstring comment = _T("; ") + desc.description;
+					ini.SetValue(path.c_str(), NULL, NULL, comment.c_str());
+				}
+			} catch (KeyNotFoundException e) {
+				ini.SetValue(path.c_str(), NULL, NULL, _T("; Undocumented section"));
+			} catch (SettingsException e) {
+				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write section: ") + e.getError()));
+			} catch (...) {
+				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing section: ") + path));
+			}
+		}
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
 		/// If the path is empty all root sections will be returned

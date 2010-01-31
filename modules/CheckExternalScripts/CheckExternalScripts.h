@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <error.hpp>
 #include <execute_process.hpp>
 
-class CheckExternalScripts {
+class CheckExternalScripts : public NSCModuleHelper::SimpleCommand {
 private:
 	struct command_data {
 		command_data() {}
@@ -62,7 +62,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
 
 private:

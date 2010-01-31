@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-	
-SET(TARGET CheckHelpers)
 
+SET(TARGET CheckExternalScripts)
+	
 PROJECT(${TARGET})
 
 SET(SRCS
@@ -18,6 +18,9 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 
+		${NSCP_INCLUDE_PATH}/execute_process_unix.hpp
+		${NSCP_INCLUDE_PATH}/execute_process_w32.hpp
+
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
@@ -28,8 +31,3 @@ target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 )
-
-
-#INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION
-#    ${CMAKE_INSTALL_PREFIX}/${WT_CMAKE_FINDER_INSTALL_DIR} )
-

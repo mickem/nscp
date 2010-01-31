@@ -297,6 +297,11 @@ namespace Settings {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
+
+		virtual void set_real_path(std::wstring path) {
+			// NOT Supported (and not needed) so silently ignored!
+		}
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
 		/// If the path is empty all root sections will be returned

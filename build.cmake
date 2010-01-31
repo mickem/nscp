@@ -12,7 +12,7 @@ SET(BOOST_LIB_SUFFIX vc80-mt)
 SET(OPENSSL_INCLUDE_DIR c:/src/include/)
 SET(CMAKE_LIBRARY_PATH c:/src/lib/x86/)
 
-SET(PROTOBUF_INCLUDE_DIR d:/source/protobuf-2.3.0/src)
-SET(PROTOBUF_LIBRARYDIR d:/source/protobuf-2.3.0/vsprojects/Debug)
-SET(PROTOBUF_BINARYDIR d:/source/protobuf-2.3.0/vsprojects/Debug)
+SET(PROTOBUF_INCLUDE_DIR C:/src/protobuf-2.3.0/src)
+SET(PROTOBUF_LIBRARYDIR C:/src/protobuf-2.3.0/vsprojects/Debug)
+SET(PROTOBUF_BINARYDIR C:/src/protobuf-2.3.0/vsprojects/Debug)
 

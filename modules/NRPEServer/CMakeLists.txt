@@ -24,13 +24,13 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
+		"${TARGET}.def"
 		nrpe_server.hpp
 		nrpe_connection.hpp
 		nrpe_handler.hpp
 		nrpe_parser.hpp
 		${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.hpp
 		${NSCP_INCLUDE_PATH}/socket_helpers.hpp
-		"${TARGET}.def"
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
