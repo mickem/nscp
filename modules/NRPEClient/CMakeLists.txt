@@ -4,6 +4,9 @@ SET(TARGET NRPEClient)
 	
 PROJECT(${TARGET})
 
+# Workaround for bug 0003353 in cmake (aparently not fixed)
+SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
+
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
@@ -30,7 +33,7 @@ add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
-	${PROTOBUF_LIBRARY}
+	${NSCP_DEF_PLUGIN_LIB}
 	${OPENSSL_LIBRARIES}
 )
 

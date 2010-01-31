@@ -39,7 +39,7 @@
 #include "settings_client.hpp"
 #include "service_manager.hpp"
 
-#include "../proto/plugin.pb.h"
+#include "../proto/plugin.proto.h"
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;

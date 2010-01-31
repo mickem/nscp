@@ -7,6 +7,10 @@ LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
+# Workaround for bug 0003353 in cmake (aparently not fixed)
+#WRAP_PROTO(PB_PLUGIN ${PB_PATH}/plugin.pb)
+#SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
+
 SET(service_SRCS
 	StdAfx.cpp
 	NSClient++.cpp
@@ -72,7 +76,7 @@ add_executable (nsclient++ ${service_SRCS})
 
 target_link_libraries(nsclient++ 
 	${Boost_FILESYSTEM_LIBRARY}
-	${PROTOBUF_LIBRARY}
+	${NSCP_DEF_PLUGIN_LIB}
 )
 
 INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION

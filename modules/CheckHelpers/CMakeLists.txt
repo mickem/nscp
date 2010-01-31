@@ -2,6 +2,9 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 	
 PROJECT(CheckHelpers)
 
+# Workaround for bug 0003353 in cmake (aparently not fixed)
+SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
+
 SET(CheckHelpers_SRCS
 	stdafx.cpp
 	CheckHelpers.cpp

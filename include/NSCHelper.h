@@ -32,7 +32,7 @@
 #include <unicode_char.hpp>
 #include <strEx.h>
 
-#include "../proto/plugin.pb.h"
+#include "../proto/plugin.proto.h"
 
 #ifdef WIN32
 //#include <windows.h>
