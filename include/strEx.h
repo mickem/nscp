@@ -19,10 +19,11 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#include <unicode_char.hpp>
+#include <types.hpp>
+
+#include <string>
 #include <sstream>
 #include <iomanip>
-#include <string>
 #include <utility>
 #include <list>
 #include <functional>
@@ -30,11 +31,13 @@
 #include <algorithm>
 #include <locale>
 #include <iostream>
-#include <string>
+
+#include <unicode_char.hpp>
+
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/foreach.hpp>
 //#include <boost/date_time/local_time/local_date_time.hpp>
 //#include <boost/date_time/gregorian/conversion.hpp>
 //boost::local_time::local_date_time 
@@ -100,6 +103,18 @@ namespace strEx {
 			ss << i;
 			return ss.str();
 		}
+	}
+
+	inline std::wstring strip_hex(std::wstring str) {
+		std::wstring ret; ret.reserve(str.size());
+		BOOST_FOREACH(wchar_t c, str)
+		{
+			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
+				ret.push_back(L'?');
+			else
+				ret.push_back(c);
+		}
+		return ret;
 	}
 
 	inline void append_list(std::wstring &lst, std::wstring &append, std::wstring sep = _T(", ")) {

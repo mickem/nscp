@@ -14,8 +14,8 @@ SET(service_SRCS
 	core_api.cpp
 	settings_manager_impl.cpp
 
-	${NSCP_INCLUDE_PATH}/NSCHelper.cpp
-	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
+	${NSCP_DEF_PLUGIN_CPP}
+
 	${NSCP_INCLUDE_PATH}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDE_PATH}/b64/b64.c
 
@@ -48,7 +48,6 @@ IF(WIN32)
 		${NSCP_INCLUDE_PATH}/settings/settings_old.hpp
 		${NSCP_INCLUDE_PATH}/settings/settings_registry.hpp
 		${NSCP_INCLUDE_PATH}/settings/Settings.h
-		${NSCP_INCLUDE_PATH}/NSCHelper.h
 		${NSCP_INCLUDE_PATH}/com_helpers.hpp
 		${NSCP_INCLUDE_PATH}/dll/dll.hpp
 		${NSCP_INCLUDE_PATH}/dll/impl_unix.hpp
@@ -57,6 +56,9 @@ IF(WIN32)
 
 		${NSCP_INCLUDE_PATH}/service/system_service.hpp
 		${NSCP_INCLUDE_PATH}/service/win32_service.hpp
+
+		${NSCP_DEF_PLUGIN_HPP}
+
 	)
 	SET(service_SRCS ${service_SRCS}
 		${NSCP_INCLUDE_PATH}/service/unix_service.hpp
@@ -69,10 +71,8 @@ ENDIF(WIN32)
 add_executable (nsclient++ ${service_SRCS})
 
 target_link_libraries(nsclient++ 
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
-  ${EXTRA_LIBS}
+	${Boost_FILESYSTEM_LIBRARY}
+	${PROTOBUF_LIBRARY}
 )
 
 INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION

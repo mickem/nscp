@@ -28,6 +28,12 @@
 #include <charEx.h>
 #include <arrayBuffer.h>
 #include <types.hpp>
+
+#include <unicode_char.hpp>
+#include <strEx.h>
+
+#include "../proto/plugin.pb.h"
+
 #ifdef WIN32
 //#include <windows.h>
 #endif
@@ -128,7 +134,8 @@ namespace NSCModuleHelper
 	typedef void (*lpNSAPIMessage)(int, const wchar_t*, const int, const wchar_t*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
-	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const unsigned int, wchar_t **, wchar_t *, unsigned int, wchar_t *, unsigned int);
+	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+	typedef void (*lpNSAPIDestroyBuffer)(char**);
 
 	typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const wchar_t*, const wchar_t*);
 
@@ -162,9 +169,9 @@ namespace NSCModuleHelper
 	void settings_save();
 
 	void Message(int msgType, std::wstring file, int line, std::wstring message);
-	NSCAPI::nagiosReturn InjectCommandRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
-	NSCAPI::nagiosReturn InjectCommand(const wchar_t* command, const unsigned int argLen, wchar_t **argument, std::wstring & message, std::wstring & perf);
-	NSCAPI::nagiosReturn InjectCommand(const wchar_t* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
+	NSCAPI::nagiosReturn InjectCommandRAW(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+	void DestroyBuffer(char**buffer);
+	NSCAPI::nagiosReturn InjectSimpleCommand(const std::wstring command, const std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
 	NSCAPI::errorReturn NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring message, std::wstring perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
@@ -186,6 +193,57 @@ namespace NSCModuleHelper
 	std::wstring describeCommand(std::wstring command);
 	void registerCommand(std::wstring command, std::wstring description);
 	unsigned int getBufferLength();
+
+
+	class SimpleCommand {
+
+	public:
+		NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
+
+			std::wstring command = char_command;
+			PluginCommand::RequestMessage request_message;
+			request_message.ParseFromString(request);
+
+			if (request_message.payload_size() != 1) {
+				//NSC_LOG_ERROR_STD(_T("Unsupported payload size: ") + to_wstring(request_message.payload_size()));
+				return NSCAPI::returnIgnored;
+			}
+			::PluginCommand::Request payload = request_message.payload().Get(0);
+			std::list<std::wstring> args;
+			for (int i=0;i<payload.arguments_size();i++) {
+				args.push_back(to_wstring(payload.arguments(i)));
+			}
+			std::wstring msg, perf;
+			NSCAPI::nagiosReturn ret = handleCommand(command, args, msg, perf);
+			
+			PluginCommand::ResponseMessage response_message;
+			::PluginCommand::Header* hdr = response_message.mutable_header();
+
+			hdr->set_type(PluginCommand::Header_Type_RESPONSE);
+			hdr->set_version(PluginCommand::Header_Version_VERSION_1);
+
+			PluginCommand::Response *resp = response_message.add_payload();
+			resp->set_command(to_string(command));
+			resp->set_message(to_string(msg));
+			resp->set_version(PluginCommand::Response_Version_VERSION_1);
+			if (ret == NSCAPI::returnOK)
+				resp->set_result(PluginCommand::Response_Code_OK);
+			else if (ret == NSCAPI::returnWARN)
+				resp->set_result(PluginCommand::Response_Code_WARNING);
+			else if (ret == NSCAPI::returnCRIT)
+				resp->set_result(PluginCommand::Response_Code_CRITCAL);
+			else 
+				resp->set_result(PluginCommand::Response_Code_UNKNOWN);
+
+			response_message.SerializeToString(&response);
+			return ret;
+		}
+
+		virtual NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) = 0;
+			//(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) = 0;
+		//(const std::wstring command, const std::list<std::wstring> arguments) = 0;
+
+	};
 };
 
 

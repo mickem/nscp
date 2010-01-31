@@ -39,6 +39,8 @@
 #include "settings_client.hpp"
 #include "service_manager.hpp"
 
+#include "../proto/plugin.pb.h"
+
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
 
@@ -372,7 +374,7 @@ int nscp_main(int argc, wchar_t* argv[])
 				if (i!=3) args += _T(" ");
 				args += argv[i];
 			}
-			nRetCode = mainClient.inject(command, args, L' ', true, msg, perf);
+			nRetCode = mainClient.inject(command, args, msg, perf);
 			std::wcout << msg << _T("|") << perf << std::endl;
 			mainClient.exitCore(true);
 			return nRetCode;
@@ -1021,7 +1023,7 @@ unsigned int NSClientT::getBufferLength() {
 	return len;
 }
 
-NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf) {
+NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf) {
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
 			return shared_client_->inject(command, arguments, splitter, escape, msg, perf);
@@ -1033,22 +1035,41 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 			return NSCAPI::returnCRIT;
 		}
 	} else */{
-		unsigned int aLen = 0;
-		wchar_t ** aBuf = arrayBuffer::split2arrayBuffer(arguments, splitter, aLen, escape);
-		unsigned int buf_len = getBufferLength();
-		wchar_t * mBuf = new wchar_t[buf_len+1]; mBuf[0] = '\0';
-		wchar_t * pBuf = new wchar_t[buf_len+1]; pBuf[0] = '\0';
-		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), aLen, aBuf, mBuf, buf_len, pBuf, buf_len);
-		arrayBuffer::destroyArrayBuffer(aBuf, aLen);
+		PluginCommand::RequestMessage message;
+		PluginCommand::Header *hdr = message.mutable_header();
+		hdr->set_type(PluginCommand::Header_Type_REQUEST);
+		hdr->set_version(PluginCommand::Header_Version_VERSION_1);
+
+		PluginCommand::Request *req = message.add_payload();
+		req->set_command(to_string(command));
+		req->set_version(PluginCommand::Request_Version_VERSION_1);
+
+		std::string args = to_string(arguments);
+		boost::tokenizer<boost::escaped_list_separator<char> > tok(args, boost::escaped_list_separator<char>('\\', ' ', '\"'));
+		BOOST_FOREACH(string s, tok)
+			req->add_arguments(s);
+
+		std::string request, response;
+		message.SerializeToString(&request);
+
+
+
+		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), request, response);
+		if (response.empty()) {
+			LOG_ERROR(_T("No data retutned from command"));
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		PluginCommand::ResponseMessage rsp_msg;
+		rsp_msg.ParseFromString(response);
+		if (rsp_msg.payload_size() != 1) {
+			LOG_ERROR_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
+			return NSCAPI::returnUNKNOWN;
+		}
+		msg = to_wstring(rsp_msg.payload(0).message());
 		if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
-			delete [] mBuf;
-			delete [] pBuf;
 			return ret;
 		}
-		msg = mBuf;
-		perf = pBuf;
-		delete [] mBuf;
-		delete [] pBuf;
 		return ret;
 	}
 }
@@ -1065,9 +1086,9 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
  * @param returnPerfBufferLen Length of returnPerfBuffer
  * @return The command status
  */
-NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, std::string &request, std::string &response) {
 	if (logDebug()) {
-		LOG_DEBUG_STD(_T("Injecting: ") + (std::wstring) command + _T(": ") + arrayBuffer::arrayBuffer2string(argument, argLen, _T(", ")));
+		LOG_DEBUG_STD(_T("Injecting: ") + std::wstring(command) + _T(": {{{") + strEx::strip_hex(to_wstring(request)) + _T("}}}"));
 	}
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
@@ -1092,7 +1113,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned
 		}
 		for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
 			try {
-				NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+				NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, request, response);
 				switch (c) {
 					case NSCAPI::returnInvalidBufferLen:
 						LOG_ERROR_CORE(_T("UNKNOWN: Return buffer to small to handle this command."));
@@ -1103,8 +1124,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, const unsigned
 					case NSCAPI::returnWARN:
 					case NSCAPI::returnCRIT:
 					case NSCAPI::returnUNKNOWN:
-						LOG_DEBUG_STD(_T("Injected Result: ") + NSCHelper::translateReturn(c) + _T(" '") + (std::wstring)(returnMessageBuffer) + _T("'"));
-						LOG_DEBUG_STD(_T("Injected Performance Result: '") +(std::wstring)(returnPerfBuffer) + _T("'"));
+						LOG_DEBUG_STD(_T("Result ") + std::wstring(command) + _T(": ") + NSCHelper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
 						return c;
 					default:
 						LOG_ERROR_CORE_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);

@@ -67,71 +67,72 @@ bool CheckHelpers::hasCommandHandler() {
 bool CheckHelpers::hasMessageHandler() {
 	return false;
 }
-NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
+NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status, const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) 
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.empty()) {
-		msg = NSCHelper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
+	if (arguments.empty()) {
+		message = NSCHelper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
 		return status;
 	}
 	std::list<std::wstring>::const_iterator cit;
-	for (cit=args.begin();cit!=args.end();++cit)
-		msg += *cit;
+	for (cit=arguments.begin();cit!=arguments.end();++cit)
+		message += *cit;
 	return status;
 }
 
-NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
-	if (command == _T("CheckAlwaysOK")) {
-		if (argLen < 2) {
-			msg = _T("ERROR: Missing arguments.");
+NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+	if (command == _T("CheckVersion")) {
+		message = NSCModuleHelper::getApplicationVersionString();
+		return NSCAPI::returnOK;
+	} else if (command == _T("CheckAlwaysOK")) {
+		if (arguments.size() < 1) {
+			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
-		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
+		std::wstring new_command = arguments.front(); arguments.pop_front();
+		NSCModuleHelper::InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnOK;
-	} else if (command == _T("CheckVersion")) {
-		msg = NSCModuleHelper::getApplicationVersionString();
-		return NSCAPI::returnOK;
-	} else if (command == _T("CheckOK")) {
-		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);
-	} else if (command == _T("check_ok")) {
-		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);
-	} else if (command == _T("CheckWARNING")) {
-		return checkSimpleStatus(NSCAPI::returnWARN, argLen, char_args, msg, perf);
-	} else if (command == _T("CheckCRITICAL")) {
-		return checkSimpleStatus(NSCAPI::returnCRIT, argLen, char_args, msg, perf);
 	} else if (command == _T("CheckAlwaysCRITICAL")) {
-		if (argLen < 2) {
-			msg = _T("ERROR: Missing arguments.");
+		if (arguments.size() < 1) {
+			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
-		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
+		std::wstring new_command = arguments.front(); arguments.pop_front();
+		NSCModuleHelper::InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnCRIT;
 	} else if (command == _T("CheckAlwaysWARNING")) {
-		if (argLen < 2) {
-			msg = _T("ERROR: Missing arguments.");
+		if (arguments.size() < 1) {
+			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
-		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
+		std::wstring new_command = arguments.front(); arguments.pop_front();
+		NSCModuleHelper::InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnWARN;
+	} else if (command == _T("CheckOK")) {
+		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
+	} else if (command == _T("check_ok")) {
+		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
+	} else if (command == _T("CheckWARNING")) {
+		return checkSimpleStatus(NSCAPI::returnWARN, arguments, message, perf);
+	} else if (command == _T("CheckCRITICAL")) {
+		return checkSimpleStatus(NSCAPI::returnCRIT, arguments, message, perf);
 	} else if (command == _T("CheckMultiple")) {
-		return checkMultiple(argLen, char_args, msg, perf);
+		return checkMultiple(arguments, message, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
-NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
+NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) 
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.empty()) {
-		msg = _T("Missing argument(s).");
+	if (arguments.empty()) {
+		message = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
 	typedef std::pair<std::wstring, std::list<std::wstring> > sub_command;
 	std::list<sub_command> commands;
 	sub_command currentCommand;
 	std::list<std::wstring>::const_iterator cit;
-	for (cit=args.begin();cit!=args.end();++cit) {
+	for (cit=arguments.begin();cit!=arguments.end();++cit) {
 		std::wstring arg = *cit;
 		std::pair<std::wstring,std::wstring> p = strEx::split(arg,_T("="));
 		if (p.first == _T("command")) {
@@ -147,15 +148,13 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, TCHA
 		commands.push_back(currentCommand);
 	std::list<sub_command>::iterator cit2;
 	for (cit2 = commands.begin(); cit2 != commands.end(); ++cit2) {
-		unsigned int length = 0;
-		TCHAR ** args = arrayBuffer::list2arrayBuffer((*cit2).second, length);
+		std::list<std::wstring> sub_args;
 		std::wstring tMsg, tPerf;
-		NSCAPI::nagiosReturn tRet = NSCModuleHelper::InjectCommand((*cit2).first.c_str(), length, args, tMsg, tPerf);
-		arrayBuffer::destroyArrayBuffer(args, length);
+		NSCAPI::nagiosReturn tRet = NSCModuleHelper::InjectSimpleCommand((*cit2).first.c_str(), (*cit2).second, tMsg, tPerf);
 		returnCode = NSCHelper::maxState(returnCode, tRet);
-		if (!msg.empty())
-			msg += _T(", ");
-		msg += tMsg;
+		if (!message.empty())
+			message += _T(", ");
+		message += tMsg;
 		perf += tPerf;
 	}
 	return returnCode;

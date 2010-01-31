@@ -54,7 +54,7 @@ namespace nsclient {
 					buff += s;
 					strEx::token t = strEx::getToken(buff, ' ');
 					std::wstring msg, perf;
-					NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, ' ', true, msg, perf);
+					NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, msg, perf);
 					if (ret == NSCAPI::returnIgnored) {
 						std::wcout << _T("No handler for command: ") << t.first << std::endl;
 					} else {

@@ -37,7 +37,7 @@ NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t
 int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultValue);
 void NSAPIMessage(int msgType, const wchar_t* file, const int line, const wchar_t* message);
 void NSAPIStopServer(void);
-NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
+NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t*, wchar_t***, unsigned int *);
 NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsigned int * bufLen);
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
@@ -58,3 +58,4 @@ NSCAPI::errorReturn NSAPIGetPluginList(int*, NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPIReleasePluginList(int,NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPISettingsSave(void);
 NSCAPI::errorReturn NSAPINotify(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const wchar_t*, const wchar_t*);
+void NSAPIDestroyBuffer(char**);

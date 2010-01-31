@@ -40,6 +40,7 @@ NSCPlugin::NSCPlugin(const boost::filesystem::wpath file)
 	,fUnLoadModule(NULL)
 	,fHasMessageHandler(NULL)
 	,fHandleMessage(NULL)
+	,fDeleteBuffer(NULL)
 	,fGetDescription(NULL)
 	,fGetConfigurationMeta(NULL)
 	,fGetVersion(NULL)
@@ -219,15 +220,37 @@ bool NSCPlugin::hasMessageHandler() {
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
  */
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t* returnPerfBuffer, unsigned int returnPerfBufferLen) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const char* dataBuffer, unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len) {
 	if (!isLoaded())
 		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {
-		return fHandleCommand(command, argLen, arguments, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+		return fHandleCommand(command, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in handleCommand."));
 	}
 }
+
+
+void NSCPlugin::deleteBuffer(char** buffer) {
+	if (!isLoaded())
+		throw NSPluginException(module_, _T("Library is not loaded"));
+	try {
+		fDeleteBuffer(buffer);
+	} catch (...) {
+		throw NSPluginException(module_, _T("Unhandled exception in deleteBuffer."));
+	}
+}
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t *command, std::string &request, std::string &reply) {
+	char *buffer = NULL;
+	unsigned int len = 0;
+	NSCAPI::nagiosReturn ret = handleCommand(command, request.c_str(), request.size(), &buffer, &len);
+	if (buffer != NULL) {
+		reply = std::string(buffer, len);
+		deleteBuffer(&buffer);
+	}
+	return ret;
+}
+
 /**
  * Handle a message from the core (or any other (or even potentially self) plug in).
  * A message may be anything really errors, log messages etc.
@@ -347,6 +370,10 @@ void NSCPlugin::loadRemoteProcs_(void) {
 		fHandleCommand = (lpHandleCommand)module_.load_proc("NSHandleCommand");
 		if (!fHandleCommand)
 			throw NSPluginException(module_, _T("Could not load NSHandleCommand"));
+
+		fDeleteBuffer = (lpDeleteBuffer)module_.load_proc("NSDeleteBuffer");
+		if (!fDeleteBuffer)
+			throw NSPluginException(module_, _T("Could not load NSDeleteBuffer"));
 
 		fHandleMessage = (lpHandleMessage)module_.load_proc("NSHandleMessage");
 		if (!fHandleMessage)

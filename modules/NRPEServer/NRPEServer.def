@@ -1,4 +1,4 @@
-LIBRARY	CheckHelpers
+LIBRARY	NRPEListener
 
 EXPORTS
 	NSModuleHelperInit
@@ -10,5 +10,5 @@ EXPORTS
 	NSHandleMessage
 	NSHandleCommand
 	NSUnloadModule
+	NSGetConfigurationMeta
 	NSGetModuleDescription
-	NSDeleteBuffer

@@ -10,10 +10,9 @@ SET(SRCS
 	nrpe_server.cpp
 	nrpe_connection.cpp
 	nrpe_handler.cpp
-	${NSCP_INCLUDE_PATH}/NSCHelper.cpp
-	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
-	${NSCP_INCLUDE_PATH}/utils.cpp
 	${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.cpp
+
+	${NSCP_DEF_PLUGIN_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -26,26 +25,20 @@ IF(WIN32)
 		nrpe_connection.hpp
 		nrpe_handler.hpp
 		nrpe_parser.hpp
-		${NSCP_INCLUDE_PATH}/strEx.h
-		${NSCP_INCLUDE_PATH}/config.h
-		${NSCP_INCLUDE_PATH}/utils.h
-		${NSCP_INCLUDE_PATH}/NSCAPI.h
-		${NSCP_INCLUDE_PATH}/NSCHelper.h
-		${NSCP_INCLUDE_PATH}/nsc_module_wrapper.hpp
 		${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.hpp
 		${NSCP_INCLUDE_PATH}/socket_helpers.hpp
 		"${TARGET}.def"
+
+		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
-  ${OPENSSL_LIBRARIES}
-  ${EXTRA_LIBS}
+	${Boost_FILESYSTEM_LIBRARY}
+	${PROTOBUF_LIBRARY}  ${Boost_LIBRARIES}
+	${OPENSSL_LIBRARIES}
 )
 
 

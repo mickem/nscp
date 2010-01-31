@@ -27,6 +27,9 @@
 //#include <config.h>
 #include <strEx.h>
 
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
+
 #ifdef DEBUG
 /**
 * Wrap a return string.
@@ -204,6 +207,7 @@ namespace NSCModuleHelper {
 	lpNSAPIStopServer fNSAPIStopServer = NULL;
 	lpNSAPIExit fNSAPIExit = NULL;
 	lpNSAPIInject fNSAPIInject = NULL;
+	lpNSAPIDestroyBuffer fNSAPIDestroyBuffer = NULL;
 	lpNSAPINotify fNSAPINotify = NULL;
 	lpNSAPICheckLogMessages fNSAPICheckLogMessages = NULL;
 	lpNSAPIEncrypt fNSAPIEncrypt = NULL;
@@ -273,11 +277,17 @@ void NSCModuleHelper::Message(int msgType, std::wstring file, int line, std::wst
  * @param returnPerfBufferLen returnPerfBuffer
  * @return The returned status of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommandRAW(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	return fNSAPIInject(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+	return fNSAPIInject(command, request, request_len, response, response_len);
+}
+
+void NSCModuleHelper::DestroyBuffer(char**buffer) {
+	if (!fNSAPIDestroyBuffer)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+	return fNSAPIDestroyBuffer(buffer);
 }
 
 NSCAPI::errorReturn NSCModuleHelper::NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring message, std::wstring perf) {
@@ -295,7 +305,8 @@ NSCAPI::errorReturn NSCModuleHelper::NotifyChannel(std::wstring channel, std::ws
  * @param perf The return performance data buffer
  * @return The return of the command
  */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const wchar_t* command, const unsigned int argLen, wchar_t **argument, std::wstring & message, std::wstring & perf) 
+/*
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSimpleCommand(const wchar_t* command, const unsigned int argLen, wchar_t **argument, std::wstring & message, std::wstring & perf) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
@@ -328,7 +339,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const wchar_t* command, cons
 	delete [] perfBuffer;
 	return retC;
 }
-
+*/
 /**
 * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
 * @param command Command to inject (password should not be included.
@@ -338,42 +349,56 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const wchar_t* command, cons
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const wchar_t* command, std::list<std::wstring> argument, std::wstring & message, std::wstring & perf) 
+NSCAPI::nagiosReturn NSCModuleHelper::InjectSimpleCommand(const std::wstring command, const std::list<std::wstring> argument, std::wstring & msg, std::wstring & perf) 
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	unsigned int buf_len = getBufferLength();
 
 
-	unsigned int argLen;
-	wchar_t ** aBuffer = arrayBuffer::list2arrayBuffer(argument, argLen);
-	wchar_t *msgBuffer = new wchar_t[buf_len+1];
-	wchar_t *perfBuffer = new wchar_t[buf_len+1];
-	msgBuffer[0] = 0;
-	perfBuffer[0] = 0;
-	NSCAPI::nagiosReturn retC = InjectCommandRAW(command, argLen, aBuffer, msgBuffer, buf_len, perfBuffer, buf_len);
-	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
+	PluginCommand::RequestMessage message;
+	PluginCommand::Header *hdr = message.mutable_header();
+	hdr->set_type(PluginCommand::Header_Type_REQUEST);
+	hdr->set_version(PluginCommand::Header_Version_VERSION_1);
+
+	PluginCommand::Request *req = message.add_payload();
+	req->set_command(to_string(command));
+	req->set_version(PluginCommand::Request_Version_VERSION_1);
+
+	BOOST_FOREACH(std::wstring s, argument)
+		req->add_arguments(to_string(s));
+
+	std::string request;
+	message.SerializeToString(&request);
+
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+
+	NSCAPI::nagiosReturn retC = InjectCommandRAW(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+
+	if (buffer_size > 0 && buffer != NULL) {
+		PluginCommand::ResponseMessage rsp_msg;
+		std::string response(buffer, buffer_size);
+		rsp_msg.ParseFromString(response);
+		if (rsp_msg.payload_size() != 1) {
+			NSC_LOG_ERROR_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
+			return NSCAPI::returnUNKNOWN;
+		}
+		msg = to_wstring(rsp_msg.payload(0).message());
+	}
+
+	DestroyBuffer(&buffer);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
 			NSC_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
-			break;
-		case NSCAPI::returnInvalidBufferLen:
-			NSC_LOG_ERROR(_T("Inject buffer to small, increase the value of: string_length."));
 			break;
 		case NSCAPI::returnOK:
 		case NSCAPI::returnCRIT:
 		case NSCAPI::returnWARN:
 		case NSCAPI::returnUNKNOWN:
-			message = msgBuffer;
-			perf = perfBuffer;
 			break;
 		default:
-			delete [] msgBuffer;
-			delete [] perfBuffer;
 			throw NSCMHExcpetion(_T("Unknown return code when injecting: ") + std::wstring(command));
 	}
-	delete [] msgBuffer;
-	delete [] perfBuffer;
 	return retC;
 }
 
@@ -391,15 +416,13 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const wchar_t* comma
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	unsigned int argLen = 0;
-	wchar_t ** aBuffer;
-	if (buffer)
-		aBuffer= arrayBuffer::split2arrayBuffer(buffer, splitChar, argLen);
-	else
-		aBuffer= arrayBuffer::createEmptyArrayBuffer(argLen);
-	NSCAPI::nagiosReturn ret = InjectCommand(command, argLen, aBuffer, message, perf);
-	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
-	return ret;
+
+	std::wstring args = std::wstring(buffer);
+	boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(args, boost::escaped_list_separator<wchar_t>(L'\\', splitChar, L'\"'));
+	std::list<std::wstring> arglist;
+	BOOST_FOREACH(wstring s, tok)
+		arglist.push_back(s);
+	return InjectSimpleCommand(command, arglist, message, perf);
 }
 /**
  * A wrapper around the InjetCommand that is simpler to use.
@@ -415,15 +438,11 @@ NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std
 {
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	unsigned int argLen = 0;
-	wchar_t ** aBuffer;
-	if (buffer.empty())
-		aBuffer= arrayBuffer::createEmptyArrayBuffer(argLen);
-	else
-		aBuffer= arrayBuffer::split2arrayBuffer(buffer, spliwchar_t, argLen, escape);
-	NSCAPI::nagiosReturn ret = InjectCommand(command.c_str(), argLen, aBuffer, message, perf);
-	arrayBuffer::destroyArrayBuffer(aBuffer, argLen);
-	return ret;
+	boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::escaped_list_separator<wchar_t>(L'\\', spliwchar_t, L'\"'));
+	std::list<std::wstring> arglist;
+	BOOST_FOREACH(wstring s, tok)
+		arglist.push_back(s);
+	return InjectSimpleCommand(command.c_str(), arglist, message, perf);
 }
 }
 /**
@@ -795,6 +814,7 @@ int NSCModuleWrapper::wrapModuleHelperInit(unsigned int id, NSCModuleHelper::lpN
 	NSCModuleHelper::fNSAPIStopServer = (NSCModuleHelper::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
 	//NSCModuleHelper::fNSAPIExit = (NSCModuleHelper::lpNSAPIExit)f(_T("NSAPIExit"));
 	NSCModuleHelper::fNSAPIInject = (NSCModuleHelper::lpNSAPIInject)f(_T("NSAPIInject"));
+	NSCModuleHelper::fNSAPIDestroyBuffer = (NSCModuleHelper::lpNSAPIDestroyBuffer)f(_T("NSAPIDestroyBuffer"));
 	NSCModuleHelper::fNSAPINotify = (NSCModuleHelper::lpNSAPINotify)f(_T("NSAPINotify"));
 	NSCModuleHelper::fNSAPIGetBasePath = (NSCModuleHelper::lpNSAPIGetBasePath)f(_T("NSAPIGetBasePath"));
 	NSCModuleHelper::fNSAPICheckLogMessages = (NSCModuleHelper::lpNSAPICheckLogMessages)f(_T("NSAPICheckLogMessages"));
@@ -881,14 +901,18 @@ NSCAPI::boolReturn NSCModuleWrapper::wrapHasMessageHandler(bool has) {
  * @param returnBufferPerfLen The return performance data buffer length
  * @return the return code
  */
-NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::wstring retMessage, const std::wstring retPerformance, wchar_t *returnBufferMessage, unsigned int returnBufferMessageLen, wchar_t *returnBufferPerf, unsigned int returnBufferPerfLen) {
-	if (retMessage.empty())
-		return NSCAPI::returnIgnored;
-	NSCAPI::nagiosReturn ret = NSCHelper::wrapReturnString(returnBufferMessage, returnBufferMessageLen, retMessage, retResult);
-	if (!NSCHelper::isMyNagiosReturn(ret)) {
+NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size) {
+	// TODO: Make this global to allow remote deletion!!!
+	unsigned int buf_len = reply.size();
+	*reply_buffer = new char[buf_len + 10];
+	memcpy(*reply_buffer, reply.c_str(), buf_len+1);
+	(*reply_buffer)[buf_len] = 0;
+	(*reply_buffer)[buf_len+1] = 0;
+	*size = buf_len;
+	if (!NSCHelper::isMyNagiosReturn(retResult)) {
 		NSC_LOG_ERROR(_T("A module returned an invalid return code"));
 	}
-	return NSCHelper::wrapReturnString(returnBufferPerf, returnBufferPerfLen, retPerformance, ret);
+	return retResult;
 }
 
 /**
@@ -911,6 +935,8 @@ int NSCModuleWrapper::wrapUnloadModule(bool success) {
 		return NSCAPI::isSuccess;
 	return NSCAPI::hasFailed;
 }
-
+void NSCModuleWrapper::wrapDeleteBuffer(char**buffer) {
+	delete [] *buffer;
+}
 
 

@@ -25,7 +25,9 @@ IF(NOT MULTI_THREADED)
 ENDIF(NOT MULTI_THREADED)
 
 SET(NSCP_INCLUDE_PATH "${NSCP_SOURCE_DIR}/include" CACHE PATH "directory containing NSCP specific includes")
+SET(PBUF_INCLUDE_PATH "${NSCP_SOURCE_DIR}/proto" CACHE PATH "directory containing NSCP specific protocol buffer files")
 INCLUDE_DIRECTORIES(${NSCP_INCLUDE_PATH})
+INCLUDE_DIRECTORIES(${PBUF_INCLUDE_PATH})
 
 SET(BOOST_LIBRARYDIR ${BOOST_LIBRARYDIR} CACHE PATH "")
 SET(BOOST_INCLUDEDIR ${BOOST_INCLUDEDIR} CACHE PATH "")
@@ -81,10 +83,20 @@ else(Boost_FOUND)
 	message(FATAL_ERROR, "boost NOT fround: ${Boost_ERROR_REASON}")
 endif(Boost_FOUND)
 
+INCLUDE(cmake/NSCPPBuffer.cmake)
+
+if(PROTOBUF_FOUND)
+	message(STATUS, "Found proto in: ${PROTOBUF_LIBRARY}")
+	INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
+	#LINK_DIRECTORIES(${BOOST_LIB_DIRS})
+else(PROTOBUF_FOUND)
+	message(FATAL_ERROR, "Protocol buffers NOT found (${PROTOBUF_LIBRARYDIR}, )")
+endif(PROTOBUF_FOUND)
+
+
 #INCLUDE(cmake/WtFindAsio.txt)
 #INCLUDE(cmake/WtFindSsl.txt)
 #INCLUDE(cmake/FindICU.cmake)
-
 
 
 #IF(NOT WIN32)
@@ -133,6 +145,35 @@ IF(NOT CMAKE_BUILD_TYPE)
       "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
       FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
+
+
+SET(NSCP_DEF_PLUGIN_CPP
+	${NSCP_INCLUDE_PATH}/NSCHelper.cpp
+	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
+	${NSCP_INCLUDE_PATH}/simpleini/ConvertUTF.c
+	${NSCP_INCLUDE_PATH}/b64/b64.c
+	${PBUF_INCLUDE_PATH}/plugin.pb.cc
+	${NSCP_INCLUDE_PATH}/utils.cpp
+	)
+
+SET(NSCP_DEF_PLUGIN_HPP
+		${PBUF_INCLUDE_PATH}/plugin.pb.h
+		${NSCP_INCLUDE_PATH}/NSCHelper.h
+		${NSCP_INCLUDE_PATH}/strEx.h
+		${NSCP_INCLUDE_PATH}/config.h
+		${NSCP_INCLUDE_PATH}/utils.h
+		${NSCP_INCLUDE_PATH}/NSCAPI.h
+		${NSCP_INCLUDE_PATH}/NSCHelper.h
+		${NSCP_INCLUDE_PATH}/nsc_module_wrapper.hpp
+	)
+
+SET(NSCP_DEF_PLUGIN_LIB
+		${Boost_LIBRARIES}
+		${CMAKE_THREAD_LIBS_INIT}
+		${EXTRA_LIBS}
+		${PROTOBUF_LIBRARY}
+	)
+
 
 # Compile time constants & make sure our build finds it
 CONFIGURE_FILE(

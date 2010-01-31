@@ -23,7 +23,8 @@ namespace NSCModuleWrapper {
 	NSCAPI::boolReturn wrapHasCommandHandler(bool has);
 	NSCAPI::boolReturn wrapHasMessageHandler(bool has);
 	int wrapUnloadModule(bool success);
-	NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::wstring retMessage, const std::wstring retPerformance, wchar_t *returnBufferMessage, unsigned int returnBufferMessageLen, wchar_t *returnBufferPerf, unsigned int returnBufferPerfLen);
+	NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
+	void wrapDeleteBuffer(char**buffer);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -31,14 +32,14 @@ namespace NSCModuleWrapper {
 #define NSC_WRAPPERS_MAIN() \
 	extern "C" int NSModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f); \
 	extern "C" int NSLoadModule(int mode); \
+	extern "C" void NSDeleteBuffer(char**buffer); \
 	extern "C" int NSGetModuleName(wchar_t* buf, int buflen); \
 	extern "C" int NSGetModuleDescription(wchar_t* buf, int buflen); \
 	extern "C" int NSGetModuleVersion(int *major, int *minor, int *revision); \
 	extern "C" NSCAPI::boolReturn NSHasCommandHandler(); \
 	extern "C" NSCAPI::boolReturn NSHasMessageHandler(); \
 	extern "C" void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message); \
-	extern "C" NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* IN_cmd, const unsigned int IN_argsLen, wchar_t **IN_args, \
-		wchar_t *OUT_retBufMessage, unsigned int IN_retBufMessageLen, wchar_t *OUT_retBufPerf, unsigned int IN_retBufPerfLen); \
+	extern "C" NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len); \
 	extern "C" int NSUnloadModule(); \
 	extern "C" int NSGetConfigurationMeta(int IN_retBufLen, wchar_t *OUT_retBuf)
 
@@ -138,6 +139,13 @@ namespace NSCModuleWrapper {
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
 			return NSCAPI::hasFailed; \
 		} \
+	} \
+	extern void NSDeleteBuffer(char**buffer) { \
+		try { \
+			NSCModuleWrapper::wrapDeleteBuffer(buffer); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
+		} \
 	}
 #define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
 	extern void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message) { \
@@ -159,13 +167,12 @@ namespace NSCModuleWrapper {
 	extern void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message) {} \
 	extern NSCAPI::boolReturn NSHasMessageHandler() { return NSCAPI::isfalse; }
 #define NSC_WRAPPERS_HANDLE_CMD_DEF(toObject) \
-	extern NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* IN_cmd, const unsigned int IN_argsLen, wchar_t **IN_args, \
-									wchar_t *OUT_retBufMessage, unsigned int IN_retBufMessageLen, wchar_t *OUT_retBufPerf, unsigned int IN_retBufPerfLen) \
+	extern NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) \
 	{ \
 		try { \
-			std::wstring message, perf; \
-			NSCAPI::nagiosReturn retCode = toObject.handleCommand(IN_cmd, IN_argsLen, IN_args, message, perf); \
-			return NSCModuleWrapper::wrapHandleCommand(retCode, message, perf, OUT_retBufMessage, IN_retBufMessageLen, OUT_retBufPerf, IN_retBufPerfLen); \
+			std::string request(request_buffer, request_buffer_len), reply; \
+			NSCAPI::nagiosReturn retCode = (&toObject)->handleRAWCommand(command, request, reply); \
+			return NSCModuleWrapper::wrapHandleCommand(retCode, reply, reply_buffer, reply_buffer_len); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
 			return NSCAPI::returnIgnored; \

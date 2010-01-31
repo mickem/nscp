@@ -162,8 +162,8 @@ public:
 
 	// Member functions
 	boost::filesystem::wpath getBasePath(void);
-	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen);
-	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf);
+	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
+	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	void reportMessage(int msgType, const wchar_t* file, const int line, std::wstring message);
@@ -192,7 +192,7 @@ public:
 		reportMessage(msgType, file, line, message);
 	}
 	int session_inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf) {
-		return inject(command, arguments, splitter, escape, msg, perf);
+		return 0; // TODO: Readd this!!! inject(command, arguments, splitter, escape, msg, perf);
 	}
 	std::pair<std::wstring,std::wstring> session_get_name() {
 		return std::pair<std::wstring,std::wstring>(SZAPPNAME,SZVERSION);

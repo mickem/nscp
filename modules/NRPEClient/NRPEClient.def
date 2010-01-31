@@ -13,3 +13,4 @@ EXPORTS
 	NSGetConfigurationMeta
 	NSGetModuleDescription
 	NSCommandLineExec
+	NSDeleteBuffer

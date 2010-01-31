@@ -1,0 +1,93 @@
+package PluginCommand;
+
+message Header {
+	enum Type {
+		REQUEST = 1;
+		RESPONSE = 2;
+	};
+	enum Version {
+		VERSION_1 = 1;
+	};
+	required Type type = 1;
+	required Version version = 2;
+	optional Version max_supported_version = 3;
+	
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 id = 19;
+};
+
+message Request {
+	enum Version {
+		VERSION_1 = 1;
+	};
+
+	required Version version = 1;
+	optional int32 id = 2;
+	required string command = 3;
+	repeated string arguments = 4;
+};
+
+message PerformanceData {
+	enum Type {
+		INT = 1;
+		STRING = 1;
+		FLOAT = 1;
+	};
+	message IntValue {
+		required int64 value = 1;
+		required int64 maximum = 2;
+		required int64 minimum = 3;
+		required string unit = 4;
+	}
+	message StringValue {
+		required string value = 1;
+	}
+	message FloatValue {
+		required float value = 1;
+		required float maximum = 2;
+		required float minimum = 3;
+		required string unit = 4;
+	}
+	required string alias = 1;
+	required Type type = 2;
+	optional IntValue int_value = 3;
+	optional StringValue string_value = 4;
+	optional FloatValue float_value = 5;
+	
+	// TODO add thresholds here!
+
+}
+
+message Response {
+	enum Code {
+		OK		= 0;
+		WARNING	= 1;
+		CRITCAL	= 2;
+		UNKNOWN	= 3;
+	};
+	enum Version {
+		VERSION_1 = 1;
+	};
+
+	required Version version = 1;
+	optional int32 id = 2;
+	required string command = 5;
+	repeated string arguments = 16;
+	
+	required Code result = 9;
+	required string message = 10;
+	repeated PerformanceData perf = 11;
+	
+}
+
+message RequestMessage {
+	required Header header = 1;
+	repeated Request payload = 2;
+}
+message ResponseMessage {
+	required Header header = 1;
+	repeated Response payload = 2;
+}
+
+

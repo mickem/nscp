@@ -81,8 +81,17 @@ void NSAPIStopServer(void) {
 	serviceControll::StopNoWait(SZSERVICENAME);
 #endif
 }
-NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const unsigned int argLen, wchar_t **argument, wchar_t *returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t *returnPerfBuffer, unsigned int returnPerfBufferLen) {
-	return mainClient.injectRAW(command, argLen, argument, returnMessageBuffer, returnMessageBufferLen, returnPerfBuffer, returnPerfBufferLen);
+NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+	std::string request (request_buffer, request_buffer_len), response;
+	NSCAPI::nagiosReturn ret = mainClient.injectRAW(command, request, response);
+	*response_buffer_len = response.size();
+	if (response.empty())
+		*response_buffer = NULL;
+	else {
+		*response_buffer = new char[*response_buffer_len + 10];
+		memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+	}
+	return ret;
 }
 NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** aBuffer, unsigned int * bufLen) {
 	try {
@@ -414,6 +423,8 @@ LPVOID NSAPILoader(wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPISettingsSave);
 	if (wcscasecmp(buffer, _T("NSAPINotify")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPINotify);
+	if (wcscasecmp(buffer, _T("NSAPIDestroyBuffer")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIDestroyBuffer);
 
 	LOG_ERROR_STD(_T("Function not found: ") + buffer);
 	return NULL;
@@ -424,3 +435,6 @@ NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const wchar_t* command, 
 	return NSCAPI::hasFailed;
 }
 
+void NSAPIDestroyBuffer(char**buffer) {
+	delete [] *buffer;
+}

@@ -128,26 +128,24 @@ bool NRPEClient::hasCommandHandler() {
 bool NRPEClient::hasMessageHandler() {
 	return false;
 }
-NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf)
+NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf)
 {
-	command_list::const_iterator cit = commands.find(command);
+	command_list::const_iterator cit = commands.find(strEx::blindstr(command.c_str()));
 	if (cit == commands.end())
 		return NSCAPI::returnIgnored;
 
 	std::wstring args = (*cit).second.arguments;
 	if (SETTINGS_GET_BOOL(nrpe::ALLOW_ARGS) == 1) {
-		arrayBuffer::arrayList arr = arrayBuffer::arrayBuffer2list(argLen, char_args);
-		arrayBuffer::arrayList::const_iterator cit2 = arr.begin();
 		int i=1;
-
-		for (;cit2!=arr.end();cit2++,i++) {
+		BOOST_FOREACH(wstring arg, arguments)
+		{
 			if (SETTINGS_GET_INT(nrpe::ALLOW_NASTY) == 0) {
-				if ((*cit2).find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+				if (arg.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;
 				}
 			}
-			strEx::replace(args, _T("$ARG") + strEx::itos(i) + _T("$"), (*cit2));
+			strEx::replace(args, _T("$ARG") + strEx::itos(i++) + _T("$"), arg);
 		}
 	}
 

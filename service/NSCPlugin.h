@@ -117,7 +117,8 @@ private:
 	typedef int (*lpGetVersion)(int*,int*,int*);
 	typedef int (*lpHasCommandHandler)();
 	typedef int (*lpHasMessageHandler)();
-	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const unsigned int, wchar_t**,wchar_t*,unsigned int,wchar_t *,unsigned int);
+	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
+	typedef int (*lpDeleteBuffer)(char**);
 	typedef int (*lpCommandLineExec)(const unsigned int,wchar_t**);
 	typedef int (*lpHandleMessage)(int,const wchar_t*,const int,const wchar_t*);
 	typedef int (*lpUnLoadModule)();
@@ -134,6 +135,7 @@ private:
 	lpHasCommandHandler fHasCommandHandler;
 	lpHasMessageHandler fHasMessageHandler;
 	lpHandleCommand fHandleCommand;
+	lpDeleteBuffer fDeleteBuffer;
 	lpHandleMessage fHandleMessage;
 	lpUnLoadModule fUnLoadModule;
 	lpGetConfigurationMeta fGetConfigurationMeta;
@@ -155,7 +157,9 @@ public:
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
 	bool hasMessageHandler(void);
-	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const unsigned int argLen, wchar_t **arguments, wchar_t* returnMessageBuffer, unsigned int returnMessageBufferLen, wchar_t* returnPerfBuffer, unsigned int returnPerfBufferLen);
+	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
+	NSCAPI::nagiosReturn handleCommand(const wchar_t* command, std::string &request, std::string &reply);
+	void deleteBuffer(char**buffer);
 	void handleMessage(int msgType, const wchar_t* file, const int line, const wchar_t *message);
 	void unload(void);
 	std::wstring getCongifurationMeta();

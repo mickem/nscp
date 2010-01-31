@@ -5,8 +5,7 @@ PROJECT(CheckHelpers)
 SET(CheckHelpers_SRCS
 	stdafx.cpp
 	CheckHelpers.cpp
-	${NSCP_INCLUDE_PATH}/NSCHelper.cpp
-	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
+	${NSCP_DEF_PLUGIN_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -14,23 +13,17 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 IF(WIN32)
 	SET(CheckHelpers_SRCS ${CheckHelpers_SRCS}
 		stdafx.h
-		${NSCP_INCLUDE_PATH}/strEx.h
-		${NSCP_INCLUDE_PATH}/config.h
-		${NSCP_INCLUDE_PATH}/utils.h
-		${NSCP_INCLUDE_PATH}/NSCAPI.h
-		${NSCP_INCLUDE_PATH}/NSCHelper.h
-		${NSCP_INCLUDE_PATH}/nsc_module_wrapper.hpp
 		CheckHelpers.def
+		${NSCP_DEF_PLUGIN_HPP}
+
 	)
 ENDIF(WIN32)
 
 add_library(CheckHelpers MODULE ${CheckHelpers_SRCS})
 
 target_link_libraries(CheckHelpers
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
-  ${EXTRA_LIBS}
+	${Boost_FILESYSTEM_LIBRARY}
+	${NSCP_DEF_PLUGIN_LIB}
 )
 
 

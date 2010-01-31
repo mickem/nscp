@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <nrpe/nrpepacket.hpp>
 
 
-class NRPEClient {
+class NRPEClient : public NSCModuleHelper::SimpleCommand {
 private:
 	typedef enum {
 		inject, script, script_dir,
@@ -116,7 +116,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	int commandLineExec(const unsigned int argLen,TCHAR** args);
 	std::wstring getConfigurationMeta();
 
