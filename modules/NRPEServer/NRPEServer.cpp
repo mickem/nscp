@@ -27,14 +27,6 @@
 
 NRPEListener gNRPEListener;
 
-#ifdef _WIN32
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-#endif
-
 NRPEListener::NRPEListener() : noPerfData_(false), buffer_length_(0) {
 }
 NRPEListener::~NRPEListener() {
@@ -307,6 +299,7 @@ bool NRPEListener::hasMessageHandler() {
 // 	}
 // }
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gNRPEListener);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();

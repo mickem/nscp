@@ -134,7 +134,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 						std::list<std::wstring> status;
 						std::wstring error;
 						bool bStatus = true;
-						if (PDH::Enumerations::validate(counter, error)) {
+						if (PDH::PDHResolver::validate(counter, error, false)) {
 							status.push_back(_T("open"));
 						} else {
 							errors.push_back(_T("NOT found: ") + error);
@@ -211,7 +211,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 					std::wstring counter = _T("\\") + (*it).name + _T("\\") + (*it2).name;
 					std::wcout << _T("testing: ") << counter << _T(": ");
 					std::wstring error;
-					if (PDH::Enumerations::validate(counter, error)) {
+					if (PDH::PDHResolver::validate(counter, error, false)) {
 						std::wcout << _T(" found ");
 					} else {
 						std::wcout << _T(" *NOT* found (") << error << _T(") ") << std::endl;
@@ -1029,6 +1029,8 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 	std::wstring invalidStatus = _T("UNKNOWN");
 	unsigned int averageDelay = 1000;
 	CounterContainer tmpObject;
+	bool bExpandIndex = false;
+	bool bForceReload = false;
 
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_STR(_T("InvalidStatus"), invalidStatus)
@@ -1042,6 +1044,8 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_EX(_T("Averages"), bCheckAverages, _T("true"), _T("false"))
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_BOOL_TRUE(_T("index"), bExpandIndex)
+		MAP_OPTIONS_BOOL_TRUE(_T("reload"), bForceReload)
 		MAP_OPTIONS_FIRST_CHAR('\\', tmpObject.data, counters.push_back(tmpObject))
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 	else if (p2.first == _T("Counter")) {
@@ -1053,20 +1057,28 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 		MAP_OPTIONS_SECONDARY_END()
 		MAP_OPTIONS_FALLBACK_AND(tmpObject.data, counters.push_back(tmpObject))
 	MAP_OPTIONS_END()
+
+	if (counters.empty()) {
+		msg = _T("No counters specified");
+		return NSCAPI::returnUNKNOWN;
+	}
+
 	for (std::list<CounterContainer>::const_iterator cit = counters.begin(); cit != counters.end(); ++cit) {
 		CounterContainer counter = (*cit);
 		try {
 			std::wstring tstr;
-			if (!PDH::Enumerations::validate(counter.data, tstr)) {
+			if (bExpandIndex) {
+				PDH::PDHResolver::expand_index(counter.data);
+			}
+			if (!PDH::PDHResolver::validate(counter.data, tstr, bForceReload)) {
 				NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
 				if (bNSClient) {
 					NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
 					//msg = _T("0");
 				} else {
-					//msg = tstr;
-					//msg += _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
+					msg = _T("CRIT: Counter not found: ") + counter.data + _T(": ") + tstr;
+					return NSCAPI::returnCRIT;
 				}
-				//return NSCHelper::translateReturn(invalidStatus);
 			}
 			PDH::PDHQuery pdh;
 			PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;

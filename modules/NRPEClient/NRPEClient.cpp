@@ -27,17 +27,10 @@
 //#include <execute_process.hpp>
 #include <strEx.h>
 #include <boost/filesystem.hpp>
+#include <strEx.h>
 
 
 NRPEClient gNRPEClient;
-
-#ifdef _WIN32
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-#endif
 
 NRPEClient::NRPEClient() : buffer_length_(0) {
 }
@@ -93,6 +86,9 @@ void NRPEClient::add_options(po::options_description &desc, nrpe_connection_data
 
 
 void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
+#ifndef USE_BOOST
+	NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + _T(" boost not avalible!"));
+#else
 	try {
 
 		NRPEClient::nrpe_connection_data command_data;
@@ -129,6 +125,7 @@ void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str());
 	}
+#endif
 }
 
 bool NRPEClient::unloadModule() {
@@ -441,6 +438,7 @@ NRPEPacket NRPEClient::send_nossl(std::wstring host, int port, int timeout, NRPE
 
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gNRPEClient);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gNRPEClient);

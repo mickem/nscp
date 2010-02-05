@@ -27,6 +27,7 @@
 #include <config.h>
 #include <strEx.h>
 #include <file_helpers.hpp>
+#include <file_helpers.hpp>
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>

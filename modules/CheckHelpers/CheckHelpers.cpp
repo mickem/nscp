@@ -25,13 +25,6 @@
 #include <utils.h>
 
 CheckHelpers gCheckHelpers;
-#ifdef _WIN32
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-#endif
 
 CheckHelpers::CheckHelpers() {
 }
@@ -92,6 +85,15 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 		std::wstring new_command = arguments.front(); arguments.pop_front();
 		NSCModuleHelper::InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnOK;
+	} else if (command == _T("CheckVersion")) {
+		message = NSCModuleHelper::getApplicationVersionString();
+		return NSCAPI::returnOK;
+	} else if (command == _T("CheckOK")) {
+		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
+	} else if (command == _T("CheckWARNING")) {
+		return checkSimpleStatus(NSCAPI::returnWARN, arguments, message, perf);
+	} else if (command == _T("CheckCRITICAL")) {
+		return checkSimpleStatus(NSCAPI::returnCRIT, arguments, message, perf);
 	} else if (command == _T("CheckAlwaysCRITICAL")) {
 		if (arguments.size() < 1) {
 			message = _T("ERROR: Missing arguments.");
@@ -161,6 +163,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> a
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckHelpers);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckHelpers);
