@@ -239,24 +239,6 @@ namespace strEx {
 
 	inline std::wstring format_date(std::time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		return format_date(boost::posix_time::from_time_t(time), format);
-		/*
-		wchar_t buf[51];
-		struct tm nt; // = new struct tm;
-#if (_MSC_VER > 1300)  // 1300 == VC++ 7.0
-		if (gmtime_s(&nt, &time) != 0)
-			return _T("");
-#else
-		struct tm nt; // = new struct tm;
-		nt = gmtime(&time);
-		if (nt == NULL)
-			return "";
-#endif
-		size_t l = wcsftime(buf, 50, format.c_str(), &nt);
-		if (l <= 0 || l >= 50)
-			return _T("");
-		buf[l] = 0;
-		return buf;
-		*/
 	}
 	/*
 	inline std::wstring format_date(const SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
@@ -285,10 +267,17 @@ namespace strEx {
 		filetime /= SECS_TO_100NS;
 		return format_date(static_cast<time_t>(filetime), format);
 	}
-*/
+
+		int len = wcslen(string);
+		for (int i=0;i<len;i++) {
+			if (string[i] == 10 || string[i] == 13)
+				string[i] = L' ';
+		}
+	}
+	*/
 	static const unsigned long long SECS_BETWEEN_EPOCHS = 11644473600;
 	static const unsigned long long SECS_TO_100NS = 10000000;
-
+	
 	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
 		filetime /= SECS_TO_100NS;
@@ -703,6 +692,48 @@ namespace strEx {
 		}
 	};
 	*/
+
+
+
+	class StrICmp
+	{
+	public:
+		StrICmp(const std::string &Lang = "english") : m_locE(Lang.c_str())
+		{
+		}
+		class CharLessI
+		{
+		public:
+			CharLessI(std::locale &locE) : m_locE(locE)
+			{
+			}
+			template<typename T>
+			bool operator()(T c1, T c2)
+			{
+				return std::tolower(c1, m_locE) < std::tolower(c2, m_locE);
+			}
+		private:
+			std::locale &m_locE;
+		};
+		template<typename T>
+		int operator()(const T &s1, const T &s2)
+		{
+			if (std::lexicographical_compare(s1.begin(), s1.end(), s2.begin(), s2.end(), CharLessI(m_locE)))
+				return -1;
+			if (std::lexicographical_compare(s2.begin(), s2.end(), s1.begin(), s1.end(), CharLessI(m_locE)))
+				return 1;
+			return 0;
+		}
+	private:
+		std::locale m_locE;
+	};
+
+	template<typename T>
+	int StrCmpI(const T &s1, const T &s2, const std::string &Lang = "english")
+	{
+		return StrICmp(Lang)(s1, s2);
+	}
+
 
 #ifdef _DEBUG
 	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {

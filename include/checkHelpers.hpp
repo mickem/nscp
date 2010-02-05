@@ -24,8 +24,10 @@
 #include <strEx.h>
 
 #define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T("; ")
+#define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax + _T("; ")
 
 namespace checkHolders {
+
 
 
 	typedef enum { warning, critical} ResultType;
@@ -87,10 +89,12 @@ namespace checkHolders {
 		return str + _T("not found (unknown)");
 	}
 
+
 	typedef enum {showLong, showShort, showProblems, showUnknown} showType;
 	template <class TContents>
 	struct CheckContainer {
 		typedef CheckContainer<TContents> TThisType;
+		typedef typename TContents::TValueType TPayloadValueType;
 		TContents warn;
 		TContents crit;
 		std::wstring data;
@@ -128,7 +132,12 @@ namespace checkHolders {
 			return show != showProblems;
 		}
 		std::wstring gatherPerfData(typename TContents::TValueType &value) {
-			return crit.gatherPerfData(getAlias(), value, warn, crit);
+			if (crit.hasBounds())
+				return crit.gatherPerfData(getAlias(), value, warn, crit);
+			else if (warn.hasBounds())
+				return warn.gatherPerfData(getAlias(), value, warn, crit);
+			else
+				return getAlias() + _T(": ERROR");
 		}
 		bool hasBounds() {
 			return warn.hasBounds() || crit.hasBounds();
@@ -155,6 +164,153 @@ namespace checkHolders {
 			if (!tstr.empty())
 				message += tstr;
 			//std::wcout << _T("result: ") << tstr << _T("--") << std::endl;
+		}
+	};
+
+
+	template <class value_type>
+	struct check_proxy_interface {
+		virtual bool showAll() = 0;
+		virtual std::wstring gatherPerfData(value_type &value) = 0;
+		virtual bool hasBounds() = 0;
+		virtual void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) = 0;
+		virtual void set_warn_bound(std::wstring value) = 0;
+		virtual void set_crit_bound(std::wstring value) = 0;
+		//virtual std::wstring get_default_alias() = 0;
+
+	};
+
+
+	//typedef enum {showLong, showShort, showProblems, showUnknown} showType;
+	template <class container_value_type, class impl_type>
+	class check_proxy_container : public check_proxy_interface<container_value_type> {
+		typedef check_proxy_container<container_value_type, impl_type> TThisType;
+		impl_type impl_;
+	public:
+		virtual typename impl_type::TPayloadValueType get_value(container_value_type &value) = 0;
+
+		void set_warn_bound(std::wstring value) {
+			impl_.warn = value;
+		}
+		void set_crit_bound(std::wstring value) {
+			impl_.crit = value;
+		}
+		void set_alias(std::wstring value) {
+			impl_.alias = value;
+		}
+
+
+		check_proxy_container() {}
+		/*
+		void setDefault(TThisType def) {
+			if (!warn.hasBounds())
+				warn = def.warn;
+			if (!crit.hasBounds())
+				crit = def.crit;
+			if (show == showUnknown)
+				show = def.show;
+		}
+		*/
+		bool showAll() {
+			return impl_.showAll();
+		}
+		std::wstring gatherPerfData(container_value_type &value) {
+			typename impl_type::TPayloadValueType real_value = get_value(value);
+			return impl_.gatherPerfData(real_value);
+		}
+		bool hasBounds() {
+			return impl_.hasBounds();
+		}
+		void runCheck(container_value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
+			typename impl_type::TPayloadValueType real_value = get_value(value);
+			return impl_.runCheck(real_value, returnCode, message, perf);
+		}
+	};
+
+
+	template <class value_type>
+	struct check_multi_container {
+		typedef check_multi_container<value_type> TThisType;
+		typedef check_proxy_interface<value_type> check_type;
+		typedef std::list<check_type*> check_list_type;
+		check_list_type checks_;
+		std::wstring data;
+		std::wstring alias;
+
+		std::wstring cached_warn_;
+		std::wstring cached_crit_;
+
+		showType show;
+		bool perfData;
+
+		void set_warn_bound(std::wstring value) {
+// 			if (checks_.empty())
+				cached_warn_ = value;
+// 			else
+// 				(checks_.back())->set_warn_bound(value);
+		}
+		void set_crit_bound(std::wstring value) {
+// 			if (checks_.empty())
+				cached_crit_ = value;
+// 			else
+// 				(checks_.back())->set_crit_bound(value);
+		}
+
+		void add_check(check_type *check) {
+			if (check != NULL) {
+				if (!cached_warn_.empty())
+					check->set_warn_bound(cached_warn_);
+				if (!cached_crit_.empty())
+					check->set_crit_bound(cached_crit_);
+				checks_.push_back(check);
+			}
+			cached_warn_ = _T("");
+			cached_crit_ = _T("");
+		}
+
+		check_multi_container() : show(showUnknown), perfData(true)
+		{}
+	private:
+		check_multi_container(const TThisType &other) 
+			: data(other.data), alias(other.alias), checks_(other.checks_), show(other.show) 
+		{}
+	public:
+		~check_multi_container() {
+			for (check_list_type::iterator it=checks_.begin(); it != checks_.end(); ++it) {
+				delete *it;
+			}
+			checks_.clear();
+		}
+		std::wstring getAlias() {
+			if (alias.empty())
+				return data;
+			return alias;
+		}
+		void setDefault(TThisType def) {
+			if (show == showUnknown)
+				show = def.show;
+		}
+		bool showAll() {
+			return show != showProblems;
+		}
+		std::wstring gatherPerfData(value_type &value) {
+			std::wstring ret;
+			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+				ret += (*cit)->gatherPerfData((*cit)->getAlias(), value);
+			}
+		}
+		bool hasBounds() {
+			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+				if ((*cit)->hasBounds())
+					return true;
+			}
+			return false;
+		}
+		void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
+			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+				(*cit)->runCheck(value, returnCode, message, perf);
+			}
+			std::wcout << _T("result: ") << message << std::endl;
 		}
 	};
 
@@ -538,25 +694,45 @@ namespace checkHolders {
 			return value_;
 		}
 		std::wstring gatherPerfData(std::wstring alias, TType &value, typename TType::TValueType warn, typename TType::TValueType crit) {
+			unsigned int value_p, warn_p, crit_p;
+			TType::TValueType value_v, warn_v, crit_v;
 			if (type_ == percentage_upper) {
-				return 
-					MAKE_PERFDATA(alias, THandler::print_unformated(value.getUpperPercentage()), _T("%"), 
-					THandler::print_unformated(warn), THandler::print_unformated(crit));
+				value_p = value.getUpperPercentage();
+				warn_p = warn;
+				crit_p = crit;
+				warn_v = static_cast<double>(value.total)*static_cast<double>(warn)/100.0;
+				crit_v = value.total*(double(crit)/100);;
 			} else if (type_ == percentage_lower) {
-					return 
-						MAKE_PERFDATA(alias, THandler::print_unformated(value.getLowerPercentage()), _T("%"), 
-						THandler::print_unformated(warn), THandler::print_unformated(crit));
+				value_p = value.getLowerPercentage();
+				warn_p = warn;
+				crit_p = crit;
+				warn_v = static_cast<double>(value.total)*static_cast<double>(warn)/100.0;
+				crit_v = value.total*(double(crit)/100);
+			} else if (type_ == value_upper) {
+				value_p = value.getUpperPercentage();
+				warn_p = 100-(warn*100/value.total);
+				crit_p = 100-(crit*100/value.total);
+				warn_v = warn;
+				crit_v = crit;
 			} else if (type_ == value_upper) {
 				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
 				return 
 					MAKE_PERFDATA(alias, THandler::print_perf((value.value), unit), unit, 
 					THandler::print_perf(value.total-warn, unit), THandler::print_perf(value.total-crit, unit));
 			} else {
-				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
-				return 
-					MAKE_PERFDATA(alias, THandler::print_perf(value.value, unit), unit, 
-					THandler::print_perf(warn, unit), THandler::print_perf(crit, unit));
+				value_p = value.getLowerPercentage();
+				warn_p = 100-(warn*100/value.total);
+				crit_p = 100-(crit*100/value.total);
+				warn_v = warn;
+				crit_v = crit;
 			}
+			std::wstring unit = THandler::get_perf_unit(min(warn_v, min(crit_v, value.value)));
+			return 
+				MAKE_PERFDATA(alias + _T(" %"), THandler::print_unformated(value_p), _T("%"), THandler::print_unformated(warn_p), THandler::print_unformated(crit_p))
+				+ 
+				MAKE_PERFDATA_EX(alias, THandler::print_perf(value.value, unit), unit, THandler::print_perf(warn_v, unit), THandler::print_perf(crit_v, unit), 
+					THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
+				;
 		}
 	private:
 		void setUpper(std::wstring s) {
@@ -877,6 +1053,9 @@ namespace checkHolders {
 
 	};
 	typedef ExactBounds<NumericBounds<unsigned long int, int_handler> > ExactBoundsULongInteger;
+	typedef ExactBounds<NumericBounds<unsigned int, int_handler> > ExactBoundsUInteger;
+	typedef ExactBounds<NumericBounds<unsigned long, int_handler> > ExactBoundsULong;
+	typedef ExactBounds<NumericBounds<time_type, time_handler<__int64> > > ExactBoundsTime;
 
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<int ,int>, int_handler> > MaxMinPercentageBoundsInteger;
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<__int64, __int64>, int64_handler> > MaxMinPercentageBoundsInt64;
