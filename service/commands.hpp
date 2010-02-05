@@ -21,13 +21,13 @@ namespace nsclient {
 
 		};
 
-	private:
 		typedef boost::shared_ptr<NSCPlugin> plugin_type;
 		typedef std::map<unsigned long,plugin_type> plugin_list_type;
 		typedef std::map<std::wstring,std::wstring> description_list_type;
 		typedef std::map<std::wstring,plugin_type> command_list_type;
 
 
+	private:
 		nsclient::logger *logger_;
 		plugin_list_type plugins_;
 		description_list_type descriptions_;
@@ -59,7 +59,7 @@ namespace nsclient {
 		void remove_plugin(unsigned long id) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex in remove_plugin for plugin id: ") + to_wstring(id));
+				log_error(__FILEW__, __LINE__, _T("Failed to get mutex in remove_plugin for plugin id: ") + ::to_wstring(id));
 				return;
 			}
 			command_list_type::iterator it = commands_.begin();
@@ -85,8 +85,11 @@ namespace nsclient {
 				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + cmd);
 				return;
 			}
-			descriptions_[cmd] = desc;
-			commands_[cmd] = plugins_[plugin_id];
+			std::wstring lc = make_key(cmd);
+			if (!have_plugin(plugin_id))
+				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id));
+			descriptions_[lc] = desc;
+			commands_[lc] = plugins_[plugin_id];
 		}
 
 		std::wstring describe(std::wstring command) {
@@ -95,7 +98,8 @@ namespace nsclient {
 				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + command);
 				return _T("error: ") + command;
 			}
-			description_list_type::const_iterator cit = descriptions_.find(command);
+			std::wstring lc = make_key(command);
+			description_list_type::const_iterator cit = descriptions_.find(lc);
 			if (cit == descriptions_.end())
 				return _T("Command not found: ") + command;
 			return (*cit).second;
@@ -119,16 +123,38 @@ namespace nsclient {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
 				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + command);
-				throw command_exception("Failed to get mutext (commands::get)");
+				throw command_exception("Failed to get mutex (commands::get)");
 			}
-			commands_[command];
+			std::wstring lc = make_key(command);
+			command_list_type::iterator cit = commands_.find(lc);
+			if (cit == commands_.end()) {
+				std::wcout << _T("NOT FOUND") << std::endl;
+				return plugin_type();
+			}
+			return (*cit).second;
 		}
 
+		std::wstring to_wstring() {
+			std::wstring ret;
+			BOOST_FOREACH(std::wstring str, list()) {
+				if (!ret.empty()) ret += _T(", ");
+				ret += str;
+			}
+			return ret;
+		}
 
-	private:
+		inline std::wstring make_key(std::wstring key) {
+			return boost::algorithm::to_lower_copy(key);
+		}
 		void log_error(std::wstring file, int line, std::wstring error) {
 			if (logger_ != NULL)
 				logger_->nsclient_log_error(file, line, error);
 		}
+
+		inline bool have_plugin(unsigned long plugin_id) {
+			return !(plugins_.find(plugin_id) == plugins_.end());
+		}
+
+
 	};
 }

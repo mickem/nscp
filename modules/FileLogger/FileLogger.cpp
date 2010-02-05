@@ -21,24 +21,18 @@
 
 #include "stdafx.h"
 #include "FileLogger.h"
-
-#include <sys/timeb.h>
-#include <time.h>
+#include <boost/date_time.hpp>
+#include <fstream>
 #include <utils.h>
 
 FileLogger gFileLogger;
-
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
 
 FileLogger::FileLogger() : init_(false) {
 }
 FileLogger::~FileLogger() {
 }
 
+#ifdef WIN32
 #ifndef CSIDL_COMMON_APPDATA 
 #define CSIDL_COMMON_APPDATA 0x0023 
 #endif
@@ -55,31 +49,34 @@ __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, in
 		return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
 	return FALSE;
 }
+#endif
 
 std::wstring getFolder(std::wstring key) {
 	if (key == _T("exe")) {
 		return NSCModuleHelper::getBasePath();
 	} else {
+#ifdef WIN32
 		if (key == _T("local-app-data")) {
 			TCHAR buf[MAX_PATH+1];
 			_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE);
 			return buf;
 		}
+#endif
 	}
 	return NSCModuleHelper::getBasePath();
 }
-std::wstring FileLogger::getFileName() {
+std::string FileLogger::getFileName() {
 	if (file_.empty()) {
-		file_ = SETTINGS_GET_STRING(log::FILENAME);
+		file_ = to_string(SETTINGS_GET_STRING(log::FILENAME));
 		if (file_.empty())
-			file_ = setting_keys::log::FILENAME_DEFAULT;
-		if (file_.find(_T("\\")) == std::wstring::npos) {
-			std::wstring root = getFolder(SETTINGS_GET_STRING(log::ROOT));
-			std::wstring::size_type pos = root.find_last_not_of(L'\\');
+			file_ = to_string(setting_keys::log::FILENAME_DEFAULT);
+		if (file_.find("\\") == std::wstring::npos) {
+			std::string root = to_string(getFolder(SETTINGS_GET_STRING(log::ROOT)));
+			std::string::size_type pos = root.find_last_not_of('\\');
 			if (pos != std::wstring::npos) {
 				//root = root.substr(0, pos);
 			}
-			file_ = root + _T("\\") + file_;
+			file_ = root + "\\" + file_;
 		}
 	}
 	return file_;
@@ -94,7 +91,7 @@ bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
 
 		SETTINGS_REG_KEY_S(log::FILENAME);
 		SETTINGS_REG_KEY_S(log::DATEMASK);
-		SETTINGS_REG_KEY_B(log::DEBUG_LOG);
+		SETTINGS_REG_KEY_S(log::LOG_MASK);
 
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
@@ -103,11 +100,14 @@ bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
 	}
 
 
-	format_ = SETTINGS_GET_STRING(log::DATEMASK);
+	format_ = to_string(SETTINGS_GET_STRING(log::DATEMASK));
+	std::wstring log_mask = SETTINGS_GET_STRING(log::LOG_MASK);
+	log_mask_ = NSCHelper::logging::parse(log_mask);
+	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + NSCHelper::logging::to_string(log_mask_));
 	init_ = true;
 	std::wstring hello = _T("Starting to log for: ") + NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
 	handleMessage(NSCAPI::log, __FILEW__, __LINE__, hello.c_str());
-	NSC_LOG_MESSAGE_STD(_T("Log path is: ") + file_ );
+	NSC_LOG_MESSAGE_STD(_T("Log path is: ") + to_wstring(file_));
 	return true;
 }
 bool FileLogger::unloadModule() {
@@ -119,6 +119,7 @@ bool FileLogger::hasCommandHandler() {
 bool FileLogger::hasMessageHandler() {
 	return true;
 }
+/*
 HANDLE openAppendOrNew(std::wstring file) {
 	DWORD numberOfBytesWritten = 0;
 	HANDLE hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -131,79 +132,40 @@ HANDLE openAppendOrNew(std::wstring file) {
 	}
 	return hFile;
 }
-void FileLogger::writeEntry(std::wstring line) {
-	DWORD numberOfBytesWritten;
-	HANDLE hFile = openAppendOrNew(file_);
-	if (hFile == INVALID_HANDLE_VALUE) {
-		if (line.find(_T("can not log to file")) != std::wstring::npos)
-			NSC_LOG_MESSAGE_STD(_T("Failed to create log file and temporary log! (can not log to file): ") + file_ );
-		return;
-	}
-	if (::SetFilePointer(hFile, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
-		std::wcout << _T("Failed to move pointer to end of file...") << std::endl;
-	}
-	::WriteFile(hFile, line.c_str(), (line.length())*(sizeof(TCHAR)), &numberOfBytesWritten, NULL);
-	::CloseHandle(hFile);
-}
+*/
 
 void FileLogger::handleMessage(int msgType, TCHAR* file, int line, const TCHAR* message) {
 	if (!init_) {
-		std::wcout << _T("Discarding message (not initzialized yet") << std::endl;
+		std::wcout << _T("Discarding: ") << message << std::endl;
 		return;
 	}
-	TCHAR buffer[65];
-	__time64_t ltime;
-	_time64( &ltime );
-	struct tm *today = _localtime64( &ltime );
-	if (today) {
-		size_t len = wcsftime(buffer, 63, format_.c_str(), today);
-		if ((len < 1)||(len > 64))
-			wcsncpy_s(buffer, 64, _T("???"), 63);
-		else
-			buffer[len] = 0;
-	} else {
-		wcsncpy_s(buffer, 64, _T("???"), 63);
+	if (!NSCHelper::logging::matches(log_mask_, msgType))
+		return;
+
+	std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
+	if (!stream) {
+		std::wcout << _T("File could not be opened, Discarding: ") << message << std::endl;
 	}
-	writeEntry(std::wstring(buffer) + _T(": ") + 
-		NSCHelper::translateMessageType(msgType) + _T(":") + 
-		std::wstring(file) + _T(":") + strEx::itos(line) +_T(": ") + 
-		message + _T("\r\n"));
+	stream << to_string(get_formated_date()) 
+		<< (": ") << to_string(NSCHelper::translateMessageType(msgType))
+		<< (":") << to_string(std::wstring(file))
+		<<(":") << to_string(line) 
+		<< (": ") << to_string(std::wstring(message)) << std::endl;
 }
 
+std::wstring FileLogger::get_formated_date() {
+	std::wstringstream ss;
+	boost::posix_time::time_facet *facet = new boost::posix_time::time_facet(format_.c_str());
+	ss.imbue(locale(cout.getloc(), facet));
+	ss << boost::posix_time::second_clock::local_time();
+	return ss.str();
+}
+
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gFileLogger);
 NSC_WRAPPERS_HANDLE_MSG_DEF(gFileLogger);
 NSC_WRAPPERS_IGNORE_CMD_DEF();
 NSC_WRAPPERS_HANDLE_CONFIGURATION(gFileLogger);
 
-
-
-
 MODULE_SETTINGS_START(FileLogger, _T("File logger configuration"),_T("..."))
-PAGE(_T("Filelogger"))
-
-ITEM_CHECK_BOOL(_T("Log debug messages"), _T("Enable this to log debug messages (when running with /test debuglog is always enabled)"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("log"))
-OPTION(_T("key"), _T("debug"))
-OPTION(_T("default"), _T("false"))
-OPTION(_T("true_value"), _T("1"))
-OPTION(_T("false_value"), _T("0"))
-ITEM_END()
-
-ITEM_EDIT_TEXT(_T("Log file"), _T("This is the size of the buffer that stores CPU history."))
-OPTION(_T("unit"), _T("(relative to NSClient++ binary"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("log"))
-OPTION(_T("key"), _T("file"))
-OPTION(_T("default"), _T("NSC.log"))
-ITEM_END()
-
-ITEM_EDIT_TEXT(_T("Date mask"), _T("The date/timeformat in the log file."))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("log"))
-OPTION(_T("key"), _T("date_mask"))
-OPTION(_T("default"), _T("%Y-%m-%d %H:%M:%S"))
-ITEM_END()
-
-PAGE_END()
 MODULE_SETTINGS_END()

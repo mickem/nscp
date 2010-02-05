@@ -5,6 +5,11 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
+
+2010-02-05
+ * Multiple fixes all over the place
+ * Availible modules: CheckExternalScripts, CheckHelpers, FileLogger, NRPEClient, NRPEServer, Scheduler
+ ! Performance data is still missing (will be for a while yet)
  
 2010-01-31 MickeM
  + Added google protocol buffers

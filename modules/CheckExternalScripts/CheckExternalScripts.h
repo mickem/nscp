@@ -31,6 +31,9 @@ private:
 		command_data(std::wstring command_, std::wstring arguments_) : command(command_), arguments(arguments_) {}
 		std::wstring command;
 		std::wstring arguments;
+		std::wstring to_string() {
+			return command + _T("(") + arguments + _T(")");
+		}
 	};
 	typedef std::map<std::wstring, command_data> command_list;
 	command_list commands;
@@ -82,11 +85,15 @@ private:
 	void addAllScriptsFrom(std::wstring path);
 	void addCommand(std::wstring key, std::wstring cmd, std::wstring args) {
 		boost::to_lower(key);
-		commands[key] = command_data(cmd, args);
+		command_data cd = command_data(cmd, args);
+		commands[key] = cd;
+		NSCModuleHelper::registerCommand(key, _T("Script: ") + cd.to_string());
 	}
 	void addAlias(std::wstring key, std::wstring cmd, std::wstring args) {
 		boost::to_lower(key);
-		alias[key] = command_data(cmd, args);
+		command_data cd = command_data(cmd, args);
+		alias[key] = cd;
+		NSCModuleHelper::registerCommand(key, _T("Alias for: ") + cd.to_string());
 	}
 };
 

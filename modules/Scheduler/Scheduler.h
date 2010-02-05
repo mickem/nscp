@@ -41,6 +41,7 @@ public:
 	void add_schedule(std::wstring alias, std::wstring command, scheduler::target def);
 	scheduler::target read_defaut_schedule(std::wstring path);
 	void handle_schedule(scheduler::target item);
+	void on_error(std::wstring error);
 
 	std::wstring getModuleName() {
 		return _T("Scheduler");

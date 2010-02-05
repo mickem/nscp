@@ -740,6 +740,37 @@ namespace strEx {
 	}
 
 #endif
+
+	template<typename T>
+	inline void parse_command(T &cmd_line, std::list<T> &args) {
+		boost::tokenizer<boost::escaped_list_separator<wchar_t>, T::const_iterator, T > tok(cmd_line, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
+		BOOST_FOREACH(T s, tok)
+			args.push_back(s);
+	}
+	template<typename T>
+	inline void parse_command(T cmd_line, T &cmd, std::list<T> &args) {
+		boost::tokenizer<boost::escaped_list_separator<wchar_t>, T::const_iterator, T > tok(cmd_line, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
+		bool first = true;
+		BOOST_FOREACH(T s, tok) 
+		{
+			if (first) {
+				cmd = s;
+				first = false;
+			} else {
+				args.push_back(s);
+			}
+
+		}
+	}
+	/*
+	template<typename T = std::string>
+	inline void parse_command(T &string, std::list<T> &list) {
+		boost::tokenizer<boost::escaped_list_separator<char>, T::const_iterator, T > tok(string, boost::escaped_list_separator<char>('\\', ' ', '\"'));
+		BOOST_FOREACH(T s, tok)
+			list.push_back(s);
+	}
+	*/
+
 }
 
 template <typename T> std::string to_string(const T& arg) {

@@ -987,6 +987,7 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 			return plugin;
 		}
 		plugins_.insert(plugins_.end(), plugin);
+		commands_.add_plugin(plugin);
 		if (plugin->hasCommandHandler())
 			commandHandlers_.insert(commandHandlers_.end(), plugin);
 		if (plugin->hasMessageHandler())
@@ -1045,6 +1046,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 		req->set_version(PluginCommand::Request_Version_VERSION_1);
 
 		std::string args = to_string(arguments);
+
 		boost::tokenizer<boost::escaped_list_separator<char> > tok(args, boost::escaped_list_separator<char>('\\', ' ', '\"'));
 		BOOST_FOREACH(string s, tok)
 			req->add_arguments(s);
@@ -1106,40 +1108,29 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, std::string &r
 			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
 		}
 	} else */{
+		/*
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return NSCAPI::returnUNKNOWN;
 		}
-		for (pluginList::size_type i = 0; i < commandHandlers_.size(); i++) {
-			try {
-				NSCAPI::nagiosReturn c = commandHandlers_[i]->handleCommand(command, request, response);
-				switch (c) {
-					case NSCAPI::returnInvalidBufferLen:
-						LOG_ERROR_CORE(_T("UNKNOWN: Return buffer to small to handle this command."));
-						return c;
-					case NSCAPI::returnIgnored:
-						break;
-					case NSCAPI::returnOK:
-					case NSCAPI::returnWARN:
-					case NSCAPI::returnCRIT:
-					case NSCAPI::returnUNKNOWN:
-						LOG_DEBUG_STD(_T("Result ") + std::wstring(command) + _T(": ") + NSCHelper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
-						return c;
-					default:
-						LOG_ERROR_CORE_STD(_T("Unknown error from handleCommand: ") + strEx::itos(c) + _T(" the injected command was: ") + (std::wstring)command);
-						return c;
-				}
-			} catch(const NSPluginException& e) {
-				LOG_ERROR_CORE_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
-				return NSCAPI::returnCRIT;
-			} catch(...) {
-				LOG_ERROR_CORE(_T("Unknown exception raised in module"));
-				return NSCAPI::returnCRIT;
+		*/
+		try {
+			nsclient::commands::plugin_type plugin = commands_.get(command);
+			if (!plugin) {
+				LOG_ERROR_CORE(_T("No handler for command: ") + std::wstring(command) + _T(" avalible commands: ") + commands_.to_wstring());
+				return NSCAPI::returnIgnored;
 			}
+			NSCAPI::nagiosReturn c = plugin->handleCommand(command, request, response);
+			LOG_DEBUG_STD(_T("Result ") + std::wstring(command) + _T(": ") + NSCHelper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
+			return c;
+		} catch (nsclient::commands::command_exception &e) {
+			LOG_ERROR_CORE(_T("No handler for command: ") + std::wstring(command) + _T(": ") + to_wstring(e.what()));
+			return NSCAPI::returnIgnored;
+		} catch (...) {
+			LOG_ERROR_CORE(_T("Error handling command: ") + std::wstring(command));
+			return NSCAPI::returnIgnored;
 		}
-		LOG_MESSAGE_STD(_T("No handler for command: '") + command + _T("'"));
-		return NSCAPI::returnIgnored;
 	}
 }
 

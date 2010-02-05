@@ -86,6 +86,7 @@ private:
 	typedef std::map<strEx::blindstr, nrpe_connection_data> command_list;
 	command_list commands;
 	unsigned int buffer_length_;
+	std::wstring cert_;
 
 public:
 	NRPEClient();

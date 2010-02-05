@@ -24,9 +24,10 @@ NSC_WRAPPERS_MAIN();
 
 class FileLogger {
 private:
-	std::wstring file_;
-	std::wstring format_;
+	std::string file_;
+	std::string format_;
 	bool init_;
+	int log_mask_;
 
 public:
 	FileLogger();
@@ -52,8 +53,10 @@ public:
 	bool hasMessageHandler();
 	void handleMessage(int msgType, TCHAR* file, int line, const TCHAR* message);
 	int handleCommand(TCHAR* command, TCHAR **argument, TCHAR *returnBuffer, int returnBufferLen);
-	void writeEntry(std::wstring line);
+	//void writeEntry(std::wstring line);
 
 
-	std::wstring getFileName();
+	std::string getFileName();
+	inline std::wstring FileLogger::get_formated_date();
+
 };

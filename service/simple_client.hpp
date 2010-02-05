@@ -37,7 +37,7 @@ namespace nsclient {
 					std::wcout << _T("Listing commands...") << std::endl;
 					std::list<std::wstring> lst = core_->list_commands();
 					for (std::list<std::wstring>::const_iterator cit = lst.begin(); cit!=lst.end();++cit)
-						std::wcout << *cit << std::endl;
+						std::wcout << *cit << _T(": ") << core_->describeCommand(*cit) << std::endl;
 					std::wcout << _T("Listing commands...Done") << std::endl;
 				} else if (s == _T("off") && buff == _T("debug ")) {
 					std::wcout << _T("Setting debug log off...") << std::endl;

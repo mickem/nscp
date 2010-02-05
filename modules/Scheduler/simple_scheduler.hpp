@@ -69,6 +69,7 @@ namespace scheduler {
 	class schedule_handler {
 	public:
 		virtual void handle_schedule(target item) = 0;
+		virtual void on_error(std::wstring error) = 0;
 	};
 	struct schedule_instance {
 		boost::posix_time::ptime time;
@@ -128,19 +129,21 @@ namespace scheduler {
 		unsigned int target_id_;
 		schedule_queue_type queue_;
 		unsigned int thread_count_;
+		boost::mutex idle_thread_mutex_;
+		boost::condition_variable idle_thread_cond_;
+
 
 
 		// thread variables
 		volatile bool stop_requested_;
 		volatile bool running_;
 		boost::thread_group threads_;
-		//boost::shared_ptr<boost::thread> thread_;
 		boost::mutex mutex_;
 		schedule_handler* handler_;
-
+		int error_threshold_;
 	public:
 
-		simple_scheduler() : target_id_(0), stop_requested_(false), running_(false), thread_count_(10), handler_(NULL) {}
+		simple_scheduler() : target_id_(0), stop_requested_(false), running_(false), thread_count_(10), handler_(NULL), error_threshold_(5) {}
 		~simple_scheduler() {}
 
 
@@ -162,15 +165,19 @@ namespace scheduler {
 			thread_count_ = threads;
 			start_thread();
 		}
+		int get_threads() const { return thread_count_;}
 
 
 	private:
-		void thread_proc();
+		void thread_proc(int id);
+		void watch_dog(int id);
 
 		void reschedule(target item);
 		void reschedule(target item, boost::posix_time::ptime now);
 		void reschedule_wnext(target item, boost::posix_time::ptime next);
 		void start_thread();
+
+		void log_error(std::wstring err);
 
 		inline boost::posix_time::ptime now() {
 			return boost::get_system_time();

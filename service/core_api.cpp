@@ -278,10 +278,12 @@ NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(wchar_t*** aBuffer, unsig
 NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,const wchar_t* desc) {
 	try {
 		mainClient.registerCommand(id, cmd, desc);
+	} catch (nsclient::commands::command_exception &e) {
+		LOG_ERROR_STD(_T("Exception registrying command: ") + ::to_wstring(e.what()) + _T(", from: ") + to_wstring(id));
+		return NSCAPI::isfalse;
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception registrying command: ") + std::wstring(cmd) + _T(", from: ") + to_wstring(id));
-		return NSCAPI::isSuccess;
-
+		return NSCAPI::isfalse;
 	}
 	return NSCAPI::isSuccess;
 }

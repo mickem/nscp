@@ -86,11 +86,11 @@ namespace NSCAPI {
 	const int settings_inifile = 2;
 
 	// Various message Types
-	const int log = 0;				// Log message
+	const int log = 1;				// Log message
 	const int error = -1;			// Error (non critical)
 	const int critical = -10;		// Critical error
-	const int warning = 1;			// Warning
-	const int debug = 666;			// Debug message
+	const int warning = 2;			// Warning
+	const int debug = 10;			// Debug message
 
 	typedef int messageTypes;		// Message type
 

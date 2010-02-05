@@ -428,6 +428,9 @@ namespace setting_keys {
 		DEFINE_SETTING_S(DATEMASK, LOG_SECTION, "date format", "%Y-%m-%d %H:%M:%S");
 		DESCRIBE_SETTING_ADVANCED(DATEMASK, "DATEMASK", "The date format used when logging to a file.");
 
+		DEFINE_SETTING_S(LOG_MASK, LOG_SECTION, "log mask", "normal");
+		DESCRIBE_SETTING_ADVANCED(LOG_MASK, "LOG MASK", "The log mask information, error, warning, critical, debug");
+
 		DEFINE_SETTING_B(DEBUG_LOG, LOG_SECTION, "debug", false);
 		DESCRIBE_SETTING_ADVANCED(DEBUG_LOG, "DEBUG LOGGING", "Enable debug logging can help track down errors and find problems but will impact overall perfoamnce negativly.");
 	}

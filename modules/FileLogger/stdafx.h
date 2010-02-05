@@ -21,15 +21,13 @@
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-// Windows Header Files:
-#include <windows.h>
-#include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
 #include <string>
 #include <iostream>
 #include <fstream>
+
+#include <NSCAPI.h>
+#include <NSCHelper.h>
+#include <nsc_module_wrapper.hpp>
 
 #include <config.h>
 

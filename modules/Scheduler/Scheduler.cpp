@@ -49,6 +49,7 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
 
 		scheduler_.set_threads(SETTINGS_GET_INT(scheduler::THREADS));
+		NSC_DEBUG_MSG_STD(_T("Thread count: ") + to_wstring(scheduler_.get_threads()));
 
 		if (mode == NSCAPI::normalStart) {
 			scheduler_.set_handler(this);
@@ -72,12 +73,6 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 			SETTINGS_REG_KEY_S(scheduler::REPORT_MODE);
 
 		}
-/*
-		add_schedule(_T("test: FIRST"));
-		for (int i=0;i<1000;i++)
-			add_schedule(_T("test: ") + to_wstring(i));
-		add_schedule(_T("test: LAST"));
-		*/
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Exception in module Scheduler: ") + e.msg_);
 		return false;
@@ -105,6 +100,9 @@ void Scheduler::add_schedule(std::wstring alias, std::wstring command, scheduler
 	item.command = command;
 	item.channel = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::CHANNEL, def.channel);
 	item.command = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::COMMAND, item.command);
+
+	strEx::parse_command(item.command, item.command, item.arguments);
+
 	std::wstring report = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::REPORT_MODE, NSCHelper::report::to_string(def.report));
 	item.report = NSCHelper::report::parse(report);
 	std::wstring duration = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::INTERVAL, to_wstring(def.duration.total_seconds()) + _T("s"));
@@ -116,6 +114,10 @@ bool Scheduler::unloadModule() {
 	scheduler_.unset_handler();
 	scheduler_.stop();
 	return true;
+}
+
+void Scheduler::on_error(std::wstring error) {
+	NSC_LOG_ERROR_STD(error);
 }
 
 void Scheduler::handle_schedule(scheduler::target item) {

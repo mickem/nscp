@@ -106,6 +106,11 @@ namespace NSCHelper
 		bool matches(unsigned int report, NSCAPI::nagiosReturn code);
 		std::wstring to_string(unsigned int report);
 	}
+	namespace logging {
+		unsigned int parse(std::wstring str);
+		bool matches(unsigned int report, NSCAPI::nagiosReturn code);
+		std::wstring to_string(unsigned int report);
+	}
 };
 
 namespace NSCModuleHelper

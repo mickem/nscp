@@ -1,7 +1,7 @@
 #include "simple_scheduler.hpp"
 
 #include <boost/bind.hpp>
-
+#include <strEx.h>
 #include <unicode_char.hpp>
 
 namespace scheduler {
@@ -30,23 +30,13 @@ namespace scheduler {
 
 	void simple_scheduler::start() {
 		running_ = true;
-		if (!queue_.empty())
-			start_thread();
+		start_thread();
 	}
 	void simple_scheduler::stop() {
 		running_ = false;
-		//if (!thread_)
-		//	return;
 		stop_requested_ = true;
 		threads_.interrupt_all();
 		threads_.join_all();
-		/*
-		if (!threads.join_all(boost::posix_time::seconds(5))) {
-			std::wcout << _T("FAILED TO TERMINATE!!!") << std::endl;
-		} else {
-			std::wcout << _T("THREAD TERMINATED NICELY!") << std::endl;
-		}
-		*/
 	}
 
 	void simple_scheduler::start_thread() {
@@ -56,39 +46,63 @@ namespace scheduler {
 		int missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
 			for (int i=0;i<missing_threads;i++) {
-				std::wcout << _T("***START_THREAD***") << std::endl;
-				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this));
+				//std::wcout << _T("***START_THREAD: ") << threads_.size() << std::endl;
+				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this, i));
 			}
 		}
+		threads_.create_thread(boost::bind(&simple_scheduler::watch_dog, this, 0));
 		//thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&simple_scheduler::thread_proc, this)));
 	}
 
-	void simple_scheduler::thread_proc() {
+	void simple_scheduler::watch_dog(int id) {
+
+		schedule_queue_type::value_type instance;
+		while(!stop_requested_) {
+			instance = queue_.top();
+			if (instance) {
+				boost::posix_time::time_duration off = now() - (*instance).time;
+				if (off.total_seconds() > error_threshold_) {
+					log_error(_T("NOONE IS HANDLING scheduled item ") + to_wstring((*instance).schedule_id) + _T(" ") + to_wstring(off.total_seconds()) + _T(" seconds to late from thread ") + to_wstring(id));
+				}
+			} else {
+				log_error(_T("Nothing is scheduled to run"));
+			}
+
+			// add support for checking queue length
+			boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(5));
+		}
+
+	}
+
+	void simple_scheduler::thread_proc(int id) {
 		int iteration = 0;
 		schedule_queue_type::value_type instance;
 		while (!stop_requested_) {
 			instance = queue_.pop();
-			if (!instance)
-				return;
+			if (!instance) {
+				boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
+				idle_thread_cond_.wait(lock);
+				continue;
+			}
 
 			try {
-
 				boost::posix_time::time_duration off = now() - (*instance).time;
-				if (off.total_seconds() > 0) {
-					std::wcout << _T("MISSED IT!") << off.total_seconds() << std::endl;
+				if (off.total_seconds() > error_threshold_) {
+					log_error(_T("Ran scheduled item ") + to_wstring((*instance).schedule_id) + _T(" ") + to_wstring(off.total_seconds()) + _T(" seconds to late from thread ") + to_wstring(id));
 				}
 				boost::thread::sleep((*instance).time);
 			} catch (boost::thread_interrupted  &e) {
 				if (!queue_.push(*instance))
-					std::wcout << _T("ERROR") << std::endl;
-				if (stop_requested_)
+					log_error(_T("ERROR"));
+				if (stop_requested_) {
+					log_error(_T("Terminating thread: ") + to_wstring(id));
 					return;
+				}
 				continue;
 			} catch (...) {
 				if (!queue_.push(*instance))
-					std::wcout << _T("ERROR") << std::endl;
-				std::wcout << _T("ERROR!!!") << std::endl;
-				return;
+					log_error(_T("ERROR"));
+				continue;
 			}
 
 			boost::posix_time::ptime now_time = now();
@@ -99,11 +113,11 @@ namespace scheduler {
 						handler_->handle_schedule(*item);
 					reschedule(*item,now_time);
 				} catch (...) {
-					std::wcout << _T("UNKNOWN ERROR RUNING TASK: ") << std::endl;
+					log_error(_T("UNKNOWN ERROR RUNING TASK: "));
 					reschedule(*item);
 				}
 			} else {
-				std::wcout << _T("Task not found: ") << (*instance).schedule_id << std::endl;
+				log_error(_T("Task not found: ") + to_wstring((*instance).schedule_id));
 			}
 		}
 	}
@@ -119,10 +133,17 @@ namespace scheduler {
 		instance.schedule_id = item.id;
 		instance.time = next;
 		if (!queue_.push(instance)) {
-			std::wcout << _T("ERROR") << std::endl;
+			log_error(_T("ERROR"));
 		}
-		start_thread();
+		idle_thread_cond_.notify_one();
 	}
+
+
+	void simple_scheduler::log_error(std::wstring err) {
+		if (handler_)
+			handler_->on_error(err);
+	}
+
 }
 
 

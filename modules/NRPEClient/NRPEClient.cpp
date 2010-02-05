@@ -26,7 +26,7 @@
 #include <msvc_wrappers.h>
 //#include <execute_process.hpp>
 #include <strEx.h>
-
+#include <boost/filesystem.hpp>
 
 
 NRPEClient gNRPEClient;
@@ -56,6 +56,16 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
+
+	boost::filesystem::wpath p = NSCModuleHelper::getBasePath() + std::wstring(_T("security/nrpe_dh_512.pem"));
+	cert_ = p.string();
+	if (boost::filesystem::is_regular_file(p)) {
+		NSC_DEBUG_MSG_STD(_T("Using certificate: ") + cert_);
+	} else {
+		NSC_LOG_ERROR_STD(_T("Certificate not found: ") + cert_);
+	}
+
+
 	for (std::list<std::wstring>::const_iterator it = commands.begin(); it != commands.end(); ++it) {
 		NSC_DEBUG_MSG_STD(*it);
 		std::wstring s = NSCModuleHelper::getSettingsString(setting_keys::nrpe::CH_SECTION_PATH, (*it), _T(""));
@@ -111,6 +121,9 @@ void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 
 		NSC_DEBUG_MSG_STD(_T("Added NRPE Client: ") + key.c_str() + _T(" = ") + command_data.toString());
 		commands[key] = command_data;
+
+		NSCModuleHelper::registerCommand(key.c_str(), command_data.toString());
+
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + strEx::string_to_wstring(e.what()));
 	} catch (...) {
@@ -293,7 +306,6 @@ public:
 
 public:
 	nrpe_socket(boost::asio::io_service &io_service, std::wstring host, int port) : socket_(io_service) {
-		NSC_LOG_CRITICAL(_T("Looking up..."));
 		tcp::resolver resolver(io_service);
 		tcp::resolver::query query(to_string(host), to_string(port));
 		//tcp::resolver::query query("www.medin.name", "80");
@@ -302,7 +314,6 @@ public:
 		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 		tcp::resolver::iterator end;
 
-		NSC_LOG_CRITICAL(_T("connecting..."));
 		boost::system::error_code error = boost::asio::error::host_not_found;
 		while (error && endpoint_iterator != end)
 		{
@@ -311,7 +322,6 @@ public:
 			socket_.close();
 			socket_.connect(*endpoint_iterator++, error);
 		}
-		NSC_LOG_CRITICAL(_T("Connected..."));
 		if (error)
 			throw boost::system::system_error(error);
 	}
@@ -341,8 +351,8 @@ public:
 	nrpe_ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context &ctx, std::wstring host, int port) : socket_(io_service, ctx) {
 		NSC_LOG_CRITICAL(_T("Looking up..."));
 		tcp::resolver resolver(io_service);
-		//tcp::resolver::query query(to_string(host), to_string(port));
-		tcp::resolver::query query("www.medin.name", "80");
+		tcp::resolver::query query(to_string(host), to_string(port));
+		//tcp::resolver::query query("www.medin.name", "80");
 		//tcp::resolver::query query("test_server", "80");
 
 		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
@@ -369,17 +379,13 @@ public:
 	}
 
 	void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
-		NSC_LOG_CRITICAL(_T("Writing..."));
 		std::vector<char> buf(packet.get_packet_length());
 		write_with_timeout(socket_, socket_.lowest_layer(), boost::asio::buffer(packet.create_buffer(), packet.get_packet_length()), timeout);
-		NSC_LOG_CRITICAL(_T("Written..."));
 	}
 	nrpe::packet recv(const nrpe::packet &packet, boost::posix_time::seconds timeout) {
-		NSC_LOG_CRITICAL(_T("Reading..."));
 		std::vector<char> buf(packet.get_packet_length());
 		read_with_timeout(socket_, socket_.lowest_layer(), boost::asio::buffer(buf), timeout);
 		return nrpe::packet(&buf[0], buf.size(), packet.get_payload_length());
-		NSC_LOG_CRITICAL(_T("Read..."));
 	}
 };
 nrpe::packet NRPEClient::send_ssl(std::wstring host, int port, int timeout, nrpe::packet packet)
@@ -387,7 +393,7 @@ nrpe::packet NRPEClient::send_ssl(std::wstring host, int port, int timeout, nrpe
 	boost::asio::io_service io_service;
 	boost::asio::ssl::context ctx(io_service, boost::asio::ssl::context::sslv23);
 	SSL_CTX_set_cipher_list(ctx.impl(), "ADH");
-	ctx.use_tmp_dh_file("d:\\nrpe_512.pem");
+	ctx.use_tmp_dh_file(to_string(cert_));
 	ctx.set_verify_mode(boost::asio::ssl::context::verify_none);
 	nrpe_ssl_socket socket(io_service, ctx, host, port);
 	socket.send(packet, boost::posix_time::seconds(timeout));
