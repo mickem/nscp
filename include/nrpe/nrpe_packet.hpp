@@ -24,45 +24,9 @@
 #include <string>
 #include <unicode_char.hpp>
 #include <boost/asio/buffer.hpp>
-
+#include <swap_bytes.hpp>
 
 namespace nrpe {
-	// this function swap the bytes of values given it's size as a template
-	// parameter (could sizeof be used?).
-	template <class T, unsigned int size>
-	inline T SwapBytes(T value) {
-		union {
-			T value;
-			char bytes[size];
-		} in, out;
-
-		in.value = value;
-
-		for (unsigned int i = 0; i < size / 2; ++i) {
-			out.bytes[i] = in.bytes[size - 1 - i];
-			out.bytes[size - 1 - i] = in.bytes[i];
-		}
-
-		return out.value;
-	}
-
-	template<EEndian from, EEndian to, class T>
-	inline T EndianSwapBytes(T value) {
-		BOOST_STATIC_ASSERT(sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8);
-		BOOST_STATIC_ASSERT(boost::is_arithmetic<T>::value);
-		if (from == to)
-			return value;
-		return SwapBytes<T, sizeof(T)>(value);
-	}
-
-	template<class T>
-	inline T ntoh(T value) {
-		return EndianSwapBytes<BIG_ENDIAN_ORDER, HOST_ENDIAN_ORDER, T >(value);
-	}
-	template<typename T>
-	inline T hton(T value) {
-		return EndianSwapBytes<HOST_ENDIAN_ORDER, BIG_ENDIAN_ORDER, T >(value);
-	}
 
 
 
@@ -94,14 +58,12 @@ namespace nrpe {
 			return get_packet_length(payload_length_);
 		}
 		static size_type get_packet_length(size_type payload_length) {
-			std::cout << "get_packet: " << sizeof(nrpe::data::packet) << ":" << payload_length << std::endl;
 			return sizeof(nrpe::data::packet)+payload_length*sizeof(char);
 		}
 		static size_type get_payload_length() {
 			return payload_length_;
 		}
 		static size_type get_payload_length(size_type packet_length) {
-			std::cout << "get_payload: " << sizeof(nrpe::data::packet) << ":" << packet_length << std::endl;
 			return (packet_length-sizeof(nrpe::data::packet))/sizeof(char);
 		}
 	};
@@ -119,7 +81,7 @@ namespace nrpe {
 		nrpe_packet_exception(std::wstring error) : nrpe_exception(error) {}
 	};
 
-	class packet {
+	class packet /*: public boost::noncopyable*/ {
 	public:
 
 
@@ -194,16 +156,16 @@ namespace nrpe {
 			tmpBuffer = new char[packet_length+1];
 			//TODO readd this ZeroMemory(tmpBuffer, getBufferLength()+1);
 			nrpe::data::packet *p = reinterpret_cast<nrpe::data::packet*>(tmpBuffer);
-			p->result_code = nrpe::hton<int16_t>(result_);
-			p->packet_type = nrpe::hton<int16_t>(type_);
-			p->packet_version = nrpe::hton<int16_t>(version_);
+			p->result_code = swap_bytes::hton<int16_t>(result_);
+			p->packet_type = swap_bytes::hton<int16_t>(type_);
+			p->packet_version = swap_bytes::hton<int16_t>(version_);
 			if (payload_.length() >= payload_length_-1)
 				throw nrpe::nrpe_packet_exception(_T("To much data cant create return packet (truncate datat)"));
 			//ZeroMemory(p->buffer, payload_length_-1);
 			strncpy(p->buffer, ::to_string(payload_).c_str(), payload_.length());
 			p->buffer[payload_.length()] = 0;
 			p->crc32_value = 0;
-			p->crc32_value = nrpe::hton<u_int32_t>(calculate_crc32(tmpBuffer, packet_length));
+			p->crc32_value = swap_bytes::hton<u_int32_t>(calculate_crc32(tmpBuffer, packet_length));
 			std::wcout << _T("About to send: ") << to_string() << std::endl;
 			std::wcout << _T("About to send: ") 
 				<< _T("") << strEx::ihextos(tmpBuffer[0]) 
@@ -212,6 +174,12 @@ namespace nrpe {
 				<< _T(", ") << strEx::ihextos(tmpBuffer[3]) 
 				<< std::endl;
 			return tmpBuffer;
+		}
+
+		std::vector<char> get_buffer() {
+			const char *c = create_buffer();
+			std::vector<char> buf(c, c+get_packet_length());
+			return buf;
 		}
 
 		void readFrom(const char *buffer, unsigned int length) {
@@ -226,13 +194,13 @@ namespace nrpe {
 			if (length != get_packet_length())
 				throw nrpe::nrpe_packet_exception(_T("Invalid packet length: ") + strEx::itos(length) + _T(" != ") + strEx::itos(get_packet_length()) + _T(" configured payload is: ") + to_wstring(get_payload_length()));
 			const nrpe::data::packet *p = reinterpret_cast<const nrpe::data::packet*>(buffer);
-			type_ = nrpe::ntoh<int16_t>(p->packet_type);
+			type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
 			if ((type_ != nrpe::data::queryPacket)&&(type_ != nrpe::data::responsePacket))
 				throw nrpe::nrpe_packet_exception(_T("Invalid packet type: ") + strEx::itos(type_));
-			version_ = nrpe::ntoh<int16_t>(p->packet_version);
+			version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
 			if (version_ != nrpe::data::version2)
 				throw nrpe::nrpe_packet_exception(_T("Invalid packet version.") + strEx::itos(version_));
-			crc32_ = nrpe::ntoh<u_int32_t>(p->crc32_value);
+			crc32_ = swap_bytes::ntoh<u_int32_t>(p->crc32_value);
 			// Verify CRC32
 			// @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
 			char * tb = new char[length+1];
@@ -246,7 +214,7 @@ namespace nrpe {
 				throw nrpe::nrpe_packet_exception(_T("Invalid checksum in NRPE packet: ") + strEx::ihextos(crc32_) 
 				+ _T("!=") + strEx::ihextos(calculatedCRC32_));
 			// Verify CRC32 end
-			result_ = nrpe::ntoh<u_int32_t>(p->result_code);
+			result_ = swap_bytes::ntoh<u_int32_t>(p->result_code);
 			payload_ = strEx::string_to_wstring(std::string(p->buffer));
 		}
 

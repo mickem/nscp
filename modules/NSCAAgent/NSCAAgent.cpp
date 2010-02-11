@@ -24,6 +24,9 @@
 #include <utils.h>
 #include <list>
 #include <string>
+#include <nsca/nsca_enrypt.hpp>
+#include <nsca/nsca_packet.hpp>
+#include <nsca/nsca_socket.hpp>
 
 NSCAAgent gNSCAAgent;
 
@@ -62,14 +65,23 @@ bool NSCAAgent::loadModule(NSCAPI::moduleLoadMode mode) {
 		SETTINGS_REG_PATH(nsca::SERVER_SECTION);
 		SETTINGS_REG_PATH(nsca::CMD_SECTION);
 
-		SETTINGS_REG_KEY_I(nsca::INTERVAL);
 		SETTINGS_REG_KEY_S(nsca::HOSTNAME);
 		SETTINGS_REG_KEY_S(nsca::SERVER_HOST);
 		SETTINGS_REG_KEY_I(nsca::SERVER_PORT);
 		SETTINGS_REG_KEY_I(nsca::ENCRYPTION);
 		SETTINGS_REG_KEY_S(nsca::PASSWORD);
-		SETTINGS_REG_KEY_I(nsca::THREADS);
 		SETTINGS_REG_KEY_B(nsca::CACHE_HOST);
+
+		hostname_ = to_string(SETTINGS_GET_STRING(nsca::HOSTNAME));
+		nscahost_ = SETTINGS_GET_STRING(nsca::SERVER_HOST);
+		nscaport_ = SETTINGS_GET_INT(nsca::SERVER_PORT);
+
+		encryption_method_ = SETTINGS_GET_INT(nsca::ENCRYPTION);
+		password_ = strEx::wstring_to_string(SETTINGS_GET_STRING(nsca::PASSWORD));
+		cacheNscaHost_ = SETTINGS_GET_INT(nsca::CACHE_HOST);
+		timeout_ = SETTINGS_GET_INT(nsca::READ_TIMEOUT);
+		payload_length_ = SETTINGS_GET_INT(nsca::PAYLOAD_LENGTH);
+		time_delta_ = strEx::stol_as_time_sec(SETTINGS_GET_STRING(nsca::TIME_DELTA_DEFAULT), 1);
 
 
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
@@ -78,19 +90,7 @@ bool NSCAAgent::loadModule(NSCAPI::moduleLoadMode mode) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
 
-	if (mode == NSCAPI::normalStart) {
-		int e_threads = SETTINGS_GET_INT(nsca::THREADS);
 
-		for (int i=0;i<e_threads;i++) {
-			std::wstring id = _T("nsca_t_") + strEx::itos(i);
-			NSCAThreadImpl *thread = new NSCAThreadImpl(id);
-			extra_threads.push_back(thread);
-		}
-		for (std::list<NSCAThreadImpl*>::const_iterator cit=extra_threads.begin();cit != extra_threads.end(); ++cit) {
-			(*cit)->createThread(reinterpret_cast<LPVOID>(rand()));
-		}
-	}
-	
 	return true;
 }
 /**
@@ -99,65 +99,20 @@ bool NSCAAgent::loadModule(NSCAPI::moduleLoadMode mode) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool NSCAAgent::unloadModule() {
-	/*
-	if (!pdhThread.exitThread(20000)) {
-		std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
-		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
-	}
-	*/
-	for (std::list<NSCAThreadImpl*>::iterator it=extra_threads.begin();it != extra_threads.end(); ++it) {
-		if (!(*it)->exitThread(20000)) {
-			std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
-			NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
-		}
-	}
 	return true;
-}
-/**
- * Check if we have a command handler.
- * @return true (as we have a command handler)
- */
-bool NSCAAgent::hasCommandHandler() {
-	return false;
-}
-/**
- * Check if we have a message handler.
- * @return false as we have no message handler
- */
-bool NSCAAgent::hasMessageHandler() {
-	return false;
-}
-
-int NSCAAgent::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args) {
-	return -1;
-}
-
-
-/**
- * Main command parser and delegator.
- * This also handles a lot of the simpler responses (though some are deferred to other helper functions)
- *
- *
- * @param command 
- * @param argLen 
- * @param **args 
- * @return 
- */
-NSCAPI::nagiosReturn NSCAAgent::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
-	return NSCAPI::returnIgnored;
 }
 std::wstring NSCAAgent::getCryptos() {
 	std::wstring ret = _T("{");
 	for (int i=0;i<LAST_ENCRYPTION_ID;i++) {
-		if (nsca_encrypt::hasEncryption(i)) {
+		if (nsca::nsca_encrypt::hasEncryption(i)) {
 			std::wstring name;
 			try {
-				nsca_encrypt::any_encryption *core = nsca_encrypt::get_encryption_core(i);
+				nsca::nsca_encrypt::any_encryption *core = nsca::nsca_encrypt::get_encryption_core(i);
 				if (core == NULL)
 					name = _T("Broken<NULL>");
 				else
 					name = core->getName();
-			} catch (nsca_encrypt::encryption_exception &e) {
+			} catch (nsca::nsca_encrypt::encryption_exception &e) {
 				name = e.getMessage();
 			}
 			if (ret.size() > 1)
@@ -168,67 +123,29 @@ std::wstring NSCAAgent::getCryptos() {
 	return ret + _T("}");
 }
 
+NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) {
+	try {
+		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * Handling command: ") + command);
+		boost::asio::io_service io_service;
+		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * message: ") + msg);
+		nsca::socket socket(io_service);
+		socket.connect(nscahost_, nscaport_);
+		nsca::packet packet(hostname_, payload_length_, time_delta_);
+		packet.code = code;
+		packet.host = "hello";
+		packet.result = to_string(msg);
+		socket.recv_iv(password_, encryption_method_, boost::posix_time::seconds(timeout_));
+		socket.send_nsca(packet, boost::posix_time::seconds(timeout_));
+		return 1;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + to_wstring(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to send data: UNKNOWN"));
+	}
+}
+
 
 NSC_WRAPPERS_MAIN_DEF(gNSCAAgent);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gNSCAAgent);
-NSC_WRAPPERS_HANDLE_CONFIGURATION(gNSCAAgent);
-NSC_WRAPPERS_CLI_DEF(gNSCAAgent);
-
-
-
-MODULE_SETTINGS_START(NSCAAgent, _T("NRPE Listener configuration"), _T("...")) 
-
-PAGE(_T("NRPE Listsner configuration")) 
-
-ITEM_EDIT_TEXT(_T("port"), _T("This is the port the NRPEListener.dll will listen to.")) 
-ITEM_MAP_TO(_T("basic_ini_text_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("port")) 
-OPTION(_T("default"), _T("5666")) 
-ITEM_END()
-
-ITEM_CHECK_BOOL(_T("allow_arguments"), _T("This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.")) 
-ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("allow_arguments")) 
-OPTION(_T("default"), _T("false")) 
-OPTION(_T("true_value"), _T("1")) 
-OPTION(_T("false_value"), _T("0")) 
-ITEM_END()
-
-ITEM_CHECK_BOOL(_T("allow_nasty_meta_chars"), _T("This might have security implications (depending on what you do with the options)")) 
-ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("allow_nasty_meta_chars")) 
-OPTION(_T("default"), _T("false")) 
-OPTION(_T("true_value"), _T("1")) 
-OPTION(_T("false_value"), _T("0")) 
-ITEM_END()
-
-ITEM_CHECK_BOOL(_T("use_ssl"), _T("This option will enable SSL encryption on the NRPE data socket (this increases security somwhat.")) 
-ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("use_ssl")) 
-OPTION(_T("default"), _T("true")) 
-OPTION(_T("true_value"), _T("1")) 
-OPTION(_T("false_value"), _T("0")) 
-ITEM_END()
-
-PAGE_END()
-ADVANCED_PAGE(_T("Access configuration")) 
-
-ITEM_EDIT_OPTIONAL_LIST(_T("Allow connection from:"), _T("This is the hosts that will be allowed to poll performance data from the NRPE server.")) 
-OPTION(_T("disabledCaption"), _T("Use global settings (defined previously)")) 
-OPTION(_T("enabledCaption"), _T("Specify hosts for NRPE server")) 
-OPTION(_T("listCaption"), _T("Add all IP addresses (not hosts) which should be able to connect:")) 
-OPTION(_T("separator"), _T(",")) 
-OPTION(_T("disabled"), _T("")) 
-ITEM_MAP_TO(_T("basic_ini_text_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("allowed_hosts")) 
-OPTION(_T("default"), _T("")) 
-ITEM_END()
-
-PAGE_END()
-MODULE_SETTINGS_END()
+NSC_WRAPPERS_IGNORE_CMD_DEF();
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF(gNSCAAgent);

@@ -73,7 +73,7 @@ namespace boost
 		std::string result;
 		std::locale loc;
 		for(unsigned int i= 0; i < arg.size(); ++i)
-			result += std::use_facet<std::ctype<char> >(loc).narrow(arg[i], 0);
+			result += std::use_facet<std::ctype<wchar_t> >(loc).narrow(arg[i], 0);
 		return result;
 	}
 }
@@ -111,6 +111,17 @@ namespace strEx {
 		{
 			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
 				ret.push_back(L'?');
+			else
+				ret.push_back(c);
+		}
+		return ret;
+	}
+	inline std::string strip_hex(std::string str) {
+		std::string ret; ret.reserve(str.size());
+		BOOST_FOREACH(char c, str)
+		{
+			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
+				ret.push_back('?');
 			else
 				ret.push_back(c);
 		}
@@ -402,6 +413,12 @@ namespace strEx {
 		else if ( (time[p] == 'w') || (time[p] == 'W') )
 			return value * 7 * 24 * 60 * 60;
 		return value * smallest_unit;
+	}
+	inline long stol_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
+		long neg = 1;
+		if (time.length() > 1 && time[0] == L'-')
+			return -stoui_as_time_sec(time.substr(1), smallest_unit);
+		return stoui_as_time_sec(time, smallest_unit);
 	}
 
 	inline unsigned long long stoi64_as_time(std::wstring time, unsigned int smallest_unit = 1000) {
@@ -808,7 +825,7 @@ template <typename T> std::string to_string(const T& arg) {
 	try {
 		return boost::lexical_cast<std::string>(arg) ;
 	}
-	catch(boost::bad_lexical_cast& e) {
+	catch(...) {
 		return "";
 	}
 }
@@ -816,7 +833,7 @@ template <typename T> std::wstring to_wstring(const T& arg) {
 	try {
 		return boost::lexical_cast<std::wstring>(arg) ;
 	}
-	catch(boost::bad_lexical_cast& e) {
+	catch(...) {
 		return _T("");
 	}
 }

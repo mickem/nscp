@@ -357,10 +357,10 @@ void NSCModuleHelper::DestroyBuffer(char**buffer) {
 	return fNSAPIDestroyBuffer(buffer);
 }
 
-NSCAPI::errorReturn NSCModuleHelper::NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring message, std::wstring perf) {
+NSCAPI::errorReturn NSCModuleHelper::NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::string result) {
 	if (!fNSAPINotify)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
-	return fNSAPINotify(channel.c_str(), command.c_str(), code, message.c_str(), perf.c_str());
+	return fNSAPINotify(channel.c_str(), command.c_str(), code, result.c_str(), result.size());
 }
 
 /**
@@ -421,6 +421,33 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSimpleCommand(const std::wstring com
 	if (!fNSAPIInject)
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 
+	std::string response;
+	NSCAPI::nagiosReturn ret = InjectCommand(command, argument, response);
+	if (!response.empty()) {
+		PluginCommand::ResponseMessage rsp_msg;
+		rsp_msg.ParseFromString(response);
+		if (rsp_msg.payload_size() != 1) {
+			NSC_LOG_ERROR_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
+			return NSCAPI::returnUNKNOWN;
+		}
+		msg = to_wstring(rsp_msg.payload(0).message());
+	}
+	return ret;
+}
+/**
+* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
+* @param command Command to inject (password should not be included.
+* @param argLen The length of the argument buffer
+* @param **argument The argument buffer
+* @param message The return message buffer
+* @param perf The return performance data buffer
+* @return The return of the command
+*/
+NSCAPI::nagiosReturn NSCModuleHelper::InjectCommand(const std::wstring command, const std::list<std::wstring> argument, std::string & result) 
+{
+	if (!fNSAPIInject)
+		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
+
 
 	PluginCommand::RequestMessage message;
 	PluginCommand::Header *hdr = message.mutable_header();
@@ -444,13 +471,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSimpleCommand(const std::wstring com
 
 	if (buffer_size > 0 && buffer != NULL) {
 		PluginCommand::ResponseMessage rsp_msg;
-		std::string response(buffer, buffer_size);
-		rsp_msg.ParseFromString(response);
-		if (rsp_msg.payload_size() != 1) {
-			NSC_LOG_ERROR_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
-			return NSCAPI::returnUNKNOWN;
-		}
-		msg = to_wstring(rsp_msg.payload(0).message());
+		result = std::string(buffer, buffer_size);
 	}
 
 	DestroyBuffer(&buffer);
@@ -943,9 +964,7 @@ NSCAPI::errorReturn NSCModuleWrapper::wrapGetModuleVersion(int *major, int *mino
  * @return NSCAPI::istrue or NSCAPI::isfalse
  */
 NSCAPI::boolReturn NSCModuleWrapper::wrapHasCommandHandler(bool has) {
-	if (has)
-		return NSCAPI::istrue;
-	return NSCAPI::isfalse;
+	return has?NSCAPI::istrue:NSCAPI::isfalse;
 }
 /**
  * Wrap the HasMessageHandler function call
@@ -953,10 +972,16 @@ NSCAPI::boolReturn NSCModuleWrapper::wrapHasCommandHandler(bool has) {
  * @return NSCAPI::istrue or NSCAPI::isfalse
  */
 NSCAPI::boolReturn NSCModuleWrapper::wrapHasMessageHandler(bool has) {
-	if (has)
-		return NSCAPI::istrue;
-	return NSCAPI::isfalse;
+	return has?NSCAPI::istrue:NSCAPI::isfalse;
 }
+NSCAPI::boolReturn NSCModuleWrapper::wrapHasNotificationHandler(bool has) {
+	return has?NSCAPI::istrue:NSCAPI::isfalse;
+}
+
+NSCAPI::nagiosReturn NSCModuleWrapper::wrapHandleNotification(NSCAPI::nagiosReturn retResult) {
+	return retResult;
+}
+
 /**
  * Wrap the HandleCommand call
  * @param retResult The returned result

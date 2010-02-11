@@ -1,4 +1,4 @@
-#include <nrpe/nrpepacket.hpp>
+#include <nrpe/nrpe_packet.hpp>
 #include <boost/tuple/tuple.hpp>
 
 namespace nrpe {

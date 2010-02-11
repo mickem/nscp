@@ -871,7 +871,6 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return;
 		}
-		commandHandlers_.clear();
 		if (unloadLoggers)
 			messageHandlers_.clear();
 	}
@@ -988,8 +987,10 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 		}
 		plugins_.insert(plugins_.end(), plugin);
 		commands_.add_plugin(plugin);
-		if (plugin->hasCommandHandler())
-			commandHandlers_.insert(commandHandlers_.end(), plugin);
+		channels_.add_plugin(plugin);
+		if (plugin->hasNotificationHandler()) {
+			channels_.register_listener(plugin->get_id(), _T("NSCA"));
+		}
 		if (plugin->hasMessageHandler())
 			messageHandlers_.insert(messageHandlers_.end(), plugin);
 		settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), Settings::SettingsCore::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
@@ -1108,13 +1109,11 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, std::string &r
 			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
 		}
 	} else */{
-		/*
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return NSCAPI::returnUNKNOWN;
 		}
-		*/
 		try {
 			nsclient::commands::plugin_type plugin = commands_.get(command);
 			if (!plugin) {
@@ -1131,6 +1130,33 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, std::string &r
 			LOG_ERROR_CORE(_T("Error handling command: ") + std::wstring(command));
 			return NSCAPI::returnIgnored;
 		}
+	}
+}
+
+
+NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code,  char* result, unsigned int result_len) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	if (!readLock.owns_lock()) {
+		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
+		return NSCAPI::hasFailed;
+	}
+	try {
+		LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
+		bool found = false;
+		BOOST_FOREACH(nsclient::channels::plugin_type p, channels_.get(channel)) {
+			p->handleNotification(channel, command, code, result, result_len);
+			found = true;
+		}
+		if (!found) {
+			LOG_ERROR_CORE_STD(_T("Noone listens for events from: ") + std::wstring(channel));
+		}
+		return NSCAPI::isSuccess;
+	} catch (nsclient::channels::channel_exception &e) {
+		LOG_ERROR_CORE(_T("No handler for channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()));
+		return NSCAPI::hasFailed;
+	} catch (...) {
+		LOG_ERROR_CORE(_T("Error handling channel: ") + std::wstring(channel));
+		return NSCAPI::hasFailed;
 	}
 }
 

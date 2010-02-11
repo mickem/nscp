@@ -122,10 +122,10 @@ void Scheduler::on_error(std::wstring error) {
 
 void Scheduler::handle_schedule(scheduler::target item) {
 	try {
-		std::wstring msg, perf;
-		NSCAPI::nagiosReturn code = NSCModuleHelper::InjectSimpleCommand(item.command.c_str(), item.arguments, msg, perf);
+		std::string response;
+		NSCAPI::nagiosReturn code = NSCModuleHelper::InjectCommand(item.command.c_str(), item.arguments, response);
 		if (NSCHelper::report::matches(item.report, code)) {
-			NSCModuleHelper::NotifyChannel(item.channel, item.alias, code, msg, perf);
+			NSCModuleHelper::NotifyChannel(item.channel, item.alias, code, response);
 		}
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Exception handling: ") + item.alias + _T(": ") + e.msg_);

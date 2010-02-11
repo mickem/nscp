@@ -47,6 +47,8 @@ NSCPlugin::NSCPlugin(const boost::filesystem::wpath file)
 	,fCommandLineExec(NULL)
 	,fShowTray(NULL)
 	,fHideTray(NULL)
+	,fHasNotificationHandler(NULL)
+	,fHandleNotification(NULL)
 	,bLoaded_(false)
 	,lastIsMsgPlugin_(false)
 	,broken_(false)
@@ -205,6 +207,20 @@ bool NSCPlugin::hasMessageHandler() {
 		throw NSPluginException(module_, _T("Unhandled exception in hasMessageHandler."));
 	}
 }
+bool NSCPlugin::hasNotificationHandler() {
+	if (!isLoaded())
+		throw NSPluginException(module_, _T("Module not loaded"));
+	if (!fHasNotificationHandler)
+		return false;
+	try {
+		if (fHasNotificationHandler()) {
+			return true;
+		}
+		return false;
+	} catch (...) {
+		throw NSPluginException(module_, _T("Unhandled exception in hasMessageHandler."));
+	}
+}
 /**
  * Allow for the plug in to handle a command from the input core.
  * 
@@ -229,6 +245,17 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const char
 		throw NSPluginException(module_, _T("Unhandled exception in handleCommand."));
 	}
 }
+
+bool NSCPlugin::handleNotification(const wchar_t *channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len) {
+	if (!isLoaded() || fHandleNotification == NULL)
+		throw NSPluginException(module_, _T("Library is not loaded"));
+	try {
+		return fHandleNotification(channel, command, code, result, result_len);
+	} catch (...) {
+		throw NSPluginException(module_, _T("Unhandled exception in handleCommand."));
+	}
+}
+
 
 
 void NSCPlugin::deleteBuffer(char** buffer) {
@@ -385,7 +412,9 @@ void NSCPlugin::loadRemoteProcs_(void) {
 
 		fGetConfigurationMeta = (lpGetConfigurationMeta)module_.load_proc("NSGetConfigurationMeta");
 		fCommandLineExec = (lpCommandLineExec)module_.load_proc("NSCommandLineExec");
-
+		fHandleNotification = (lpHandleNotification)module_.load_proc("NSHandleNotification");
+		fHasNotificationHandler = (lpHasNotificationHandler)module_.load_proc("NSHasNotificationHandler");
+		
 		fShowTray = (lpShowTray)module_.load_proc("ShowIcon");
 		fHideTray = (lpHideTray)module_.load_proc("HideIcon");
 		

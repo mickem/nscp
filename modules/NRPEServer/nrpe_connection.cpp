@@ -40,7 +40,7 @@ namespace nrpe {
 					buffer_type::iterator old_begin = begin;
 					boost::tie(result, begin) = parser_.digest(begin, end);
 					if (begin == old_begin) {
-						std::cout << "Whoops, this is wrong...";
+						handler_.create_error(_T("Something strange happened..."));
 						return;
 					}
 					if (result) {

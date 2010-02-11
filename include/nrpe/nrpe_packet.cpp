@@ -20,7 +20,7 @@
 ***************************************************************************/
 #include <strEx.h>
 #include <utils.h>
-#include <nrpe/nrpepacket.hpp>
+#include <nrpe/nrpe_packet.hpp>
 
 //unsigned int nrpe::length::payload_length_ = 980;
 unsigned int nrpe::length::payload_length_ = 1024;

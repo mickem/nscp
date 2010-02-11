@@ -28,6 +28,7 @@
 #include <strEx.h>
 #include <boost/filesystem.hpp>
 #include <strEx.h>
+#include <nrpe/nrpe_socket.hpp>
 
 
 NRPEClient gNRPEClient;
@@ -216,192 +217,24 @@ NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_da
 		return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
-/*
-NRPEPacket NRPEClient::send_ssl(std::wstring host, int port, int timeout, NRPEPacket packet)
-{
-#ifndef USE_SSL
-	return send_nossl(host, port, timeout, packet);
-#else
-	
-	simpleSSL::Socket socket(true);
-	socket.connect(host, port);
-	NSC_DEBUG_MSG_STD(_T(">>>length: ") + strEx::itos(packet.getBufferLength()));
-	socket.sendAll(packet.getBuffer(), packet.getBufferLength());
-	simpleSocket::DataBuffer buffer;
-	socket.readAll(buffer, packet.getBufferLength());
-	NSC_DEBUG_MSG_STD(_T("<<<length: ") + strEx::itos(buffer.getLength()));
-	packet.readFrom(buffer.getBuffer(), buffer.getLength());
-	return packet;
-	
 
-	boost::asio::ssl::context ctx(io_service, boost::asio::ssl::context::sslv23);
-	ctx.use_tmp_dh_file("d:\\nrpe_512.pem");
-	ctx.set_verify_mode(boost::asio::ssl::context::verify_peer);
-	nrpe_ssl_socket socket(io_service, ctx, host, port);
-	//socket.
 
-#endif
-}
-*/
-using boost::asio::ip::tcp;
-
-void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b)
-{
-	a->reset(b);
-} 
-template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
-void read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration)
-{
-	boost::optional<boost::system::error_code> timer_result;
-	boost::asio::deadline_timer timer(sock.io_service());
-	timer.expires_from_now(duration);
-	timer.async_wait(boost::bind(set_result, &timer_result, _1));
-
-	boost::optional<boost::system::error_code> read_result;
-	async_read(sock, buffers, boost::bind(set_result, &read_result, _1));
-
-	sock.io_service().reset();
-	while (sock.io_service().run_one())
-	{
-		if (read_result)
-			timer.cancel();
-		else if (timer_result)
-			rawSocket.close();
-	}
-
-	if (*read_result)
-		throw boost::system::system_error(*read_result);
-} 
-
-template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
-void write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration)
-{
-	boost::optional<boost::system::error_code> timer_result;
-	boost::asio::deadline_timer timer(sock.io_service());
-	timer.expires_from_now(duration);
-	timer.async_wait(boost::bind(set_result, &timer_result, _1));
-
-	boost::optional<boost::system::error_code> read_result;
-	async_write(sock, buffers, boost::bind(set_result, &read_result, _1));
-
-	sock.io_service().reset();
-	while (sock.io_service().run_one())
-	{
-		if (read_result)
-			timer.cancel();
-		else if (timer_result)
-			rawSocket.close();
-	}
-
-	if (*read_result)
-		throw boost::system::system_error(*read_result);
-}
-
-class nrpe_socket : public boost::noncopyable {
-public:
-	tcp::socket socket_;
-
-public:
-	nrpe_socket(boost::asio::io_service &io_service, std::wstring host, int port) : socket_(io_service) {
-		tcp::resolver resolver(io_service);
-		tcp::resolver::query query(to_string(host), to_string(port));
-		//tcp::resolver::query query("www.medin.name", "80");
-		//tcp::resolver::query query("test_server", "80");
-
-		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-		tcp::resolver::iterator end;
-
-		boost::system::error_code error = boost::asio::error::host_not_found;
-		while (error && endpoint_iterator != end)
-		{
-			tcp::resolver::endpoint_type ep = *endpoint_iterator;
-			NSC_DEBUG_MSG_STD(_T("Attempting to connect to: ") + to_wstring(ep.address().to_string()) + _T(":") + to_wstring(ep.port()));
-			socket_.close();
-			socket_.connect(*endpoint_iterator++, error);
-		}
-		if (error)
-			throw boost::system::system_error(error);
-	}
-	~nrpe_socket() {
-		socket_.close();
-	}
-
-	void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
-		std::vector<char> buf(packet.get_packet_length());
-		write_with_timeout(socket_, socket_, boost::asio::buffer(packet.create_buffer(), packet.get_packet_length()), timeout);
-	}
-	nrpe::packet recv(const nrpe::packet &packet, boost::posix_time::seconds timeout) {
-		std::vector<char> buf(packet.get_packet_length());
-		std::cout <<  "About to read: " << buf.size() << std::endl;
-		read_with_timeout(socket_, socket_, boost::asio::buffer(buf), timeout);
-		std::cout <<  "Read data: " << buf.size() << std::endl;
-		return nrpe::packet(&buf[0], buf.size(), packet.get_payload_length());
-	}
-};
 #ifdef USE_SSL
-
-class nrpe_ssl_socket {
-
-private:
-	boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_;
-public:
-	nrpe_ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context &ctx, std::wstring host, int port) : socket_(io_service, ctx) {
-		NSC_LOG_CRITICAL(_T("Looking up..."));
-		tcp::resolver resolver(io_service);
-		tcp::resolver::query query(to_string(host), to_string(port));
-		//tcp::resolver::query query("www.medin.name", "80");
-		//tcp::resolver::query query("test_server", "80");
-
-		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-		tcp::resolver::iterator end;
-
-		boost::system::error_code error = boost::asio::error::host_not_found;
-		NSC_LOG_CRITICAL(_T("Connecting..."));
-		while (error && endpoint_iterator != end)
-		{
-			tcp::resolver::endpoint_type ep = *endpoint_iterator;
-			NSC_DEBUG_MSG_STD(_T("Attempting to connect to: ") + to_wstring(ep.address().to_string()) + _T(":") + to_wstring(ep.port()));
-			socket_.lowest_layer().close();
-			socket_.lowest_layer().connect(*endpoint_iterator++, error);
-		}
-		if (error)
-			throw boost::system::system_error(error);
-		NSC_LOG_CRITICAL(_T("Connected..."));
-
-		NSC_LOG_CRITICAL(_T("Handshaking..."));
-		//socket_.handshake(boost::asio::ssl::stream_base::client);
-		socket_.handshake(boost::asio::ssl::stream_base::client);
-		NSC_LOG_CRITICAL(_T("Handshook...") + strEx::itos(error.value()));
-
-	}
-
-	void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
-		std::vector<char> buf(packet.get_packet_length());
-		write_with_timeout(socket_, socket_.lowest_layer(), boost::asio::buffer(packet.create_buffer(), packet.get_packet_length()), timeout);
-	}
-	nrpe::packet recv(const nrpe::packet &packet, boost::posix_time::seconds timeout) {
-		std::vector<char> buf(packet.get_packet_length());
-		read_with_timeout(socket_, socket_.lowest_layer(), boost::asio::buffer(buf), timeout);
-		return nrpe::packet(&buf[0], buf.size(), packet.get_payload_length());
-	}
-};
-nrpe::packet NRPEClient::send_ssl(std::wstring host, int port, int timeout, nrpe::packet packet)
-{
+nrpe::packet NRPEClient::send_ssl(std::wstring host, int port, int timeout, nrpe::packet packet) {
 	boost::asio::io_service io_service;
 	boost::asio::ssl::context ctx(io_service, boost::asio::ssl::context::sslv23);
 	SSL_CTX_set_cipher_list(ctx.impl(), "ADH");
 	ctx.use_tmp_dh_file(to_string(cert_));
 	ctx.set_verify_mode(boost::asio::ssl::context::verify_none);
-	nrpe_ssl_socket socket(io_service, ctx, host, port);
+	nrpe::ssl_socket socket(io_service, ctx, host, port);
 	socket.send(packet, boost::posix_time::seconds(timeout));
 	return socket.recv(packet, boost::posix_time::seconds(timeout));
 }
 #endif
 
-nrpe::packet NRPEClient::send_nossl(std::wstring host, int port, int timeout, nrpe::packet packet)
-{
+nrpe::packet NRPEClient::send_nossl(std::wstring host, int port, int timeout, nrpe::packet packet) {
 	boost::asio::io_service io_service;
-	nrpe_socket socket(io_service, host, port);
+	nrpe::socket socket(io_service, host, port);
 	socket.send(packet, boost::posix_time::seconds(timeout));
 	return socket.recv(packet, boost::posix_time::seconds(timeout));
 }

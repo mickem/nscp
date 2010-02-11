@@ -89,7 +89,7 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	cacheNscaHost_ = SETTINGS_GET_INT(nsca::CACHE_HOST);
 	read_timeout_ = SETTINGS_GET_INT(nsca::READ_TIMEOUT);
 
-	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(settings::nsca::CMD_SECTION_TITLE);
+	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(setting_keys::nsca::CMD_SECTION_TITLE);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 		addCommand(*cit);
 	}
@@ -117,7 +117,7 @@ Command::Result Command::execute(std::wstring host) const {
 	Result result(host);
 	std::wstring msg;
 	std::wstring perf;
-	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectCommand(cmd_.c_str(), args_.getLen(), args_.get(), msg, perf);
+	NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectSimpleCommand(cmd_.c_str(), args_, msg, perf);
 	result.service = alias_;
 	if (ret == NSCAPI::returnIgnored) {
 		result.result = _T("Command was not found: ") + cmd_;
@@ -138,7 +138,7 @@ Command::Result Command::execute(std::wstring host) const {
 
 
 void NSCAThread::addCommand(std::wstring key) {
-	std::wstring value = NSCModuleHelper::getSettingsString(settings::nsca::CMD_SECTION_PATH, key, _T(""));
+	std::wstring value = NSCModuleHelper::getSettingsString(setting_keys::nsca::CMD_SECTION_PATH, key, _T(""));
 	if ((key.length() > 4) && (key.substr(0,4) == _T("host")))
 		commands_.push_back(Command(_T(""), value));
 	else

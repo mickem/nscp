@@ -432,9 +432,8 @@ LPVOID NSAPILoader(wchar_t*buffer) {
 	return NULL;
 }
 
-NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, const wchar_t* message, const wchar_t* perf) {
-	LOG_ERROR_STD(_T("TODO: implment channels: ") + std::wstring(command));
-	return NSCAPI::hasFailed;
+NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code,  char* result, unsigned int result_len) {
+	return mainClient.send_notification(channel, command, code, result, result_len);
 }
 
 void NSAPIDestroyBuffer(char**buffer) {

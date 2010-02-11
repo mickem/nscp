@@ -139,10 +139,10 @@ namespace NSCModuleHelper
 	typedef void (*lpNSAPIMessage)(int, const wchar_t*, const int, const wchar_t*);
 	typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 	typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
-	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+	typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
 	typedef void (*lpNSAPIDestroyBuffer)(char**);
 
-	typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const wchar_t*, const wchar_t*);
+	typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);
 
 	typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
 	typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
@@ -176,8 +176,9 @@ namespace NSCModuleHelper
 	void Message(int msgType, std::wstring file, int line, std::wstring message);
 	NSCAPI::nagiosReturn InjectCommandRAW(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 	void DestroyBuffer(char**buffer);
+	NSCAPI::nagiosReturn InjectCommand(const std::wstring command, const std::list<std::wstring> argument, std::string & result);
 	NSCAPI::nagiosReturn InjectSimpleCommand(const std::wstring command, const std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
-	NSCAPI::errorReturn NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring message, std::wstring perf);
+	NSCAPI::errorReturn NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::string result);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
 	NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
 	void StopService(void);
@@ -199,6 +200,36 @@ namespace NSCModuleHelper
 	void registerCommand(std::wstring command, std::wstring description);
 	unsigned int getBufferLength();
 
+
+	class SimpleNotificationHandler {
+	public:
+		NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, std::string result) {
+			try {
+				PluginCommand::ResponseMessage message;
+				message.ParseFromString(result);
+				if (message.payload_size() != 1) {
+					//NSC_LOG_ERROR_STD(_T("Unsupported payload size: ") + to_wstring(request_message.payload_size()));
+					return NSCAPI::returnIgnored;
+				}
+
+				::PluginCommand::Response payload = message.payload().Get(0);
+				std::list<std::wstring> args;
+				for (int i=0;i<payload.arguments_size();i++) {
+					args.push_back(to_wstring(payload.arguments(i)));
+				}
+				std::wstring msg = to_wstring(payload.message()), perf;
+				NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, command, code, msg, perf);
+			} catch (std::exception &e) {
+				std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << e.what() <<  std::endl;;
+			} catch (...) {
+				std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << std::endl;;
+			}
+
+			return -1;
+		}
+		virtual NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) = 0;
+
+	};
 
 	class SimpleCommand {
 

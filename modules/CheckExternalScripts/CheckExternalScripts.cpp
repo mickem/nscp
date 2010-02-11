@@ -34,13 +34,6 @@
 
 
 CheckExternalScripts gCheckExternalScripts;
-#ifdef _WIN32
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-#endif
 
 CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
@@ -173,6 +166,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const std::wstring comm
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckExternalScripts);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckExternalScripts);

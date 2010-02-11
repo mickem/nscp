@@ -52,6 +52,11 @@ namespace filters {
 				return str == filter;
 			}
 		};
+		struct not_string_filter {
+			static bool filter(std::wstring filter, std::wstring str) {
+				return !(str == filter);
+			}
+		};
 #ifdef USE_BOOST
 		struct regexp_string_filter {
 			static bool filter(boost::wregex filter, std::wstring str) {

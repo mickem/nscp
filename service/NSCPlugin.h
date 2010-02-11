@@ -125,6 +125,8 @@ private:
 	typedef int (*lpGetConfigurationMeta)(int, wchar_t*);
 	typedef void (*lpShowTray)();
 	typedef void (*lpHideTray)();
+	typedef int (*lpHasNotificationHandler)();
+	typedef int (*lpHandleNotification)(const wchar_t *channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
 
 
 	lpModuleHelperInit fModuleHelperInit;
@@ -142,6 +144,8 @@ private:
 	lpCommandLineExec fCommandLineExec;
 	lpShowTray fShowTray;
 	lpHideTray fHideTray;
+	lpHasNotificationHandler fHasNotificationHandler;
+	lpHandleNotification fHandleNotification;
 
 public:
 	NSCPlugin(const boost::filesystem::wpath file);
@@ -156,9 +160,11 @@ public:
 	bool isBroken();
 	bool getVersion(int *major, int *minor, int *revision);
 	bool hasCommandHandler(void);
+	bool hasNotificationHandler(void);
 	bool hasMessageHandler(void);
 	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
 	NSCAPI::nagiosReturn handleCommand(const wchar_t* command, std::string &request, std::string &reply);
+	bool handleNotification(const wchar_t *channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
 	void deleteBuffer(char**buffer);
 	void handleMessage(int msgType, const wchar_t* file, const int line, const wchar_t *message);
 	void unload(void);

@@ -22,6 +22,8 @@ namespace NSCModuleWrapper {
 	NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
 	NSCAPI::boolReturn wrapHasCommandHandler(bool has);
 	NSCAPI::boolReturn wrapHasMessageHandler(bool has);
+	NSCAPI::boolReturn wrapHasNotificationHandler(bool has);
+	NSCAPI::nagiosReturn wrapHandleNotification(NSCAPI::nagiosReturn retResult);
 	int wrapUnloadModule(bool success);
 	NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
 	void wrapDeleteBuffer(char**buffer);
@@ -169,29 +171,51 @@ namespace NSCModuleWrapper {
 #define NSC_WRAPPERS_HANDLE_CMD_DEF(toObject) \
 	extern NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) \
 	{ \
-		try { \
-			std::string request(request_buffer, request_buffer_len), reply; \
-			NSCAPI::nagiosReturn retCode = (&toObject)->handleRAWCommand(command, request, reply); \
-			return NSCModuleWrapper::wrapHandleCommand(retCode, reply, reply_buffer, reply_buffer_len); \
+	try { \
+	std::string request(request_buffer, request_buffer_len), reply; \
+	NSCAPI::nagiosReturn retCode = (&toObject)->handleRAWCommand(command, request, reply); \
+	return NSCModuleWrapper::wrapHandleCommand(retCode, reply, reply_buffer, reply_buffer_len); \
 		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
-			return NSCAPI::returnIgnored; \
+		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
+		return NSCAPI::returnIgnored; \
 		} \
 	} \
 	extern NSCAPI::boolReturn NSHasCommandHandler() { \
-		try { \
-			return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
+	try { \
+	return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
 		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasCommandHandler(...)")); \
-			return NSCAPI::isfalse; \
+		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasCommandHandler(...)")); \
+		return NSCAPI::isfalse; \
 		} \
 	}
 #define NSC_WRAPPERS_IGNORE_CMD_DEF() \
 	extern NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* IN_cmd, const unsigned int IN_argsLen, wchar_t **IN_args, \
-									wchar_t *OUT_retBufMessage, unsigned int IN_retBufMessageLen, wchar_t *OUT_retBufPerf, unsigned int IN_retBufPerfLen) { \
-		return NSCAPI::returnIgnored; \
+	wchar_t *OUT_retBufMessage, unsigned int IN_retBufMessageLen, wchar_t *OUT_retBufPerf, unsigned int IN_retBufPerfLen) { \
+	return NSCAPI::returnIgnored; \
 	} \
 	extern NSCAPI::boolReturn NSHasCommandHandler() { return NSCAPI::isfalse; }
+#define NSC_WRAPPERS_IGNORE_NOTIFICATION_DEF() \
+	extern void NSHandleNotification(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int) {} \
+	extern NSCAPI::boolReturn NSHasNotificationHandler() { return NSCAPI::isfalse; }
+#define NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF(toObject) \
+	extern NSCAPI::nagiosReturn NSHandleNotification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, const char* result_buffer, unsigned int result_buffer_len) \
+	{ \
+		try { \
+			std::string result(result_buffer, result_buffer_len); \
+			return NSCModuleWrapper::wrapHandleNotification((&toObject)->handleRAWNotification(channel, command, code, result)); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasNotificationHandler(...)")); \
+			return NSCAPI::returnIgnored; \
+		} \
+	} \
+	extern NSCAPI::boolReturn NSHasNotificationHandler() { \
+		try { \
+			return NSCModuleWrapper::wrapHasNotificationHandler(toObject.hasNotificationHandler()); \
+		} catch (...) { \
+			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasNotificationHandler(...)")); \
+			return NSCAPI::isfalse; \
+		} \
+	}
 
 
 #define NSC_WRAPPERS_HANDLE_CONFIGURATION(toObject) \

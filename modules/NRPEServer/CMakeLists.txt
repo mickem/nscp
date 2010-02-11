@@ -13,7 +13,7 @@ SET(SRCS
 	nrpe_server.cpp
 	nrpe_connection.cpp
 	nrpe_handler.cpp
-	${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.cpp
+	${NSCP_INCLUDE_PATH}/nrpe/nrpe_packet.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -29,8 +29,9 @@ IF(WIN32)
 		nrpe_connection.hpp
 		nrpe_handler.hpp
 		nrpe_parser.hpp
-		${NSCP_INCLUDE_PATH}/nrpe/nrpepacket.hpp
 		${NSCP_INCLUDE_PATH}/socket_helpers.hpp
+		${NSCP_INCLUDE_PATH}/nrpe/nrpe_packet.hpp
+		${NSCP_INCLUDE_PATH}/swap_bytes.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

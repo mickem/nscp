@@ -21,7 +21,7 @@
 
 NSC_WRAPPERS_MAIN();
 #include <map>
-#include <nrpe/nrpepacket.hpp>
+#include <nrpe/nrpe_packet.hpp>
 
 
 class NRPEClient : public NSCModuleHelper::SimpleCommand {
@@ -126,8 +126,6 @@ private:
 	nrpe::packet send_nossl(std::wstring host, int port, int timeout, nrpe::packet packet);
 	nrpe::packet send_ssl(std::wstring host, int port, int timeout, nrpe::packet packet);
 	void add_options(po::options_description &desc, nrpe_connection_data &command_data);
-#ifdef USE_BOOST
-#endif
 
 private:
 	void addCommand(strEx::blindstr key, std::wstring args);

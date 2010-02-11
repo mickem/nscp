@@ -1,13 +1,12 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
-SET(TARGET NRPEClient)
+SET(TARGET NSCAAgent)
 	
 PROJECT(${TARGET})
 
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
-	${NSCP_INCLUDE_PATH}/nrpe/nrpe_packet.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -19,9 +18,9 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
-		${NSCP_INCLUDE_PATH}/socket_helpers.hpp
-		${NSCP_INCLUDE_PATH}/nrpe/nrpe_packet.hpp
-		${NSCP_INCLUDE_PATH}/nrpe/nrpe_socket.hpp
+		${NSCP_INCLUDE_PATH}/nsca/nsca_packet.hpp
+		${NSCP_INCLUDE_PATH}/nsca/nsca_socket.hpp
+		${NSCP_INCLUDE_PATH}/nsca/nsca_enrypt.hpp
 		${NSCP_INCLUDE_PATH}/swap_bytes.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
@@ -35,8 +34,3 @@ target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
 	${OPENSSL_LIBRARIES}
 )
-
-
-#INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION
-#    ${CMAKE_INSTALL_PREFIX}/${WT_CMAKE_FINDER_INSTALL_DIR} )
-

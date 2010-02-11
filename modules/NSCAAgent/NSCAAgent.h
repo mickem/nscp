@@ -20,20 +20,22 @@
 ***************************************************************************/
 #pragma once
 
-#include "NSCAThread.h"
 #include <CheckMemory.h>
 
 NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
 
-class NSCAAgent {
+class NSCAAgent : public NSCModuleHelper::SimpleNotificationHandler {
 private:
-	CheckMemory memoryChecker;
-	int processMethod_;
-//	NSCAThreadImpl pdhThread;
-	std::list<NSCAThreadImpl*> extra_threads;
 
-public:
+	std::string hostname_;
+	std::wstring nscahost_;
+	unsigned int nscaport_;
+	unsigned int payload_length_;
+	bool cacheNscaHost_;
+	std::string password_;
+	int encryption_method_;
+	unsigned int timeout_;
+	int time_delta_;
 
 public:
 	NSCAAgent();
@@ -65,12 +67,11 @@ public:
 	std::wstring getModuleDescription() {
 		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
 	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	int commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** args);
+	bool hasNotificationHandler() { return true; }
 
 	std::wstring getCryptos();
+
+	NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
+
 
 };

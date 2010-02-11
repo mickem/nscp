@@ -29,6 +29,7 @@
 
 #include "NSCPlugin.h"
 #include "commands.hpp"
+#include "channels.hpp"
 #include "logger.hpp"
 
 //#include <nsclient_session.hpp>
@@ -100,7 +101,6 @@ private:
 	//typedef std::map<std::wstring,std::wstring> cmdMap;
 	typedef std::list<cached_log_entry> log_cache_type;
 	pluginList plugins_;
-	pluginList commandHandlers_;
 	pluginList messageHandlers_;
 	boost::filesystem::wpath  basePath;
 	boost::timed_mutex internalVariables;
@@ -121,11 +121,12 @@ private:
 	bool plugins_loaded_;
 	bool enable_shared_session_;
 	nsclient::commands commands_;
+	nsclient::channels channels_;
 
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false), commands_(this) {}
+	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false), commands_(this), channels_(this) {}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
 		if (debug)
@@ -162,6 +163,7 @@ public:
 
 	// Member functions
 	boost::filesystem::wpath getBasePath(void);
+	NSCAPI::errorReturn send_notification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);

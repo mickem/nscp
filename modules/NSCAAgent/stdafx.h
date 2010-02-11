@@ -20,11 +20,6 @@
 ***************************************************************************/
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-// Windows Header Files:
-#include <windows.h>
-
-#define COMPILE_NEWAPIS_STUBS
 #define WANT_GETLONGPATHNAME_WRAPPER
 //#include <NewAPIs.h>
 
@@ -33,12 +28,20 @@
 #include <string>
 #include <hash_map>
 #include <list>
+
+
+#include <boost/asio.hpp>
+#ifdef USE_SSL
+#include <boost/asio/ssl.hpp>
+#endif
+
 #include <NSCAPI.h>
 #include <NSCHelper.h>
 #include <nsc_module_wrapper.hpp>
 #include <config.h>
 #include <utils.h>
 #include <error.hpp>
+
 
 #ifdef MEMCHECK
 #include <vld.h>

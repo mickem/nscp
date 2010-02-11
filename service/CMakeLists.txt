@@ -39,6 +39,7 @@ IF(WIN32)
 		settings_client.hpp
 		
 		commands.hpp
+		channels.hpp
 		logger.hpp
 		settings_logger_impl.hpp
 		service_manager.hpp

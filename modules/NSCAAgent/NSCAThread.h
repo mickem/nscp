@@ -23,7 +23,6 @@
 #include <thread.h>
 #include <Mutex.h>
 #include <arrayBuffer.h>
-#include <Socket.h>
 #include "nsca_enrypt.hpp"
 
 /**
@@ -92,53 +91,11 @@ namespace NSCAPacket {
 }
 
 
-class Arguments {
-	arrayBuffer::arrayBuffer arglist_;
-	unsigned int arglen_;
-public:
-	Arguments() : arglist_(NULL), arglen_(0) {}
-	~Arguments() {
-		arrayBuffer::destroyArrayBuffer(arglist_, arglen_);
-		arglist_ = NULL;
-	}
-	Arguments(const Arguments& other) : arglist_(NULL), arglen_(0) {
-		arglen_ = other.getLen();
-		arglist_ = arrayBuffer::copy(other.get(), other.getLen());
-	}
-	Arguments& operator=(Arguments& other) {
-		if (this != &other){
-			arglen_ = other.getLen();
-			arglist_ = other.detach();
-		}
-		return *this;
-	}
-	Arguments& operator=(const Arguments& other) {
-		if (this != &other){
-			arglen_ = other.getLen();
-			arglist_ = arrayBuffer::copy(other.get(), other.getLen());
-		}
-		return *this;
-	}
-	Arguments(const std::wstring &other) : arglist_(NULL), arglen_(0)  {
-		arglist_ = arrayBuffer::split2arrayBuffer(other, ' ', arglen_, true);
-	}
-	arrayBuffer::arrayBuffer detach() {
-		arrayBuffer::arrayBuffer ret = arglist_;
-		arglist_ = NULL;
-		arglen_ = 0;
-		return ret;
-	}
-	const arrayBuffer::arrayBuffer get() const {
-		return arglist_;
-	}
-	unsigned int getLen() const {
-		return arglen_;
-	}
-};
+
 class Command {
 	std::wstring cmd_;
 	std::wstring alias_;
-	Arguments args_;
+	std::list<std::wstring> args_;
 public:
 
 	class Result {
@@ -159,7 +116,8 @@ public:
 				_T("result: ") + result;
 		}
 
-		simpleSocket::DataBuffer getBuffer(nsca_encrypt &crypt_inst, __time32_t time_delta, unsigned int pluginoutput_length) const {
+		std::string getBuffer(nsca_encrypt &crypt_inst, __time32_t time_delta, unsigned int pluginoutput_length) const {
+			std::string ret; ret.resize(buffer_len);
 			std::string s = strEx::wstring_to_string(service);
 			std::string r = strEx::wstring_to_string(result);
 			std::string h = strEx::wstring_to_string(host);
@@ -202,7 +160,7 @@ public:
 	Command(std::wstring alias, std::wstring raw) : alias_(alias) {
 		strEx::token token = strEx::getToken(raw, ' ');
 		cmd_ = token.first;
-		args_ = token.second;
+		args_.push_back(token.second);
 	}
 	static unsigned int conv_code(NSCAPI::nagiosReturn ret) {
 		if (ret == NSCAPI::returnOK)
