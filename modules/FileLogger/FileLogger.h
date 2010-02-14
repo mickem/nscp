@@ -57,6 +57,6 @@ public:
 
 
 	std::string getFileName();
-	inline std::wstring FileLogger::get_formated_date();
+	inline std::wstring get_formated_date();
 
 };

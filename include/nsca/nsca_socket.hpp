@@ -16,7 +16,7 @@ namespace nsca {
 		boost::shared_ptr<tcp::socket> socket_;
 		nsca_encrypt crypt_inst;
 	public:
-		typedef boost::asio::basic_socket<tcp,boost::asio::stream_socket_service<tcp>>  basic_socket_type;
+		typedef boost::asio::basic_socket<tcp,boost::asio::stream_socket_service<tcp> >  basic_socket_type;
 
 	public:
 		socket(boost::asio::io_service &io_service) {
@@ -86,7 +86,7 @@ namespace nsca {
 #ifdef USE_SSL
 	class ssl_socket : public socket {
 	private:
-		boost::shared_ptr<boost::asio::ssl::stream<tcp::socket>> ssl_socket_;
+		boost::shared_ptr<boost::asio::ssl::stream<tcp::socket> > ssl_socket_;
 
 	public:
 		ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context &ctx, std::wstring host, int port) : socket() {

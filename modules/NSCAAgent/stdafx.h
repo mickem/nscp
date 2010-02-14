@@ -24,7 +24,7 @@
 //#include <NewAPIs.h>
 
 #include <iostream>
-#include <tchar.h>
+//#include <tchar.h>
 #include <string>
 #include <hash_map>
 #include <list>

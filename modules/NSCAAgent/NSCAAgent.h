@@ -20,8 +20,6 @@
 ***************************************************************************/
 #pragma once
 
-#include <CheckMemory.h>
-
 NSC_WRAPPERS_MAIN();
 
 class NSCAAgent : public NSCModuleHelper::SimpleNotificationHandler {

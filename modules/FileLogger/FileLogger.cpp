@@ -83,7 +83,7 @@ std::string FileLogger::getFileName() {
 }
 
 bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
-	_tzset();
+	//_tzset();
 	getFileName();
 
 	try {
@@ -156,7 +156,7 @@ void FileLogger::handleMessage(int msgType, TCHAR* file, int line, const TCHAR* 
 std::wstring FileLogger::get_formated_date() {
 	std::wstringstream ss;
 	boost::posix_time::time_facet *facet = new boost::posix_time::time_facet(format_.c_str());
-	ss.imbue(locale(cout.getloc(), facet));
+	ss.imbue(std::locale(std::cout.getloc(), facet));
 	ss << boost::posix_time::second_clock::local_time();
 	return ss.str();
 }

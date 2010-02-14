@@ -15,8 +15,3 @@ add_library(${TARGET} ${SRCS})
 target_link_libraries(${TARGET}
 	${PROTOBUF_LIBRARY}
 )
-
-
-#INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION
-#    ${CMAKE_INSTALL_PREFIX}/${WT_CMAKE_FINDER_INSTALL_DIR} )
-

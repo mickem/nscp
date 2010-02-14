@@ -133,7 +133,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const std::wstring comm
 	std::wstring args = cd.arguments;
 	if (isAlias || allowArgs_) {
 		int i=1;
-		BOOST_FOREACH(wstring str, arguments) {
+		BOOST_FOREACH(std::wstring str, arguments) {
 			if (isAlias || allowNasty_) {
 				if (str.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));

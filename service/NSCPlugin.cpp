@@ -395,8 +395,8 @@ void NSCPlugin::loadRemoteProcs_(void) {
 			throw NSPluginException(module_, _T("Could not load NSHasMessageHandler"));
 
 		fHandleCommand = (lpHandleCommand)module_.load_proc("NSHandleCommand");
-		if (!fHandleCommand)
-			throw NSPluginException(module_, _T("Could not load NSHandleCommand"));
+		//if (!fHandleCommand)
+		//	throw NSPluginException(module_, _T("Could not load NSHandleCommand"));
 
 		fDeleteBuffer = (lpDeleteBuffer)module_.load_proc("NSDeleteBuffer");
 		if (!fDeleteBuffer)

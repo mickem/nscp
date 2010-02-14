@@ -39,7 +39,7 @@
 #include "settings_client.hpp"
 #include "service_manager.hpp"
 
-#include "../proto/plugin.proto.h"
+#include "../libs/protobuf/plugin.proto.h"
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
@@ -1049,7 +1049,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 		std::string args = to_string(arguments);
 
 		boost::tokenizer<boost::escaped_list_separator<char> > tok(args, boost::escaped_list_separator<char>('\\', ' ', '\"'));
-		BOOST_FOREACH(string s, tok)
+		BOOST_FOREACH(std::string s, tok)
 			req->add_arguments(s);
 
 		std::string request, response;

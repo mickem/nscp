@@ -31,19 +31,6 @@
 NSCAAgent gNSCAAgent;
 
 /**
- * DLL Entry point
- * @param hModule 
- * @param ul_reason_for_call 
- * @param lpReserved 
- * @return 
- */
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
-/**
  * Default c-tor
  * @return 
  */
@@ -145,6 +132,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring chan
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gNSCAAgent);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();

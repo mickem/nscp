@@ -53,7 +53,7 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 
 	boost::filesystem::wpath p = NSCModuleHelper::getBasePath() + std::wstring(_T("security/nrpe_dh_512.pem"));
 	cert_ = p.string();
-	if (boost::filesystem::is_regular_file(p)) {
+	if (boost::filesystem::is_regular(p)) {
 		NSC_DEBUG_MSG_STD(_T("Using certificate: ") + cert_);
 	} else {
 		NSC_LOG_ERROR_STD(_T("Certificate not found: ") + cert_);
@@ -148,7 +148,7 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring command, std::
 	std::wstring args = (*cit).second.arguments;
 	if (SETTINGS_GET_BOOL(nrpe::ALLOW_ARGS) == 1) {
 		int i=1;
-		BOOST_FOREACH(wstring arg, arguments)
+		BOOST_FOREACH(std::wstring arg, arguments)
 		{
 			if (SETTINGS_GET_INT(nrpe::ALLOW_NASTY) == 0) {
 				if (arg.find_first_of(NASTY_METACHARS) != std::wstring::npos) {

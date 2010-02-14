@@ -22,7 +22,11 @@ IF(WIN32)
 	)
 ENDIF(WIN32)
 
-add_library(${TARGET} MODULE ${SRCS})
+
+ADD_LIBRARY(${TARGET} MODULE ${SRCS})
+
+
+SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "-fPIC -w -pipe -DNDEBUG -DLINUX -finline-functions -O3")
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
@@ -32,4 +36,6 @@ target_link_libraries(${TARGET}
 
 #INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION
 #    ${CMAKE_INSTALL_PREFIX}/${WT_CMAKE_FINDER_INSTALL_DIR} )
+
+
 

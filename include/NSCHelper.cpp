@@ -508,7 +508,7 @@ NSCAPI::nagiosReturn NSCModuleHelper::InjectSplitAndCommand(const wchar_t* comma
 	std::wstring args = std::wstring(buffer);
 	boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(args, boost::escaped_list_separator<wchar_t>(L'\\', splitChar, L'\"'));
 	std::list<std::wstring> arglist;
-	BOOST_FOREACH(wstring s, tok)
+	BOOST_FOREACH(std::wstring s, tok)
 		arglist.push_back(s);
 	return InjectSimpleCommand(command, arglist, message, perf);
 }
@@ -528,7 +528,7 @@ NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std
 		throw NSCMHExcpetion(_T("NSCore has not been initiated..."));
 	boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::escaped_list_separator<wchar_t>(L'\\', spliwchar_t, L'\"'));
 	std::list<std::wstring> arglist;
-	BOOST_FOREACH(wstring s, tok)
+	BOOST_FOREACH(std::wstring s, tok)
 		arglist.push_back(s);
 	return InjectSimpleCommand(command.c_str(), arglist, message, perf);
 }
