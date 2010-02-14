@@ -91,6 +91,10 @@ namespace nsca {
 				return TMethod::BLOCKSIZE;
 			}
 
+			virtual void init(std::string password, std::string iv) {
+				init(password, (unsigned char*)&*iv.begin(), iv.size());
+
+			}
 			void init(std::string password, unsigned char *transmitted_iv, int iv_size) {
 				/* generate an encryption/description key using the password */
 				unsigned int keysize=get_keySize();
@@ -127,6 +131,9 @@ namespace nsca {
 				delete [] iv;
 				delete [] key;
 			}
+			void encrypt(std::string &buffer) {
+				encrypt((unsigned char*)&*buffer.begin(), buffer.size());
+			}
 			void encrypt(unsigned char *buffer, int buffer_size) {
 				/* encrypt each byte of buffer, one byte at a time (CFB mode) */
 				try {
@@ -135,6 +142,9 @@ namespace nsca {
 				} catch (...) {
 					throw encryption_exception(_T("Unknown exception when trying to setup crypto"));
 				}
+			}
+			void decrypt(std::string &buffer) {
+				decrypt((unsigned char*)&*buffer.begin(), buffer.size());
 			}
 			void decrypt(unsigned char *buffer, int buffer_size) {
 				throw encryption_exception(_T("Decryption not supported"));
@@ -327,7 +337,7 @@ namespace nsca {
 			//unsigned char * buffer = new unsigned char[length+1];
 #if HAVE_LIBCRYPTOPP
 			CryptoPP::AutoSeededRandomPool rng;
-			rng.GenerateBlock(buffer, length);
+			rng.GenerateBlock((byte*)&*buffer.begin(), length);
 #endif
 			return buffer;
 		}

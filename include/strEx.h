@@ -417,7 +417,7 @@ namespace strEx {
 	inline long stol_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
 		long neg = 1;
 		if (time.length() > 1 && time[0] == L'-')
-			return -stoui_as_time_sec(time.substr(1), smallest_unit);
+			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
 		return stoui_as_time_sec(time, smallest_unit);
 	}
 
