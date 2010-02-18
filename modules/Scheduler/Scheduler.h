@@ -46,8 +46,8 @@ public:
 	std::wstring getModuleName() {
 		return _T("Scheduler");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 3, 0 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
 	std::wstring getModuleDescription() {

@@ -122,11 +122,12 @@ private:
 	bool enable_shared_session_;
 	nsclient::commands commands_;
 	nsclient::channels channels_;
+	unsigned int next_plugin_id_;
 
 
 public:
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false), commands_(this), channels_(this) {}
+	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0) {}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
 		if (debug)

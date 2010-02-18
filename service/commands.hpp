@@ -4,6 +4,7 @@
 
 #include "NSCPlugin.h"
 #include "logger.hpp"
+#include <strEx.h>
 
 namespace nsclient {
 	class commands : boost::noncopyable {
@@ -39,8 +40,9 @@ namespace nsclient {
 		commands(nsclient::logger *logger) : logger_(logger) {}
 
 		void add_plugin(plugin_type plugin) {
-			if (!plugin || !plugin->hasCommandHandler())
+			if (!plugin || !plugin->hasCommandHandler()) {
 				return;
+			}
 			plugins_[plugin->get_id()] = plugin;
 			
 		}
@@ -87,11 +89,25 @@ namespace nsclient {
 			}
 			std::wstring lc = make_key(cmd);
 			if (!have_plugin(plugin_id))
-				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id));
+				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id) + ": " + unsafe_get_all_plugin_ids());
 			descriptions_[lc] = desc;
 			commands_[lc] = plugins_[plugin_id];
 		}
+private:
 
+		std::string unsafe_get_all_plugin_ids() {
+			std::string ret;
+			std::pair<unsigned long,plugin_type> cit;
+			BOOST_FOREACH(cit, plugins_) {
+				ret += ::to_string(cit.first) + ", ";
+				//lst.push_back(::to_wstring(cit.first) + _T("=") + cit.second->getName());
+				//lst.push_back(::to_wstring(cit.first));
+			}
+			return ret;
+		}
+
+
+public:
 		std::wstring describe(std::wstring command) {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
@@ -119,6 +135,21 @@ namespace nsclient {
 			return lst;
 		}
 
+		std::list<std::wstring> list_plugins() {
+			std::list<std::wstring> lst;
+			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!readLock.owns_lock()) {
+				log_error(__FILEW__, __LINE__, _T("Failed to get mutex"));
+				return lst;
+			}
+			std::pair<unsigned long,plugin_type> cit;
+			BOOST_FOREACH(cit, plugins_) {
+				//lst.push_back(::to_wstring(cit.first) + _T("=") + cit.second->getName());
+				lst.push_back(::to_wstring(cit.first));
+			}
+			return lst;
+		}
+
 		plugin_type get(std::wstring command) {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
@@ -135,11 +166,17 @@ namespace nsclient {
 		}
 
 		std::wstring to_wstring() {
-			std::wstring ret;
+			std::wstring ret = _T("commands {");
 			BOOST_FOREACH(std::wstring str, list()) {
 				if (!ret.empty()) ret += _T(", ");
 				ret += str;
 			}
+			ret += _T("}, plugins {");
+			BOOST_FOREACH(std::wstring str, list_plugins()) {
+				if (!ret.empty()) ret += _T(", ");
+				ret += str;
+			}
+			ret += _T("}");
 			return ret;
 		}
 

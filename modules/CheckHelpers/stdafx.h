@@ -27,6 +27,5 @@
 #include <functional>
 
 #include <NSCAPI.h>
-#include <nsc_module_wrapper.hpp>
-#include <NSCHelper.h>
+#include <nscapi/plugin.hpp>
 

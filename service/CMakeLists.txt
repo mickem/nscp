@@ -18,10 +18,11 @@ SET(service_SRCS
 	core_api.cpp
 	settings_manager_impl.cpp
 
-	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_INCLUDE_PATH}/nscapi/nscapi_helper.cpp
 
 	${NSCP_INCLUDE_PATH}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDE_PATH}/b64/b64.c
+	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
 
 )
 
@@ -61,8 +62,7 @@ IF(WIN32)
 
 		${NSCP_INCLUDE_PATH}/service/system_service.hpp
 		${NSCP_INCLUDE_PATH}/service/win32_service.hpp
-
-		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_INCLUDE_PATH}/nscapi/nscapi_helper.hpp
 
 	)
 	SET(service_SRCS ${service_SRCS}

@@ -1,14 +1,13 @@
 #include "stdafx.h"
 #include <boost/asio.hpp>
 #include "nrpe_handler.hpp"
-#include <NSCHelper.h>
 
 namespace nrpe {
 	namespace server {
 		nrpe::packet handler::handle(nrpe::packet p) {
 			strEx::token cmd = strEx::getToken(p.getPayload(), '!');
 			if (cmd.first == _T("_NRPE_CHECK")) {
-				return nrpe::packet::create_response(NSCAPI::returnOK, _T("I (") + NSCModuleHelper::getApplicationVersionString() + _T(") seem to be doing fine..."), p.get_payload_length());
+				return nrpe::packet::create_response(NSCAPI::returnOK, _T("I (") + nscapi::plugin_singleton->get_core()->getApplicationVersionString() + _T(") seem to be doing fine..."), p.get_payload_length());
 			}
 			std::wstring msg, perf;
 
@@ -33,7 +32,7 @@ namespace nrpe {
 
 			NSCAPI::nagiosReturn ret = -3;
 			try {
-				ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
+				ret = nscapi::plugin_singleton->get_core()->InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
 			} catch (...) {
 				return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), p.get_payload_length());
 			}

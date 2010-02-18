@@ -22,9 +22,6 @@
 #include "NSCPlugin.h"
 #include "core_api.h"
 
-unsigned int NSCPlugin::last_plugin_id_ = 0;
-
-
 /**
  * Default c-tor
  * Initializes the plug in name but does not load the actual plug in.<br>
@@ -32,7 +29,7 @@ unsigned int NSCPlugin::last_plugin_id_ = 0;
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-NSCPlugin::NSCPlugin(const boost::filesystem::wpath file)
+NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file)
 	: module_(file.string())
 	,fLoadModule(NULL)
 	,fGetName(NULL)
@@ -42,7 +39,6 @@ NSCPlugin::NSCPlugin(const boost::filesystem::wpath file)
 	,fHandleMessage(NULL)
 	,fDeleteBuffer(NULL)
 	,fGetDescription(NULL)
-	,fGetConfigurationMeta(NULL)
 	,fGetVersion(NULL)
 	,fCommandLineExec(NULL)
 	,fShowTray(NULL)
@@ -52,9 +48,9 @@ NSCPlugin::NSCPlugin(const boost::filesystem::wpath file)
 	,bLoaded_(false)
 	,lastIsMsgPlugin_(false)
 	,broken_(false)
-	,plugin_id_(0)
+	,plugin_id_(id)
 {
-	plugin_id_ = ++last_plugin_id_;
+
 }
 /*
 NSCPlugin::NSCPlugin(NSCPlugin &other)
@@ -66,7 +62,6 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
 	,fHasMessageHandler(NULL)
 	,fHandleMessage(NULL)
 	,fGetDescription(NULL)
-	,fGetConfigurationMeta(NULL)
 	,fGetVersion(NULL)
 	,fCommandLineExec(NULL)
 	,fShowTray(NULL)
@@ -360,11 +355,11 @@ void NSCPlugin::hideTray() {
 void NSCPlugin::loadRemoteProcs_(void) {
 
 	try {
-		fLoadModule = (lpLoadModule)module_.load_proc("NSLoadModule");
+		fLoadModule = (nscapi::plugin_api::lpLoadModule)module_.load_proc("NSLoadModule");
 		if (!fLoadModule)
 			throw NSPluginException(module_, _T("Could not load NSLoadModule"));
 
-		fModuleHelperInit = (lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
+		fModuleHelperInit = (nscapi::plugin_api::lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
 		if (!fModuleHelperInit)
 			throw NSPluginException(module_, _T("Could not load NSModuleHelperInit"));
 
@@ -374,49 +369,48 @@ void NSCPlugin::loadRemoteProcs_(void) {
 			throw NSPluginException(module_, _T("Unhandled exception in getDescription."));
 		}
 
-		fGetName = (lpGetName)module_.load_proc("NSGetModuleName");
+		fGetName = (nscapi::plugin_api::lpGetName)module_.load_proc("NSGetModuleName");
 		if (!fGetName)
 			throw NSPluginException(module_, _T("Could not load NSGetModuleName"));
 
-		fGetVersion = (lpGetVersion)module_.load_proc("NSGetModuleVersion");
+		fGetVersion = (nscapi::plugin_api::lpGetVersion)module_.load_proc("NSGetModuleVersion");
 		if (!fGetVersion)
 			throw NSPluginException(module_, _T("Could not load NSGetModuleVersion"));
 
-		fGetDescription = (lpGetDescription)module_.load_proc("NSGetModuleDescription");
+		fGetDescription = (nscapi::plugin_api::lpGetDescription)module_.load_proc("NSGetModuleDescription");
 		if (!fGetDescription)
 			throw NSPluginException(module_, _T("Could not load NSGetModuleDescription"));
 
-		fHasCommandHandler = (lpHasCommandHandler)module_.load_proc("NSHasCommandHandler");
+		fHasCommandHandler = (nscapi::plugin_api::lpHasCommandHandler)module_.load_proc("NSHasCommandHandler");
 		if (!fHasCommandHandler)
 			throw NSPluginException(module_, _T("Could not load NSHasCommandHandler"));
 
-		fHasMessageHandler = (lpHasMessageHandler)module_.load_proc("NSHasMessageHandler");
+		fHasMessageHandler = (nscapi::plugin_api::lpHasMessageHandler)module_.load_proc("NSHasMessageHandler");
 		if (!fHasMessageHandler)
 			throw NSPluginException(module_, _T("Could not load NSHasMessageHandler"));
 
-		fHandleCommand = (lpHandleCommand)module_.load_proc("NSHandleCommand");
+		fHandleCommand = (nscapi::plugin_api::lpHandleCommand)module_.load_proc("NSHandleCommand");
 		//if (!fHandleCommand)
 		//	throw NSPluginException(module_, _T("Could not load NSHandleCommand"));
 
-		fDeleteBuffer = (lpDeleteBuffer)module_.load_proc("NSDeleteBuffer");
+		fDeleteBuffer = (nscapi::plugin_api::lpDeleteBuffer)module_.load_proc("NSDeleteBuffer");
 		if (!fDeleteBuffer)
 			throw NSPluginException(module_, _T("Could not load NSDeleteBuffer"));
 
-		fHandleMessage = (lpHandleMessage)module_.load_proc("NSHandleMessage");
+		fHandleMessage = (nscapi::plugin_api::lpHandleMessage)module_.load_proc("NSHandleMessage");
 		if (!fHandleMessage)
 			throw NSPluginException(module_, _T("Could not load NSHandleMessage"));
 
-		fUnLoadModule = (lpUnLoadModule)module_.load_proc("NSUnloadModule");
+		fUnLoadModule = (nscapi::plugin_api::lpUnLoadModule)module_.load_proc("NSUnloadModule");
 		if (!fUnLoadModule)
 			throw NSPluginException(module_, _T("Could not load NSUnloadModule"));
 
-		fGetConfigurationMeta = (lpGetConfigurationMeta)module_.load_proc("NSGetConfigurationMeta");
-		fCommandLineExec = (lpCommandLineExec)module_.load_proc("NSCommandLineExec");
-		fHandleNotification = (lpHandleNotification)module_.load_proc("NSHandleNotification");
-		fHasNotificationHandler = (lpHasNotificationHandler)module_.load_proc("NSHasNotificationHandler");
+		fCommandLineExec = (nscapi::plugin_api::lpCommandLineExec)module_.load_proc("NSCommandLineExec");
+		fHandleNotification = (nscapi::plugin_api::lpHandleNotification)module_.load_proc("NSHandleNotification");
+		fHasNotificationHandler = (nscapi::plugin_api::lpHasNotificationHandler)module_.load_proc("NSHasNotificationHandler");
 		
-		fShowTray = (lpShowTray)module_.load_proc("ShowIcon");
-		fHideTray = (lpHideTray)module_.load_proc("HideIcon");
+		fShowTray = (nscapi::plugin_api::lpShowTray)module_.load_proc("ShowIcon");
+		fHideTray = (nscapi::plugin_api::lpHideTray)module_.load_proc("HideIcon");
 		
 	} catch (NSPluginException &e) {
 		throw e;
@@ -429,26 +423,6 @@ void NSCPlugin::loadRemoteProcs_(void) {
 }
 
 
-std::wstring NSCPlugin::getCongifurationMeta() 
-{
-	wchar_t *buffer = new wchar_t[4097];
-	if (!getConfigurationMeta_(buffer, 4096)) {
-		throw NSPluginException(module_, _T("Could not get metadata"));
-	}
-	std::wstring ret = buffer;
-	delete [] buffer;
-	return ret;
-}
-bool NSCPlugin::getConfigurationMeta_(wchar_t* buf, unsigned int buflen) {
-	if (fGetConfigurationMeta == NULL)
-		throw NSPluginException(module_, _T("Critical error (getCongifurationMeta)"));
-	try {
-		return fGetConfigurationMeta(buflen, buf)?true:false;
-	} catch (...) {
-		throw NSPluginException(module_, _T("Unhandled exception in getConfigurationMeta."));
-	}
-}
-
 int NSCPlugin::commandLineExec(const unsigned int argLen, wchar_t **arguments) {
 	if (fCommandLineExec== NULL)
 		throw NSPluginException(module_, _T("Module does not support CommandLineExec"));
@@ -458,3 +432,4 @@ int NSCPlugin::commandLineExec(const unsigned int argLen, wchar_t **arguments) {
 		throw NSPluginException(module_, _T("Unhandled exception in commandLineExec."));
 	}
 }
+

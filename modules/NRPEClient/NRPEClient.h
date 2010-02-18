@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <nrpe/nrpe_packet.hpp>
 
 
-class NRPEClient : public NSCModuleHelper::SimpleCommand {
+class NRPEClient : public nscapi::impl::SimpleCommand {
 private:
 	typedef enum {
 		inject, script, script_dir,
@@ -103,8 +103,8 @@ public:
 		return _T("NRPE client");
 #endif
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {

@@ -44,14 +44,14 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
 	try {
 		SETTINGS_REG_PATH(nrpe::CH_SECTION);
-		commands = NSCModuleHelper::getSettingsSection(setting_keys::nrpe::CH_SECTION_PATH);
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		commands = GET_CORE()->getSettingsSection(setting_keys::nrpe::CH_SECTION_PATH);
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
 
-	boost::filesystem::wpath p = NSCModuleHelper::getBasePath() + std::wstring(_T("security/nrpe_dh_512.pem"));
+	boost::filesystem::wpath p = GET_CORE()->getBasePath() + std::wstring(_T("security/nrpe_dh_512.pem"));
 	cert_ = p.string();
 	if (boost::filesystem::is_regular(p)) {
 		NSC_DEBUG_MSG_STD(_T("Using certificate: ") + cert_);
@@ -62,7 +62,7 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 
 	for (std::list<std::wstring>::const_iterator it = commands.begin(); it != commands.end(); ++it) {
 		NSC_DEBUG_MSG_STD(*it);
-		std::wstring s = NSCModuleHelper::getSettingsString(setting_keys::nrpe::CH_SECTION_PATH, (*it), _T(""));
+		std::wstring s = GET_CORE()->getSettingsString(setting_keys::nrpe::CH_SECTION_PATH, (*it), _T(""));
 		if (s.empty()) {
 			NSC_LOG_ERROR_STD(_T("Invalid NRPE-client entry: ") + (*it));
 		} else {
@@ -275,62 +275,5 @@ NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gNRPEClient);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gNRPEClient);
-NSC_WRAPPERS_HANDLE_CONFIGURATION(gNRPEClient);
 NSC_WRAPPERS_CLI_DEF(gNRPEClient);
 
-
-MODULE_SETTINGS_START(NRPEClient, _T("NRPE Listener configuration"), _T("...")) 
-
-PAGE(_T("NRPE Listsner configuration")) 
-
-ITEM_EDIT_TEXT(_T("port"), _T("This is the port the NRPEClient.dll will listen to.")) 
-ITEM_MAP_TO(_T("basic_ini_text_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("port")) 
-OPTION(_T("default"), _T("5666")) 
-ITEM_END()
-
-ITEM_CHECK_BOOL(_T("allow_arguments"), _T("This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.")) 
-ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("allow_arguments")) 
-OPTION(_T("default"), _T("false")) 
-OPTION(_T("true_value"), _T("1")) 
-OPTION(_T("false_value"), _T("0")) 
-ITEM_END()
-
-ITEM_CHECK_BOOL(_T("allow_nasty_meta_chars"), _T("This might have security implications (depending on what you do with the options)")) 
-ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("allow_nasty_meta_chars")) 
-OPTION(_T("default"), _T("false")) 
-OPTION(_T("true_value"), _T("1")) 
-OPTION(_T("false_value"), _T("0")) 
-ITEM_END()
-
-ITEM_CHECK_BOOL(_T("use_ssl"), _T("This option will enable SSL encryption on the NRPE data socket (this increases security somwhat.")) 
-ITEM_MAP_TO(_T("basic_ini_bool_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("use_ssl")) 
-OPTION(_T("default"), _T("true")) 
-OPTION(_T("true_value"), _T("1")) 
-OPTION(_T("false_value"), _T("0")) 
-ITEM_END()
-
-PAGE_END()
-ADVANCED_PAGE(_T("Access configuration")) 
-
-ITEM_EDIT_OPTIONAL_LIST(_T("Allow connection from:"), _T("This is the hosts that will be allowed to poll performance data from the NRPE server.")) 
-OPTION(_T("disabledCaption"), _T("Use global settings (defined previously)")) 
-OPTION(_T("enabledCaption"), _T("Specify hosts for NRPE server")) 
-OPTION(_T("listCaption"), _T("Add all IP addresses (not hosts) which should be able to connect:")) 
-OPTION(_T("separator"), _T(",")) 
-OPTION(_T("disabled"), _T("")) 
-ITEM_MAP_TO(_T("basic_ini_text_mapper")) 
-OPTION(_T("section"), _T("NRPE")) 
-OPTION(_T("key"), _T("allowed_hosts")) 
-OPTION(_T("default"), _T("")) 
-ITEM_END()
-
-PAGE_END()
-MODULE_SETTINGS_END()

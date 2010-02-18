@@ -26,9 +26,7 @@
 #include <fstream>
 
 #include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
-
+#include <nscapi/plugin.hpp>
 #include <config.h>
 
 #ifdef MEMCHECK

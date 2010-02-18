@@ -24,6 +24,7 @@
 //#include <NSCHelper.h>
 #include <sstream>
 #include <dll/dll.hpp>
+#include <boost/noncopyable.hpp>
 
 /**
  * @ingroup NSClient++
@@ -102,54 +103,33 @@ public:
  * @bug 
  *
  */
-class NSCPlugin {
+class NSCPlugin : boost::noncopyable {
 private:
 	bool bLoaded_;			// Status of plug in
 	dll::dll module_;
 	bool broken_;
-	static unsigned int last_plugin_id_;
 	unsigned int plugin_id_;
 
-	typedef int (*lpModuleHelperInit)(unsigned int, NSCModuleHelper::lpNSAPILoader f);
-	typedef int (*lpLoadModule)(int);
-	typedef int (*lpGetName)(wchar_t*,unsigned int);
-	typedef int (*lpGetDescription)(wchar_t*,unsigned int);
-	typedef int (*lpGetVersion)(int*,int*,int*);
-	typedef int (*lpHasCommandHandler)();
-	typedef int (*lpHasMessageHandler)();
-	typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
-	typedef int (*lpDeleteBuffer)(char**);
-	typedef int (*lpCommandLineExec)(const unsigned int,wchar_t**);
-	typedef int (*lpHandleMessage)(int,const wchar_t*,const int,const wchar_t*);
-	typedef int (*lpUnLoadModule)();
-	typedef int (*lpGetConfigurationMeta)(int, wchar_t*);
-	typedef void (*lpShowTray)();
-	typedef void (*lpHideTray)();
-	typedef int (*lpHasNotificationHandler)();
-	typedef int (*lpHandleNotification)(const wchar_t *channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
-
-
-	lpModuleHelperInit fModuleHelperInit;
-	lpLoadModule fLoadModule;
-	lpGetName fGetName;
-	lpGetVersion fGetVersion;
-	lpGetDescription fGetDescription;
-	lpHasCommandHandler fHasCommandHandler;
-	lpHasMessageHandler fHasMessageHandler;
-	lpHandleCommand fHandleCommand;
-	lpDeleteBuffer fDeleteBuffer;
-	lpHandleMessage fHandleMessage;
-	lpUnLoadModule fUnLoadModule;
-	lpGetConfigurationMeta fGetConfigurationMeta;
-	lpCommandLineExec fCommandLineExec;
-	lpShowTray fShowTray;
-	lpHideTray fHideTray;
-	lpHasNotificationHandler fHasNotificationHandler;
-	lpHandleNotification fHandleNotification;
+	nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
+	nscapi::plugin_api::lpLoadModule fLoadModule;
+	nscapi::plugin_api::lpGetName fGetName;
+	nscapi::plugin_api::lpGetVersion fGetVersion;
+	nscapi::plugin_api::lpGetDescription fGetDescription;
+	nscapi::plugin_api::lpHasCommandHandler fHasCommandHandler;
+	nscapi::plugin_api::lpHasMessageHandler fHasMessageHandler;
+	nscapi::plugin_api::lpHandleCommand fHandleCommand;
+	nscapi::plugin_api::lpDeleteBuffer fDeleteBuffer;
+	nscapi::plugin_api::lpHandleMessage fHandleMessage;
+	nscapi::plugin_api::lpUnLoadModule fUnLoadModule;
+	nscapi::plugin_api::lpCommandLineExec fCommandLineExec;
+	nscapi::plugin_api::lpShowTray fShowTray;
+	nscapi::plugin_api::lpHideTray fHideTray;
+	nscapi::plugin_api::lpHasNotificationHandler fHasNotificationHandler;
+	nscapi::plugin_api::lpHandleNotification fHandleNotification;
 
 public:
-	NSCPlugin(const boost::filesystem::wpath file);
-	NSCPlugin(NSCPlugin &other);
+	NSCPlugin(const unsigned int id, const boost::filesystem::wpath file);
+	//NSCPlugin(NSCPlugin &other);
 	virtual ~NSCPlugin(void);
 
 	std::wstring getName(void);
@@ -191,6 +171,13 @@ public:
 		}
 		return file;
 	}
+	static std::wstring get_plugin_file(std::wstring key) {
+#ifdef WIN32
+		return key + _T(".dll");
+#else
+		return _T("lib") + key + _T(".so");
+#endif
+	}
 	bool getLastIsMsgPlugin() {
 		return lastIsMsgPlugin_;
 	}
@@ -204,7 +191,6 @@ private:
 	bool getName_(wchar_t* buf, unsigned int buflen);
 	bool getDescription_(wchar_t* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);
-	bool getConfigurationMeta_(wchar_t* buf, unsigned int buflen);
 };
 
 

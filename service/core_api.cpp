@@ -18,6 +18,7 @@
 #include <charEx.h>
 #include <config.h>
 #include <msvc_wrappers.h>
+#include <arrayBuffer.h>
 //#include <settings/settings_ini.hpp>
 //#include <settings/settings_registry.hpp>
 //#include <settings/settings_old.hpp>
@@ -27,30 +28,25 @@
 #include <settings/Settings.h>
 #include "settings_manager_impl.h"
 #include <b64/b64.h>
-#include <NSCHelper.h>
+#include <nscapi/nscapi_helper.hpp>
 #ifdef _WIN32
 #include <ServiceCmd.h>
 #endif
 
 #define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
-#define LOG_ERROR(msg) \
-	NSAPIMessage(NSCAPI::error, __FILEW__, __LINE__, msg)
-
+#define LOG_ERROR(msg) LOG_ANY(msg, NSCAPI::error)
 #define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
-#define LOG_CRITICAL(msg) \
-	NSAPIMessage(NSCAPI::critical, __FILEW__, __LINE__, msg)
+#define LOG_CRITICAL(msg) LOG_ANY(msg, NSCAPI::critical)
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
-#define LOG_MESSAGE(msg) \
-	NSAPIMessage(NSCAPI::log, __FILEW__, __LINE__, msg)
-
+#define LOG_MESSAGE(msg) LOG_ANY(msg, NSCAPI::log)
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
-#define LOG_DEBUG(msg) \
-	NSAPIMessage(NSCAPI::debug, __FILEW__, __LINE__, msg)
+#define LOG_DEBUG(msg) LOG_ANY(msg, NSCAPI::debug)
 
+#define LOG_ANY(msg, type) NSAPIMessage(type, __FILEW__, __LINE__, msg)
 
 NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue, wchar_t* buffer, unsigned int bufLen) {
 	try {
-		return NSCHelper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
+		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
 	} catch (...) {
 		LOG_ERROR_STD(_T("Failed to getString: ") + key);
 		return NSCAPI::hasFailed;
@@ -65,13 +61,13 @@ int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultV
 	}
 }
 NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.getBasePath().string(), NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.getBasePath().string(), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, SZAPPNAME, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, SZAPPNAME, NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, SZVERSION, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, SZVERSION, NSCAPI::isSuccess);
 }
 void NSAPIMessage(int msgType, const wchar_t* file, const int line, const wchar_t* message) {
 	mainClient.reportMessage(msgType, file, line, message);
@@ -261,7 +257,7 @@ NSCAPI::errorReturn NSAPIRehash(int flag) {
 	return NSCAPI::hasFailed;
 }
 NSCAPI::errorReturn NSAPIDescribeCommand(const wchar_t* command, wchar_t* buffer, unsigned int bufLen) {
-	return NSCHelper::wrapReturnString(buffer, bufLen, mainClient.describeCommand(command), NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.describeCommand(command), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetAllCommandNames(arrayBuffer::arrayBuffer* aBuffer, unsigned int *bufLen) {
 	unsigned int len = 0;
@@ -368,7 +364,7 @@ NSCAPI::errorReturn NSAPISettingsSave(void) {
 
 
 
-LPVOID NSAPILoader(wchar_t*buffer) {
+LPVOID NSAPILoader(const wchar_t*buffer) {
 	if (wcscasecmp(buffer, _T("NSAPIGetApplicationName")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetApplicationName);
 	if (wcscasecmp(buffer, _T("NSAPIGetApplicationVersionStr")) == 0)

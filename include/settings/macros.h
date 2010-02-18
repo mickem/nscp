@@ -102,8 +102,6 @@ namespace setting_keys {
 
 		DEFINE_SETTING_S(SYSTRAY_EXE, DEFAULT_SECTION, "systray_exe", "nstray.exe");
 		DESCRIBE_SETTING(SYSTRAY_EXE, "TODO", "TODO");
-
-
 	}
 
 	// NSClient Setting headlines

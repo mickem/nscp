@@ -22,7 +22,7 @@
 
 NSC_WRAPPERS_MAIN();
 
-class NSCAAgent : public NSCModuleHelper::SimpleNotificationHandler {
+class NSCAAgent : public nscapi::impl::SimpleNotificationHandler {
 private:
 
 	std::string hostname_;
@@ -58,8 +58,8 @@ public:
 	* Module version
 	* @return module version
 	*/
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 3, 0 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
 	std::wstring getModuleDescription() {

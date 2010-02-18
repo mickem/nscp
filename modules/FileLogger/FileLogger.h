@@ -41,8 +41,8 @@ public:
 	std::wstring getModuleName() {
 		return _T("File logger");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
@@ -51,7 +51,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	void handleMessage(int msgType, TCHAR* file, int line, const TCHAR* message);
+	void handleMessage(int msgType, const wchar_t* file, int line, const TCHAR* message);
 	int handleCommand(TCHAR* command, TCHAR **argument, TCHAR *returnBuffer, int returnBufferLen);
 	//void writeEntry(std::wstring line);
 

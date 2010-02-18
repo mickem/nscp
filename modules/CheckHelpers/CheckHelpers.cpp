@@ -34,16 +34,16 @@ CheckHelpers::~CheckHelpers() {
 
 bool CheckHelpers::loadModule(NSCAPI::moduleLoadMode mode) {
 	try {
-		NSCModuleHelper::registerCommand(_T("CheckAlwaysOK"), _T("Run another check and regardless of its return code return OK."));
-		NSCModuleHelper::registerCommand(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));
-		NSCModuleHelper::registerCommand(_T("CheckAlwaysWARNING"), _T("Run another check and regardless of its return code return WARN."));
-		NSCModuleHelper::registerCommand(_T("CheckMultiple"), _T("Run more then one check and return the worst state."));
-		NSCModuleHelper::registerCommand(_T("CheckOK"), _T("Just return OK (anything passed along will be used as a message)."));
-		NSCModuleHelper::registerCommand(_T("check_ok"), _T("Just return OK (anything passed along will be used as a message)."));
-		NSCModuleHelper::registerCommand(_T("CheckWARNING"), _T("Just return WARN (anything passed along will be used as a message)."));
-		NSCModuleHelper::registerCommand(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
-		NSCModuleHelper::registerCommand(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		GET_CORE()->registerCommand(_T("CheckAlwaysOK"), _T("Run another check and regardless of its return code return OK."));
+		GET_CORE()->registerCommand(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));
+		GET_CORE()->registerCommand(_T("CheckAlwaysWARNING"), _T("Run another check and regardless of its return code return WARN."));
+		GET_CORE()->registerCommand(_T("CheckMultiple"), _T("Run more then one check and return the worst state."));
+		GET_CORE()->registerCommand(_T("CheckOK"), _T("Just return OK (anything passed along will be used as a message)."));
+		GET_CORE()->registerCommand(_T("check_ok"), _T("Just return OK (anything passed along will be used as a message)."));
+		GET_CORE()->registerCommand(_T("CheckWARNING"), _T("Just return WARN (anything passed along will be used as a message)."));
+		GET_CORE()->registerCommand(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
+		GET_CORE()->registerCommand(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -64,7 +64,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	if (arguments.empty()) {
-		message = NSCHelper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
+		message = nscapi::plugin_helper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
 		return status;
 	}
 	std::list<std::wstring>::const_iterator cit;
@@ -75,7 +75,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status
 
 NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("CheckVersion")) {
-		message = NSCModuleHelper::getApplicationVersionString();
+		message = GET_CORE()->getApplicationVersionString();
 		return NSCAPI::returnOK;
 	} else if (command == _T("CheckAlwaysOK")) {
 		if (arguments.size() < 1) {
@@ -83,24 +83,15 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 			return NSCAPI::returnUNKNOWN;
 		}
 		std::wstring new_command = arguments.front(); arguments.pop_front();
-		NSCModuleHelper::InjectSimpleCommand(new_command, arguments, message, perf);
+		GET_CORE()->InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnOK;
-	} else if (command == _T("CheckVersion")) {
-		message = NSCModuleHelper::getApplicationVersionString();
-		return NSCAPI::returnOK;
-	} else if (command == _T("CheckOK")) {
-		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
-	} else if (command == _T("CheckWARNING")) {
-		return checkSimpleStatus(NSCAPI::returnWARN, arguments, message, perf);
-	} else if (command == _T("CheckCRITICAL")) {
-		return checkSimpleStatus(NSCAPI::returnCRIT, arguments, message, perf);
 	} else if (command == _T("CheckAlwaysCRITICAL")) {
 		if (arguments.size() < 1) {
 			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
 		std::wstring new_command = arguments.front(); arguments.pop_front();
-		NSCModuleHelper::InjectSimpleCommand(new_command, arguments, message, perf);
+		GET_CORE()->InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnCRIT;
 	} else if (command == _T("CheckAlwaysWARNING")) {
 		if (arguments.size() < 1) {
@@ -108,7 +99,7 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 			return NSCAPI::returnUNKNOWN;
 		}
 		std::wstring new_command = arguments.front(); arguments.pop_front();
-		NSCModuleHelper::InjectSimpleCommand(new_command, arguments, message, perf);
+		GET_CORE()->InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnWARN;
 	} else if (command == _T("CheckOK")) {
 		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
@@ -152,8 +143,8 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> a
 	for (cit2 = commands.begin(); cit2 != commands.end(); ++cit2) {
 		std::list<std::wstring> sub_args;
 		std::wstring tMsg, tPerf;
-		NSCAPI::nagiosReturn tRet = NSCModuleHelper::InjectSimpleCommand((*cit2).first.c_str(), (*cit2).second, tMsg, tPerf);
-		returnCode = NSCHelper::maxState(returnCode, tRet);
+		NSCAPI::nagiosReturn tRet = GET_CORE()->InjectSimpleCommand((*cit2).first.c_str(), (*cit2).second, tMsg, tPerf);
+		returnCode = nscapi::plugin_helper::maxState(returnCode, tRet);
 		if (!message.empty())
 			message += _T(", ");
 		message += tMsg;

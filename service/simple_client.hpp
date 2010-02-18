@@ -1,4 +1,5 @@
 #pragma once
+#include <nscapi/nscapi_helper.hpp>
 
 class NSClientT;
 namespace nsclient {
@@ -24,9 +25,10 @@ namespace nsclient {
 			Settings::get_settings()->save_to(_T("test.ini"));
 */
 			std::wstring s = _T("");
-			std::wstring buff = _T("");
+
 			while (true) {
-				std::wcin >> s;
+				std::wstring s;
+				std::getline(std::wcin, s);
 				if (s == _T("exit")) {
 					std::wcout << _T("Exiting...") << std::endl;
 					break;
@@ -39,10 +41,10 @@ namespace nsclient {
 					for (std::list<std::wstring>::const_iterator cit = lst.begin(); cit!=lst.end();++cit)
 						std::wcout << *cit << _T(": ") << core_->describeCommand(*cit) << std::endl;
 					std::wcout << _T("Listing commands...Done") << std::endl;
-				} else if (s == _T("off") && buff == _T("debug ")) {
+				} else if (s == _T("debug off")) {
 					std::wcout << _T("Setting debug log off...") << std::endl;
 					core_->enableDebug(false);
-				} else if (s == _T("on") && buff == _T("debug ")) {
+				} else if (s == _T("debug on")) {
 					std::wcout << _T("Setting debug log on...") << std::endl;
 					core_->enableDebug(true);
 				} else if (s == _T("reattach")) {
@@ -50,23 +52,19 @@ namespace nsclient {
 					core_->startTrayIcon(0);
 				} else if (s == _T("assert")) {
 					throw "test";
-				} else if (std::cin.peek() < 15) {
-					buff += s;
-					strEx::token t = strEx::getToken(buff, ' ');
+				} else {
+					strEx::token t = strEx::getToken(s, ' ');
 					std::wstring msg, perf;
 					NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, msg, perf);
 					if (ret == NSCAPI::returnIgnored) {
 						std::wcout << _T("No handler for command: ") << t.first << std::endl;
 					} else {
-						std::wcout << NSCHelper::translateReturn(ret) << _T(":");
-						std::cout << strEx::wstring_to_string(msg);
+						std::wcout << nscapi::plugin_helper::translateReturn(ret) << _T(":");
+						std::wcout << msg;
 						if (!perf.empty())
 							std::cout << "|" << strEx::wstring_to_string(perf);
 						std::wcout << std::endl;
 					}
-					buff = _T("");
-				} else {
-					buff += s + _T(" ");
 				}
 			}
 			core_->exitCore(true);

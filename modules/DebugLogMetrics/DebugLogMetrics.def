@@ -10,5 +10,4 @@ EXPORTS
 	NSHandleMessage
 	NSHandleCommand
 	NSUnloadModule
-	NSGetConfigurationMeta
 	NSGetModuleDescription

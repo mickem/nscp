@@ -53,7 +53,7 @@ __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, in
 
 std::wstring getFolder(std::wstring key) {
 	if (key == _T("exe")) {
-		return NSCModuleHelper::getBasePath();
+		return GET_CORE()->getBasePath();
 	} else {
 #ifdef WIN32
 		if (key == _T("local-app-data")) {
@@ -63,7 +63,7 @@ std::wstring getFolder(std::wstring key) {
 		}
 #endif
 	}
-	return NSCModuleHelper::getBasePath();
+	return GET_CORE()->getBasePath();
 }
 std::string FileLogger::getFileName() {
 	if (file_.empty()) {
@@ -93,7 +93,7 @@ bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
 		SETTINGS_REG_KEY_S(log::DATEMASK);
 		SETTINGS_REG_KEY_S(log::LOG_MASK);
 
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -102,10 +102,10 @@ bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
 
 	format_ = to_string(SETTINGS_GET_STRING(log::DATEMASK));
 	std::wstring log_mask = SETTINGS_GET_STRING(log::LOG_MASK);
-	log_mask_ = NSCHelper::logging::parse(log_mask);
-	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + NSCHelper::logging::to_string(log_mask_));
+	log_mask_ = nscapi::logging::parse(log_mask);
+	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + nscapi::logging::to_string(log_mask_));
 	init_ = true;
-	std::wstring hello = _T("Starting to log for: ") + NSCModuleHelper::getApplicationName() + _T(" - ") + NSCModuleHelper::getApplicationVersionString();
+	std::wstring hello = _T("Starting to log for: ") + GET_CORE()->getApplicationName() + _T(" - ") + GET_CORE()->getApplicationVersionString();
 	handleMessage(NSCAPI::log, __FILEW__, __LINE__, hello.c_str());
 	NSC_LOG_MESSAGE_STD(_T("Log path is: ") + to_wstring(file_));
 	return true;
@@ -134,12 +134,12 @@ HANDLE openAppendOrNew(std::wstring file) {
 }
 */
 
-void FileLogger::handleMessage(int msgType, TCHAR* file, int line, const TCHAR* message) {
+void FileLogger::handleMessage(int msgType, const wchar_t* file, int line, const TCHAR* message) {
 	if (!init_) {
 		std::wcout << _T("Discarding: ") << message << std::endl;
 		return;
 	}
-	if (!NSCHelper::logging::matches(log_mask_, msgType))
+	if (!nscapi::logging::matches(log_mask_, msgType))
 		return;
 
 	std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
@@ -147,7 +147,7 @@ void FileLogger::handleMessage(int msgType, TCHAR* file, int line, const TCHAR* 
 		std::wcout << _T("File could not be opened, Discarding: ") << message << std::endl;
 	}
 	stream << to_string(get_formated_date()) 
-		<< (": ") << to_string(NSCHelper::translateMessageType(msgType))
+		<< (": ") << to_string(nscapi::plugin_helper::translateMessageType(msgType))
 		<< (":") << to_string(std::wstring(file))
 		<<(":") << to_string(line) 
 		<< (": ") << to_string(std::wstring(message)) << std::endl;
@@ -165,7 +165,3 @@ NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gFileLogger);
 NSC_WRAPPERS_HANDLE_MSG_DEF(gFileLogger);
 NSC_WRAPPERS_IGNORE_CMD_DEF();
-NSC_WRAPPERS_HANDLE_CONFIGURATION(gFileLogger);
-
-MODULE_SETTINGS_START(FileLogger, _T("File logger configuration"),_T("..."))
-MODULE_SETTINGS_END()

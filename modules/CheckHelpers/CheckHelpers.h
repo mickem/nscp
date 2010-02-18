@@ -22,7 +22,7 @@ NSC_WRAPPERS_MAIN();
 #include <config.h>
 #include <strEx.h>
 
-class CheckHelpers : public NSCModuleHelper::SimpleCommand {
+class CheckHelpers : public nscapi::impl::SimpleCommand {
 private:
 
 public:
@@ -36,8 +36,8 @@ public:
 	std::wstring getModuleName() {
 		return _T("Helper function");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 3, 0 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
 	std::wstring getModuleDescription() {

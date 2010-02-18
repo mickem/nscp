@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <error.hpp>
 #include <execute_process.hpp>
 
-class CheckExternalScripts : public NSCModuleHelper::SimpleCommand {
+class CheckExternalScripts : public nscapi::impl::SimpleCommand {
 private:
 	struct command_data {
 		command_data() {}
@@ -55,8 +55,8 @@ public:
 	std::wstring getModuleName() {
 		return _T("Check External Scripts");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
@@ -87,13 +87,13 @@ private:
 		boost::to_lower(key);
 		command_data cd = command_data(cmd, args);
 		commands[key] = cd;
-		NSCModuleHelper::registerCommand(key, _T("Script: ") + cd.to_string());
+		GET_CORE()->registerCommand(key, _T("Script: ") + cd.to_string());
 	}
 	void addAlias(std::wstring key, std::wstring cmd, std::wstring args) {
 		boost::to_lower(key);
 		command_data cd = command_data(cmd, args);
 		alias[key] = cd;
-		NSCModuleHelper::registerCommand(key, _T("Alias for: ") + cd.to_string());
+		GET_CORE()->registerCommand(key, _T("Alias for: ") + cd.to_string());
 	}
 };
 

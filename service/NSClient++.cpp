@@ -34,10 +34,10 @@
 #include "core_api.h"
 #include "settings_manager_impl.h"
 #include <settings/macros.h>
-#include <NSCHelper.h>
 #include "simple_client.hpp"
 #include "settings_client.hpp"
 #include "service_manager.hpp"
+#include <nscapi/nscapi_helper.hpp>
 
 #include "../libs/protobuf/plugin.proto.h"
 
@@ -303,6 +303,7 @@ int nscp_main(int argc, wchar_t* argv[])
 			return 0;
 		} else if ( wcscasecmp( _T("about"), argv[1]+1 ) == 0 ) {
 			try {
+				unsigned int next_plugin_id = 0;
 				g_bConsoleLog = true;
 				LOG_MESSAGE(SZAPPNAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
 				LOG_MESSAGE(_T("Version: ") SZVERSION);
@@ -317,7 +318,7 @@ int nscp_main(int argc, wchar_t* argv[])
 						std::wstring file= itr->leaf();
 						LOG_MESSAGE_STD(_T("Found: ") + file);
 						if (is_module(pluginPath / file)) {
-							NSCPlugin *plugin = new NSCPlugin(pluginPath / file);
+							NSCPlugin *plugin = new NSCPlugin(next_plugin_id++, pluginPath / file);
 							std::wstring name = _T("<unknown>");
 							std::wstring description = _T("<unknown>");
 							try {
@@ -458,7 +459,7 @@ NSClientT::plugin_info_list NSClientT::get_all_plugins() {
 				info.dll = itr->leaf();
 				try {
 					LOG_DEBUG_STD(_T("Attempting to fake load: ") + file.string());
-					NSCPlugin plugin(pluginPath / file);
+					NSCPlugin plugin(next_plugin_id_++, pluginPath / file);
 					plugin.load_dll();
 					plugin.load_plugin(NSCAPI::dontStart);
 					info.name = plugin.getName();
@@ -489,7 +490,7 @@ void NSClientT::load_all_plugins(int mode) {
 					if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, file.string()) == _T("disabled")) {
 						try {
 							LOG_DEBUG_STD(_T("Attempting to fake load: ") + file.string());
-							NSCPlugin plugin(modPath / file);
+							NSCPlugin plugin(next_plugin_id_++, modPath / file);
 							plugin.load_dll();
 							plugin.load_plugin(mode);
 							plugin.unload();
@@ -503,7 +504,7 @@ void NSClientT::load_all_plugins(int mode) {
 					std::wstring desc;
 					std::wstring name = file.string();
 					try {
-						NSCPlugin plugin(modPath / file);
+						NSCPlugin plugin(next_plugin_id_++, modPath / file);
 						name = plugin.getModule();
 						plugin.load_dll();
 						plugin.load_plugin(mode);
@@ -625,25 +626,26 @@ bool NSClientT::initCore(bool boot) {
 		try {
 			Settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 			for (Settings::string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-				LOG_DEBUG_STD(_T("Processing plugin: " + *cit));
+				std::wstring file = NSCPlugin::get_plugin_file(*cit);
+				LOG_DEBUG_STD(_T("Processing plugin: " + *cit) + _T(" in ") + file);
 				try {
 					if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, *cit) == _T("disabled")) {
-						LOG_DEBUG_STD(_T("Not booting: ") + *cit + _T(" since it is disabled."));
+						LOG_DEBUG_STD(_T("Not booting: ") + file + _T(" since it is disabled."));
 						continue;
 					}
 				} catch (...) {
 					// If we except we load the plugin in as-is
 				}
 				try {
-					loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(*cit));
+					loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(file));
 				} catch(const NSPluginException& e) {
 					LOG_ERROR_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
 					//return false;
 				} catch (std::exception e) {
-					LOG_ERROR_CORE_STD(_T("exception loading plugin: ") + (*cit) + strEx::string_to_wstring(e.what()));
+					LOG_ERROR_CORE_STD(_T("exception loading plugin: ") + file + strEx::string_to_wstring(e.what()));
 					return false;
 				} catch (...) {
-					LOG_ERROR_CORE_STD(_T("Unknown exception loading plugin: ") + (*cit));
+					LOG_ERROR_CORE_STD(_T("Unknown exception loading plugin: ") + file);
 					return false;
 				}
 			}
@@ -970,7 +972,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
  * @param file The DLL file
  */
 NSClientT::plugin_type NSClientT::loadPlugin(const boost::filesystem::wpath file) {
-	plugin_type plugin(new NSCPlugin(file));
+	plugin_type plugin(new NSCPlugin(next_plugin_id_++, file));
 	return addPlugin(plugin);
 }
 /**
@@ -1121,7 +1123,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, std::string &r
 				return NSCAPI::returnIgnored;
 			}
 			NSCAPI::nagiosReturn c = plugin->handleCommand(command, request, response);
-			LOG_DEBUG_STD(_T("Result ") + std::wstring(command) + _T(": ") + NSCHelper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
+			LOG_DEBUG_STD(_T("Result ") + std::wstring(command) + _T(": ") + nscapi::plugin_helper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
 			return c;
 		} catch (nsclient::commands::command_exception &e) {
 			LOG_ERROR_CORE(_T("No handler for command: ") + std::wstring(command) + _T(": ") + to_wstring(e.what()));
@@ -1200,7 +1202,7 @@ void log_broken_message(std::wstring msg) {
 #ifdef WIN32
 	OutputDebugString(msg.c_str());
 #else
-	std::wcout << _T("--BROKEN MESSAGE: ") << msg << _T("--") << std::endl;
+//	std::wcout << _T("--BROKEN MESSAGE: ") << msg << _T("--") << std::endl;
 #endif
 }
 /**

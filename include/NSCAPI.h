@@ -105,6 +105,68 @@ namespace NSCAPI {
 
 };
 
-namespace NSCModuleHelper {
-	typedef void* (*lpNSAPILoader)(wchar_t*);
+namespace nscapi {
+
+
+	class nscapi_exception {
+	public:
+		std::wstring msg_;
+		nscapi_exception(std::wstring msg) : msg_(msg) {}
+	};
+
+	namespace core_api {
+		typedef void* (*lpNSAPILoader)(const wchar_t*);
+
+		typedef NSCAPI::errorReturn (*lpNSAPIGetBasePath)(wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const wchar_t*,const wchar_t*,const wchar_t*,wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const wchar_t*, wchar_t***, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(wchar_t***, unsigned int *);
+		typedef void (*lpNSAPIMessage)(int, const wchar_t*, const int, const wchar_t*);
+		typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
+		typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
+		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
+		typedef void (*lpNSAPIDestroyBuffer)(char**);
+
+		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);
+
+		typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
+		typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSAPISetSettingsString)(const wchar_t*, const wchar_t*, const wchar_t*);
+		typedef NSCAPI::errorReturn (*lpNSAPISetSettingsInt)(const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPIWriteSettings)(int);
+		typedef NSCAPI::errorReturn (*lpNSAPIReadSettings)(int);
+		typedef NSCAPI::errorReturn (*lpNSAPIRehash)(int);
+		typedef NSCAPI::errorReturn (*lpNSAPIDescribeCommand)(const wchar_t*,wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetAllCommandNames)(wchar_t***, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSAPIReleaseAllCommandNamessBuffer)(wchar_t***, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(unsigned int, const wchar_t*,const wchar_t*);
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(const wchar_t*, const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
+		typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSCAPI::plugin_info *list[]);
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
+	}
+
+	namespace plugin_api {
+		typedef int (*lpModuleHelperInit)(unsigned int, ::nscapi::core_api::lpNSAPILoader f);
+		typedef int (*lpLoadModule)(int);
+		typedef int (*lpGetName)(wchar_t*,unsigned int);
+		typedef int (*lpGetDescription)(wchar_t*,unsigned int);
+		typedef int (*lpGetVersion)(int*,int*,int*);
+		typedef int (*lpHasCommandHandler)();
+		typedef int (*lpHasMessageHandler)();
+		typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
+		typedef int (*lpDeleteBuffer)(char**);
+		typedef int (*lpCommandLineExec)(const unsigned int,wchar_t**);
+		typedef int (*lpHandleMessage)(int,const wchar_t*,const int,const wchar_t*);
+		typedef int (*lpUnLoadModule)();
+		typedef void (*lpShowTray)();
+		typedef void (*lpHideTray)();
+		typedef int (*lpHasNotificationHandler)();
+		typedef int (*lpHandleNotification)(const wchar_t *channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
+	}
 }

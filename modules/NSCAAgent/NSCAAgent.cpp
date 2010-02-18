@@ -71,7 +71,7 @@ bool NSCAAgent::loadModule(NSCAPI::moduleLoadMode mode) {
 		time_delta_ = strEx::stol_as_time_sec(SETTINGS_GET_STRING(nsca::TIME_DELTA_DEFAULT), 1);
 
 
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -123,11 +123,13 @@ NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring chan
 		packet.result = to_string(msg);
 		socket.recv_iv(password_, encryption_method_, boost::posix_time::seconds(timeout_));
 		socket.send_nsca(packet, boost::posix_time::seconds(timeout_));
-		return 1;
+		return NSCAPI::isSuccess;
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + to_wstring(e.what()));
+		return NSCAPI::hasFailed;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to send data: UNKNOWN"));
+		return NSCAPI::hasFailed;
 	}
 }
 

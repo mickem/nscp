@@ -39,8 +39,7 @@
 #include <types.hpp>
 
 #include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
+#include <nscapi/plugin.hpp>
 namespace po = boost::program_options;
 
 

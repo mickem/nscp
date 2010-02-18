@@ -28,8 +28,7 @@
 
 #include <types.hpp>
 #include <NSCAPI.h>
-#include <nsc_module_wrapper.hpp>
-#include <NSCHelper.h>
+#include <nscapi/plugin.hpp>
 
 #ifdef MEMCHECK
 #include <vld.h>

@@ -10,7 +10,6 @@ EXPORTS
 	NSHandleMessage
 	NSHandleCommand
 	NSUnloadModule
-	NSGetConfigurationMeta
 	NSGetModuleDescription
 	NSCommandLineExec
 	NSDeleteBuffer

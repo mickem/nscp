@@ -39,7 +39,7 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 		SETTINGS_REG_KEY_S(scheduler::REPORT_MODE_D);
 
 		SETTINGS_REG_KEY_I(scheduler::THREADS);
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -58,11 +58,11 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 
 		bool found = false;
 		scheduler::target def = read_defaut_schedule(setting_keys::scheduler::DEFAULT_SCHEDULE_SECTION_PATH);
-		std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(setting_keys::scheduler::SCHEDULES_SECTION_PATH);
+		std::list<std::wstring> items = GET_CORE()->getSettingsSection(setting_keys::scheduler::SCHEDULES_SECTION_PATH);
 
 		for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
 			found = true;
-			add_schedule(*cit, NSCModuleHelper::getSettingsString(setting_keys::scheduler::SCHEDULES_SECTION_PATH, *cit, _T("")), def);
+			add_schedule(*cit, GET_CORE()->getSettingsString(setting_keys::scheduler::SCHEDULES_SECTION_PATH, *cit, _T("")), def);
 		}
 
 		if (!found) {
@@ -73,7 +73,7 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 			SETTINGS_REG_KEY_S(scheduler::REPORT_MODE);
 
 		}
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception in module Scheduler: ") + e.msg_);
 		return false;
 	} catch (...) {
@@ -85,11 +85,11 @@ bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
 
 scheduler::target Scheduler::read_defaut_schedule(std::wstring path) {
 	scheduler::target item;
-	item.channel = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::CHANNEL_D, setting_keys::scheduler::CHANNEL_D_DEFAULT);
-	item.command = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::COMMAND_D, setting_keys::scheduler::COMMAND_D_DEFAULT);
-	std::wstring report = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::REPORT_MODE_D, setting_keys::scheduler::REPORT_MODE_D_DEFAULT);
-	item.report = NSCHelper::report::parse(report);
-	std::wstring duration = NSCModuleHelper::getSettingsString(path, setting_keys::scheduler::INTERVAL_D, setting_keys::scheduler::INTERVAL_D_DEFAULT);
+	item.channel = GET_CORE()->getSettingsString(path, setting_keys::scheduler::CHANNEL_D, setting_keys::scheduler::CHANNEL_D_DEFAULT);
+	item.command = GET_CORE()->getSettingsString(path, setting_keys::scheduler::COMMAND_D, setting_keys::scheduler::COMMAND_D_DEFAULT);
+	std::wstring report = GET_CORE()->getSettingsString(path, setting_keys::scheduler::REPORT_MODE_D, setting_keys::scheduler::REPORT_MODE_D_DEFAULT);
+	item.report = nscapi::report::parse(report);
+	std::wstring duration = GET_CORE()->getSettingsString(path, setting_keys::scheduler::INTERVAL_D, setting_keys::scheduler::INTERVAL_D_DEFAULT);
 	item.duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(duration, 1));
 	return item;
 }
@@ -98,14 +98,14 @@ void Scheduler::add_schedule(std::wstring alias, std::wstring command, scheduler
 	std::wstring detail_path = setting_keys::scheduler::SCHEDULES_SECTION_PATH + _T("/") + alias;
 	item.alias = alias;
 	item.command = command;
-	item.channel = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::CHANNEL, def.channel);
-	item.command = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::COMMAND, item.command);
+	item.channel = GET_CORE()->getSettingsString(detail_path, setting_keys::scheduler::CHANNEL, def.channel);
+	item.command = GET_CORE()->getSettingsString(detail_path, setting_keys::scheduler::COMMAND, item.command);
 
 	strEx::parse_command(item.command, item.command, item.arguments);
 
-	std::wstring report = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::REPORT_MODE, NSCHelper::report::to_string(def.report));
-	item.report = NSCHelper::report::parse(report);
-	std::wstring duration = NSCModuleHelper::getSettingsString(detail_path, setting_keys::scheduler::INTERVAL, to_wstring(def.duration.total_seconds()) + _T("s"));
+	std::wstring report = GET_CORE()->getSettingsString(detail_path, setting_keys::scheduler::REPORT_MODE, nscapi::report::to_string(def.report));
+	item.report = nscapi::report::parse(report);
+	std::wstring duration = GET_CORE()->getSettingsString(detail_path, setting_keys::scheduler::INTERVAL, to_wstring(def.duration.total_seconds()) + _T("s"));
 	item.duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(duration, 1));
 	scheduler_.add_task(item);
 }
@@ -123,11 +123,11 @@ void Scheduler::on_error(std::wstring error) {
 void Scheduler::handle_schedule(scheduler::target item) {
 	try {
 		std::string response;
-		NSCAPI::nagiosReturn code = NSCModuleHelper::InjectCommand(item.command.c_str(), item.arguments, response);
-		if (NSCHelper::report::matches(item.report, code)) {
-			NSCModuleHelper::NotifyChannel(item.channel, item.alias, code, response);
+		NSCAPI::nagiosReturn code = GET_CORE()->InjectCommand(item.command.c_str(), item.arguments, response);
+		if (nscapi::report::matches(item.report, code)) {
+			GET_CORE()->NotifyChannel(item.channel, item.alias, code, response);
 		}
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception handling: ") + item.alias + _T(": ") + e.msg_);
 		scheduler_.remove_task(item.id);
 	} catch (...) {

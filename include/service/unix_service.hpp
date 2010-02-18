@@ -62,10 +62,10 @@ namespace service_helper_impl {
 		}
 		virtual ~unix_service() {
 		}
-		inline void print_debug(std::wstring s) {
+		inline void print_debug(const std::wstring s) {
 			std::wcout << s << std::endl;
 		}
-		inline void print_debug(wchar_t *s) {
+		inline void print_debug(const wchar_t *s) {
 			std::wcout << s << std::endl;
 		}
 

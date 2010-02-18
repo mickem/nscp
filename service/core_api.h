@@ -29,7 +29,7 @@
 // Though I think this is not the case at the moment.
 //
 
-LPVOID NSAPILoader(wchar_t*buffer);
+LPVOID NSAPILoader(const wchar_t*buffer);
 NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen);
 NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen);
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen);
