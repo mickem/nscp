@@ -74,10 +74,10 @@ NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status
 }
 
 NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("CheckVersion")) {
+	if (command == _T("checkversion")) {
 		message = GET_CORE()->getApplicationVersionString();
 		return NSCAPI::returnOK;
-	} else if (command == _T("CheckAlwaysOK")) {
+	} else if (command == _T("checkalwaysok")) {
 		if (arguments.size() < 1) {
 			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
@@ -85,7 +85,7 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 		std::wstring new_command = arguments.front(); arguments.pop_front();
 		GET_CORE()->InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnOK;
-	} else if (command == _T("CheckAlwaysCRITICAL")) {
+	} else if (command == _T("checkalwayscritical")) {
 		if (arguments.size() < 1) {
 			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
@@ -93,7 +93,7 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 		std::wstring new_command = arguments.front(); arguments.pop_front();
 		GET_CORE()->InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnCRIT;
-	} else if (command == _T("CheckAlwaysWARNING")) {
+	} else if (command == _T("checkalwayswarning")) {
 		if (arguments.size() < 1) {
 			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
@@ -101,15 +101,15 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 		std::wstring new_command = arguments.front(); arguments.pop_front();
 		GET_CORE()->InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnWARN;
-	} else if (command == _T("CheckOK")) {
+	} else if (command == _T("checkok")) {
 		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
 	} else if (command == _T("check_ok")) {
 		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
-	} else if (command == _T("CheckWARNING")) {
+	} else if (command == _T("checkwarning")) {
 		return checkSimpleStatus(NSCAPI::returnWARN, arguments, message, perf);
-	} else if (command == _T("CheckCRITICAL")) {
+	} else if (command == _T("checkcritical")) {
 		return checkSimpleStatus(NSCAPI::returnCRIT, arguments, message, perf);
-	} else if (command == _T("CheckMultiple")) {
+	} else if (command == _T("checkmultiple")) {
 		return checkMultiple(arguments, message, perf);
 	}
 	return NSCAPI::returnIgnored;
