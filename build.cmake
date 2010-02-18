@@ -21,8 +21,12 @@ SET(PROTOBUF_BINARYDIR D:/source/protobuf-2.3.0/vsprojects/Debug)
 #SET(PROTOBUF_LIBRARYDIR C:/src/protobuf-2.3.0/vsprojects/Release)
 #SET(PROTOBUF_BINARYDIR C:/src/protobuf-2.3.0/vsprojects/Release)
 
+
+SET(CRYPTOPP_DIR C:/src/lib-src/Crypto++5.6.0)
+
 SET(CRYPTOPP_SOURCE d:/source/libs-c/crypto++-5.6.0)
 
 ELSE(WIN32)
 
 ENDIF(WIN32)
+SET(CRYPTOPP_SOURCE d:/source/libs-c/crypto++-5.6.0)

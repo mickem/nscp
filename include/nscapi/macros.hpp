@@ -1,38 +1,10 @@
 #pragma once
-
-#ifdef WIN32
-#include <windows.h>
-#endif
-
-
-namespace NSCModuleWrapper {
-	struct module_version {
-		int major;
-		int minor;
-		int revision;
-	};
-#ifdef WIN32
-	int wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call);
-	HINSTANCE getModule();
-#endif
-	int wrapModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f);;
-	NSCAPI::errorReturn wrapGetModuleName(wchar_t* buf, unsigned int buflen, std::wstring str);
-	NSCAPI::errorReturn wrapGetConfigurationMeta(wchar_t* buf, unsigned int buflen, std::wstring str);
-	int wrapLoadModule(bool success);
-	NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
-	NSCAPI::boolReturn wrapHasCommandHandler(bool has);
-	NSCAPI::boolReturn wrapHasMessageHandler(bool has);
-	NSCAPI::boolReturn wrapHasNotificationHandler(bool has);
-	NSCAPI::nagiosReturn wrapHandleNotification(NSCAPI::nagiosReturn retResult);
-	int wrapUnloadModule(bool success);
-	NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
-	void wrapDeleteBuffer(char**buffer);
-}
+#include <unicode_char.hpp>
 
 //////////////////////////////////////////////////////////////////////////
 // Module wrappers (definitions)
 #define NSC_WRAPPERS_MAIN() \
-	extern "C" int NSModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f); \
+	extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f); \
 	extern "C" int NSLoadModule(int mode); \
 	extern "C" void NSDeleteBuffer(char**buffer); \
 	extern "C" int NSGetModuleName(wchar_t* buf, int buflen); \
@@ -42,58 +14,48 @@ namespace NSCModuleWrapper {
 	extern "C" NSCAPI::boolReturn NSHasMessageHandler(); \
 	extern "C" void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message); \
 	extern "C" NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len); \
-	extern "C" int NSUnloadModule(); \
-	extern "C" int NSGetConfigurationMeta(int IN_retBufLen, wchar_t *OUT_retBuf)
+	extern "C" int NSUnloadModule();
+
 
 #define NSC_WRAPPERS_CLI() \
-	extern "C" int NSCommandLineExec(const unsigned int,wchar_t**)
+	extern "C" int NSCommandLineExec(const unsigned int,wchar_t**);
 
-#ifdef DEBUG
-#define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
-#define NSC_LOG_ERROR_C(msg) { \
-	NSCModuleHelper::Message(NSCAPI::error, _T(__FILE__), __LINE__, msg) \
-	std::wcerr << msg << std::endl; }
-#else
-#define NSC_LOG_ERROR_STD_C(msg) NSC_LOG_ERROR_STD(msg)
-#define NSC_LOG_ERROR_C(msg) NSC_LOG_ERROR(msg)
-#endif
-
+#define NSC_WRAPPERS_CHANNELS() \
+	extern "C" int NSHasNotificationHandler(); \
+	extern "c" int NSHandleNotification(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int)
+//////////////////////////////////////////////////////////////////////////
+// Logging calls for the core wrapper 
 
 #define NSC_LOG_ERROR_STD(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
-#define NSC_LOG_ERROR(msg) \
-	NSCModuleHelper::Message(NSCAPI::error, __FILEW__, __LINE__, msg)
+#define NSC_LOG_ERROR(msg) NSC_ANY_MSG(msg,NSCAPI::error)
 
 #define NSC_LOG_CRITICAL_STD(msg) NSC_LOG_CRITICAL(((std::wstring)msg).c_str())
-#define NSC_LOG_CRITICAL(msg) \
-	NSCModuleHelper::Message(NSCAPI::critical, __FILEW__, __LINE__, msg)
+#define NSC_LOG_CRITICAL(msg) NSC_ANY_MSG(msg,NSCAPI::critical)
 
 #define NSC_LOG_MESSAGE_STD(msg) NSC_LOG_MESSAGE(((std::wstring)msg).c_str())
-#define NSC_LOG_MESSAGE(msg) \
-	NSCModuleHelper::Message(NSCAPI::log, __FILEW__, __LINE__, msg)
+#define NSC_LOG_MESSAGE(msg) NSC_ANY_MSG(msg,NSCAPI::log)
 
-//#define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG(((std::wstring)msg).c_str())
 #define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG((std::wstring)msg)
-#define NSC_DEBUG_MSG(msg) \
-	NSCModuleHelper::Message(NSCAPI::debug, __FILEW__, __LINE__, msg)
+#define NSC_DEBUG_MSG(msg) NSC_ANY_MSG(msg,NSCAPI::debug)
 
-/*
-#define NSC_DEBUG_MSG_STD(msg)
-#define NSC_DEBUG_MSG(msg)
-*/
+#define NSC_ANY_MSG(msg, type) GET_CORE()->Message(type, __FILEW__, __LINE__, msg)
+
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point
 
 #ifdef _WIN32
 #define NSC_WRAP_DLL() \
-	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call); return TRUE; }
+	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { GET_PLUGIN()->wrapDllMain(hModule, ul_reason_for_call); return TRUE; } \
+	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 #else
-#define NSC_WRAP_DLL()
+#define NSC_WRAP_DLL() \
+	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 #endif
 
 #define NSC_WRAPPERS_MAIN_DEF(toObject) \
-	extern int NSModuleHelperInit(unsigned int id, NSCModuleHelper::lpNSAPILoader f) { \
+	extern int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) { \
 		try { \
-			return NSCModuleWrapper::wrapModuleHelperInit(id, f); \
+			return GET_PLUGIN()->wrapModuleHelperInit(id, f); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
 			return NSCAPI::hasFailed; \
@@ -101,8 +63,8 @@ namespace NSCModuleWrapper {
 	} \
 	extern int NSLoadModule(int mode) { \
 		try { \
-			return NSCModuleWrapper::wrapLoadModule(toObject.loadModule(mode)); \
-		} catch (NSCModuleHelper::NSCMHExcpetion e) { \
+			return GET_PLUGIN()->wrapLoadModule(toObject.loadModule(mode)); \
+		} catch (nscapi::nscapi_exception e) { \
 			NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
 			return NSCAPI::hasFailed; \
 		} catch (...) { \
@@ -112,7 +74,7 @@ namespace NSCModuleWrapper {
 	} \
 	extern int NSGetModuleName(wchar_t* buf, int buflen) { \
 		try { \
-			return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
+			return GET_PLUGIN()->wrapGetModuleName(buf, buflen, toObject.getModuleName()); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
 			return NSCAPI::hasFailed; \
@@ -120,7 +82,7 @@ namespace NSCModuleWrapper {
 	} \
 	extern int NSGetModuleDescription(wchar_t* buf, int buflen) { \
 		try { \
-			return NSCModuleWrapper::wrapGetModuleName(buf, buflen, toObject.getModuleDescription()); \
+			return GET_PLUGIN()->wrapGetModuleName(buf, buflen, toObject.getModuleDescription()); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
 			return NSCAPI::hasFailed; \
@@ -128,7 +90,7 @@ namespace NSCModuleWrapper {
 	} \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { \
 		try { \
-			return NSCModuleWrapper::wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
+			return GET_PLUGIN()->wrapGetModuleVersion(major, minor, revision, toObject.getModuleVersion()); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
 			return NSCAPI::hasFailed; \
@@ -136,7 +98,7 @@ namespace NSCModuleWrapper {
 	} \
 	extern int NSUnloadModule() { \
 		try { \
-			return NSCModuleWrapper::wrapUnloadModule(toObject.unloadModule()); \
+			return GET_PLUGIN()->wrapUnloadModule(toObject.unloadModule()); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
 			return NSCAPI::hasFailed; \
@@ -144,7 +106,7 @@ namespace NSCModuleWrapper {
 	} \
 	extern void NSDeleteBuffer(char**buffer) { \
 		try { \
-			NSCModuleWrapper::wrapDeleteBuffer(buffer); \
+			GET_PLUGIN()->wrapDeleteBuffer(buffer); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
 		} \
@@ -159,7 +121,7 @@ namespace NSCModuleWrapper {
 	} \
 	extern NSCAPI::boolReturn NSHasMessageHandler() { \
 		try { \
-			return NSCModuleWrapper::wrapHasMessageHandler(toObject.hasMessageHandler()); \
+			return GET_PLUGIN()->wrapHasMessageHandler(toObject.hasMessageHandler()); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasMessageHandler(...)")); \
 			return NSCAPI::isfalse; \
@@ -174,7 +136,7 @@ namespace NSCModuleWrapper {
 	try { \
 	std::string request(request_buffer, request_buffer_len), reply; \
 	NSCAPI::nagiosReturn retCode = (&toObject)->handleRAWCommand(command, request, reply); \
-	return NSCModuleWrapper::wrapHandleCommand(retCode, reply, reply_buffer, reply_buffer_len); \
+	return GET_PLUGIN()->wrapHandleCommand(retCode, reply, reply_buffer, reply_buffer_len); \
 		} catch (...) { \
 		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
 		return NSCAPI::returnIgnored; \
@@ -182,7 +144,7 @@ namespace NSCModuleWrapper {
 	} \
 	extern NSCAPI::boolReturn NSHasCommandHandler() { \
 	try { \
-	return NSCModuleWrapper::wrapHasCommandHandler(toObject.hasCommandHandler()); \
+	return GET_PLUGIN()->wrapHasCommandHandler(toObject.hasCommandHandler()); \
 		} catch (...) { \
 		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasCommandHandler(...)")); \
 		return NSCAPI::isfalse; \
@@ -202,7 +164,7 @@ namespace NSCModuleWrapper {
 	{ \
 		try { \
 			std::string result(result_buffer, result_buffer_len); \
-			return NSCModuleWrapper::wrapHandleNotification((&toObject)->handleRAWNotification(channel, command, code, result)); \
+			return GET_PLUGIN()->wrapHandleNotification((&toObject)->handleRAWNotification(channel, command, code, result)); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasNotificationHandler(...)")); \
 			return NSCAPI::returnIgnored; \
@@ -210,24 +172,13 @@ namespace NSCModuleWrapper {
 	} \
 	extern NSCAPI::boolReturn NSHasNotificationHandler() { \
 		try { \
-			return NSCModuleWrapper::wrapHasNotificationHandler(toObject.hasNotificationHandler()); \
+			return GET_PLUGIN()->wrapHasNotificationHandler(toObject.hasNotificationHandler()); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasNotificationHandler(...)")); \
 			return NSCAPI::isfalse; \
 		} \
 	}
 
-
-#define NSC_WRAPPERS_HANDLE_CONFIGURATION(toObject) \
-	extern int NSGetConfigurationMeta(int IN_retBufLen, wchar_t *OUT_retBuf) \
-	{ \
-		try { \
-			return NSCModuleWrapper::wrapGetConfigurationMeta(OUT_retBuf, IN_retBufLen, toObject.getConfigurationMeta()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetConfigurationMeta(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	}
 
 #define NSC_WRAPPERS_CLI_DEF(toObject) \
 	extern int NSCommandLineExec(const unsigned int argLen,wchar_t** args) { \
@@ -240,47 +191,33 @@ namespace NSCModuleWrapper {
 		} \
 	} \
 
-//////////////////////////////////////////////////////////////////////////
-#define MODULE_SETTINGS_START(class, name, description) \
-	std::wstring class::getConfigurationMeta() { \
-	return (std::wstring)_T("<module name=\"") + name + _T("\" description=\"") + description + _T("\">") \
-	_T("<pages>")
 
 
-#define ADVANCED_PAGE(title) \
-	_T("<page title=\"") title _T("\" advanced=\"true\">") \
-	_T("<items>")
+#define SETTINGS_MAKE_NAME(key) \
+	std::wstring(setting_keys::key ## _PATH + _T(".") + setting_keys::key)
 
-#define PAGE(title) \
-	_T("<page title=\"") title _T("\">") \
-	_T("<items>")
+#define SETTINGS_GET_STRING(key) \
+	GET_CORE()->getSettingsString(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
+#define SETTINGS_GET_INT(key) \
+	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
+#define SETTINGS_GET_BOOL(key) \
+	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
 
-#define ITEM_EDIT_TEXT(caption, description) \
-	_T("<item type=\"text\" caption=\"") caption _T("\" description=\"") description _T("\"><options>")
+#define SETTINGS_GET_STRING_FALLBACK(key, fallback) \
+	GET_CORE()->getSettingsString(setting_keys::key ## _PATH, setting_keys::key, GET_CORE()->getSettingsString(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
+#define SETTINGS_GET_INT_FALLBACK(key, fallback) \
+	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, GET_CORE()->getSettingsInt(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
+#define SETTINGS_GET_BOOL_FALLBACK(key, fallback) \
+	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, GET_CORE()->getSettingsInt(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
 
-#define ITEM_EDIT_OPTIONAL_LIST(caption, description) \
-	_T("<item type=\"optional_list\" caption=\"") caption _T("\" description=\"") description _T("\"><options>")
+#define SETTINGS_REG_KEY_S(key) \
+	GET_CORE()->settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_string, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT, setting_keys::key ## _ADVANCED);
+#define SETTINGS_REG_KEY_I(key) \
+	GET_CORE()->settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, boost::lexical_cast<std::wstring>(setting_keys::key ## _DEFAULT), setting_keys::key ## _ADVANCED);
+#define SETTINGS_REG_KEY_B(key) \
+	GET_CORE()->settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT==1?_T("1"):_T("0"), setting_keys::key ## _ADVANCED);
+#define SETTINGS_REG_PATH(key) \
+	GET_CORE()->settings_register_path(setting_keys::key ## _PATH, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _ADVANCED);
 
-#define ITEM_CHECK_BOOL(caption, description) \
-	_T("<item type=\"bool\" caption=\"") caption _T("\" description=\"") description _T("\"><options>")
-
-#define ITEM_MAP_TO(type) \
-	_T("</options><mapper type=\"") type _T("\">") \
-	_T("<options>")
-
-#define OPTION(key, value) \
-	_T("<option key=\"") key _T("\" value=\"") value _T("\"/>")
-
-#define ITEM_END() \
-	_T("</options>") \
-	_T("</mapper>") \
-	_T("</item>")
-
-#define PAGE_END() \
-	_T("</items>") \
-	_T("</page>")
-
-#define MODULE_SETTINGS_END() \
-			_T("</pages>") \
-		_T("</module>"); \
-	}
+#define GET_CORE() nscapi::plugin_singleton->get_core()
+#define GET_PLUGIN() nscapi::plugin_singleton->get_plugin()

@@ -21,6 +21,7 @@
 #pragma once
 
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CHANNELS();
 
 class NSCAAgent : public nscapi::impl::SimpleNotificationHandler {
 private:
