@@ -22,7 +22,8 @@
 
 #define NSC_WRAPPERS_CHANNELS() \
 	extern "C" int NSHasNotificationHandler(); \
-	extern "c" int NSHandleNotification(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int)
+	extern "C" int NSHandleNotification(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);
+
 //////////////////////////////////////////////////////////////////////////
 // Logging calls for the core wrapper 
 
