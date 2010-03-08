@@ -47,7 +47,8 @@ rule init ( version ? : command * : options * )
 	
 	local wix-location = [ MATCH "^--wix=(.*)" : [ modules.peek : ARGV ] ] ;
 	if $(wix-location) {
-		prefix = $(wix-location)\\bin\\ ;
+# MIME FIX!!!		prefix = $(wix-location)\\bin\\ ;
+		prefix = $(wix-location)\\ ;
 	} else {
 		command = [ common.get-invocation-command wix : candle.exe : $(command) ] ;
 		if $(command) {

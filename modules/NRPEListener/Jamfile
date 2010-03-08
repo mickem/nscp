@@ -14,10 +14,12 @@ lib $(target)
 	../../include/arrayBuffer.cpp
 	../../include/b64/b64.c
 	../../include/utils.cpp
+	../../include/Socket.cpp
+	../../include/sslSocket.cpp
+	/openssl//socket
 
 	: # requirements
 	<def-file>$(source).def
-	<source>/openssl//socket
 	<runtime-link>static
 
 	: # default build

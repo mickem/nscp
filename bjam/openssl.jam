@@ -146,6 +146,7 @@ rule requirements ( properties * )
 rule usage-requirements ( properties * )
 {
 	local result ;
+	result += <source>$(TOP)/include/Socket.cpp ;
 	if ( $(.enabled) = true ) {
 		result += <define>USE_OPENSSL ;
 		result += <define>USE_SSL ;
@@ -160,14 +161,26 @@ alias socket
 	  #<name>openssl
 	: # default-build
 	: # usage-requirements
+		<conditional>@socket-usage-requirements
 	;
 
 rule socket-requirements ( properties * )
 {
 	local result ;
-	result += <source>include/Socket.cpp ;
+	result += <source>$(TOP)/include/Socket.cpp ;
 	if ( $(.enabled) = true ) {
-		result += <source>include/sslSocket.cpp ;
+		result += <source>$(TOP)/include/sslSocket.cpp ;
+		result += <source>openssl ;
+	}
+	return $(result) ;
+}
+
+rule socket-usage-requirements ( properties * )
+{
+	local result ;
+	result += <source>$(TOP)/include/Socket.cpp ;
+	if ( $(.enabled) = true ) {
+		result += <source>$(TOP)/include/sslSocket.cpp ;
 		result += <source>openssl ;
 	}
 	return $(result) ;

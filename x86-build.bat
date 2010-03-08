@@ -21,15 +21,15 @@ echo *************
 goto :eof
 
 :build_hdrs
-echo %jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers >> build.log
-%jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers
+echo %jam% --toolset=msvc-8.0 --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers >> build.log
+     %jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers
 if %ERRORLEVEL% == -1 goto :error_one
 echo :: Result: %ERRORLEVEL% >> build.log
 goto :eof
 
 :build_src
-echo %jam% --toolset=msvc source-archive >> build.log
-%jam% --toolset=msvc source-archive
+echo %jam% --toolset=msvc-8.0 source-archive >> build.log
+     %jam% --toolset=msvc-8.0 source-archive
 if %ERRORLEVEL% == -1 goto :error_one
 echo :: Result: %ERRORLEVEL% >> build.log
 goto :eof

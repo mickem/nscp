@@ -6,6 +6,19 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2009-03-08 MickeM
+ + Added new option append-filter-<key>=<value> to CheckEventLog to allow "and" of filter rules.
+   CheckEventLog file=application file=system filter=out MaxWarn=1 MaxCrit=1 filter-eventID=ne:1 filter-eventID=eq:1 append-filter-eventSource==SecurityCenter truncate=1023 unique descriptions "syntax=%source%: %id% (%count%)"
+ + Added debug option to CheckEventLog (to allow settingdebug on per-check)
+ + Added obfuscated_password to NSCA section
+ + Added so "global" ([Settings] password=...) passwords are read from the NSCA module
+ 
+2009-02-26 MickeM
+ * Changed fo missing files and such generate an error
+ * Added option to return error messages to the client [CheckDisk] show_errors=1 (defauilt is off 0)
+ * Added warning message ewhen numerical filters evaluate to zero (and are not 0)
+ * Fixed major issue with date mathing in CheckFile* which was not working at all.
+
 2009-01-24 MickeM
  * Fixed so files locked for reading can be chcked (basic checks)
  * Improved speed of file chyecking (does not check file data twice)

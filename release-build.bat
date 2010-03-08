@@ -5,12 +5,12 @@ SET _ERROR=
 echo Starting build > build.log
 
 echo %jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers >> build.log
-%jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers
+     %jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers
 if %ERRORLEVEL% == -1 goto :error
 echo :: Result: %ERRORLEVEL% >> build.log
 
 echo %jam% --toolset=msvc source-archive >> build.log
-%jam% --toolset=msvc source-archive
+     %jam% --toolset=msvc source-archive
 if %ERRORLEVEL% == -1 goto :error
 echo :: Result: %ERRORLEVEL% >> build.log
 

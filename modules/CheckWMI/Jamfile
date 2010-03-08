@@ -4,6 +4,7 @@ local source = $(target) ;
 project 
 	: requirements
 	<find-static-library>Wbemuuid
+	<find-static-library>atls
 	;
 
 

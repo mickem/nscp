@@ -3526,7 +3526,7 @@
 					>
 					<Tool
 						Name="VCCustomBuildTool"
-						CommandLine="echo Copying $(InputFileName)...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;&#x0D;&#x0A;"
+						CommandLine="echo Copying $(InputFileName) [cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;]...&#x0D;&#x0A;cmd /c &quot;copy &quot;$(InputDir)\$(InputFileName)&quot; &quot;$(InputDir)\$(OutDir)&quot;&quot;&#x0D;&#x0A;"
 						Outputs="$(InputDir)\$(OutDir)\$(InputFileName)"
 					/>
 				</FileConfiguration>

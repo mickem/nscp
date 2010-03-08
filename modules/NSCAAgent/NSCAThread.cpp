@@ -86,7 +86,21 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	NSC_DEBUG_MSG_STD(_T("Only reporting: ") + generate_report_string(report_));
 	
 	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
-	password_ = strEx::wstring_to_string(NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT));
+	std::wstring password = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+	if (!password.empty())
+		password = NSCModuleHelper::Decrypt(password);
+	if (password.empty())
+		password = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT);
+	if (password.empty()) {
+		// read main password if no NSCA one is found
+		password = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+		if (!password.empty())
+			password = NSCModuleHelper::Decrypt(password);
+		if (password.empty())
+			password = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_SETTINGS_PWD, MAIN_SETTINGS_PWD_DEFAULT);
+	}
+	password_ = strEx::wstring_to_string(password);
+
 	cacheNscaHost_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST, NSCA_CACHE_HOST_DEFAULT) == 1;
 	std::list<std::wstring> items = NSCModuleHelper::getSettingsSection(NSCA_CMD_SECTION_TITLE);
 	for (std::list<std::wstring>::const_iterator cit = items.begin(); cit != items.end(); ++cit) {

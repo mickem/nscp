@@ -26,6 +26,7 @@ NSC_WRAPPERS_MAIN();
 
 class CheckDisk {
 private:
+	bool show_errors_;
 
 public:
 	CheckDisk();

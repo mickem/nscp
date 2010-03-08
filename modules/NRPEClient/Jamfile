@@ -13,10 +13,12 @@ lib $(target)
 	../../include/NSCHelper.cpp
 	../../include/arrayBuffer.cpp
 	../../include/utils.cpp
+	../../include/Socket.cpp
+	../../include/sslSocket.cpp
+	/openssl//socket
 
 	: # requirements
 	<def-file>$(source).def
-	<source>/openssl//socket
 	<runtime-link>static
 	<source>/boost//regexp
 

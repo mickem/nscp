@@ -68,7 +68,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -152,7 +152,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -232,7 +232,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -314,7 +314,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -395,7 +395,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -477,7 +477,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -556,7 +556,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -635,7 +635,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -718,7 +718,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -802,7 +802,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -880,7 +880,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"
@@ -959,7 +959,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua.lib"
+				AdditionalDependencies="liblua.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(SolutionDir)lib\$(ConfigurationName)\$(PlatformName)"

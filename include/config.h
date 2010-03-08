@@ -156,6 +156,9 @@
 #define C_SYSTEM_ENUMPROC_METHOD _T("ProcessEnumerationMethod")
 #define C_SYSTEM_ENUMPROC_METHOD_DEFAULT C_SYSTEM_ENUMPROC_METHOD_AUTO
 
+#define CHECK_DISK_SECTION_TITLE _T("Check Disk")
+#define CHECK_DISK_SHOW_ERRORS _T("show_errors")
+#define CHECK_DISK_SHOW_ERRORS_DEFAULT 0
 
 #define EVENTLOG_SECTION_TITLE _T("Eventlog")
 #define EVENTLOG_DEBUG _T("debug")

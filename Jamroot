@@ -12,6 +12,7 @@ feature character-set : unicode ansi multibyte : composite ;
 feature.compose <character-set>unicode : <define>_UNICODE <define>UNICODE ;
 feature.compose <character-set>multibyte : <define>_MBCS ;
 
+path-constant TOP : . ;
 
 local toolset = [ MATCH "^--toolset=(.*)" : [ modules.peek : ARGV ] ] ;
 toolset ?= msvc ;
@@ -50,7 +51,7 @@ local stage-locate = [ MATCH "^--stagedir=(.*)" : [ modules.peek : ARGV ] ] ;
 stage-locate ?= stage ;
 path-constant BOOST_STAGE_LOCATE : $(stage-locate) ;
 
-if $(toolset) = "msvc" {
+if ( $(toolset) = "msvc" || $(toolset) = "msvc-8.0" ) {
 	using bjam/openssl : : $(TOP)/lib-source/openssl-0.9.8g/include $(TOP)/lib ;
 	using bjam/boost : : $(TOP)/lib-source/boost_1_35_0 $(TOP)/lib ;
 	using bjam/lua : : $(TOP)/lib-source/lua-5.1.2 ;
@@ -171,7 +172,10 @@ all-modules =
     [ MATCH .*modules/(.*)/.* : [ glob modules/*/Jamfile ] ]
     ;
 
-# all-modules = NSCAAgent ;
+# all-modules = CheckEventLog CheckExternalScripts CheckHelpers CheckSystem CheckTaskSched ;
+# all-modules = CheckWMI DebugLogMetrics FileLogger LUAScript ;
+# all-modules = NRPEClient NSCAAgent NSClientListener SysTray ; 
+# all-modules = NRPEClient NRPEListener NSCAAgent NSClientListener SysTray; 
 
 all-scripts =
     [ MATCH .*scripts/(.+\\..*) : [ glob scripts/* ] ]

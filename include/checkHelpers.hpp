@@ -328,7 +328,10 @@ namespace checkHolders {
 			return strEx::format_BKMG(value, unit);
 		}
 		static TType parse(std::wstring s) {
-			return strEx::stoi64_as_BKMG(s);
+			TType val = strEx::stoi64_as_BKMG(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = ") + strEx::itos(val));
+			return val;
 		}
 		static TType parse_percent(std::wstring s) {
 			return strEx::stoi64(s);
@@ -363,7 +366,10 @@ namespace checkHolders {
 	class time_handler {
 	public:
 		static TType parse(std::wstring s) {
-			return strEx::stoi64_as_time(s);
+			TType val = strEx::stoi64_as_time(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			return val;
 		}
 		static TType parse_percent(std::wstring s) {
 			return strEx::stoi(s);
@@ -396,7 +402,10 @@ namespace checkHolders {
 	class int_handler {
 	public:
 		static int parse(std::wstring s) {
-			return strEx::stoi(s);
+			int val = strEx::stoi(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			return val;
 		}
 		static int parse_percent(std::wstring s) {
 			return strEx::stoi(s);
@@ -426,7 +435,10 @@ namespace checkHolders {
 	class int64_handler {
 	public:
 		static __int64 parse(std::wstring s) {
-			return strEx::stoi64(s);
+			__int64 val = strEx::stoi64(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			return val;
 		}
 		static __int64 parse_percent(std::wstring s) {
 			return strEx::stoi(s);
@@ -851,7 +863,7 @@ namespace checkHolders {
 				message = lable + _T(": ") + formatBelow(TNumericHolder::toStringShort(value.count), type);
 				return true;
 			} else {
-				NSC_DEBUG_MSG_STD(_T("Missing bounds for check: ") + lable);
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for check: ") + lable);
 				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
@@ -926,7 +938,7 @@ namespace checkHolders {
 			} else if (min.hasBounds()) {
 				return min.gatherPerfData(alias, value, warn.min.getPerfBound(value), crit.min.getPerfBound(value));
 			} else {
-				NSC_DEBUG_MSG_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
 				return min.gatherPerfData(alias, value, 0, 0);
 			}
 			return _T("");
@@ -1024,7 +1036,7 @@ namespace checkHolders {
 			} else if (eq.hasBounds()) {
 				return eq.gatherPerfData(alias, value, warn.eq.getPerfBound(value), crit.eq.getPerfBound(value));
 			} else {
-				NSC_DEBUG_MSG_STD(_T("Missing bounds for: ") + alias);
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for: ") + alias);
 			}
 		}
 		bool check(typename THolder::TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {

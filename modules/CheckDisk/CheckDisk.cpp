@@ -35,7 +35,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	return TRUE;
 }
 
-CheckDisk::CheckDisk() {
+CheckDisk::CheckDisk() : show_errors_(false) {
 }
 CheckDisk::~CheckDisk() {
 }
@@ -49,6 +49,8 @@ bool CheckDisk::loadModule() {
 		NSCModuleHelper::registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
 		NSCModuleHelper::registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
 		NSCModuleHelper::registerCommand(_T("CheckFile"), _T("Check various aspects of a file and/or folder."));
+
+		show_errors_ = NSCModuleHelper::getSettingsInt(CHECK_DISK_SECTION_TITLE, CHECK_DISK_SHOW_ERRORS, CHECK_DISK_SHOW_ERRORS_DEFAULT)==1;
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -71,6 +73,8 @@ class error_reporter {
 public:
 	virtual void report_error(std::wstring error) = 0;
 	virtual void report_warning(std::wstring error) = 0;
+	virtual bool has_error() = 0;
+	virtual std::wstring get_error() = 0;
 };
 
 
@@ -85,8 +89,7 @@ typedef std::unary_function<const file_finder_data&, bool> baseFinderFunction;
 
 struct get_size : public baseFinderFunction
 {
-	bool error;
-	get_size() : size(0), error(false) { }
+	get_size() : size(0) { }
 	result_type operator()(argument_type ffd) {
 		if (!is_directory(ffd.wfd.dwFileAttributes)) {
 			size += (ffd.wfd.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)ffd.wfd.nFileSizeLow;
@@ -96,25 +99,26 @@ struct get_size : public baseFinderFunction
 	inline unsigned long long getSize() {
 		return size;
 	}
-	inline const bool hasError() const {
-		return error;
-	}
 	inline void setError(error_reporter *errors, std::wstring msg) {
 		if (errors != NULL)
 			errors->report_error(msg);
-		error = true;
 	}
 private:  
 	unsigned long long size;
 };
 
 template <class finder_function>
-void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, int max_level, finder_function & f, error_reporter * errors, bool debug) {
+void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, int max_level, finder_function & f, error_reporter * errors, bool debug, bool recursive = false) {
 	if ((max_level != -1) && (current_level > max_level))
 		return;
 	WIN32_FIND_DATA wfd;
 
 	DWORD fileAttr = GetFileAttributes(dir.c_str());
+	if ((fileAttr == INVALID_FILE_ATTRIBUTES)&&(!recursive)) {
+		errors->report_error(_T("Invalid file specified: ") + dir);
+	} else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
+		errors->report_warning(_T("Invalid file specified: ") + dir);
+	}
 	if (debug) NSC_DEBUG_MSG_STD(_T("Input is: ") + dir + _T(" / ") + strEx::ihextos(fileAttr));
 
 	if (!is_directory(fileAttr)) {
@@ -126,6 +130,8 @@ void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, i
 		if (hFind != INVALID_HANDLE_VALUE) {
 			f(file_finder_data(wfd, single_path.first, errors));
 			FindClose(hFind);
+		} else {
+			NSC_DEBUG_MSG_STD(_T("File was NOT found!"));
 		}
 		return;
 	}
@@ -146,7 +152,7 @@ void recursive_scan(std::wstring dir, std::wstring pattern, int current_level, i
 		do {
 			if (is_directory(wfd.dwFileAttributes)) {
 				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
-					recursive_scan<finder_function>(dir + _T("\\") + wfd.cFileName, pattern, current_level+1, max_level, f, errors, debug);
+					recursive_scan<finder_function>(dir + _T("\\") + wfd.cFileName, pattern, current_level+1, max_level, f, errors, debug, true);
 			}
 		} while (FindNextFile(hFind, &wfd));
 		FindClose(hFind);
@@ -354,11 +360,28 @@ std::wstring CheckDisk::get_filter(unsigned int drvType) {
 }
 
 class NSC_error : public error_reporter {
+	int error_count_;
+	int warning_count_;
+	std::wstring first_error_;
+	std::wstring last_error_;
+public:
+	NSC_error() : error_count_(0), warning_count_(0) {}
 	void report_error(std::wstring error) {
+		if (error_count_==0)
+			first_error_ = error;
+		else
+			last_error_ = error;
+		error_count_++;
 		NSC_LOG_ERROR(error);
 	}
 	void report_warning(std::wstring error) {
 		NSC_LOG_MESSAGE(error);
+	}
+	std::wstring get_error() {
+		return strEx::itos(error_count_) + _T(" errors and ") + strEx::itos(warning_count_) + _T(" warnings where returned: ") + first_error_;
+	}
+	bool has_error() {
+		return error_count_ > 0;
 	}
 };
 typedef std::pair<std::wstring,std::wstring> pattern_type;
@@ -430,8 +453,11 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		NSC_error errors;
 		pattern_type splitpath = split_pattern(path.data);
 		recursive_scan<get_size>(splitpath.first, splitpath.second, -1, -1, sizeFinder, &errors, debug);
-		if (sizeFinder.hasError()) {
-			message = _T("File not found check log for details");
+		if (errors.has_error()) {
+			if (show_errors_)
+				message = errors.get_error();
+			else
+				message = _T("Check contains error. Check log for details (or enable show_errors in nsc.ini)");
 			return NSCAPI::returnUNKNOWN;
 		}
 		path.setDefault(tmpObject);
@@ -453,23 +479,23 @@ struct file_info {
 	std::wstring error;
 	bool has_error;
 
-	static file_info get(std::wstring path, std::wstring file) {
-		return get_2(path, file);
+	static file_info get(__int64 now, std::wstring path, std::wstring file) {
+		return get_2(now, path, file);
 	}
-	static file_info get(file_finder_data data) {
-		return file_info(data.wfd, data.path, data.wfd.cFileName);
+	static file_info get(__int64 now, file_finder_data data) {
+		return file_info(now, data.wfd, data.path, data.wfd.cFileName);
 	}
 
-	static file_info get_2(std::wstring path, std::wstring file) {
+	static file_info get_2(__int64 now, std::wstring path, std::wstring file) {
 		WIN32_FILE_ATTRIBUTE_DATA data;
 		if (!GetFileAttributesEx((path + _T("\\") + file).c_str(), GetFileExInfoStandard, reinterpret_cast<LPVOID>(&data))) {
 			file_info ret;
 			ret.error = _T("Could not open file (2) ") + path + _T("\\") + file + _T(": ") + error::lookup::last_error();
 			return ret;
 		}
-		return file_info(data, path, file);
+		return file_info(now, data, path, file);
 	}
-	static file_info get_1(std::wstring path, std::wstring file) {
+	static file_info get_1(__int64 now, std::wstring path, std::wstring file) {
 		HANDLE hFile = CreateFile((path + _T("\\") + file).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, 0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
 			file_info ret;
@@ -479,7 +505,7 @@ struct file_info {
 		BY_HANDLE_FILE_INFORMATION _info;
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
-		return file_info(_info, path, file);
+		return file_info(now, _info, path, file);
 	}
 
 	file_info() 
@@ -487,16 +513,18 @@ struct file_info {
 		, ullLastAccessTime(0)
 		, ullLastWriteTime(0)
 		, ullSize(0)
+		, ullNow(0)
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{}
-	file_info(const WIN32_FILE_ATTRIBUTE_DATA info, std::wstring path_, std::wstring filename_) 
+	file_info(__int64 now, const WIN32_FILE_ATTRIBUTE_DATA info, std::wstring path_, std::wstring filename_) 
 		: path(path_)
 		, filename(filename_)
 		, ullCreationTime(0)
 		, ullLastAccessTime(0)
 		, ullLastWriteTime(0)
 		, ullSize(0)
+		, ullNow(now)
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{
@@ -505,13 +533,14 @@ struct file_info {
 		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
 		ullLastWriteTime = ((info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime);
 	};
-	file_info(const BY_HANDLE_FILE_INFORMATION info, std::wstring path_, std::wstring filename_) 
+	file_info(__int64 now, const BY_HANDLE_FILE_INFORMATION info, std::wstring path_, std::wstring filename_) 
 		: path(path_)
 		, filename(filename_)
 		, ullCreationTime(0)
 		, ullLastAccessTime(0)
 		, ullLastWriteTime(0)
 		, ullSize(0)
+		, ullNow(now)
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{
@@ -520,13 +549,14 @@ struct file_info {
 		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
 		ullLastWriteTime = ((info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime);
 	};
-	file_info(const WIN32_FIND_DATA info, std::wstring path_, std::wstring filename_) 
+	file_info(__int64 now, const WIN32_FIND_DATA info, std::wstring path_, std::wstring filename_) 
 		: path(path_)
 		, filename(filename_)
 		, ullCreationTime(0)
 		, ullLastAccessTime(0)
 		, ullLastWriteTime(0)
 		, ullSize(0)
+		, ullNow(now)
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{
@@ -535,13 +565,14 @@ struct file_info {
 		ullLastAccessTime = ((info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime);
 		ullLastWriteTime = ((info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime);
 	};
-	file_info(std::wstring path_, std::wstring filename_) 
+	file_info(__int64 now, std::wstring path_, std::wstring filename_) 
 		: path(path_)
 		, filename(filename_)
 		, ullCreationTime(0)
 		, ullLastAccessTime(0)
 		, ullLastWriteTime(0)
 		, ullSize(0)
+		, ullNow(now)
 		, cached_version(false, _T("")) 
 		, cached_count(false, 0)
 	{
@@ -574,6 +605,10 @@ struct file_info {
 		strEx::replace(syntax, _T("%creation%"), strEx::format_filetime(ullCreationTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%access%"), strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
+		strEx::replace(syntax, _T("%creation-raw%"), strEx::itos(ullCreationTime));
+		strEx::replace(syntax, _T("%access-raw%"), strEx::itos(ullLastAccessTime));
+		strEx::replace(syntax, _T("%write-raw%"), strEx::itos(ullLastWriteTime));
+		strEx::replace(syntax, _T("%now-raw%"), strEx::itos(ullNow));
 /*
 		strEx::replace(syntax, _T("%creation-d%"), strEx::format_filetime(ullCreationTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%access-d%"), strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
@@ -691,14 +726,18 @@ struct file_filter {
 struct find_first_file_info : public baseFinderFunction
 {
 	file_info info;
-	bool error;
+	__int64 now_;
 //	std::wstring message;
-	find_first_file_info() : error(false) {}
+	find_first_file_info() : now_(0) {
+		FILETIME now;
+		GetSystemTimeAsFileTime(&now);
+		now_ = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
+	}
 	result_type operator()(argument_type ffd) {
 		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 
-		file_info info = file_info::get(ffd);
+		file_info info = file_info::get(now_, ffd);
 		if (!info.error.empty()) {
 			setError(ffd.errors, info.error);
 			return false;
@@ -719,13 +758,9 @@ struct find_first_file_info : public baseFinderFunction
 		return false;
 		*/
 	}
-	inline const bool hasError() const {
-		return error;
-	}
 	inline void setError(error_reporter *errors, std::wstring msg) {
 		if (errors != NULL)
 			errors->report_error(msg);
-		error = true;
 	}
 };
 
@@ -734,19 +769,23 @@ struct file_filter_function : public baseFinderFunction
 	std::list<file_filter> filter_chain;
 	bool bFilterAll;
 	bool bFilterIn;
-	bool error;
 	std::wstring message;
 	std::wstring syntax;
 	std::wstring alias;
 	unsigned long long now;
 	unsigned int hit_count;
+	__int64 now_;
 
-	file_filter_function() : hit_count(0), error(false), bFilterIn(true), bFilterAll(true) {}
+	file_filter_function() : now_(0), hit_count(0), bFilterIn(true), bFilterAll(true) {
+		FILETIME now;
+		GetSystemTimeAsFileTime(&now);
+		now_ = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
+	}
 	result_type operator()(argument_type ffd) {
 		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 
-		file_info info = file_info::get(ffd);
+		file_info info = file_info::get(now, ffd);
 		if (!info.error.empty()) {
 			setError(ffd.errors, info.error);
 			return true;
@@ -791,13 +830,9 @@ struct file_filter_function : public baseFinderFunction
 		}
 		return true;
 	}
-	inline const bool hasError() const {
-		return error;
-	}
 	inline void setError(error_reporter *errors, std::wstring msg) {
 		if (errors != NULL)
 			errors->report_error(msg);
-		error = true;
 	}
 };
 
@@ -814,23 +849,24 @@ struct file_filter_function_ex : public baseFinderFunction
 	filterlist_type filter_chain;
 	bool bFilterAll;
 	bool bFilterIn;
-	bool error;
 	bool debug_;
 	std::wstring message;
 	std::wstring syntax;
 	//std::wstring alias;
-	unsigned long long now;
+	unsigned long long now_;
 	unsigned int hit_count;
 	unsigned int file_count;
-	std::wstring last_error;
-	unsigned int error_count;
 
-	file_filter_function_ex() : hit_count(0), file_count(0), error(false), debug_(false), bFilterIn(true), bFilterAll(true), error_count(0) {}
+	file_filter_function_ex() : hit_count(0), file_count(0), debug_(false), bFilterIn(true), bFilterAll(true), now_(0) {
+		FILETIME now;
+		GetSystemTimeAsFileTime(&now);
+		now_ = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
+	}
 	result_type operator()(argument_type ffd) {
 		if (is_directory(ffd.wfd.dwFileAttributes))
 			return true;
 
-		file_info info = file_info::get(ffd);
+		file_info info = file_info::get(now_, ffd);
 		if (!info.error.empty()) {
 			setError(ffd.errors, info.error);
 			return true;
@@ -888,15 +924,9 @@ struct file_filter_function_ex : public baseFinderFunction
 		file_count++;
 		return true;
 	}
-	inline const bool hasError() const {
-		return error;
-	}
 	inline void setError(error_reporter *errors, std::wstring msg) {
 		if (errors != NULL)
 			errors->report_error(msg);
-		last_error = msg;
-		error_count++;
-		error = true;
 	}
 
 	std::wstring render(std::wstring syntax) {
@@ -940,14 +970,14 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 	NSC_error errors;
 	pattern_type splitpath = split_pattern(path);
 	recursive_scan<find_first_file_info>(splitpath.first, splitpath.second, -1, -1, finder, &errors, debug);
-	if (finder.hasError()) {
-		message = _T("File not found (check log for details)");
+	if (errors.has_error()) {
+		if (show_errors_)
+			message = errors.get_error();
+		else
+			message = _T("Check contains error. Check log for details (or enable show_errors in nsc.ini)");
 		return NSCAPI::returnUNKNOWN;
 	}
-	FILETIME now_;
-	GetSystemTimeAsFileTime(&now_);
-	unsigned long long now = ((now_.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now_.dwLowDateTime);
-	time_t value = (now-finder.info.ullLastWriteTime)/10000000;
+	time_t value = (finder.now_-finder.info.ullLastWriteTime)/10000000;
 	message = strEx::itos(value/60) + _T("&") + strEx::format_time_delta(gmtime(&value), format);
 	return NSCAPI::returnOK;
 }
@@ -998,22 +1028,20 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile(const unsigned int argLen, TCHAR **cha
 		message = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
 	}
-	FILETIME now;
-	GetSystemTimeAsFileTime(&now);
-	finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
 	finder.syntax = syntax;
 	NSC_error errors;
 	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
 		pattern_type path = split_pattern(*pit);
 		recursive_scan<file_filter_function>(path.first, path.second, 0, max_dir_depth, finder, &errors, debug);
-		if (finder.hasError()) {
-			message = _T("File not found: ") + (*pit) + _T(" check log for details.");
+		if (errors.has_error()) {
+			if (show_errors_)
+				message = errors.get_error();
+			else
+				message = _T("Check contains error. Check log for details (or enable show_errors in nsc.ini)");
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
 	message = finder.message;
-	if (finder.error)
-		return NSCAPI::returnUNKNOWN;
 	if (!alias.empty())
 		query.alias = alias;
 	else
@@ -1119,18 +1147,18 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 		message = _T("Missing filter argument");
 		return NSCAPI::returnUNKNOWN;
 	}
-	FILETIME now;
-	GetSystemTimeAsFileTime(&now);
 	finder.debug_ = debug;
-	finder.now = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
 	if (debug)
-		NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(finder.now));
+		NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(finder.now_));
 	finder.syntax = syntax;
 	NSC_error errors;
 	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
 		recursive_scan<file_filter_function_ex>(*pit, pattern, 0, max_dir_depth, finder, &errors, debug);
-		if (!ignoreError && finder.hasError()) {
-			message = _T("Error when scanning: ") + (*pit) + _T(" check log for details (") + strEx::itos(finder.error_count) + _T(": ") + finder.last_error + _T(")");
+		if (!ignoreError && errors.has_error()) {
+			if (show_errors_)
+				message = errors.get_error();
+			else
+				message = _T("Check contains error. Check log for details (or enable show_errors in nsc.ini)");
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
@@ -1158,18 +1186,18 @@ struct file_container : public file_info {
 		HANDLE hFile = CreateFile(file.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
 			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 		if (hFile == INVALID_HANDLE_VALUE) {
-			return file_container(file, _T("Could not open file: ") + file);
+			return file_container(now, file, _T("Could not open file: ") + file);
 		}
 		GetFileInformationByHandle(hFile, &_info);
 		CloseHandle(hFile);
-		file_container info(_info, file);
-		info.ullNow = now;
+		file_container info(now, _info, file);
+		//info.ullNow = now;
 		return info;
 	}
 
 
-	file_container(const BY_HANDLE_FILE_INFORMATION info, std::wstring file) : file_info(info, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
-	file_container(std::wstring file, std::wstring error) : error_(error), file_info(file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
+	file_container(__int64 now, const BY_HANDLE_FILE_INFORMATION info, std::wstring file) : file_info(now, info, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
+	file_container(__int64 now, std::wstring file, std::wstring error) : error_(error), file_info(now, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
 
 	bool has_errors() {
 		return !error_.empty();

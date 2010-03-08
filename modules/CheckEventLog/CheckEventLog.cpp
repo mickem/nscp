@@ -22,6 +22,7 @@
 #include "stdafx.h"
 #include "CheckEventLog.h"
 #include <filter_framework.hpp>
+#include <boost/foreach.hpp>
 
 #include <strEx.h>
 #include <time.h>
@@ -445,45 +446,58 @@ struct eventlog_filter {
 		return eventSource.hasFilter() || eventType.hasFilter() || eventID.hasFilter() || eventSeverity.hasFilter() || message.hasFilter() || 
 			timeWritten.hasFilter() || timeGenerated.hasFilter();
 	}
-	std::wstring getValue() const {
-		if (eventSource.hasFilter())
-			return _T("event-source: ") + eventSource.getValue();
-		if (eventType.hasFilter())
-			return _T("event-type: ") + eventType.getValue();
-		if (eventSeverity.hasFilter())
-			return _T("severity: ") + eventSeverity.getValue();
-		if (eventID.hasFilter())
-			return _T("event-id: ") + eventID.getValue();
-		if (message.hasFilter())
-			return _T("message: ") + message.getValue();
-		if (timeWritten.hasFilter())
-			return _T("time-written: ") + timeWritten.getValue();
-		if (timeGenerated.hasFilter())
-			return _T("time-generated: ") + timeGenerated.getValue();
-		return _T("UNknown...");
+
+#define NSCP_EL_DEBUG(key) if (key.hasFilter()) strEx::append_list(str, std::wstring(_T( # key )) + _T(" ") + key.to_string(), _T(","));
+	std::wstring to_string() const {
+		std::wstring str;
+		NSCP_EL_DEBUG(eventSource);
+		NSCP_EL_DEBUG(eventType);
+		NSCP_EL_DEBUG(eventSeverity);
+		NSCP_EL_DEBUG(eventID);
+		NSCP_EL_DEBUG(message);
+		NSCP_EL_DEBUG(timeWritten);
+		NSCP_EL_DEBUG(timeGenerated);
+		return str;
 	}
 	bool matchFilter(const EventLogRecord &value) const {
+		bool ret = false;
 		if ((eventSource.hasFilter())&&(eventSource.matchFilter(value.eventSource())))
-			return true;
+			ret = true;
+		else if (eventSource.hasFilter())
+			return false;
 		else if ((eventType.hasFilter())&&(eventType.matchFilter(value.eventType())))
-			return true;
+			ret = true;
+		else if (eventType.hasFilter())
+			return false;
 		else if ((eventSeverity.hasFilter())&&(eventSeverity.matchFilter(value.severity())))
-			return true;
+			ret = true;
+		else if (eventSeverity.hasFilter())
+			return false;
 		else if ((eventID.hasFilter())&&(eventID.matchFilter(value.eventID()))) 
-			return true;
+			ret = true;
+		else if (eventID.hasFilter())
+			return false;
 		else if ((message.hasFilter())&&(message.matchFilter(value.enumStrings())))
-			return true;
+			ret = true;
+		else if (message.hasFilter())
+			return false;
 		else if ((timeWritten.hasFilter())&&(timeWritten.matchFilter(value.timeWritten())))
-			return true;
+			ret = true;
+		else if (timeWritten.hasFilter())
+			return false;
 		else if ((timeGenerated.hasFilter())&&(timeGenerated.matchFilter(value.timeGenerated())))
-			return true;
-		return false;
+			ret = true;
+		else if (timeGenerated.hasFilter())
+			return false;
+		return ret;
 	}
 };
 
 
 #define MAP_FILTER(value, obj, filtermode) \
-			else if (p__.first == value) { eventlog_filter filter; filter.obj = p__.second; filter_chain.push_back(filteritem_type(filtermode, filter)); }
+			else if (p__.first == value) { filter.obj = p__.second; if (bPush) { filter_chain.push_back(filteritem_type(filtermode, filter)); filter = eventlog_filter(); } }
+#define MAP_FILTER_LAST(value, obj) \
+			else if (p__.first == value) { filter_chain.front().second.obj = p__.second; }
 
 struct event_log_buffer {
 	BYTE *bBuffer;
@@ -531,6 +545,9 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	const int filter_normal = 3;
 	const int filter_compat = 3;
 	event_log_buffer buffer(buffer_length_);
+	bool bPush = true;
+	bool bDebug = debug_;
+	eventlog_filter filter;
 	/*
 	try {
 		event_log_buffer buffer(buffer_length_);
@@ -552,6 +569,8 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			MAP_OPTIONS_BOOL_EX(_T("filter"), bFilterNew, _T("new"), _T("old"))
 			MAP_OPTIONS_BOOL_EX(_T("filter"), bFilterIn, _T("in"), _T("out"))
 			MAP_OPTIONS_BOOL_EX(_T("filter"), bFilterAll, _T("all"), _T("any"))
+			MAP_OPTIONS_BOOL_EX(_T("auto-push"), bPush, _T("true"), _T("false"))
+			MAP_OPTIONS_BOOL_EX(_T("debug"), bDebug, _T("true"), _T("false"))
 			MAP_OPTIONS_STR(_T("syntax"), syntax)
 			/*
 			MAP_FILTER_OLD("filter-eventType", eventType)
@@ -586,6 +605,15 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 			MAP_FILTER(_T("filter-written"), timeWritten, filter_minus)
 			MAP_FILTER(_T("filter-message"), message, filter_minus)
 
+			MAP_FILTER_LAST(_T("append-filter-eventType"), eventType)
+			MAP_FILTER_LAST(_T("append-filter-severity"), eventSeverity)
+			MAP_FILTER_LAST(_T("append-filter-eventID"), eventID)
+			MAP_FILTER_LAST(_T("append-filter-eventSource"), eventSource)
+			MAP_FILTER_LAST(_T("append-filter-generated"), timeGenerated)
+			MAP_FILTER_LAST(_T("append-filter-written"), timeWritten)
+			MAP_FILTER_LAST(_T("append-filter-message"), message)
+
+
 			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
 			MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
@@ -608,7 +636,24 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		return NSCAPI::returnUNKNOWN;
 	}
 	bool buffer_error_reported = false;
+	if (bDebug) {
+		std::wstring str;
+		BOOST_FOREACH(filteritem_type item, filter_chain) {
+			if (item.first == filter_normal)
+				str += _T(". {");
+			else if (item.first == filter_plus)
+				str += _T("+ {");
+			else if (item.first == filter_minus)
+				str += _T("- {");
+			else 
+				str += _T("? {");
 
+			str += item.second.to_string() + _T(" }");
+		}
+		NSC_DEBUG_MSG_STD(_T("Filter: ") + str);
+	}
+
+	bDebug = false;
 	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
 		std::wstring name = *cit2;
 		if (lookup_names_) {
@@ -683,19 +728,19 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 					} else {
 						if ((mode == filter_minus)&&(bTmpMatched)) {
 							// a -<filter> hit so thrash item and bail out!
-							if (debug_)
-								NSC_DEBUG_MSG_STD(_T("Matched: - ") + (*cit3).second.getValue() + _T(" for: ") + record.render(bShowDescriptions, syntax));
+							if (bDebug)
+								NSC_DEBUG_MSG_STD(_T("Matched: - ") + (*cit3).second.to_string() + _T(" for: ") + record.render(bShowDescriptions, syntax));
 							bMatch = false;
 							break;
 						} else if ((mode == filter_plus)&&(!bTmpMatched)) {
 							// a +<filter> missed hit so thrash item and bail out!
-							if (debug_)
-								NSC_DEBUG_MSG_STD(_T("Matched: + ") + (*cit3).second.getValue() + _T(" for: ") + record.render(bShowDescriptions, syntax));
+							if (bDebug)
+								NSC_DEBUG_MSG_STD(_T("Matched: + ") + (*cit3).second.to_string() + _T(" for: ") + record.render(bShowDescriptions, syntax));
 							bMatch = false;
 							break;
 						} else if (bTmpMatched) {
-							if (debug_)
-								NSC_DEBUG_MSG_STD(_T("Matched: . (contiunue): ") + (*cit3).second.getValue() + _T(" for: ") + record.render(bShowDescriptions, syntax));
+							if (bDebug)
+								NSC_DEBUG_MSG_STD(_T("Matched: . (contiunue): ") + (*cit3).second.to_string() + _T(" for: ") + record.render(bShowDescriptions, syntax));
 							bMatch = true;
 						}
 					}

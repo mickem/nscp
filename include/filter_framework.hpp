@@ -67,6 +67,7 @@ namespace filters {
 		template <typename TType>
 		struct numeric_max_filter {
 			static bool filter(TType filter, TType value) {
+				//std::wcout << filter << _T(" >= ") << value << std::endl;
 				return value >= filter;
 			}
 		};
@@ -112,6 +113,9 @@ namespace filters {
 		struct string_handler {
 			static std::wstring parse(std::wstring str) {
 				return str;
+			}
+			static std::wstring print(std::wstring value) {
+				return value;
 			}
 		};
 		template<class TType, class TSubHandler>
@@ -193,24 +197,24 @@ namespace filters {
 
 	template <typename TFilterType, typename TValueType, class THandler, class TFilter>
 	struct filter_one {
-		TFilterType filter;
+		TFilterType filter_;
 		bool hasFilter_;
 		std::wstring value_;
 		filter_one() : hasFilter_(false) {}
-		filter_one(const filter_one &other) : hasFilter_(other.hasFilter_), filter(other.filter), value_(other.value_) {
+		filter_one(const filter_one &other) : hasFilter_(other.hasFilter_), filter_(other.filter_), value_(other.value_) {
 		}
 
 		inline bool hasFilter() const {
 			return hasFilter_;
 		}
 		bool matchFilter(const TValueType value) const {
-			return TFilter::filter(filter, value);
+			return TFilter::filter(filter_, value);
 		}
 		const filter_one & operator=(std::wstring value) {
 			value_ = value;
 			hasFilter_ = false;
 			try {
-				filter = THandler::parse(value);
+				filter_ = THandler::parse(value);
 				hasFilter_ = true;
 			} catch (handlers::handler_exception e) {
 				throw parse_exception(e.getMessage() + _T(": ") + value);
@@ -365,14 +369,15 @@ namespace filters {
 			}
 			return *this;
 		}
-#define NSCP_FF_DEBUG_NUM(key) if (key.hasFilter()) return _T( # key ) + key.value_;
+#define NSCP_FF_DEBUG_NUM(key) if (key.hasFilter()) strEx::append_list(str, std::wstring(_T( # key )) + _T(" ") + key.getValue(), _T(","));
 		std::wstring to_string() const {
+			std::wstring str;
 			NSCP_FF_DEBUG_NUM(max);
 			NSCP_FF_DEBUG_NUM(min);
 			NSCP_FF_DEBUG_NUM(eq);
 			NSCP_FF_DEBUG_NUM(neq);
-			//NSCP_FF_DEBUG_NUM(inList);
-			return _T(" MISSING! ");
+			NSCP_FF_DEBUG_NUM(inList);
+			return str;
 		}
 		std::wstring getValue() const {
 			return value_;
