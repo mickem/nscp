@@ -1037,6 +1037,7 @@ namespace checkHolders {
 				return eq.gatherPerfData(alias, value, warn.eq.getPerfBound(value), crit.eq.getPerfBound(value));
 			} else {
 				NSC_LOG_MESSAGE_STD(_T("Missing bounds for: ") + alias);
+				return _T("");
 			}
 		}
 		bool check(typename THolder::TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {

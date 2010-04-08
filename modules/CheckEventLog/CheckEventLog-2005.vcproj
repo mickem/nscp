@@ -291,6 +291,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalOptions="-Zm300"
 				Optimization="0"
 				AdditionalIncludeDirectories="../include;../../include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_STLP_USE_NEWALLOC;_STLP_DEBUG=1;USE_BOOST"
@@ -299,7 +300,7 @@
 				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="false"
+				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1550,8 +1551,32 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\..\include\parsers\ast.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath=".\CheckEventLog.cpp"
 				>
+			</File>
+			<File
+				RelativePath="..\..\include\parsers\grammar.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\..\include\NSCHelper.cpp"
@@ -1851,6 +1876,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\test.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\utils.cpp"
 				>
 				<FileConfiguration
@@ -2007,12 +2036,28 @@
 					/>
 				</FileConfiguration>
 			</File>
+			<File
+				RelativePath="..\..\include\parsers\where.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath="..\..\include\parsers\ast.hpp"
+				>
+			</File>
 			<File
 				RelativePath=".\CheckEventLog.h"
 				>
@@ -2022,7 +2067,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\parsers\eval.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\eventlog_filter.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\eventlog_record.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\filter_framework.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\parsers\grammar.hpp"
 				>
 			</File>
 			<File
@@ -2031,6 +2092,10 @@
 			</File>
 			<File
 				RelativePath=".\stdafx.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\parsers\where.hpp"
 				>
 			</File>
 		</Filter>

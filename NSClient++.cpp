@@ -377,16 +377,28 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			std::wcout << msg << _T("|") << perf << std::endl;
 			mainClient.exitCore(true);
 			return nRetCode;
-		} else if ( _wcsicmp( _T("c"), argv[1]+1 ) == 0 ) {
+		} else if ( (_wcsicmp( _T("c"), argv[1]+1 ) == 0) || (_wcsicmp( _T("m"), argv[1]+1 ) == 0)) {
+			std::wstring module, command, args, msg, perf;
+			int arg_start;
+			if ( _wcsicmp( _T("m"), argv[1]+1 ) == 0) {
+				if ((argc < 4) || (_wcsicmp( _T("c"), argv[3]+1) != 0)) {
+					std::wcout << _T("missing argument");
+					return -1;
+				}
+				module = argv[2];
+				command = argv[4];
+				arg_start = 5;
+			} else {
+				if (argc > 2)
+					command = argv[2];
+				arg_start = 3;
+			}
 			// Run command from command line (like NRPE)
 			g_bConsoleLog = true;
 			mainClient.enableDebug(false);
-			mainClient.initCore(true);
-			std::wstring command, args, msg, perf;
-			if (argc > 2)
-				command = argv[2];
-			for (int i=3;i<argc;i++) {
-				if (i!=3) args += _T(" ");
+			mainClient.initCore(true, module);
+			for (int i=arg_start;i<argc;i++) {
+				if (i!=arg_start) args += _T(" ");
 				args += argv[i];
 			}
 			nRetCode = mainClient.inject(command, args, L' ', true, msg, perf);
@@ -529,7 +541,7 @@ void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring 
  * @return success
  * @author mickem
  */
-bool NSClientT::initCore(bool boot) {
+bool NSClientT::initCore(bool boot, std::wstring module) {
 	LOG_DEBUG(_T("Attempting to start NSCLient++ - " SZVERSION));
 	try {
 		Settings::getInstance()->setFile(getBasePath(), _T("NSC.ini"));
@@ -608,18 +620,33 @@ bool NSClientT::initCore(bool boot) {
 	}
 	if (boot) {
 		try {
-			settings_base::sectionList list = Settings::getInstance()->getSection(_T("modules"));
-			for (settings_base::sectionList::iterator it = list.begin(); it != list.end(); it++) {
+			if (module.empty()) {
+				settings_base::sectionList list = Settings::getInstance()->getSection(_T("modules"));
+				for (settings_base::sectionList::iterator it = list.begin(); it != list.end(); it++) {
+					try {
+						loadPlugin(getBasePath() + _T("modules\\") + (*it));
+					} catch(const NSPluginException& e) {
+						LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+						//return false;
+					} catch (std::exception e) {
+						LOG_ERROR_STD(_T("exception loading plugin: ") + (*it) + strEx::string_to_wstring(e.what()));
+						return false;
+					} catch (...) {
+						LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + (*it));
+						return false;
+					}
+				}
+			} else {
 				try {
-					loadPlugin(getBasePath() + _T("modules\\") + (*it));
+					loadPlugin(getBasePath() + _T("modules\\") + module);
 				} catch(const NSPluginException& e) {
 					LOG_ERROR_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
 					//return false;
 				} catch (std::exception e) {
-					LOG_ERROR_STD(_T("exception loading plugin: ") + (*it) + strEx::string_to_wstring(e.what()));
+					LOG_ERROR_STD(_T("exception loading plugin: ") + module + strEx::string_to_wstring(e.what()));
 					return false;
 				} catch (...) {
-					LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + (*it));
+					LOG_ERROR_STD(_T("Unknown exception loading plugin: ") + module);
 					return false;
 				}
 			}

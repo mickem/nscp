@@ -112,7 +112,7 @@ public:
 	// Service helper functions
 	bool InitiateService();
 	void TerminateService(void);
-	bool initCore(bool boot);
+	bool initCore(bool boot, std::wstring module = _T(""));
 	bool exitCore(bool boot);
 	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);

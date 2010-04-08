@@ -211,8 +211,8 @@ namespace strEx {
 	}
 
 	inline void strip_CRLF(wchar_t *string) {
-		int len = wcslen(string);
-		for (int i=0;i<len;i++) {
+		size_t len = wcslen(string);
+		for (size_t i=0;i<len;i++) {
 			if (string[i] == 10 || string[i] == 13)
 				string[i] = L' ';
 		}
@@ -252,11 +252,18 @@ namespace strEx {
 		ss << i;
 		return ss.str();
 	}
+	inline std::wstring itos(long long i) {
+		std::wstringstream ss;
+		ss << i;
+		return ss.str();
+	}
+	/*
 	inline std::wstring itos(__int64 i) {
 		std::wstringstream ss;
 		ss << i;
 		return ss.str();
 	}
+	*/
 	inline std::wstring itos(unsigned long i) {
 		std::wstringstream ss;
 		ss << i;
