@@ -14,11 +14,10 @@
 
 #include <parsers/ast.hpp>
 
+#include <simple_timer.hpp>
 
 namespace parsers {
 	namespace where {
-
-
 
 		template<typename THandler>
 		bool variable<THandler>::bind(value_type type, THandler & handler) {
@@ -83,7 +82,8 @@ namespace parsers {
 			}
 
 			bool operator()(unary_fun<THandler> & expr) {
-				//expr.subject.force_type(type);
+				if (expr.is_transparent(type))
+					expr.subject.force_type(type);
 				return true;
 			}
 
@@ -104,6 +104,7 @@ namespace parsers {
 
 		template<typename THandler>
 		void expression_ast<THandler>::force_type(value_type newtype) {
+			std::wcout << _T("Forcing type: ") << type_to_string(type) << _T(" to ") << type_to_string(newtype) << _T(" for ") << to_string() << std::endl;
 			if (type == newtype)
 				return;
 			if (type != newtype && type != type_tbd) {
@@ -152,7 +153,7 @@ namespace parsers {
 			}
 
 			void operator()(unary_fun<THandler> const& expr) {
-				result << _T("fun:") << expr.name << _T("(");
+				result << _T("fun:") << (expr.is_bound()?_T("bound:"):_T("")) << expr.name << _T("(");
 				operator()(expr.subject);
 				//boost::apply_visitor(*this, expr.subject.expr);
 				result << L')';
@@ -194,10 +195,10 @@ namespace parsers {
 			typedef long long result_type;
 
 			THandler &handler;
-			visitor_get_int(THandler &handler) : handler(handler) {}
+			value_type type;
+			visitor_get_int(value_type  type, THandler &handler) : type(type), handler(handler) {}
 
 			long long operator()(expression_ast<THandler> const& ast) {
-				std::wcout << _T("GET INT: ") << ast.to_string() << std::endl;
 				return boost::apply_visitor(*this, ast.expr);
 			}
 			long long operator()(binary_op<THandler> const& expr) {
@@ -207,7 +208,7 @@ namespace parsers {
 				return expr.evaluate(handler).get_int(handler);
 			}
 			long long operator()(unary_fun<THandler> const& expr) {
-				return expr.evaluate(type_int, handler).get_int(handler);
+				return expr.evaluate(type, handler).get_int(handler);
 			}
 			long long operator()(list_value<THandler> const& expr) {
 				handler.error(_T("List not supported yet!"));
@@ -229,7 +230,7 @@ namespace parsers {
 		};
 		template<typename THandler>
 		long long expression_ast<THandler>::get_int(THandler &handler) const {
-			visitor_get_int<THandler> visitor(handler);
+			visitor_get_int<THandler> visitor(type, handler);
 			return boost::apply_visitor(visitor, expr);
 		}
 
@@ -308,20 +309,90 @@ namespace parsers {
 			return *this;
 		}
 
+
+		template<typename THandler>
+		struct visitor_can_evaluate {
+			typedef bool result_type;
+
+			visitor_can_evaluate() {}
+
+			bool operator()(expression_ast<THandler> const& ast) {
+				return true;
+			}
+			bool operator()(binary_op<THandler> const& expr) {
+				return true;
+			}
+			bool operator()(unary_op<THandler> const& expr) {
+				return true;
+			}
+			bool operator()(unary_fun<THandler> const& expr) {
+				return true;
+			}
+			bool operator()(list_value<THandler> const& expr) {
+				return false;
+			}
+			bool operator()(string_value const& expr) {
+				return false;
+			}
+			bool operator()(int_value const& expr) {
+				return false;
+			}
+			bool operator()(variable<THandler> const& expr) {
+				return false;
+			}
+			bool operator()(nil const& expr) {
+				return false;
+			}
+		};
 		template<typename THandler>
 		bool expression_ast<THandler>::can_evaluate() const {
-			if (boost::get<binary_op<THandler> >(&expr))
-				return true;
-			if (boost::get<unary_op<THandler> >(&expr))
-				return true;
-			if (boost::get<unary_fun<THandler> >(&expr))
-				return true;
-			if (boost::get<expression_ast<THandler> >(&expr))
-				return true;
-			return false;
+			visitor_can_evaluate<THandler> visitor;
+			return boost::apply_visitor(visitor, expr);
 		}
+
+		template<typename THandler>
+		struct visitor_evaluate {
+			typedef expression_ast<THandler> result_type;
+
+			THandler &handler;
+			value_type type;
+			visitor_evaluate(THandler &handler, value_type type) : handler(handler), type(type) {}
+
+			expression_ast<THandler> operator()(expression_ast<THandler> const& ast) {
+				return ast.evaluate(handler);
+			}
+			expression_ast<THandler> operator()(binary_op<THandler> const& op) {
+				return op.evaluate(handler);
+			}
+			expression_ast<THandler> operator()(unary_op<THandler> const& op) {
+				return op.evaluate(handler);
+			}
+			expression_ast<THandler> operator()(unary_fun<THandler> const& fun) {
+				return fun.evaluate(type, handler);
+			}
+			expression_ast<THandler> operator()(list_value<THandler> const& expr) {
+				return expression_ast<THandler>(int_value(FALSE));
+			}
+			expression_ast<THandler> operator()(string_value const& expr) {
+				return expression_ast<THandler>(int_value(FALSE));
+			}
+			expression_ast<THandler> operator()(int_value const& expr) {
+				return expression_ast<THandler>(int_value(FALSE));
+			}
+			expression_ast<THandler> operator()(variable<THandler> const& expr) {
+				return expression_ast<THandler>(int_value(FALSE));
+			}
+			expression_ast<THandler> operator()(nil const& expr) {
+				return expression_ast<THandler>(int_value(FALSE));
+			}
+		};
+
 		template<typename THandler>
 		expression_ast<THandler> expression_ast<THandler>::evaluate(THandler &handler) const {
+			visitor_evaluate<THandler> visitor(handler, get_type());
+			return boost::apply_visitor(visitor, expr);
+			//simple_timer timer(to_string(), true);
+			/*
 			if (const binary_op<THandler> *op = boost::get<binary_op<THandler> >(&expr))
 				return op->evaluate(handler);
 			if (const unary_op<THandler> *op = boost::get<unary_op<THandler> >(&expr))
@@ -331,6 +402,7 @@ namespace parsers {
 			if (const expression_ast<THandler> *ast = boost::get<expression_ast<THandler> >(&expr))
 				return ast->evaluate(handler);
 			return *this;
+			*/
 		}
 
 		template<typename THandler>
@@ -350,7 +422,7 @@ namespace parsers {
 		expression_ast<THandler> binary_op<THandler>::evaluate(THandler &handler) const {
 			factory<THandler>::bin_op_type impl = factory<THandler>::get_binary_operator(op);
 			if (get_return_type(op, type_invalid) == type_bool) {
-				return impl->evaluate(handler, right, left);
+				return impl->evaluate(handler, left, right);
 			}
 			handler.error(_T("Missing operator implementation"));
 			return expression_ast<THandler>(int_value(FALSE));
@@ -359,19 +431,28 @@ namespace parsers {
 		expression_ast<THandler> unary_op<THandler>::evaluate(THandler &handler) const {
 			factory<THandler>::un_op_type impl = factory<THandler>::get_unary_operator(op);
 			value_type type = get_return_type(op, type_invalid);
-			if (type == type_bool || type == type_int) {
+			if (type_is_int(type)) {
 				return impl->evaluate(handler, subject);
 			}
 			handler.error(_T("Missing operator implementation"));
 			return expression_ast<THandler>(int_value(FALSE));
 		}
 		template<typename THandler>
+		bool unary_fun<THandler>::is_bound() const {
+			if (!e_fn.empty())
+				return true;
+			if (i_fn)
+				return true;
+			return false;
+		}
+
+		template<typename THandler>
 		expression_ast<THandler> unary_fun<THandler>::evaluate(value_type type, THandler &handler) const {
 			if (!e_fn.empty())
 				return e_fn(&handler, type, subject);
 			if (i_fn)
 				return i_fn->evaluate(type, handler, subject);
-			handler.error(_T("Missing function binding: ") + name);
+			handler.error(_T("Missing function binding: ") + name + _T("bound: ") + strEx::itos(is_bound()));
 			return expression_ast<THandler>(int_value(FALSE));
 		}
 
@@ -397,6 +478,14 @@ namespace parsers {
 				return false;
 			}
 		}
+		template<typename THandler>
+		bool unary_fun<THandler>::is_transparent(value_type type) {
+			// TODO make the handler be allowed to have a say here
+			if (name == _T("neg"))
+				return true;
+			return false;
+		}
+
 
 	}
 }

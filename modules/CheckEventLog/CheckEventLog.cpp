@@ -35,6 +35,7 @@
 #include <boost/assign.hpp>
 
 #include <parsers/where.hpp>
+#include <simple_timer.hpp>
 
 #include "simple_registry.hpp"
 #include "eventlog_record.hpp"
@@ -43,32 +44,7 @@
 CheckEventLog gCheckEventLog;
 
 
-class simple_timer {
-	unsigned long long start_time;
-public:
-	simple_timer() {
-		start();
-	}
 
-	void start() {
-		start_time = getFT();
-	}
-	unsigned long long stop() {
-		unsigned int  ret = getFT() - start_time;
-		start();
-		return ret/1000;
-	}
-
-private:
-	unsigned long long getFT() {
-		SYSTEMTIME systemTime;
-		GetSystemTime( &systemTime );
-		FILETIME fileTime;
-		SystemTimeToFileTime( &systemTime, &fileTime );
-		return  static_cast<unsigned long long>(fileTime.dwHighDateTime) << 32 | fileTime.dwLowDateTime;
-	}
-
-};
 
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
@@ -153,10 +129,10 @@ namespace filter {
 				if (record == NULL) throw _T("Whoops"); return record->enumStrings(); 
 			}
 			long long get_written() {
-				if (record == NULL) throw _T("Whoops"); return record->timeWritten(); 
+				if (record == NULL) throw _T("Whoops"); return record->written(); 
 			}
 			long long get_generated() {
-				if (record == NULL) throw _T("Whoops"); return record->timeGenerated(); 
+				if (record == NULL) throw _T("Whoops"); return record->generated(); 
 			}
 
 			handler::bound_string_type bind_string(std::wstring key) {
@@ -333,7 +309,7 @@ struct second_mode_filter : public any_mode_filter  {
 				// a +<filter> hit so keep item and bail out!
 				if (data.bDebug && (i>data.debugThreshold))
 					NSC_DEBUG_MSG_STD(_T("[") + strEx::itos(i) + _T("] Matched: + ") + (*cit3).second.to_string() + _T(" for: ") + record.render(data.bShowDescriptions, data.syntax));
-				return true;
+				return false;
 			} else if (bTmpMatched) {
 				if (data.bDebug && (i>data.debugThreshold))
 					NSC_DEBUG_MSG_STD(_T("[") + strEx::itos(i) + _T("] Matched: . ") + (*cit3).second.to_string() + _T(" for: ") + record.render(data.bShowDescriptions, data.syntax));
@@ -375,6 +351,13 @@ struct where_mode_filter : public any_mode_filter {
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Type resolution succeeded: ") + ast_parser.result_as_tree());
 
+		if (!ast_parser.bind(dummy) || dummy.has_error()) {
+			message = _T("Variable and function binding failed: ") + dummy.get_error();
+			return false;
+		}
+		if (data.bDebug)
+			NSC_DEBUG_MSG_STD(_T("Binding succeeded: ") + ast_parser.result_as_tree());
+
 		if (!ast_parser.static_eval(dummy) || dummy.has_error()) {
 			message = _T("Static evaluation failed: ") + dummy.get_error();
 			return false;
@@ -382,12 +365,6 @@ struct where_mode_filter : public any_mode_filter {
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Static evaluation succeeded: ") + ast_parser.result_as_tree());
 
-		if (!ast_parser.bind(dummy) || dummy.has_error()) {
-			message = _T("Variable and function binding failed: ") + dummy.get_error();
-			return false;
-		}
-		if (data.bDebug)
-			NSC_DEBUG_MSG_STD(_T("Binding succeeded: ") + ast_parser.result_as_tree());
 		return true;
 	}
 	virtual bool match(EventLogRecord &record) {
@@ -396,7 +373,6 @@ struct where_mode_filter : public any_mode_filter {
 		bool ret = ast_parser.evaluate(obj);
 		if (obj.has_error()) {
 			NSC_LOG_ERROR_STD(_T("Error: ") + obj.get_error());
-
 		}
 		return ret;
 	}
@@ -702,11 +678,15 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 	filter_impl->boot();
 
+	__time64_t ltime;
+	_time64(&ltime);
+
 	NSC_DEBUG_MSG_STD(_T("Using: ") + filter_impl->get_name());
 
 	if (!filter_impl->validate(message)) {
 		return NSCAPI::returnUNKNOWN;
 	}
+
 
 	NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
 
@@ -728,8 +708,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		//DWORD dwThisRecord;
 		DWORD dwRead, dwNeeded;
 
-		__time64_t ltime;
-		_time64(&ltime);
 
 		//GetOldestEventLogRecord(hLog, &dwThisRecord);
 

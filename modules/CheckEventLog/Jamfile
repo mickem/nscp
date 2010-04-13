@@ -12,6 +12,7 @@ lib $(target)
 	../../include/parsers/ast.cpp
 	../../include/parsers/grammar.cpp
 	../../include/parsers/where.cpp
+	../../include/parsers/helpers.cpp
 
 	: # requirements
 	<def-file>$(source).def

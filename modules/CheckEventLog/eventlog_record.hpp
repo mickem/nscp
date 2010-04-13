@@ -13,6 +13,12 @@ public:
 	inline __int64 timeWritten() const {
 		return (currentTime_-pevlr_->TimeWritten)*1000;
 	}
+	inline __int64 generated() const {
+		return pevlr_->TimeGenerated;
+	}
+	inline __int64 written() const {
+		return pevlr_->TimeWritten;
+	}
 	inline std::wstring eventSource() const {
 		return reinterpret_cast<WCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + sizeof(EVENTLOGRECORD));
 	}
@@ -204,6 +210,8 @@ public:
 		strEx::replace(syntax, _T("%source%"), eventSource());
 		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), date_format));
 		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), date_format));
+		strEx::replace(syntax, _T("%generated-raw%"), strEx::itos(pevlr_->TimeGenerated));
+		strEx::replace(syntax, _T("%written-raw%"), strEx::itos(pevlr_->TimeWritten));
 		strEx::replace(syntax, _T("%type%"), translateType(eventType()));
 		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
 		strEx::replace(syntax, _T("%strings%"), enumStrings());

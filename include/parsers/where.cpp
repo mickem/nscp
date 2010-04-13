@@ -46,9 +46,9 @@ namespace parsers {
 			bool can_convert(value_type src, value_type dst) {
 				if (src == type_invalid || dst == type_invalid)
 					return false;
-				if (src == type_tbd)
-					return false;
 				if (dst == type_tbd)
+					return false;
+				if (src == type_tbd)
 					return true;
 				if (src == type_int && dst == type_string)
 					return true;
@@ -70,18 +70,22 @@ namespace parsers {
 				if (rt == type_tbd && lt == type_tbd)
 					return type_tbd;
 				if (handler.can_convert(rt, lt)) {
+					std::wcout << _T("FORCE 001") << std::endl;
 					right.force_type(lt);
 					return lt;
 				}
 				if (handler.can_convert(lt, rt)) {
+					std::wcout << _T("FORCE 002") << std::endl;
 					left.force_type(rt);
 					return rt;
 				}
 				if (can_convert(rt, lt)) {
+					std::wcout << _T("FORCE 003") << std::endl;
 					right.force_type(lt);
 					return rt;
 				}
 				if (can_convert(lt, rt)) {
+					std::wcout << _T("FORCE 004") << std::endl;
 					left.force_type(rt);
 					return lt;
 				}
@@ -159,7 +163,7 @@ namespace parsers {
 			}
 
 			bool operator()(unary_fun<THandler> & expr) {
-				if ((expr.name == _T("convert")) || (expr.name == _T("auto_convert")) ) {
+				if ((expr.name == _T("convert")) || (expr.name == _T("auto_convert") || expr.is_transparent(type_tbd) ) ) {
 					return boost::apply_visitor(*this, expr.subject.expr);
 				}
 				return false;
@@ -208,11 +212,14 @@ namespace parsers {
 			}
 
 			bool operator()(unary_fun<THandler> & expr) {
-				return false;
+				operator()(expr.subject);
+				return true;
 			}
 
 			bool operator()(list_value<THandler> & expr) {
-				// TODO: this is incorrect!
+				BOOST_FOREACH(expression_ast<THandler> e, expr.list) {
+					operator()(e);
+				}
 				return true;
 			}
 
@@ -233,6 +240,8 @@ namespace parsers {
 
 		template<typename THandler>
 		bool parser<THandler>::parse(std::wstring expr) {
+			constants::reset();
+			std::wcout << _T("Current time is: ") << constants::get_now() << std::endl;
 			typedef std::wstring::const_iterator iterator_type;
 			typedef where_grammar<THandler, iterator_type> grammar;
 

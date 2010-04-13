@@ -12,6 +12,8 @@
 #include <boost/fusion/include/io.hpp>
 #include <boost/function.hpp>
 
+#include <parsers/helpers.hpp>
+
 #include <strEx.h>
 
 namespace qi = boost::spirit::qi;
@@ -35,10 +37,8 @@ namespace parsers {
 		struct variable;
 		struct nil {};
 
-
-
 		enum operators {
-			op_eq, op_le, op_lt, op_gt, op_ge, op_ne, op_in, op_nin, op_or, op_and, op_inv, op_not
+			op_eq, op_le, op_lt, op_gt, op_ge, op_ne, op_in, op_nin, op_or, op_and, op_inv, op_not, op_like
 		};
 
 		enum value_type {
@@ -74,7 +74,7 @@ namespace parsers {
 
 
 		inline bool type_is_int(value_type type) {
-			return type == type_int || type == type_bool || (type >= type_custom_int && type < type_custom_int_end);
+			return type == type_int || type == type_bool || type == type_date || (type >= type_custom_int && type < type_custom_int_end);
 		}
 
 		inline value_type get_return_type(operators op, value_type type) {
@@ -103,6 +103,9 @@ namespace parsers {
 				return _T("ui:") + strEx::itos(type-type_custom_int);
 			return _T("unknown:") + strEx::itos(type);
 		}
+		inline std::wstring type_to_string(value_type type) {
+			return to_string(type);
+		}
 
 		inline std::wstring operator_to_string(operators const& identifier) {
 			if (identifier == op_and)
@@ -111,6 +114,14 @@ namespace parsers {
 				return _T("or");
 			if (identifier == op_eq)
 				return _T("=");
+			if (identifier == op_gt)
+				return _T(">");
+			if (identifier == op_lt)
+				return _T("<");
+			if (identifier == op_ge)
+				return _T(">=");
+			if (identifier == op_le)
+				return _T("<=");
 			return _T("?");
 		}
 
@@ -244,6 +255,8 @@ namespace parsers {
 			bool bind(value_type type, THandler & handler);
 			std::wstring name;
 			expression_ast<THandler> subject;
+			bool is_transparent(value_type type);
+			bool is_bound() const;
 		};
 
 		struct string_value {

@@ -65,7 +65,7 @@ namespace parsers {
 			struct result { typedef expression_ast<THandler> type; };
 			expression_ast<THandler> operator()(wchar_t const unit, expression_ast<THandler> const & vars) const {
 				list_value<THandler> args = list_value<THandler>(vars);
-				args += string_value(std::wstring(0, unit));
+				args += string_value(std::wstring(1, unit));
 				return expression_ast<THandler>(unary_fun<THandler>(_T("convert"), args));
 			}
 		};
@@ -153,6 +153,7 @@ namespace parsers {
 					| qi::lit("ne")										[_val = op_ne]
 					| qi::lit("ge")										[_val = op_ge]
 					| qi::lit("gt")										[_val = op_gt]
+					| qi::lit("like")									[_val = op_like]
 					;
 
 			number
