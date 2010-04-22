@@ -205,6 +205,8 @@ namespace strEx {
 	static const __int64 SECS_BETWEEN_EPOCHS = 11644473600;
 	static const __int64 SECS_TO_100NS = 10000000;
 	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+		if (filetime == 0)
+			return _T("ZERO");
 		filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
 		filetime /= SECS_TO_100NS;
 		return format_date(static_cast<time_t>(filetime), format);

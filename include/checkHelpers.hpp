@@ -176,6 +176,8 @@ namespace checkHolders {
 		virtual void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) = 0;
 		virtual void set_warn_bound(std::wstring value) = 0;
 		virtual void set_crit_bound(std::wstring value) = 0;
+		virtual void set_showall(showType show_) = 0;
+
 		//virtual std::wstring get_default_alias() = 0;
 
 	};
@@ -213,6 +215,9 @@ namespace checkHolders {
 		*/
 		bool showAll() {
 			return impl_.showAll();
+		}
+		void set_showall(showType show_) {
+			impl_.show = show_;
 		}
 		std::wstring gatherPerfData(container_value_type &value) {
 			typename impl_type::TPayloadValueType real_value = get_value(value);
@@ -308,6 +313,7 @@ namespace checkHolders {
 		}
 		void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+				(*cit)->set_showall(show);
 				(*cit)->runCheck(value, returnCode, message, perf);
 			}
 			std::wcout << _T("result: ") << message << std::endl;
@@ -871,6 +877,54 @@ namespace checkHolders {
 
 	};
 
+	template <class TFilterType>
+	class FilterBounds {
+	public:
+		TFilterType filter;
+		typedef typename TFilterType::TValueType TValueType;
+		typedef FilterBounds<TFilterType> TMyType;
+
+		FilterBounds() {}
+		FilterBounds(const FilterBounds &other) {
+			filter = other.filter;
+		}
+		bool hasBounds() {
+			return filter.hasFilter();
+		}
+
+		static std::wstring toStringLong(typename TValueType &value) {
+			//return filter.to_string() + _T(" matches ") + value;
+			// TODO FIx this;
+			return value;
+			//return TNumericHolder::toStringLong(value.count) + _T(", ") + TStateHolder::toStringLong(value.state);
+		}
+		static std::wstring toStringShort(typename TValueType &value) {
+			// TODO FIx this;
+			return value;
+			//return TNumericHolder::toStringShort(value.count);
+		}
+		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
+			return _T("");
+		}
+		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
+			if (filter.hasFilter()) {
+				if (!filter.matchFilter(value))
+					return false;
+				message = lable + _T(": ") + filter.to_string() + _T(" matches ") + value;
+				return true;
+			} else {
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for filter check: ") + lable);
+			}
+			return false;
+		}
+		const TMyType & operator=(std::wstring value) {
+			filter = value;
+			return *this;
+		}
+
+	};
+
+
 	template <class TStateHolder = StateBounds<state_type, state_handler> >
 	class SimpleStateBounds {
 	public:
@@ -1063,6 +1117,7 @@ namespace checkHolders {
 	typedef ExactBounds<NumericBounds<unsigned long int, int_handler> > ExactBoundsULongInteger;
 	typedef ExactBounds<NumericBounds<unsigned int, int_handler> > ExactBoundsUInteger;
 	typedef ExactBounds<NumericBounds<unsigned long, int_handler> > ExactBoundsULong;
+	typedef ExactBounds<NumericBounds<long long, int_handler> > ExactBoundsLongLong;
 	typedef ExactBounds<NumericBounds<time_type, time_handler<__int64> > > ExactBoundsTime;
 
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<int ,int>, int_handler> > MaxMinPercentageBoundsInteger;

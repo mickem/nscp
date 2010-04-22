@@ -240,6 +240,7 @@ namespace filters {
 		exact_string_filter exact;
 		not_string_filter not;
 		std::wstring value_;
+		typedef std::wstring TValueType;
 #ifdef USE_BOOST
 		regexp_string_filter regexp;
 #endif
@@ -385,6 +386,7 @@ namespace filters {
 	};
 	typedef filter_all_numeric<__int64, checkHolders::time_handler<__int64> > filter_all_times;
 	typedef filter_all_numeric<unsigned long, checkHolders::int_handler > filter_all_num_ul;
+	typedef filter_all_numeric<long long, checkHolders::int_handler > filter_all_num_ll;
 
 	template <typename TFilterType, typename TValueType>
 	struct chained_filter {

@@ -6,9 +6,29 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2010-04-09 MickeM
+2010-04-21 MickeM - 0.3.8 RC1
+ + Added support for strings and int (values) to CheckSingleRegEntry
+   Use like so (int):
+    CheckSingleRegEntry path=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSize "syntax=%path%: %int%"  warn==20971520 crit==20971520 check=int ShowAll=long
+    CheckSingleRegEntry path=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSize "syntax=%path%: %int%"  warn==30971520 crit==30971520 check=int ShowAll=long
+   Use like so (string):
+    CheckSingleRegEntry path=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSize "syntax=%path%: %string%"  warn==20971520 crit==20971520 check=string ShowAll=long
+    CheckSingleRegEntry path=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSize "syntax=%path%: %string%"  warn==30971520 crit==30971520 check=string ShowAll=long
+   This can ofcourse be combined and all valid operators (like regexp, substr, lt, gt, ne etc etc are supported.
+   
+2010-04-16 MickeM
+ + Added new Check to CheckSystem: CheckSingleRegEntry
+   Similar to the previous CheckSIngleFile but can be used to check aspects of registry entries.
+     CheckSingleRegEntry path=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSize "syntax=%path%: %exists%"  warn==true crit==true check=exists ShowAll=long
+	 CheckSingleRegEntry path=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSizeYY "syntax=%path%: %exists%"  warn==true crit==true check=exists ShowAll=long
+   Currently only supports checking existanse of keys but more checks will be added soon.
+
+2010-04-14 MickeM
+ ! Fixed erroneous error message "Failed to peek buffer"
+ 
+2010-04-13 MickeM
  + Added support for dates in the new CheckEventLog so the following are equvivalent:
-    CheckEventLog debug=true file=application file=system MaxWarn=1 MaxCrit=1 "filter=generated lt -2d AND severity = 'error'" truncate=800 unique descriptions "syntax=%severity%: %source%: %strings% (%count%)"
+    CheckEventLog debug=true file=application file=system MaxWarn=1 MaxCrit=1 "filter=generated gt -2d AND severity = 'error'" truncate=800 unique descriptions "syntax=%severity%: %source%: %strings% (%count%)"
     CheckEventLog debug=true file=application file=system filter=new filter=in MaxWarn=1 MaxCrit=1 filter+generated=gt:2d filter+severity==error truncate=800 unique descriptions "syntax=%severity%: %source%: %strings% (%count%)" debug-threshold=100
 
 2010-04-09 MickeM

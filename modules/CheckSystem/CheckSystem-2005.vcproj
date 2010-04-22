@@ -2471,6 +2471,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\simple_registry.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.h"
 				>
 			</File>
