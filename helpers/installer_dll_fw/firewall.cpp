@@ -442,13 +442,25 @@ extern "C" UINT __stdcall ExecFirewallExceptions(__in MSIHANDLE hInstall)
 				{
 				case msi_helper::WCA_TODO_INSTALL:
 				case msi_helper::WCA_TODO_REINSTALL:
-					h.logMessage(_T("Installing firewall exception: ") + name + _T(", ") + file);
-					AddApplicationException(file, name, remote_addr, fIgnoreFailures);
+					try {
+						h.logMessage(_T("Installing firewall exception: ") + name + _T(", ") + file);
+						AddApplicationException(file, name, remote_addr, fIgnoreFailures);
+					} catch (installer_exception &e) {
+						h.logMessage(_T("Failed to install firewall exception: ") + name + _T(", ") + e.what());
+					} catch (...) {
+						h.logMessage(_T("Failed to install firewall exception: ") + name);
+					}
 					break;
 
 				case msi_helper::WCA_TODO_UNINSTALL:
 					h.logMessage(_T("Uninstalling firewall exception: ") + name + _T(", ") + file);
-					RemoveApplicationException(file, fIgnoreFailures);
+					try {
+						RemoveApplicationException(file, fIgnoreFailures);
+					} catch (installer_exception &e) {
+						h.logMessage(_T("Failed to un-install firewall exception: ") + name + _T(", ") + e.what());
+					} catch (...) {
+						h.logMessage(_T("Failed to un-install firewall exception: ") + name);
+					}
 					break;
 				default:
 					h.logMessage(_T("IGNORING firewall exception: ") + name + _T(", ") + file);

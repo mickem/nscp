@@ -181,6 +181,10 @@ all-scripts =
     [ MATCH .*scripts/(.+\\..*) : [ glob scripts/* ] ]
     ;
 local all-scripts-lst ;
+all-script-libs =
+    [ MATCH .*scripts/lib/(.+\\..*) : [ glob scripts/lib/* ] ]
+    ;
+local all-script-libs-lst ;
 if $(toolset) = "msvc" {
 	if ! ( [ bjam/lua.isEnabled ] = true ) {
 		echo "LUA support disabled skipping build of modules..." ;
@@ -228,6 +232,9 @@ if $(toolset) = "msvc" {
 	for local l in $(all-scripts) {
 		all-scripts-lst = $(all-scripts-lst) scripts/$(l) ;
 	}
+	for local l in $(all-script-libs) {
+		all-script-libs-lst = $(all-script-libs-lst) scripts/lib/$(l) ;
+	}
 } else {
 	all-installers =
 		[ MATCH .*helpers/(.*)/.* : [ glob helpers/*installer/Jamfile ] ]
@@ -263,6 +270,9 @@ explicit all-helpers-targets ;
 
 alias all-scripts-targets : $(all-scripts-lst) ;
 explicit all-scripts-targets ;
+
+alias all-script-libs-targets : $(all-script-libs-lst) ;
+explicit all-script-libs-targets ;
 
 alias all-root-targets : $(target) $(target-config) $(target-readme) $(target-guide) $(target-refman) $(target-license) $(target-changelog) $(target-counters) helpers/systray_helper ;
 explicit all-root-targets ;
@@ -306,6 +316,11 @@ rule generate-scripts-location ( properties * )
 	local tag = [ get-root-prefix $(properties) ] ;
 	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/binaries/scripts ;
 }
+rule generate-script-libs-location ( properties * )
+{
+	local tag = [ get-root-prefix $(properties) ] ;
+	return <location>$(BOOST_STAGE_LOCATE)/$(tag)/binaries/scripts/lib ;
+}
 rule generate-module-location ( properties * )
 {
 	local tag = [ get-root-prefix $(properties) ] ;
@@ -324,7 +339,10 @@ explicit dist-helpers ;
 install dist-scripts : all-scripts-targets : <conditional>@generate-scripts-location ;
 explicit dist-scripts ;
 
-alias build-binaries : dist dist-modules dist-helpers dist-scripts ;
+install dist-script-libs : all-script-libs-targets : <conditional>@generate-script-libs-location ;
+explicit dist-script-libs ;
+
+alias build-binaries : dist dist-modules dist-helpers dist-scripts dist-script-libs ;
 explicit build-binaries ;
 
 

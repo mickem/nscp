@@ -76,7 +76,7 @@ namespace PDH {
 				DWORD dwInstanceBufLen = 0;
 				TCHAR* szInstanceBuffer = NULL;
 				status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, (*it).name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-				if (!status.is_more_data()) {
+				if (status.is_more_data()) {
 					szCounterBuffer = new TCHAR[dwCounterBufLen+1024];
 					szInstanceBuffer = new TCHAR[dwInstanceBufLen+1024];
 

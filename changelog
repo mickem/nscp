@@ -6,6 +6,28 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2010-05-10 MickeM - 0.3.8 RC2
+ * Fixed issue with listpdh and debugpdh (not works again)
+ + Fixed issue and added support for IN ( ... ) and NOT IN ( ... ) operators (CheckEventLog)
+
+2010-05-08 MickeM
+ + Added new "script templating" thing to simplify adding scripts:
+   Two new sections: [Script Wrappings] for adding templates and [Wrapped Scripts] for adding the scripts.
+    %SCRIPT% is replaced with the script name
+    %ARGS% is replaced with arguments.
+     vbs=cscript.exe //T:30 //NoLogo scripts\wrapper.vbs %SCRIPT% %ARGS%
+    and
+     w_vbs=check_test.vbs /arg1:1 /arg2:1 /variable:1
+    is the same as:
+     w_vbs=cscript.exe //T:30 //NoLogo scripts\wrapper.vbs check_test.vbs /arg1:1 /arg2:1 /variable:1
+ * Added correct syntax for VB scripts
+ * Added correct syntax for powershell scripts
+ * Cleaned up scripts folder
+ + Added new "NagiosPlugin library" from op5
+ + Added check_no_rdp.vbs (Checks that no RDP connection is online)
+ + Added check_battery.vbs which checks batterys via WMI
+ + Added check_printer.vbs to check printers via WMI
+
 2010-04-21 MickeM - 0.3.8 RC1
  + Added support for strings and int (values) to CheckSingleRegEntry
    Use like so (int):
@@ -65,7 +87,7 @@ TODO:
  + Added so "global" ([Settings] password=...) passwords are read from the NSCA module
  
 2010-02-26 MickeM
- * Changed fo missing files and such generate an error
+ * Changed so missing files and such generate an error
  * Added option to return error messages to the client [CheckDisk] show_errors=1 (defauilt is off 0)
  * Added warning message ewhen numerical filters evaluate to zero (and are not 0)
  * Fixed major issue with date mathing in CheckFile* which was not working at all.

@@ -25,7 +25,8 @@ namespace parsers {
 			typedef boost::shared_ptr<binary_function_impl<typename THandler> > bin_fun_type;
 			typedef boost::shared_ptr<unary_operator_impl<typename THandler> > un_op_type;
 
-			static bin_op_type get_binary_operator(operators op);
+			static bin_op_type get_binary_operator(operators op, const expression_ast<THandler> &left, const expression_ast<THandler> &right);
+			//static bin_op_type get_binary_operator(operators op);
 			//static varible_handler::bound_function_type get_binary_function(std::wstring name, const expression_ast<THandler> &subject);
 			static bin_fun_type get_binary_function(std::wstring name, const expression_ast<THandler> &subject);
 			static un_op_type get_unary_operator(operators op);

@@ -65,6 +65,23 @@ void CheckExternalScripts::addAllScriptsFrom(std::wstring path) {
 	FindClose(hFind);
 }
 
+
+std::wstring CheckExternalScripts::getWrapping(std::wstring val) {
+	strEx::token tok = strEx::getToken(val, ' ', true);
+	std::wstring::size_type pos = tok.first.find_last_of(_T("."));
+	if (pos == std::wstring::npos)
+		return _T("");
+	return tok.first.substr(pos+1);
+}
+
+void CheckExternalScripts::addWrappedCommand(std::wstring key, std::wstring tpl, std::wstring command ) {
+	strEx::token tok = strEx::getToken(command, ' ', true);
+	strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
+	strEx::replace(tpl, _T("%ARGS%"), tok.second);
+	tok = strEx::getToken(tpl, ' ', true);
+	addCommand(key.c_str(),tok.first, tok.second);
+}
+
 bool CheckExternalScripts::loadModule() {
 	timeout = NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
 	scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
@@ -92,6 +109,28 @@ bool CheckExternalScripts::loadModule() {
 		} else {
 			strEx::token tok = strEx::getToken(s, ' ', true);
 			addAlias((*it).c_str(), tok.first, tok.second);
+		}
+	}
+
+	std::map<std::wstring,std::wstring> wrappers;
+	std::list<std::wstring> wrappings = NSCModuleHelper::getSettingsSection(EXTSCRIPT_WRAPPINGS_SECTION_TITLE);
+	for (it = wrappings.begin(); it != wrappings.end(); ++it) {
+		std::wstring val = NSCModuleHelper::getSettingsString(EXTSCRIPT_WRAPPINGS_SECTION_TITLE, *it, _T(""));
+		if (!(*it).empty() && !val.empty()) {
+			wrappers[(*it)] = val;
+		}
+	}
+	std::list<std::wstring> wscript = NSCModuleHelper::getSettingsSection(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE);
+	for (it = wrappings.begin(); it != wscript.end(); ++it) {
+		std::wstring val = NSCModuleHelper::getSettingsString(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE, *it, _T(""));
+		if (!(*it).empty() && !val.empty()) {
+			std::wstring type = getWrapping(val);
+			std::map<std::wstring,std::wstring>::const_iterator cit = wrappers.find(type);
+			if (cit == wrappers.end()) {
+				NSC_LOG_ERROR_STD(_T("Failed to find wrappings for: ") + type + _T(" (" + (*it) + _T(")")));
+			} else {
+				addWrappedCommand((*it), (*cit).second, val);
+			}
 		}
 	}
 

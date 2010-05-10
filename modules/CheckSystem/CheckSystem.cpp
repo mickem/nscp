@@ -210,6 +210,9 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 					}
 				}
 			} else {
+				if ((*it).counters.size() == 0) {
+					std::wcout << _T("empty counter: ") << (*it).name << std::endl;
+				}
 				for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
 					std::wstring counter = _T("\\") + (*it).name + _T("\\") + (*it2).name;
 					std::wcout << _T("testing: ") << counter << _T(": ");
@@ -234,7 +237,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 						break;
 					}
 					std::wcout << _T(" open ");
-					std::wcout << std::endl;;
+					std::wcout << std::endl;
 				}
 			}
 		}

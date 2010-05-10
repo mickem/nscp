@@ -122,6 +122,10 @@ namespace parsers {
 				return _T(">=");
 			if (identifier == op_le)
 				return _T("<=");
+			if (identifier == op_in)
+				return _T("in");
+			if (identifier == op_nin)
+				return _T("not in");
 			return _T("?");
 		}
 

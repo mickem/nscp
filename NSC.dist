@@ -183,6 +183,11 @@ use_file=1
 ;  *WARNING* This is undoubtedly dangerous so use with care!
 ;script_dir=c:\my\script\dir
 
+[Script Wrappings]
+vbs=cscript.exe //T:30 //NoLogo scripts\lib\wrapper.vbs %SCRIPT% %ARGS%
+ps1=cmd /c echo scripts\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -
+bat=scripts\%SCRIPT% %ARGS%
+
 [External Scripts]
 ;check_es_long=scripts\long.bat
 ;check_es_ok=scripts\ok.bat
@@ -201,10 +206,18 @@ alias_up=checkUpTime MinWarn=1d MinWarn=1h
 alias_file_age=checkFile2 filter=out "file=$ARG1$" filter-written=>1d MaxWarn=1 MaxCrit=1 "syntax=%filename% %write%"
 alias_file_size=checkFile2 filter=out "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=1 MaxCrit=1 "syntax=%filename% %size%"
 alias_file_size_in_dir=checkFile2 filter=out pattern=*.txt "file=$ARG1$" filter-size=>$ARG2$ MaxWarn=1 MaxCrit=1 "syntax=%filename% %size%"
-alias_event_log=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
-alias_event_log2=CheckEventLog file=application file=system filter=new filter=in MaxWarn=1 MaxCrit=1 filter+generated=<2d "filter+eventSource==Service Control Manager" filter+severity==error truncate=1023 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+alias_event_log_old=CheckEventLog file=application file=system filter=new filter=out MaxWarn=1 MaxCrit=1 filter-generated=>2d filter-severity==success filter-severity==informational truncate=800 unique descriptions  "syntax=%severity%: %source%: %message% (%count%)"
+alias_event_log_new=CheckEventLog file=application file=system MaxWarn=1 MaxCrit=1 "filter=generated gt -2d AND severity NOT IN ('success', 'informational')" truncate=800 unique descriptions "syntax=%severity%: %source%: %message% (%count%)"
+alias_event_log=alias_event_log_new
+
 check_ok=CheckOK Everything is fine!
 
+[Wrapped Scripts]
+;check_test_vbs=check_test.vbs /arg1:1 /arg2:1 /variable:1
+;check_test_ps1=check_test.ps1 arg1 arg2
+;check_test_bat=check_test.bat arg1 arg2
+;check_battery=check_battery.vbs
+;check_printer=check_printer.vbs
 
 
 ; [includes]

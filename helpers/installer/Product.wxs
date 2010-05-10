@@ -149,16 +149,24 @@
 								<File Id="ModCheckTaskSched.dll" Name="TaskSch.dll" LongName="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
 							</Component>
 						</Directory>
-						<Directory Id="INSTALLLOCATION_SCRIPTS" Name="scripts">
-							<Component Id="Scripts" Guid="9B490E67-5472-4267-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-								<File Id="scriptargs.bat" Name="args.bat" LongName="args.bat" DiskId="1" Source="$(var.Source)/scripts/args.bat" Vital="no" />
-								<File Id="scriptcheck_vb.vbs" Name="check_vb.vbs" LongName="check_vb.vbs" DiskId="1" Source="$(var.Source)/scripts/check_vb.vbs" Vital="no" />
-								<File Id="scriptcritical.bat" Name="critical.bat" LongName="critical.bat" DiskId="1" Source="$(var.Source)/scripts/critical.bat" Vital="no" />
-								<File Id="scriptmulti_line.bat" Name="mline.bat" LongName="multi_line.bat" DiskId="1" Source="$(var.Source)/scripts/multi_line.bat" Vital="no" />
-								<File Id="scriptok.bat" Name="ok.bat" LongName="ok.bat" DiskId="1" Source="$(var.Source)/scripts/ok.bat" Vital="no" />
-								<File Id="scriptpowershell.ps1" Name="pwrshell.ps1" LongName="powershell.ps1" DiskId="1" Source="$(var.Source)/scripts/powershell.ps1" Vital="no" />
-								<File Id="scripttest.lua" Name="test.lua" LongName="test.lua" DiskId="1" Source="$(var.Source)/scripts/test.lua" Vital="no" />
-							</Component>
+            <Directory Id="INSTALLLOCATION_SCRIPTS" Name="scripts">
+              <Component Id="Scripts" Guid="9B490E67-5472-4268-96DF-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                <File Id="script001" Name="c_60s.bat" LongName="check_60s.bat" DiskId="1" Source="$(var.Source)/scripts/check_60s.bat" Vital="no" />
+                <File Id="script002" Name="c_btry.vbs" LongName="check_battery.vbs" DiskId="1" Source="$(var.Source)/scripts/check_battery.vbs" Vital="no" />
+                <File Id="script003" Name="c_nrdb.bat" LongName="check_no_rdp.bat" DiskId="1" Source="$(var.Source)/scripts/check_no_rdp.bat" Vital="no" />
+                <File Id="script004" Name="c_prt.vbs" LongName="check_printer.vbs" DiskId="1" Source="$(var.Source)/scripts/check_printer.vbs" Vital="no" />
+                <File Id="script005" Name="c_ok.bat" LongName="check_ok.bat" DiskId="1" Source="$(var.Source)/scripts/check_ok.bat" Vital="no" />
+                <File Id="sample001" Name="c_test.bat" LongName="check_test.bat" DiskId="1" Source="$(var.Source)/scripts/check_test.bat" Vital="no" />
+                <File Id="sample002" Name="c_test.ps1" LongName="check_test.ps1" DiskId="1" Source="$(var.Source)/scripts/check_test.ps1" Vital="no" />
+                <File Id="sample003" Name="c_test.vbs" LongName="check_test.vbs" DiskId="1" Source="$(var.Source)/scripts/check_test.vbs" Vital="no" />
+                <File Id="lua001" Name="test.lua" LongName="test.lua" DiskId="1" Source="$(var.Source)/scripts/test.lua" Vital="no" />
+              </Component>
+              <Directory Id="INSTALLLOCATION_SCRIPTS_LIB" Name="lib">
+                <Component Id="ScriptLibs" Guid="9B490E67-5472-4267-96DF-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                  <File Id="lib001" Name="nagplug.vbs" LongName="NagiosPlugins.vbs" DiskId="1" Source="$(var.Source)/scripts/lib/NagiosPlugins.vbs" Vital="no" />
+                  <File Id="lib002" Name="wrapper.vbs" LongName="wrapper.vbs" DiskId="1" Source="$(var.Source)/scripts/lib/wrapper.vbs" Vital="no" />
+                </Component>
+              </Directory>
 						</Directory>
 					</Directory>
 				</Directory>
@@ -199,7 +207,8 @@
 				</Feature>
 				<Feature Id="SampleScripts" Title="Sample Scripts" Description="Some sample client-side scripts to use with NRPE" Level="1" Absent="disallow">
 					<ComponentRef Id="Scripts" />
-				</Feature>
+          <ComponentRef Id="ScriptLibs" />
+        </Feature>
 			</Feature>
 		</Feature>
 

@@ -72,27 +72,30 @@ namespace parsers {
 			}
 
 			bool operator()(binary_op<THandler> & expr) {
+				//std::wcout << "force_bin_op" << std::endl;
 				expr.left.force_type(type);
 				expr.right.force_type(type);
 				return true;
 			}
 			bool operator()(unary_op<THandler> & expr) {
+				//std::wcout << "force_un_op" << std::endl;
 				expr.subject.force_type(type);
 				return true;
 			}
 
 			bool operator()(unary_fun<THandler> & expr) {
+				//std::wcout << "force_fun" << std::endl;
 				if (expr.is_transparent(type))
 					expr.subject.force_type(type);
 				return true;
 			}
 
 			bool operator()(list_value<THandler> & expr) {
-				BOOST_FOREACH(expression_ast<THandler> e, expr.list) {
+				BOOST_FOREACH(expression_ast<THandler> &e, expr.list) {
 					e.force_type(type);
 					//boost::apply_visitor(*this, e.expr);
 				}
-				return false;
+				return true;
 			}
 
 			bool operator()(string_value & expr) { return false; }
@@ -104,7 +107,7 @@ namespace parsers {
 
 		template<typename THandler>
 		void expression_ast<THandler>::force_type(value_type newtype) {
-			std::wcout << _T("Forcing type: ") << type_to_string(type) << _T(" to ") << type_to_string(newtype) << _T(" for ") << to_string() << std::endl;
+			//std::wcout << _T("Forcing type: ") << type_to_string(type) << _T(" to ") << type_to_string(newtype) << _T(" for ") << to_string() << std::endl;
 			if (type == newtype)
 				return;
 			if (type != newtype && type != type_tbd) {
@@ -113,12 +116,14 @@ namespace parsers {
 				subnode.set_type(type);
 				expr = unary_fun<THandler>(_T("auto_convert"), subnode);
 				type = newtype;
+				//std::wcout << _T("Forcing type (D1): ") << type_to_string(type) << _T(" to ") << type_to_string(newtype) << _T(" for ") << to_string() << std::endl;
 				return;
 			}
 			visitor_set_type<THandler> visitor(newtype);
 			if (boost::apply_visitor(visitor, expr)) {
 				set_type(newtype);
 			}
+			//std::wcout << _T("Forcing type (D2): ") << type_to_string(type) << _T(" to ") << type_to_string(newtype) << _T(" for ") << to_string() << std::endl;
 		}
 
 		template<typename THandler>
@@ -162,7 +167,8 @@ namespace parsers {
 			void operator()(list_value<THandler> const& expr) {
 				result << _T(" { ");
 				BOOST_FOREACH(const expression_ast<THandler> e, expr.list) {
-					boost::apply_visitor(*this, e.expr);
+					operator()(e);
+					//boost::apply_visitor(*this, e.expr);
 					result << _T(", ");
 				}
 				result << _T(" } ");
@@ -420,7 +426,7 @@ namespace parsers {
 
 		template<typename THandler>
 		expression_ast<THandler> binary_op<THandler>::evaluate(THandler &handler) const {
-			factory<THandler>::bin_op_type impl = factory<THandler>::get_binary_operator(op);
+			factory<THandler>::bin_op_type impl = factory<THandler>::get_binary_operator(op, left, right);
 			if (get_return_type(op, type_invalid) == type_bool) {
 				return impl->evaluate(handler, left, right);
 			}

@@ -407,14 +407,20 @@ int wmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			return nRetCode;
 		} else if ( _wcsicmp( _T("noboot"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
-			mainClient.enableDebug(false);
-			mainClient.initCore(false);
-			int nRetCode = -1;
-			if (argc>=4)
-				nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
-			else if (argc>=3)
-				nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
-			mainClient.exitCore(false);
+			try {
+				mainClient.enableDebug(false);
+				mainClient.initCore(false);
+				int nRetCode = -1;
+				if (argc>=4)
+					nRetCode = mainClient.commandLineExec(argv[2], argv[3], argc-4, &argv[4]);
+				else if (argc>=3)
+					nRetCode = mainClient.commandLineExec(argv[2], argv[3], 0, NULL);
+				else
+					std::wcerr << _T("No arguments specified...") << std::endl;
+				mainClient.exitCore(false);
+			} catch (...) {
+				std::wcerr << _T("Unknown error...") << std::endl;
+			}
 			return nRetCode;
 		} else if ( _wcsicmp( _T("svc"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;

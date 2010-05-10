@@ -79,10 +79,13 @@ private:
 private:
 	void addAllScriptsFrom(std::wstring path);
 	void addCommand(strEx::blindstr key, std::wstring cmd, std::wstring args) {
+		NSC_DEBUG_MSG_STD(_T("Adding: ") + cmd + _T("Args: ") + args);
 		commands[key] = command_data(cmd, args);
 	}
 	void addAlias(strEx::blindstr key, std::wstring cmd, std::wstring args) {
 		alias[key] = command_data(cmd, args);
 	}
+	std::wstring getWrapping( std::wstring val );
+	void addWrappedCommand( std::wstring key, std::wstring tpl, std::wstring command );
 };
 

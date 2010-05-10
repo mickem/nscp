@@ -36,11 +36,14 @@ namespace parsers {
 			ast_type_inference(varible_type_handler & handler) : handler(handler) {}
 
 			value_type operator()(expression_ast<THandler> & ast) {
+				//std::wcout << _T(">>>Setting type: ") << ast.to_string() << _T(" to: ") << ast.get_type() << std::endl;
 				value_type type = ast.get_type();
+				//std::wcout << _T("!!!Setting type: ") << ast.to_string() << _T(" to: ") << type << std::endl;
 				if (type != type_tbd)
 					return type;
 				type = boost::apply_visitor(*this, ast.expr);
 				ast.set_type(type);
+				//std::wcout << _T("<<<Setting type: ") << ast.to_string() << _T(" to: ") << ast.get_type() << std::endl;
 				return type;
 			}
 			bool can_convert(value_type src, value_type dst) {
@@ -70,22 +73,22 @@ namespace parsers {
 				if (rt == type_tbd && lt == type_tbd)
 					return type_tbd;
 				if (handler.can_convert(rt, lt)) {
-					std::wcout << _T("FORCE 001") << std::endl;
+					//std::wcout << _T("FORCE 001") << std::endl;
 					right.force_type(lt);
 					return lt;
 				}
 				if (handler.can_convert(lt, rt)) {
-					std::wcout << _T("FORCE 002") << std::endl;
+					//std::wcout << _T("FORCE 002") << std::endl;
 					left.force_type(rt);
 					return rt;
 				}
 				if (can_convert(rt, lt)) {
-					std::wcout << _T("FORCE 003") << std::endl;
+					//std::wcout << _T("FORCE 003") << std::endl;
 					right.force_type(lt);
 					return rt;
 				}
 				if (can_convert(lt, rt)) {
-					std::wcout << _T("FORCE 004") << std::endl;
+					//std::wcout << _T("FORCE 004") << std::endl;
 					left.force_type(rt);
 					return lt;
 				}
@@ -109,6 +112,9 @@ namespace parsers {
 			}
 
 			value_type operator()(list_value<THandler> & expr) {
+				BOOST_FOREACH(expression_ast<THandler> &e, expr.list) {
+					operator()(e);
+				}
 				return type_tbd;
 			}
 
@@ -170,7 +176,9 @@ namespace parsers {
 			}
 
 			bool operator()(list_value<THandler> & expr) {
-				// TODO: this is incorrect!
+				BOOST_FOREACH(expression_ast<THandler> e, expr.list) {
+					operator()(e);
+				}
 				return true;
 			}
 
@@ -217,7 +225,7 @@ namespace parsers {
 			}
 
 			bool operator()(list_value<THandler> & expr) {
-				BOOST_FOREACH(expression_ast<THandler> e, expr.list) {
+				BOOST_FOREACH(expression_ast<THandler> &e, expr.list) {
 					operator()(e);
 				}
 				return true;
@@ -241,7 +249,7 @@ namespace parsers {
 		template<typename THandler>
 		bool parser<THandler>::parse(std::wstring expr) {
 			constants::reset();
-			std::wcout << _T("Current time is: ") << constants::get_now() << std::endl;
+			//std::wcout << _T("Current time is: ") << constants::get_now() << std::endl;
 			typedef std::wstring::const_iterator iterator_type;
 			typedef where_grammar<THandler, iterator_type> grammar;
 

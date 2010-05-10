@@ -6,7 +6,10 @@ namespace parsers {
 			template<typename THandler>
 			struct simple_bool_binary_operator_impl : public binary_operator_impl<THandler> {
 				expression_ast<THandler> evaluate(THandler &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
-					if (left.get_type() != right.get_type()) {
+					value_type ltype = left.get_type();
+					value_type rtype = right.get_type();
+
+					if ( (ltype != rtype) && (rtype != type_tbd) ) {
 						handler.error(_T("Invalid types (not same) for binary operator"));
 						return expression_ast<THandler>(int_value(FALSE));
 					}
@@ -113,6 +116,56 @@ namespace parsers {
 					//if (res)
 					//	std::wcout << _T("Found: ") << s1 << _T(" in ") << s2 << std::endl;
 					return res;
+				};
+			};
+			template<typename THandler>
+			struct operator_not_in : public simple_bool_binary_operator_impl<THandler> {
+
+				typedef typename expression_ast<THandler>::list_type list_type;
+				typedef typename expression_ast<THandler> list_item_type;
+				typename expression_ast<THandler>::list_type list;
+				operator_not_in(const expression_ast<THandler> &subject) : list(subject.get_list()) {}
+
+				bool eval_int(value_type type, THandler &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					long long val = left.get_int(handler);
+					BOOST_FOREACH(list_item_type itm, list) {
+						if (itm.get_int(handler) == val)
+							return false;
+					}
+					return true;
+				}
+				bool eval_string(value_type type, THandler &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					std::wstring val = left.get_string(handler);
+					BOOST_FOREACH(list_item_type itm, list) {
+						if (itm.get_string(handler) == val)
+							return false;
+					}
+					return true;
+				};
+			};
+			template<typename THandler>
+			struct operator_in : public simple_bool_binary_operator_impl<THandler> {
+
+				typedef typename expression_ast<THandler>::list_type list_type;
+				typedef typename expression_ast<THandler> list_item_type;
+				typename expression_ast<THandler>::list_type list;
+				operator_in(const expression_ast<THandler> &subject) : list(subject.get_list()) {}
+
+				bool eval_int(value_type type, THandler &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					long long val = left.get_int(handler);
+					BOOST_FOREACH(list_item_type itm, list) {
+						if (itm.get_int(handler) == val)
+							return true;
+					}
+					return false;
+				}
+				bool eval_string(value_type type, THandler &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					std::wstring val = left.get_string(handler);
+					BOOST_FOREACH(list_item_type itm, list) {
+						if (itm.get_string(handler) == val)
+							return true;
+					}
+					return false;
 				};
 			};
 			template<typename THandler>
@@ -225,7 +278,7 @@ namespace parsers {
 			};
 		}
 		template<typename THandler>
-		typename factory<THandler>::bin_op_type factory<THandler>::get_binary_operator(operators op) {
+		typename factory<THandler>::bin_op_type factory<THandler>::get_binary_operator(operators op, const expression_ast<THandler> &left, const expression_ast<THandler> &right) {
 			// op_in, op_nin
 			if (op == op_eq)
 				return bin_op_type(new operator_impl::operator_eq<THandler>());
@@ -246,6 +299,10 @@ namespace parsers {
 				return bin_op_type(new operator_impl::operator_and<THandler>());
 			if (op == op_or)
 				return bin_op_type(new operator_impl::operator_or<THandler>());
+			if (op == op_in)
+				return bin_op_type(new operator_impl::operator_in<THandler>(right));
+			if (op == op_nin)
+				return bin_op_type(new operator_impl::operator_not_in<THandler>(right));
 			std::cout << "======== UNHANDLED OPERATOR\n";
 			return bin_op_type(new operator_impl::operator_false<THandler>());
 		}
