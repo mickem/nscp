@@ -345,6 +345,8 @@ explicit dist-script-libs ;
 alias build-binaries : dist dist-modules dist-helpers dist-scripts dist-script-libs ;
 explicit build-binaries ;
 
+alias build-nagios-plugins : helpers/plugins ;
+explicit build-nagios-plugins ;
 
 alias build-archives : all-archive-targets : <location>$(BOOST_STAGE_LOCATE)/archive ;
 explicit build-archives ;

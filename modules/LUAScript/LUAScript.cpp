@@ -24,6 +24,7 @@
 #include <time.h>
 #include <filter_framework.hpp>
 #include <error.hpp>
+#include <file_helpers.hpp>
 
 
 LUAScript gLUAScript;
@@ -58,7 +59,17 @@ void LUAScript::register_command(script_wrapper::lua_script* script, std::wstrin
 
 bool LUAScript::loadScript(const std::wstring file) {
 	try {
-		script_wrapper::lua_script *script = new script_wrapper::lua_script(file);
+		std::wstring file_ = file;
+
+		if (!file_helpers::checks::exists(file_)) {
+			file_ = NSCModuleHelper::getBasePath() + file;
+			if (!file_helpers::checks::exists(file_)) {
+				NSC_LOG_ERROR(_T("Script not found: ") + file + _T(" (") + file_ + _T(")"));
+				return false;
+			}
+		}
+		NSC_DEBUG_MSG_STD(_T("Loading script: ") + file + _T(" (") + file_ + _T(")"));
+		script_wrapper::lua_script *script = new script_wrapper::lua_script(file_);
 		script->pre_load(this);
 		scripts_.push_back(script);
 		return true;

@@ -6,6 +6,16 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2010-05-17 MickeM
+ * Fixed id is considerd an int (not a string) in the eventlog filter
+ 
+2010-05-14 MickeM
+ * Fixed issue with LUA script module not using relative path
+ * New default syntax for CheckEventLog
+
+2010-05-12 MickeM - 0.3.8 RC3
+ * Fixed issue which caused latest build to crash
+
 2010-05-10 MickeM - 0.3.8 RC2
  * Fixed issue with listpdh and debugpdh (not works again)
  + Fixed issue and added support for IN ( ... ) and NOT IN ( ... ) operators (CheckEventLog)

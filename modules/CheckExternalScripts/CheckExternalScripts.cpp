@@ -121,7 +121,7 @@ bool CheckExternalScripts::loadModule() {
 		}
 	}
 	std::list<std::wstring> wscript = NSCModuleHelper::getSettingsSection(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE);
-	for (it = wrappings.begin(); it != wscript.end(); ++it) {
+	for (it = wscript.begin(); it != wscript.end(); ++it) {
 		std::wstring val = NSCModuleHelper::getSettingsString(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE, *it, _T(""));
 		if (!(*it).empty() && !val.empty()) {
 			std::wstring type = getWrapping(val);

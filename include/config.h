@@ -168,7 +168,7 @@
 #define EVENTLOG_LOOKUP_NAMES _T("lookup_names")
 #define EVENTLOG_LOOKUP_NAMES_DEFAULT 1
 #define EVENTLOG_SYNTAX _T("syntax")
-#define EVENTLOG_SYNTAX_DEFAULT _T("")
+#define EVENTLOG_SYNTAX_DEFAULT _T("%severity%: %source%: %message% (%count%)")
 #define EVENTLOG_BUFFER _T("buffer_size")
 #define EVENTLOG_BUFFER_DEFAULT 1024*64
 

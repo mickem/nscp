@@ -78,7 +78,7 @@ namespace filter {
 				using namespace boost::assign;
 				using namespace parsers::where;
 				insert(types)
-					(_T("id"), (type_string))
+					(_T("id"), (type_int))
 					(_T("source"), (type_string))
 					(_T("type"), (type_int))
 					(_T("severity"), (type_custom_severity))
@@ -139,24 +139,28 @@ namespace filter {
 				handler::bound_string_type ret;
 				if (key == _T("source"))
 					ret = &type_obj::get_source;
-				if (key == _T("message"))
+				else if (key == _T("message"))
 					ret = &type_obj::get_message;
-				if (key == _T("strings"))
+				else if (key == _T("strings"))
 					ret = &type_obj::get_strings;
+				else
+					NSC_DEBUG_MSG_STD(_T("Failed to bind (string): ") + key);
 				return ret;
 			}
 			handler::bound_int_type bind_int(std::wstring key) {
 				handler::bound_int_type ret;
 				if (key == _T("id"))
 					ret = &type_obj::get_id;
-				if (key == _T("type"))
+				else if (key == _T("type"))
 					ret = &type_obj::get_el_type;
-				if (key == _T("severity"))
+				else if (key == _T("severity"))
 					ret = &type_obj::get_severity;
-				if (key == _T("generated"))
+				else if (key == _T("generated"))
 					ret = &type_obj::get_generated;
-				if (key == _T("written"))
+				else if (key == _T("written"))
 					ret = &type_obj::get_written;
+				else
+					NSC_DEBUG_MSG_STD(_T("Failed to bind (int): ") + key);
 				return ret;
 			}
 
@@ -235,6 +239,7 @@ struct any_mode_filter {
 	virtual bool validate(std::wstring &message) = 0;
 	virtual bool match(EventLogRecord &record) = 0;
 	virtual std::wstring get_name() = 0;
+	virtual std::wstring get_subject() = 0;
 };
 
 struct first_mode_filter : public any_mode_filter {
@@ -277,6 +282,7 @@ struct first_mode_filter : public any_mode_filter {
 	std::wstring get_name() {
 		return _T("deprecated");
 	}
+	std::wstring get_subject() { return _T("TODO"); }
 
 };
 struct second_mode_filter : public any_mode_filter  {
@@ -321,6 +327,7 @@ struct second_mode_filter : public any_mode_filter  {
 	std::wstring get_name() {
 		return _T("old");
 	}
+	std::wstring get_subject() { return _T("TODO"); }
 };
 
 struct where_mode_filter : public any_mode_filter {
@@ -379,6 +386,7 @@ struct where_mode_filter : public any_mode_filter {
 	std::wstring get_name() {
 		return _T("where");
 	}
+	std::wstring get_subject() { return data.filter; }
 };
 
 
@@ -405,6 +413,7 @@ bool CheckEventLog::loadModule() {
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
+	/*
 	parse(_T("321 = 123"));
 	parse(_T("123 = 123"));
 	parse(_T("id = 123"));
@@ -445,7 +454,7 @@ bool CheckEventLog::loadModule() {
 	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = -333)"));
 	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x"));
 	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x OR 123r = foo123"));
-
+*/
 	return true;
 }
 bool CheckEventLog::unloadModule() {
@@ -681,7 +690,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	__time64_t ltime;
 	_time64(&ltime);
 
-	NSC_DEBUG_MSG_STD(_T("Using: ") + filter_impl->get_name());
+	NSC_DEBUG_MSG_STD(_T("Using: ") + filter_impl->get_name() + _T(" ") + filter_impl->get_subject());
 
 	if (!filter_impl->validate(message)) {
 		return NSCAPI::returnUNKNOWN;
