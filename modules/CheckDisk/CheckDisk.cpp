@@ -477,7 +477,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 struct file_info {
 
 	std::wstring error;
-	bool has_error;
+	//bool has_error;
 
 	static file_info get(__int64 now, std::wstring path, std::wstring file) {
 		return get_2(now, path, file);
@@ -676,6 +676,45 @@ struct file_info {
 	}
 };
 
+struct file_container : public file_info {
+	std::wstring error_;
+
+
+	static file_container get(std::wstring file) {
+		FILETIME now;
+		GetSystemTimeAsFileTime(&now);
+		unsigned __int64 nowi64 = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
+		return get(file, nowi64);
+	}
+
+	static file_container get(std::wstring file, unsigned long long now) {
+
+		BY_HANDLE_FILE_INFORMATION _info;
+
+		HANDLE hFile = CreateFile(file.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			return file_container(now, file, _T("Could not open file: ") + file);
+		}
+		GetFileInformationByHandle(hFile, &_info);
+		CloseHandle(hFile);
+		file_container info(now, _info, file);
+		//info.ullNow = now;
+		return info;
+	}
+
+
+	file_container(__int64 now, const BY_HANDLE_FILE_INFORMATION info, std::wstring file) : file_info(now, info, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
+	file_container(__int64 now, std::wstring file, std::wstring error) : error_(error), file_info(now, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
+
+	bool has_errors() {
+		return !error_.empty();
+	}
+	std::wstring get_error() {
+		return error_;
+	}
+
+};
 struct file_filter {
 	filters::filter_all_numeric<unsigned long long, checkHolders::disk_size_handler<checkHolders::disk_size_type> > size;
 	filters::filter_all_times creation;
@@ -954,7 +993,6 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 	std::wstring format = _T("%Y years %m mon %d days %H hours %M min %S sec");
 	std::wstring path;
 	bool debug = false;
-	find_first_file_info finder;
 	MAP_OPTIONS_BEGIN(stl_args)
 		MAP_OPTIONS_STR(_T("path"), path)
 		MAP_OPTIONS_STR(_T("date"), format)
@@ -967,18 +1005,18 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(const unsigned int argLen, TCHAR **ch
 		return NSCAPI::returnUNKNOWN;
 	}
 
-	NSC_error errors;
-	pattern_type splitpath = split_pattern(path);
-	recursive_scan<find_first_file_info>(splitpath.first, splitpath.second, -1, -1, finder, &errors, debug);
-	if (errors.has_error()) {
+	file_container info = file_container::get(path);
+
+	if (!info.error_.empty()) {
 		if (show_errors_)
-			message = errors.get_error();
+			message = _T("0&") + info.error_;
 		else
-			message = _T("Check contains error. Check log for details (or enable show_errors in nsc.ini)");
+			message = _T("0&Check contains error. Check log for details (or enable show_errors in nsc.ini)");
 		return NSCAPI::returnUNKNOWN;
 	}
-	time_t value = (finder.now_-finder.info.ullLastWriteTime)/10000000;
-	message = strEx::itos(value/60) + _T("&") + strEx::format_time_delta(gmtime(&value), format);
+	static const __int64 SECS_TO_100NS = 10000000;
+	time_t value = (info.ullNow-info.ullLastWriteTime)/SECS_TO_100NS;
+	message = strEx::itos(value/60) + _T("&") + strEx::format_time_delta(value, format);
 	return NSCAPI::returnOK;
 }
 
@@ -1176,37 +1214,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFile2(const unsigned int argLen, TCHAR **ch
 		message = _T("CheckFile ok");
 	return returnCode;
 }
-struct file_container : public file_info {
-	std::wstring error_;
 
-	static file_container get(std::wstring file, unsigned long long now) {
-
-		BY_HANDLE_FILE_INFORMATION _info;
-
-		HANDLE hFile = CreateFile(file.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-			0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
-		if (hFile == INVALID_HANDLE_VALUE) {
-			return file_container(now, file, _T("Could not open file: ") + file);
-		}
-		GetFileInformationByHandle(hFile, &_info);
-		CloseHandle(hFile);
-		file_container info(now, _info, file);
-		//info.ullNow = now;
-		return info;
-	}
-
-
-	file_container(__int64 now, const BY_HANDLE_FILE_INFORMATION info, std::wstring file) : file_info(now, info, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
-	file_container(__int64 now, std::wstring file, std::wstring error) : error_(error), file_info(now, file_helpers::meta::get_path(file), file_helpers::meta::get_filename(file)) {}
-
-	bool has_errors() {
-		return !error_.empty();
-	}
-	std::wstring get_error() {
-		return error_;
-	}
-
-};
 
 typedef checkHolders::ExactBounds<checkHolders::NumericBounds<checkHolders::disk_size_type, checkHolders::disk_size_handler<checkHolders::disk_size_type> > > ExactBoundsDiscSize;
 

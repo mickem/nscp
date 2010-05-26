@@ -6,6 +6,13 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2010-05-25 MickeM - 0.3.8 (take 2)
+ ! Release the new version
+ * Fixed issue with FILEAGE
+
+2010-05-19 MickeM - 0.3.8
+ ! Release the new version
+
 2010-05-17 MickeM
  * Fixed id is considerd an int (not a string) in the eventlog filter
  
