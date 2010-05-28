@@ -6,6 +6,10 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2010-05-25 MickeM - 0.3.8 (take 3)
+ ! Release the new version
+ * Fixed issue with CheckServiceState
+
 2010-05-25 MickeM - 0.3.8 (take 2)
  ! Release the new version
  * Fixed issue with FILEAGE

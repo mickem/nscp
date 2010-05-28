@@ -136,8 +136,9 @@ namespace checkHolders {
 				return crit.gatherPerfData(getAlias(), value, warn, crit);
 			else if (warn.hasBounds())
 				return warn.gatherPerfData(getAlias(), value, warn, crit);
-			else
-				return getAlias() + _T(": ERROR");
+			//else
+			//	return getAlias() + _T(": ERROR");
+			return _T("");
 		}
 		bool hasBounds() {
 			return warn.hasBounds() || crit.hasBounds();
