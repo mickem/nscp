@@ -18,8 +18,8 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 
-		${NSCP_INCLUDE_PATH}/execute_process_unix.hpp
-		${NSCP_INCLUDE_PATH}/execute_process_w32.hpp
+		${NSCP_INCLUDEDIR}/execute_process_unix.hpp
+		${NSCP_INCLUDEDIR}/execute_process_w32.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

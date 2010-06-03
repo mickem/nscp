@@ -7,7 +7,7 @@ PROJECT(${TARGET})
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
-	${NSCP_INCLUDE_PATH}/nrpe/nrpe_packet.cpp
+	${NSCP_INCLUDEDIR}/nrpe/nrpe_packet.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -19,10 +19,10 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
-		${NSCP_INCLUDE_PATH}/socket_helpers.hpp
-		${NSCP_INCLUDE_PATH}/nrpe/nrpe_packet.hpp
-		${NSCP_INCLUDE_PATH}/nrpe/nrpe_socket.hpp
-		${NSCP_INCLUDE_PATH}/swap_bytes.hpp
+		${NSCP_INCLUDEDIR}/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/nrpe/nrpe_packet.hpp
+		${NSCP_INCLUDEDIR}/nrpe/nrpe_socket.hpp
+		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

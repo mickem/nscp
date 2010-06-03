@@ -1,6 +1,4 @@
 cmake_minimum_required(VERSION 2.6)
-
-include(build.cmake)
 	
 PROJECT(NSCP)
 
@@ -8,6 +6,45 @@ SET(VERSION_SERIES 0)
 SET(VERSION_MAJOR 4)
 SET(VERSION_MINOR 0)
 
+
+INCLUDE(cmake/SetMultiThread.cmake)
+# ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#
+# Setup section
+# An option to override this is to set them in the build.cmake file
+#
+# ### ### ### ###
+# Include local build enviornment
+include(build.cmake)
+# ### ### ### ###
+# Generic includes
+# TODO
+# ### ### ### ###
+# NSCP Includes
+SET(NSCP_LIBRARYDIR "${INC_NSCP_LIBRARYDIR}" CACHE PATH "Generic path to all libraries")
+SET(NSCP_INCLUDEDIR "${NSCP_SOURCE_DIR}/include" CACHE PATH "Generic include path (for NSCP include files amongst others)")
+# ### ### ### ###
+# Boost setup
+SET(Boost_USE_STATIC_LIBS CACHE BOOL ON "Link boost statically (generally a good idea)")
+SET(BOOST_INCLUDEDIR "${INC_BOOST_INCLUDEDIR}" CACHE PATH "Path to boost includes")
+SET(BOOST_LIBRARYDIR "${NSCP_LIBRARYDIR}" CACHE PATH "Path to boost libraries")
+# ### ### ### ###
+# Open SSL
+SET(OPENSSL_INCLUDE_DIR "${INC_OPENSSL_INCLUDEDIR}" CACHE PATH "Path to openssl includes")
+# ### ### ### ###
+# Google Protocol buffer
+SET(PROTOBUF_DIR "${INC_PROTOBUF_DIR}" CACHE PATH "Path to google protocol buffer root")
+IF(WIN32 AND MSVC)
+	SET(PROTOBUF_INCLUDE_DIR "${PROTOBUF_DIR}/src" CACHE PATH "Path to google protocol buffer source")
+	SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_DIR}/vsprojects/Debug")
+	SET(PROTOBUF_BINARYDIR "${PROTOBUF_DIR}/vsprojects/Debug")
+ELSE(WIN32 AND MSVC)
+# TODO
+ENDIF(WIN32 AND MSVC)
+# ### ### ### ###
+# Crypto++
+SET(CRYPTOPP_DIR "${INC_CRYPTOPP_DIR}" CACHE PATH "Path to crypto++ root folder")
+# ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 IF(APPLE)
 	SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "-fPIC -w -DOSX  -DNDEBUG -finline-functions -O3 -DCRYPTOPP_DISABLE_ASM")
@@ -22,11 +59,11 @@ ELSEIF(UNIX AND NOT APPLE)
 	#SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "-fPIC -w -pipe -DNDEBUG -DLINUX -finline-functions -O3")
 ELSEIF(WIN32)
 	IF(NOT MSVC)
-	SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "-mthreads -w -finline-functions -O3 -DNDEBUG -D__MINGW__ -DWIN32 -D_WIN32_WINNT=0x0501 -D_WIN32")
+		SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "-mthreads -w -finline-functions -O3 -DNDEBUG -D__MINGW__ -DWIN32 -D_WIN32_WINNT=0x0501 -D_WIN32")
 	ENDIF(NOT MSVC)
 ENDIF(APPLE)
 
-
+SET_MULTITHREAD()
 
 IF(NOT SHARED_LIBS)
   IF(WIN32)
@@ -44,14 +81,9 @@ IF(NOT MULTI_THREADED)
   OPTION(MULTI_THREADED "Build multi-threaded httpd deamon (if possible)" ON)
 ENDIF(NOT MULTI_THREADED)
 
-SET(NSCP_INCLUDE_PATH "${NSCP_SOURCE_DIR}/include" CACHE PATH "directory containing NSCP specific includes")
-#SET(PB_PATH "${NSCP_SOURCE_DIR}/proto" CACHE PATH "directory containing NSCP specific protocol buffer files")
-INCLUDE_DIRECTORIES(${NSCP_INCLUDE_PATH})
-#INCLUDE_DIRECTORIES(${PB_PATH})
-
-SET(BOOST_LIBRARYDIR ${BOOST_LIBRARYDIR} CACHE PATH "")
-SET(BOOST_INCLUDEDIR ${BOOST_INCLUDEDIR} CACHE PATH "")
-SET(BOOST_LIB_SUFFIX ${BOOST_LIB_SUFFIX} CACHE STRING "Look for Boost libraries ending with this")
+INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
+SET(CMAKE_LIBRARY_PATH "${NSCP_LIBRARYDIR}" CACHE PATH "Path to generic libraries")
+#SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} CACHE PATH "Look for libraries here")
 
 IF(WIN32)
   SET(LIB_INSTALL_DIR "lib" CACHE STRING "Default path for libraries within ${CMAKE_INSTALL_PREFIX}")
@@ -70,8 +102,6 @@ ELSE(WIN32)
   SET(DEPLOYROOT /usr/bin CACHE PATH "Path to deploy examples into)")
 ENDIF(WIN32)
 
-SET(OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR} CACHE PATH "Look for OPENSSL headers here")
-SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} CACHE PATH "Look for libraries here")
 
 FIND_PACKAGE(OpenSSL)
 if(OPENSSL_FOUND)
@@ -166,24 +196,24 @@ IF(NOT CMAKE_BUILD_TYPE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
 SET(NSCP_DEF_PLUGIN_CPP
-	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
-	${NSCP_INCLUDE_PATH}/simpleini/ConvertUTF.c
-	${NSCP_INCLUDE_PATH}/b64/b64.c
-	${NSCP_INCLUDE_PATH}/utils.cpp
-	${NSCP_INCLUDE_PATH}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDE_PATH}/nscapi/nscapi_plugin_wrapper.cpp
-	${NSCP_INCLUDE_PATH}/nscapi/nscapi_core_wrapper.cpp
+	${NSCP_INCLUDEDIR}/arrayBuffer.cpp
+	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+	${NSCP_INCLUDEDIR}/b64/b64.c
+	${NSCP_INCLUDEDIR}/utils.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
 )
 
 SET(NSCP_DEF_PLUGIN_HPP
-	${NSCP_INCLUDE_PATH}/strEx.h
-	${NSCP_INCLUDE_PATH}/config.h
-	${NSCP_INCLUDE_PATH}/utils.h
-	${NSCP_INCLUDE_PATH}/NSCAPI.h
-	${NSCP_INCLUDE_PATH}/nscapi/macros.hpp
-	${NSCP_INCLUDE_PATH}/nscapi/nscapi_helper.hpp
-	${NSCP_INCLUDE_PATH}/nscapi/nscapi_plugin_wrapper.hpp	
-	${NSCP_INCLUDE_PATH}/nscapi/nscapi_core_wrapper.hpp
+	${NSCP_INCLUDEDIR}/strEx.h
+	${NSCP_INCLUDEDIR}/config.h
+	${NSCP_INCLUDEDIR}/utils.h
+	${NSCP_INCLUDEDIR}/NSCAPI.h
+	${NSCP_INCLUDEDIR}/nscapi/macros.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp	
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp
 )
 
 SET(NSCP_DEF_PLUGIN_LIB
@@ -193,7 +223,8 @@ SET(NSCP_DEF_PLUGIN_LIB
 	${PROTOBUF_LIBRARY}
 	protobuf
 )
-message(STATUS, "LIB: ${NSCP_DEF_PLUGIN_LIB}")
+message(STATUS, "NSCP PLUGIN LIB: ${NSCP_DEF_PLUGIN_LIB}")
+message(STATUS, "NSCP PLUGIN CPP: ${NSCP_DEF_PLUGIN_CPP}")
 
 	
 SET(ALL_LIB_NAMES)
@@ -209,8 +240,8 @@ endforeach(CURRENT_LIB ${ALL_LIB_PROJECTS})
 
 # Compile time constants & make sure our build finds it
 CONFIGURE_FILE(
-  ${NSCP_INCLUDE_PATH}/config.h.in
-  ${NSCP_INCLUDE_PATH}/config.h
+  ${NSCP_INCLUDEDIR}/config.h.in
+  ${NSCP_INCLUDEDIR}/config.h
 )
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 INCLUDE_DIRECTORIES(${NSCP_LOCAL_INCLUDE_PATH})

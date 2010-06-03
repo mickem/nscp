@@ -26,10 +26,10 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
-		${NSCP_INCLUDE_PATH}/nsca/nsca_packet.hpp
-		${NSCP_INCLUDE_PATH}/nsca/nsca_socket.hpp
-		${NSCP_INCLUDE_PATH}/nsca/nsca_enrypt.hpp
-		${NSCP_INCLUDE_PATH}/swap_bytes.hpp
+		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
+		${NSCP_INCLUDEDIR}/nsca/nsca_socket.hpp
+		${NSCP_INCLUDEDIR}/nsca/nsca_enrypt.hpp
+		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

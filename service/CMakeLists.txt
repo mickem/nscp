@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 PROJECT(service)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
-#INCLUDE_DIRECTORIES(${NSCP_INCLUDE_PATH})
+#INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
@@ -18,17 +18,17 @@ SET(service_SRCS
 	core_api.cpp
 	settings_manager_impl.cpp
 
-	${NSCP_INCLUDE_PATH}/nscapi/nscapi_helper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 
-	${NSCP_INCLUDE_PATH}/simpleini/ConvertUTF.c
-	${NSCP_INCLUDE_PATH}/b64/b64.c
-	${NSCP_INCLUDE_PATH}/arrayBuffer.cpp
+	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+	${NSCP_INCLUDEDIR}/b64/b64.c
+	${NSCP_INCLUDEDIR}/arrayBuffer.cpp
 
 )
 
 IF(WIN32)
 	SET(service_SRCS ${service_SRCS}
-		${NSCP_INCLUDE_PATH}/ServiceCmd.cpp
+		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
 	)
 	SET(service_SRCS ${service_SRCS}
 		StdAfx.h
@@ -45,28 +45,28 @@ IF(WIN32)
 		settings_logger_impl.hpp
 		service_manager.hpp
 		
-		${NSCP_INCLUDE_PATH}/settings/Settings.h
-		${NSCP_INCLUDE_PATH}/charEx.h
-		${NSCP_INCLUDE_PATH}/config.h
-		${NSCP_INCLUDE_PATH}/msvc_wrappers.h
-		${NSCP_INCLUDE_PATH}/settings/macros.h
-		${NSCP_INCLUDE_PATH}/settings/settings_ini.hpp
-		${NSCP_INCLUDE_PATH}/settings/settings_old.hpp
-		${NSCP_INCLUDE_PATH}/settings/settings_registry.hpp
-		${NSCP_INCLUDE_PATH}/settings/Settings.h
-		${NSCP_INCLUDE_PATH}/com_helpers.hpp
-		${NSCP_INCLUDE_PATH}/dll/dll.hpp
-		${NSCP_INCLUDE_PATH}/dll/impl_unix.hpp
-		${NSCP_INCLUDE_PATH}/dll/impl_w32.hpp
-#		${NSCP_INCLUDE_PATH}/nsclient_session.hpp
+		${NSCP_INCLUDEDIR}/settings/Settings.h
+		${NSCP_INCLUDEDIR}/charEx.h
+		${NSCP_INCLUDEDIR}/config.h
+		${NSCP_INCLUDEDIR}/msvc_wrappers.h
+		${NSCP_INCLUDEDIR}/settings/macros.h
+		${NSCP_INCLUDEDIR}/settings/settings_ini.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_old.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_registry.hpp
+		${NSCP_INCLUDEDIR}/settings/Settings.h
+		${NSCP_INCLUDEDIR}/com_helpers.hpp
+		${NSCP_INCLUDEDIR}/dll/dll.hpp
+		${NSCP_INCLUDEDIR}/dll/impl_unix.hpp
+		${NSCP_INCLUDEDIR}/dll/impl_w32.hpp
+#		${NSCP_INCLUDEDIR}/nsclient_session.hpp
 
-		${NSCP_INCLUDE_PATH}/service/system_service.hpp
-		${NSCP_INCLUDE_PATH}/service/win32_service.hpp
-		${NSCP_INCLUDE_PATH}/nscapi/nscapi_helper.hpp
+		${NSCP_INCLUDEDIR}/service/system_service.hpp
+		${NSCP_INCLUDEDIR}/service/win32_service.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
 
 	)
 	SET(service_SRCS ${service_SRCS}
-		${NSCP_INCLUDE_PATH}/service/unix_service.hpp
+		${NSCP_INCLUDEDIR}/service/unix_service.hpp
 	)
 	
 	ADD_DEFINITIONS(-D_WIN32_DCOM)
