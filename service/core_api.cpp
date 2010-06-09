@@ -33,6 +33,8 @@
 #include <ServiceCmd.h>
 #endif
 
+using namespace nscp::helpers;
+
 #define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
 #define LOG_ERROR(msg) LOG_ANY(msg, NSCAPI::error)
 #define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())

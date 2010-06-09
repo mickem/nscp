@@ -29,6 +29,8 @@
 
 #include "../libs/protobuf/plugin.proto.h"
 
+using namespace nscp::helpers;
+
 #define CORE_LOG_ERROR_STD(msg) CORE_LOG_ERROR(((std::wstring)msg).c_str())
 #define CORE_LOG_ERROR(msg) CORE_ANY_MSG(msg,NSCAPI::error)
 

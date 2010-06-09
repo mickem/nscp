@@ -4,6 +4,8 @@
 #include <strEx.h>
 #include <unicode_char.hpp>
 
+using namespace nscp::helpers;
+
 namespace scheduler {
 
 	int simple_scheduler::add_task(target item) {

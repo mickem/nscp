@@ -25,6 +25,10 @@
 #include <unicode_char.hpp>
 #include <boost/asio/buffer.hpp>
 #include <swap_bytes.hpp>
+#include <strEx.h>
+
+
+using namespace nscp::helpers;
 
 namespace nrpe {
 

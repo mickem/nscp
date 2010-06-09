@@ -821,19 +821,25 @@ namespace strEx {
 
 }
 
-template <typename T> std::string to_string(const T& arg) {
-	try {
-		return boost::lexical_cast<std::string>(arg) ;
-	}
-	catch(...) {
-		return "";
+namespace nscp {
+	namespace helpers {
+		template <typename T> std::string to_string(const T& arg) {
+			try {
+				return boost::lexical_cast<std::string>(arg) ;
+			}
+			catch(...) {
+				return "";
+			}
+		}
+		template <typename T> std::wstring to_wstring(const T& arg) {
+			try {
+				return boost::lexical_cast<std::wstring>(arg) ;
+			}
+			catch(...) {
+				return _T("");
+			}
+		}
 	}
 }
-template <typename T> std::wstring to_wstring(const T& arg) {
-	try {
-		return boost::lexical_cast<std::wstring>(arg) ;
-	}
-	catch(...) {
-		return _T("");
-	}
-}
+
+

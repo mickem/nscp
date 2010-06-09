@@ -1,6 +1,7 @@
 #pragma once
 #include <boost/asio.hpp>
 #include <boost/foreach.hpp>
+#include <boost/bind.hpp>
 
 namespace socketHelpers {
 	class allowedHosts {

@@ -34,6 +34,8 @@
 
 #include "../libs/protobuf/plugin.proto.h"
 
+using namespace nscp::helpers;
+
 #ifdef WIN32
 //#include <windows.h>
 #endif

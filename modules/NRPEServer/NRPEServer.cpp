@@ -43,11 +43,6 @@ bool getCacheAllowedHosts() {
 
 
 bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
-#ifndef USE_SSL
-	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL ,NRPE_SETTINGS_USE_SSL_DEFAULT)==1) {
-		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
-	}
-#endif
 	SETTINGS_REG_KEY_I(nrpe::PORT);
 	SETTINGS_REG_KEY_S(nrpe::BINDADDR);
 	SETTINGS_REG_KEY_I(nrpe::LISTENQUE);
@@ -64,6 +59,13 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	SETTINGS_REG_PATH(nrpe::SECTION_HANDLERS);
 
 	bUseSSL_ = SETTINGS_GET_BOOL(nrpe::KEYUSE_SSL)==1;
+
+#ifndef USE_SSL
+	if (bUseSSL_) {
+		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+	}
+#endif
+
 	noPerfData_ = SETTINGS_GET_INT(nrpe::ALLOW_PERFDATA)==0;
 	timeout = SETTINGS_GET_INT(nrpe::READ_TIMEOUT);
 	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);

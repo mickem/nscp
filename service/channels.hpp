@@ -8,6 +8,8 @@
 #include "NSCPlugin.h"
 #include "logger.hpp"
 
+using namespace nscp::helpers;
+
 namespace nsclient {
 	class channels : boost::noncopyable {
 	public:

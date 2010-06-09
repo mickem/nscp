@@ -6,6 +6,8 @@
 #include "logger.hpp"
 #include <strEx.h>
 
+using namespace nscp::helpers;
+
 namespace nsclient {
 	class commands : boost::noncopyable {
 	public:
