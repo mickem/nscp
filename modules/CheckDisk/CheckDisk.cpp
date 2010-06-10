@@ -230,6 +230,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 					((bFilter)&&(bFilterNoRootDir)&&(drvType==DRIVE_NO_ROOT_DIR)) 
 					)
 					drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
+				else
+					NSC_DEBUG_MSG_STD(_T("Ignoring drive: ") + drv);
 
 				buffer = &buffer[drv.size()];
 				buffer++;

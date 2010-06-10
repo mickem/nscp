@@ -182,6 +182,8 @@ namespace PDH {
 	public:
 		static std::list<std::wstring> build_list(TCHAR *buffer, DWORD bufferSize) {
 			std::list<std::wstring> ret;
+			if (bufferSize == 0)
+				return ret;
 			DWORD prevPos = 0;
 			for (unsigned int i = 0; i<bufferSize-1; i++) {
 				if (buffer[i] == 0) {

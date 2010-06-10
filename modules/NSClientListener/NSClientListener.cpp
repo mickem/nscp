@@ -243,6 +243,7 @@ std::string NSClientListener::parseRequest(std::string str_buffer)  {
 		case REQ_USEDDISKSPACE:
 		case REQ_COUNTER:
 		case REQ_FILEAGE:
+		case REQ_INSTANCES:
 			return strEx::wstring_to_string(message);
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)

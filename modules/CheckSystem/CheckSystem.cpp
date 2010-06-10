@@ -1161,6 +1161,10 @@ NSCAPI::nagiosReturn CheckSystem::listCounterInstances(const unsigned int argLen
 				msg += _T(", ");
 			msg += (*it);
 		}
+		if (msg.empty()) {
+			msg = _T("ERROR: No instances found");
+			return NSCAPI::returnUNKNOWN;
+		}
 	} catch (const PDH::PDHException e) {
 		msg = _T("ERROR: Failed to enumerate counter instances: " + e.getError());
 		return NSCAPI::returnUNKNOWN;
