@@ -28,6 +28,17 @@ IF (HAVE_CRYPTOPP)
 
 	# TODO add asm 		echo $(.source)/x64masm.asm ;
 	#		obj x64masm.obj : $(.source)/x64masm.asm ;
+	#enable_language(ASM_MASM)
+	#if(CMAKE_ASM_MASM_COMPILER_WORKS)
+	#	set(can_use_assembler TRUE)
+	#	SET(cryptopp_SOURCES ${cryptopp_SOURCES}  "${CRYPTOPP_SOURCE_DIR}/x64masm.asm")
+	#else(CMAKE_ASM_MASM_COMPILER_WORKS)
+	#	MESSAGE(WARNING "Failed to find mnasm")
+	#endif(CMAKE_ASM_MASM_COMPILER_WORKS)
+	IF (WIN32)
+		ADD_DEFINITIONS (-DCRYPTOPP_DISABLE_ASM)
+		SET(Cryptopp_DEFINES -DCRYPTOPP_DISABLE_ASM)
+	ENDIF (WIN32)
 
 	ADD_LIBRARY (cryptopp SHARED ${cryptopp_SOURCES})
 	#IF(NOT WIN32)
