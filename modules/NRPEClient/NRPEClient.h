@@ -109,6 +109,9 @@ public:
 	}
 	std::wstring getModuleDescription() {
 		return _T("A simple client for checking remote NRPE servers (think proxy).\n")
+#ifndef USE_BOOST
+		_T("BOOST support is missing (this is probably very bad)!\n")
+#endif
 #ifndef USE_SSL
 		_T("SSL support is missing (so you cant use encryption)!")
 #endif

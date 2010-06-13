@@ -78,6 +78,8 @@ namespace setting_keys {
 #define EXTSCRIPT_SECTION "/settings/external scripts"
 #define EXTSCRIPT_SCRIPT_SECTION "/settings/external scripts/scripts"
 #define EXTSCRIPT_ALIAS_SECTION "/settings/external scripts/alias"
+#define EXTSCRIPT_WRAPPINGS_SECTION "/settings/external scripts/wrappings"
+#define EXTSCRIPT_WRAPPED_SCRIPT "/settings/external scripts/wrapped scripts"
 #define CHECK_SYSTEM_SECTION "/settings/system"
 #define CHECK_SYSTEM_COUNTERS_SECTION "/settings/system/PDH counters"
 #define CHECK_SYSTEM_SERVICES_SECTION "/settings/system/services"
@@ -248,6 +250,12 @@ namespace setting_keys {
 
 		DEFINE_PATH(ALIAS_SECTION, EXTSCRIPT_ALIAS_SECTION);
 		DESCRIBE_SETTING(ALIAS_SECTION, "EXTERNAL SCRIPT ALIAS SECTION", "Works like the \"inject\" concept of NRPE scripts module. But in short a list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)");
+
+		DEFINE_PATH(WRAPPINGS_SECTION, EXTSCRIPT_WRAPPINGS_SECTION);
+		DESCRIBE_SETTING(WRAPPINGS_SECTION, "EXTERNAL SCRIPT WRAPPINGS SECTION", "");
+
+		DEFINE_PATH(WRAPPED_SCRIPT, EXTSCRIPT_WRAPPED_SCRIPT);
+		DESCRIBE_SETTING(WRAPPED_SCRIPT, "EXTERNAL SCRIPT WRAPPINGS SECTION", "");
 
 	}
 

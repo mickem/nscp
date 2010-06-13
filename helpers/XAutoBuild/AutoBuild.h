@@ -2,9 +2,9 @@
 #define AUTOBUILD_H
 // change the FALSE to TRUE for autoincrement of build number
 #define INCREMENT_VERSION TRUE
-#define FILEVER        1,0,0,13
-#define PRODUCTVER     1,0,0,13
-#define STRFILEVER     "1.0.0.13"
-#define STRPRODUCTVER  "1.0.0.13"
-#define STRPRODUCTDATE  "2007-11-03"
+#define FILEVER        1,0,0,14
+#define PRODUCTVER     1,0,0,14
+#define STRFILEVER     _T("1.0.0.14")
+#define STRPRODUCTVER  _T("1.0.0.14")
+#define STRPRODUCTDATE  _T("2010-02-27")
 #endif // AUTOBUILD_H

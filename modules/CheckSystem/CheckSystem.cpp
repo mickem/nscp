@@ -29,6 +29,9 @@
 #include <map>
 #include <set>
 #include <sysinfo.h>
+#include <filter_framework.hpp>
+#include <simple_registry.hpp>
+
 #ifdef USE_BOOST
 #include <boost/regex.hpp>
 #endif
@@ -76,6 +79,9 @@ bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
 		NSCModuleHelper::registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
 		NSCModuleHelper::registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
 		NSCModuleHelper::registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
+		NSCModuleHelper::registerCommand(_T("checkSingleRegEntry"), _T("Check registry key"));
+		
+		
 	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
@@ -207,6 +213,9 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 					}
 				}
 			} else {
+				if ((*it).counters.size() == 0) {
+					std::wcout << _T("empty counter: ") << (*it).name << std::endl;
+				}
 				for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
 					std::wstring counter = _T("\\") + (*it).name + _T("\\") + (*it2).name;
 					std::wcout << _T("testing: ") << counter << _T(": ");
@@ -231,7 +240,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 						break;
 					}
 					std::wcout << _T(" open ");
-					std::wcout << std::endl;;
+					std::wcout << std::endl;
 				}
 			}
 		}
@@ -263,7 +272,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
 				return 0;
 			}
-			DWORD dw = PDH::PDHQuery::lookupIndex(name);
+			DWORD dw = PDH::PDHResolver::lookupIndex(name);
 			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
 			NSC_LOG_MESSAGE_STD(_T("  | Index for '") + name + _T("' is ") + strEx::itos(dw));
 			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
@@ -340,6 +349,8 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::blindstr command, c
 		return checkCounter(argLen, char_args, msg, perf);
 	} else if (command == _T("listCounterInstances")) {
 		return listCounterInstances(argLen, char_args, msg, perf);
+	} else if (command == _T("checkSingleRegEntry")) {
+		return checkSingleRegEntry(argLen, char_args, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -1163,6 +1174,352 @@ NSCAPI::nagiosReturn CheckSystem::listCounterInstances(const unsigned int argLen
 	return NSCAPI::returnOK;
 }
 
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+struct regkey_info {
+
+	std::wstring error;
+
+	static regkey_info get(__int64 now, std::wstring path) {
+		return regkey_info(now, path);
+	}
+
+	regkey_info() 
+		: ullLastWriteTime(0)
+		, iType(0)
+		, ullNow(0)
+		, uiExists(0)
+		, ullChildCount(0)
+	{}
+	regkey_info(__int64 now, std::wstring path) 
+		: path(path)
+		, ullLastWriteTime(0)
+		, iType(0)
+		, ullNow(now)
+		, uiExists(0)
+		, ullChildCount(0)
+	{
+		std::wstring key;
+		try {
+			std::wcout << _T("opening: ") << path << std::endl;
+			std::wstring::size_type pos = path.find_first_of(L'\\');
+			if (pos != std::wstring::npos)  {
+				key = path.substr(0, pos);
+				path = path.substr(pos+1);
+				std::wcout << key << _T(":") << path << std::endl;
+				simple_registry::registry_key rkey(simple_registry::parseHKEY(key), path);
+				info = rkey.get_info();
+				uiExists = 1;
+			} else {
+				error = _T("Failed to parse key");
+			}
+		} catch (simple_registry::registry_exception &e) {
+			try {
+				std::wstring::size_type pos = path.find_last_of(L'\\');
+				if (pos != std::wstring::npos)  {
+					std::wstring item = path.substr(pos+1);
+					path = path.substr(0, pos);
+					std::wcout << key << _T(":") << path << _T(".") << item << std::endl;
+					simple_registry::registry_key rkey(simple_registry::parseHKEY(key), path);
+					info = rkey.get_info(item);
+					uiExists = 1;
+				} else {
+					error = _T("Failed to parse key");
+				}
+			} catch (simple_registry::registry_exception &e) {
+				//error = e.what();
+			}
+		} catch (...) {
+			error = _T("Unknown exception");
+		}
+
+		//HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSize
+
+		// TODO get key info here!
+		//ullLastWriteTime = ((info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime);
+	};
+
+	unsigned long long ullSize;
+	__int64 ullLastWriteTime;
+	__int64 ullNow;
+	std::wstring filename;
+	std::wstring path;
+	unsigned long ullChildCount;
+	unsigned long uiExists;
+	unsigned int iType;
+	simple_registry::registry_key::reg_info info;
+
+	static const __int64 MSECS_TO_100NS = 10000;
+
+	__int64 get_written() {
+		return (ullNow-ullLastWriteTime)/MSECS_TO_100NS;
+	}
+	std::wstring render(std::wstring syntax) {
+		strEx::replace(syntax, _T("%path%"), path);
+		strEx::replace(syntax, _T("%key%"), filename);
+		strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
+		strEx::replace(syntax, _T("%write-raw%"), strEx::itos(ullLastWriteTime));
+		strEx::replace(syntax, _T("%now-raw%"), strEx::itos(ullNow));
+		strEx::replace(syntax, _T("%type%"), strEx::itos_as_BKMG(iType));
+		strEx::replace(syntax, _T("%child-count%"), strEx::itos(ullChildCount));
+		strEx::replace(syntax, _T("%exists%"), strEx::itos(uiExists));
+		strEx::replace(syntax, _T("%int%"), strEx::itos(info.iValue));
+		strEx::replace(syntax, _T("%int-value%"), strEx::itos(info.iValue));
+		strEx::replace(syntax, _T("%string%"), info.sValue);
+		strEx::replace(syntax, _T("%string-value%"), info.sValue);
+		return syntax;
+	}
+};
+
+
+struct regkey_filter {
+	filters::filter_all_times written;
+	filters::filter_all_num_ul type;
+	filters::filter_all_num_ul exists;
+	filters::filter_all_num_ul child_count;
+	filters::filter_all_num_ll value_int;
+	filters::filter_all_strings value_string;
+
+	inline bool hasFilter() {
+		return type.hasFilter() || exists.hasFilter() || written.hasFilter() || child_count.hasFilter() || value_int.hasFilter() || value_string.hasFilter();
+	}
+	bool matchFilter(regkey_info &value) const {
+		if ((written.hasFilter())&&(written.matchFilter(value.get_written())))
+			return true;
+		else if (type.hasFilter()&&type.matchFilter(value.iType))
+			return true;
+		else if (exists.hasFilter()&&exists.matchFilter(value.uiExists))
+			return true;
+		else if ((child_count.hasFilter())&&(child_count.matchFilter(value.ullChildCount)))
+			return true;
+		else if ((value_int.hasFilter())&&(value_int.matchFilter(value.info.iValue)))
+			return true;
+		else if ((value_string.hasFilter())&&(value_string.matchFilter(value.info.sValue)))
+			return true;
+		return false;
+	}
+
+	std::wstring getValue() const {
+		if (written.hasFilter())
+			return _T("written: ") + written.getValue();
+		if (type.hasFilter())
+			return _T("type: ") + type.getValue();
+		if (exists.hasFilter())
+			return _T("exists: ") + exists.getValue();
+		if (child_count.hasFilter())
+			return _T("child_count: ") + child_count.getValue();
+		if (value_int.hasFilter())
+			return _T("value(i): ") + value_int.getValue();
+		if (value_string.hasFilter())
+			return _T("value(s): ") + value_string.getValue();
+		return _T("UNknown...");
+	}
+
+};
+
+
+struct regkey_container : public regkey_info {
+
+	static regkey_container get(std::wstring path, unsigned long long now) {
+		return regkey_container(now, path);
+	}
+
+
+	regkey_container(__int64 now, std::wstring path) : regkey_info(now, path) {}
+
+	bool has_errors() {
+		return !error.empty();
+	}
+	std::wstring get_error() {
+		return error;
+	}
+
+};
+
+
+class regkey_type_handler {
+public:
+	static int parse(std::wstring s) {
+		return 1;
+	}
+	static std::wstring print(int value) {
+		return _T("unknown");
+	}
+	static std::wstring print_unformated(int value) {
+		return strEx::itos(value);
+	}
+	static std::wstring key_prefix() {
+		return _T("");
+	}
+	static std::wstring key_postfix() {
+		return _T("");
+	}
+	static std::wstring get_perf_unit(int  value) {
+		return _T("");
+	}
+	static std::wstring print_perf(int  value, std::wstring unit) {
+		return strEx::itos(value);
+	}
+};
+class regkey_exists_handler {
+public:
+	static int parse(std::wstring s) {
+		if (s  == _T("true"))
+			return 1;
+		return 0;
+	}
+	static std::wstring print(int value) {
+		return value==1?_T("true"):_T("false");
+	}
+	static std::wstring print_unformated(int value) {
+		return strEx::itos(value);
+	}
+	static std::wstring key_prefix() {
+		return _T("");
+	}
+	static std::wstring key_postfix() {
+		return _T("");
+	}
+	static std::wstring get_perf_unit(int value) {
+		return _T("");
+	}
+	static std::wstring print_perf(int  value, std::wstring unit) {
+		return strEx::itos(value);
+	}
+};
+
+typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, regkey_type_handler> > > RegTypeContainer;
+typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, regkey_exists_handler> > > RegExistsContainer;
+
+typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULong> ExactULongContainer;
+typedef checkHolders::CheckContainer<checkHolders::ExactBoundsLongLong> ExactLongLongContainer;
+typedef checkHolders::CheckContainer<checkHolders::ExactBoundsTime> DateTimeContainer;
+typedef checkHolders::CheckContainer<checkHolders::FilterBounds<filters::filter_all_strings> > StringContainer;
+
+struct check_regkey_child_count : public checkHolders::check_proxy_container<regkey_container, ExactULongContainer> {
+	check_regkey_child_count() { set_alias(_T("child-count")); }
+	unsigned long get_value(regkey_container &value) {
+		return value.ullChildCount;
+	}
+};
+struct check_regkey_int_value : public checkHolders::check_proxy_container<regkey_container, ExactLongLongContainer> {
+	check_regkey_int_value() { set_alias(_T("value")); }
+	long long get_value(regkey_container &value) {
+		return value.info.iValue;
+	}
+};
+struct check_regkey_string_value : public checkHolders::check_proxy_container<regkey_container, StringContainer> {
+	check_regkey_string_value() { set_alias(_T("value")); }
+	std::wstring get_value(regkey_container &value) {
+		return value.info.sValue;
+	}
+};
+struct check_regkey_written : public checkHolders::check_proxy_container<regkey_container, DateTimeContainer> {
+	check_regkey_written() { set_alias(_T("written")); }
+	unsigned long long get_value(regkey_container &value) {
+		return value.ullLastWriteTime;
+	}
+};
+struct check_regkey_type : public checkHolders::check_proxy_container<regkey_container, RegTypeContainer> {
+	check_regkey_type() { set_alias(_T("type")); }
+	int get_value(regkey_container &value) {
+		return value.iType;
+	}
+};
+struct check_regkey_exists : public checkHolders::check_proxy_container<regkey_container, RegExistsContainer> {
+	check_regkey_exists() { set_alias(_T("exists")); }
+	int get_value(regkey_container &value) {
+		return value.uiExists;
+	}
+};
+
+
+typedef checkHolders::check_multi_container<regkey_container> check_file_multi;
+struct check_regkey_factories {
+	static checkHolders::check_proxy_interface<regkey_container>* type() {
+		return new check_regkey_type();
+	}
+	static checkHolders::check_proxy_interface<regkey_container>* exists() {
+		return new check_regkey_exists();
+	}
+	static checkHolders::check_proxy_interface<regkey_container>* child_count() {
+		return new check_regkey_child_count();
+	}
+	static checkHolders::check_proxy_interface<regkey_container>* written() {
+		return new check_regkey_written();
+	}
+	static checkHolders::check_proxy_interface<regkey_container>* value_string() {
+		return new check_regkey_string_value();
+	}
+	static checkHolders::check_proxy_interface<regkey_container>* value_int() {
+		return new check_regkey_int_value();
+	}
+};
+
+#define MAP_FACTORY_PB(value, obj) \
+		else if ((p__.first == _T("check")) && (p__.second == ##value)) { checker.add_check(check_regkey_factories::obj()); }
+
+
+NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	check_file_multi checker;
+	typedef std::pair<int,regkey_filter> filteritem_type;
+	typedef std::list<filteritem_type > filterlist_type;
+	if (stl_args.empty()) {
+		message = _T("Missing argument(s).");
+		return NSCAPI::returnUNKNOWN;
+	}
+	std::list<std::wstring> files;
+	unsigned int truncate = 0;
+	std::wstring syntax = _T("%filename%");
+	std::wstring alias;
+	bool bPerfData = true;
+
+	try {
+		MAP_OPTIONS_BEGIN(stl_args)
+			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
+			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
+			MAP_OPTIONS_STR(_T("syntax"), syntax)
+			MAP_OPTIONS_STR(_T("alias"), alias)
+			MAP_OPTIONS_PUSH(_T("path"), files)
+			MAP_OPTIONS_SHOWALL(checker)
+			MAP_OPTIONS_EXACT_NUMERIC_ALL_MULTI(checker, _T(""))
+			MAP_FACTORY_PB(_T("type"), type)
+			MAP_FACTORY_PB(_T("child-count"), child_count)
+			MAP_FACTORY_PB(_T("written"), written)
+			MAP_FACTORY_PB(_T("int"), value_int)
+			MAP_FACTORY_PB(_T("string"), value_string)
+			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
+			MAP_OPTIONS_END()
+	} catch (filters::parse_exception e) {
+		message = e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+	} catch (filters::filter_exception e) {
+		message = e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+	}
+	FILETIME now;
+	GetSystemTimeAsFileTime(&now);
+	unsigned __int64 nowi64 = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
+	for (std::list<std::wstring>::const_iterator pit = files.begin(); pit != files.end(); ++pit) {
+		regkey_container info = regkey_container::get(*pit, nowi64);
+		if (info.has_errors()) {
+			message = info.error;
+			return NSCAPI::returnUNKNOWN;
+		}
+		checker.alias = info.render(syntax);
+		checker.runCheck(info, returnCode, message, perf);
+	}
+	if ((truncate > 0) && (message.length() > (truncate-4))) {
+		message = message.substr(0, truncate-4) + _T("...");
+		perf = _T("");
+	}
+	if (message.empty())
+		message = _T("CheckSingleRegkey ok");
+	return returnCode;
+}
 
 NSC_WRAPPERS_MAIN_DEF(gCheckSystem);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

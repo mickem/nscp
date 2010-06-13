@@ -95,5 +95,7 @@ private:
 		alias[key] = cd;
 		GET_CORE()->registerCommand(key, _T("Alias for: ") + cd.to_string());
 	}
+	std::wstring getWrapping( std::wstring val );
+	void addWrappedCommand( std::wstring key, std::wstring tpl, std::wstring command );
 };
 

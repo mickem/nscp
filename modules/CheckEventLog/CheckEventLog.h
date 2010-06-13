@@ -51,6 +51,7 @@ public:
 		return _T("Check for errors and warnings in the event log.\nThis is only supported through NRPE so if you plan to use only NSClient this wont help you at all.");
 	}
 
+	void parse(std::wstring expr);
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();

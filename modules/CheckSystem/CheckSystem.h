@@ -81,6 +81,7 @@ public:
 	NSCAPI::nagiosReturn checkProcState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn checkCounter(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn listCounterInstances(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkSingleRegEntry(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 
 
 };

@@ -65,6 +65,7 @@ std::wstring generate_report_string(unsigned int report) {
 }
 
 NSCAThread::NSCAThread() : hStopEvent_(NULL) {
+	std::wstring tmpstr = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_TIME_DELTA, NSCA_TIME_DELTA_DEFAULT);
 	std::wstring tmpstr = SETTINGS_GET_STRING(nsca::TIME_DELTA_DEFAULT);
 	if (tmpstr[0] == '-' && tmpstr.size() > 2)
 		timeDelta_ = 0 - strEx::stoui_as_time(tmpstr.substr(1));
@@ -74,16 +75,24 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 		timeDelta_ = strEx::stoui_as_time(tmpstr);
 	timeDelta_ = timeDelta_ / 1000;
 	NSC_DEBUG_MSG_STD(_T("Time difference for NSCA server is: ") + strEx::itos(timeDelta_));
-	checkIntervall_ = SETTINGS_GET_INT(nsca::INTERVAL);
-	hostname_ = SETTINGS_GET_STRING(nsca::HOSTNAME);
-	nscahost_ = SETTINGS_GET_STRING(nsca::SERVER_HOST);
-	nscaport_ = SETTINGS_GET_INT(nsca::SERVER_PORT);
-	payload_length_ = SETTINGS_GET_INT(nsca::PAYLOAD_LENGTH);
-	read_timeout_ = SETTINGS_GET_INT(nsca::READ_TIMEOUT);
-	std::wstring report = SETTINGS_GET_STRING(nsca::REPORT_MODE);
 	report_ = parse_report_string(report);
 	NSC_DEBUG_MSG_STD(_T("Only reporting: ") + generate_report_string(report_));
 	
+	encryption_method_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION, NSCA_ENCRYPTION_DEFAULT);
+	std::wstring password = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+	if (!password.empty())
+		password = NSCModuleHelper::Decrypt(password);
+	if (password.empty())
+		password = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD, NSCA_PASSWORD_DEFAULT);
+	if (password.empty()) {
+		// read main password if no NSCA one is found
+		password = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_OBFUSCATED_PASWD, MAIN_OBFUSCATED_PASWD_DEFAULT);
+		if (!password.empty())
+			password = NSCModuleHelper::Decrypt(password);
+		if (password.empty())
+			password = NSCModuleHelper::getSettingsString(MAIN_SECTION_TITLE, MAIN_SETTINGS_PWD, MAIN_SETTINGS_PWD_DEFAULT);
+	}
+	password_ = strEx::wstring_to_string(password);
 	encryption_method_ = SETTINGS_GET_INT(nsca::ENCRYPTION);
 	password_ = strEx::wstring_to_string(SETTINGS_GET_STRING(nsca::PASSWORD));
 	cacheNscaHost_ = SETTINGS_GET_INT(nsca::CACHE_HOST);

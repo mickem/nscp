@@ -308,6 +308,7 @@ namespace checkHolders {
 		}
 		void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+				(*cit)->set_showall(show);
 				(*cit)->runCheck(value, returnCode, message, perf);
 			}
 			std::wcout << _T("result: ") << message << std::endl;
@@ -328,7 +329,10 @@ namespace checkHolders {
 			return strEx::format_BKMG(value, unit);
 		}
 		static TType parse(std::wstring s) {
-			return strEx::stoi64_as_BKMG(s);
+			TType val = strEx::stoi64_as_BKMG(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = ") + strEx::itos(val));
+			return val;
 		}
 		static TType parse_percent(std::wstring s) {
 			return strEx::stoi64(s);
@@ -363,7 +367,10 @@ namespace checkHolders {
 	class time_handler {
 	public:
 		static TType parse(std::wstring s) {
-			return strEx::stoi64_as_time(s);
+			TType val = strEx::stoi64_as_time(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			return val;
 		}
 		static TType parse_percent(std::wstring s) {
 			return strEx::stoi(s);
@@ -396,7 +403,10 @@ namespace checkHolders {
 	class int_handler {
 	public:
 		static int parse(std::wstring s) {
-			return strEx::stoi(s);
+			int val = strEx::stoi(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			return val;
 		}
 		static int parse_percent(std::wstring s) {
 			return strEx::stoi(s);
@@ -426,7 +436,10 @@ namespace checkHolders {
 	class int64_handler {
 	public:
 		static __int64 parse(std::wstring s) {
-			return strEx::stoi64(s);
+			__int64 val = strEx::stoi64(s);
+			if (val == 0 && s.length() > 1 && s[0] != L'0')
+				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			return val;
 		}
 		static __int64 parse_percent(std::wstring s) {
 			return strEx::stoi(s);
@@ -715,8 +728,6 @@ namespace checkHolders {
 				warn_v = warn;
 				crit_v = crit;
 			} else if (type_ == value_upper) {
-				std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value.value)));
-				return 
 					MAKE_PERFDATA(alias, THandler::print_perf((value.value), unit), unit, 
 					THandler::print_perf(value.total-warn, unit), THandler::print_perf(value.total-crit, unit));
 			} else {
@@ -864,6 +875,54 @@ namespace checkHolders {
 
 	};
 
+	template <class TFilterType>
+	class FilterBounds {
+	public:
+		TFilterType filter;
+		typedef typename TFilterType::TValueType TValueType;
+		typedef FilterBounds<TFilterType> TMyType;
+
+		FilterBounds() {}
+		FilterBounds(const FilterBounds &other) {
+			filter = other.filter;
+		}
+		bool hasBounds() {
+			return filter.hasFilter();
+		}
+
+		static std::wstring toStringLong(typename TValueType &value) {
+			//return filter.to_string() + _T(" matches ") + value;
+			// TODO FIx this;
+			return value;
+			//return TNumericHolder::toStringLong(value.count) + _T(", ") + TStateHolder::toStringLong(value.state);
+		}
+		static std::wstring toStringShort(typename TValueType &value) {
+			// TODO FIx this;
+			return value;
+			//return TNumericHolder::toStringShort(value.count);
+		}
+		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
+			return _T("");
+		}
+		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
+			if (filter.hasFilter()) {
+				if (!filter.matchFilter(value))
+					return false;
+				message = lable + _T(": ") + filter.to_string() + _T(" matches ") + value;
+				return true;
+			} else {
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for filter check: ") + lable);
+			}
+			return false;
+		}
+		const TMyType & operator=(std::wstring value) {
+			filter = value;
+			return *this;
+		}
+
+	};
+
+
 	template <class TStateHolder = StateBounds<state_type, state_handler> >
 	class SimpleStateBounds {
 	public:
@@ -931,7 +990,7 @@ namespace checkHolders {
 			} else if (min.hasBounds()) {
 				return min.gatherPerfData(alias, value, warn.min.getPerfBound(value), crit.min.getPerfBound(value));
 			} else {
-				NSC_DEBUG_MSG_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
 				return min.gatherPerfData(alias, value, 0, 0);
 			}
 			return _T("");

@@ -132,6 +132,14 @@ HANDLE openAppendOrNew(std::wstring file) {
 	}
 	return hFile;
 }
+	if (hFile == INVALID_HANDLE_VALUE) {
+		hFile = ::CreateFile(file.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile != INVALID_HANDLE_VALUE) {
+			WORD wBOM = 0xFEFF;
+			::WriteFile(hFile, &wBOM, sizeof(WORD), &numberOfBytesWritten, NULL);
+	}
+	return hFile;
+}
 */
 
 void FileLogger::handleMessage(int msgType, const wchar_t* file, int line, const TCHAR* message) {

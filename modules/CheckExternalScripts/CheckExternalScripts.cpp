@@ -57,6 +57,23 @@ void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
 	}
 }
 
+
+std::wstring CheckExternalScripts::getWrapping(std::wstring val) {
+	strEx::token tok = strEx::getToken(val, ' ', true);
+	std::wstring::size_type pos = tok.first.find_last_of(_T("."));
+	if (pos == std::wstring::npos)
+		return _T("");
+	return tok.first.substr(pos+1);
+}
+
+void CheckExternalScripts::addWrappedCommand(std::wstring key, std::wstring tpl, std::wstring command ) {
+	strEx::token tok = strEx::getToken(command, ' ', true);
+	strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
+	strEx::replace(tpl, _T("%ARGS%"), tok.second);
+	tok = strEx::getToken(tpl, ' ', true);
+	addCommand(key.c_str(),tok.first, tok.second);
+}
+
 bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
 	SETTINGS_REG_PATH(external_scripts::SECTION);
 	SETTINGS_REG_PATH(external_scripts::SCRIPT_SECTION);
@@ -95,6 +112,28 @@ bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
 		} else {
 			strEx::token tok = strEx::getToken(s, ' ', true);
 			addAlias((*it).c_str(), tok.first, tok.second);
+		}
+	}
+
+	std::map<std::wstring,std::wstring> wrappers;
+	std::list<std::wstring> wrappings = GET_CORE()->getSettingsSection(setting_keys::external_scripts::WRAPPINGS_SECTION_PATH);
+	for (it = wrappings.begin(); it != wrappings.end(); ++it) {
+		std::wstring val = GET_CORE()->getSettingsString(setting_keys::external_scripts::WRAPPINGS_SECTION_PATH, *it, _T(""));
+		if (!(*it).empty() && !val.empty()) {
+			wrappers[(*it)] = val;
+		}
+	}
+	std::list<std::wstring> wscript = GET_CORE()->getSettingsSection(setting_keys::external_scripts::WRAPPED_SCRIPT_PATH);
+	for (it = wscript.begin(); it != wscript.end(); ++it) {
+		std::wstring val = GET_CORE()->getSettingsString(setting_keys::external_scripts::WRAPPED_SCRIPT_PATH, *it, _T(""));
+		if (!(*it).empty() && !val.empty()) {
+			std::wstring type = getWrapping(val);
+			std::map<std::wstring,std::wstring>::const_iterator cit = wrappers.find(type);
+			if (cit == wrappers.end()) {
+				NSC_LOG_ERROR_STD(_T("Failed to find wrappings for: ") + type + _T(" (" + (*it) + _T(")")));
+			} else {
+				addWrappedCommand((*it), (*cit).second, val);
+			}
 		}
 	}
 
