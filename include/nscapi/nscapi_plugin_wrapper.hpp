@@ -170,5 +170,39 @@ namespace nscapi {
 
 			virtual NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) = 0;
 		};
+
+		class CommandImpl {
+
+		public:
+			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
+
+				std::wstring command = char_command;
+				PluginCommand::RequestMessage request_message;
+				request_message.ParseFromString(request);
+
+				if (request_message.payload_size() != 1) {
+					return NSCAPI::returnIgnored;
+				}
+				::PluginCommand::Request req_payload = request_message.payload().Get(0);
+
+				PluginCommand::ResponseMessage response_message;
+				::PluginCommand::Header* hdr = response_message.mutable_header();
+
+				hdr->set_type(PluginCommand::Header_Type_RESPONSE);
+				hdr->set_version(PluginCommand::Header_Version_VERSION_1);
+
+				PluginCommand::Response *resp_payload = response_message.add_payload();
+
+				handleCommand(command, &req_payload, resp_payload);
+
+
+				resp_payload->set_version(PluginCommand::Response_Version_VERSION_1);
+				response_message.SerializeToString(&response);
+
+				return NSCAPI::returnOK;
+			}
+
+			virtual void handleCommand(std::wstring command, PluginCommand::Request *request, PluginCommand::Response *response) = 0;
+		};
 	}
 };

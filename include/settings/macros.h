@@ -94,6 +94,7 @@ namespace setting_keys {
 #define LUA_SECTION "/settings/Lua/script"
 #define LOG_SECTION "/settings/log"
 
+#define CHECK_DISK_SECTION "/settings/check/disk"
 
 	namespace settings_def {
 		DEFINE_SETTING_I(PAYLOAD_LEN, DEFAULT_SECTION, "payload length", 4096);
@@ -320,6 +321,14 @@ namespace setting_keys {
 
 	}
 
+	namespace check_disk {
+		DEFINE_PATH(SECTION, CHECK_DISK_SECTION);
+		DESCRIBE_SETTING(SECTION, "CHECK DISK SECTION", "");
+
+		DEFINE_SETTING_B(SHOW_ERRORS, CHECK_DISK_SECTION, "show errors", false);
+		DESCRIBE_SETTING_ADVANCED(SHOW_ERRORS, "", "???");
+		
+	}
 
 	namespace nsca {
 		DEFINE_PATH(SECTION, NSCA_SECTION);

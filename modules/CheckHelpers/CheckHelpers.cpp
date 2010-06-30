@@ -85,14 +85,8 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 		std::wstring new_command = arguments.front(); arguments.pop_front();
 		GET_CORE()->InjectSimpleCommand(new_command, arguments, message, perf);
 		return NSCAPI::returnOK;
-	} else if (command == _T("CheckOK")) {
-		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);
-	} else if (command == _T("CheckWARNING")) {
-		return checkSimpleStatus(NSCAPI::returnWARN, argLen, char_args, msg, perf);
-	} else if (command == _T("CheckCRITICAL")) {
-		return checkSimpleStatus(NSCAPI::returnCRIT, argLen, char_args, msg, perf);
-	} else if (command == _T("CheckAlwaysCRITICAL")) {
-		if (arguments.size() < 2) {
+	} else if (command == _T("checkalwayscritical")) {
+		if (arguments.size() < 1) {
 			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}

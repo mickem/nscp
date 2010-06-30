@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <utils.h>
 #include <checkHelpers.hpp>
 
-class CheckDisk {
+class CheckDisk  : public nscapi::impl::CommandImpl {
 private:
 	bool show_errors_;
 
@@ -41,23 +41,23 @@ public:
 	std::wstring getModuleDescription() {
 		return _T("CheckDisk can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	std::wstring get_filter(unsigned int drvType);
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	void handleCommand(PluginCommand::Request *request, PluginCommand::Response *response);
 
 	// Check commands
-	NSCAPI::nagiosReturn CheckFileSize(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckDriveSize(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckFile2(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn getFileAge(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckSingleFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+// 	NSCAPI::nagiosReturn CheckFileSize(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+// 	NSCAPI::nagiosReturn CheckDriveSize(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+// 	NSCAPI::nagiosReturn CheckFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+// 	NSCAPI::nagiosReturn CheckFile2(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+// 	NSCAPI::nagiosReturn getFileAge(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+// 	NSCAPI::nagiosReturn CheckSingleFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 
 private:
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
