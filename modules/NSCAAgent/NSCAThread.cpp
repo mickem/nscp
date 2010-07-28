@@ -81,6 +81,7 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 	nscaport_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_PORT, NSCA_PORT_DEFAULT);
 	payload_length_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_STRLEN, NSCA_STRLEN_DEFAULT);
 	read_timeout_ = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_READ_TIMEOUT, NSCA_READ_TIMEOUT_DEFAULT);
+	resultInterval = NSCModuleHelper::getSettingsInt(NSCA_AGENT_SECTION_TITLE, NSCA_CHUNK, NSCA_CHUNK_DEFAULT);
 	std::wstring report = NSCModuleHelper::getSettingsString(NSCA_AGENT_SECTION_TITLE, NSCA_REPORT, NSCA_REPORT_DEFAULT);
 	report_ = parse_report_string(report);
 	NSC_DEBUG_MSG_STD(_T("Only reporting: ") + generate_report_string(report_));
@@ -221,7 +222,17 @@ DWORD NSCAThread::threadProc(LPVOID lpParameter) {
 				}
 				if (!results.empty()) {
 					try {
-						send(results);
+						if (resultInterval != 0) {
+							while (!results.empty()) {
+								std::list<Command::Result> chunk;
+								for (int i=0;i<resultInterval&&!results.empty();++i) {
+									chunk.push_back(results.front());
+									results.pop_front();
+								}
+								send(chunk);
+							}
+						} else 
+							send(results);
 					} catch (...) {
 						NSC_LOG_ERROR_STD(_T("Unknown exception when sending commands to server..."));
 					}
@@ -313,13 +324,16 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 			NSC_LOG_ERROR_STD(_T("<<< NSCA Encryption header missmatch (hint: if you dont use NSCA dot use the NSCA module)!"));
 			return;
 		}
+		socket.setBlock();
 
 		try {
 			for (std::list<Command::Result>::const_iterator cit = results.begin(); cit != results.end(); ++cit) {
 				try {
-					socket.send((*cit).getBuffer(crypt_inst, timeDelta_, payload_length_));
+					socket.sendAll((*cit).getBuffer(crypt_inst, timeDelta_, payload_length_));
 				} catch (NSCAPacket::NSCAException &e) {
-					NSC_LOG_ERROR_STD(_T("Failed to make command: ") + e.getMessage() );
+					NSC_LOG_ERROR_STD(_T("Failed to build command: ") + e.getMessage() );
+				} catch (simpleSocket::SocketException &e) {
+					NSC_LOG_ERROR_STD(_T("Failed to send command: ") + e.getMessage() );
 				}
 			}
 		} catch (nsca_encrypt::encryption_exception &e) {
@@ -329,6 +343,7 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 			NSC_LOG_ERROR_STD(_T("<<< Failed to encrypt packet!"));
 			return;
 		}
+		socket.setLinger(30);
 		socket.close();
 	} catch (simpleSocket::SocketException &e) {
 		NSC_LOG_ERROR_STD(_T("NSCA Socket exception: ") + e.getMessage());

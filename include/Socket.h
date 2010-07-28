@@ -226,8 +226,15 @@ namespace simpleSocket {
 
 		virtual void close() {
 			if (socket_)
-				closesocket(socket_);
+				::closesocket(socket_);
 			socket_ = NULL;
+		}
+		virtual void setLinger(int timeout) {
+			if (this->setsockopt(SOL_SOCKET, SO_LINGER, (const char*)&timeout, sizeof(timeout)) == SOCKET_ERROR)
+				throw SocketException(_T("Failed to set linger on socket: "), ::WSAGetLastError());
+		}
+		virtual int setsockopt(int level, int optname, const char * optval, int optlen) {
+			return ::setsockopt(socket_, level, optname, optval, optlen);
 		}
 		virtual void setNonBlock() {
 			unsigned long NoBlock = 1;
@@ -235,6 +242,13 @@ namespace simpleSocket {
 			FD_SET(socket_, &write_);
 			FD_SET(socket_, &excp_);
 			this->ioctlsocket(FIONBIO, &NoBlock);
+		}
+		virtual void setBlock() {
+			unsigned long Block = 0;
+			FD_SET(socket_, &read_);
+			FD_SET(socket_, &write_);
+			FD_SET(socket_, &excp_);
+			this->ioctlsocket(FIONBIO, &Block);
 		}
 		virtual bool canRead(long timeout = -1) {
 			timeval timeout_;
@@ -750,7 +764,7 @@ namespace socketHelpers {
 			}
 			if (masklen > 32)
 				masklen = 32;
-			return (~((unsigned int)0))>>(32-masklen);
+			return ::ntohl((0xffffffff >> (32 - masklen )) << (32 - masklen));
 		}
 		void lookupList() {
 			for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
@@ -770,14 +784,17 @@ namespace socketHelpers {
 						else
 							(*it).in_addr = ::inet_addr(strEx::wstring_to_string((*it).host).c_str()); // simpleSocket::Socket::getHostByAddrAsIN((*it).host);
 						/*
-						std::cerr << "Added: " 
-							+ simpleSocket::Socket::inet_ntoa((*it).in_addr)
-							+ " with mask "
-							+ simpleSocket::Socket::inet_ntoa((*it).mask)
-							+ " from "
-							+ (*it).record <<
+						std::wcerr << _T("Added: ")
+							<< simpleSocket::Socket::inet_ntoa((*it).in_addr)
+							<< _T(" with mask ")
+							<< simpleSocket::Socket::inet_ntoa((*it).mask)
+							//<< _T("(") << (*it).mask << _T(")") 
+							<< _T(" from ")
+							<< (*it).record <<
 							std::endl;
 							*/
+							
+							
 					} catch (simpleSocket::SocketException e) {
 						std::wcerr << _T("Filed to lookup host: ") << e.getMessage() << std::endl;
 					}
@@ -787,7 +804,7 @@ namespace socketHelpers {
 
 		void setAllowedHosts(const std::list<std::wstring> list, bool cachedAddresses) {
 			for (std::list<std::wstring>::const_iterator it = list.begin(); it != list.end(); ++it) {
-				allowedHosts_.push_back(host_record(*it));
+				allowedHosts_.push_back(host_record(strEx::trim(*it, _T(" \t"))));
 			}
 			cachedAddresses_ = cachedAddresses;
 //			if ((!allowedHosts.empty()) && (allowedHosts.front() == "") )

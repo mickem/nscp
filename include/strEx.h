@@ -420,7 +420,7 @@ namespace strEx {
 	inline std::wstring format_BKMG(unsigned __int64 i, std::wstring unit) {
 		double cpy = static_cast<double>(i);
 		TCHAR postfix[] = _T(BKMG_RANGE);
-		if (unit.length() != 1)
+		if (unit.length() == 0)
 			return itos(cpy);
 		for (int i=0;i<BKMG_SIZE;i++) {
 			if (unit[0] == postfix[i]) {
@@ -445,6 +445,8 @@ namespace strEx {
 			cpy/=1024;
 			idx++;
 		}
+		if (idx > 0)
+			return std::wstring(1, postfix[idx]) + _T("B");
 		return std::wstring(1, postfix[idx]);
 	}
 

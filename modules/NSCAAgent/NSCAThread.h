@@ -236,6 +236,7 @@ private:
 	long timeDelta_;
 	int report_;
 	unsigned int read_timeout_;
+	int resultInterval;
 
 public:
 	NSCAThread();

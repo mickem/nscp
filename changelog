@@ -6,6 +6,14 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2010-07-28 MickeM
+ * Fixed issue with NSCA server and closing sockets (no flushes the datat before)
+ * Fixed issue with performance data units beeing incorrect:
+    before: B, K, M, G, ... noew: B, KB, MB, GB, ...
+ * Fixed syntax errors in performance data extra ';' dropped and spaces added propperly
+   Result now looks like so: ... |'C:\ %'=42%;10;5 'C:\'=229.66GB;39.06;19.53;0;390.62 'D:\ %'=99%;10;5 'D:\'=3.39GB;20.55;10.27;0;205.54
+ * Fixed issues with caluclating netmask (also added support for spaces and tabs in the hostlist string.
+
 2010-06-02 MickeM
  * Fixed a few issues with listCounterInstances
 
@@ -278,7 +286,7 @@ TODO:
 2009-03-14 MickeM 
  * Rebuilt installer UI (still missing write config function)
  * Added debug entry to log filename used by debug log metrics.
- * Fixed so alias will not require the allow_nasty_metachars option set under external sripts module.
+ * Fixed so alias will not require the allow_nasty_meta_chars option set under external sripts module.
 
 2009-03-02 MickeM 
  * Added catch handlers and error logging to NSCA Thread

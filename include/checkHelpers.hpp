@@ -23,8 +23,8 @@
 #include <string>
 #include <strEx.h>
 
-#define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T("; ")
-#define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax + _T("; ")
+#define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit 
+#define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax
 
 namespace checkHolders {
 
@@ -158,8 +158,11 @@ namespace checkHolders {
 				//std::wcout << _T("short") << std::endl;
 				tstr = getAlias() + _T(": ") + TContents::toStringShort(value);
 			}
-			if (perfData)
+			if (perfData) {
+				if (!perf.empty())
+					perf += _T(" ");
 				perf += gatherPerfData(value);
+			}
 			if (!message.empty() && !tstr.empty())
 				message += _T(", ");
 			if (!tstr.empty())
@@ -743,7 +746,7 @@ namespace checkHolders {
 			std::wstring unit = THandler::get_perf_unit(min(warn_v, min(crit_v, value.value)));
 			return 
 				MAKE_PERFDATA(alias + _T(" %"), THandler::print_unformated(value_p), _T("%"), THandler::print_unformated(warn_p), THandler::print_unformated(crit_p))
-				+ 
+				+ _T(" ") +
 				MAKE_PERFDATA_EX(alias, THandler::print_perf(value.value, unit), unit, THandler::print_perf(warn_v, unit), THandler::print_perf(crit_v, unit), 
 					THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
 				;

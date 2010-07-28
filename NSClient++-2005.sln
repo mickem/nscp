@@ -267,10 +267,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "installer_dll_fw", "helpers
 	EndProjectSection
 EndProject
 Global
-	GlobalSection(SubversionScc) = preSolution
-		Svn-Managed = True
-		Manager = AnkhSVN - Subversion Support for Visual Studio
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug|Itanium = Debug|Itanium
@@ -450,7 +446,6 @@ Global
 		{BA246C01-063A-4548-8957-32D5CC76171B}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
 		{BA246C01-063A-4548-8957-32D5CC76171B}.Debug|Mixed Platforms.Build.0 = Debug|x64
 		{BA246C01-063A-4548-8957-32D5CC76171B}.Debug|Win32.ActiveCfg = Debug|Win32
-		{BA246C01-063A-4548-8957-32D5CC76171B}.Debug|Win32.Build.0 = Debug|Win32
 		{BA246C01-063A-4548-8957-32D5CC76171B}.Debug|x64.ActiveCfg = Debug|x64
 		{BA246C01-063A-4548-8957-32D5CC76171B}.Debug|x64.Build.0 = Debug|x64
 		{BA246C01-063A-4548-8957-32D5CC76171B}.Debug-MemCheck|Any CPU.ActiveCfg = Debug-MemCheck|x64
@@ -868,6 +863,7 @@ Global
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Mixed Platforms.Build.0 = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Win32.Build.0 = Debug|Win32
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|x64.ActiveCfg = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|x64.Build.0 = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug-MemCheck|Any CPU.ActiveCfg = Debug-MemCheck|x64
@@ -1580,6 +1576,10 @@ Global
 		{D367E76D-9485-4DCB-A9D0-3D3C0E190648} = {BBE9A5E7-A16B-443C-A349-823DED5A9FF3}
 		{1D9DEE38-BBDC-49DE-A6F3-BAC26E114C1D} = {BBE9A5E7-A16B-443C-A349-823DED5A9FF3}
 		{10A0052D-542B-47AD-85C3-1A3DD45BF2ED} = {FC917E21-188A-44EE-9EF2-7C1274C2D719}
+	EndGlobalSection
+	GlobalSection(SubversionScc) = preSolution
+		Svn-Managed = True
+		Manager = AnkhSVN - Subversion Support for Visual Studio
 	EndGlobalSection
 	GlobalSection(DPCodeReviewSolutionGUID) = preSolution
 		DPCodeReviewSolutionGUID = {00000000-0000-0000-0000-000000000000}
