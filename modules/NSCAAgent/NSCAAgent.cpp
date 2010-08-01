@@ -115,12 +115,13 @@ NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring chan
 		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * Handling command: ") + command);
 		boost::asio::io_service io_service;
 		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * message: ") + msg);
+		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * påerformance: ") + perf);
 		nsca::socket socket(io_service);
 		socket.connect(nscahost_, nscaport_);
 		nsca::packet packet(hostname_, payload_length_, time_delta_);
 		packet.code = code;
 		packet.host = "hello";
-		packet.result = to_string(msg);
+		packet.result = to_string(msg) + "|" + to_string(perf);
 		socket.recv_iv(password_, encryption_method_, boost::posix_time::seconds(timeout_));
 		socket.send_nsca(packet, boost::posix_time::seconds(timeout_));
 		return NSCAPI::isSuccess;

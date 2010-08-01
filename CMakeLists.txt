@@ -37,7 +37,8 @@ SET(OPENSSL_LIBRARY_DIR "${NSCP_LIBRARYDIR}" CACHE PATH "Path to openssl librari
 SET(PROTOBUF_DIR "${INC_PROTOBUF_DIR}" CACHE PATH "Path to google protocol buffer root")
 IF(WIN32 AND MSVC)
 	SET(PROTOBUF_INCLUDE_DIR "${PROTOBUF_DIR}/src" "Path to google protocol buffer source")
-	SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_DIR}/vsprojects/x64/Release")
+	SET(PROTOBUF_LIBRARYDIR_RELEASE "${PROTOBUF_DIR}/vsprojects/x64/Release")
+	SET(PROTOBUF_LIBRARYDIR_DEBUG "${PROTOBUF_DIR}/vsprojects/x64/Debug")
 	SET(PROTOBUF_BINARYDIR "${PROTOBUF_DIR}/vsprojects/debug")
 ELSE(WIN32 AND MSVC)
 # TODO

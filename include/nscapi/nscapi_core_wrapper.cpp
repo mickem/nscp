@@ -23,6 +23,7 @@
 #include <boost/tokenizer.hpp>
 
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <settings/macros.h>
 #include <arrayBuffer.h>
 #include <strEx.h>
@@ -133,7 +134,11 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSimpleCommand(const std::wstrin
 			CORE_LOG_ERROR_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
 			return NSCAPI::returnUNKNOWN;
 		}
-		msg = to_wstring(rsp_msg.payload(0).message());
+		::PluginCommand::Response payload = rsp_msg.payload(0);
+		msg = to_wstring(payload.message());
+		CORE_LOG_ERROR_STD(_T("Attempting to parse perf data"));
+		perf = to_wstring(::nscapi::functions::build_performance_data(payload));
+		CORE_LOG_ERROR_STD(_T("Attempting to parse perf data: '") + perf + _T("'"));
 	}
 	return ret;
 }

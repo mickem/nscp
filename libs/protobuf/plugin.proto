@@ -36,18 +36,22 @@ message PerformanceData {
 	};
 	message IntValue {
 		required int64 value = 1;
-		required int64 maximum = 2;
-		required int64 minimum = 3;
-		required string unit = 4;
+		optional string unit = 2;
+		optional int64 warning = 3;
+		optional int64 critical = 4;
+		optional int64 minimum = 6;
+		optional int64 maximum = 7;
 	}
 	message StringValue {
 		required string value = 1;
 	}
 	message FloatValue {
-		required float value = 1;
-		required float maximum = 2;
-		required float minimum = 3;
-		required string unit = 4;
+		required double value = 1;
+		optional string unit = 2;
+		optional double warning = 3;
+		optional double critical = 4;
+		optional double minimum = 6;
+		optional double maximum = 7;
 	}
 	required string alias = 1;
 	required Type type = 2;

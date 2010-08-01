@@ -6,8 +6,12 @@
 #include <boost/shared_ptr.hpp>
 #include <vector>
 
+
 namespace nrpe {
 	namespace server {
+
+		namespace ip = boost::asio::ip;
+
 		server::server(const std::string& address, const std::string& port,
 			const std::string& doc_root, std::size_t thread_pool_size)
 			: thread_pool_size_(thread_pool_size)
@@ -17,17 +21,21 @@ namespace nrpe {
 			/*,request_handler_(doc_root)*/
 		{
 			// Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
-			boost::asio::ip::tcp::resolver resolver(io_service_);
-			boost::asio::ip::tcp::resolver::query query(address, port);
-			boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-			boost::asio::ip::tcp::resolver::iterator end;
+			ip::tcp::resolver resolver(io_service_);
+			ip::tcp::resolver::iterator endpoint_iterator;
+			if (address.empty()) {
+				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(port));
+			} else {
+				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(address, port));
+			}
+			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {
 				std::cout << "Failed to lookup: " << address << ":" << port << std::endl;
 			}
-			boost::asio::ip::tcp::endpoint endpoint = *endpoint_iterator;
+			ip::tcp::endpoint endpoint = *endpoint_iterator;
 			std::cout << "Binding to: " << address << ":" << port << std::endl;
 			acceptor_.open(endpoint.protocol());
-			acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
 			acceptor_.bind(endpoint);
 			acceptor_.listen();
 			acceptor_.async_accept(new_connection_->socket(),
@@ -62,6 +70,9 @@ namespace nrpe {
 		void server::handle_accept(const boost::system::error_code& e) {
 			std::cout << "accept: " << e.message() << std::endl;
 			if (!e) {
+				std::string s = new_connection_->socket().remote_endpoint().address().to_string();
+				std::cout << "Connecting from: " << s <<std::endl;
+
 				new_connection_->start();
 				new_connection_.reset(new connection(io_service_, request_handler_));
 				acceptor_.async_accept(new_connection_->socket(),

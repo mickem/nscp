@@ -551,8 +551,20 @@ namespace strEx {
 	}
 
 	typedef std::list<std::wstring> splitList;
-	inline splitList splitEx(std::wstring str, std::wstring key) {
+	inline splitList splitEx(const std::wstring str, const std::wstring key) {
 		splitList ret;
+		std::wstring::size_type pos = 0, lpos = 0;
+		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {
+			ret.push_back(str.substr(lpos, pos-lpos));
+			lpos = ++pos;
+		}
+		if (lpos < str.size())
+			ret.push_back(str.substr(lpos));
+		return ret;
+	}
+	typedef std::vector<std::wstring> splitVector;
+	inline splitVector splitV(const std::wstring str, const std::wstring key) {
+		splitVector ret;
 		std::wstring::size_type pos = 0, lpos = 0;
 		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {
 			ret.push_back(str.substr(lpos, pos-lpos));

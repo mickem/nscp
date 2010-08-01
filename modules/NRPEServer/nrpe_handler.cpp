@@ -32,7 +32,9 @@ namespace nrpe {
 
 			NSCAPI::nagiosReturn ret = -3;
 			try {
+				NSC_DEBUG_MSG_STD(_T("Running command: ") + cmd.first);
 				ret = nscapi::plugin_singleton->get_core()->InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
+				NSC_DEBUG_MSG_STD(_T("Running command: ") + cmd.first + _T(" = ") + msg);
 			} catch (...) {
 				return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), p.get_payload_length());
 			}
@@ -49,15 +51,15 @@ namespace nrpe {
 			default:
 				return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal error."), p.get_payload_length());
 			}
-			if (msg.length() >= p.get_payload_length()-1) {
+			std::wstring data = msg;
+			if (!perf.empty()&&!noPerfData_) {
+				data += _T("|") + perf;
+			}
+			if (data.length() >= p.get_payload_length()-1) {
 				NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
-				msg = msg.substr(0,p.get_payload_length()-2);
+				data = data.substr(0,p.get_payload_length()-2);
 			}
-			if (perf.empty()||noPerfData_) {
-				return nrpe::packet::create_response(ret, msg, p.get_payload_length());
-			} else {
-				return nrpe::packet::create_response(ret, msg + _T("|") + perf, p.get_payload_length());
-			}
+			return nrpe::packet::create_response(ret, data, p.get_payload_length());
 		}
 	}
 }

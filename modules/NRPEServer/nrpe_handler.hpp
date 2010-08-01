@@ -10,7 +10,7 @@ namespace nrpe {
 			bool noPerfData_;
 		public:
 			handler(unsigned int payload_length) 
-				: payload_length_(payload_length)
+				: payload_length_(payload_length), noPerfData_(false)
 			{}
 			handler(const handler &other) {
 				payload_length_ = other.payload_length_;

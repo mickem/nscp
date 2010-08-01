@@ -93,6 +93,80 @@ namespace nscapi {
 
 	extern helper_singleton* plugin_singleton;
 
+	class functions {
+	public:
+		static PluginCommand::Response_Code nagios_to_gpb(int ret) {
+			if (ret == NSCAPI::returnOK)
+				return PluginCommand::Response_Code_OK;
+			if (ret == NSCAPI::returnWARN)
+				return PluginCommand::Response_Code_WARNING;
+			if (ret == NSCAPI::returnCRIT)
+				return PluginCommand::Response_Code_CRITCAL;
+			return PluginCommand::Response_Code_UNKNOWN;
+		}
+
+		static double trim_to_double(std::wstring s) {
+			std::wstring::size_type pend = s.find_first_not_of(_T("0123456789,."));
+			if (pend != std::wstring::npos)
+				s = s.substr(0,pend);
+			strEx::replace(s, _T(","), _T("."));
+			return strEx::stod(s);
+		}
+
+		static void parse_performance_data(PluginCommand::Response *resp, std::wstring &perf) {
+			strEx::splitList items = strEx::splitEx(perf, _T(" "));
+			for (strEx::splitList::const_iterator cit = items.begin(); cit != items.end(); ++cit) {
+				strEx::splitVector items = strEx::splitV(*cit, _T(";"));
+				if (items.size() < 3)
+					break;
+
+				::PluginCommand::PerformanceData* perfData = resp->add_perf();
+				perfData->set_type(PluginCommand::PerformanceData_Type_FLOAT);
+				std::pair<std::wstring,std::wstring> fitem = strEx::split(items[0], _T("="));
+				perfData->set_alias(to_string(fitem.first));
+				::PluginCommand::PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
+
+				std::wstring::size_type pend = fitem.second.find_first_not_of(_T("0123456789,."));
+				if (pend == std::wstring::npos) {
+					floatPerfData->set_value(trim_to_double(fitem.second.c_str()));
+				} else {
+					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend).c_str()));
+					floatPerfData->set_unit(to_string(fitem.second.substr(pend)));
+				}
+				floatPerfData->set_warning(trim_to_double(items[1]));
+				floatPerfData->set_critical(trim_to_double(items[2]));
+				if (items.size() >= 5) {
+					floatPerfData->set_minimum(trim_to_double(items[3]));
+					floatPerfData->set_maximum(trim_to_double(items[4]));
+				}
+			}
+		}
+		static std::string build_performance_data(::PluginCommand::Response &payload) {
+			std::string ret;
+			for (int i=0;i<payload.perf_size();i++) {
+				::PluginCommand::PerformanceData perfData = payload.perf(i);
+				if (!ret.empty())
+					ret += " ";
+				ret += perfData.alias() + "=";
+				if (perfData.has_float_value()) {
+					::PluginCommand::PerformanceData_FloatValue fval = perfData.float_value();
+					ret += to_string(fval.value());
+					if (fval.has_unit())
+						ret += fval.unit();
+					if (!fval.has_warning())	continue;
+					ret += ";" + to_string(fval.warning());
+					if (!fval.has_critical())	continue;
+					ret += ";" + to_string(fval.critical());
+					if (!fval.has_minimum())	continue;
+					ret += ";" + to_string(fval.minimum());
+					if (!fval.has_maximum())	continue;
+					ret += ";" + to_string(fval.maximum());
+				}
+			}
+			return ret;
+		}
+	};
+
 	namespace impl {
 
 		class SimpleNotificationHandler {
@@ -107,11 +181,13 @@ namespace nscapi {
 					}
 
 					::PluginCommand::Response payload = message.payload().Get(0);
+					
 					std::list<std::wstring> args;
 					for (int i=0;i<payload.arguments_size();i++) {
 						args.push_back(to_wstring(payload.arguments(i)));
 					}
-					std::wstring msg = to_wstring(payload.message()), perf;
+					std::wstring msg = to_wstring(payload.message());
+					std::wstring perf = to_wstring(::nscapi::functions::build_performance_data(payload));
 					NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, command, code, msg, perf);
 				} catch (std::exception &e) {
 					std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << e.what() <<  std::endl;;
@@ -154,16 +230,10 @@ namespace nscapi {
 				PluginCommand::Response *resp = response_message.add_payload();
 				resp->set_command(to_string(command));
 				resp->set_message(to_string(msg));
-				resp->set_version(PluginCommand::Response_Version_VERSION_1);
-				if (ret == NSCAPI::returnOK)
-					resp->set_result(PluginCommand::Response_Code_OK);
-				else if (ret == NSCAPI::returnWARN)
-					resp->set_result(PluginCommand::Response_Code_WARNING);
-				else if (ret == NSCAPI::returnCRIT)
-					resp->set_result(PluginCommand::Response_Code_CRITCAL);
-				else 
-					resp->set_result(PluginCommand::Response_Code_UNKNOWN);
+				::nscapi::functions::parse_performance_data(resp, perf);
 
+				resp->set_version(PluginCommand::Response_Version_VERSION_1);
+				resp->set_result(nscapi::functions::nagios_to_gpb(ret));
 				response_message.SerializeToString(&response);
 				return ret;
 			}

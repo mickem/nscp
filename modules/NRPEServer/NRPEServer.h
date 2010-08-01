@@ -53,9 +53,9 @@ public:
 
 	std::wstring getModuleName() {
 #ifdef USE_SSL
-		return _T("NRPE server (w/ SSL)");
-#else
 		return _T("NRPE server");
+#else
+		return _T("NRPE server (no SSL)");
 #endif
 	}
 	nscapi::plugin_wrapper::module_version getModuleVersion() {
