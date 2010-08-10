@@ -26,7 +26,7 @@
 #include <boost/asio/buffer.hpp>
 #include <swap_bytes.hpp>
 #include <strEx.h>
-
+#include <utils.h>
 
 using namespace nscp::helpers;
 
@@ -169,14 +169,15 @@ namespace nrpe {
 			strncpy(p->buffer, ::to_string(payload_).c_str(), payload_.length());
 			p->buffer[payload_.length()] = 0;
 			p->crc32_value = 0;
-			p->crc32_value = swap_bytes::hton<u_int32_t>(calculate_crc32(tmpBuffer, packet_length));
-			std::wcout << _T("About to send: ") << to_string() << std::endl;
-			std::wcout << _T("About to send: ") 
-				<< _T("") << strEx::ihextos(tmpBuffer[0]) 
-				<< _T(", ") << strEx::ihextos(tmpBuffer[1]) 
-				<< _T(", ") << strEx::ihextos(tmpBuffer[2]) 
-				<< _T(", ") << strEx::ihextos(tmpBuffer[3]) 
-				<< std::endl;
+			crc32_ = p->crc32_value = swap_bytes::hton<u_int32_t>(calculate_crc32(tmpBuffer, packet_length));
+// 			std::wcout << _T("About to send: ") << to_string() << std::endl;
+// 			std::wcout << _T("About to send: ") 
+// 				<< _T("<<<") << to_wstring(strEx::format_buffer(tmpBuffer, packet_length)) 
+// 				<< _T(">>>, ") << strEx::ihextos((int16_t)tmpBuffer[2]) 
+// 				<< _T(", ") << strEx::ihextos((u_int32_t)tmpBuffer[4]) 
+// 				<< _T(", ") << strEx::ihextos((int16_t)tmpBuffer[8]) 
+// 				<< _T(", crc: ") << strEx::ihextos(p->crc32_value) 
+// 				<< std::endl;
 			return tmpBuffer;
 		}
 
@@ -187,12 +188,13 @@ namespace nrpe {
 		}
 
 		void readFrom(const char *buffer, unsigned int length) {
-			std::wcout << _T("Just read: ") 
-				<< _T("") << strEx::ihextos(buffer[0]) 
-				<< _T(", ") << strEx::ihextos(buffer[1]) 
-				<< _T(", ") << strEx::ihextos(buffer[2]) 
-				<< _T(", ") << strEx::ihextos(buffer[3]) 
-				<< std::endl;
+// 			std::wcout << _T("Just read: ") 
+// 				<< _T("") << strEx::ihextos(buffer[0]) 
+// 				<< _T(", ") << strEx::ihextos(buffer[1]) 
+// 				<< _T(", ") << strEx::ihextos(buffer[2]) 
+// 				<< _T(", ") << strEx::ihextos(buffer[3]) 
+// 				<< _T(", ") << strEx::ihextos(buffer[4]) 
+// 				<< std::endl;
 			if (buffer == NULL)
 				throw nrpe::nrpe_packet_exception(_T("No buffer."));
 			if (length != get_packet_length())
@@ -213,10 +215,9 @@ namespace nrpe {
 			p2->crc32_value = 0;
 			calculatedCRC32_ = calculate_crc32(tb, get_packet_length());
 			delete [] tb;
-			std::wcout << _T("Just read: ") << to_string() << std::endl;
+// 			std::wcout << _T("Just read: ") << to_string() << std::endl;
 			if (crc32_ != calculatedCRC32_) 
-				throw nrpe::nrpe_packet_exception(_T("Invalid checksum in NRPE packet: ") + strEx::ihextos(crc32_) 
-				+ _T("!=") + strEx::ihextos(calculatedCRC32_));
+				throw nrpe::nrpe_packet_exception(_T("Invalid checksum in NRPE packet: ") + strEx::ihextos(crc32_) + _T("!=") + strEx::ihextos(calculatedCRC32_));
 			// Verify CRC32 end
 			result_ = swap_bytes::ntoh<u_int32_t>(p->result_code);
 			payload_ = strEx::string_to_wstring(std::string(p->buffer));
@@ -238,6 +239,7 @@ namespace nrpe {
 			ss << _T("type: ") << type_;
 			ss << _T(", version: ") << version_;
 			ss << _T(", result: ") << result_;
+			ss << _T(", crc32: ") << crc32_;
 			ss << _T(", payload: ") << payload_;
 			return ss.str();
 		}

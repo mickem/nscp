@@ -27,7 +27,7 @@
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 
-class CheckSystem {
+class CheckSystem : public nscapi::impl::SimpleCommand {
 private:
 	CheckMemory memoryChecker;
 	PDHCollectorThread pdhThread;
@@ -61,8 +61,8 @@ public:
 	* Module version
 	* @return module version
 	*/
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 3, 0 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
@@ -71,17 +71,17 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
-	NSCAPI::nagiosReturn checkCPU(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkUpTime(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkServiceState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkMem(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkProcState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkCounter(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn listCounterInstances(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkSingleRegEntry(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn checkCPU(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkUpTime(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkServiceState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkMem(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkProcState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkCounter(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn listCounterInstances(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkSingleRegEntry(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 
 
 };

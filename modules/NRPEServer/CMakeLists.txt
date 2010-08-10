@@ -10,10 +10,12 @@ SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
-	nrpe_server.cpp
-	nrpe_connection.cpp
-	nrpe_handler.cpp
-	${NSCP_INCLUDEDIR}/nrpe/nrpe_packet.cpp
+	"handler_impl.cpp"
+	${NSCP_INCLUDEDIR}/nrpe/server/server.cpp
+	${NSCP_INCLUDEDIR}/nrpe/server/connection.cpp
+	${NSCP_INCLUDEDIR}/nrpe/server/tcp_connection.cpp
+	${NSCP_INCLUDEDIR}/nrpe/server/ssl_connection.cpp
+	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -25,12 +27,15 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
-		nrpe_server.hpp
-		nrpe_connection.hpp
-		nrpe_handler.hpp
-		nrpe_parser.hpp
+		"handler_impl.hpp"
+		${NSCP_INCLUDEDIR}/nrpe/server/server.hpp
+		${NSCP_INCLUDEDIR}/nrpe/server/connection.hpp
+		${NSCP_INCLUDEDIR}/nrpe/server/tcp_connection.hpp
+		${NSCP_INCLUDEDIR}/nrpe/server/ssl_connection.hpp
+		${NSCP_INCLUDEDIR}/nrpe/server/handler.hpp
+		${NSCP_INCLUDEDIR}/nrpe/server/parser.hpp
 		${NSCP_INCLUDEDIR}/socket_helpers.hpp
-		${NSCP_INCLUDEDIR}/nrpe/nrpe_packet.hpp
+		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}

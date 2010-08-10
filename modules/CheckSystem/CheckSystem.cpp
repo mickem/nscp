@@ -39,19 +39,6 @@
 CheckSystem gCheckSystem;
 
 /**
- * DLL Entry point
- * @param hModule 
- * @param ul_reason_for_call 
- * @param lpReserved 
- * @return 
- */
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
-/**
  * Default c-tor
  * @return 
  */
@@ -72,17 +59,15 @@ bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
 		pdhThread.createThread();
 	}
 	try {
-		NSCModuleHelper::registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
-		NSCModuleHelper::registerCommand(_T("checkUpTime"), _T("Check the up-time of the computer."));
-		NSCModuleHelper::registerCommand(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
-		NSCModuleHelper::registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
-		NSCModuleHelper::registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
-		NSCModuleHelper::registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
-		NSCModuleHelper::registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
-		NSCModuleHelper::registerCommand(_T("checkSingleRegEntry"), _T("Check registry key"));
-		
-		
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		GET_CORE()->registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
+		GET_CORE()->registerCommand(_T("checkUpTime"), _T("Check the up-time of the computer."));
+		GET_CORE()->registerCommand(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
+		GET_CORE()->registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
+		GET_CORE()->registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
+		GET_CORE()->registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
+		GET_CORE()->registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
+		GET_CORE()->registerCommand(_T("checkSingleRegEntry"), _T("Check registry key"));
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -332,25 +317,24 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
  * @param **args 
  * @return 
  */
-NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
-	std::list<std::wstring> stl_args;
+NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
 	CheckSystem::returnBundle rb;
-	if (command == _T("checkCPU")) {
-		return checkCPU(argLen, char_args, msg, perf);
-	} else if (command == _T("checkUpTime")) {
-		return checkUpTime(argLen, char_args, msg, perf);
-	} else if (command == _T("checkServiceState")) {
-		return checkServiceState(argLen, char_args, msg, perf);
-	} else if (command == _T("checkProcState")) {
-		return checkProcState(argLen, char_args, msg, perf);
-	} else if (command == _T("checkMem")) {
-		return checkMem(argLen, char_args, msg, perf);
-	} else if (command == _T("checkCounter")) {
-		return checkCounter(argLen, char_args, msg, perf);
-	} else if (command == _T("listCounterInstances")) {
-		return listCounterInstances(argLen, char_args, msg, perf);
-	} else if (command == _T("checkSingleRegEntry")) {
-		return checkSingleRegEntry(argLen, char_args, msg, perf);
+	if (command == _T("checkcpu")) {
+		return checkCPU(arguments, msg, perf);
+	} else if (command == _T("checkuptime")) {
+		return checkUpTime(arguments, msg, perf);
+	} else if (command == _T("checkservicestate")) {
+		return checkServiceState(arguments, msg, perf);
+	} else if (command == _T("checkprocstate")) {
+		return checkProcState(arguments, msg, perf);
+	} else if (command == _T("checkmem")) {
+		return checkMem(arguments, msg, perf);
+	} else if (command == _T("checkcounter")) {
+		return checkCounter(arguments, msg, perf);
+	} else if (command == _T("listcounterinstances")) {
+		return listCounterInstances(arguments, msg, perf);
+	} else if (command == _T("checksingleregentry")) {
+		return checkSingleRegEntry(arguments, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -387,12 +371,10 @@ public:
 		return _T("");
 	}
 };
-NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
-{
+NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, cpuload_handler> > > CPULoadContainer;
 
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -404,7 +386,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, TCHAR **ch
 
 	tmpObject.data = _T("cpuload");
 
-	MAP_OPTIONS_BEGIN(stl_args)
+	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T(""))
 		MAP_OPTIONS_STR(_T("warn"), tmpObject.warn.max)
 		MAP_OPTIONS_STR(_T("crit"), tmpObject.crit.max)
@@ -449,16 +431,15 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(const unsigned int argLen, TCHAR **ch
 	if (msg.empty())
 		msg = _T("OK CPU Load ok.");
 	else if (!bNSClient)
-		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::checkUpTime(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsTime> UpTimeContainer;
 
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -469,7 +450,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, TCHAR *
 
 	bounds.data = _T("uptime");
 
-	MAP_OPTIONS_BEGIN(stl_args)
+	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_NUMERIC_ALL(bounds, _T(""))
 		MAP_OPTIONS_STR(_T("warn"), bounds.warn.min)
 		MAP_OPTIONS_STR(_T("crit"), bounds.crit.min)
@@ -502,7 +483,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(const unsigned int argLen, TCHAR *
 	if (msg.empty())
 		msg = _T("OK all counters within bounds.");
 	else if (!bNSClient)
-		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
 
@@ -541,11 +522,10 @@ inline int get_state(DWORD state) {
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::SimpleBoundsStateBoundsInteger> StateContainer;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -561,7 +541,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 	tmpObject.data = _T("service");
 	tmpObject.crit.state = _T("started");
 	//{{
-	MAP_OPTIONS_BEGIN(stl_args)
+	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
 		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
@@ -618,7 +598,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 			} catch (NTServiceException e) {
 				if (!msg.empty()) msg += _T(" - ");
 				msg += (*it).data + _T(": Error");
-				NSCHelper::escalteReturnCodeToWARN(returnCode);
+				nscapi::plugin_helper::escalteReturnCodeToWARN(returnCode);
 				continue;
 			}
 			if ((*it).crit.state.hasBounds()) {
@@ -638,7 +618,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 						msg += (*it).data + _T(": Unknown");
 					}
 					if (!ok) 
-						NSCHelper::escalteReturnCodeToCRIT(returnCode);
+						nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
 				}
 			}
 		} else {
@@ -672,9 +652,9 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
 	if (msg.empty() && returnCode == NSCAPI::returnOK)
 		msg = _T("OK: All services are in their appropriate state.");
 	else if (msg.empty())
-		msg = NSCHelper::translateReturn(returnCode) + _T(": Whooha this is odd.");
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": Whooha this is odd.");
 	else if (!bNSClient)
-		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
 
@@ -689,11 +669,10 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(const unsigned int argLen, T
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::checkMem(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericPercentageBounds<checkHolders::PercentageValueType<unsigned __int64, unsigned __int64>, checkHolders::disk_size_handler<unsigned __int64> > > > MemoryContainer;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -704,7 +683,7 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, TCHAR **ch
 	bool bNSClient = false;
 	MemoryContainer tmpObject;
 
-	MAP_OPTIONS_BEGIN(stl_args)
+	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_STR_AND(_T("type"), tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_STR_AND(_T("Type"), tmpObject.data, list.push_back(tmpObject))
@@ -795,7 +774,7 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(const unsigned int argLen, TCHAR **ch
 	if (msg.empty())
 		msg = _T("OK memory within bounds.");
 	else
-		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
 typedef struct NSPROCDATA__ {
@@ -806,7 +785,7 @@ typedef struct NSPROCDATA__ {
 	NSPROCDATA__() : count(0) {}
 	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), entry(other.entry), key(other.key) {}
 } NSPROCDATA;
-typedef std::map<std::wstring,NSPROCDATA,strEx::case_blind_string_compare> NSPROCLST;
+typedef std::map<std::wstring,NSPROCDATA,strEx::StrICmp> NSPROCLST;
 
 class NSC_error : public CEnumProcess::error_reporter {
 	void report_error(std::wstring error) {
@@ -869,11 +848,10 @@ NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinStateBoundsStateBoundsInteger> StateContainer;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -894,7 +872,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 	tmpObject.data = _T("uptime");
 	tmpObject.crit.state = _T("started");
 
-	MAP_OPTIONS_BEGIN(stl_args)
+	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T("Count"))
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.alias)
 		MAP_OPTIONS_SHOWALL(tmpObject)
@@ -983,7 +961,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 			} else {
 				if (!msg.empty()) msg += _T(" - ");
 				msg += (*it).data + _T(": not running");
-				NSCHelper::escalteReturnCodeToCRIT(returnCode);
+				nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
 			}
 		} else {
 			checkHolders::MaxMinStateValueType<int, checkHolders::state_type> value;
@@ -1005,7 +983,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
 	if (msg.empty())
 		msg = _T("OK: All processes are running.");
 	else if (!bNSClient)
-		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
 
@@ -1022,12 +1000,11 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(const unsigned int argLen, TCHA
  *
  * @todo add parsing support for NRPE
  */
-NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
 
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -1043,7 +1020,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 	bool bExpandIndex = false;
 	bool bForceReload = false;
 
-	MAP_OPTIONS_BEGIN(stl_args)
+	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_STR(_T("InvalidStatus"), invalidStatus)
 		MAP_OPTIONS_STR_AND(_T("Counter"), tmpObject.data, counters.push_back(tmpObject))
 		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max)
@@ -1128,7 +1105,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
 		NSC_LOG_ERROR_STD(_T("No value found returning 0?"));
 		msg = _T("0");
 	}else if (!bNSClient)
-		msg = NSCHelper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
 }
 
@@ -1146,17 +1123,17 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(const unsigned int argLen, TCHAR 
  *
  * @todo add parsing support for NRPE
  */
-NSCAPI::nagiosReturn CheckSystem::listCounterInstances(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::listCounterInstances(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
 
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
 
-	std::wstring counter = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
+	std::wstring counter;
+	BOOST_FOREACH(std::wstring s, arguments) { counter+= s + _T(" "); }
 	try {
 		PDH::Enumerations::pdh_object_details obj = PDH::Enumerations::EnumObjectInstances(counter);
 		for (PDH::Enumerations::pdh_object_details::list::const_iterator it = obj.instances.begin(); it!=obj.instances.end();++it) {
@@ -1461,13 +1438,12 @@ struct check_regkey_factories {
 		else if ((p__.first == _T("check")) && (p__.second == ##value)) { checker.add_check(check_regkey_factories::obj()); }
 
 
-NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	check_file_multi checker;
 	typedef std::pair<int,regkey_filter> filteritem_type;
 	typedef std::list<filteritem_type > filterlist_type;
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -1478,7 +1454,7 @@ NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(const unsigned int argLen,
 	bool bPerfData = true;
 
 	try {
-		MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_BEGIN(arguments)
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_STR(_T("syntax"), syntax)
@@ -1521,85 +1497,9 @@ NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(const unsigned int argLen,
 	return returnCode;
 }
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckSystem);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckSystem);
-NSC_WRAPPERS_HANDLE_CONFIGURATION(gCheckSystem);
-NSC_WRAPPERS_CLI_DEF(gCheckSystem);
+//NSC_WRAPPERS_CLI_DEF(gCheckSystem);
 
-
-
-MODULE_SETTINGS_START(CheckSystem, _T("System check module"), _T("..."))
-
-PAGE(_T("Check options"))
-
-ITEM_EDIT_TEXT(_T("Check resolution"), _T("This is how often the PDH data is polled and stored in the CPU buffer. (this is enterd in 1/th: of a second)"))
-OPTION(_T("unit"), _T("1/10:th of a second"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("Check System"))
-OPTION(_T("key"), _T("CheckResolution"))
-OPTION(_T("default"), _T("10"))
-ITEM_END()
-
-ITEM_EDIT_TEXT(_T("CPU buffer size"), _T("This is the size of the buffer that stores CPU history."))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("Check System"))
-OPTION(_T("key"), _T("CPUBufferSize"))
-OPTION(_T("default"), _T("1h"))
-ITEM_END()
-
-PAGE_END()
-ADVANCED_PAGE(_T("Compatiblity settings"))
-
-ITEM_EDIT_TEXT(_T("MemoryCommitByte"), _T("The memory commited bytes used to calculate the avalible memory."))
-OPTION(_T("disableCaption"), _T("Attempt to autodetect this."))
-OPTION(_T("disabled"), _T("auto"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("Check System"))
-OPTION(_T("key"), _T("MemoryCommitByte"))
-OPTION(_T("default"), _T("auto"))
-ITEM_END()
-
-ITEM_EDIT_TEXT(_T("MemoryCommitLimit"), _T("The memory commit limit used to calculate the avalible memory."))
-OPTION(_T("disableCaption"), _T("Attempt to autodetect this."))
-OPTION(_T("disabled"), _T("auto"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("Check System"))
-OPTION(_T("key"), _T("MemoryCommitLimit"))
-OPTION(_T("default"), _T("auto"))
-ITEM_END()
-
-ITEM_EDIT_TEXT(_T("SystemSystemUpTime"), _T("The PDH counter for the System uptime."))
-OPTION(_T("disableCaption"), _T("Attempt to autodetect this."))
-OPTION(_T("disabled"), _T("auto"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("Check System"))
-OPTION(_T("key"), _T("SystemSystemUpTime"))
-OPTION(_T("default"), _T("auto"))
-ITEM_END()
-
-ITEM_EDIT_TEXT(_T("SystemTotalProcessorTime"), _T("The PDH conter usaed to measure CPU load."))
-OPTION(_T("disableCaption"), _T("Attempt to autodetect this."))
-OPTION(_T("disabled"), _T("auto"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("Check System"))
-OPTION(_T("key"), _T("SystemTotalProcessorTime"))
-OPTION(_T("default"), _T("auto"))
-ITEM_END()
-
-ITEM_EDIT_TEXT(_T("ProcessEnumerationMethod"), _T("The method to use when enumerating processes"))
-OPTION(_T("count"), _T("3"))
-OPTION(_T("caption_1"), _T("Autodetect (TOOLHELP for NT/4 and PSAPI for W2k)"))
-OPTION(_T("value_1"), _T("auto"))
-OPTION(_T("caption_2"), _T("TOOLHELP use this for NT/4 systems"))
-OPTION(_T("value_2"), _T("TOOLHELP"))
-OPTION(_T("caption_3"), _T("PSAPI use this for W2k (and abowe) systems"))
-OPTION(_T("value_3"), _T("PSAPI"))
-ITEM_MAP_TO(_T("basic_ini_text_mapper"))
-OPTION(_T("section"), _T("Check System"))
-OPTION(_T("key"), _T("ProcessEnumerationMethod"))
-OPTION(_T("default"), _T("auto"))
-ITEM_END()
-
-PAGE_END()
-MODULE_SETTINGS_END()

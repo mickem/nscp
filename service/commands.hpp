@@ -182,7 +182,7 @@ public:
 			return ret;
 		}
 
-		inline std::wstring make_key(std::wstring key) {
+		static std::wstring make_key(std::wstring key) {
 			return boost::algorithm::to_lower_copy(key);
 		}
 		void log_error(std::wstring file, int line, std::wstring error) {

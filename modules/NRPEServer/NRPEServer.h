@@ -20,7 +20,7 @@
 ***************************************************************************/
 
 #include <socket_helpers.hpp>
-#include "nrpe_server.hpp"
+#include <nrpe/server/server.hpp>
 
 NSC_WRAPPERS_MAIN();
 
@@ -39,9 +39,7 @@ private:
 	unsigned int timeout;
 	socketHelpers::allowedHosts allowedHosts;
 	bool noPerfData_;
-	unsigned int buffer_length_;
-	std::wstring root_;
-	bool bUseSSL_;
+	nrpe::server::server::connection_info info_;
 
 public:
 	NRPEListener();

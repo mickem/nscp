@@ -28,7 +28,7 @@
 #include <strEx.h>
 #include <boost/filesystem.hpp>
 #include <strEx.h>
-#include <nrpe/nrpe_socket.hpp>
+#include <nrpe/client/socket.hpp>
 
 
 NRPEClient gNRPEClient;
@@ -87,9 +87,6 @@ void NRPEClient::add_options(po::options_description &desc, nrpe_connection_data
 
 
 void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
-#ifndef USE_BOOST
-	NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + _T(" boost not avalible!"));
-#else
 	try {
 
 		NRPEClient::nrpe_connection_data command_data;
@@ -119,14 +116,13 @@ void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 		NSC_DEBUG_MSG_STD(_T("Added NRPE Client: ") + key.c_str() + _T(" = ") + command_data.toString());
 		commands[key] = command_data;
 
-		NSCModuleHelper::registerCommand(key.c_str(), command_data.toString());
+		GET_CORE()->registerCommand(key.c_str(), command_data.toString());
 
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + strEx::string_to_wstring(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str());
 	}
-#endif
 }
 
 bool NRPEClient::unloadModule() {
@@ -204,6 +200,7 @@ NRPEClient::nrpe_result_data NRPEClient::execute_nrpe_command(nrpe_connection_da
 #ifdef USE_SSL
 			packet = send_ssl(con.host, con.port, con.timeout, nrpe::packet::make_request(con.get_cli(arguments), con.buffer_length));
 #else
+			NSC_LOG_ERROR_STD(_T("SSL not avalible (not compiled with USE_SSL)"));
 			return nrpe_result_data(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)!"));
 #endif
 		} else
@@ -226,7 +223,7 @@ nrpe::packet NRPEClient::send_ssl(std::wstring host, int port, int timeout, nrpe
 	SSL_CTX_set_cipher_list(ctx.impl(), "ADH");
 	ctx.use_tmp_dh_file(to_string(cert_));
 	ctx.set_verify_mode(boost::asio::ssl::context::verify_none);
-	nrpe::ssl_socket socket(io_service, ctx, host, port);
+	nrpe::client::ssl_socket socket(io_service, ctx, host, port);
 	socket.send(packet, boost::posix_time::seconds(timeout));
 	return socket.recv(packet, boost::posix_time::seconds(timeout));
 }
@@ -234,7 +231,7 @@ nrpe::packet NRPEClient::send_ssl(std::wstring host, int port, int timeout, nrpe
 
 nrpe::packet NRPEClient::send_nossl(std::wstring host, int port, int timeout, nrpe::packet packet) {
 	boost::asio::io_service io_service;
-	nrpe::socket socket(io_service, host, port);
+	nrpe::client::socket socket(io_service, host, port);
 	socket.send(packet, boost::posix_time::seconds(timeout));
 	return socket.recv(packet, boost::posix_time::seconds(timeout));
 }

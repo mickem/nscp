@@ -318,6 +318,10 @@ namespace setting_keys {
 		DEFINE_SETTING_S(SVC_DISABLED, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_DISABLED", "stopped");
 		DESCRIBE_SETTING_ADVANCED(SVC_DISABLED, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
 
+		DEFINE_SETTING_S(PDH_SUBSYSTEM, CHECK_SYSTEM_SECTION, "pdh_subsystem", "fast");
+		DESCRIBE_SETTING_ADVANCED(PDH_SUBSYSTEM, "PDH_SUBSYSTEM", "TODO");
+		const std::wstring PDH_SUBSYSTEM_FAST = _T("fast");
+		const std::wstring PDH_SUBSYSTEM_THREAD_SAFE = _T("thread-safe");
 
 	}
 

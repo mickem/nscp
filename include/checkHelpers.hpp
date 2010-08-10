@@ -136,8 +136,7 @@ namespace checkHolders {
 				return crit.gatherPerfData(getAlias(), value, warn, crit);
 			else if (warn.hasBounds())
 				return warn.gatherPerfData(getAlias(), value, warn, crit);
-			else
-				return getAlias() + _T(": ERROR");
+			return _T("");
 		}
 		bool hasBounds() {
 			return warn.hasBounds() || crit.hasBounds();
@@ -146,10 +145,10 @@ namespace checkHolders {
 			std::wstring tstr;
 			if (crit.check(value, getAlias(), tstr, critical)) {
 				//std::wcout << _T("crit") << std::endl;
-				NSCHelper::escalteReturnCodeToCRIT(returnCode);
+				nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
 			} else if (warn.check(value, getAlias(), tstr, warning)) {
 				//std::wcout << _T("warn") << std::endl;
-				NSCHelper::escalteReturnCodeToWARN(returnCode);
+				nscapi::plugin_helper::escalteReturnCodeToWARN(returnCode);
 			}else if (show == showLong) {
 				//std::wcout << _T("long") << std::endl;
 				tstr = getAlias() + _T(": ") + TContents::toStringLong(value);
@@ -308,7 +307,7 @@ namespace checkHolders {
 		}
 		void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
-				(*cit)->set_showall(show);
+				//(*cit)->set_showall(show);
 				(*cit)->runCheck(value, returnCode, message, perf);
 			}
 			std::wcout << _T("result: ") << message << std::endl;
@@ -727,9 +726,6 @@ namespace checkHolders {
 				crit_p = 100-(crit*100/value.total);
 				warn_v = warn;
 				crit_v = crit;
-			} else if (type_ == value_upper) {
-					MAKE_PERFDATA(alias, THandler::print_perf((value.value), unit), unit, 
-					THandler::print_perf(value.total-warn, unit), THandler::print_perf(value.total-crit, unit));
 			} else {
 				value_p = value.getLowerPercentage();
 				warn_p = 100-(warn*100/value.total);
@@ -740,9 +736,9 @@ namespace checkHolders {
 			std::wstring unit = THandler::get_perf_unit(min(warn_v, min(crit_v, value.value)));
 			return 
 				MAKE_PERFDATA(alias + _T(" %"), THandler::print_unformated(value_p), _T("%"), THandler::print_unformated(warn_p), THandler::print_unformated(crit_p))
-				+ 
+				+ _T(" ") +
 				MAKE_PERFDATA_EX(alias, THandler::print_perf(value.value, unit), unit, THandler::print_perf(warn_v, unit), THandler::print_perf(crit_v, unit), 
-					THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
+				THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
 				;
 		}
 	private:
@@ -1114,6 +1110,7 @@ namespace checkHolders {
 	typedef ExactBounds<NumericBounds<unsigned long int, int_handler> > ExactBoundsULongInteger;
 	typedef ExactBounds<NumericBounds<unsigned int, int_handler> > ExactBoundsUInteger;
 	typedef ExactBounds<NumericBounds<unsigned long, int_handler> > ExactBoundsULong;
+	typedef ExactBounds<NumericBounds<long long, int_handler> > ExactBoundsLongLong;
 	typedef ExactBounds<NumericBounds<time_type, time_handler<__int64> > > ExactBoundsTime;
 
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<int ,int>, int_handler> > MaxMinPercentageBoundsInteger;

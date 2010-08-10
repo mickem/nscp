@@ -21,7 +21,7 @@
 
 NSC_WRAPPERS_MAIN();
 #include <map>
-#include <nrpe/nrpe_packet.hpp>
+#include <nrpe/packet.hpp>
 
 
 class NRPEClient : public nscapi::impl::SimpleCommand {

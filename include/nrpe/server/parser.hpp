@@ -1,6 +1,10 @@
-#include <nrpe/nrpe_packet.hpp>
+#pragma once
+
+#include <nrpe/packet.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/noncopyable.hpp>
+
+#include "handler.hpp"
 
 namespace nrpe {
 	namespace server {
@@ -8,11 +12,11 @@ namespace nrpe {
 			std::vector<char> buffer_;
 			unsigned int packet_length_;
 			unsigned int payload_length_;
+			boost::shared_ptr<nrpe::server::handler> handler_;
 		public:
-			parser(unsigned int payload_length) 
-				: payload_length_(payload_length)
-				, packet_length_(nrpe::length::get_packet_length(payload_length))
-			{}
+			parser(boost::shared_ptr<nrpe::server::handler> handler) : handler_(handler) {
+				set_payload_length(handler->get_payload_length());
+			}
 
 			template <typename InputIterator>
 			boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {

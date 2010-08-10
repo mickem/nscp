@@ -29,9 +29,9 @@ PDHCollector::PDHCollector() : hStopEvent_(NULL) {
 	std::wstring s = SETTINGS_GET_STRING(check_system::BUFFER_SIZE);
 	unsigned int i = strEx::stoui_as_time(s, checkIntervall_*100);
 	cpu.resize(i/(checkIntervall_*100)+10);
-	std::wstring subsystem = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_PDH_SUBSYSTEM, C_SYSTEM_PDH_SUBSYSTEM_DEFAULT);
-	if (subsystem == C_SYSTEM_PDH_SUBSYSTEM_DEFAULT) {
-	} else if (subsystem == _T("thread-safe")) {
+	std::wstring subsystem = SETTINGS_GET_STRING(check_system::PDH_SUBSYSTEM);
+	if (subsystem == setting_keys::check_system::PDH_SUBSYSTEM_FAST) {
+	} else if (subsystem == setting_keys::check_system::PDH_SUBSYSTEM_THREAD_SAFE) {
 		PDH::PDHFactory::set_threadSafe();
 	} else {
 		NSC_LOG_ERROR_STD(_T("Unknown PDH subsystem (") + subsystem + _T(") valid values are: fast and thread-safe"));
@@ -114,7 +114,9 @@ bool PDHCollector::loadCounter(PDH::PDHQuery &pdh) {
 			memCl = _T("\\") + PDH::PDHResolver::lookupIndex(4) + _T("\\") + PDH::PDHResolver::lookupIndex(30);
 			memCb = _T("\\") + PDH::PDHResolver::lookupIndex(4) + _T("\\") + PDH::PDHResolver::lookupIndex(26);
 		} else {
-			settings_core settings;
+			NSC_LOG_ERROR_STD(_T("You need to manually configure performance counters!"));
+			/*
+			Settings::SettingsCore settings;
 			settings.setFile(NSCModuleHelper::getBasePath(),  _T("counters.defs"), true);
 			NSC_DEBUG_MSG_STD(_T("Detected language: ") + settings.getString(section, _T("Description"), _T("Not found")) + _T(" (") + section + _T(")"));
 			if (settings.getString(section, _T("Description"), _T("_NOT_FOUND")) == _T("_NOT_FOUND")) {

@@ -1091,9 +1091,10 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
  * @param returnPerfBufferLen Length of returnPerfBuffer
  * @return The command status
  */
-NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, std::string &request, std::string &response) {
+NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::string &request, std::string &response) {
+	std::wstring cmd = nsclient::commands::make_key(raw_command);
 	if (logDebug()) {
-		LOG_DEBUG_STD(_T("Injecting: ") + std::wstring(command) + _T(": {{{") + strEx::strip_hex(to_wstring(request)) + _T("}}}"));
+		LOG_DEBUG_STD(_T("Injecting: ") + cmd + _T(": {{{") + strEx::strip_hex(to_wstring(request)) + _T("}}}"));
 	}
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
@@ -1117,19 +1118,19 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* command, std::string &r
 			return NSCAPI::returnUNKNOWN;
 		}
 		try {
-			nsclient::commands::plugin_type plugin = commands_.get(command);
+			nsclient::commands::plugin_type plugin = commands_.get(cmd);
 			if (!plugin) {
-				LOG_ERROR_CORE(_T("No handler for command: ") + std::wstring(command) + _T(" avalible commands: ") + commands_.to_wstring());
+				LOG_ERROR_CORE(_T("No handler for command: ") + cmd + _T(" avalible commands: ") + commands_.to_wstring());
 				return NSCAPI::returnIgnored;
 			}
-			NSCAPI::nagiosReturn c = plugin->handleCommand(command, request, response);
-			LOG_DEBUG_STD(_T("Result ") + std::wstring(command) + _T(": ") + nscapi::plugin_helper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
+			NSCAPI::nagiosReturn c = plugin->handleCommand(cmd.c_str(), request, response);
+			LOG_DEBUG_STD(_T("Result ") + cmd + _T(": ") + nscapi::plugin_helper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
 			return c;
 		} catch (nsclient::commands::command_exception &e) {
-			LOG_ERROR_CORE(_T("No handler for command: ") + std::wstring(command) + _T(": ") + to_wstring(e.what()));
+			LOG_ERROR_CORE(_T("No handler for command: ") + cmd + _T(": ") + to_wstring(e.what()));
 			return NSCAPI::returnIgnored;
 		} catch (...) {
-			LOG_ERROR_CORE(_T("Error handling command: ") + std::wstring(command));
+			LOG_ERROR_CORE(_T("Error handling command: ") + cmd);
 			return NSCAPI::returnIgnored;
 		}
 	}

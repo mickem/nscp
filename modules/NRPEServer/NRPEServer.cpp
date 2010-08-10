@@ -24,10 +24,11 @@
 #include <time.h>
 #include <config.h>
 #include <msvc_wrappers.h>
+#include "handler_impl.hpp"
 
 NRPEListener gNRPEListener;
 
-NRPEListener::NRPEListener() : noPerfData_(false), buffer_length_(0) {
+NRPEListener::NRPEListener() : noPerfData_(false), info_(boost::shared_ptr<nrpe::server::handler>(new handler_impl(0))) {
 }
 NRPEListener::~NRPEListener() {
 	std::cout << "TERMINATING TERMINATING!!!" << std::endl;
@@ -58,7 +59,7 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	SETTINGS_REG_PATH(nrpe::SECTION);
 	SETTINGS_REG_PATH(nrpe::SECTION_HANDLERS);
 
-	bUseSSL_ = SETTINGS_GET_BOOL(nrpe::KEYUSE_SSL)==1;
+	info_.use_ssl = SETTINGS_GET_BOOL(nrpe::KEYUSE_SSL)==1;
 
 #ifndef USE_SSL
 	if (bUseSSL_) {
@@ -68,40 +69,44 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 
 	noPerfData_ = SETTINGS_GET_INT(nrpe::ALLOW_PERFDATA)==0;
 	timeout = SETTINGS_GET_INT(nrpe::READ_TIMEOUT);
-	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
-	if (buffer_length_ != 1024)
-		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
-	NSC_DEBUG_MSG_STD(_T("Loading all commands (from NRPE)"));
+	info_.request_handler->set_payload_length(SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH));
+	if (info_.request_handler->get_payload_length() != 1024)
+		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(info_.request_handler->get_payload_length()));
 
 	boost::asio::io_service io_service_;
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts(), io_service_);
 	NSC_DEBUG_MSG_STD(_T("Allowed hosts: ") + allowedHosts.to_string());
 	try {
-		NSC_DEBUG_MSG_STD(_T("Starting NRPE socket..."));
-		unsigned short port = SETTINGS_GET_INT(nrpe::PORT);
-		std::wstring host = SETTINGS_GET_STRING(nrpe::BINDADDR);
-		unsigned int backLog = SETTINGS_GET_INT(nrpe::LISTENQUE);
-		unsigned int threadPool = 10;
+		info_.port = to_string(SETTINGS_GET_INT(nrpe::PORT));
+		info_.address = to_string(SETTINGS_GET_STRING(nrpe::BINDADDR));
+		unsigned int backLog = SETTINGS_GET_INT(nrpe::LISTENQUE); // @todo: add to info block
+		info_.thread_pool_size = 10; // @todo Add as option
 		if (mode == NSCAPI::normalStart) {
-			server_.reset(new nrpe::server::server(to_string(host), to_string(port), (""), threadPool));
-			server_->start();
+			if (info_.use_ssl) {
 #ifdef USE_SSL
-			if (bUseSSL_) {
-				//socket_ssl_.setHandler(this);
-				//socket_ssl_.StartListener(host, port, backLog);
-			} else {
+				server_.reset(new nrpe::server::server(info_));
+//				NSC_LOG_ERROR_STD(_T("SSL not implemented"));
+//				return false;
 #else
-			{
+				NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
+				return false;
 #endif
-				//socket_.setHandler(this);
-				//socket_.StartListener(host, port, backLog);
+			} else {
+				server_.reset(new nrpe::server::server(info_));
 			}
+			if (!server_) {
+				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
+				return false;
+			}
+			server_->start();
 		}
+	} catch (nrpe::server::nrpe_exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
+		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
 		return false;
 	}
-	root_ = GET_CORE()->getBasePath();
 	return true;
 }
 
@@ -110,19 +115,6 @@ bool NRPEListener::unloadModule() {
 		if (server_) {
 			server_->stop();
 			server_.reset();
-		}
-#ifdef USE_SSL
-		if (bUseSSL_) {
-			//socket_ssl_.removeHandler(this);
-			//if (socket_ssl_.hasListener())
-			//	socket_ssl_.StopListener();
-		} else {
-#else
-		{
-#endif
-			//socket_.removeHandler(this);
-			//if (socket_.hasListener())
-			//	socket_.StopListener();
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN>"));

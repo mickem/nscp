@@ -8,6 +8,7 @@
 using boost::asio::ip::tcp;
 
 namespace nrpe {
+	namespace client {
 
 	class socket : public boost::noncopyable {
 	private:
@@ -101,4 +102,5 @@ namespace nrpe {
 		}
 	};
 #endif
+}
 }
