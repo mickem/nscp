@@ -23,5 +23,7 @@ SET(INC_CRYPTOPP_DIR "c:/source/libraries/cryptopp-5.6.0")
 
 ELSE(WIN32)
 
+SET(INC_BOOST_INCLUDEDIR "/usr/include/")
+
 ENDIF(WIN32)
 

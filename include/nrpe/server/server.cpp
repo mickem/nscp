@@ -37,8 +37,8 @@ namespace nrpe {
 			}
 			if (info.use_ssl) {
 				SSL_CTX_set_cipher_list(context_.impl(), "ADH");
-				request_handler_->log_debug(__FILEW__, __LINE__, _T("Using file: C:/source/nscp/build/security/nrpe_dh_512.pem"));
-				context_.use_tmp_dh_file("C:/source/nscp/build/security/nrpe_dh_512.pem");
+				request_handler_->log_debug(__FILEW__, __LINE__, _T("Using cert: ") + to_wstring(info.certificate));
+				context_.use_tmp_dh_file(info.certificate);
 				context_.set_verify_mode(boost::asio::ssl::context::verify_none);
 			}
 

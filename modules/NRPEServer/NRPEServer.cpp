@@ -77,6 +77,12 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts(), io_service_);
 	NSC_DEBUG_MSG_STD(_T("Allowed hosts: ") + allowedHosts.to_string());
 	try {
+
+		boost::filesystem::wpath p = GET_CORE()->getBasePath() + std::wstring(_T("security/nrpe_dh_512.pem"));
+		info_.certificate = to_string(p.string());
+		if (boost::filesystem::is_regular(p)) {
+			NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
+		}
 		info_.port = to_string(SETTINGS_GET_INT(nrpe::PORT));
 		info_.address = to_string(SETTINGS_GET_STRING(nrpe::BINDADDR));
 		unsigned int backLog = SETTINGS_GET_INT(nrpe::LISTENQUE); // @todo: add to info block

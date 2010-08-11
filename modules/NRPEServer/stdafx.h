@@ -36,6 +36,8 @@
 #include <boost/utility.hpp>
 #include <boost/tuple/tuple.hpp>
 
+#include <boost/filesystem.hpp>
+
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
 #endif

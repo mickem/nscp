@@ -41,7 +41,7 @@ namespace nrpe {
 				std::size_t thread_pool_size;
 				bool use_ssl;
 				boost::shared_ptr<nrpe::server::handler> request_handler;
-
+				std::string certificate;
 				std::wstring get_endpoint_str() {
 					return to_wstring(address) + _T(":") + to_wstring(port);
 				}
