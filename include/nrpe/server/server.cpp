@@ -35,10 +35,12 @@ namespace nrpe {
 				request_handler_->log_error(__FILEW__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info.get_endpoint_str());
 				return;
 			}
-			SSL_CTX_set_cipher_list(context_.impl(), "ADH");
-			request_handler_->log_debug(__FILEW__, __LINE__, _T("Using file: C:/source/nscp/build/security/nrpe_dh_512.pem"));
-			context_.use_tmp_dh_file("C:/source/nscp/build/security/nrpe_dh_512.pem");
-			context_.set_verify_mode(boost::asio::ssl::context::verify_none);
+			if (info.use_ssl) {
+				SSL_CTX_set_cipher_list(context_.impl(), "ADH");
+				request_handler_->log_debug(__FILEW__, __LINE__, _T("Using file: C:/source/nscp/build/security/nrpe_dh_512.pem"));
+				context_.use_tmp_dh_file("C:/source/nscp/build/security/nrpe_dh_512.pem");
+				context_.set_verify_mode(boost::asio::ssl::context::verify_none);
+			}
 
 			new_connection_.reset(nrpe::server::factories::create(io_service_, context_, request_handler_, use_ssl_));
 

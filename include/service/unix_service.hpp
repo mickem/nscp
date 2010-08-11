@@ -25,6 +25,7 @@
 
 #include <string>
 #include <signal.h>
+#include <strEx.h>
 
 namespace service_helper_impl {
 	/**

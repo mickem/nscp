@@ -115,7 +115,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring chan
 		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * Handling command: ") + command);
 		boost::asio::io_service io_service;
 		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * message: ") + msg);
-		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * påerformance: ") + perf);
+		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * performance: ") + perf);
 		nsca::socket socket(io_service);
 		socket.connect(nscahost_, nscaport_);
 		nsca::packet packet(hostname_, payload_length_, time_delta_);

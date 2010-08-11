@@ -21,6 +21,7 @@
 #include "stdafx.h"
 #include "CheckExternalScripts.h"
 #include <time.h>
+#include <string>
 
 #include <settings/macros.h>
 #include <msvc_wrappers.h>
@@ -130,7 +131,7 @@ bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
 			std::wstring type = getWrapping(val);
 			std::map<std::wstring,std::wstring>::const_iterator cit = wrappers.find(type);
 			if (cit == wrappers.end()) {
-				NSC_LOG_ERROR_STD(_T("Failed to find wrappings for: ") + type + _T(" (" + (*it) + _T(")")));
+				NSC_LOG_ERROR_STD(_T("Failed to find wrappings for: ") + type + _T(" (") + (*it) + _T(")"));
 			} else {
 				addWrappedCommand((*it), (*cit).second, val);
 			}

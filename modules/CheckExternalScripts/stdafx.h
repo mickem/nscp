@@ -26,6 +26,8 @@
 
 #include <boost/lexical_cast.hpp>
 
+#include <config.h>
+#include <unicode_char.hpp>
 #include <types.hpp>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>

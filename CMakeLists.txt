@@ -25,7 +25,9 @@ SET(NSCP_LIBRARYDIR "${INC_NSCP_LIBRARYDIR}" CACHE PATH "Generic path to all lib
 SET(NSCP_INCLUDEDIR "${NSCP_SOURCE_DIR}/include" CACHE PATH "Generic include path (for NSCP include files amongst others)")
 # ### ### ### ###
 # Boost setup
+IF(WIN32 AND MSVC)
 SET(Boost_USE_STATIC_LIBS CACHE BOOL ON "Link boost statically (generally a good idea)")
+ENDIF(WIN32 AND MSVC)
 SET(BOOST_INCLUDEDIR "${INC_BOOST_INCLUDEDIR}" CACHE PATH "Path to boost includes")
 SET(BOOST_LIBRARYDIR "${NSCP_LIBRARYDIR}" CACHE PATH "Path to boost libraries")
 # ### ### ### ###
