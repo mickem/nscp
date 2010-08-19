@@ -1,13 +1,16 @@
 #pragma once
 #include <unicode_char.hpp>
 #include <string>
+#include <strEx.h>
+
+using namespace nscp::helpers;
 
 namespace error {
 	class format {
 	public:
 		static std::wstring from_system(int dwError) {
 			char buf [1024];
-			return to_wstring(::strerror_r(dwError, buf, sizeof (buf)));
+			return nscp::helpers::to_wstring(::strerror_r(dwError, buf, sizeof (buf)));
 		}
 		static std::wstring from_module(std::wstring module, unsigned long dwError) {
 			return _T("ERROR TODO");
@@ -45,7 +48,7 @@ namespace error {
 			return ::error::format::from_system(dwLastError);
 		}
 		static std::string last_error_ansi(int dwLastError = -1) {
-			return to_string(::error::format::from_system(dwLastError));
+			return nscp::helpers::to_string(::error::format::from_system(dwLastError));
 		}
 	};
 }

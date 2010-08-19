@@ -679,9 +679,13 @@ namespace strEx {
 		}
 
 		static int compare( const char_type* s1, const char_type* s2, size_t n ) {
+#ifdef WIN32
 			return memicmp( s1, s2, n );
-			// if available on your compiler,
-			//  otherwise you can roll your own
+#else
+			while (n-- && eq(*s1, *s2))
+				++s1, ++s2;
+			return lt(*s2, *s1) - lt(*s1, *s2);
+#endif
 		}
 
 		static const char* find( const char_type* s, int n, char_type a ) {
@@ -830,7 +834,7 @@ namespace strEx {
 	strEx::replace(format, key, strEx::itos(val));  \
 	else  \
 	strEx::replace(format, key, _T("0"));
-
+#ifdef WIN32
 	inline std::wstring format_time_delta(struct tm *mtm, std::wstring format = _T("%Y years %m months %d days %H hours %M minutes")) {
 		// "Date: %Y-%m-%d %H:%M:%S"
 		MK_FORMAT_FTD(70, _T("%Y"), mtm->tm_year);
@@ -860,6 +864,7 @@ namespace strEx {
 		filetime /= SECS_TO_100NS;
 		return format_time_delta(static_cast<time_t>(filetime), format);
 	}
+endif
 
 #ifdef _DEBUG
 	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {

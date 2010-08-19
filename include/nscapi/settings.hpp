@@ -46,7 +46,7 @@ namespace nscapi {
 				return NSCAPI::key_string;
 			}
 			virtual void notify(nscapi::core_wrapper* core_, std::wstring path, std::wstring key) const {
-				T value = boost::lexical_cast<T>(core_->getSettingsString(path, key, default_value_as_text_));
+				T value = boost::lexical_cast<T>(core_->getSettingsString(path, key, typed_key<T>::default_value_as_text_));
 				update_target(&value);
 			}
 		};
@@ -58,7 +58,7 @@ namespace nscapi {
 				return NSCAPI::key_string;
 			}
 			virtual void notify(nscapi::core_wrapper* core_, std::wstring path, std::wstring key) const {
-				std::wstring val = core_->getSettingsString(path, key, default_value_as_text_);
+				std::wstring val = core_->getSettingsString(path, key, typed_key<T>::default_value_as_text_);
 				T value = boost::lexical_cast<T>(core_->expand_path(val));
 				update_target(&value);
 			}
@@ -67,7 +67,7 @@ namespace nscapi {
 		class typed_int_value : public typed_key<T> {
 		public:
 			typed_int_value(const T& v) : typed_key<T>(v), default_value_as_int_(boost::lexical_cast<int>(v)) {}
-			typed_key* default_value(const T& v) {
+			typed_key<T>* default_value(const T& v) {
 				typed_key<T>::default_value(v);
 				default_value_as_int_ = boost::lexical_cast<int>(v);
 				return this;
@@ -90,7 +90,7 @@ namespace nscapi {
 				return NSCAPI::key_bool;
 			}
 			virtual void notify(nscapi::core_wrapper* core_, std::wstring path, std::wstring key) const {
-				T value = static_cast<T>(core_->getSettingsInt(path, key, default_value_as_int_)==1);
+				T value = static_cast<T>(core_->getSettingsInt(path, key, typed_int_value<T>::default_value_as_int_)==1);
 				update_target(&value);
 			}
 		};
