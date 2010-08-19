@@ -1,3 +1,4 @@
+
 /**************************************************************************
 *   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
 *                                                                         *
@@ -172,8 +173,7 @@ public:
 	void reportMessage(int msgType, const wchar_t* file, const int line, std::wstring message);
 	int commandLineExec(const wchar_t* module, const unsigned int argLen, wchar_t** args);
 
-	void addPlugins(const std::list<std::wstring> plugins);
-	plugin_type loadPlugin(const boost::filesystem::wpath plugin);
+	plugin_type loadPlugin(const boost::filesystem::wpath plugin, std::wstring alias);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
 	void unloadPlugins(bool unloadLoggers);
 	std::wstring describeCommand(std::wstring command);
@@ -200,6 +200,8 @@ public:
 	std::pair<std::wstring,std::wstring> session_get_name() {
 		return std::pair<std::wstring,std::wstring>(SZAPPNAME,SZVERSION);
 	}
+
+	std::wstring expand_path(std::wstring file);
 
 
 	public:

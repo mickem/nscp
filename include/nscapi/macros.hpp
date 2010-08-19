@@ -5,7 +5,8 @@
 // Module wrappers (definitions)
 #define NSC_WRAPPERS_MAIN() \
 	extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f); \
-	extern "C" int NSLoadModule(int mode); \
+	extern "C" int NSLoadModule(); \
+	extern "C" int NSLoadModuleEx(const wchar_t alias, int mode); \
 	extern "C" void NSDeleteBuffer(char**buffer); \
 	extern "C" int NSGetModuleName(wchar_t* buf, int buflen); \
 	extern "C" int NSGetModuleDescription(wchar_t* buf, int buflen); \
@@ -62,15 +63,26 @@
 			return NSCAPI::hasFailed; \
 		} \
 	} \
-	extern int NSLoadModule(int mode) { \
-		try { \
-			return GET_PLUGIN()->wrapLoadModule(toObject.loadModule(mode)); \
+	extern int NSLoadModuleEx(wchar_t* alias, int mode) { \
+	try { \
+	return GET_PLUGIN()->wrapLoadModule(toObject.loadModuleEx(alias, mode)); \
 		} catch (nscapi::nscapi_exception e) { \
-			NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
-			return NSCAPI::hasFailed; \
+		NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
+		return NSCAPI::hasFailed; \
 		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
-			return NSCAPI::hasFailed; \
+		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
+		return NSCAPI::hasFailed; \
+		} \
+	} \
+	extern int NSLoadModule() { \
+	try { \
+	return GET_PLUGIN()->wrapLoadModule(toObject.loadModule()); \
+		} catch (nscapi::nscapi_exception e) { \
+		NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
+		return NSCAPI::hasFailed; \
+		} catch (...) { \
+		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
+		return NSCAPI::hasFailed; \
 		} \
 	} \
 	extern int NSGetModuleName(wchar_t* buf, int buflen) { \

@@ -23,15 +23,14 @@
 #include <time.h>
 #include <string>
 
-#include <settings/macros.h>
 #include <msvc_wrappers.h>
-#include <config.h>
 #include <strEx.h>
-#include <file_helpers.hpp>
 #include <file_helpers.hpp>
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
+
+namespace sh = nscapi::settings_helper;
 
 
 CheckExternalScripts gCheckExternalScripts;
@@ -42,7 +41,7 @@ CheckExternalScripts::~CheckExternalScripts() {}
 void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
 	boost::filesystem::wpath path = str_path;
 	if (path.has_relative_path())
-		path = GET_CORE()->getBasePath() / path;
+		path = get_core()->getBasePath() / path;
 	file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
 	if (!boost::filesystem::is_directory(split_path.first))
 		NSC_LOG_ERROR_STD(_T("Path was not found: ") + split_path.first.string());
@@ -53,95 +52,74 @@ void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
 		if ( !is_directory(itr->status()) ) {
 			std::wstring name = itr->path().leaf();
 			if (regex_match(name, pattern))
-				addCommand(name, (split_path.first / name).string(), _T(""));
+				add_command(name.c_str(), (split_path.first / name).string());
 		}
 	}
 }
 
 
-std::wstring CheckExternalScripts::getWrapping(std::wstring val) {
-	strEx::token tok = strEx::getToken(val, ' ', true);
-	std::wstring::size_type pos = tok.first.find_last_of(_T("."));
-	if (pos == std::wstring::npos)
-		return _T("");
-	return tok.first.substr(pos+1);
+/**
+ * Load (initiate) module.
+ * Start the background collector thread and let it run until unloadModule() is called.
+ * @return true
+ */
+bool CheckExternalScripts::loadModule() {
+	return false;
 }
 
-void CheckExternalScripts::addWrappedCommand(std::wstring key, std::wstring tpl, std::wstring command ) {
-	strEx::token tok = strEx::getToken(command, ' ', true);
-	strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
-	strEx::replace(tpl, _T("%ARGS%"), tok.second);
-	tok = strEx::getToken(tpl, ' ', true);
-	addCommand(key.c_str(),tok.first, tok.second);
-}
 
-bool CheckExternalScripts::loadModule(NSCAPI::moduleLoadMode mode) {
-	SETTINGS_REG_PATH(external_scripts::SECTION);
-	SETTINGS_REG_PATH(external_scripts::SCRIPT_SECTION);
-	SETTINGS_REG_PATH(external_scripts::ALIAS_SECTION);
-	SETTINGS_REG_KEY_I(external_scripts::TIMEOUT);
-	SETTINGS_REG_KEY_S(external_scripts::SCRIPT_PATH);
-	SETTINGS_REG_KEY_B(external_scripts::ALLOW_ARGS);
-	SETTINGS_REG_KEY_B(external_scripts::ALLOW_NASTY);
 
-	timeout = SETTINGS_GET_INT(external_scripts::TIMEOUT);
-	scriptDirectory_ = SETTINGS_GET_STRING(external_scripts::SCRIPT_PATH);
-	allowArgs_ = SETTINGS_GET_BOOL(nrpe::ALLOW_ARGS);
-	allowNasty_ = SETTINGS_GET_BOOL(nrpe::ALLOW_NASTY);
-	std::list<std::wstring>::const_iterator it;
-	std::list<std::wstring> commands = GET_CORE()->getSettingsSection(setting_keys::external_scripts::SCRIPT_SECTION_PATH);
-	for (it = commands.begin(); it != commands.end(); ++it) {
-		if ((*it).empty())
-			continue;
-		NSC_DEBUG_MSG_STD(_T("Looking under: ") + setting_keys::external_scripts::SCRIPT_SECTION_PATH + _T(", ") + (*it));
-		std::wstring s = GET_CORE()->getSettingsString(setting_keys::external_scripts::SCRIPT_SECTION_PATH, (*it), _T(""));
-		if (s.empty()) {
-			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
-		} else {
-			strEx::token tok = strEx::getToken(s, ' ', true);
-			addCommand((*it).c_str(), tok.first, tok.second);
+bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	try {
+
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(alias, _T("external scripts"));
+
+		settings.add_path_to_settings()
+			(_T("EXTERNAL SCRIPT SECTION"), _T("Section for external scripts configuration options (CheckExternalScripts)."))
+
+			(_T("scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)), 
+			_T("EXTERNAL SCRIPT SCRIPT SECTION"), _T("A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>"))
+
+			(_T("alias"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)), 
+			_T("EXTERNAL SCRIPT ALIAS SECTION"), _T("A list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)"))
+
+			(_T("wrappings"), sh::wstring_map_path(&wrappings_)
+			, _T("EXTERNAL SCRIPT WRAPPINGS SECTION"), _T(""))
+
+			(_T("wrapped scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
+			_T("EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION"), _T(""))
+			;
+
+		settings.add_key_to_settings()
+			(_T("timeout"), sh::uint_key(&timeout, 60),
+			_T("COMMAND TIMEOUT"), _T("The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones."))
+
+			(_T("allow arguments"), sh::bool_key(&allowArgs_, false),
+			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
+
+			(_T("allow nasty characters"), sh::bool_key(&allowNasty_, false),
+			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
+
+			(_T("script path"), sh::wstring_key(&scriptDirectory_),
+			_T("SCRIPT DIRECTORY"), _T("Load all scripts in a directory and use them as commands. Probably dangerous but useful if you have loads of scripts :)"))
+			;
+
+		settings.register_all();
+		settings.notify();
+
+		if (!scriptDirectory_.empty()) {
+			addAllScriptsFrom(scriptDirectory_);
 		}
-	}
+		root_ = get_core()->getBasePath();
 
-	commands = GET_CORE()->getSettingsSection(setting_keys::external_scripts::ALIAS_SECTION_PATH);
-	for (it = commands.begin(); it != commands.end(); ++it) {
-		if ((*it).empty())
-			continue;
-		std::wstring s = GET_CORE()->getSettingsString(setting_keys::external_scripts::ALIAS_SECTION_PATH, (*it), _T(""));
-		if (s.empty()) {
-			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
-		} else {
-			strEx::token tok = strEx::getToken(s, ' ', true);
-			addAlias((*it).c_str(), tok.first, tok.second);
-		}
+// 	} catch (nrpe::server::nrpe_exception &e) {
+// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
+// 		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		return false;
 	}
-
-	std::map<std::wstring,std::wstring> wrappers;
-	std::list<std::wstring> wrappings = GET_CORE()->getSettingsSection(setting_keys::external_scripts::WRAPPINGS_SECTION_PATH);
-	for (it = wrappings.begin(); it != wrappings.end(); ++it) {
-		std::wstring val = GET_CORE()->getSettingsString(setting_keys::external_scripts::WRAPPINGS_SECTION_PATH, *it, _T(""));
-		if (!(*it).empty() && !val.empty()) {
-			wrappers[(*it)] = val;
-		}
-	}
-	std::list<std::wstring> wscript = GET_CORE()->getSettingsSection(setting_keys::external_scripts::WRAPPED_SCRIPT_PATH);
-	for (it = wscript.begin(); it != wscript.end(); ++it) {
-		std::wstring val = GET_CORE()->getSettingsString(setting_keys::external_scripts::WRAPPED_SCRIPT_PATH, *it, _T(""));
-		if (!(*it).empty() && !val.empty()) {
-			std::wstring type = getWrapping(val);
-			std::map<std::wstring,std::wstring>::const_iterator cit = wrappers.find(type);
-			if (cit == wrappers.end()) {
-				NSC_LOG_ERROR_STD(_T("Failed to find wrappings for: ") + type + _T(" (") + (*it) + _T(")"));
-			} else {
-				addWrappedCommand((*it), (*cit).second, val);
-			}
-		}
-	}
-
-	if (!scriptDirectory_.empty()) {
-		addAllScriptsFrom(scriptDirectory_);
-	}
-	root_ = GET_CORE()->getBasePath();
 	return true;
 }
 bool CheckExternalScripts::unloadModule() {
@@ -157,13 +135,11 @@ bool CheckExternalScripts::hasMessageHandler() {
 }
 
 
-NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
-	std::wstring cmd = command.c_str();
-	boost::to_lower(cmd);
-	command_list::const_iterator cit = commands.find(cmd);
+NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+	command_list::const_iterator cit = commands.find(command);
 	bool isAlias = false;
 	if (cit == commands.end()) {
-		cit = alias.find(cmd);
+		cit = alias.find(command);
 		if (cit == alias.end())
 			return NSCAPI::returnIgnored;
 		isAlias = true;
@@ -192,15 +168,6 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const std::wstring comm
 			return NSCAPI::returnUNKNOWN;
 		}
 		return nscapi::plugin_helper::int2nagios(result);
-		/*
-	} else if (cd.type == script_dir) {
-		std::wstring args = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
-		std::wstring cmd = scriptDirectory_ + command.c_str() + _T(" ") +args;
-		return executeNRPECommand(cmd, message, perf);
-	} else {
-		NSC_LOG_ERROR_STD(_T("Unknown script type: ") + command.c_str());
-		return NSCAPI::critical;
-		*/
 	}
 
 }

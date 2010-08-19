@@ -45,7 +45,11 @@ NSCAAgent::~NSCAAgent() {}
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
-bool NSCAAgent::loadModule(NSCAPI::moduleLoadMode mode) {
+bool NSCAAgent::loadModule() {
+	return false;
+}
+
+bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
 		SETTINGS_REG_PATH(nsca::SECTION);

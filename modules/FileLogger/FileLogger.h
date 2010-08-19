@@ -33,7 +33,8 @@ public:
 	FileLogger();
 	virtual ~FileLogger();
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	std::wstring getConfigurationMeta();
 

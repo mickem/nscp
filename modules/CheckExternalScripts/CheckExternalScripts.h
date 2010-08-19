@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <error.hpp>
 #include <execute_process.hpp>
 
-class CheckExternalScripts : public nscapi::impl::SimpleCommand {
+class CheckExternalScripts : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin {
 private:
 	struct command_data {
 		command_data() {}
@@ -35,7 +35,7 @@ private:
 			return command + _T("(") + arguments + _T(")");
 		}
 	};
-	typedef std::map<std::wstring, command_data> command_list;
+	typedef std::map<strEx::wci_string, command_data> command_list;
 	command_list commands;
 	command_list alias;
 	unsigned int timeout;
@@ -43,12 +43,14 @@ private:
 	std::wstring root_;
 	bool allowArgs_;
 	bool allowNasty_;
+	std::map<std::wstring,std::wstring> wrappings_;
 
 public:
 	CheckExternalScripts();
 	virtual ~CheckExternalScripts();
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 
@@ -65,7 +67,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
 
 private:
@@ -83,19 +85,33 @@ private:
 
 private:
 	void addAllScriptsFrom(std::wstring path);
-	void addCommand(std::wstring key, std::wstring cmd, std::wstring args) {
+	void add_command(std::wstring key, std::wstring command) {
+		strEx::token tok = strEx::getToken(command, ' ', true);
 		boost::to_lower(key);
-		command_data cd = command_data(cmd, args);
-		commands[key] = cd;
-		GET_CORE()->registerCommand(key, _T("Script: ") + cd.to_string());
+		command_data cd = command_data(tok.first, tok.second);
+		commands[key.c_str()] = cd;
+		get_core()->registerCommand(key.c_str(), _T("Script: ") + cd.to_string());
 	}
-	void addAlias(std::wstring key, std::wstring cmd, std::wstring args) {
+	void add_alias(std::wstring key, std::wstring command) {
+		strEx::token tok = strEx::getToken(command, ' ', true);
 		boost::to_lower(key);
-		command_data cd = command_data(cmd, args);
-		alias[key] = cd;
-		GET_CORE()->registerCommand(key, _T("Alias for: ") + cd.to_string());
+		command_data cd = command_data(tok.first, tok.second);
+		alias[key.c_str()] = cd;
+		get_core()->registerCommand(key.c_str(), _T("Alias for: ") + cd.to_string());
 	}
-	std::wstring getWrapping( std::wstring val );
-	void addWrappedCommand( std::wstring key, std::wstring tpl, std::wstring command );
+	void add_wrapping(std::wstring key, std::wstring command) {
+		strEx::token tok = strEx::getToken(command, ' ', true);
+		std::wstring::size_type pos = tok.first.find_last_of(_T("."));
+		std::wstring type;
+		if (pos != std::wstring::npos)
+			type = tok.first.substr(pos+1);
+
+		std::wstring tpl = wrappings_[type];
+
+		strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
+		strEx::replace(tpl, _T("%ARGS%"), tok.second);
+
+		add_command(key,tpl);
+	}
 };
 

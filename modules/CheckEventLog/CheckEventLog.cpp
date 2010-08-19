@@ -29,12 +29,8 @@
 #include <utils.h>
 #include <error.hpp>
 #include <map>
-<<<<<<< .working
 #include <vector>
 #include <config.h>
-=======
-#include <vector>
->>>>>>> .merge-right.r272
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
@@ -48,15 +44,6 @@
 
 CheckEventLog gCheckEventLog;
 
-
-
-
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
 CheckEventLog::CheckEventLog() {
 }
 CheckEventLog::~CheckEventLog() {
@@ -69,24 +56,6 @@ struct parse_exception {
 #include <parsers/grammar.cpp>
 #include <parsers/ast.cpp>
 
-<<<<<<< .working
-bool CheckEventLog::loadModule(NSCAPI::moduleLoadMode mode) {
-	try {
-		SETTINGS_REG_PATH(event_log::SECTION);
-		SETTINGS_REG_KEY_B(event_log::DEBUG_KEY);
-		SETTINGS_REG_KEY_S(event_log::SYNTAX);
-
-		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
-		debug_ = SETTINGS_GET_BOOL(event_log::DEBUG_KEY);
-		lookup_names_ = SETTINGS_GET_BOOL(event_log::LOOKUP_NAMES);
-		syntax_ = SETTINGS_GET_STRING(event_log::SYNTAX);
-		buffer_length_ = SETTINGS_GET_INT(event_log::BUFFER_SIZE);
-		buffer_length_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-=======
 namespace filter {
 	namespace where {
 		struct type_obj : public parsers::where::varible_handler<type_obj> {
@@ -225,146 +194,11 @@ namespace filter {
 				return ret;
 			}
 		};
->>>>>>> .merge-right.r272
 	}
 }
 
 
-namespace simple_registry {
-	class registry_exception {
-		std::wstring what_;
-	public:
-		registry_exception(std::wstring what) : what_(what) {}
-		registry_exception(std::wstring path, std::wstring what) : what_(path + _T(" -- ") + what) {}
-		registry_exception(std::wstring path, std::wstring key, std::wstring what) : what_(path + _T(".") + key + _T(" -- ") + what) {}
-		std::wstring what() {
-			return what_;
-		}
-	};
-	class registry_key {
-		HKEY hKey_;
-		std::wstring path_;
-		BYTE *bData_;
-		TCHAR *buffer_;
-	public:
-		registry_key(HKEY hRootKey, std::wstring path) : path_(path), hKey_(NULL), bData_(NULL), buffer_(NULL) {
-			LONG lRet = ERROR_SUCCESS;
-			if (lRet = RegOpenKeyEx(hRootKey, path.c_str(), 0, KEY_QUERY_VALUE|KEY_READ, &hKey_) != ERROR_SUCCESS)
-				throw registry_exception(path, _T("Failed to open key: ") + error::format::from_system(lRet));
-		}
-		~registry_key() {
-			if (hKey_ != NULL)
-				RegCloseKey(hKey_);
-			delete [] bData_;
-			delete [] buffer_;
-		}
-		std::wstring get_string(std::wstring key, DWORD buffer_length = 2048) {
-			DWORD type;
-			std::wstring ret;
-			DWORD cbData = buffer_length;
-			delete [] bData_;
-			bData_ = new BYTE[cbData+2];
-			// TODO: add get size here !
-			LONG lRet = RegQueryValueEx(hKey_, key.c_str(), NULL, &type, bData_, &cbData);
-			if (lRet != ERROR_SUCCESS)
-				throw registry_exception(path_, key, _T("Failed to get value: ") + error::format::from_system(lRet));
-			if (cbData >= buffer_length || cbData < 0)
-				throw registry_exception(path_, key, _T("Failed to get value: buffer to small"));
-			bData_[cbData] = 0;
-			if (type == REG_SZ) {
-				ret = reinterpret_cast<LPCTSTR>(bData_);
-			} else if (type == REG_EXPAND_SZ) {
-				std::wstring s = reinterpret_cast<LPCTSTR>(bData_);
-				delete [] buffer_;
-				buffer_ = new TCHAR[buffer_length+1];
-				DWORD expRet = ExpandEnvironmentStrings(s.c_str(), buffer_, buffer_length);
-				if (expRet >= buffer_length)
-					throw registry_exception(path_, key, _T("Buffer to small (expand)"));
-				else
-					ret = buffer_;
-			} else {
-				throw registry_exception(path_, key, _T("Unknown type (not a string)"));
-			}
-			return ret;
-		}
-		DWORD get_int(std::wstring key) {
-			DWORD type;
-			DWORD cbData = sizeof(DWORD);
-			DWORD ret = 0;
-			LONG lRet = RegQueryValueEx(hKey_, key.c_str(), NULL, &type, reinterpret_cast<LPBYTE>(&ret), &cbData);
-			if (lRet != ERROR_SUCCESS)
-				throw registry_exception(path_, key, _T("Failed to get value: ") + error::format::from_system(lRet));
-			if (type != REG_DWORD)
-				throw registry_exception(path_, key, _T("Unknown type (not a DWORD)"));
-			return ret;
-		}
 
-<<<<<<< .working
-		std::list<std::wstring> get_keys(DWORD buffer_length = 2048) {
-			std::list<std::wstring> ret;
-			DWORD cSubKeys=0;
-			DWORD cMaxKeyLen;
-			// Get the class name and the value count. 
-			LONG lRet = RegQueryInfoKey(hKey_,NULL,NULL,NULL,&cSubKeys,&cMaxKeyLen,NULL,NULL,NULL,NULL,NULL,NULL);
-			if (lRet != ERROR_SUCCESS)
-				throw registry_exception(path_, _T("Failed to query key info: ") + error::format::from_system(lRet));
-			if (cSubKeys == 0)
-				return ret;
-			delete [] buffer_;
-			buffer_ = new TCHAR[cMaxKeyLen+20];
-			for (unsigned int i=0; i<cSubKeys; i++) {
-				lRet = RegEnumKey(hKey_, i, buffer_, cMaxKeyLen+10);
-				if (lRet != ERROR_SUCCESS) {
-					throw registry_exception(path_, _T("Failed to enumerate: ") + error::lookup::last_error(lRet));
-				}
-				std::wstring str = buffer_;
-				ret.push_back(str);
-			}
-			return ret;
-		}
-
-	};
-	
-	std::wstring get_string(HKEY hKey, std::wstring path, std::wstring key) {
-		registry_key reg(hKey, path);
-		return reg.get_string(key);
-	}
-}
-
-std::wstring find_eventlog_name(std::wstring name) {
-	try {
-		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
-		std::list<std::wstring> list = key.get_keys();
-		for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-			try {
-				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + *cit);
-				std::wstring file = sub_key.get_string(_T("DisplayNameFile"));
-				int id = sub_key.get_int(_T("DisplayNameID"));
-				std::wstring real_name = error::format::message::from_module(file, id);
-				strEx::replace(real_name, _T("\n"), _T(""));
-				strEx::replace(real_name, _T("\r"), _T(""));
-				NSC_DEBUG_MSG(_T("Attempting to match: ") + real_name + _T(" with ") + name);
-				if (real_name == name)
-					return *cit;
-			} catch (simple_registry::registry_exception &e) {}
-		}
-		return name;
-	} catch (simple_registry::registry_exception &e) {
-		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand): ") + e.what());
-		return name;
-	} catch (...) {
-		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand)"));
-		return name;
-	}
-}
-
-class EventLogRecord {
-	EVENTLOGRECORD *pevlr_;
-	__int64 currentTime_;
-	std::wstring file_;
-public:
-	EventLogRecord(std::wstring file, EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {
-=======
 
 struct filter_container {
 	enum filter_types {
@@ -411,7 +245,6 @@ struct first_mode_filter : public any_mode_filter {
 			return false;
 		}
 		return true;
->>>>>>> .merge-right.r272
 	}
 
 	virtual bool match(EventLogRecord &record) {
@@ -438,42 +271,10 @@ struct first_mode_filter : public any_mode_filter {
 		return false;
 
 	}
-<<<<<<< .working
-
-	std::wstring userSID() const {
-		if (pevlr_->UserSidOffset == 0)
-			return _T("");
-		PSID p = reinterpret_cast<PSID>(reinterpret_cast<LPBYTE>(pevlr_) + + pevlr_->UserSidOffset);
-		DWORD userLen = 0;
-		DWORD domainLen = 0;
-		SID_NAME_USE sidName;
-
-		LookupAccountSid(NULL, p, NULL, &userLen, NULL, &domainLen, &sidName);
-		LPTSTR user = new TCHAR[userLen+10];
-		LPTSTR domain = new TCHAR[domainLen+10];
-
-		LookupAccountSid(NULL, p, user, &userLen, domain, &domainLen, &sidName);
-		user[userLen] = 0;
-		domain[domainLen] = 0;
-		std::wstring ustr = user;
-		std::wstring dstr = domain;
-		delete [] user;
-		delete [] domain;
-		if (!dstr.empty())
-			dstr = dstr + _T("\\");
-		if (ustr.empty() && dstr.empty())
-			return _T("missing");
-
-		return dstr + ustr;
-=======
 	std::wstring get_name() {
 		return _T("deprecated");
->>>>>>> .merge-right.r272
 	}
-<<<<<<< .working
-=======
 	std::wstring get_subject() { return _T("TODO"); }
->>>>>>> .merge-right.r272
 
 };
 struct second_mode_filter : public any_mode_filter  {
@@ -518,62 +319,6 @@ struct second_mode_filter : public any_mode_filter  {
 	std::wstring get_name() {
 		return _T("old");
 	}
-<<<<<<< .working
-	static DWORD translateType(std::wstring sType) {
-		if (sType == _T("error"))
-			return EVENTLOG_ERROR_TYPE;
-		if (sType == _T("warning"))
-			return EVENTLOG_WARNING_TYPE;
-		if (sType == _T("info"))
-			return EVENTLOG_INFORMATION_TYPE;
-		if (sType == _T("auditSuccess"))
-			return EVENTLOG_AUDIT_SUCCESS;
-		if (sType == _T("auditFailure"))
-			return EVENTLOG_AUDIT_FAILURE;
-		return strEx::stoi(sType);
-	}
-	static std::wstring translateType(DWORD dwType) {
-		if (dwType == EVENTLOG_ERROR_TYPE)
-			return _T("error");
-		if (dwType == EVENTLOG_WARNING_TYPE)
-			return _T("warning");
-		if (dwType == EVENTLOG_INFORMATION_TYPE)
-			return _T("info");
-		if (dwType == EVENTLOG_AUDIT_SUCCESS)
-			return _T("auditSuccess");
-		if (dwType == EVENTLOG_AUDIT_FAILURE)
-			return _T("auditFailure");
-		return strEx::itos(dwType);
-	}
-	static DWORD translateSeverity(std::wstring sType) {
-		if (sType == _T("success"))
-			return 0;
-		if (sType == _T("informational"))
-			return 1;
-		if (sType == _T("warning"))
-			return 2;
-		if (sType == _T("error"))
-			return 3;
-		return strEx::stoi(sType);
-	}
-	static std::wstring translateSeverity(DWORD dwType) {
-		if (dwType == 0)
-			return _T("success");
-		if (dwType == 1)
-			return _T("informational");
-		if (dwType == 2)
-			return _T("warning");
-		if (dwType == 3)
-			return _T("error");
-		return strEx::itos(dwType);
-	}
-	std::wstring get_dll() {
-		try {
-			return simple_registry::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + eventSource(), _T("EventMessageFile"));
-		} catch (simple_registry::registry_exception &e) {
-			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + _T(": ") + e.what());
-			return _T("");
-=======
 	std::wstring get_subject() { return _T("TODO"); }
 };
 
@@ -594,11 +339,7 @@ struct where_mode_filter : public any_mode_filter {
 			NSC_LOG_ERROR_STD(_T("Parsing failed of '") + data.filter + _T("' at: ") + ast_parser.rest);
 			message = _T("Parsing failed: ") + ast_parser.rest;
 			return false;
->>>>>>> .merge-right.r272
 		}
-<<<<<<< .working
-	}
-=======
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Parsing succeeded: ") + ast_parser.result_as_tree());
 
@@ -608,54 +349,14 @@ struct where_mode_filter : public any_mode_filter {
 		}
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Type resolution succeeded: ") + ast_parser.result_as_tree());
->>>>>>> .merge-right.r272
 
-<<<<<<< .working
-	std::wstring render_message() {
-		std::vector<std::wstring> args;
-		TCHAR* *pArgs = new TCHAR*[pevlr_->NumStrings+1];
-		TCHAR* p = reinterpret_cast<TCHAR*>(reinterpret_cast<LPBYTE>(pevlr_) + pevlr_->StringOffset);
-		for (unsigned int i =0;i<pevlr_->NumStrings;i++) {
-			args.push_back(p);
-			pArgs[i] = p;
-			DWORD len = wcslen(p);
-			p = &(p[len+1]);
-			//p += len+1;
-=======
 		if (!ast_parser.bind(dummy) || dummy.has_error()) {
 			message = _T("Variable and function binding failed: ") + dummy.get_error();
 			return false;
->>>>>>> .merge-right.r272
 		}
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Binding succeeded: ") + ast_parser.result_as_tree());
 
-<<<<<<< .working
-		std::wstring ret;
-		strEx::splitList dlls = strEx::splitEx(get_dll(), _T(";"));
-		for (strEx::splitList::const_iterator cit = dlls.begin(); cit != dlls.end(); ++cit) {
-			//std::wstring msg = error::format::message::from_module((*cit), eventID(), _sz);
-			std::wstring msg;
-			try {
-				msg = error::format::message::from_module_x64((*cit), eventID(), pArgs, pevlr_->NumStrings);
-				if (msg.empty()) {
-					msg = error::format::message::from_module_x64((*cit), pevlr_->EventID, pArgs, pevlr_->NumStrings);
-				}
-			} catch (...) {
-				msg = _T("Unknown exception getting message");
-			}
-			strEx::replace(msg, _T("\n"), _T(" "));
-			strEx::replace(msg, _T("\t"), _T(" "));
-			std::string::size_type pos = msg.find_last_not_of(_T("\n\t "));
-			if (pos != std::string::npos) {
-				msg = msg.substr(0,pos);
-			}
-			if (!msg.empty()) {
-				if (!ret.empty())
-					ret += _T(", ");
-				ret += msg;
-			}
-=======
 		if (!ast_parser.static_eval(dummy) || dummy.has_error()) {
 			message = _T("Static evaluation failed: ") + dummy.get_error();
 			return false;
@@ -671,42 +372,17 @@ struct where_mode_filter : public any_mode_filter {
 		bool ret = ast_parser.evaluate(obj);
 		if (obj.has_error()) {
 			NSC_LOG_ERROR_STD(_T("Error: ") + obj.get_error());
->>>>>>> .merge-right.r272
 		}
-<<<<<<< .working
-		delete [] pArgs;
-=======
->>>>>>> .merge-right.r272
 		return ret;
 	}
-<<<<<<< .working
-	// SYSTEMTIME 
-	boost::posix_time::ptime get_time(DWORD time) {
-		FILETIME FileTime, LocalFileTime;
-		SYSTEMTIME SysTime;
-		__int64 lgTemp;
-		__int64 SecsTo1970 = 116444736000000000;
-=======
 	std::wstring get_name() {
 		return _T("where");
 	}
 	std::wstring get_subject() { return data.filter; }
 };
->>>>>>> .merge-right.r272
 
 
 
-<<<<<<< .working
-		return boost::date_time::time_from_ftime<boost::posix_time::ptime>(FileTime);
-
-
-/*
-		FileTimeToLocalFileTime(&FileTime, &LocalFileTime);
-		FileTimeToSystemTime(&LocalFileTime, &SysTime);
-		return SysTime;
-		*/
-	}
-=======
 void CheckEventLog::parse(std::wstring expr) {
 //return false;
 /*
@@ -716,36 +392,32 @@ void CheckEventLog::parse(std::wstring expr) {
 	std::wcout << _T("Result (002): ") << ast_parser.evaluate(obj2) << std::endl;
 	*/
 }
->>>>>>> .merge-right.r272
-
-<<<<<<< .working
-	boost::posix_time::ptime get_time_generated() {
-		return get_time(pevlr_->TimeGenerated);
-=======
 bool CheckEventLog::loadModule() {
+	return false;
+}
+
+bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
-		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
-		lookup_names_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_LOOKUP_NAMES, EVENTLOG_LOOKUP_NAMES_DEFAULT)==1;
-		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
-		buffer_length_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		SETTINGS_REG_PATH(event_log::SECTION);
+		SETTINGS_REG_KEY_B(event_log::DEBUG_KEY);
+		SETTINGS_REG_KEY_S(event_log::SYNTAX);
+
+		GET_CORE()->registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+
+		debug_ = SETTINGS_GET_BOOL(event_log::DEBUG_KEY);
+		lookup_names_ = SETTINGS_GET_BOOL(event_log::LOOKUP_NAMES);
+		syntax_ = SETTINGS_GET_STRING(event_log::SYNTAX);
+		buffer_length_ = SETTINGS_GET_INT(event_log::BUFFER_SIZE);
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
->>>>>>> .merge-right.r272
 	}
-<<<<<<< .working
-	boost::posix_time::ptime get_time_written() {
-		return get_time(pevlr_->TimeWritten);
-	}
-=======
 	/*
 	parse(_T("321 = 123"));
 	parse(_T("123 = 123"));
 	parse(_T("id = 123"));
 	parse(_T("id = 321"));
->>>>>>> .merge-right.r272
 
 	parse(_T("id = '123'"));
 	parse(_T("id = '321'"));
@@ -814,18 +486,6 @@ std::wstring find_eventlog_name(std::wstring name) {
 					return *cit;
 			} catch (simple_registry::registry_exception &e) { e;}
 		}
-<<<<<<< .working
-
-		strEx::replace(syntax, _T("%source%"), eventSource());
-		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), date_format));
-		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), date_format));
-		strEx::replace(syntax, _T("%type%"), translateType(eventType()));
-		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
-		strEx::replace(syntax, _T("%strings%"), enumStrings());
-		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));
-		strEx::replace(syntax, _T("%user%"), userSID());
-		return syntax;
-=======
 		return name;
 	} catch (simple_registry::registry_exception &e) {
 		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand): ") + e.what());
@@ -833,7 +493,6 @@ std::wstring find_eventlog_name(std::wstring name) {
 	} catch (...) {
 		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand)"));
 		return name;
->>>>>>> .merge-right.r272
 	}
 }
 
@@ -881,70 +540,24 @@ struct event_log_buffer {
 	}
 };
 
-<<<<<<< .working
-
-#define MAP_FILTER(value, obj, filtermode) \
-			else if (p__.first == value) { eventlog_filter filter; filter.obj = p__.second; filter_chain.push_back(filteritem_type(filtermode, filter)); }
-
-struct event_log_buffer {
-	BYTE *bBuffer;
-	DWORD bufferSize_;
-	event_log_buffer(DWORD bufferSize) : bufferSize_(bufferSize) {
-		bBuffer = new BYTE[bufferSize+10];
-	}
-	~event_log_buffer() {
-		delete [] bBuffer;
-	}
-	EVENTLOGRECORD* getBufferUnsafe() {
-		return reinterpret_cast<EVENTLOGRECORD*>(bBuffer);
-	}
-	DWORD getBufferSize() {
-		return bufferSize_;
-	}
-};
-
-=======
->>>>>>> .merge-right.r272
-NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command != _T("CheckEventLog"))
 		return NSCAPI::returnIgnored;
-<<<<<<< .working
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
-	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
-	
-	typedef std::pair<int,eventlog_filter> filteritem_type;
-	typedef std::list<filteritem_type > filterlist_type;
-=======
 	simple_timer time;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
 	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
-	
->>>>>>> .merge-right.r272
+
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
 
 	std::list<std::wstring> files;
-<<<<<<< .working
-	filterlist_type filter_chain;
 	EventLogQuery1Container query1;
 	EventLogQuery2Container query2;
-=======
-	EventLogQuery1Container query1;
-	EventLogQuery2Container query2;
->>>>>>> .merge-right.r272
 
 
 	filter_container data(syntax_, debug_);
 
 	bool bPerfData = true;
-<<<<<<< .working
-	bool bFilterIn = true;
-	bool bFilterAll = false;
 	bool bFilterNew = true;
-	bool bShowDescriptions = false;
-=======
-	bool bFilterNew = true;
->>>>>>> .merge-right.r272
 	bool unique = false;
 	unsigned int truncate = 0;
 	event_log_buffer buffer(buffer_length_);
@@ -958,18 +571,9 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 		return NSCAPI::returnUNKNOWN;
 	}
 	*/
-	event_log_buffer buffer(buffer_length_);
-	/*
-	try {
-		event_log_buffer buffer(buffer_length_);
-	} catch (std::exception e) {
-		message = std::wstring(_T("Failed to allocate memory: ")) + strEx::string_to_wstring(e.what());
-		return NSCAPI::returnUNKNOWN;
-	}
-	*/
 
 	try {
-		MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_BEGIN(arguments)
 			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
 			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
@@ -1115,52 +719,22 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 
 		//GetOldestEventLogRecord(hLog, &dwThisRecord);
 
-<<<<<<< .working
 		while (true) {
 			BOOL bStatus = ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
 				0, buffer.getBufferUnsafe(), buffer.getBufferSize(), &dwRead, &dwNeeded);
 			if (bStatus == FALSE) {
 				DWORD err = GetLastError();
 				if (err == ERROR_INSUFFICIENT_BUFFER) {
-					if (!buffer_error_reported) {
-						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + setting_keys::event_log::BUFFER_SIZE + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
-						buffer_error_reported = true;
-					}
-				} else if (err == ERROR_HANDLE_EOF) {
-					break;
-				} else {
-					NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
-					message = _T("Failed to read from eventlog: ") + error::lookup::last_error(err);
+					message = _T("EvenlogBuffer is too small change the value of ") + setting_keys::event_log::BUFFER_SIZE_PATH + _T("=") + strEx::itos(dwNeeded+1) + _T(": ") + error::lookup::last_error(err);
+					NSC_LOG_ERROR_STD(message);
 					CloseEventLog(hLog);
 					return NSCAPI::returnUNKNOWN;
-				}
-			}
-			EVENTLOGRECORD *pevlr = buffer.getBufferUnsafe(); 
-			while (dwRead > 0) { 
-				//bool bMatch = bFilterAll;
-				bool bMatch = !bFilterIn;
-				EventLogRecord record((*cit2), pevlr, ltime);
-
-				if (filter_chain.empty()) {
-					message = _T("No filters specified try adding: filter+generated=>2d");
-=======
-		while (true) {
-			BOOL bStatus = ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
-				0, buffer.getBufferUnsafe(), buffer.getBufferSize(), &dwRead, &dwNeeded);
-			if (bStatus == FALSE) {
-				DWORD err = GetLastError();
-				if (err == ERROR_INSUFFICIENT_BUFFER) {
-					if (!buffer_error_reported) {
-						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + EVENTLOG_BUFFER + _T("=") + strEx::itos(dwNeeded+1) + _T(" under [EventLog] in nsc.ini : ") + error::lookup::last_error(err));
-						buffer_error_reported = true;
-					}
 				} else if (err == ERROR_HANDLE_EOF) {
 					break;
 				} else {
 					NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
 					message = _T("Failed to read from eventlog: ") + error::lookup::last_error(err);
 					CloseEventLog(hLog);
->>>>>>> .merge-right.r272
 					return NSCAPI::returnUNKNOWN;
 				}
 			}
@@ -1207,20 +781,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 				dwRead -= pevlr->Length; 
 				pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length); 
 			} 
-<<<<<<< .working
-		} 
-=======
-		}
->>>>>>> .merge-right.r272
-		DWORD err = GetLastError();
-		if (err == ERROR_INSUFFICIENT_BUFFER) {
-			NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small (set the value of ") + setting_keys::event_log::BUFFER_SIZE_TITLE + _T("): ") + error::lookup::last_error(err));
-			message = std::wstring(_T("EvenlogBuffer is too small (set the value of ")) + setting_keys::event_log::BUFFER_SIZE_TITLE + _T("): ") + error::lookup::last_error(err);
-			return NSCAPI::returnUNKNOWN;
-		} else if (err != ERROR_HANDLE_EOF) {
-			NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
-			message = _T("Failed to read from eventlog: ") + error::lookup::last_error(err);
-			return NSCAPI::returnUNKNOWN;
 		}
 		CloseEventLog(hLog);
 		for (uniq_eventlog_map::const_iterator cit = uniq_records.begin(); cit != uniq_records.end(); ++cit) {
@@ -1255,6 +815,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckEventLog);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckEventLog);

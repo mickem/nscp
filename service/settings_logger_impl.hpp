@@ -1,9 +1,9 @@
 #pragma once
 
 #include "core_api.h"
-#include <settings/Settings.h>
+#include <settings/settings_core.hpp>
 
-class settings_logger : public Settings::LoggerInterface {
+class settings_logger : public settings::logger_interface {
 public:
 	//////////////////////////////////////////////////////////////////////////
 	/// Log an ERROR message.

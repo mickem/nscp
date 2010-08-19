@@ -18,67 +18,42 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-
-#include <socket_helpers.hpp>
-#include <nrpe/server/server.hpp>
-
 NSC_WRAPPERS_MAIN();
 
-class NRPEListener {
-private:
-	typedef enum {
-		inject, script, script_dir,
-	} command_type;
-	struct command_data {
-		command_data() : type(inject) {}
-		command_data(command_type type_, std::wstring arguments_) : type(type_), arguments(arguments_) {}
-		command_type type;
-		std::wstring arguments;
-	};
+#include <settings/macros.h>
+#include <strEx.h>
+#include <utils.h>
+#include <checkHelpers.hpp>
 
-	socketHelpers::allowedHosts allowedHosts;
-	nrpe::server::server::connection_info info_;
+
+class CheckEventLog {
+private:
+	bool debug_;
+	std::wstring syntax_;
+	DWORD buffer_length_;
+	bool lookup_names_;
 
 public:
-	NRPEListener();
-	virtual ~NRPEListener();
+	CheckEventLog();
+	virtual ~CheckEventLog();
 	// Module calls
-	bool loadModule();
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModule(NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-
 	std::wstring getModuleName() {
-#ifdef USE_SSL
-		return _T("NRPE server");
-#else
-		return _T("NRPE server (no SSL)");
-#endif
+		return _T("Event log Checker.");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
+	NSCModuleWrapper::module_version getModuleVersion() {
+		NSCModuleWrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NRPE connection and handles them.\nNRPE is preferred over NSClient as it is more flexible. You can of cource use both NSClient and NRPE.");
+		return _T("Check for errors and warnings in the event log.\nThis is only supported through NRPE so if you plan to use only NSClient this wont help you at all.");
 	}
+
+	void parse(std::wstring expr);
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
-	std::wstring getConfigurationMeta();
-	boost::shared_ptr<nrpe::server::server> server_;
-
-private:
-	class NRPEException {
-		std::wstring error_;
-	public:
-		NRPEException(std::wstring s) {
-			error_ = s;
-		}
-		std::wstring getMessage() {
-			return error_;
-		}
-	};
 };
-

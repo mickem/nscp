@@ -6,7 +6,7 @@ namespace file_helpers {
 	class checks {
 	public:
 		static bool is_directory(std::wstring path) {
-			boost::filesystem::is_directory(path);
+			return boost::filesystem::is_directory(path);
 		}
 // 		static bool is_directory(DWORD dwAtt) {
 // 			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
@@ -33,6 +33,24 @@ namespace file_helpers {
 // 				return false;
 // 			}
 // 			return true;
+		}
+	};
+
+	class meta {
+	public:
+		static boost::filesystem::wpath get_path(boost::filesystem::wpath path) {
+			return path.branch_path();
+		}
+		static std::wstring get_filename(boost::filesystem::wpath path) {
+			return path.leaf();
+		}
+		static std::wstring get_path(std::wstring file) {
+			boost::filesystem::wpath path = file;
+			return path.branch_path().string();
+		}
+		static std::wstring get_filename(std::wstring file) {
+			boost::filesystem::wpath path = file;
+			return path.leaf();
 		}
 	};
 

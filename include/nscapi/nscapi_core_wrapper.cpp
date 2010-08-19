@@ -277,6 +277,20 @@ std::wstring nscapi::core_wrapper::getSettingsString(std::wstring section, std::
 	delete [] buffer;
 	return ret;
 }
+
+std::wstring nscapi::core_wrapper::expand_path(std::wstring value) {
+	if (!fNSAPIExpandPath)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	unsigned int buf_len = getBufferLength();
+	wchar_t *buffer = new wchar_t[buf_len+1];
+	if (fNSAPIExpandPath(value.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
+		delete [] buffer;
+		throw nscapi::nscapi_exception(_T("Settings could not be retrieved."));
+	}
+	std::wstring ret = buffer;
+	delete [] buffer;
+	return ret;
+}
 /**
  * Get a section of settings strings
  * @param section The section to retrieve
@@ -574,6 +588,8 @@ bool nscapi::core_wrapper::load_endpoints(unsigned int id, nscapi::core_api::lpN
 	fNSAPIReleasePluginList = (nscapi::core_api::lpNSAPIReleasePluginList)f(_T("NSAPIReleasePluginList"));
 
 	fNSAPISettingsSave = (nscapi::core_api::lpNSAPISettingsSave)f(_T("NSAPISettingsSave"));
+
+	fNSAPIExpandPath = (nscapi::core_api::lpNSAPIExpandPath)f(_T("NSAPIExpandPath"));
 	
 	return true;
 }

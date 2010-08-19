@@ -12,6 +12,9 @@ namespace nrpe {
 
 		namespace ip = boost::asio::ip;
 
+
+		const int server::connection_info::backlog_default = 0;
+
 		server::server(connection_info info)
 			: thread_pool_size_(info.thread_pool_size)
 			, acceptor_(io_service_)
@@ -26,9 +29,9 @@ namespace nrpe {
 			ip::tcp::resolver resolver(io_service_);
 			ip::tcp::resolver::iterator endpoint_iterator;
 			if (info.address.empty()) {
-				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.port));
+				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.get_port()));
 			} else {
-				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.address, info.port));
+				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.get_address(), info.port));
 			}
 			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {
@@ -38,7 +41,7 @@ namespace nrpe {
 			if (info.use_ssl) {
 				SSL_CTX_set_cipher_list(context_.impl(), "ADH");
 				request_handler_->log_debug(__FILEW__, __LINE__, _T("Using cert: ") + to_wstring(info.certificate));
-				context_.use_tmp_dh_file(info.certificate);
+				context_.use_tmp_dh_file(to_string(info.certificate));
 				context_.set_verify_mode(boost::asio::ssl::context::verify_none);
 			}
 
@@ -48,7 +51,10 @@ namespace nrpe {
 			acceptor_.open(endpoint.protocol());
 			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
 			acceptor_.bind(endpoint);
-			acceptor_.listen();
+			if (info.back_log == connection_info::backlog_default)
+				acceptor_.listen();
+			else
+				acceptor_.listen(info.back_log);
 
 			acceptor_.async_accept(new_connection_->socket(),
 				accept_strand_.wrap(

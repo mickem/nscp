@@ -29,7 +29,7 @@
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file)
+NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file, std::wstring alias)
 	: module_(file.string())
 	,fLoadModule(NULL)
 	,fGetName(NULL)
@@ -49,6 +49,7 @@ NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file)
 	,lastIsMsgPlugin_(false)
 	,broken_(false)
 	,plugin_id_(id)
+	,alias_(alias)
 {
 
 }
@@ -136,7 +137,7 @@ void NSCPlugin::load_dll() {
 bool NSCPlugin::load_plugin(NSCAPI::moduleLoadMode mode) {
 	if (!fLoadModule)
 		throw NSPluginException(module_, _T("Critical error (fLoadModule)"));
-	return fLoadModule(mode);
+	return fLoadModule(alias_.c_str(), mode);
 }
 
 void NSCPlugin::setBroken(bool broken) {
@@ -355,7 +356,7 @@ void NSCPlugin::hideTray() {
 void NSCPlugin::loadRemoteProcs_(void) {
 
 	try {
-		fLoadModule = (nscapi::plugin_api::lpLoadModule)module_.load_proc("NSLoadModule");
+		fLoadModule = (nscapi::plugin_api::lpLoadModule)module_.load_proc("NSLoadModuleEx");
 		if (!fLoadModule)
 			throw NSPluginException(module_, _T("Could not load NSLoadModule"));
 

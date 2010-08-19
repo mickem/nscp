@@ -14,7 +14,7 @@
 //////////////////////////////////////////////////////////////////////////
 #include "StdAfx.h"
 #include "NSClient++.h"
-#include <settings/Settings.h>
+#include <settings/settings_core.hpp>
 #include <charEx.h>
 //#include <Socket.h>
 #include <config.h>
@@ -38,6 +38,7 @@
 #include "settings_client.hpp"
 #include "service_manager.hpp"
 #include <nscapi/nscapi_helper.hpp>
+#include "cli_parser.hpp"
 
 #include "../libs/protobuf/plugin.proto.h"
 
@@ -76,7 +77,7 @@ bool g_bConsoleLog = false;
 	settings_manager::get_settings()->get_string(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
 /*
 #define SETTINGS_SET_STRING_CORE(key, value) \
-	Settings::get_settings()->set_string(setting_keys::key ## _PATH, setting_keys::key, value);
+	settings::get_settings()->set_string(setting_keys::key ## _PATH, setting_keys::key, value);
 */
 /**
  * START OF Tray starter MERGE HELPER
@@ -235,7 +236,11 @@ void display(std::wstring title, std::wstring message) {
 
 bool is_module(boost::filesystem::wpath file ) 
 {
-	return boost::ends_with(file.string(), _T(".dll")) || boost::ends_with(file.string(), _T(".so"));
+#ifdef WIN32
+	return boost::ends_with(file.string(), _T(".dll"));
+#else
+	return boost::ends_with(file.string(), _T(".so"));
+#endif
 }
 /**
  * Application startup point
@@ -267,6 +272,14 @@ int main(int argc, char* argv[]) {
 int nscp_main(int argc, wchar_t* argv[])
 {
 	srand( (unsigned)time( NULL ) );
+
+	cli_parser parser(&mainClient);
+	g_bConsoleLog = true;
+
+	parser.parse(argc, argv);
+
+	return -1;
+
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if (false) {
@@ -288,7 +301,7 @@ int nscp_main(int argc, wchar_t* argv[])
 		} else if ( wcscasecmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			g_bConsoleLog = true;
 			std::wstring password;
-			if (!settings_manager::init_settings(mainClient.getBasePath())) {
+			if (!settings_manager::init_settings()) {
 				std::wcout << _T("Could not find settings") << std::endl;;
 				return 1;
 			}
@@ -318,7 +331,7 @@ int nscp_main(int argc, wchar_t* argv[])
 						std::wstring file= itr->leaf();
 						LOG_MESSAGE_STD(_T("Found: ") + file);
 						if (is_module(pluginPath / file)) {
-							NSCPlugin *plugin = new NSCPlugin(next_plugin_id++, pluginPath / file);
+							NSCPlugin *plugin = new NSCPlugin(next_plugin_id++, pluginPath / file, _T(""));
 							std::wstring name = _T("<unknown>");
 							std::wstring description = _T("<unknown>");
 							try {
@@ -399,14 +412,6 @@ int nscp_main(int argc, wchar_t* argv[])
 			nsclient::simple_client client(&mainClient);
 			client.start();
 			return 0;
-		} else if ( wcscasecmp( _T("settings"), argv[1]+1 ) == 0 ) {
-			nsclient::settings_client client(&mainClient);
-			g_bConsoleLog = true;
-			if (argc > 2)
-				client.parse(argv[2], argc-3, argv+3);
-			else
-				client.help();
-			return 0;
 		} else {
 			std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt -settings") << std::endl;
 			std::wcerr << _T("Usage: [-noboot] <ModuleName> <commnd> [arguments]") << std::endl;
@@ -441,8 +446,6 @@ int nscp_main(int argc, wchar_t* argv[])
 	return nRetCode;
 }
 
-void migrate() {}
-
 std::list<std::wstring> NSClientT::list_commands() {
 	return commands_.list();
 }
@@ -458,8 +461,9 @@ NSClientT::plugin_info_list NSClientT::get_all_plugins() {
 				plugin_info_type info;
 				info.dll = itr->leaf();
 				try {
-					LOG_DEBUG_STD(_T("Attempting to fake load: ") + file.string());
-					NSCPlugin plugin(next_plugin_id_++, pluginPath / file);
+					std::wstring alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, file.string());
+					LOG_DEBUG_STD(_T("Attempting to fake load: ") + file.string() + _T(" as ") + alias);
+					NSCPlugin plugin(next_plugin_id_++, pluginPath / file, alias);
 					plugin.load_dll();
 					plugin.load_plugin(NSCAPI::dontStart);
 					info.name = plugin.getName();
@@ -487,10 +491,11 @@ void NSClientT::load_all_plugins(int mode) {
 			boost::filesystem::wpath file= itr->leaf();
 			if (is_module(modPath / file)) {
 				if (settings_manager::get_settings()->has_key(MAIN_MODULES_SECTION, file.string())) {
-					if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, file.string()) == _T("disabled")) {
+					std::wstring alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, file.string());
+					if (alias == _T("disabled")) {
 						try {
 							LOG_DEBUG_STD(_T("Attempting to fake load: ") + file.string());
-							NSCPlugin plugin(next_plugin_id_++, modPath / file);
+							NSCPlugin plugin(next_plugin_id_++, modPath / file, alias);
 							plugin.load_dll();
 							plugin.load_plugin(mode);
 							plugin.unload();
@@ -504,7 +509,7 @@ void NSClientT::load_all_plugins(int mode) {
 					std::wstring desc;
 					std::wstring name = file.string();
 					try {
-						NSCPlugin plugin(next_plugin_id_++, modPath / file);
+						NSCPlugin plugin(next_plugin_id_++, modPath / file, _T(""));
 						name = plugin.getModule();
 						plugin.load_dll();
 						plugin.load_plugin(mode);
@@ -518,7 +523,7 @@ void NSClientT::load_all_plugins(int mode) {
 						desc += _T("unknown module");
 						LOG_CRITICAL_STD(_T("Unknown Error loading: ") + file.string());
 					}
-					settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, name, Settings::SettingsCore::key_string, desc, desc, _T("disabled"), false);
+					settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, name, settings::settings_core::key_string, desc, desc, _T("disabled"), false);
 				}
 			}
 		} 
@@ -548,7 +553,7 @@ void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring 
  */
 bool NSClientT::initCore(bool boot) {
 	LOG_MESSAGE(_T("Attempting to start NSCLient++ - ") SZVERSION);
-	if (!settings_manager::init_settings(getBasePath())) {
+	if (!settings_manager::init_settings()) {
 		return false;
 	}
 	LOG_MESSAGE(_T("Got settings subsystem..."));
@@ -557,7 +562,7 @@ bool NSClientT::initCore(bool boot) {
 			settings_manager::get_settings()->set_int(_T("log"), _T("debug"), 1);
 			settings_manager::get_settings()->set_int(_T("Settings"), _T("shared_Session"), 1);
 		enable_shared_session_ = SETTINGS_GET_BOOL_CORE(settings_def::SHARED_SESSION);
-	} catch (SettingsException e) {
+	} catch (settings_exception e) {
 		LOG_ERROR_CORE_STD(_T("Could not find settings: ") + e.getMessage());
 	}
 
@@ -624,20 +629,24 @@ bool NSClientT::initCore(bool boot) {
 #endif
 	if (boot) {
 		try {
-			Settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
-			for (Settings::string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+			settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
+			for (settings::string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
 				std::wstring file = NSCPlugin::get_plugin_file(*cit);
-				LOG_DEBUG_STD(_T("Processing plugin: " + *cit) + _T(" in ") + file);
+				std::wstring alias;
 				try {
-					if (settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, *cit) == _T("disabled")) {
+					alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, *cit);
+					if (alias == _T("disabled")) {
 						LOG_DEBUG_STD(_T("Not booting: ") + file + _T(" since it is disabled."));
 						continue;
-					}
+					} else if (alias == _T("enabled"))
+						alias = _T("");
+
 				} catch (...) {
 					// If we except we load the plugin in as-is
 				}
+				LOG_DEBUG_STD(_T("Processing plugin: " + *cit) + _T(" in ") + file + _T(" as ") + alias);
 				try {
-					loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(file));
+					loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(file), alias);
 				} catch(const NSPluginException& e) {
 					LOG_ERROR_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
 					//return false;
@@ -649,7 +658,7 @@ bool NSClientT::initCore(bool boot) {
 					return false;
 				}
 			}
-		} catch (SettingsException e) {
+		} catch (settings_exception e) {
 			LOG_ERROR_CORE_STD(_T("Failed to set settings file") + e.getMessage());
 		} catch (...) {
 			LOG_ERROR_CORE_STD(_T("Unknown exception when loading plugins"));
@@ -837,7 +846,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const unsigned int argLen,
 		}
 	}
 	try {
-		plugin_type plugin = loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(module));
+		plugin_type plugin = loadPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(module), _T(""));
 		LOG_DEBUG_STD(_T("Loading plugin: ") + plugin->getName() + _T("..."));
 		plugin->load_plugin(NSCAPI::dontStart);
 		return plugin->commandLineExec(argLen, args);
@@ -852,17 +861,17 @@ int NSClientT::commandLineExec(const wchar_t* module, const unsigned int argLen,
  * Load a list of plug-ins
  * @param plugins A list with plug-ins (DLL files) to load
  */
-void NSClientT::addPlugins(const std::list<std::wstring> plugins) {
-	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
-	if (!readLock.owns_lock()) {
-		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
-		return;
-	}
-	std::list<std::wstring>::const_iterator it;
-	for (it = plugins.begin(); it != plugins.end(); ++it) {
-		loadPlugin(*it);
-	}
-}
+// void NSClientT::addPlugins(const std::list<std::wstring> plugins) {
+// 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+// 	if (!readLock.owns_lock()) {
+// 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
+// 		return;
+// 	}
+// 	std::list<std::wstring>::const_iterator it;
+// 	for (it = plugins.begin(); it != plugins.end(); ++it) {
+// 		loadPlugin(*it);
+// 	}
+// }
 /**
  * Unload all plug-ins (in reversed order)
  */
@@ -934,7 +943,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 			return;
 		}
 		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
-			LOG_DEBUG_STD(_T("Loading plugin: ") + (*it)->getName() + _T("..."));
+			LOG_DEBUG_STD(_T(" * * * (FIX THIS) Loading plugin: ") + (*it)->getName() + _T("..."));
 			try {
 				if (!(*it)->load_plugin(NSCAPI::normalStart)) {
 					LOG_ERROR_CORE_STD(_T("Plugin refused to load: ") + (*it)->getModule());
@@ -971,8 +980,8 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
  * Load a single plug-in using a DLL filename
  * @param file The DLL file
  */
-NSClientT::plugin_type NSClientT::loadPlugin(const boost::filesystem::wpath file) {
-	plugin_type plugin(new NSCPlugin(next_plugin_id_++, file));
+NSClientT::plugin_type NSClientT::loadPlugin(const boost::filesystem::wpath file, std::wstring alias) {
+	plugin_type plugin(new NSCPlugin(next_plugin_id_++, file, alias));
 	return addPlugin(plugin);
 }
 /**
@@ -995,7 +1004,7 @@ NSClientT::plugin_type NSClientT::addPlugin(plugin_type plugin) {
 		}
 		if (plugin->hasMessageHandler())
 			messageHandlers_.insert(messageHandlers_.end(), plugin);
-		settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), Settings::SettingsCore::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
+		settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
 	}
 	return plugin;
 }
@@ -1016,7 +1025,7 @@ unsigned int NSClientT::getBufferLength() {
 	if (len == 0) {
 		try {
 			len = settings_manager::get_settings()->get_int(SETTINGS_KEY(settings_def::PAYLOAD_LEN));
-		} catch (SettingsException &e) {
+		} catch (settings_exception &e) {
 			LOG_DEBUG_STD(_T("Failed to get length: ") + e.getMessage());
 			return setting_keys::settings_def::PAYLOAD_LEN_DEFAULT;
 		} catch (...) {
@@ -1191,7 +1200,7 @@ bool NSClientT::logDebug() {
 				debug_ = log_debug;
 			else
 				debug_ = log_nodebug;
-		} catch (SettingsException e) {
+		} catch (settings_exception e) {
 			return true;
 		}
 	} else if (debug_ == log_looking) 
@@ -1325,7 +1334,7 @@ boost::filesystem::wpath NSClientT::getBasePath(void) {
 #endif
 	try {
 		settings_manager::get_core()->set_base(basePath);
-	} catch (SettingsException e) {
+	} catch (settings_exception e) {
 		LOG_ERROR_CORE_STD(_T("Failed to set settings file: ") + e.getMessage());
 	} catch (...) {
 		LOG_ERROR_CORE_STD(_T("Failed to set settings file"));
@@ -1384,6 +1393,21 @@ void NSClientT::handle_startup() {
 void NSClientT::handle_shutdown() {
 	exitCore(true);
 }
+
+
+std::wstring NSClientT::expand_path(std::wstring file) {
+	strEx::replace(file, _T("${certificate-path}"), _T("${shared-path}/security"));
+	strEx::replace(file, _T("${base-path}"), getBasePath().string());
+#ifdef WIN32
+	strEx::replace(file, _T("${shared-path}"), getBasePath().string());
+#else
+	strEx::replace(file, _T("${shared-path}"), _T("/usr/shared/nsclient++"));
+#endif
+	strEx::replace(file, _T("${exe-path}"), getBasePath().string());
+	strEx::replace(file, _T("${etc}"), _T("/etc"));
+	return file;
+}
+
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {
 

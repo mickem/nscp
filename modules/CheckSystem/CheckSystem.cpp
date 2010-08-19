@@ -48,13 +48,23 @@ CheckSystem::CheckSystem() : pdhThread(_T("pdhThread")) {}
  * @return 
  */
 CheckSystem::~CheckSystem() {}
+
 /**
  * Load (initiate) module.
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
+bool CheckSystem::loadModule() {
+	return loadModuleEx(_T(""), NSCAPI::normalStart);
+}
 
-bool CheckSystem::loadModule(NSCAPI::moduleLoadMode mode) {
+/**
+ * New version of the load call.
+ * Start the background collector thread and let it run until unloadModule() is called.
+ * @return true
+ */
+
+bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::normalStart) {
 		pdhThread.createThread();
 	}
@@ -317,23 +327,23 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
  * @param **args 
  * @return 
  */
-NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
 	CheckSystem::returnBundle rb;
-	if (command == _T("checkcpu")) {
+	if (command == _T("checkCPU")) {
 		return checkCPU(arguments, msg, perf);
-	} else if (command == _T("checkuptime")) {
+	} else if (command == _T("checkUpTime")) {
 		return checkUpTime(arguments, msg, perf);
-	} else if (command == _T("checkservicestate")) {
+	} else if (command == _T("checkServiceState")) {
 		return checkServiceState(arguments, msg, perf);
-	} else if (command == _T("checkprocstate")) {
+	} else if (command == _T("checkProcState")) {
 		return checkProcState(arguments, msg, perf);
-	} else if (command == _T("checkmem")) {
+	} else if (command == _T("checkMem")) {
 		return checkMem(arguments, msg, perf);
-	} else if (command == _T("checkcounter")) {
+	} else if (command == _T("checkCounter")) {
 		return checkCounter(arguments, msg, perf);
-	} else if (command == _T("listcounterinstances")) {
+	} else if (command == _T("listCounterInstances")) {
 		return listCounterInstances(arguments, msg, perf);
-	} else if (command == _T("checksingleregentry")) {
+	} else if (command == _T("checkSingleRegEntry")) {
 		return checkSingleRegEntry(arguments, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
@@ -1140,6 +1150,10 @@ NSCAPI::nagiosReturn CheckSystem::listCounterInstances(std::list<std::wstring> a
 			if (!msg.empty())
 				msg += _T(", ");
 			msg += (*it);
+		}
+		if (msg.empty()) {
+			msg = _T("ERROR: No instances found");
+			return NSCAPI::returnUNKNOWN;
 		}
 	} catch (const PDH::PDHException e) {
 		msg = _T("ERROR: Failed to enumerate counter instances: " + e.getError());

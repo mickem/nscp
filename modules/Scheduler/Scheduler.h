@@ -34,7 +34,8 @@ public:
 	Scheduler() {}
 	virtual ~Scheduler() {}
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 

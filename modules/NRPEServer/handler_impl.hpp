@@ -10,7 +10,7 @@ class handler_impl : public nrpe::server::handler, private boost::noncopyable {
 	bool allowNasty_;
 	bool noPerfData_;
 public:
-	handler_impl(unsigned int payload_length) : payload_length_(payload_length), noPerfData_(false) {}
+	handler_impl(unsigned int payload_length) : payload_length_(payload_length), noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
 
 	unsigned int get_payload_length() {
 		return payload_length_;
@@ -23,6 +23,16 @@ public:
 
 	nrpe::packet create_error(std::wstring msg) {
 		return nrpe::packet::create_response(4, msg, payload_length_);
+	}
+
+	virtual void set_allow_arguments(bool v)  {
+		allowArgs_ = v;
+	}
+	virtual void set_allow_nasty_arguments(bool v) {
+		allowNasty_ = v;
+	}
+	virtual void set_perf_data(bool v) {
+		noPerfData_ = !v;
 	}
 
 	void log_debug(std::wstring file, int line, std::wstring msg) {

@@ -26,7 +26,7 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 
 
-class CheckEventLog {
+class CheckEventLog  : public nscapi::impl::SimpleCommand {
 private:
 	bool debug_;
 	std::wstring syntax_;
@@ -37,14 +37,15 @@ public:
 	CheckEventLog();
 	virtual ~CheckEventLog();
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	std::wstring getModuleName() {
 		return _T("Event log Checker.");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	std::wstring getModuleDescription() {
@@ -55,5 +56,5 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 };

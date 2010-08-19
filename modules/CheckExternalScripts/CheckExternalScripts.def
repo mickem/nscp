@@ -3,6 +3,7 @@ LIBRARY	CheckExternalScripts
 EXPORTS
 	NSModuleHelperInit
 	NSLoadModule
+	NSLoadModuleEx
 	NSGetModuleName
 	NSGetModuleVersion
 	NSHasCommandHandler

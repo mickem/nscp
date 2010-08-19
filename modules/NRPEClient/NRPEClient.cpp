@@ -39,7 +39,11 @@ NRPEClient::NRPEClient() : buffer_length_(0) {
 NRPEClient::~NRPEClient() {
 }
 
-bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
+bool NRPEClient::loadModule() {
+	return false;
+}
+
+bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	std::list<std::wstring> commands;
 	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
 	try {
@@ -51,7 +55,7 @@ bool NRPEClient::loadModule(NSCAPI::moduleLoadMode mode) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
 
-	boost::filesystem::wpath p = GET_CORE()->getBasePath() + std::wstring(_T("security/nrpe_dh_512.pem"));
+	boost::filesystem::wpath p = GET_CORE()->getBasePath() + std::wstring(_T("/security/nrpe_dh_512.pem"));
 	cert_ = p.string();
 	if (boost::filesystem::is_regular(p)) {
 		NSC_DEBUG_MSG_STD(_T("Using certificate: ") + cert_);
@@ -135,7 +139,7 @@ bool NRPEClient::hasCommandHandler() {
 bool NRPEClient::hasMessageHandler() {
 	return false;
 }
-NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf)
+NSCAPI::nagiosReturn NRPEClient::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf)
 {
 	command_list::const_iterator cit = commands.find(strEx::blindstr(command.c_str()));
 	if (cit == commands.end())

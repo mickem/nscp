@@ -46,7 +46,8 @@ public:
 	CheckSystem();
 	virtual ~CheckSystem();
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	std::wstring getConfigurationMeta();
 
@@ -71,7 +72,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
 	NSCAPI::nagiosReturn checkCPU(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);

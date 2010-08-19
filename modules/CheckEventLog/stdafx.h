@@ -32,9 +32,13 @@
 #include <string>
 #include <functional>
 
+#include <boost/lexical_cast.hpp>
+
+#include <config.h>
+#include <unicode_char.hpp>
+#include <types.hpp>
 #include <NSCAPI.h>
-#include <nsc_module_wrapper.hpp>
-#include <NSCHelper.h>
+#include <nscapi/plugin.hpp>
 
 #ifdef MEMCHECK
 #include <vld.h>

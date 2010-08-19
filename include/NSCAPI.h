@@ -121,6 +121,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(wchar_t*,unsigned int);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(wchar_t*,unsigned int);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const wchar_t*,const wchar_t*,const wchar_t*,wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIExpandPath)(const wchar_t*,wchar_t*,unsigned int);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const wchar_t*, const wchar_t*, int);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const wchar_t*, wchar_t***, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(wchar_t***, unsigned int *);
@@ -153,7 +154,7 @@ namespace nscapi {
 
 	namespace plugin_api {
 		typedef int (*lpModuleHelperInit)(unsigned int, ::nscapi::core_api::lpNSAPILoader f);
-		typedef int (*lpLoadModule)(int);
+		typedef int (*lpLoadModule)(const wchar_t*,int);
 		typedef int (*lpGetName)(wchar_t*,unsigned int);
 		typedef int (*lpGetDescription)(wchar_t*,unsigned int);
 		typedef int (*lpGetVersion)(int*,int*,int*);

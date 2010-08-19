@@ -109,6 +109,7 @@ private:
 	dll::dll module_;
 	bool broken_;
 	unsigned int plugin_id_;
+	std::wstring alias_;
 
 	nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
 	nscapi::plugin_api::lpLoadModule fLoadModule;
@@ -128,13 +129,13 @@ private:
 	nscapi::plugin_api::lpHandleNotification fHandleNotification;
 
 public:
-	NSCPlugin(const unsigned int id, const boost::filesystem::wpath file);
+	NSCPlugin(const unsigned int id, const boost::filesystem::wpath file, std::wstring alias);
 	//NSCPlugin(NSCPlugin &other);
 	virtual ~NSCPlugin(void);
 
 	std::wstring getName(void);
 	std::wstring getDescription();
-	void load_dll(void);
+	void load_dll();
 	bool load_plugin(NSCAPI::moduleLoadMode mode);
 	void setBroken(bool broken);
 	bool isBroken();

@@ -26,13 +26,13 @@
 #include <msvc_wrappers.h>
 #include "handler_impl.hpp"
 
+namespace sh = nscapi::settings_helper;
+
 NRPEListener gNRPEListener;
 
-NRPEListener::NRPEListener() : noPerfData_(false), info_(boost::shared_ptr<nrpe::server::handler>(new handler_impl(0))) {
+NRPEListener::NRPEListener() : info_(boost::shared_ptr<nrpe::server::handler>(new handler_impl(1024))) {
 }
-NRPEListener::~NRPEListener() {
-	std::cout << "TERMINATING TERMINATING!!!" << std::endl;
-}
+NRPEListener::~NRPEListener() {}
 
 std::wstring getAllowedHosts() {
 	return SETTINGS_GET_STRING_FALLBACK(nrpe::ALLOWED_HOSTS, protocol_def::ALLOWED_HOSTS);
@@ -43,56 +43,86 @@ bool getCacheAllowedHosts() {
 
 
 
-bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
-	SETTINGS_REG_KEY_I(nrpe::PORT);
-	SETTINGS_REG_KEY_S(nrpe::BINDADDR);
-	SETTINGS_REG_KEY_I(nrpe::LISTENQUE);
-	SETTINGS_REG_KEY_I(nrpe::READ_TIMEOUT);
-	SETTINGS_REG_KEY_B(nrpe::KEYUSE_SSL);
-	SETTINGS_REG_KEY_I(nrpe::PAYLOAD_LENGTH);
-	SETTINGS_REG_KEY_B(nrpe::ALLOW_PERFDATA);
-	SETTINGS_REG_KEY_S(nrpe::SCRIPT_PATH);
-	SETTINGS_REG_KEY_I(nrpe::CMD_TIMEOUT);
-	SETTINGS_REG_KEY_B(nrpe::ALLOW_ARGS);
-	SETTINGS_REG_KEY_B(nrpe::ALLOW_NASTY);
+bool NRPEListener::loadModule() {
+	return false;
+}
 
-	SETTINGS_REG_PATH(nrpe::SECTION);
-	SETTINGS_REG_PATH(nrpe::SECTION_HANDLERS);
+bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
-	info_.use_ssl = SETTINGS_GET_BOOL(nrpe::KEYUSE_SSL)==1;
+/*
+DEFINE_SETTING_S(ALLOWED_HOSTS, NRPE_SECTION_PROTOCOL, GENERIC_KEY_ALLOWED_HOSTS, "");
+DESCRIBE_SETTING(ALLOWED_HOSTS, "ALLOWED HOST ADDRESSES", "This is a comma-delimited list of IP address of hosts that are allowed to talk to NSClient deamon. If you leave this blank the global version will be used instead.");
 
-#ifndef USE_SSL
-	if (bUseSSL_) {
-		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
-	}
-#endif
-
-	noPerfData_ = SETTINGS_GET_INT(nrpe::ALLOW_PERFDATA)==0;
-	timeout = SETTINGS_GET_INT(nrpe::READ_TIMEOUT);
-	info_.request_handler->set_payload_length(SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH));
-	if (info_.request_handler->get_payload_length() != 1024)
-		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(info_.request_handler->get_payload_length()));
-
-	boost::asio::io_service io_service_;
-	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts(), io_service_);
-	NSC_DEBUG_MSG_STD(_T("Allowed hosts: ") + allowedHosts.to_string());
+DEFINE_SETTING_B(CACHE_ALLOWED, NRPE_SECTION_PROTOCOL, GENERIC_KEY_SOCK_CACHE_ALLOWED, false);
+DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache looked up hosts if you check dynamic/changing hosts set this to false.");
+*/
 	try {
 
-		boost::filesystem::wpath p = GET_CORE()->getBasePath() + std::wstring(_T("security/nrpe_dh_512.pem"));
-		info_.certificate = to_string(p.string());
-		if (boost::filesystem::is_regular(p)) {
-			NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(alias, _T("NRPE/server"));
+
+		settings.add_path_to_settings()
+			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options."))
+			;
+
+		settings.add_key_to_settings()
+			(_T("port"), sh::uint_key(&info_.port, 5666),
+			_T("PORT NUMBER"), _T("Port to use for NRPE."))
+
+			(_T("bind to"), sh::string_key(&info_.address),
+			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
+
+			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
+			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
+
+			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
+			_T("THREAD POOL"), _T(""))
+
+			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
+			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
+
+			(_T("use ssl"), sh::bool_key(&info_.use_ssl, true),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+
+			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nrpe::server::handler::set_payload_length, info_.request_handler, _1), 1024),
+			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
+
+			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_arguments, info_.request_handler, _1), false),
+			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
+
+			(_T("allow nasty characters"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_nasty_arguments, info_.request_handler, _1), false),
+			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
+
+			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_perf_data, info_.request_handler, _1), true),
+			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
+
+			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
+			_T("SSL CERTIFICATE"), _T(""))
+			;
+
+		settings.register_all();
+		settings.notify();
+
+
+#ifndef USE_SSL
+		if (info_.use_ssl) {
+			NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
 		}
-		info_.port = to_string(SETTINGS_GET_INT(nrpe::PORT));
-		info_.address = to_string(SETTINGS_GET_STRING(nrpe::BINDADDR));
-		unsigned int backLog = SETTINGS_GET_INT(nrpe::LISTENQUE); // @todo: add to info block
-		info_.thread_pool_size = 10; // @todo Add as option
+#endif
+		if (info_.request_handler->get_payload_length() != 1024)
+			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(info_.request_handler->get_payload_length()));
+		if (!boost::filesystem::is_regular(info_.certificate))
+			NSC_LOG_ERROR_STD(_T("Certificate not found: ") + info_.certificate);
+
+		boost::asio::io_service io_service_;
+
+		allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts(), io_service_);
+		NSC_DEBUG_MSG_STD(_T("Allowed hosts: ") + allowedHosts.to_string());
+
 		if (mode == NSCAPI::normalStart) {
 			if (info_.use_ssl) {
 #ifdef USE_SSL
 				server_.reset(new nrpe::server::server(info_));
-//				NSC_LOG_ERROR_STD(_T("SSL not implemented"));
-//				return false;
 #else
 				NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
 				return false;
@@ -113,6 +143,8 @@ bool NRPEListener::loadModule(NSCAPI::moduleLoadMode mode) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
 		return false;
 	}
+
+
 	return true;
 }
 

@@ -2,7 +2,7 @@
 
 #include <string>
 #include <map>
-#include <settings/Settings.h>
+#include <settings/settings_core.hpp>
 #include <simpleini/SimpleIni.h>
 #include <settings/macros.h>
 
@@ -10,11 +10,11 @@
 #define MAIN_SECTION_TITLE _T("Settings")
 #define MAIN_STRING_LENGTH _T("string_length")
 
-namespace Settings {
-	class OLDSettings : public Settings::SettingsInterfaceImpl {
+namespace settings {
+	class OLDSettings : public settings::SettingsInterfaceImpl {
 		std::wstring filename_;
 	public:
-		OLDSettings(Settings::SettingsCore *core, std::wstring context) :Settings::SettingsInterfaceImpl(core, context) {
+		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
 			add_mapping(MAIN_MODULES_SECTION, MAIN_MODULES_SECTION_OLD);
 			add_mapping(setting_keys::settings_def::PAYLOAD_LEN_PATH, setting_keys::settings_def::PAYLOAD_LEN, MAIN_SECTION_TITLE, MAIN_STRING_LENGTH);
 
@@ -79,13 +79,9 @@ namespace Settings {
 			SETTINGS_MAP_KEY_A(nrpe::KEYUSE_SSL,	NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL);
 			SETTINGS_MAP_KEY_A(nrpe::PAYLOAD_LENGTH,NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN);
 			SETTINGS_MAP_KEY_A(nrpe::ALLOW_PERFDATA,NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA);
-			SETTINGS_MAP_KEY_A(nrpe::SCRIPT_PATH,	NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR);
 			SETTINGS_MAP_KEY_A(nrpe::CMD_TIMEOUT,	NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT);
 			SETTINGS_MAP_KEY_A(nrpe::ALLOW_ARGS,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS);
 			SETTINGS_MAP_KEY_A(nrpe::ALLOW_NASTY,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META);
-
-			SETTINGS_MAP_SECTION_A(nrpe::SECTION_HANDLERS,NRPE_HANDLER_SECTION_TITLE);
-
 
 #define NSCA_AGENT_SECTION_TITLE _T("NSCA Agent")
 #define NSCA_CMD_SECTION_TITLE _T("NSCA Commands")
@@ -125,15 +121,15 @@ namespace Settings {
 
 		}
 		typedef std::map<std::wstring,std::wstring> path_map;
-		typedef std::map<SettingsCore::key_path_type,SettingsCore::key_path_type> key_map;
+		typedef std::map<settings_core::key_path_type,settings_core::key_path_type> key_map;
 		path_map sections_;
 		key_map keys_;
 		void add_mapping(std::wstring path_new, std::wstring path_old) {
 			sections_[path_new] = path_old;
 		}
 		void add_mapping(std::wstring path_new, std::wstring key_new, std::wstring path_old, std::wstring key_old) {
-			SettingsCore::key_path_type new_key(path_new, key_new);
-			SettingsCore::key_path_type old_key(path_old, key_old);
+			settings_core::key_path_type new_key(path_new, key_new);
+			settings_core::key_path_type old_key(path_old, key_old);
 			keys_[new_key] = old_key;
 		}
 		std::wstring map_path(std::wstring path_new) {
@@ -143,13 +139,13 @@ namespace Settings {
 			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Mapping: ") + path_new + _T(" to ") + (*it).second);
 			return (*it).second;
 		}
-		SettingsCore::key_path_type map_key(SettingsCore::key_path_type new_key) {
+		settings_core::key_path_type map_key(settings_core::key_path_type new_key) {
 			key_map::iterator it1 = keys_.find(new_key);
 			if (it1 != keys_.end())
 				return (*it1).second;
 			path_map::iterator it2 = sections_.find(new_key.first);
 			if (it2 != sections_.end())
-				return SettingsCore::key_path_type((*it2).second, new_key.second);
+				return settings_core::key_path_type((*it2).second, new_key.second);
 			return new_key;
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -170,7 +166,7 @@ namespace Settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(SettingsCore::key_path_type key) {
+		virtual std::wstring get_real_string(settings_core::key_path_type key) {
 			key = map_key(key);
 			get_core()->get_logger()->quick_debug(key.first + _T("//") + key.second);
 			return internal_get_value(key.first, key.second.c_str());
@@ -181,7 +177,7 @@ namespace Settings {
 			get_core()->get_logger()->quick_debug(path + _T("//") + key);
 			TCHAR* buffer = new TCHAR[bufferSize+2];
 			if (buffer == NULL)
-				throw SettingsException(_T("Out of memmory error!"));
+				throw settings_exception(_T("Out of memmory error!"));
 			int retVal = GetPrivateProfileString(path.c_str(), key.c_str(), UNLIKELY_STRING, buffer, bufferSize, get_file_name().c_str());
 			if (retVal == bufferSize-1) {
 				delete [] buffer;
@@ -206,7 +202,7 @@ namespace Settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(SettingsCore::key_path_type key) {
+		virtual int get_real_int(settings_core::key_path_type key) {
 			std::wstring str = get_real_string(key);
 			return strEx::stoi(str);
 		}
@@ -218,7 +214,7 @@ namespace Settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(SettingsCore::key_path_type key) {
+		virtual bool get_real_bool(settings_core::key_path_type key) {
 			std::wstring str = get_real_string(key);
 			return SettingsInterfaceImpl::string_to_bool(str);
 		}
@@ -230,7 +226,7 @@ namespace Settings {
 		/// @return true/false if the key exists.
 		///
 		/// @author mickem
-		virtual bool has_real_key(SettingsCore::key_path_type key) {
+		virtual bool has_real_key(settings_core::key_path_type key) {
 			return has_key_int(key.first, key.second);
 		}
 
@@ -238,7 +234,7 @@ namespace Settings {
 			string_list ret;
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
-				throw SettingsException(_T("has_key_int:: Failed to allocate memory for buffer!"));
+				throw settings_exception(_T("has_key_int:: Failed to allocate memory for buffer!"));
 			std::wstring mapped = map_path(path);
 			unsigned int count = ::GetPrivateProfileSection(mapped.c_str(), buffer, bufferLength-2, get_file_name().c_str());
 			if (count == bufferLength-2) {
@@ -261,24 +257,7 @@ namespace Settings {
 			delete [] buffer;
 			return false;
 		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get the type this settings store represent.
-		///
-		/// @return the type of settings store
-		///
-		/// @author mickem
-		virtual SettingsCore::settings_type get_type() {
-			return SettingsCore::old_ini_file;
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Is this the active settings store
-		///
-		/// @return
-		///
-		/// @author mickem
-		virtual bool is_active() {
-			return true;
-		}
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
 		///
@@ -286,12 +265,12 @@ namespace Settings {
 		/// @param value The value to write
 		///
 		/// @author mickem
-		virtual void set_real_value(SettingsCore::key_path_type key, conainer value) {
+		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 			try {
 				key = map_key(key);
 				get_core()->get_logger()->quick_debug(key.first + _T("//") + key.second + _T("//") + value.get_string());
 				WritePrivateProfileString(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), get_file_name().c_str());
-			} catch (SettingsException e) {
+			} catch (settings_exception e) {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
@@ -374,7 +353,7 @@ namespace Settings {
 			string_list ret;
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
-				throw SettingsException(_T("getSections:: Failed to allocate memory for buffer!"));
+				throw settings_exception(_T("getSections:: Failed to allocate memory for buffer!"));
 			unsigned int count = ::GetPrivateProfileSectionNames(buffer, BUFF_LEN, get_file_name().c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
@@ -404,15 +383,15 @@ namespace Settings {
 			std::wstring mapped_path = map_path(path);
 			int_read_section(mapped_path, list);
 			/*
-			Settings::SettingsCore::mapped_key_list_type mapped_keys = get_core()->find_maped_keys(path);
-			for (Settings::SettingsCore::mapped_key_list_type::const_iterator cit = mapped_keys.begin(); cit != mapped_keys.end(); ++cit) {
+			settings::settings_core::mapped_key_list_type mapped_keys = get_core()->find_maped_keys(path);
+			for (settings::settings_core::mapped_key_list_type::const_iterator cit = mapped_keys.begin(); cit != mapped_keys.end(); ++cit) {
 				if (has_key((*cit).dst.first, (*cit).dst.second))
 					list.push_back((*cit).src.second);
 			}
 			*/
 		}
-		virtual SettingsCore::key_type get_key_type(std::wstring path, std::wstring key) {
-			return SettingsCore::key_string;
+		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
+			return settings_core::key_string;
 		}
 	private:
 		bool has_key(std::wstring section, std::wstring key) {
@@ -427,7 +406,7 @@ namespace Settings {
 			// @TODO this is not correct!
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
-				throw SettingsException(_T("getSections:: Failed to allocate memory for buffer!"));
+				throw settings_exception(_T("getSections:: Failed to allocate memory for buffer!"));
 			unsigned int count = GetPrivateProfileSection(section.c_str(), buffer, bufferLength, get_file_name().c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
@@ -451,13 +430,17 @@ namespace Settings {
 
 		inline std::wstring get_file_name() {
 			if (filename_.empty()) {
-				filename_ = (get_core()->get_base() / get_core()->get_boot_string(get_context(), _T("file"), _T("nsc.ini"))).string();
+				filename_ = get_file_from_context();
+				//filename_ = (get_core()->get_base() / get_core()->get_boot_string(get_context(), _T("file"), _T("nsc.ini"))).string();
 				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading old settings from: ") + filename_);
 			}
 			return filename_;
 		}
 		bool file_exists() {
 			return boost::filesystem::is_regular_file(get_file_name());
+		}
+		virtual std::wstring get_info() {
+			return _T("INI settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
 		}
 	};
 }

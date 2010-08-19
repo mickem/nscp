@@ -28,6 +28,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/regex.hpp>
 #include <strEx.h>
 #define BUFF_LEN 4096
 
@@ -110,6 +111,7 @@ namespace Settings {
 			old_ini_file,
 			ini_file,
 			xml_file,
+			lua,
 		} settings_type;
 		typedef enum {
 			key_string = 100,
@@ -156,12 +158,17 @@ namespace Settings {
 		///
 		/// @author mickem
 		static settings_type string_to_type(std::wstring key) {
-			if (key == _T("ini"))
+			// detect location here!!
+			boost::wregex old(_T("old://.*nsc\.ini$"), boost::regex::icase);
+			boost::wregex ini(_T("ini://.*\.ini$"), boost::regex::icase);
+			boost::wregex reg(_T("registry://.*/$"), boost::regex::icase);
+			boost::wregex re_lua(_T("lua://.*\.lua$"), boost::regex::icase);
+			if (boost::regex_match(key, ini))
 				return ini_file;
-			if (key == _T("registry"))
+			if (boost::regex_match(key, reg))
 				return registry;
-			if (key == _T("xml"))
-				return xml_file;
+			if (boost::regex_match(key, re_lua))
+				return lua;
 			return old_ini_file;
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -1295,9 +1302,10 @@ namespace Settings {
 		cache_type settings_cache_;
 		path_cache_type path_cache_;
 		std::wstring context_;
+		net::url url_;
 
 		//SettingsInterfaceImpl() : core_(NULL) {}
-		SettingsInterfaceImpl(SettingsCore *core, std::wstring context) : core_(core), context_(context) {}
+		SettingsInterfaceImpl(SettingsCore *core, std::wstring context) : core_(core), context_(context), url_(net::parse(context_)) {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Empty all cached settings values and force a reload.
@@ -1611,6 +1619,13 @@ namespace Settings {
 		virtual std::wstring get_context() {
 			return context_;
 		}
+		virtual std::wstring get_file_name_from_context() {
+			return url_.path;
+		}
+		virtual std::wstring find_file() {
+			return core_->find_file(url_.path);
+		}
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the context.
 		/// The context is an identifier for the settings store for INI/XML it is the filename.

@@ -18,6 +18,9 @@ namespace nrpe {
 			virtual nrpe::packet create_error(std::wstring msg) = 0;
 			virtual unsigned int get_payload_length() = 0;
 			virtual void set_payload_length(unsigned int payload) = 0;
+			virtual void set_allow_arguments(bool) = 0;
+			virtual void set_allow_nasty_arguments(bool) = 0;
+			virtual void set_perf_data(bool) = 0;
 
 		};
 	}// namespace server

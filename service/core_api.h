@@ -45,8 +45,8 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer
 NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen);
 NSCAPI::errorReturn NSAPISetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* value);
 NSCAPI::errorReturn NSAPISetSettingsInt(const wchar_t* section, const wchar_t* key, int value);
-NSCAPI::errorReturn NSAPIWriteSettings(int type);
-NSCAPI::errorReturn NSAPIReadSettings(int type);
+NSCAPI::errorReturn NSAPIWriteSettings(const wchar_t* key);
+NSCAPI::errorReturn NSAPIReadSettings(const wchar_t* key);
 NSCAPI::errorReturn NSAPIRehash(int flag);
 NSCAPI::errorReturn NSAPIDescribeCommand(const wchar_t*,wchar_t*,unsigned int);
 NSCAPI::errorReturn NSAPIGetAllCommandNames(wchar_t***, unsigned int *);
@@ -59,3 +59,4 @@ NSCAPI::errorReturn NSAPIReleasePluginList(int,NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPISettingsSave(void);
 NSCAPI::errorReturn NSAPINotify(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, char*, unsigned int);
 void NSAPIDestroyBuffer(char**);
+NSCAPI::errorReturn NSAPIExpandPath(const wchar_t*,wchar_t*,unsigned int);

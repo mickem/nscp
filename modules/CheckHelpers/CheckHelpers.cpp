@@ -31,8 +31,11 @@ CheckHelpers::CheckHelpers() {
 CheckHelpers::~CheckHelpers() {
 }
 
+bool CheckHelpers::loadModule() {
+	return false;
+}
 
-bool CheckHelpers::loadModule(NSCAPI::moduleLoadMode mode) {
+bool CheckHelpers::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		GET_CORE()->registerCommand(_T("CheckAlwaysOK"), _T("Run another check and regardless of its return code return OK."));
 		GET_CORE()->registerCommand(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));
@@ -73,7 +76,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status
 	return status;
 }
 
-NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("checkversion")) {
 		message = GET_CORE()->getApplicationVersionString();
 		return NSCAPI::returnOK;

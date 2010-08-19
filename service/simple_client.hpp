@@ -13,7 +13,7 @@ namespace nsclient {
 				std::wcout << _T("Service *NOT* started!") << std::endl;
 				return;
 			}
-			std::wcout << _T("Using settings from: ") << settings_manager::get_core()->get_settings_type_desc() << std::endl;
+			//std::wcout << _T("Using settings from: ") << settings_manager::get_core()->get_settings_type_desc() << std::endl;
 			std::wcout << _T("Enter command to inject or exit to terminate...") << std::endl;
 /*
 			Settings::get_settings()->clear_cache();

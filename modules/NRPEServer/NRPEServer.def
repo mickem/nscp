@@ -3,6 +3,7 @@ LIBRARY	NRPEListener
 EXPORTS
 	NSModuleHelperInit
 	NSLoadModule
+	NSLoadModuleEx
 	NSGetModuleName
 	NSGetModuleVersion
 	NSHasCommandHandler

@@ -2,15 +2,15 @@
 
 #include <string>
 #include <windows.h>
-#include <settings/Settings.h>
+#include <settings/settings_core.hpp>
 #include <msvc_wrappers.h>
 #include <error.hpp>
 #include <settings/macros.h>
 #define BUFF_LEN 4096
 
 
-namespace Settings {
-	class REGSettings : public Settings::SettingsInterfaceImpl {
+namespace settings {
+	class REGSettings : public settings::SettingsInterfaceImpl {
 	private:
 		struct reg_key {
 			HKEY hKey;
@@ -25,7 +25,7 @@ namespace Settings {
 
 
 	public:
-	REGSettings(Settings::SettingsCore *core, std::wstring context) : Settings::SettingsInterfaceImpl(core, context) {}
+	REGSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {}
 
 	virtual ~REGSettings(void) {}
 
@@ -47,7 +47,7 @@ namespace Settings {
 	/// @return the string value
 	///
 	/// @author mickem
-	virtual std::wstring get_real_string(SettingsCore::key_path_type key) {
+	virtual std::wstring get_real_string(settings_core::key_path_type key) {
 		return getString_(get_reg_key(key.first), key.second);
 	}
 	//////////////////////////////////////////////////////////////////////////
@@ -58,7 +58,7 @@ namespace Settings {
 	/// @return the int value
 	///
 	/// @author mickem
-	virtual int get_real_int(SettingsCore::key_path_type key) {
+	virtual int get_real_int(settings_core::key_path_type key) {
 		throw KeyNotFoundException(key);
 	}
 	//////////////////////////////////////////////////////////////////////////
@@ -69,7 +69,7 @@ namespace Settings {
 	/// @return the boolean value
 	///
 	/// @author mickem
-	virtual bool get_real_bool(SettingsCore::key_path_type key) {
+	virtual bool get_real_bool(settings_core::key_path_type key) {
 		throw KeyNotFoundException(key);
 	}
 	//////////////////////////////////////////////////////////////////////////
@@ -80,26 +80,8 @@ namespace Settings {
 	/// @return true/false if the key exists.
 	///
 	/// @author mickem
-	virtual bool has_real_key(SettingsCore::key_path_type key) {
+	virtual bool has_real_key(settings_core::key_path_type key) {
 		return false;
-	}
-	//////////////////////////////////////////////////////////////////////////
-	/// Get the type this settings store represent.
-	///
-	/// @return the type of settings store
-	///
-	/// @author mickem
-	virtual SettingsCore::settings_type get_type() {
-		return SettingsCore::registry;
-	}
-	//////////////////////////////////////////////////////////////////////////
-	/// Is this the active settings store
-	///
-	/// @return
-	///
-	/// @author mickem
-	virtual bool is_active() {
-		return true;
 	}
 	//////////////////////////////////////////////////////////////////////////
 	/// Write a value to the resulting context.
@@ -108,18 +90,18 @@ namespace Settings {
 	/// @param value The value to write
 	///
 	/// @author mickem
-	virtual void set_real_value(SettingsCore::key_path_type key, conainer value) {
-		if (value.type == SettingsCore::key_string) {
+	virtual void set_real_value(settings_core::key_path_type key, conainer value) {
+		if (value.type == settings_core::key_string) {
 			if (!setString_(get_reg_key(key), key.second, value.get_string()))
-				throw SettingsException(_T("Failed to write key: ") + key.first + _T(".") + key.second);
-		} else if (value.type == SettingsCore::key_integer) {
+				throw settings_exception(_T("Failed to write key: ") + key.first + _T(".") + key.second);
+		} else if (value.type == settings_core::key_integer) {
 			if (!setInt_(get_reg_key(key), key.second, value.get_int()))
-			throw SettingsException(_T("Failed to write key: ") + key.first + _T(".") + key.second);
-		} else if (value.type == SettingsCore::key_bool) {
+			throw settings_exception(_T("Failed to write key: ") + key.first + _T(".") + key.second);
+		} else if (value.type == settings_core::key_bool) {
 			if (!setInt_(get_reg_key(key), key.second, value.get_bool()?1:0))
-			throw SettingsException(_T("Failed to write key: ") + key.first + _T(".") + key.second);
+			throw settings_exception(_T("Failed to write key: ") + key.first + _T(".") + key.second);
 		} else {
-			throw SettingsException(_T("Invalid settings type."));
+			throw settings_exception(_T("Invalid settings type."));
 		}
 	}
 	virtual void set_real_path(std::wstring path) {
@@ -150,11 +132,11 @@ namespace Settings {
 	virtual void get_real_keys(std::wstring path, string_list &list) {
 		getValues_(get_reg_key(path), list);
 	}
-	virtual SettingsCore::key_type get_key_type(std::wstring path, std::wstring key) {
-		return SettingsCore::key_string;
+	virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
+		return settings_core::key_string;
 	}
 private:
-	reg_key get_reg_key(SettingsCore::key_path_type key) {
+	reg_key get_reg_key(settings_core::key_path_type key) {
 		return get_reg_key(key.first);
 	}
 	reg_key get_reg_key(std::wstring path) {
@@ -216,15 +198,15 @@ private:
 					std::wcout << _T("read: ") << ret << std::endl;
 					return ret;
 				}
-				throw SettingsException(_T("String to long: ") + path.to_string());
+				throw settings_exception(_T("String to long: ") + path.to_string());
 			} else if (type == REG_DWORD) {
 				DWORD dw = *(reinterpret_cast<DWORD*>(bData));
 				return strEx::itos(dw);
 			}
-			throw SettingsException(_T("Unsupported key type: ") + path.to_string());
+			throw settings_exception(_T("Unsupported key type: ") + path.to_string());
 		} else if (lRet == ERROR_FILE_NOT_FOUND)
 			throw KeyNotFoundException(_T("Key not found: ") + path.to_string());
-		throw SettingsException(_T("Failed to open key: ") + path.to_string() + _T(": ") + error::lookup::last_error(lRet));
+		throw settings_exception(_T("Failed to open key: ") + path.to_string() + _T(": ") + error::lookup::last_error(lRet));
 	}
 	static DWORD getInt_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, DWORD def) {
 		DWORD ret = def;
@@ -265,7 +247,7 @@ private:
 				bRet = RegEnumValue(hTemp, i, lpValueName, &len, NULL, NULL, NULL, NULL);
 				if (bRet != ERROR_SUCCESS) {
 					delete [] lpValueName;
-					throw SettingsException(_T("Failed to enumerate: ") + path.to_string() + _T(": ") + error::lookup::last_error());
+					throw settings_exception(_T("Failed to enumerate: ") + path.to_string() + _T(": ") + error::lookup::last_error());
 				}
 				list.push_back(std::wstring(lpValueName));
 			}
@@ -289,17 +271,15 @@ private:
 				bRet = RegEnumKey(hTemp, i, lpValueName, len);
 				if (bRet != ERROR_SUCCESS) {
 					delete [] lpValueName;
-					throw SettingsException(_T("Failed to enumerate: ") + path.to_string() + _T(": ") + error::lookup::last_error());
+					throw settings_exception(_T("Failed to enumerate: ") + path.to_string() + _T(": ") + error::lookup::last_error());
 				}
 				list.push_back(std::wstring(lpValueName));
 			}
 			delete [] lpValueName;
 		}
 	}
-	/*
-	void setSection(std::wstring section, sectionList data)  {
-		std::wcout << _T("Unsupported function call") << std::endl;
+	virtual std::wstring get_info() {
+		return _T("Registry settings: (") + context_ + _T(",TODO)");
 	}
-	*/
 };
 }

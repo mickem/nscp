@@ -35,13 +35,20 @@ namespace nrpe {
 		class server : private boost::noncopyable {
 		public:
 			struct connection_info {
-				connection_info(boost::shared_ptr<nrpe::server::handler> request_handler_) : request_handler(request_handler_) {}
+				static const int backlog_default;
+				connection_info(boost::shared_ptr<nrpe::server::handler> request_handler_) : request_handler(request_handler_), back_log(backlog_default) {}
 				std::string address;
-				std::string port;
-				std::size_t thread_pool_size;
+				unsigned int port;
+				std::string get_port() { return to_string(port); }
+				std::string get_address() { return to_string(address); }
+				unsigned int thread_pool_size;
+				int back_log;
 				bool use_ssl;
+				bool allow_args;
+				bool allow_nasty;
+				unsigned int timeout;
 				boost::shared_ptr<nrpe::server::handler> request_handler;
-				std::string certificate;
+				std::wstring certificate;
 				std::wstring get_endpoint_str() {
 					return to_wstring(address) + _T(":") + to_wstring(port);
 				}

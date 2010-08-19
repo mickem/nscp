@@ -73,6 +73,18 @@
 #define DATE_FORMAT _T("%#c")
 
 
+#define DEFAULT_CONF_LOCATION _T("ini")
+#define DEFAULT_CONF_OLD_LOCATION _T("old://${exe-path}/nsc.ini")
+
+/*
+#;location=old://${exe-path}/nsc.ini
+#location=ini://${exe-path}/nsclient.ini
+#;location=ini://${base-path}/nsclient.ini
+#;location=registry://HKEY_LOCAL_MACHINE/software/NSClient++
+*/
+
+
+
 // Default Argument string (for consistency)
 #define SHOW_ALL _T("ShowAll")
 #define SHOW_FAIL _T("ShowFail")

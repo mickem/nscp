@@ -13,7 +13,7 @@ public:
 	}
 	~simple_timer() {
 		if (log)
-			std::cout << text << stop() << std::endl;;
+			std::wcout << text << stop() << std::endl;;
 	}
 
 	void start() {

@@ -6,19 +6,22 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 
-#include <settings/Settings.h>
+#include <settings/settings_core.hpp>
+#include <settings/settings_core_impl.hpp>
 #include <simpleini/simpleini.h>
 #include <error.hpp>
 
-namespace Settings {
-	class INISettings : public Settings::SettingsInterfaceImpl {
+namespace settings {
+	class INISettings : public settings::SettingsInterfaceImpl {
 	private:
 		boost::filesystem::wpath filename_;
 		bool is_loaded_;
 		CSimpleIni ini;
 
 	public:
-		INISettings(Settings::SettingsCore *core, std::wstring context) : ini(false, false, false), is_loaded_(false), Settings::SettingsInterfaceImpl(core, context) {}
+		INISettings(settings::settings_core *core, std::wstring context) : ini(false, false, false), is_loaded_(false), settings::SettingsInterfaceImpl(core, context) {
+			load_data();
+		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
 		///
@@ -37,7 +40,7 @@ namespace Settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(SettingsCore::key_path_type key) {
+		virtual std::wstring get_real_string(settings_core::key_path_type key) {
 			load_data();
 			const wchar_t *val = ini.GetValue(key.first.c_str(), key.second.c_str(), NULL);
 			if (val == NULL)
@@ -52,7 +55,7 @@ namespace Settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(SettingsCore::key_path_type key) {
+		virtual int get_real_int(settings_core::key_path_type key) {
 			std::wstring str = get_real_string(key);
 			return strEx::stoi(str);
 		}
@@ -64,7 +67,7 @@ namespace Settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(SettingsCore::key_path_type key) {
+		virtual bool get_real_bool(settings_core::key_path_type key) {
 			std::wstring str = get_real_string(key);
 			return SettingsInterfaceImpl::string_to_bool(str);
 		}
@@ -76,7 +79,7 @@ namespace Settings {
 		/// @return true/false if the key exists.
 		///
 		/// @author mickem
-		virtual bool has_real_key(SettingsCore::key_path_type key) {
+		virtual bool has_real_key(settings_core::key_path_type key) {
 			return ini.GetValue(key.first.c_str(), key.second.c_str()) != NULL;
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -85,18 +88,18 @@ namespace Settings {
 		/// @return the type of settings store
 		///
 		/// @author mickem
-		virtual SettingsCore::settings_type get_type() {
-			return SettingsCore::ini_file;
-		}
+// 		virtual settings_core::settings_type get_type() {
+// 			return settings_core::ini_file;
+// 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Is this the active settings store
 		///
 		/// @return
 		///
 		/// @author mickem
-		virtual bool is_active() {
-			return true;
-		}
+// 		virtual bool is_active() {
+// 			return true;
+// 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
 		///
@@ -104,9 +107,9 @@ namespace Settings {
 		/// @param value The value to write
 		///
 		/// @author mickem
-		virtual void set_real_value(SettingsCore::key_path_type key, conainer value) {
+		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 			try {
-				const SettingsCore::key_description desc = get_core()->get_registred_key(key.first, key.second);
+				const settings_core::key_description desc = get_core()->get_registred_key(key.first, key.second);
 				std::wstring comment = _T("; ");
 				if (!desc.title.empty())
 					comment += desc.title + _T(" - ");
@@ -119,7 +122,7 @@ namespace Settings {
 				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), comment.c_str());
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), _T("; Undocumented key"));
-			} catch (SettingsException e) {
+			} catch (settings_exception e) {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
@@ -129,14 +132,14 @@ namespace Settings {
 		virtual void set_real_path(std::wstring path) {
 			try {
 				get_core()->get_logger()->quick_debug(_T("Setting path: ") + path);
-				const SettingsCore::path_description desc = get_core()->get_registred_path(path);
+				const settings_core::path_description desc = get_core()->get_registred_path(path);
 				if (!desc.description.empty()) {
 					std::wstring comment = _T("; ") + desc.description;
 					ini.SetValue(path.c_str(), NULL, NULL, comment.c_str());
 				}
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(path.c_str(), NULL, NULL, _T("; Undocumented section"));
-			} catch (SettingsException e) {
+			} catch (settings_exception e) {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write section: ") + e.getError()));
 			} catch (...) {
 				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing section: ") + path));
@@ -210,8 +213,8 @@ namespace Settings {
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to save file"));
 		}
-		virtual SettingsCore::key_type get_key_type(std::wstring path, std::wstring key) {
-			return SettingsCore::key_string;
+		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
+			return settings_core::key_string;
 		}
 	private:
 		void load_data() {
@@ -224,6 +227,12 @@ namespace Settings {
 			SI_Error rc = ini.LoadFile(get_file_name().string().c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));
+
+			CSimpleIni::TNamesDepend lst;
+			ini.GetAllKeys(_T("/includes"), lst);
+			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+				add_child(ini.GetValue(_T("/includes"), (*cit).pItem));
+			}
 			is_loaded_ = true;
 		}
 		void throw_SI_error(SI_Error err, std::wstring msg) {
@@ -234,11 +243,12 @@ namespace Settings {
 				error_str = _T("General failure");
 			if (err == SI_FILE)
 				error_str = _T("I/O error: ") + error::lookup::last_error();
-			throw SettingsException(msg + _T(": ") + get_context() + _T(" - ") + error_str);
+			throw settings_exception(msg + _T(": ") + get_context() + _T(" - ") + error_str);
 		}
 		boost::filesystem::wpath get_file_name() {
 			if (filename_.empty()) {
-				filename_ = get_core()->get_base() / boost::filesystem::wpath(get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini")));
+				filename_ = get_file_from_context();
+				//filename_ = get_core()->get_base() / boost::filesystem::wpath(get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini")));
 				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading INI settings from: ") + filename_.string());
 			}
 			return filename_;
@@ -246,5 +256,9 @@ namespace Settings {
 		bool file_exists() {
 			return boost::filesystem::is_regular(get_file_name());
 		}
+		virtual std::wstring get_info() {
+			return _T("INI settings: (") + context_ + _T(", ") + get_file_name().string() + _T(")");
+		}
+
 	};
 }

@@ -27,7 +27,11 @@
 
 Scheduler gInstance;
 
-bool Scheduler::loadModule(NSCAPI::moduleLoadMode mode) {
+bool Scheduler::loadModule() {
+	return false;
+}
+
+bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		SETTINGS_REG_PATH(scheduler::SECTION);
 		SETTINGS_REG_PATH(scheduler::DEFAULT_SCHEDULE_SECTION);

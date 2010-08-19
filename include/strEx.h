@@ -32,6 +32,8 @@
 #include <locale>
 #include <iostream>
 
+#include <cctype>
+
 #include <unicode_char.hpp>
 
 #include <boost/lexical_cast.hpp>
@@ -76,6 +78,38 @@ namespace boost
 			result += std::use_facet<std::ctype<wchar_t> >(loc).narrow(arg[i], 0);
 		return result;
 	}
+}
+
+namespace net {
+
+	struct url {
+		std::wstring protocol;
+		std::wstring host;
+		std::wstring path;
+		std::wstring query;
+
+	};
+	inline url parse(const std::wstring& url_s) {
+		url ret;
+		const std::wstring prot_end(_T("://"));
+		std::wstring::const_iterator prot_i = std::search(url_s.begin(), url_s.end(), prot_end.begin(), prot_end.end());
+		ret.protocol.reserve(std::distance(url_s.begin(), prot_i));
+		std::transform(url_s.begin(), prot_i, std::back_inserter(ret.protocol), std::ptr_fun<int,int>(std::tolower)); // protocol is icase
+		if( prot_i == url_s.end() )
+			return ret;
+		std::advance(prot_i, prot_end.length());
+		std::wstring::const_iterator path_i = std::find(prot_i, url_s.end(), L'/');
+		ret.host.reserve(std::distance(prot_i, path_i));
+		std::transform(prot_i, path_i, std::back_inserter(ret.host), std::ptr_fun<int,int>(std::tolower)); // host is icase
+		std::wstring::const_iterator query_i = std::find(path_i, url_s.end(), L'?');
+		ret.path.assign(path_i, query_i);
+		if( query_i != url_s.end() )
+			++query_i;
+		ret.query.assign(query_i, url_s.end());
+		return ret;
+	}
+
+
 }
 namespace strEx {
 	class string_exception : public std::exception {
@@ -628,6 +662,36 @@ namespace strEx {
 		return token(buffer.substr(0, pos-1), buffer.substr(++pos));
 	}
 
+
+
+	template<class char_type>
+	struct ci_char_traits : public std::char_traits<char_type> {
+		static bool eq( char_type c1, char_type c2 ) {
+			return toupper(c1) == toupper(c2); 
+		}
+
+		static bool ne( char_type c1, char_type c2 ) { 
+			return toupper(c1) != toupper(c2); 
+		}
+
+		static bool lt( char_type c1, char_type c2 ) { 
+			return toupper(c1) <  toupper(c2); 
+		}
+
+		static int compare( const char_type* s1, const char_type* s2, size_t n ) {
+			return memicmp( s1, s2, n );
+			// if available on your compiler,
+			//  otherwise you can roll your own
+		}
+
+		static const char* find( const char_type* s, int n, char_type a ) {
+			while( n-- > 0 && toupper(*s) != toupper(a) ) {
+				++s;
+			}
+			return s;
+		}
+	};
+	typedef std::basic_string<wchar_t, ci_char_traits<wchar_t> > wci_string;
 
 	template<class _E>
 	struct blind_traits : public std::char_traits<_E>

@@ -82,7 +82,11 @@ std::string FileLogger::getFileName() {
 	return file_;
 }
 
-bool FileLogger::loadModule(NSCAPI::moduleLoadMode mode) {
+bool FileLogger::loadModule() {
+	return false;
+}
+
+bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	//_tzset();
 	getFileName();
 

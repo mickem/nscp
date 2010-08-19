@@ -147,7 +147,7 @@ namespace setting_keys {
 	// NSClient Setting headlines
 	namespace nrpe {
 		DEFINE_PATH(SECTION, NRPE_SECTION_PROTOCOL);
-		DESCRIBE_SETTING(SECTION, "NRPE SECTION", "Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options.");
+		//DESCRIBE_SETTING(SECTION, "NRPE SECTION", "Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options.");
 
 		
 		DEFINE_PATH(CH_SECTION, NRPE_CLIENT_HANDLER_SECTION);
@@ -157,43 +157,42 @@ namespace setting_keys {
 		DESCRIBE_SETTING(ALLOWED_HOSTS, "ALLOWED HOST ADDRESSES", "This is a comma-delimited list of IP address of hosts that are allowed to talk to NSClient deamon. If you leave this blank the global version will be used instead.");
 
 		DEFINE_SETTING_I(PORT, NRPE_SECTION_PROTOCOL, "port", 5666);
-		DESCRIBE_SETTING(PORT, "NSCLIENT PORT NUMBER", "This is the port the NSClientListener.dll will listen to.");
+		//DESCRIBE_SETTING(PORT, "NSCLIENT PORT NUMBER", "This is the port the NSClientListener.dll will listen to.");
 
 		DEFINE_SETTING_S(BINDADDR, NRPE_SECTION_PROTOCOL, GENERIC_KEY_BIND_TO, "");
-		DESCRIBE_SETTING(BINDADDR, "BIND TO ADDRESS", "Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname. Leaving this blank will bind to all avalible IP adresses.");
+		//DESCRIBE_SETTING(BINDADDR, "BIND TO ADDRESS", "Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname. Leaving this blank will bind to all avalible IP adresses.");
 
 		DEFINE_SETTING_I(READ_TIMEOUT, NRPE_SECTION_PROTOCOL, GENERIC_KEY_SOCK_READ_TIMEOUT, 30);
-		DESCRIBE_SETTING(READ_TIMEOUT, "SOCKET TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.");
+		//DESCRIBE_SETTING(READ_TIMEOUT, "SOCKET TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.");
 
 		DEFINE_SETTING_I(LISTENQUE, NRPE_SECTION_PROTOCOL, GENERIC_KEY_SOCK_LISTENQUE, 0);
-		DESCRIBE_SETTING_ADVANCED(LISTENQUE, "LISTEN QUEUE", "Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.");
+		//DESCRIBE_SETTING_ADVANCED(LISTENQUE, "LISTEN QUEUE", "Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.");
+
+		DEFINE_SETTING_I(THREAD_POOL, NRPE_SECTION_PROTOCOL, "thread pool", 10);
+		//DESCRIBE_SETTING_ADVANCED(THREAD_POOL, "THREAD POOL", "");
+
+		
 
 		DEFINE_SETTING_B(CACHE_ALLOWED, NRPE_SECTION_PROTOCOL, GENERIC_KEY_SOCK_CACHE_ALLOWED, false);
 		DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache looked up hosts if you check dynamic/changing hosts set this to false.");
 
 		DEFINE_SETTING_B(KEYUSE_SSL, NRPE_SECTION_PROTOCOL, GENERIC_KEY_USE_SSL, true);
-		DESCRIBE_SETTING(KEYUSE_SSL, "USE SSL SOCKET", "This option controls if SSL should be used on the socket.");
+		//DESCRIBE_SETTING(KEYUSE_SSL, "USE SSL SOCKET", "This option controls if SSL should be used on the socket.");
 
 		DEFINE_SETTING_I(PAYLOAD_LENGTH, NRPE_SECTION_PROTOCOL, "payload length", 1024);
-		DESCRIBE_SETTING_ADVANCED(PAYLOAD_LENGTH, "PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.");
+		//DESCRIBE_SETTING_ADVANCED(PAYLOAD_LENGTH, "PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.");
 
 		DEFINE_SETTING_B(ALLOW_PERFDATA, NRPE_SECTION, "performance data", true);
-		DESCRIBE_SETTING_ADVANCED(ALLOW_PERFDATA, "PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).");
-
-		DEFINE_SETTING_S(SCRIPT_PATH, NRPE_SECTION, "script path", "");
-		DESCRIBE_SETTING_ADVANCED(SCRIPT_PATH, "SCRIPT DIRECTORY", "Load all scripts in a directory and use them as commands. Probably dangerous but usefull if you have loads of scripts :)");
+		//DESCRIBE_SETTING_ADVANCED(ALLOW_PERFDATA, "PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).");
 
 		DEFINE_SETTING_I(CMD_TIMEOUT, NRPE_SECTION, "command timeout", 60);
-		DESCRIBE_SETTING(CMD_TIMEOUT, "COMMAND TIMEOUT", "This specifies the maximum number of seconds that the NRPE daemon will allow plug-ins to finish executing before killing them off.");
+		//DESCRIBE_SETTING(CMD_TIMEOUT, "COMMAND TIMEOUT", "This specifies the maximum number of seconds that the NRPE daemon will allow plug-ins to finish executing before killing them off.");
 
 		DEFINE_SETTING_B(ALLOW_ARGS, NRPE_SECTION, "allow arguments", false);
-		DESCRIBE_SETTING(ALLOW_ARGS, "COMMAND ARGUMENT PROCESSING", "This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.");
+		//DESCRIBE_SETTING(ALLOW_ARGS, "COMMAND ARGUMENT PROCESSING", "This option determines whether or not the NRPE daemon will allow clients to specify arguments to commands that are executed.");
 
 		DEFINE_SETTING_B(ALLOW_NASTY, NRPE_SECTION, "allow nasy characters", false);
-		DESCRIBE_SETTING(ALLOW_NASTY, "COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.");
-
-		DEFINE_PATH(SECTION_HANDLERS, NRPE_SECTION_HANDLERS);
-		DESCRIBE_SETTING(SECTION_HANDLERS, "NRPE COMMAND DEFINITIONS -- DEPRECATED", "Command definitions that this daemon will run (it will also run all internal commands such as those from ther ExternalScriptModule).");
+		//DESCRIBE_SETTING(ALLOW_NASTY, "COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the NRPE daemon will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.");
 
 	}
 
@@ -232,31 +231,31 @@ namespace setting_keys {
 
 	namespace external_scripts {
 		DEFINE_PATH(SECTION, EXTSCRIPT_SECTION);
-		DESCRIBE_SETTING(SECTION, "EXTERNAL SCRIPT SECTION", "Section for external scripts (CheckExternalScripts.dll).");
+		//DESCRIBE_SETTING(SECTION, "EXTERNAL SCRIPT SECTION", "Section for external scripts (CheckExternalScripts.dll).");
 
 		DEFINE_SETTING_I(TIMEOUT, EXTSCRIPT_SECTION, "timeout", 60);
-		DESCRIBE_SETTING(TIMEOUT, "COMMAND TIMEOUT", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.");
+		//DESCRIBE_SETTING(TIMEOUT, "COMMAND TIMEOUT", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.");
 
 		DEFINE_SETTING_B(ALLOW_ARGS, EXTSCRIPT_SECTION, "allow arguments", false);
-		DESCRIBE_SETTING(ALLOW_ARGS, "COMMAND ARGUMENT PROCESSING", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.");
+		//DESCRIBE_SETTING(ALLOW_ARGS, "COMMAND ARGUMENT PROCESSING", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.");
 
 		DEFINE_SETTING_B(ALLOW_NASTY, EXTSCRIPT_SECTION, "allow nasy characters", false);
-		DESCRIBE_SETTING(ALLOW_NASTY, "COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.");
+		//DESCRIBE_SETTING(ALLOW_NASTY, "COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.");
 
 		DEFINE_SETTING_S(SCRIPT_PATH, EXTSCRIPT_SECTION, "script path", "");
-		DESCRIBE_SETTING_ADVANCED(SCRIPT_PATH, "SCRIPT DIRECTORY", "Load all scripts in a directory and use them as commands. Probably dangerous but usefull if you have loads of scripts :)");
+		//DESCRIBE_SETTING_ADVANCED(SCRIPT_PATH, "SCRIPT DIRECTORY", "Load all scripts in a directory and use them as commands. Probably dangerous but usefull if you have loads of scripts :)");
 
 		DEFINE_PATH(SCRIPT_SECTION, EXTSCRIPT_SCRIPT_SECTION);
-		DESCRIBE_SETTING(SCRIPT_SECTION, "EXTERNAL SCRIPT SCRIPTS SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments> for instance:");
+		//DESCRIBE_SETTING(SCRIPT_SECTION, "EXTERNAL SCRIPT SCRIPTS SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments> for instance:");
 
 		DEFINE_PATH(ALIAS_SECTION, EXTSCRIPT_ALIAS_SECTION);
-		DESCRIBE_SETTING(ALIAS_SECTION, "EXTERNAL SCRIPT ALIAS SECTION", "Works like the \"inject\" concept of NRPE scripts module. But in short a list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)");
+		//DESCRIBE_SETTING(ALIAS_SECTION, "EXTERNAL SCRIPT ALIAS SECTION", "Works like the \"inject\" concept of NRPE scripts module. But in short a list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)");
 
 		DEFINE_PATH(WRAPPINGS_SECTION, EXTSCRIPT_WRAPPINGS_SECTION);
-		DESCRIBE_SETTING(WRAPPINGS_SECTION, "EXTERNAL SCRIPT WRAPPINGS SECTION", "");
+		//DESCRIBE_SETTING(WRAPPINGS_SECTION, "EXTERNAL SCRIPT WRAPPINGS SECTION", "");
 
 		DEFINE_PATH(WRAPPED_SCRIPT, EXTSCRIPT_WRAPPED_SCRIPT);
-		DESCRIBE_SETTING(WRAPPED_SCRIPT, "EXTERNAL SCRIPT WRAPPINGS SECTION", "");
+		//DESCRIBE_SETTING(WRAPPED_SCRIPT, "EXTERNAL SCRIPT WRAPPINGS SECTION", "");
 
 	}
 

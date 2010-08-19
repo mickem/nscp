@@ -41,6 +41,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIGetSettingsSection fNSAPIGetSettingsSection;
 		nscapi::core_api::lpNSAPIReleaseSettingsSectionBuffer fNSAPIReleaseSettingsSectionBuffer;
 		nscapi::core_api::lpNSAPIGetSettingsString fNSAPIGetSettingsString;
+		nscapi::core_api::lpNSAPIExpandPath fNSAPIExpandPath;
 		nscapi::core_api::lpNSAPIGetSettingsInt fNSAPIGetSettingsInt;
 		nscapi::core_api::lpNSAPIMessage fNSAPIMessage;
 		nscapi::core_api::lpNSAPIStopServer fNSAPIStopServer;
@@ -110,6 +111,7 @@ namespace nscapi {
 			, fNSAPIGetPluginList(NULL)
 			, fNSAPIReleasePluginList(NULL)
 			, fNSAPISettingsSave(NULL)
+			, fNSAPIExpandPath(NULL)
 			, buffer_length_(-1)
 			, id_(-1)
 		{}
@@ -119,6 +121,7 @@ namespace nscapi {
 		std::wstring getApplicationVersionString(void);
 		std::list<std::wstring> getSettingsSection(std::wstring section);
 		std::wstring getSettingsString(std::wstring section, std::wstring key, std::wstring defaultValue);
+		std::wstring expand_path(std::wstring value);
 		int getSettingsInt(std::wstring section, std::wstring key, int defaultValue);
 		void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
 		void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
