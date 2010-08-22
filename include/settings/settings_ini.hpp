@@ -225,7 +225,7 @@ namespace settings {
 				return;
 			}
 			std::wstring f = get_file_name().string();
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Loading: ") + f);
+			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));

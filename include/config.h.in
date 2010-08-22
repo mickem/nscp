@@ -73,16 +73,14 @@
 #define DATE_FORMAT _T("%#c")
 
 
+#ifdef WIN32
+#define DEFAULT_CONF_LOCATION _T("old")
+#else
 #define DEFAULT_CONF_LOCATION _T("ini")
+#endif
 #define DEFAULT_CONF_OLD_LOCATION _T("old://${exe-path}/nsc.ini")
-
-/*
-#;location=old://${exe-path}/nsc.ini
-#location=ini://${exe-path}/nsclient.ini
-#;location=ini://${base-path}/nsclient.ini
-#;location=registry://HKEY_LOCAL_MACHINE/software/NSClient++
-*/
-
+#define DEFAULT_CONF_INI_LOCATION _T("ini://${shared-path}/nsclient.ini")
+#define DEFAULT_CONF_REG_LOCATION _T("registry://HKEY_LOCAL_MACHINE/software/NSClient++")
 
 
 // Default Argument string (for consistency)
