@@ -358,7 +358,7 @@ void NSCPlugin::loadRemoteProcs_(void) {
 	try {
 		fLoadModule = (nscapi::plugin_api::lpLoadModule)module_.load_proc("NSLoadModuleEx");
 		if (!fLoadModule)
-			throw NSPluginException(module_, _T("Could not load NSLoadModule"));
+			throw NSPluginException(module_, _T("Could not load NSLoadModuleEx"));
 
 		fModuleHelperInit = (nscapi::plugin_api::lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
 		if (!fModuleHelperInit)

@@ -213,6 +213,7 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp	
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp
 	${NSCP_INCLUDEDIR}/nscapi/settings.hpp
+	${NSCP_INCLUDEDIR}/nscapi/macros.hpp
 )
 
 SET(NSCP_DEF_PLUGIN_LIB
@@ -242,6 +243,7 @@ endforeach(CURRENT_LIB ${ALL_LIB_PROJECTS})
 CONFIGURE_FILE(
   ${NSCP_INCLUDEDIR}/config.h.in
   ${NSCP_INCLUDEDIR}/config.h
+  @ONLY
 )
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 INCLUDE_DIRECTORIES(${NSCP_LOCAL_INCLUDE_PATH})

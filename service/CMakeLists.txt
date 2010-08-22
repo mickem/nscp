@@ -56,6 +56,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/settings/settings_registry.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_core_impl.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_handler_impl.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
 		${NSCP_INCLUDEDIR}/com_helpers.hpp
 		${NSCP_INCLUDEDIR}/dll/dll.hpp
 		${NSCP_INCLUDEDIR}/dll/impl_unix.hpp
