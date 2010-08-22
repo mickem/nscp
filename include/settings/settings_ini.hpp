@@ -14,7 +14,7 @@
 namespace settings {
 	class INISettings : public settings::SettingsInterfaceImpl {
 	private:
-		boost::filesystem::wpath filename_;
+		std::wstring filename_;
 		bool is_loaded_;
 		CSimpleIni ini;
 
@@ -208,7 +208,7 @@ namespace settings {
 		/// @author mickem
 		virtual void save() {
 			SettingsInterfaceImpl::save();
-			SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
+			SI_Error rc = ini.SaveFile(get_file_name().c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to save file"));
 		}
@@ -224,7 +224,7 @@ namespace settings {
 				is_loaded_ = true;
 				return;
 			}
-			std::wstring f = get_file_name().string();
+			std::wstring f = get_file_name();
 			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
@@ -247,11 +247,11 @@ namespace settings {
 				error_str = _T("I/O error: ") + error::lookup::last_error();
 			throw settings_exception(msg + _T(": ") + get_context() + _T(" - ") + error_str);
 		}
-		boost::filesystem::wpath get_file_name() {
+		std::wstring get_file_name() {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				//filename_ = get_core()->get_base() / boost::filesystem::wpath(get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini")));
-				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading INI settings from: ") + filename_.string());
+				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading INI settings from: ") + filename_);
 			}
 			return filename_;
 		}
@@ -259,7 +259,7 @@ namespace settings {
 			return boost::filesystem::is_regular(get_file_name());
 		}
 		virtual std::wstring get_info() {
-			return _T("INI settings: (") + context_ + _T(", ") + get_file_name().string() + _T(")");
+			return _T("INI settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
 		}
 
 	};

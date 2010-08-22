@@ -516,7 +516,13 @@ NSClientT::plugin_info_list NSClientT::get_all_plugins() {
 
 
 void NSClientT::load_all_plugins(int mode) {
-	boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
+	boost::filesystem::wpath pluginPath;
+	try {
+		pluginPath = expand_path(_T("${module-path}"));
+	} catch (std::exception &e) {
+		LOG_CRITICAL_STD(_T("Failed to load plugins: ") + to_wstring(e.what()) + _T(" for ") + expand_path(_T("${module-path}")));
+		return;
+	}
 	plugin_alias_list_type plugins = find_all_plugins(false);
 	std::pair<std::wstring,std::wstring> v;
 
@@ -1375,7 +1381,8 @@ std::wstring NSClientT::expand_path(std::wstring file) {
 #ifdef WIN32
 	strEx::replace(file, _T("${shared-path}"), getBasePath().string());
 #else
-	strEx::replace(file, _T("${shared-path}"), _T("/usr/share/nsclient++"));
+	strEx::replace(file, _T("${shared-path}"), getBasePath().string());
+//	strEx::replace(file, _T("${shared-path}"), _T("/usr/share/nsclient++"));
 #endif
 	strEx::replace(file, _T("${exe-path}"), getBasePath().string());
 	strEx::replace(file, _T("${etc}"), _T("/etc"));
