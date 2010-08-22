@@ -45,6 +45,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer
 NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen);
 NSCAPI::errorReturn NSAPISetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* value);
 NSCAPI::errorReturn NSAPISetSettingsInt(const wchar_t* section, const wchar_t* key, int value);
+NSCAPI::errorReturn NSAPISetSettingsBool(const wchar_t* section, const wchar_t* key, int value);
 NSCAPI::errorReturn NSAPIWriteSettings(const wchar_t* key);
 NSCAPI::errorReturn NSAPIReadSettings(const wchar_t* key);
 NSCAPI::errorReturn NSAPIRehash(int flag);

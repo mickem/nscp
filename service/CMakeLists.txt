@@ -38,6 +38,7 @@ IF(WIN32)
 		settings_manager_impl.h
 		simple_client.hpp
 		settings_client.hpp
+		cli_parser.hpp
 		
 		commands.hpp
 		channels.hpp

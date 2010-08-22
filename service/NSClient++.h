@@ -111,6 +111,7 @@ private:
 	//cmdMap cmdDescriptions_;
 	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
 	log_status debug_;
+	std::wstring context_;
 #ifdef WIN32
 	com_helper::initialize_com com_helper_;
 #endif
@@ -127,6 +128,7 @@ private:
 
 
 public:
+	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
 	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0) {}
 	virtual ~NSClientT(void) {}
@@ -140,6 +142,7 @@ public:
 	// Service helper functions
 	bool initCore(bool boot);
 	bool exitCore(bool boot);
+	void set_settings_context(std::wstring context) { context_ = context; }
 #ifdef WIN32x
 	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
 	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);
@@ -173,7 +176,7 @@ public:
 	void reportMessage(int msgType, const wchar_t* file, const int line, std::wstring message);
 	int commandLineExec(const wchar_t* module, const unsigned int argLen, wchar_t** args);
 
-	plugin_type loadPlugin(const boost::filesystem::wpath plugin, std::wstring alias);
+	//plugin_type loadPlugin(const boost::filesystem::wpath plugin, std::wstring alias);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
 	void unloadPlugins(bool unloadLoggers);
 	std::wstring describeCommand(std::wstring command);
@@ -186,6 +189,7 @@ public:
 	bool logDebug();
 	void listPlugins();
 	plugin_info_list get_all_plugins();
+	plugin_alias_list_type find_all_plugins(bool active);
 	std::list<std::wstring> list_commands();
 
 	// Shared session interface:
@@ -209,7 +213,7 @@ public:
 
 
 	private:
-		plugin_type addPlugin(plugin_type plugin);
+		plugin_type addPlugin(boost::filesystem::wpath file, std::wstring alias);
 };
 
 

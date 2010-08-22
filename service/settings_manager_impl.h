@@ -39,14 +39,15 @@ namespace settings_manager {
 		void boot(std::wstring file = _T("boot.ini"));
 		std::wstring find_file(std::wstring file, std::wstring fallback = _T(""));
 		std::wstring expand_path(std::wstring file);
-		settings::instance_ptr create_instance(std::wstring key);
+		settings::instance_raw_ptr create_instance(std::wstring key);
 	};
 
 	typedef Singleton<NSCSettingsImpl> SettingsHandler;
 
 	// Alias to make handling "compatible" with old syntax
 	settings::instance_ptr get_settings();
+	 settings::instance_ptr get_settings_no_wait();
 	settings::settings_core* get_core();
 	void destroy_settings();
-	bool init_settings();
+	bool init_settings(std::wstring context = _T(""));
 }

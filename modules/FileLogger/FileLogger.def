@@ -3,6 +3,7 @@ LIBRARY	FileLogger
 EXPORTS
 	NSModuleHelperInit
 	NSLoadModule
+	NSLoadModuleEx
 	NSGetModuleName
 	NSGetModuleVersion
 	NSHasCommandHandler

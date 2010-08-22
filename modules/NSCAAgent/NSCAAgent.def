@@ -3,6 +3,7 @@ LIBRARY	NSCAAgent
 EXPORTS
 	NSModuleHelperInit
 	NSLoadModule
+	NSLoadModuleEx
 	NSGetModuleName
 	NSGetModuleVersion
 	NSHasCommandHandler

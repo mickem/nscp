@@ -59,7 +59,7 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 	try {
 
 		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
-		settings.set_alias(alias, _T("NRPE/server"));
+		settings.set_alias(_T("NRPE"), alias, _T("server"));
 
 		settings.add_path_to_settings()
 			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options."))
@@ -138,6 +138,9 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 		}
 	} catch (nrpe::server::nrpe_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
+		return false;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
 		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));

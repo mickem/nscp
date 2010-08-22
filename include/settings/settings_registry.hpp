@@ -92,14 +92,11 @@ namespace settings {
 	/// @author mickem
 	virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 		if (value.type == settings_core::key_string) {
-			if (!setString_(get_reg_key(key), key.second, value.get_string()))
-				throw settings_exception(_T("Failed to write key: ") + key.first + _T(".") + key.second);
+			setString_(get_reg_key(key), key.second, value.get_string());
 		} else if (value.type == settings_core::key_integer) {
-			if (!setInt_(get_reg_key(key), key.second, value.get_int()))
-			throw settings_exception(_T("Failed to write key: ") + key.first + _T(".") + key.second);
+			setInt_(get_reg_key(key), key.second, value.get_int());
 		} else if (value.type == settings_core::key_bool) {
-			if (!setInt_(get_reg_key(key), key.second, value.get_bool()?1:0))
-			throw settings_exception(_T("Failed to write key: ") + key.first + _T(".") + key.second);
+			setInt_(get_reg_key(key), key.second, value.get_bool()?1:0);
 		} else {
 			throw settings_exception(_T("Invalid settings type."));
 		}
@@ -132,9 +129,9 @@ namespace settings {
 	virtual void get_real_keys(std::wstring path, string_list &list) {
 		getValues_(get_reg_key(path), list);
 	}
-	virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
-		return settings_core::key_string;
-	}
+// 	virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
+// 		return SettingsInterfaceImpl::get_key_type(path, key);
+// 	}
 private:
 	reg_key get_reg_key(settings_core::key_path_type key) {
 		return get_reg_key(key.first);
@@ -149,29 +146,55 @@ private:
 		ret.hKey = NS_HKEY_ROOT;
 		return ret;
 	}
-
-	static bool setString_(reg_key path, std::wstring key, std::wstring value) {
-		HKEY hTemp;
-		if (RegCreateKeyEx(path.hKey, path.path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL) != ERROR_SUCCESS) {
-			return false;
+	struct reg_buffer {
+		wchar_t *buf;
+		reg_buffer(int len) : buf(new wchar_t[len]) {}
+		~reg_buffer() {
+			delete [] buf;
 		}
+		TCHAR* operator* () {
+			return buf;
+		}
+		int str_len() {
+			return (wcslen(buf)+1)*sizeof(wchar_t);
+		}
+	};
+
+	struct tmp_reg_key {
+		HKEY hTemp;
+		tmp_reg_key(HKEY hKey, std::wstring path) : hTemp(NULL) {
+			DWORD err = RegCreateKeyEx(hKey, path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL);
+			if (err != ERROR_SUCCESS) {
+				throw settings_exception(_T("Failed to open key: ") + path + _T(" (") + error::format::from_system(err) + _T(")"));
+			}
+		}
+		HKEY operator*() {
+			return hTemp;
+		}
+		~tmp_reg_key() {
+			if (hTemp)
+				RegCloseKey(hTemp);
+		}
+
+	};
+
+	static void setString_(reg_key path, std::wstring key, std::wstring value) {
+		tmp_reg_key hTemp(path.hKey, path.path);
 		DWORD bDataLen = value.length()+2;
-		TCHAR *bData = new TCHAR[bDataLen];
-		wcsncpy_s(bData, bDataLen, value.c_str(), value.length());
-		BOOL bRet = RegSetValueExW(hTemp, key.c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(bData), (wcslen(bData)+1)*sizeof(TCHAR));
-		RegCloseKey(hTemp);
-		delete [] bData;
-		return  (bRet == ERROR_SUCCESS);
+		reg_buffer buffer(bDataLen);
+		wcsncpy_s(*buffer, bDataLen, value.c_str(), value.length());
+		DWORD err = RegSetValueExW(*hTemp, key.c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(*buffer), buffer.str_len());
+		if (err != ERROR_SUCCESS) {
+			throw settings_exception(_T("Failed to write string: ") + path.to_string() + _T(".") + key + _T(" (") + error::format::from_system(err) + _T(")"));
+		}
 	}
 
-	static bool setInt_(reg_key path, std::wstring key, DWORD value) {
-		HKEY hTemp;
-		if (RegCreateKeyEx(path.hKey, path.path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL) != ERROR_SUCCESS) {
-			return false;
+	static void setInt_(reg_key path, std::wstring key, DWORD value) {
+		tmp_reg_key hTemp(path.hKey, path.path);
+		DWORD err = RegSetValueEx(*hTemp, key.c_str(), NULL, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
+		if (err != ERROR_SUCCESS) {
+			throw settings_exception(_T("Failed to int string: ") + path.to_string() + _T(".") + key + _T(" (") + error::format::from_system(err) + _T(")"));
 		}
-		BOOL bRet = RegSetValueEx(hTemp, key.c_str(), NULL, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
-		RegCloseKey(hTemp);
-		return  (bRet == ERROR_SUCCESS);
 	}
 
 	static std::wstring getString_(reg_key path, std::wstring key) {

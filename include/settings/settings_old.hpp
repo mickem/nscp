@@ -390,9 +390,9 @@ namespace settings {
 			}
 			*/
 		}
-		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
-			return settings_core::key_string;
-		}
+// 		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
+// 			return settings_core::key_string;
+// 		}
 	private:
 		bool has_key(std::wstring section, std::wstring key) {
 			TCHAR* buffer = new TCHAR[1024];

@@ -90,7 +90,7 @@ namespace nscapi {
 				return NSCAPI::key_bool;
 			}
 			virtual void notify(nscapi::core_wrapper* core_, std::wstring path, std::wstring key) const {
-				T value = static_cast<T>(core_->getSettingsInt(path, key, typed_int_value<T>::default_value_as_int_)==1);
+				T value = static_cast<T>(core_->getSettingsBool(path, key, typed_int_value<T>::default_value_as_int_==1));
 				update_target(&value);
 			}
 		};
@@ -404,7 +404,14 @@ namespace nscapi {
 					alias_ = def;
 				else
 					alias_ = cur;
-
+			}
+			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+				if (!prefix.empty())
+					prefix += _T("/");
+				if (cur.empty())
+					alias_ = prefix + def;
+				else
+					alias_ = prefix + cur;
 			}
 
 			void register_all() {
@@ -419,12 +426,20 @@ namespace nscapi {
 
 			void notify() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
-					if (v->key)
-						v->key->notify(core_, v->path, v->key_name);
+					try {
+						if (v->key)
+							v->key->notify(core_, v->path, v->key_name);
+					} catch (...) {
+						core_->Message(NSCAPI::error, __FILEW__, __LINE__, _T("Failed to register: ") + v->key_name);
+					}
 				}
 				BOOST_FOREACH(path_list::value_type v, paths_) {
-					if (v->path)
-						v->path->notify(core_, v->path_name);
+					try {
+						if (v->path)
+							v->path->notify(core_, v->path_name);
+					} catch (...) {
+						core_->Message(NSCAPI::error, __FILEW__, __LINE__, _T("Failed to register: ") + v->path_name);
+					}
 				}
 
 			}

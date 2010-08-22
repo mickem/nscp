@@ -33,6 +33,36 @@
 #define BUFF_LEN 4096
 
 namespace settings {
+
+
+	template<class T>
+	struct instance_ptr_helper {
+		boost::shared_ptr<T> ptr_;
+		boost::unique_lock<boost::timed_mutex> *mutex_;
+		instance_ptr_helper(boost::shared_ptr<T> ptr, boost::timed_mutex &mutex, int timeout) : ptr_(ptr), mutex_(NULL) {
+			mutex_ = new boost::unique_lock<boost::timed_mutex>(mutex, boost::get_system_time() + boost::posix_time::seconds(timeout));
+			std::wcout << _T("creating (safe)...") << std::endl;
+			if (!mutex_->owns_lock())
+				throw settings_exception(_T("Failed to get mutex, cant get settings instance"));
+		}
+		instance_ptr_helper(boost::shared_ptr<T> ptr) : ptr_(ptr) {
+			std::wcout << _T("creating (unsafe)...") << std::endl;
+			delete mutex_;
+		}
+		~instance_ptr_helper() {
+			std::wcout << _T("destroying...") << std::endl;
+		}
+		boost::shared_ptr<T> operator* () const {
+			return ptr_;
+		}
+
+		boost::shared_ptr<T> operator-> () const {
+			return ptr_;
+		}
+		bool operator! () const {
+			return !ptr_;
+		}
+	};
 	class settings_exception {
 		std::wstring error_;
 	public:
@@ -103,6 +133,8 @@ namespace settings {
 	};
 
 	class settings_interface;
+	typedef boost::shared_ptr<settings_interface> instance_ptr;
+	typedef boost::shared_ptr<settings_interface> instance_raw_ptr;
 
 	class settings_core {
 	public:
@@ -206,7 +238,9 @@ namespace settings {
 		/// @return the currently active interface
 		///
 		/// @author mickem
-		virtual boost::shared_ptr<settings_interface> get() = 0;
+		virtual instance_ptr get() = 0;
+		virtual instance_ptr get_no_wait() = 0;
+		
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a settings interface
 		///
@@ -216,9 +250,9 @@ namespace settings {
 		/// @author mickem
 		//virtual settings_interface* get(settings_core::settings_type type) = 0;
 		// Conversion Functions
-		virtual void migrate(boost::shared_ptr<settings_interface> from, boost::shared_ptr<settings_interface> to) = 0;
-		virtual void migrate_to(boost::shared_ptr<settings_interface> to) = 0;
-		virtual void migrate_from(boost::shared_ptr<settings_interface> from) = 0;
+		virtual void migrate(instance_ptr from, instance_ptr to) = 0;
+		virtual void migrate_to(instance_ptr to) = 0;
+		virtual void migrate_from(instance_ptr from) = 0;
 		virtual void migrate(std::wstring from, std::wstring to) = 0;
 		virtual void migrate_to(std::wstring to) = 0;
 		virtual void migrate_from(std::wstring from) = 0;
@@ -262,7 +296,7 @@ namespace settings {
 		/// @return a new instance of given type.
 		///
 		/// @author mickem
-		virtual boost::shared_ptr<settings_interface> create_instance(std::wstring context) = 0;
+		virtual instance_raw_ptr create_instance(std::wstring context) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the basepath for the settings subsystem.
@@ -484,7 +518,7 @@ namespace settings {
 		/// @param other the settings store to save to
 		///
 		/// @author mickem
-		virtual void save_to(boost::shared_ptr<settings_interface> other) = 0;
+		virtual void save_to(instance_ptr other) = 0;
 		virtual void save_to(std::wstring other) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store
@@ -497,7 +531,7 @@ namespace settings {
 		/// @param other the other settings store to load from
 		///
 		/// @author mickem
-		virtual void load_from(boost::shared_ptr<settings_interface> other) = 0;
+		virtual void load_from(instance_ptr other) = 0;
 		virtual void load_from(std::wstring other) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Load settings from the context.
@@ -508,6 +542,11 @@ namespace settings {
 		virtual std::wstring to_string() = 0;
 
 		virtual std::wstring get_info() = 0;
+
+		static bool string_to_bool(std::wstring str) {
+			return str == _T("true")||str == _T("1");
+		}
+
 
 	};
 

@@ -196,7 +196,6 @@ namespace settings {
 		/// @author mickem
 		virtual void get_real_keys(std::wstring path, string_list &list) {
 			load_data();
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Looking for: ")) + path);
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllKeys(path.c_str(), lst);
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
@@ -213,9 +212,10 @@ namespace settings {
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to save file"));
 		}
-		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
-			return settings_core::key_string;
-		}
+// 		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
+// 			return SettingsInterfaceImpl::get_key_type(path, key);
+// 			return settings_core::key_string;
+// 		}
 	private:
 		void load_data() {
 			if (is_loaded_)

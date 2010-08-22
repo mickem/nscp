@@ -1,10 +1,14 @@
 #pragma once
-
+#include <settings/settings_core.hpp>
 
 class NSClientT;
 namespace nsclient {
 	class settings_client {
 		NSClient* core_;
+		std::wstring current_;
+		bool default_;
+
+
 	public:
 		settings_client(NSClient* core) : core_(core) {}
 
@@ -13,78 +17,90 @@ namespace nsclient {
 		}
 
 		void boot() {
-			if (!core_->initCore(true)) {
+			if (!current_.empty())
+				core_->set_settings_context(current_);
+			if (!core_->initCore(false)) {
 				std::wcout << _T("Service *NOT* started!") << std::endl;
 				return;
 			}
+			if (default_)
+				settings_manager::get_core()->update_defaults();
 		}
 
-		void migrate_from(std::wstring src, std::wstring target, bool def) {
+		void exit() {
+			core_->exitCore(true);
+		}
+
+		void set_current(std::wstring current) { current_ = current; }
+		void set_update_defaults(bool def) { default_ = def; }
+
+		int migrate_from(std::wstring src) {
 			try {
-				if (def)
-					settings_manager::get_core()->update_defaults();
-				if (!src.empty() && !target.empty()) {
-					debug_msg(_T("Migrating ") + src + _T(" to ") + target);
-					settings_manager::get_core()->migrate(src, target);
-				} else {
-					debug_msg(_T("Migrating ") + src + _T(" to ") + target);
-					settings_manager::get_core()->migrate_from(src);
-				}
-				core_->exitCore(true);
-			} catch (settings_exception e) {
+				debug_msg(_T("Migrating from: ") + src);
+				settings_manager::get_core()->migrate_from(src);
+				return 1;
+			} catch (settings::settings_exception e) {
 				error_msg(_T("Failed to initialize settings: ") + e.getError());
 			} catch (...) {
 				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			}
+			return -1;
 		}
-		void migrate_to(std::wstring src, std::wstring target, bool def) {
+		int migrate_to(std::wstring target) {
 			try {
-				if (def)
-					settings_manager::get_core()->update_defaults();
-				if (!src.empty() && !target.empty()) {
-					debug_msg(_T("Migrating ") + src + _T(" to ") + target);
-					settings_manager::get_core()->migrate(src, target);
-				} else {
-					debug_msg(_T("Migrating ") + src + _T(" to ") + target);
-					settings_manager::get_core()->migrate_to(target);
-				}
-				core_->exitCore(true);
-			} catch (settings_exception e) {
+				debug_msg(_T("Migrating to: ") + target);
+				settings_manager::get_core()->migrate_to(target);
+				return 1;
+			} catch (settings::settings_exception e) {
 				error_msg(_T("Failed to initialize settings: ") + e.getError());
 			} catch (...) {
 				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			}
+			return -1;
 		}
 
-		void generate(std::wstring target) {
+		void dump_path(std::wstring root) {
+			BOOST_FOREACH(std::wstring path, settings_manager::get_core()->get()->get_sections(root)) {
+				if (!root.empty())
+					dump_path(root + _T("/") + path);
+				else
+					dump_path(path);
+			}
+			BOOST_FOREACH(std::wstring key, settings_manager::get_core()->get()->get_keys(root)) {
+				std::wcout << root << _T(".") << key << _T("=") << settings_manager::get_core()->get()->get_string(root, key) << std::endl;
+			}
+		}
+
+
+		int generate(std::wstring target) {
 			try {
 				core_->load_all_plugins(NSCAPI::dontStart);
-				if (target == _T("default") || target.empty()) {
-					settings_manager::get_core()->update_defaults();
+				settings_manager::get_core()->update_defaults();
+				if (target == _T("settings") || target.empty()) {
 					settings_manager::get_core()->get()->save();
 				} else if (target == _T("trac")) {
 					settings::string_list s = settings_manager::get_core()->get_reg_sections();
-					for (settings::string_list::const_iterator cit = s.begin(); cit != s.end(); ++cit) {
-						std::wcout << _T("== ") << (*cit) << _T(" ==") << std::endl;
-						settings::string_list k = settings_manager::get_core()->get_reg_keys(*cit);
+					BOOST_FOREACH(std::wstring path, s) {
+						std::wcout << _T("== ") << path << _T(" ==") << std::endl;
+						settings::string_list k = settings_manager::get_core()->get_reg_keys(path);
 						bool first = true;
-						for (settings::string_list::const_iterator citk = k.begin(); citk != k.end(); ++citk) {
-							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(*cit, *citk);
+						BOOST_FOREACH(std::wstring key, k) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 							if (!desc.advanced) {
 								if (first)
 									std::wcout << _T("'''Normal settings'''") << std::endl;
 								first = false;
-								std::wcout << _T("||") << (*citk) << _T("||") << desc.defValue << _T("||") << desc.title << _T(": ") << desc.description << std::endl;
+								std::wcout << _T("||") << key << _T("||") << desc.defValue << _T("||") << desc.title << _T(": ") << desc.description << std::endl;
 							}
 						}
 						first = true;
-						for (settings::string_list::const_iterator citk = k.begin(); citk != k.end(); ++citk) {
-							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(*cit, *citk);
+						BOOST_FOREACH(std::wstring key, k) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 							if (desc.advanced) {
 								if (first)
 									std::wcout << _T("'''Advanced settings'''") << std::endl;
 								first = false;
-								std::wcout << _T("||") << (*citk) << _T("||") << desc.defValue << _T("||") << desc.title << _T(": ") << desc.description << std::endl;
+								std::wcout << _T("||") << key << _T("||") << desc.defValue << _T("||") << desc.title << _T(": ") << desc.description << std::endl;
 							}
 						}
 					}
@@ -92,13 +108,50 @@ namespace nsclient {
 					settings_manager::get_core()->update_defaults();
 					settings_manager::get_core()->get()->save_to(target);
 				}
-			} catch (settings_exception e) {
+				return 1;
+			} catch (settings::settings_exception e) {
 				error_msg(_T("Failed to initialize settings: ") + e.getError());
 			} catch (...) {
 				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			}
-			core_->exitCore(true);
+			return -1;
 		}
+
+
+		int set(std::wstring path, std::wstring key, std::wstring val) {
+			core_->load_all_plugins(NSCAPI::dontStart);
+			settings::settings_core::key_type type = settings_manager::get_core()->get()->get_key_type(path, key);
+			if (type == settings::settings_core::key_string) {
+				settings_manager::get_core()->get()->set_string(path, key, val);
+			} else if (type == settings::settings_core::key_integer) {
+				settings_manager::get_core()->get()->set_int(path, key, strEx::stoi(val));
+			} else if (type == settings::settings_core::key_bool) {
+				settings_manager::get_core()->get()->set_bool(path, key, settings::settings_interface::string_to_bool(val));
+			} else {
+				error_msg(_T("Failed to set key (not found)"));
+				return -1;
+			}
+			settings_manager::get_core()->get()->save();
+			return 0;
+		}
+		int show(std::wstring path, std::wstring key) {
+			//core_->load_all_plugins(NSCAPI::dontStart);
+			std::wcout << settings_manager::get_core()->get()->get_string(path, key);
+			return 0;
+		}
+		int list(std::wstring path) {
+
+			try {
+				dump_path(path);
+			} catch (settings::settings_exception e) {
+				error_msg(_T("Settings error: ") + e.getError());
+			} catch (...) {
+				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			}
+
+			return 0;
+		}
+
 		void error_msg(std::wstring msg) {
 			core_->reportMessage(NSCAPI::error, __FILEW__, __LINE__, msg.c_str());
 		}

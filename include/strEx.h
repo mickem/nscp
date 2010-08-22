@@ -864,7 +864,7 @@ namespace strEx {
 		filetime /= SECS_TO_100NS;
 		return format_time_delta(static_cast<time_t>(filetime), format);
 	}
-endif
+#endif
 
 #ifdef _DEBUG
 	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {

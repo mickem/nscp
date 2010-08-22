@@ -63,7 +63,15 @@ NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t
 int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultValue) {
 	try {
 		return settings_manager::get_settings()->get_int(section, key, defaultValue);
-	} catch (settings_exception e) {
+	} catch (settings::settings_exception e) {
+		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
+		return defaultValue;
+	}
+}
+int NSAPIGetSettingsBool(const wchar_t* section, const wchar_t* key, int defaultValue) {
+	try {
+		return settings_manager::get_settings()->get_bool(section, key, defaultValue==1);
+	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
 		return defaultValue;
 	}
@@ -103,7 +111,7 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** a
 		*aBuffer = arrayBuffer::list2arrayBuffer(settings_manager::get_settings()->get_keys(section), len);
 		*bufLen = len;
 		return NSCAPI::isSuccess;
-	} catch (settings_exception e) {
+	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed to get section: ") + e.getMessage());
 	} catch (...) {
 		LOG_ERROR_STD(_T("Failed to getSection: ") + section);
@@ -235,7 +243,7 @@ NSCAPI::errorReturn NSAPIWriteSettings(const wchar_t* key) {
 			return NSCAPI::hasFailed;
 		}
 		settings_manager::get_core()->migrate_to(inst);
-	} catch (settings_exception e) {
+	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed to write settings: ") + e.getMessage());
 		return NSCAPI::hasFailed;
 	} catch (...) {
@@ -253,7 +261,7 @@ NSCAPI::errorReturn NSAPIReadSettings(const wchar_t* key) {
 		}
 		settings_manager::get_core()->migrate_from(inst);
 		settings_manager::get_settings()->reload();
-	} catch (settings_exception e) {
+	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed to read settings: ") + e.getMessage());
 		return NSCAPI::hasFailed;
 	} catch (...) {
@@ -301,7 +309,7 @@ NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key,
 		if (type == NSCAPI::key_integer)
 			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_integer, title, description, defVal, advanced);
 		return NSCAPI::hasFailed;
-	} catch (settings_exception e) {
+	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed register key: ") + e.getMessage());
 		return NSCAPI::hasFailed;
 	} catch (...) {
@@ -315,7 +323,7 @@ NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key,
 NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
 	try {
 		settings_manager::get_core()->register_path(path, title, description, advanced);
-	} catch (settings_exception e) {
+	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed register path: ") + e.getMessage());
 		return NSCAPI::hasFailed;
 	} catch (...) {
@@ -361,7 +369,7 @@ NSCAPI::errorReturn NSAPIReleasePluginList(int len, NSCAPI::plugin_info *list[])
 NSCAPI::errorReturn NSAPISettingsSave(void) {
 	try {
 		settings_manager::get_settings()->save();
-	} catch (settings_exception e) {
+	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed to save: ") + e.getMessage());
 		return NSCAPI::hasFailed;
 	} catch (...) {
@@ -386,6 +394,8 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIReleaseSettingsSectionBuffer);
 	if (wcscasecmp(buffer, _T("NSAPIGetSettingsInt")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsInt);
+	if (wcscasecmp(buffer, _T("NSAPIGetSettingsBool")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsBool);
 	if (wcscasecmp(buffer, _T("NSAPIMessage")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIMessage);
 	if (wcscasecmp(buffer, _T("NSAPIStopServer")) == 0)

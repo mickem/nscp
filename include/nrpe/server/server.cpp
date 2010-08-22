@@ -50,6 +50,7 @@ namespace nrpe {
 			ip::tcp::endpoint endpoint = *endpoint_iterator;
 			acceptor_.open(endpoint.protocol());
 			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
+			request_handler_->log_debug(__FILEW__, __LINE__, _T("Attempting to bind to: ") + info.get_endpoint_str());
 			acceptor_.bind(endpoint);
 			if (info.back_log == connection_info::backlog_default)
 				acceptor_.listen();

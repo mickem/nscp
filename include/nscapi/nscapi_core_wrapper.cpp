@@ -327,6 +327,11 @@ int nscapi::core_wrapper::getSettingsInt(std::wstring section, std::wstring key,
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
+bool nscapi::core_wrapper::getSettingsBool(std::wstring section, std::wstring key, bool defaultValue) {
+	if (!fNSAPIGetSettingsBool)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	return fNSAPIGetSettingsBool(section.c_str(), key.c_str(), defaultValue?1:0) == 1;
+}
 void nscapi::core_wrapper::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
 	if (!fNSAPISettingsRegKey)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
@@ -557,6 +562,7 @@ bool nscapi::core_wrapper::load_endpoints(unsigned int id, nscapi::core_api::lpN
 	fNSAPIGetApplicationName = (nscapi::core_api::lpNSAPIGetApplicationName)f(_T("NSAPIGetApplicationName"));
 	fNSAPIGetApplicationVersionStr = (nscapi::core_api::lpNSAPIGetApplicationVersionStr)f(_T("NSAPIGetApplicationVersionStr"));
 	fNSAPIGetSettingsInt = (nscapi::core_api::lpNSAPIGetSettingsInt)f(_T("NSAPIGetSettingsInt"));
+	fNSAPIGetSettingsBool = (nscapi::core_api::lpNSAPIGetSettingsBool)f(_T("NSAPIGetSettingsBool"));
 	fNSAPIGetSettingsString = (nscapi::core_api::lpNSAPIGetSettingsString)f(_T("NSAPIGetSettingsString"));
 	fNSAPIGetSettingsSection = (nscapi::core_api::lpNSAPIGetSettingsSection)f(_T("NSAPIGetSettingsSection"));
 	fNSAPIReleaseSettingsSectionBuffer = (nscapi::core_api::lpNSAPIReleaseSettingsSectionBuffer)f(_T("NSAPIReleaseSettingsSectionBuffer"));

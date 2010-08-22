@@ -33,8 +33,13 @@ public:
 		settings.add_options()
 			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
-			("generate", po::value<std::wstring>(), "(re)Generate settings store and add comments and such")
+			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
 			("add-defaults", "Add all default (if missing) values.")
+			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
+			("key", po::value<std::wstring>()->default_value(_T("")), "Key to work with.")
+			("set", po::value<std::wstring>(), "Set a key and path to a given value.")
+			("show", "Set a value given a key and path.")
+			("list", "Set all keys below the path (or root).")
 			;
 
 		service.add_options()
@@ -83,10 +88,10 @@ public:
 			std::cerr << "Unable to parse command line: " << e.what() << std::endl;
 			return 1;
 		} catch (...) {
-			std::cerr << "Unable to parse command line" << std::endl;
+			std::cerr << "Unhanded Exception" << std::endl;
 			return 1;
 		}
-
+		return 0;
 	}
 
 	int parse_test(int argc, wchar_t* argv[]) {
@@ -130,23 +135,38 @@ public:
 			std::wstring current = _T(""); //client.get_source();
 
 
+			client.set_current(current);
+			client.set_update_defaults(def);
+
 			client.boot();
 
+			int ret = -1;
+
 			if (vm.count("migrate-to")) {
-				std::wcout << _T("Migrating to: ") << vm["migrate-to"].as<std::wstring>() << std::endl;
-				client.migrate_to(current, vm["migrate-to"].as<std::wstring>(), def);
-				return 1;
+				ret = client.migrate_to(vm["migrate-to"].as<std::wstring>());
 			}
 			if (vm.count("migrate-from")) {
-				std::wcout << _T("Migrating from: ") << vm["migrate-from"].as<std::wstring>() << std::endl;
-				client.migrate_from(vm["migrate-from"].as<std::wstring>(), current, def);
-				return 1;
+				ret = client.migrate_from(vm["migrate-from"].as<std::wstring>());
 			}
+			if (vm.count("generate")) {
+				ret = client.generate(vm["generate"].as<std::wstring>());
+			}
+			if (vm.count("set")) {
+				ret = client.set(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>(), vm["set"].as<std::wstring>());
+			}
+			if (vm.count("list")) {
+				ret = client.list(vm["path"].as<std::wstring>());
+			}
+			if (vm.count("show")) {
+				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
+			}
+			client.exit();
+
+			return ret;
 		} catch(std::exception & e) {
 			std::cerr << "Unable to parse command line (settings): " << e.what() << std::endl;
 			return 1;
 		}
-
 	}
 
 };
