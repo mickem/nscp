@@ -35,34 +35,6 @@
 namespace settings {
 
 
-	template<class T>
-	struct instance_ptr_helper {
-		boost::shared_ptr<T> ptr_;
-		boost::unique_lock<boost::timed_mutex> *mutex_;
-		instance_ptr_helper(boost::shared_ptr<T> ptr, boost::timed_mutex &mutex, int timeout) : ptr_(ptr), mutex_(NULL) {
-			mutex_ = new boost::unique_lock<boost::timed_mutex>(mutex, boost::get_system_time() + boost::posix_time::seconds(timeout));
-			std::wcout << _T("creating (safe)...") << std::endl;
-			if (!mutex_->owns_lock())
-				throw settings_exception(_T("Failed to get mutex, cant get settings instance"));
-		}
-		instance_ptr_helper(boost::shared_ptr<T> ptr) : ptr_(ptr) {
-			std::wcout << _T("creating (unsafe)...") << std::endl;
-			delete mutex_;
-		}
-		~instance_ptr_helper() {
-			std::wcout << _T("destroying...") << std::endl;
-		}
-		boost::shared_ptr<T> operator* () const {
-			return ptr_;
-		}
-
-		boost::shared_ptr<T> operator-> () const {
-			return ptr_;
-		}
-		bool operator! () const {
-			return !ptr_;
-		}
-	};
 	class settings_exception {
 		std::wstring error_;
 	public:

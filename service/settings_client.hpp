@@ -111,6 +111,8 @@ namespace nsclient {
 				return 1;
 			} catch (settings::settings_exception e) {
 				error_msg(_T("Failed to initialize settings: ") + e.getError());
+			} catch (std::exception &e) {
+				error_msg(_T("Failed to initialize settings: ") + to_wstring(e.what()));
 			} catch (...) {
 				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			}
