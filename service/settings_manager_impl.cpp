@@ -43,16 +43,26 @@ namespace settings_manager {
 	/// @author mickem
 	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::wstring key) {
 		net::url url = net::parse(key);
+		if (url.host.empty() && url.path.empty()) 
+			key = _T("");
 #ifdef WIN32
 		if (url.protocol == _T("old")) {
 			old_ = true;
+			if (key.empty())
+				key = DEFAULT_CONF_OLD_LOCATION;
 			return settings::instance_raw_ptr(new settings::OLDSettings(this, key));
-		} 
-		if (url.protocol == _T("registry"))
+		}
+		if (url.protocol == _T("registry")) {
+			if (key.empty())
+				key = DEFAULT_CONF_REG_LOCATION;
 			return settings::instance_raw_ptr(new settings::REGSettings(this, key));
+		}
 #endif
-		if (url.protocol == _T("ini"))
+		if (url.protocol == _T("ini")) {
+			if (key.empty())
+				key = DEFAULT_CONF_INI_LOCATION;
 			return settings::instance_raw_ptr(new settings::INISettings(this, key));
+		}
 		throw settings::settings_exception(_T("Undefined settings protocol: ") + url.protocol);
 	}
 

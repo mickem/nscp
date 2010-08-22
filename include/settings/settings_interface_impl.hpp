@@ -491,7 +491,7 @@ namespace settings {
 			return context_;
 		}
 		virtual std::wstring get_file_from_context() {
-			return core_->find_file(url_.host + url_.path, DEFAULT_CONF_OLD_LOCATION);
+			return core_->find_file(url_.host + url_.path, _T(""));
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the context.

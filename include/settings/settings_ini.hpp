@@ -224,7 +224,9 @@ namespace settings {
 				is_loaded_ = true;
 				return;
 			}
-			SI_Error rc = ini.LoadFile(get_file_name().string().c_str());
+			std::wstring f = get_file_name().string();
+			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Loading: ") + f);
+			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));
 

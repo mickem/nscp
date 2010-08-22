@@ -1375,7 +1375,7 @@ std::wstring NSClientT::expand_path(std::wstring file) {
 #ifdef WIN32
 	strEx::replace(file, _T("${shared-path}"), getBasePath().string());
 #else
-	strEx::replace(file, _T("${shared-path}"), _T("/usr/shared/nsclient++"));
+	strEx::replace(file, _T("${shared-path}"), _T("/usr/share/nsclient++"));
 #endif
 	strEx::replace(file, _T("${exe-path}"), getBasePath().string());
 	strEx::replace(file, _T("${etc}"), _T("/etc"));
