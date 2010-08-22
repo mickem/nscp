@@ -170,6 +170,14 @@ public:
 		if (pos != std::wstring::npos) {
 			file = file.substr(0, pos);
 		}
+		pos = file.find_last_of(_T("/\\"));
+		if (pos != std::wstring::npos) {
+			file = file.substr(pos);
+		}
+#ifndef WIN32
+		if (file.substr(0,3) == _T("lib"))
+			file = file.substr(3);
+#endif
 		return file;
 	}
 	static std::wstring get_plugin_file(std::wstring key) {
