@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <utils.h>
 #include <checkHelpers.hpp>
 
-class CheckDisk : public nscapi::impl::SimpleCommand {
+class CheckDisk : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin  {
 private:
 	bool show_errors_;
 

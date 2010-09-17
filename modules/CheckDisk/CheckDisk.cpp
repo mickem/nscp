@@ -27,6 +27,8 @@
 #include <file_helpers.hpp>
 #include <checkHelpers.hpp>
 
+namespace sh = nscapi::settings_helper;
+
 CheckDisk gCheckDisk;
 
 CheckDisk::CheckDisk() : show_errors_(false) {
@@ -44,17 +46,30 @@ bool CheckDisk::loadModule() {
 
 bool CheckDisk::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		GET_CORE()->registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
-		GET_CORE()->registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
-		GET_CORE()->registerCommand(_T("CheckFile2"), _T("Check various aspects of a file and/or folder."));
+		get_core()->registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
+		get_core()->registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
+		get_core()->registerCommand(_T("CheckFile2"), _T("Check various aspects of a file and/or folder."));
 
-		// TODO
-		SETTINGS_REG_KEY_I(check_disk::SHOW_ERRORS);
-		show_errors_ = SETTINGS_GET_BOOL(check_disk::SHOW_ERRORS);
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(_T("NRPE"), alias, _T("server"));
+
+		settings.add_path_to_settings()
+			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options."))
+			;
+
+		settings.add_key_to_settings()
+			(_T("show errors"), sh::bool_key(&show_errors_, false),
+			_T("SHOW ERRORS"), _T(""))
+			;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		return false;
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
 	}
 	return true;
 }
