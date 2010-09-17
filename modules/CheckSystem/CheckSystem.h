@@ -74,14 +74,14 @@ public:
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
 	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
-	NSCAPI::nagiosReturn checkCPU(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkUpTime(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkServiceState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkMem(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkProcState(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkCounter(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn listCounterInstances(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkSingleRegEntry(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn checkCPU(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkUpTime(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkServiceState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkMem(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkProcState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkCounter(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn listCounterInstances(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn checkSingleRegEntry(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 
 
 };

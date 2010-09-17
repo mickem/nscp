@@ -28,12 +28,6 @@
 
 FileLogger gFileLogger;
 
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
 FileLogger::FileLogger() : init_(false) {
 }
 FileLogger::~FileLogger() {
@@ -153,6 +147,7 @@ void FileLogger::handleMessage(int msgType, TCHAR* file, int line, const TCHAR* 
 		message + _T("\r\n"));
 }
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gFileLogger);
 NSC_WRAPPERS_HANDLE_MSG_DEF(gFileLogger);
 NSC_WRAPPERS_IGNORE_CMD_DEF();

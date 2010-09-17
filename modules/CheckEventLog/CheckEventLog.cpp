@@ -43,15 +43,6 @@
 
 CheckEventLog gCheckEventLog;
 
-
-
-
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
 CheckEventLog::CheckEventLog() {
 }
 CheckEventLog::~CheckEventLog() {
@@ -816,6 +807,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckEventLog);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckEventLog);

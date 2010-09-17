@@ -6,6 +6,9 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2010-08-04 MickeM
+ * Added performance data display when missing bounds
+
 2010-07-28 MickeM
  * Fixed issue with NSCA server and closing sockets (no flushes the datat before)
  * Fixed issue with performance data units beeing incorrect:

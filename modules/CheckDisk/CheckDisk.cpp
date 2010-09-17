@@ -1020,6 +1020,76 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(std::list<std::wstring> args, std::ws
 }
 
 
+NSCAPI::nagiosReturn CheckDisk::CheckFile(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	if (arguments.empty()) {
+		message = _T("Missing argument(s).");
+		return NSCAPI::returnUNKNOWN;
+	}
+	file_filter_function finder;
+	PathContainer tmpObject;
+	std::list<std::wstring> paths;
+	unsigned int truncate = 0;
+	CheckFileContainer query;
+	std::wstring syntax = _T("%filename%");
+	std::wstring alias;
+	bool bPerfData = true;
+	unsigned int max_dir_depth = -1;
+	bool debug = false;
+
+	try {
+		MAP_OPTIONS_BEGIN(arguments)
+			MAP_OPTIONS_NUMERIC_ALL(query, _T(""))
+			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
+			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
+			MAP_OPTIONS_STR(_T("syntax"), syntax)
+			MAP_OPTIONS_PUSH(_T("path"), paths)
+			MAP_OPTIONS_STR(_T("alias"), alias)
+			MAP_OPTIONS_STR2INT(_T("max-dir-depth"), max_dir_depth)
+			MAP_OPTIONS_PUSH(_T("file"), paths)
+			MAP_OPTIONS_BOOL_TRUE(_T("debug"), debug)
+			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterIn, _T("in"), _T("out"))
+			MAP_OPTIONS_BOOL_EX(_T("filter"), finder.bFilterAll, _T("all"), _T("any"))
+			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-size"), size, finder.filter_chain)
+			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-creation"), creation, finder.filter_chain)
+			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-written"), written, finder.filter_chain)
+			MAP_OPTIONS_PUSH_WTYPE(file_filter, _T("filter-accessed"), accessed, finder.filter_chain)
+			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
+			MAP_OPTIONS_END()
+	} catch (filters::parse_exception e) {
+		message = e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+	} catch (filters::filter_exception e) {
+		message = e.getMessage();
+		return NSCAPI::returnUNKNOWN;
+	}
+	finder.syntax = syntax;
+	NSC_error errors;
+	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
+		pattern_type path = split_pattern(*pit);
+		recursive_scan<file_filter_function>(path.first, path.second, 0, max_dir_depth, finder, &errors, debug);
+		if (errors.has_error()) {
+			if (show_errors_)
+				message = errors.get_error();
+			else
+				message = _T("Check contains error. Check log for details (or enable show_errors in nsc.ini)");
+			return NSCAPI::returnUNKNOWN;
+		}
+	}
+	message = finder.message;
+	if (!alias.empty())
+		query.alias = alias;
+	else
+		query.alias = finder.alias;
+	if (query.alias.empty())
+		query.alias = _T("no files found");
+	query.runCheck(finder.hit_count, returnCode, message, perf);
+	if ((truncate > 0) && (message.length() > (truncate-4)))
+		message = message.substr(0, truncate-4) + _T("...");
+	if (message.empty())
+		message = _T("CheckFile ok");
+	return returnCode;
+}
 
 #define MAP_FILTER(value, obj) \
 		else if (p__.first == _T("filter+"##value)) { file_filter filter; filter.obj = p__.second; \
@@ -1273,17 +1343,20 @@ NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(std::list<std::wstring> args, st
 		message = _T("CheckSingleFile ok");
 	return returnCode;
 }
-NSCAPI::nagiosReturn CheckDisk::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckDisk::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+	std::list<std::wstring> arguments = arrayBuffer::arrayBuffer2list(argLen, char_args);
 	if (command == _T("CheckFileSize")) {
-		return CheckFileSize(arguments, message, perf);
+		return CheckFileSize(arguments, msg, perf);
 	} else if (command == _T("CheckDriveSize")) {
-		return CheckDriveSize(arguments, message, perf);
+		return CheckDriveSize(arguments, msg, perf);
+	} else if (command == _T("CheckFile")) {
+		return CheckFile(arguments, msg, perf);
 	} else if (command == _T("CheckFile2")) {
-		return CheckFile2(arguments, message, perf);
+		return CheckFile2(arguments, msg, perf);
 	} else if (command == _T("CheckSingleFile")) {
-		return CheckSingleFile(arguments, message, perf);
+		return CheckSingleFile(arguments, msg, perf);
 	} else if (command == _T("getFileAge")) {
-		return getFileAge(arguments, message, perf);
+		return getFileAge(arguments, msg, perf);
 	}	
 	return NSCAPI::returnIgnored;
 }

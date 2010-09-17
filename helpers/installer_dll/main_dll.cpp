@@ -177,12 +177,13 @@ UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //#pragma comment(linker, "/EXPORT:ImportConfig=_ImportConfig@4")
-extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("ImportConfig"));
+UINT ImportConfig (msi_helper &h) {
 	try {
 		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
 		std::wstring main = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
 		std::wstring custom = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
+
+		h.setProperty(_T("IMPORT_CONFIG"), _T("1"));
 
 		h.setupMyProperty(_T("ALLOWED_HOSTS"), MAIN_ALLOWED_HOSTS_DEFAULT);
 		h.setupMyProperty(_T("NSCLIENT_PWD"), MAIN_SETTINGS_PWD_DEFAULT);
@@ -194,6 +195,7 @@ extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 
 		std::wstring filename = target + _T("\\") + main;
 		if (!file_helpers::checks::exists(filename)) {
+			h.logMessage(_T("Old configuration file not found: ") + filename);
 			h.setProperty(_T("CONF_CHECKS_GRAY"), _T(""));
 			h.setProperty(_T("CONF_CAN_WRITE"), _T("1"));
 			h.setProperty(_T("CONF_OLD_NOT_FOUND"), _T("1"));
@@ -202,13 +204,15 @@ extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 
 		Settings::getInstance()->setFile(target, main);
 		if (Settings::getInstance()->getActiveType() == _T("INI-file")) {
+			h.logMessage(_T("Making backup copy (old_nsc.ini) of: ") + filename);
 			h.setProperty(_T("CONF_CAN_WRITE"), _T("1"));
 			CopyFile(filename.c_str(), (h.getTempPath() + _T("\\old_nsc.ini")).c_str(), FALSE);
-		} else
+		} else {
+			h.logMessage(_T("Registry setting (not supported) from: ") + filename);
 			h.setProperty(_T("CONF_CAN_WRITE"), _T("0"));
+		}
 
-
-
+		h.logMessage(_T("Reading existing settings from: ") + filename);
 
 		std::wstring allowed_hosts = Settings::getInstance()->getString(MAIN_SECTION_TITLE, MAIN_ALLOWED_HOSTS, MAIN_ALLOWED_HOSTS_DEFAULT);
 		h.setMyProperty(_T("ALLOWED_HOSTS"), allowed_hosts);
@@ -251,6 +255,7 @@ extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 			h.setMyProperty(_T("CONF_CHECKS"), _T("1"));
 			h.setProperty(_T("CONF_CHECKS_GRAY"), _T("1"));
 		}
+		h.logMessage(_T("Done reading settings from: ") + filename);
 		Settings::destroyInstance();
 		h.setProperty(_T("CONF_OLD_NOT_FOUND"), _T("0"));
 	} catch (installer_exception e) {
@@ -272,6 +277,10 @@ extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 	return ERROR_SUCCESS;
 }
 
+extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("ImportConfig"));
+	return ImportConfig(h);
+}
 
 bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description) {
 	h.updateProgress(_T("Preparing to install service"), service_short_name);
@@ -325,6 +334,17 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
 		std::wstring main_conf = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
 		std::wstring custom_conf = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
+
+		if (h.getPropery(_T("IMPORT_CONFIG")) != _T("1")) {
+			h.logMessage(_T("Config has not previously been loaded (probably running in islen, loading now..."));
+			ImportConfig(h);
+			h.logMessage(_T("Old config loaded..."));
+			h.setProperty(_T("KEEP_WHICH_CONFIG"), _T("NEW"));
+			//OverrideDefaults(hInstall);
+		} else {
+			h.logMessage(_T("Config has been loaded (not silent)"));
+		}
+
 
 		std::wstring write = target + _T("\\") + custom_conf;
 		h.logMessage(_T("config file (update): ") + write);

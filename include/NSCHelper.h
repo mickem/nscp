@@ -230,6 +230,11 @@ namespace NSCModuleWrapper {
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point
 
+#define NSC_WRAP_DLL() \
+	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { \
+	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call); \
+	return TRUE; }
+
 #define NSC_WRAPPERS_MAIN_DEF(toObject) \
 	extern int NSModuleHelperInit(NSCModuleHelper::lpNSAPILoader f) { \
 		try { \

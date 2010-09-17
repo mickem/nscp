@@ -32,11 +32,6 @@
 
 NRPEClient gNRPEClient;
 
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
 
 NRPEClient::NRPEClient() : buffer_length_(0), bInitSSL(false) {
 }
@@ -266,7 +261,7 @@ NRPEPacket NRPEClient::send_nossl(std::wstring host, int port, int timeout, NRPE
 
 
 
-
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gNRPEClient);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gNRPEClient);
