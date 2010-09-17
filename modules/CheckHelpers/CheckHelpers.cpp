@@ -37,15 +37,15 @@ bool CheckHelpers::loadModule() {
 
 bool CheckHelpers::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		GET_CORE()->registerCommand(_T("CheckAlwaysOK"), _T("Run another check and regardless of its return code return OK."));
-		GET_CORE()->registerCommand(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));
-		GET_CORE()->registerCommand(_T("CheckAlwaysWARNING"), _T("Run another check and regardless of its return code return WARN."));
-		GET_CORE()->registerCommand(_T("CheckMultiple"), _T("Run more then one check and return the worst state."));
-		GET_CORE()->registerCommand(_T("CheckOK"), _T("Just return OK (anything passed along will be used as a message)."));
-		GET_CORE()->registerCommand(_T("check_ok"), _T("Just return OK (anything passed along will be used as a message)."));
-		GET_CORE()->registerCommand(_T("CheckWARNING"), _T("Just return WARN (anything passed along will be used as a message)."));
-		GET_CORE()->registerCommand(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
-		GET_CORE()->registerCommand(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
+		get_core()->registerCommand(_T("CheckAlwaysOK"), _T("Run another check and regardless of its return code return OK."));
+		get_core()->registerCommand(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));
+		get_core()->registerCommand(_T("CheckAlwaysWARNING"), _T("Run another check and regardless of its return code return WARN."));
+		get_core()->registerCommand(_T("CheckMultiple"), _T("Run more then one check and return the worst state."));
+		get_core()->registerCommand(_T("CheckOK"), _T("Just return OK (anything passed along will be used as a message)."));
+		get_core()->registerCommand(_T("check_ok"), _T("Just return OK (anything passed along will be used as a message)."));
+		get_core()->registerCommand(_T("CheckWARNING"), _T("Just return WARN (anything passed along will be used as a message)."));
+		get_core()->registerCommand(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
+		get_core()->registerCommand(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {

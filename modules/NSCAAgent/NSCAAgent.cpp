@@ -30,6 +30,8 @@
 
 NSCAAgent gNSCAAgent;
 
+namespace sh = nscapi::settings_helper;
+
 /**
  * Default c-tor
  * @return 
@@ -48,40 +50,70 @@ NSCAAgent::~NSCAAgent() {}
 bool NSCAAgent::loadModule() {
 	return false;
 }
-
+/*
+DEFINE_SETTING_S(REPORT_MODE, NSCA_SERVER_SECTION, "report", "all");
+DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+*/
 bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+
+
 	try {
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(_T("NSCA"), alias, _T("agent"));
 
-		SETTINGS_REG_PATH(nsca::SECTION);
-		SETTINGS_REG_PATH(nsca::SERVER_SECTION);
-		SETTINGS_REG_PATH(nsca::CMD_SECTION);
+		settings.add_path_to_settings()
+			(_T("NSCA AGENT SECTION"), _T("Section for NSCA passive check module."))
+			;
 
-		SETTINGS_REG_KEY_S(nsca::HOSTNAME);
-		SETTINGS_REG_KEY_S(nsca::SERVER_HOST);
-		SETTINGS_REG_KEY_I(nsca::SERVER_PORT);
-		SETTINGS_REG_KEY_I(nsca::ENCRYPTION);
-		SETTINGS_REG_KEY_S(nsca::PASSWORD);
-		SETTINGS_REG_KEY_B(nsca::CACHE_HOST);
+		settings.add_key_to_settings()
+			(_T("hostname"), sh::string_key(&hostname_),
+			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
 
-		hostname_ = to_string(SETTINGS_GET_STRING(nsca::HOSTNAME));
-		nscahost_ = SETTINGS_GET_STRING(nsca::SERVER_HOST);
-		nscaport_ = SETTINGS_GET_INT(nsca::SERVER_PORT);
+			(_T("hostname cache"), sh::bool_key(&cacheNscaHost_),
+			_T("CACHE HOSTNAME"), _T(""))
 
-		encryption_method_ = SETTINGS_GET_INT(nsca::ENCRYPTION);
-		password_ = strEx::wstring_to_string(SETTINGS_GET_STRING(nsca::PASSWORD));
-		cacheNscaHost_ = SETTINGS_GET_INT(nsca::CACHE_HOST);
-		timeout_ = SETTINGS_GET_INT(nsca::READ_TIMEOUT);
-		payload_length_ = SETTINGS_GET_INT(nsca::PAYLOAD_LENGTH);
-		time_delta_ = strEx::stol_as_time_sec(SETTINGS_GET_STRING(nsca::TIME_DELTA_DEFAULT), 1);
+			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAAgent::set_delay, this, _1), 0),
+			_T("DELAY"), _T(""))
 
+			(_T("payload length"), sh::uint_key(&payload_length_, 512),
+			_T("PAYLOAD LENGTH"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
 
+			;
+
+		settings.add_path_to_settings(_T("server"))
+			(_T("NSCA SERVER"), _T("Configure the NSCA server to report to."))
+			;
+
+		settings.add_key_to_settings(_T("server"))
+			(_T("host"), sh::wstring_key(&nscahost_),
+			_T("NSCA HOST"), _T("The NSCA server to report results to."))
+
+			(_T("port"), sh::uint_key(&nscaport_, 5666),
+			_T("NSCA PORT"), _T("The NSCA server port"))
+
+			(_T("encryption method"), sh::int_key(&encryption_method_),
+			_T("ENCRYPTION METHOD"), _T("Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all."))
+
+			(_T("password"), sh::string_key(&password_),
+			_T("PASSWORD"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
+
+			(_T("timeout"), sh::uint_key(&timeout_, 30),
+			_T("SOCKET TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out."))
+			;
+
+		settings.register_all();
+		settings.notify();
+
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		return false;
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
 	}
-
-
 	return true;
 }
 /**

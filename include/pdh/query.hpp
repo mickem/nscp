@@ -30,7 +30,9 @@
 namespace PDH {
 	class PDHQuery : public PDH::PDHImplSubscriber {
 	private:
-		typedef std::list<PDHCounter*> CounterList;
+		typedef boost::shared_ptr<PDHCounter> counter_ptr;
+		typedef boost::shared_ptr<PDHCounterListener> listener_ptr;
+		typedef std::list<counter_ptr> CounterList;
 		CounterList counters_;
 		PDH::PDH_HQUERY hQuery_;
 	public:
@@ -40,22 +42,19 @@ namespace PDH {
 			removeAllCounters();
 		}
 
-		PDHCounter* addCounter(std::wstring name, PDHCounterListener *listener) {
-			PDHCounter *counter = new PDHCounter(name, listener);
+		counter_ptr addCounter(std::wstring name, listener_ptr) {
+			counter_ptr counter = counter_ptr(new PDHCounter(name, listener));
 			counters_.push_back(counter);
 			return counter;
 		}
-		PDHCounter* addCounter(std::wstring name) {
-			PDHCounter *counter = new PDHCounter(name);
+		counter_ptr addCounter(std::wstring name) {
+			counter_ptr counter = counter_ptr(new PDHCounter(name));
 			counters_.push_back(counter);
 			return counter;
 		}
 		void removeAllCounters() {
 			if (hQuery_)
 				close();
-			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
-				delete (*it);
-			}
 			counters_.clear();
 		}
 
@@ -93,9 +92,6 @@ namespace PDH {
 				throw PDHException(_T("query is null!"));
 			PDH::PDHFactory::get_impl()->remove_listener(this);
 			on_unload();
-			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
-				delete (*it);
-			}
 			counters_.clear();
 		}
 

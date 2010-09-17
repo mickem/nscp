@@ -27,11 +27,89 @@
 
 Scheduler gInstance;
 
+namespace sh = nscapi::settings_helper;
+
 bool Scheduler::loadModule() {
 	return false;
 }
+/*
 
+namespace scheduler {
+DEFINE_PATH(SECTION, SCHEDULER_SECTION);
+DESCRIBE_SETTING(SECTION, "SCHEDULER SECTION", "Section for the Scheduler module.");
+
+DEFINE_PATH(SCHEDULES_SECTION, SCHEDULER_SECTION_SCH);
+DESCRIBE_SETTING(SCHEDULES_SECTION, "SCHEDULES SECTION", "Section for defining schedules for the Scheduler module.");
+
+DEFINE_PATH(DEFAULT_SCHEDULE_SECTION, SCHEDULER_SECTION_DEF);
+DESCRIBE_SETTING(DEFAULT_SCHEDULE_SECTION, "DEFAULT SCHEDULER SECTION", "Default settings for all scheduled commands");
+
+DEFINE_SETTING_I(THREADS, SCHEDULER_SECTION, "debug threads", 1);
+DESCRIBE_SETTING_ADVANCED(THREADS, "THREADS", "Number of threads to use int he thread pool (increase if you have many scheduled items)");
+
+DEFINE_SETTING_S(INTERVAL, SCHEDULER_SECTION_FAKE, "interval", "5m");
+DESCRIBE_SETTING(INTERVAL, "SCHEDULE INTERVAL", "Time in seconds between each check");
+
+DEFINE_SETTING_S(COMMAND, SCHEDULER_SECTION_FAKE, "command", "check_ok");
+DESCRIBE_SETTING(COMMAND, "SCHEDULE COMMAND", "Command to run");
+
+DEFINE_SETTING_S(CHANNEL, SCHEDULER_SECTION_FAKE, "channel", "NSCA");
+DESCRIBE_SETTING(CHANNEL, "SCHEDULE CHANNEL", "Channel to send results on");
+
+DEFINE_SETTING_S(REPORT_MODE, SCHEDULER_SECTION_FAKE, "report", "all");
+DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+
+DEFINE_SETTING_S(INTERVAL_D, SCHEDULER_SECTION_DEF, "interval", "5m");
+DESCRIBE_SETTING(INTERVAL_D, "SCHEDULE INTERVAL", "Time in seconds between each check");
+
+DEFINE_SETTING_S(COMMAND_D, SCHEDULER_SECTION_DEF, "command", "check_ok");
+DESCRIBE_SETTING(COMMAND_D, "SCHEDULE COMMAND", "Command to run");
+
+DEFINE_SETTING_S(CHANNEL_D, SCHEDULER_SECTION_DEF, "channel", "NSCA");
+DESCRIBE_SETTING(CHANNEL_D, "SCHEDULE CHANNEL", "Channel to send results on");
+
+DEFINE_SETTING_S(REPORT_MODE_D, SCHEDULER_SECTION_DEF, "report", "all");
+DESCRIBE_SETTING(REPORT_MODE_D, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+*/
 bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+
+	try {
+		get_core()->registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(_T("scheduler"), alias);
+
+		settings.add_path_to_settings()
+			(_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))
+			;
+
+// 		settings.add_key_to_settings()
+// 			(_T("debug"), sh::bool_key(&debug_, false),
+// 			_T("DEBUG"), _T("Log all \"hits\" and \"misses\" on the eventlog filter chain, useful for debugging eventlog checks but very very very noisy so you don't want to accidentally set this on a real machine."))
+// 
+// 			(_T("lookup names"), sh::bool_key(&lookup_names_, false),
+// 			_T("LOOKUP NAMES"), _T(""))
+// 
+// 			(_T("syntax"), sh::wstring_key(&syntax_),
+// 			_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
+// 
+// 			(_T("buffer size"), sh::int_key(&buffer_length_, 128*1024),
+// 			_T("BUFFER_SIZE"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+// 			;
+
+		settings.register_all();
+		settings.notify();
+
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		return false;
+	} catch (nscapi::nscapi_exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
+	}
 	try {
 		SETTINGS_REG_PATH(scheduler::SECTION);
 		SETTINGS_REG_PATH(scheduler::DEFAULT_SCHEDULE_SECTION);

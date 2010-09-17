@@ -25,6 +25,8 @@
 #include <fstream>
 #include <utils.h>
 
+namespace sh = nscapi::settings_helper;
+
 FileLogger gFileLogger;
 
 FileLogger::FileLogger() : init_(false) {
@@ -67,11 +69,11 @@ std::wstring getFolder(std::wstring key) {
 }
 std::string FileLogger::getFileName() {
 	if (file_.empty()) {
-		file_ = to_string(SETTINGS_GET_STRING(log::FILENAME));
+		file_ = to_string(cfg_file_);
 		if (file_.empty())
 			file_ = to_string(setting_keys::log::FILENAME_DEFAULT);
 		if (file_.find("\\") == std::wstring::npos) {
-			std::string root = to_string(getFolder(SETTINGS_GET_STRING(log::ROOT)));
+			std::string root = to_string(getFolder(cfg_root_));
 			std::string::size_type pos = root.find_last_not_of('\\');
 			if (pos != std::wstring::npos) {
 				//root = root.substr(0, pos);
@@ -85,28 +87,52 @@ std::string FileLogger::getFileName() {
 bool FileLogger::loadModule() {
 	return false;
 }
-
 bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	//_tzset();
-	getFileName();
-
 	try {
-		SETTINGS_REG_PATH(log::SECTION);
+		std::wstring log_mask, file, root;
 
-		SETTINGS_REG_KEY_S(log::FILENAME);
-		SETTINGS_REG_KEY_S(log::DATEMASK);
-		SETTINGS_REG_KEY_S(log::LOG_MASK);
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(_T("log"), alias);
 
+		settings.add_path_to_settings()
+			(_T("LOG SECTION"), _T("Configure loggning properties."))
+			;
+
+		settings.add_key_to_settings()
+			//(_T("debug"), sh::bool_key(&debug_, false),
+			//_T("DEBUG LOGGING"), _T("Enable debug logging can help track down errors and find problems but will impact overall performance negativly."))
+
+			(_T("log mask"), sh::wstring_key(&log_mask, false),
+			_T("LOG MASK"), _T("The log mask information, error, warning, critical, debug"))
+
+			(_T("root"), sh::wstring_key(&cfg_root_, _T("auto")),
+			_T("ROOT"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
+
+			(_T("file name"), sh::wstring_key(&cfg_file_),
+			_T("FILENAME"), _T("The file to write log data to. If no directory is used this is relative to the NSClient++ binary."))
+
+			(_T("date format"), sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
+			_T("DATEMASK"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+			;
+
+		settings.register_all();
+		settings.notify();
+
+		log_mask_ = nscapi::logging::parse(log_mask);
+
+		getFileName();
+
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		return false;
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
 	}
-
-
-	format_ = to_string(SETTINGS_GET_STRING(log::DATEMASK));
-	std::wstring log_mask = SETTINGS_GET_STRING(log::LOG_MASK);
-	log_mask_ = nscapi::logging::parse(log_mask);
 	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + nscapi::logging::to_string(log_mask_));
 	init_ = true;
 	std::wstring hello = _T("Starting to log for: ") + GET_CORE()->getApplicationName() + _T(" - ") + GET_CORE()->getApplicationVersionString();

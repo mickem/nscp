@@ -171,7 +171,7 @@ namespace nscapi {
 
 		class simple_plugin {
 		public:
-			nscapi::core_wrapper* get_core() {
+			inline nscapi::core_wrapper* get_core() {
 				return nscapi::plugin_singleton->get_core();
 			}
 		};

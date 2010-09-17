@@ -31,10 +31,7 @@
 #include <sysinfo.h>
 #include <filter_framework.hpp>
 #include <simple_registry.hpp>
-
-#ifdef USE_BOOST
 #include <boost/regex.hpp>
-#endif
 
 CheckSystem gCheckSystem;
 
@@ -48,6 +45,8 @@ CheckSystem::CheckSystem() : pdhThread(_T("pdhThread")) {}
  * @return 
  */
 CheckSystem::~CheckSystem() {}
+
+namespace sh = nscapi::settings_helper;
 
 /**
  * Load (initiate) module.
@@ -65,23 +64,78 @@ bool CheckSystem::loadModule() {
  */
 
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	if (mode == NSCAPI::normalStart) {
-		pdhThread.createThread();
-	}
+	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
 	try {
-		GET_CORE()->registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
-		GET_CORE()->registerCommand(_T("checkUpTime"), _T("Check the up-time of the computer."));
-		GET_CORE()->registerCommand(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
-		GET_CORE()->registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
-		GET_CORE()->registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
-		GET_CORE()->registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
-		GET_CORE()->registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
-		GET_CORE()->registerCommand(_T("checkSingleRegEntry"), _T("Check registry key"));
+		std::map<std::wstring,std::wstring> service_mappings;
+		bool default_counters;
+
+		sh::settings_registry settings(get_core());
+		settings.set_alias(_T("check"), alias, _T("system/windows"));
+
+		settings.add_path_to_settings()
+			(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
+
+			(_T("service mapping"), sh::wstring_map_path(&service_mappings)
+			, _T("SERVICE MAPPING SECTION"), _T(""))
+
+			(_T("pdh"), _T("PDH COUNTER INFORMATION"), _T(""))
+
+			//(_T("pdh/counter"), _T("PDH COUNTERS"), _T(""))
+
+			;
+
+
+ 		settings.add_key_to_settings()
+ 			(_T("default"), sh::bool_key(&default_counters),
+ 			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
+// 
+// 			(_T("hostname cache"), sh::bool_key(&cacheNscaHost_),
+// 			_T("CACHE HOSTNAME"), _T(""))
+// 
+// 			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAAgent::set_delay, this, _1), 0),
+// 			_T("DELAY"), _T(""))
+// 
+// 			(_T("payload length"), sh::uint_key(&payload_length_, 512),
+// 			_T("PAYLOAD LENGTH"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
+
+			;
+
+
+		settings.register_all();
+		settings.notify();
+
+		lookups_[SERVICE_BOOT_START] = service_mappings[_T("BOOT_START")];
+		lookups_[SERVICE_SYSTEM_START] = service_mappings[_T("SYSTEM_START")];
+		lookups_[SERVICE_AUTO_START] = service_mappings[_T("AUTO_START")];
+		lookups_[SERVICE_DEMAND_START] = service_mappings[_T("DEMAND_START")];
+		lookups_[SERVICE_DISABLED] = service_mappings[_T("DISABLED")];
+
+		typedef PDHCollector::system_counter_data::counter cnt;
+		if (default_counters) {
+			data->counters.push_back(cnt(_T("cpu load"), _T("\\238(_total)\\6"), cnt::type_int64, cnt::format_large, cnt::rrd));
+			data->counters.push_back(cnt(_T("memory commit bytes"), _T("\\4\26"), cnt::type_int64, cnt::format_large, cnt::value));
+			data->counters.push_back(cnt(_T("memory commit limit"), _T("\\4\\30"), cnt::type_int64, cnt::format_large, cnt::value));
+			data->counters.push_back(cnt(_T("uptime"), _T("\\2\\674"), cnt::type_int64, cnt::format_large, cnt::value));
+		}
+
+		get_core()->registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
+		get_core()->registerCommand(_T("checkUpTime"), _T("Check the up-time of the computer."));
+		get_core()->registerCommand(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
+		get_core()->registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
+		get_core()->registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
+		get_core()->registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
+		get_core()->registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
+		get_core()->registerCommand(_T("checkSingleRegEntry"), _T("Check registry key"));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
+
+	if (mode == NSCAPI::normalStart) {
+		pdhThread.createThread(data);
+	}
+
 	return true;
 }
 /**
@@ -582,19 +636,12 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> argu
 		;check_all_services[SERVICE_DISABLED]=stopped
 		std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
 		*/
-		std::map<DWORD,std::wstring> lookups;
-		lookups[SERVICE_BOOT_START] = SETTINGS_GET_STRING(check_system::SVC_BOOT_START);
-		lookups[SERVICE_SYSTEM_START] = SETTINGS_GET_STRING(check_system::SVC_SYSTEM_START);
-		lookups[SERVICE_AUTO_START] = SETTINGS_GET_STRING(check_system::SVC_AUTO_START);
-		lookups[SERVICE_DEMAND_START] = SETTINGS_GET_STRING(check_system::SVC_DEMAND_START);
-		lookups[SERVICE_DISABLED] = SETTINGS_GET_STRING(check_system::SVC_DISABLED);
-
 
 		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE); 
 		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
 			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
 				tmpObject.data = (*service).m_strServiceName;
-				tmpObject.crit.state = lookups[(*service).m_dwStartType]; 
+				tmpObject.crit.state = lookups_[(*service).m_dwStartType]; 
 				list.push_back(tmpObject); 
 			}
 		} 

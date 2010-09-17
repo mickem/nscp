@@ -73,4 +73,9 @@ public:
 
 	NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
 
+
+	void set_delay(std::wstring key) {
+		time_delta_ = strEx::stol_as_time_sec(key, 1);
+	}
+
 };

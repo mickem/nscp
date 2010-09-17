@@ -56,6 +56,106 @@ struct parse_exception {
 #include <parsers/grammar.cpp>
 #include <parsers/ast.cpp>
 
+namespace sh = nscapi::settings_helper;
+
+
+bool CheckEventLog::loadModule() {
+	return false;
+}
+
+
+bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	try {
+		get_core()->registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(_T("CheckEventlog"), alias);
+
+		settings.add_path_to_settings()
+			(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CHeckEventLog.dll)."))
+			;
+
+		settings.add_key_to_settings()
+			(_T("debug"), sh::bool_key(&debug_, false),
+			_T("DEBUG"), _T("Log all \"hits\" and \"misses\" on the eventlog filter chain, useful for debugging eventlog checks but very very very noisy so you don't want to accidentally set this on a real machine."))
+
+			(_T("lookup names"), sh::bool_key(&lookup_names_, false),
+			_T("LOOKUP NAMES"), _T(""))
+
+			(_T("syntax"), sh::wstring_key(&syntax_),
+			_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
+
+			(_T("buffer size"), sh::int_key(&buffer_length_, 128*1024),
+			_T("BUFFER_SIZE"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+			;
+
+		settings.register_all();
+		settings.notify();
+
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		return false;
+	} catch (nscapi::nscapi_exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
+	}
+	/*
+	parse(_T("321 = 123"));
+	parse(_T("123 = 123"));
+	parse(_T("id = 123"));
+	parse(_T("id = 321"));
+
+	parse(_T("id = '123'"));
+	parse(_T("id = '321'"));
+
+	parse(_T("id = convert(123)"));
+	parse(_T("id = convert(321)"));
+
+	parse(_T("id = 123 AND 123 = 123 AND id = 123x"));
+	parse(_T("id = 123 AND 123 = 321 OR 123 = 456 OR 123 = 123"));
+	
+	parse(_T("foo"));
+	parse(_T("1"));
+	parse(_T("foo = "));
+	parse(_T("foo = 1"));
+	parse(_T("'foo' = 1"));
+	parse(_T("foo = '1'"));
+	parse(_T("'hello'='world'"));
+
+	parse(_T("foo = bar"));
+	parse(_T("foo = bar AND bar = foo"));
+	parse(_T("foo = bar AND bar = 1"));
+	parse(_T("foo = bar AND bar = foo OR foo = bar"));
+	parse(_T("foo = bar AND bar = 1 OR foo = 1"));
+	parse(_T(" foo = bar AND ( test > 120 OR foo < 123) OR ugh IN (123, 456, 789)"));
+
+	parse(_T("aaa = 111 OR bbb = 222 OR ccc = 333"));
+	parse(_T("(aaa = 111) OR bbb = 222 OR ccc = 333"));
+	parse(_T("(aaa = 111 OR bbb = 222) OR ccc = 333"));
+	parse(_T("(aaa = 111 OR bbb = 222 OR ccc = 333)"));
+	parse(_T("aaa = 111 OR (bbb = 222 OR ccc = 333)"));
+	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = 333)"));
+	parse(_T("ccc = -333"));
+	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234)"));
+	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = -333)"));
+	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x"));
+	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x OR 123r = foo123"));
+*/
+	return true;
+}
+bool CheckEventLog::unloadModule() {
+	return true;
+}
+
+bool CheckEventLog::hasCommandHandler() {
+	return true;
+}
+bool CheckEventLog::hasMessageHandler() {
+	return false;
+}
 namespace filter {
 	namespace where {
 		struct type_obj : public parsers::where::varible_handler<type_obj> {
@@ -392,82 +492,6 @@ void CheckEventLog::parse(std::wstring expr) {
 	std::wcout << _T("Result (002): ") << ast_parser.evaluate(obj2) << std::endl;
 	*/
 }
-bool CheckEventLog::loadModule() {
-	return false;
-}
-
-bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	try {
-		SETTINGS_REG_PATH(event_log::SECTION);
-		SETTINGS_REG_KEY_B(event_log::DEBUG_KEY);
-		SETTINGS_REG_KEY_S(event_log::SYNTAX);
-
-		GET_CORE()->registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
-
-		debug_ = SETTINGS_GET_BOOL(event_log::DEBUG_KEY);
-		lookup_names_ = SETTINGS_GET_BOOL(event_log::LOOKUP_NAMES);
-		syntax_ = SETTINGS_GET_STRING(event_log::SYNTAX);
-		buffer_length_ = SETTINGS_GET_INT(event_log::BUFFER_SIZE);
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-	}
-	/*
-	parse(_T("321 = 123"));
-	parse(_T("123 = 123"));
-	parse(_T("id = 123"));
-	parse(_T("id = 321"));
-
-	parse(_T("id = '123'"));
-	parse(_T("id = '321'"));
-
-	parse(_T("id = convert(123)"));
-	parse(_T("id = convert(321)"));
-
-	parse(_T("id = 123 AND 123 = 123 AND id = 123x"));
-	parse(_T("id = 123 AND 123 = 321 OR 123 = 456 OR 123 = 123"));
-	
-	parse(_T("foo"));
-	parse(_T("1"));
-	parse(_T("foo = "));
-	parse(_T("foo = 1"));
-	parse(_T("'foo' = 1"));
-	parse(_T("foo = '1'"));
-	parse(_T("'hello'='world'"));
-
-	parse(_T("foo = bar"));
-	parse(_T("foo = bar AND bar = foo"));
-	parse(_T("foo = bar AND bar = 1"));
-	parse(_T("foo = bar AND bar = foo OR foo = bar"));
-	parse(_T("foo = bar AND bar = 1 OR foo = 1"));
-	parse(_T(" foo = bar AND ( test > 120 OR foo < 123) OR ugh IN (123, 456, 789)"));
-
-	parse(_T("aaa = 111 OR bbb = 222 OR ccc = 333"));
-	parse(_T("(aaa = 111) OR bbb = 222 OR ccc = 333"));
-	parse(_T("(aaa = 111 OR bbb = 222) OR ccc = 333"));
-	parse(_T("(aaa = 111 OR bbb = 222 OR ccc = 333)"));
-	parse(_T("aaa = 111 OR (bbb = 222 OR ccc = 333)"));
-	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = 333)"));
-	parse(_T("ccc = -333"));
-	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234)"));
-	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = -333)"));
-	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x"));
-	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x OR 123r = foo123"));
-*/
-	return true;
-}
-bool CheckEventLog::unloadModule() {
-	return true;
-}
-
-bool CheckEventLog::hasCommandHandler() {
-	return true;
-}
-bool CheckEventLog::hasMessageHandler() {
-	return false;
-}
-
 
 std::wstring find_eventlog_name(std::wstring name) {
 	try {

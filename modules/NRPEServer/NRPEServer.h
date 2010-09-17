@@ -24,7 +24,7 @@
 
 NSC_WRAPPERS_MAIN();
 
-class NRPEListener {
+class NRPEListener : public nscapi::impl::simple_plugin {
 private:
 	typedef enum {
 		inject, script, script_dir,

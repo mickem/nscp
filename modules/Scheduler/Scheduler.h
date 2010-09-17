@@ -25,7 +25,7 @@ NSC_WRAPPERS_MAIN();
 #include "simple_scheduler.hpp"
 
 
-class Scheduler : public scheduler::schedule_handler {
+class Scheduler : public scheduler::schedule_handler, public nscapi::impl::simple_plugin {
 private:
 	scheduler::simple_scheduler scheduler_;
 

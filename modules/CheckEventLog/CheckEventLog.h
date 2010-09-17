@@ -26,11 +26,11 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 
 
-class CheckEventLog  : public nscapi::impl::SimpleCommand {
+class CheckEventLog  : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin {
 private:
 	bool debug_;
 	std::wstring syntax_;
-	DWORD buffer_length_;
+	int buffer_length_;
 	bool lookup_names_;
 
 public:

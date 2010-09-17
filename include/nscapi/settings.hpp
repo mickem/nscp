@@ -145,6 +145,11 @@ namespace nscapi {
 			typed_key_fun<T, typed_bool_value<T> >* r = new typed_key_fun<T, typed_bool_value<T> >(fun, def);
 			return r;
 		}
+		template<class T>
+		typed_key_fun<T, typed_string_value<T> >* string_fun_key(boost::function<void (T)> fun, T def) {
+			typed_key_fun<T, typed_string_value<T> >* r = new typed_key_fun<T, typed_string_value<T> >(fun, def);
+			return r;
+		}
 
 		class path_interface {
 		public:

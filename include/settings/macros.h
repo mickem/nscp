@@ -214,19 +214,19 @@ namespace setting_keys {
 	}
 	namespace event_log {
 		DEFINE_PATH(SECTION, EVENT_LOG_SECTION);
-		DESCRIBE_SETTING(SECTION, "EVENT LOG SECTION", "Section for the EventLog Checker (CHeckEventLog.dll).");
+		//DESCRIBE_SETTING(SECTION, "EVENT LOG SECTION", "Section for the EventLog Checker (CHeckEventLog.dll).");
 
 		DEFINE_SETTING_B(DEBUG_KEY, EVENT_LOG_SECTION, "debug", false);
-		DESCRIBE_SETTING_ADVANCED(DEBUG_KEY, "DEBUG", "Log all \"hits\" and \"misses\" on the eventlog filter chain, useful for debugging eventlog checks but very very very noisy so you don't want to accidentally set this on a real machine.");
+		//DESCRIBE_SETTING_ADVANCED(DEBUG_KEY, "DEBUG", "Log all \"hits\" and \"misses\" on the eventlog filter chain, useful for debugging eventlog checks but very very very noisy so you don't want to accidentally set this on a real machine.");
 
 		DEFINE_SETTING_B(LOOKUP_NAMES, EVENT_LOG_SECTION, "lookup_names", false);
-		DESCRIBE_SETTING_ADVANCED(LOOKUP_NAMES, "TODO", "TODO");
+		//DESCRIBE_SETTING_ADVANCED(LOOKUP_NAMES, "TODO", "TODO");
 
 		DEFINE_SETTING_S(SYNTAX, EVENT_LOG_SECTION, "syntax", "");
-		DESCRIBE_SETTING(SYNTAX, "SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).");
+		//DESCRIBE_SETTING(SYNTAX, "SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).");
 
 		DEFINE_SETTING_I(BUFFER_SIZE, EVENT_LOG_SECTION, "buffer_size", 65535);
-		DESCRIBE_SETTING(BUFFER_SIZE, "BUFFER SIZE", "The size of the bugfer to use when getting messages this affects the speed and maximum size of messages you can recieve.");
+		//DESCRIBE_SETTING(BUFFER_SIZE, "BUFFER SIZE", "The size of the bugfer to use when getting messages this affects the speed and maximum size of messages you can recieve.");
 	}
 
 	namespace external_scripts {
@@ -299,23 +299,23 @@ namespace setting_keys {
 		DEFINE_SETTING_S(PDH_CPU, CHECK_SYSTEM_COUNTERS_SECTION, "processor time", "\\Processor(_total)\\% Processor Time");
 		DESCRIBE_SETTING_ADVANCED(PDH_CPU, "PDH COUNTER", "Counter to use for CPU load.");
 
-		DEFINE_PATH(SERVICES_SECTION, CHECK_SYSTEM_SERVICES_SECTION);
-		DESCRIBE_SETTING_ADVANCED(SERVICES_SECTION, "SERVICE CHECKS", "Section to define service checks to use");
+		//DEFINE_PATH(SERVICES_SECTION, CHECK_SYSTEM_SERVICES_SECTION);
+		//DESCRIBE_SETTING_ADVANCED(SERVICES_SECTION, "SERVICE CHECKS", "Section to define service checks to use");
 
-		DEFINE_SETTING_S(SVC_BOOT_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_BOOT_START", "ignored");
-		DESCRIBE_SETTING_ADVANCED(SVC_BOOT_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
+		//DEFINE_SETTING_S(SVC_BOOT_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_BOOT_START", "ignored");
+		//DESCRIBE_SETTING_ADVANCED(SVC_BOOT_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
 
-		DEFINE_SETTING_S(SVC_SYSTEM_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_SYSTEM_START", "ignored");
-		DESCRIBE_SETTING_ADVANCED(SVC_SYSTEM_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
+		//DEFINE_SETTING_S(SVC_SYSTEM_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_SYSTEM_START", "ignored");
+		//DESCRIBE_SETTING_ADVANCED(SVC_SYSTEM_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
 
-		DEFINE_SETTING_S(SVC_AUTO_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_AUTO_START", "started");
-		DESCRIBE_SETTING_ADVANCED(SVC_AUTO_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
+		//DEFINE_SETTING_S(SVC_AUTO_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_AUTO_START", "started");
+		//DESCRIBE_SETTING_ADVANCED(SVC_AUTO_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
 
-		DEFINE_SETTING_S(SVC_DEMAND_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_DEMAND_START", "ignored");
-		DESCRIBE_SETTING_ADVANCED(SVC_DEMAND_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
+		//DEFINE_SETTING_S(SVC_DEMAND_START, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_DEMAND_START", "ignored");
+		//DESCRIBE_SETTING_ADVANCED(SVC_DEMAND_START, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
 
-		DEFINE_SETTING_S(SVC_DISABLED, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_DISABLED", "stopped");
-		DESCRIBE_SETTING_ADVANCED(SVC_DISABLED, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
+		//DEFINE_SETTING_S(SVC_DISABLED, CHECK_SYSTEM_SERVICES_SECTION, "SERVICE_DISABLED", "stopped");
+		//DESCRIBE_SETTING_ADVANCED(SVC_DISABLED, "SERVICE_BOOT_START SERVICE CHECK", "Set how to handle services set to SERVICE_BOOT_START state when checking all services");
 
 		DEFINE_SETTING_S(PDH_SUBSYSTEM, CHECK_SYSTEM_SECTION, "pdh_subsystem", "fast");
 		DESCRIBE_SETTING_ADVANCED(PDH_SUBSYSTEM, "PDH_SUBSYSTEM", "TODO");
@@ -324,60 +324,51 @@ namespace setting_keys {
 
 	}
 
-	namespace check_disk {
-		DEFINE_PATH(SECTION, CHECK_DISK_SECTION);
-		DESCRIBE_SETTING(SECTION, "CHECK DISK SECTION", "");
-
-		DEFINE_SETTING_B(SHOW_ERRORS, CHECK_DISK_SECTION, "show errors", false);
-		DESCRIBE_SETTING_ADVANCED(SHOW_ERRORS, "", "???");
-		
-	}
-
 	namespace nsca {
 		DEFINE_PATH(SECTION, NSCA_SECTION);
-		DESCRIBE_SETTING(SECTION, "NSCA SECTION", "Section for NSCA passive check module.");
+		//DESCRIBE_SETTING(SECTION, "NSCA SECTION", "Section for NSCA passive check module.");
 
 		DEFINE_SETTING_I(INTERVAL, NSCA_SECTION, "interval", 60);
-		DESCRIBE_SETTING(INTERVAL, "COMMAND TIMEOUT", "Time in seconds between each report back to the server (cant as of yet be set individually so this is for all \"checks\")");
+		//DESCRIBE_SETTING(INTERVAL, "COMMAND TIMEOUT", "Time in seconds between each report back to the server (cant as of yet be set individually so this is for all \"checks\")");
 
 		DEFINE_SETTING_S(HOSTNAME, NSCA_SECTION, "hostname", "");
-		DESCRIBE_SETTING_ADVANCED(HOSTNAME, "LOCAL HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.");
+		//DESCRIBE_SETTING_ADVANCED(HOSTNAME, "LOCAL HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.");
 
 		DEFINE_PATH(SERVER_SECTION, NSCA_SERVER_SECTION);
-		DESCRIBE_SETTING(SERVER_SECTION, "NSCA SERVER SECTION", "Configure the NSCA server to report to");
+		//DESCRIBE_SETTING(SERVER_SECTION, "NSCA SERVER SECTION", "Configure the NSCA server to report to");
 
 		DEFINE_SETTING_S(SERVER_HOST, NSCA_SERVER_SECTION, "host", "unknown-host");
-		DESCRIBE_SETTING(SERVER_HOST, "NSCA SERVER", "The NSCA/Nagios(?) server to report results to.");
+		//DESCRIBE_SETTING(SERVER_HOST, "NSCA SERVER", "The NSCA/Nagios(?) server to report results to.");
 
 		DEFINE_SETTING_I(SERVER_PORT, NSCA_SERVER_SECTION, "port", 5667);
-		DESCRIBE_SETTING(SERVER_PORT, "NSCA PORT", "The NSCA server port");
+		//DESCRIBE_SETTING(SERVER_PORT, "NSCA PORT", "The NSCA server port");
 
 		DEFINE_SETTING_I(ENCRYPTION, NSCA_SERVER_SECTION, "encryption method", 1);
-		DESCRIBE_SETTING(ENCRYPTION, "NSCA ENCRYPTION", "Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all.");
+		//DESCRIBE_SETTING(ENCRYPTION, "NSCA ENCRYPTION", "Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all.");
 
 		DEFINE_SETTING_S(PASSWORD, NSCA_SERVER_SECTION, "password", "");
-		DESCRIBE_SETTING(PASSWORD, "NSCA PASSWORD", "The password to use. Again has to be the same as the server or it wont work at all.");
+		//DESCRIBE_SETTING(PASSWORD, "NSCA PASSWORD", "The password to use. Again has to be the same as the server or it wont work at all.");
 
 		DEFINE_SETTING_I(THREADS, NSCA_SECTION, "debug threads", 1);
-		DESCRIBE_SETTING_ADVANCED(THREADS, "DEBUG OPTION (THREADS)", "Number of threads to run, no reason to change this really (unless you want to stress test something)");
+		//DESCRIBE_SETTING_ADVANCED(THREADS, "DEBUG OPTION (THREADS)", "Number of threads to run, no reason to change this really (unless you want to stress test something)");
 
 		DEFINE_SETTING_B(CACHE_HOST, NSCA_SECTION, "cache hostname", false);
-		DESCRIBE_SETTING_ADVANCED(CACHE_HOST, "CACHE HOSTNAME", "???");
+		//DESCRIBE_SETTING_ADVANCED(CACHE_HOST, "CACHE HOSTNAME", "???");
 
 		DEFINE_PATH(CMD_SECTION, NSCA_CMD_SECTION);
-		DESCRIBE_SETTING(CMD_SECTION, "NSCA COMMAND SECTION", "Commands to check and report to the NSCA server");
+		//DESCRIBE_SETTING(CMD_SECTION, "NSCA COMMAND SECTION", "Commands to check and report to the NSCA server");
 
 		DEFINE_SETTING_S(REPORT_MODE, NSCA_SERVER_SECTION, "report", "all");
-		DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+		//DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
 
 		DEFINE_SETTING_S(TIME_DELTA_DEFAULT, NSCA_SECTION, "delay", "0");
-		DESCRIBE_SETTING(TIME_DELTA_DEFAULT, "TODO", "TODO");
+		//DESCRIBE_SETTING(TIME_DELTA_DEFAULT, "TODO", "TODO");
 
 		DEFINE_SETTING_I(PAYLOAD_LENGTH, NSCA_SECTION, "payload length", 512);
-		DESCRIBE_SETTING_ADVANCED(PAYLOAD_LENGTH, "PAYLOAD LENGTH", "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA server to use the same value for it to work.");
+		//DESCRIBE_SETTING_ADVANCED(PAYLOAD_LENGTH, "PAYLOAD LENGTH", "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA server to use the same value for it to work.");
 
 		DEFINE_SETTING_I(READ_TIMEOUT, NSCA_SERVER_SECTION, GENERIC_KEY_SOCK_READ_TIMEOUT, 30);
-		DESCRIBE_SETTING(READ_TIMEOUT, "SOCKET TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.");
+		//DESCRIBE_SETTING(READ_TIMEOUT, "SOCKET TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.");
 
 	}
 
@@ -435,21 +426,21 @@ namespace setting_keys {
 
 	namespace log {
 		DEFINE_PATH(SECTION, LOG_SECTION);
-		DESCRIBE_SETTING_ADVANCED(SECTION, "LOG SECTION", "Configure loggning properties.");
+		//DESCRIBE_SETTING_ADVANCED(SECTION, "LOG SECTION", "Configure loggning properties.");
 
 		DEFINE_SETTING_S(FILENAME, LOG_SECTION, "file", "nsclient.log");
-		DESCRIBE_SETTING_ADVANCED(FILENAME, "SYNTAX", "The file to write log data to. If no directory is used this is relative to the NSClient++ binary.");
+		//DESCRIBE_SETTING_ADVANCED(FILENAME, "SYNTAX", "The file to write log data to. If no directory is used this is relative to the NSClient++ binary.");
 
 		DEFINE_SETTING_S(ROOT, LOG_SECTION, "root", "auto");
-		DESCRIBE_SETTING_ADVANCED(ROOT, "TODO", "TODO");
+		//DESCRIBE_SETTING_ADVANCED(ROOT, "TODO", "TODO");
 
 		DEFINE_SETTING_S(DATEMASK, LOG_SECTION, "date format", "%Y-%m-%d %H:%M:%S");
-		DESCRIBE_SETTING_ADVANCED(DATEMASK, "DATEMASK", "The date format used when logging to a file.");
+		//DESCRIBE_SETTING_ADVANCED(DATEMASK, "DATEMASK", "The date format used when logging to a file.");
 
 		DEFINE_SETTING_S(LOG_MASK, LOG_SECTION, "log mask", "normal");
-		DESCRIBE_SETTING_ADVANCED(LOG_MASK, "LOG MASK", "The log mask information, error, warning, critical, debug");
+		//DESCRIBE_SETTING_ADVANCED(LOG_MASK, "LOG MASK", "The log mask information, error, warning, critical, debug");
 
 		DEFINE_SETTING_B(DEBUG_LOG, LOG_SECTION, "debug", false);
-		DESCRIBE_SETTING_ADVANCED(DEBUG_LOG, "DEBUG LOGGING", "Enable debug logging can help track down errors and find problems but will impact overall perfoamnce negativly.");
+		//DESCRIBE_SETTING_ADVANCED(DEBUG_LOG, "DEBUG LOGGING", "Enable debug logging can help track down errors and find problems but will impact overall perfoamnce negativly.");
 	}
 }

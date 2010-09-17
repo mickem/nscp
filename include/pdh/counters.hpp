@@ -43,18 +43,19 @@ namespace PDH {
 		PDH::PDH_HCOUNTER hCounter_;
 		std::wstring name_;
 		PDH_FMT_COUNTERVALUE data_;
-		PDHCounterListener *listener_;
+		typedef boost::shared_ptr<PDHCounterListener> listener_ptr;
+		listener_ptr listener_;
 
 	public:
 
-		PDHCounter(std::wstring name, PDHCounterListener *listener) : name_(name), listener_(listener), hCounter_(NULL){}
-		PDHCounter(std::wstring name) : name_(name), listener_(NULL), hCounter_(NULL){}
+		PDHCounter(std::wstring name, listener_ptr listener) : name_(name), listener_(listener), hCounter_(NULL){}
+		PDHCounter(std::wstring name) : name_(name), hCounter_(NULL){}
 		virtual ~PDHCounter(void) {
 			if (hCounter_ != NULL)
 				remove();
 		}
 
-		void setListener(PDHCounterListener *listener) {
+		void setListener(listener_ptr listener) {
 			listener_ = listener;
 		}
 

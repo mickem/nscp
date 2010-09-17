@@ -22,12 +22,14 @@
 
 NSC_WRAPPERS_MAIN();
 
-class FileLogger {
+class FileLogger : public nscapi::impl::simple_plugin {
 private:
 	std::string file_;
 	std::string format_;
 	bool init_;
 	int log_mask_;
+	std::wstring cfg_file_;
+	std::wstring cfg_root_;
 
 public:
 	FileLogger();
