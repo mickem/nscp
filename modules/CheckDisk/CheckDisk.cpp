@@ -53,11 +53,11 @@ bool CheckDisk::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));
 
-		settings.add_path_to_settings()
+		settings.alias().add_path_to_settings()
 			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options."))
 			;
 
-		settings.add_key_to_settings()
+		settings.alias().add_key_to_settings()
 			(_T("show errors"), sh::bool_key(&show_errors_, false),
 			_T("SHOW ERRORS"), _T(""))
 			;
@@ -1036,6 +1036,7 @@ NSCAPI::nagiosReturn CheckDisk::getFileAge(std::list<std::wstring> args, std::ws
 
 
 NSCAPI::nagiosReturn CheckDisk::CheckFile(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsUInteger> CheckFileContainer;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	if (arguments.empty()) {
 		message = _T("Missing argument(s).");
@@ -1358,20 +1359,19 @@ NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(std::list<std::wstring> args, st
 		message = _T("CheckSingleFile ok");
 	return returnCode;
 }
-NSCAPI::nagiosReturn CheckDisk::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
-	std::list<std::wstring> arguments = arrayBuffer::arrayBuffer2list(argLen, char_args);
+NSCAPI::nagiosReturn CheckDisk::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("CheckFileSize")) {
-		return CheckFileSize(arguments, msg, perf);
+		return CheckFileSize(arguments, message, perf);
 	} else if (command == _T("CheckDriveSize")) {
-		return CheckDriveSize(arguments, msg, perf);
+		return CheckDriveSize(arguments, message, perf);
 	} else if (command == _T("CheckFile")) {
-		return CheckFile(arguments, msg, perf);
+		return CheckFile(arguments, message, perf);
 	} else if (command == _T("CheckFile2")) {
-		return CheckFile2(arguments, msg, perf);
+		return CheckFile2(arguments, message, perf);
 	} else if (command == _T("CheckSingleFile")) {
-		return CheckSingleFile(arguments, msg, perf);
+		return CheckSingleFile(arguments, message, perf);
 	} else if (command == _T("getFileAge")) {
-		return getFileAge(arguments, msg, perf);
+		return getFileAge(arguments, message, perf);
 	}	
 	return NSCAPI::returnIgnored;
 }
