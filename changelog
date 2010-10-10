@@ -6,6 +6,12 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2010-09-29 MickeM
+ * Reverted a merg miss in CheckDIsk
+ * Added so IN (...) accepts strings without qoutes in the SQL Query syntax of CheckEventlog
+ * Added new "parsing structure" str(...) to create strings in the SQL query without using ticks (') to allow "nasty meta char thingy")
+ * Extended error parsing (eventlog messages) to allow up to 24 arguments (up from 11)
+
 2010-08-04 MickeM
  * Added performance data display when missing bounds
 

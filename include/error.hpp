@@ -107,6 +107,42 @@ namespace error {
 					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9]);
 				if (argCount == 11)
 					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10]);
+				if (argCount == 12)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11]);
+				if (argCount == 13)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[11]);
+				if (argCount == 14)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13]);
+				if (argCount == 15)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14]);
+				if (argCount == 16)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15]);
+				if (argCount == 17)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15], argList[16]);
+				if (argCount == 18)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15], argList[16], argList[17]);
+				if (argCount == 19)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15], argList[16], argList[17], argList[18]);
+				if (argCount == 20)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15], argList[16], argList[17], argList[18], argList[19]);
+				if (argCount == 21)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15], argList[16], argList[17], argList[18], argList[19], argList[20]);
+				if (argCount == 22)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15], argList[16], argList[17], argList[18], argList[19], argList[20], argList[21]);
+				if (argCount == 23)
+					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10],
+					argList[11], argList[12], argList[13], argList[14], argList[15], argList[16], argList[17], argList[18], argList[19], argList[20], argList[21], argList[22]);
 				return _T("We cant handle ") + strEx::itos(argCount) + _T(" arguments so you wont get argList here");
 			}
 		private:

@@ -4,13 +4,17 @@
 SET _ERROR=
 echo Starting build > build.log
 
+echo %jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers >> build.log
+     %jam% --toolset=msvc --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers
+if %ERRORLEVEL% == -1 goto :error
+echo :: Result: %ERRORLEVEL% >> build.log
 
-rem call :build_hdrs
-IF DEFINED _ERROR goto :error
-rem call :build_src
-IF DEFINED _ERROR goto :error    
+echo %jam% --toolset=msvc source-archive >> build.log
+     %jam% --toolset=msvc source-archive
+if %ERRORLEVEL% == -1 goto :error
+echo :: Result: %ERRORLEVEL% >> build.log
 
-call :build_one address-model=64 variant=release debug-symbols=on debug-store=database --build-type=complete "--library-path=%TARGET_LIB_x86_DIR%" "--with-psdk-lib=%PLATTFORM_SDK_LIB_x86%"
+call :build_one address-model=64 variant=release debug-symbols=on debug-store=database --build-type=complete "--library-path=%TARGET_LIB_x64_DIR%" "--with-psdk-lib=%PLATTFORM_SDK_LIB_x64%"
 IF DEFINED _ERROR goto :error
 
 echo *************
@@ -20,23 +24,9 @@ echo *           *
 echo *************
 goto :eof
 
-:build_hdrs
-echo %jam% --toolset=msvc-8.0 --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers >> build.log
-     %jam% --toolset=msvc-8.0 --with-cryptopp=%CRYPTOPP_SOURCE% --with-cryptopp-target=%NSCP_INCLUDE%\cryptopp cryptopp-headers
-if %ERRORLEVEL% == -1 goto :error_one
-echo :: Result: %ERRORLEVEL% >> build.log
-goto :eof
-
-:build_src
-echo %jam% --toolset=msvc-8.0 source-archive >> build.log
-     %jam% --toolset=msvc-8.0 source-archive
-if %ERRORLEVEL% == -1 goto :error_one
-echo :: Result: %ERRORLEVEL% >> build.log
-goto :eof
-
 :build_one
-echo build.bat %* >> build.log
-call build.bat %*
+echo build.bat runtime-link=static %* >> build.log
+call build.bat runtime-link=static %*
 if %ERRORLEVEL% == -1 goto :error_one
 echo Result: %ERRORLEVEL% >> build.log
 goto :eof

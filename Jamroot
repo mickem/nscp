@@ -172,6 +172,8 @@ all-modules =
     [ MATCH .*modules/(.*)/.* : [ glob modules/*/Jamfile ] ]
     ;
 
+# all-modules = NRPEClient ;
+
 # all-modules = CheckEventLog CheckExternalScripts CheckHelpers CheckSystem CheckTaskSched ;
 # all-modules = CheckWMI DebugLogMetrics FileLogger LUAScript ;
 # all-modules = NRPEClient NSCAAgent NSClientListener SysTray ; 

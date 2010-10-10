@@ -117,7 +117,8 @@ namespace parsers {
 					;
 
 			identifier 
-					= (variable_name >> '(' >> list_expr >> ')')		[_val = build_if(_1, _2)]
+					= "str" >> string_literal_ex						[_val = build_is(_1)]
+					| (variable_name >> '(' >> list_expr >> ')')		[_val = build_if(_1, _2)]
 					| variable_name										[_val = build_iv(_1)]
 					| string_literal									[_val = build_is(_1)]
 					| qi::lexeme[
@@ -139,6 +140,8 @@ namespace parsers {
 						>> *( ',' >> string_literal )					[_val += build_is(_1) ]
 					|	number											[_val = build_ii(_1) ]
 						>> *( ',' >> number ) 							[_val += build_ii(_1) ]
+					|	variable_name									[_val = build_is(_1) ]
+						>> *( ',' >> variable_name )					[_val += build_is(_1) ]
 					;
 
 			op 		= qi::lit("<=")										[_val = op_le]
@@ -162,10 +165,15 @@ namespace parsers {
 			variable_name
 					= qi::lexeme[+(ascii::alpha)						[_val += _1]]
 					;
-			string_literal	
+			string_literal
 					= qi::lexeme[ '\'' 
 							>>  +( ascii::char_ - '\'' )				[_val += _1] 
 							>> '\''] 
+					;
+			string_literal_ex
+					= qi::lexeme[ '(' 
+							>>  +( ascii::char_ - ')' )					[_val += _1] 
+							>> ')'] 
 					;
 		}
 

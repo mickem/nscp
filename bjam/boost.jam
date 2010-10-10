@@ -88,6 +88,14 @@ rule init (
 	}
 }
 
+alias lexical_cast
+	: # source
+	: # requirements
+	: # default-build
+	: # usage-requirements
+		<conditional>@usage-requirements
+	;
+
 alias regexp 
 	: # source
 	: # requirements
