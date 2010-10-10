@@ -42,7 +42,7 @@ namespace PDH {
 			removeAllCounters();
 		}
 
-		counter_ptr addCounter(std::wstring name, listener_ptr) {
+		counter_ptr addCounter(std::wstring name, listener_ptr listener) {
 			counter_ptr counter = counter_ptr(new PDHCounter(name, listener));
 			counters_.push_back(counter);
 			return counter;

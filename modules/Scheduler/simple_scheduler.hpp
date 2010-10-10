@@ -121,7 +121,7 @@ namespace scheduler {
 		}
 	};
 
-	class simple_scheduler {
+	class simple_scheduler : public boost::noncopyable {
 	private:
 		typedef std::map<int,target> target_list_type;
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;

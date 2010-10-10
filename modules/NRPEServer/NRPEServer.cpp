@@ -61,11 +61,11 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));
 
-		settings.add_path_to_settings()
+		settings.alias().add_path_to_settings()
 			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options."))
 			;
 
-		settings.add_key_to_settings()
+		settings.alias().add_key_to_settings()
 			(_T("port"), sh::uint_key(&info_.port, 5666),
 			_T("PORT NUMBER"), _T("Port to use for NRPE."))
 

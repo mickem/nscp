@@ -363,6 +363,85 @@ namespace nscapi {
 			std::wstring path_;
 		};	
 
+
+		class path_extension {
+		public:
+			path_extension(settings_registry * owner, std::wstring path) : owner_(owner), path_(path) {}
+
+			settings_keys_easy_init add_key_to_path(std::wstring path) {
+				return settings_keys_easy_init(get_path(path), owner_);
+			}
+			settings_keys_easy_init add_key() {
+				return settings_keys_easy_init(path_, owner_);
+			}
+			settings_paths_easy_init add_path(std::wstring path = _T("")) {
+				return settings_paths_easy_init(get_path(path), owner_);
+			}
+			inline std::wstring get_path(std::wstring path) {
+				if (!path.empty())
+					return path_ + _T("/") + path;
+				return path_;
+			}
+
+		private:
+			std::wstring path_;
+			settings_registry * owner_;
+		};
+		class alias_extension {
+		public:
+			alias_extension(settings_registry * owner, std::wstring alias) : owner_(owner), alias_(alias) {}
+
+			settings_keys_easy_init add_key_to_path(std::wstring path) {
+				return settings_keys_easy_init(get_path(path), owner_);
+			}
+			settings_paths_easy_init add_path(std::wstring path) {
+				return settings_paths_easy_init(get_path(path), owner_);
+			}
+			inline std::wstring get_path(std::wstring path) {
+				if (path.empty())
+					return _T("/") + alias_;
+				return path + _T("/") + alias_;
+			}
+
+
+			settings_keys_easy_init add_key_to_settings(std::wstring path = _T("")) {
+				return settings_keys_easy_init(get_settings_path(path), owner_);
+			}
+			settings_paths_easy_init add_path_to_settings(std::wstring path = _T("")) {
+				return settings_paths_easy_init(get_settings_path(path), owner_);
+			}
+			inline std::wstring get_settings_path(std::wstring path) {
+				if (path.empty())
+					return _T("/settings/") + alias_;
+				return _T("/settings/") + alias_ + _T("/") + path;
+			}
+
+			static std::wstring get_alias(std::wstring cur, std::wstring def) {
+				if (cur.empty())
+					return def;
+				else
+					return cur;
+			}
+			static std::wstring get_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+				if (!prefix.empty())
+					prefix += _T("/");
+				if (cur.empty())
+					return prefix + def;
+				else
+					return prefix + cur;
+			}
+			void set_alias(std::wstring cur, std::wstring def) {
+				alias_ = get_alias(cur, def);
+			}
+			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+				alias_ = get_alias(prefix, cur, def);
+			}
+
+		private:
+			std::wstring alias_;
+			settings_registry * owner_;
+		};
+
 		class settings_registry {
 			typedef std::list<boost::shared_ptr<key_info> > key_list;
 			typedef std::list<boost::shared_ptr<path_info> > path_list;
@@ -385,39 +464,33 @@ namespace nscapi {
 			settings_keys_easy_init add_key_to_path(std::wstring path) {
 				return settings_keys_easy_init(path, this);
 			}
-			settings_keys_easy_init add_key_to_path_w_alias(std::wstring path) {
-				return settings_keys_easy_init(path + _T("/") + alias_, this);
-			}
-			settings_keys_easy_init add_key_to_settings(std::wstring path = _T("")) {
-				if (path.empty())
-					return settings_keys_easy_init(_T("/settings/") + alias_, this);
-				return settings_keys_easy_init(_T("/settings/") + alias_ + _T("/") + path, this);
-			}
 			settings_paths_easy_init add_path() {
 				return settings_paths_easy_init(this);
 			}
-			settings_paths_easy_init add_path_w_alias(std::wstring path) {
-				return settings_paths_easy_init(path + _T("/") + alias_, this);
-			}
-			settings_paths_easy_init add_path_to_settings(std::wstring path = _T("")) {
-				if (path.empty())
-					return settings_paths_easy_init(_T("/settings/") + alias_, this);
-				return settings_paths_easy_init(_T("/settings/") + alias_ + _T("/") + path, this);
-			}
+
 			void set_alias(std::wstring cur, std::wstring def) {
-				if (cur.empty())
-					alias_ = def;
-				else
-					alias_ = cur;
+				alias_ = alias_extension::get_alias(cur, def);
 			}
 			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
-				if (!prefix.empty())
-					prefix += _T("/");
-				if (cur.empty())
-					alias_ = prefix + def;
-				else
-					alias_ = prefix + cur;
+				alias_ = alias_extension::get_alias(prefix, cur, def);
 			}
+			alias_extension alias() {
+				return alias_extension(this, alias_);
+			}
+			alias_extension alias(std::wstring alias) {
+				return alias_extension(this, alias);
+			}
+			alias_extension alias(std::wstring cur, std::wstring def) {
+				return alias_extension(this, alias_extension::get_alias(cur, def));
+			}
+			alias_extension alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+				return alias_extension(this, alias_extension::get_alias(prefix, cur, def));
+			}
+
+			path_extension path(std::wstring path) {
+				return path_extension(this, path);
+			}
+			
 
 			void register_all() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
@@ -449,5 +522,52 @@ namespace nscapi {
 
 			}
 		};
+// 		class simple_alias_settings_registry : public settings_registry {
+// 		private:
+// 			std::wstring alias_;
+// 
+// 		public:
+// 			simple_alias_settings_registry(nscapi::core_wrapper* core) : settings_registry(core) {}
+// 
+// 			settings_keys_easy_init add_key_to_path_w_alias(std::wstring path) {
+// 				return settings_keys_easy_init(path + _T("/") + alias_, this);
+// 			}
+// 			settings_keys_easy_init add_key_to_settings(std::wstring path = _T("")) {
+// 				return settings_keys_easy_init(get_settings_path(path), this);
+// 			}
+// 			settings_paths_easy_init add_path_w_alias(std::wstring path) {
+// 				return settings_paths_easy_init(path + _T("/") + alias_, this);
+// 			}
+// 			settings_paths_easy_init add_path_to_settings(std::wstring path = _T("")) {
+// 				if (path.empty())
+// 					return settings_paths_easy_init(_T("/settings/") + alias_, this);
+// 				return settings_paths_easy_init(_T("/settings/") + alias_ + _T("/") + path, this);
+// 			}
+// 			static std::wstring get_settings_path(std::wstring alias, std::wstring path) {
+// 				if (path.empty())
+// 					return _T("/settings/") + alias;
+// 				return _T("/settings/") + alias + _T("/") + path;
+// 			}
+// 			std::wstring get_settings_path(std::wstring path) {
+// 				if (path.empty())
+// 					return _T("/settings/") + alias_;
+// 				return _T("/settings/") + alias_ + _T("/") + path;
+// 			}
+// 			void set_alias(std::wstring cur, std::wstring def) {
+// 				if (cur.empty())
+// 					alias_ = def;
+// 				else
+// 					alias_ = cur;
+// 			}
+// 			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+// 				if (!prefix.empty())
+// 					prefix += _T("/");
+// 				if (cur.empty())
+// 					alias_ = prefix + def;
+// 				else
+// 					alias_ = prefix + cur;
+// 			}
+// 
+// 		};
 	}
 }

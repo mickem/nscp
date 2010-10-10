@@ -434,3 +434,8 @@ int NSCPlugin::commandLineExec(const unsigned int argLen, wchar_t **arguments) {
 	}
 }
 
+bool NSCPlugin::is_duplicate( boost::filesystem::wpath file, std::wstring alias ) {
+	if (alias.empty())
+		return module_.get_file() == dll::dll::fix_module_name(file);
+	return module_.get_file() == dll::dll::fix_module_name(file) || alias == alias_;
+}

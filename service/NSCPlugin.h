@@ -60,17 +60,10 @@ public:
 	 * @param error An error message (human readable format)
 	 */
 	NSPluginException(dll::dll &module, std::wstring error) : error_(error) {
-		file_ = getModule(module.get_file());
+		file_ = module.get_module_name();
 	}
-	std::wstring getModule(std::wstring file) {
-		if (file.empty())
-			return _T("");
-		std::wstring ret = file;
-		std::wstring::size_type pos = ret.find_last_of(_T("\\"));
-		if (pos != std::wstring::npos && ++pos < ret.length()) {
-			ret = ret.substr(pos);
-		}
-		return ret;
+	std::wstring what() {
+		return error_ + _T(" in file: ") + file_;
 	}
 
 
@@ -153,32 +146,20 @@ public:
 	int commandLineExec(const unsigned int argLen, wchar_t **arguments);
 	void showTray();
 	void hideTray();
+	bool is_duplicate( boost::filesystem::wpath file, std::wstring alias );
 
 	std::wstring getFilename() {
-		std::wstring file = module_.get_file();
-		if (file.empty())
-			return _T("");
-		std::wstring::size_type pos = file.find_last_of(_T("\\"));
-		if (pos != std::wstring::npos && ++pos < file.length()) {
-			return file.substr(pos);
-		}
-		return file;
+		return module_.get_filename();
 	}
 	std::wstring getModule() {
-		std::wstring file = getFilename();
-		std::wstring::size_type pos = file.find_last_of(_T("."));
-		if (pos != std::wstring::npos) {
-			file = file.substr(0, pos);
-		}
-		pos = file.find_last_of(_T("/\\"));
-		if (pos != std::wstring::npos) {
-			file = file.substr(pos);
-		}
 #ifndef WIN32
+		std::wstring file = module_.get_module_name();
 		if (file.substr(0,3) == _T("lib"))
 			file = file.substr(3);
-#endif
 		return file;
+#else
+		return module_.get_module_name();
+#endif
 	}
 	static std::wstring get_plugin_file(std::wstring key) {
 #ifdef WIN32

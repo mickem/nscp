@@ -95,11 +95,11 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
 		settings.set_alias(_T("log"), alias);
 
-		settings.add_path_to_settings()
+		settings.alias().add_path_to_settings()
 			(_T("LOG SECTION"), _T("Configure loggning properties."))
 			;
 
-		settings.add_key_to_settings()
+		settings.alias().add_key_to_settings()
 			//(_T("debug"), sh::bool_key(&debug_, false),
 			//_T("DEBUG LOGGING"), _T("Enable debug logging can help track down errors and find problems but will impact overall performance negativly."))
 

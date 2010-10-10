@@ -12,3 +12,4 @@ EXPORTS
 	NSHandleCommand
 	NSUnloadModule
 	NSGetModuleDescription
+	NSDeleteBuffer

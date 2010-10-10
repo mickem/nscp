@@ -487,32 +487,32 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	return ret;
 }
 
-NSClientT::plugin_info_list NSClientT::get_all_plugins() {
-	boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
-	plugin_alias_list_type plugins = find_all_plugins(false);
-	plugin_info_list ret;
-	std::pair<std::wstring,std::wstring> v;
-
-	BOOST_FOREACH(v, plugins) {
-		plugin_info_type info;
-		info.dll = v.second;
-		try {
-			LOG_DEBUG_STD(_T("Attempting to fake load: ") + v.second + _T(" as ") + v.first);
-			NSCPlugin plugin(next_plugin_id_++, pluginPath / v.second, v.first);
-			plugin.load_dll();
-			plugin.load_plugin(NSCAPI::dontStart);
-			info.name = plugin.getName();
-			info.description = plugin.getDescription();
-			plugin.unload();
-		} catch (NSPluginException e) {
-			LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
-		} catch (...) {
-			LOG_CRITICAL_STD(_T("Unknown Error loading: ") + info.dll);
-		}
-		ret.push_back(info);
-	}
-	return ret;
-}
+// NSClientT::plugin_info_list NSClientT::get_all_plugins() {
+// 	boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
+// 	plugin_alias_list_type plugins = find_all_plugins(false);
+// 	plugin_info_list ret;
+// 	std::pair<std::wstring,std::wstring> v;
+// 
+// 	BOOST_FOREACH(v, plugins) {
+// 		plugin_info_type info;
+// 		info.dll = v.second;
+// 		try {
+// 			LOG_DEBUG_STD(_T("Attempting to fake load: ") + v.second + _T(" as ") + v.first);
+// 			NSCPlugin plugin(next_plugin_id_++, pluginPath / v.second, v.first);
+// 			plugin.load_dll();
+// 			plugin.load_plugin(NSCAPI::dontStart);
+// 			info.name = plugin.getName();
+// 			info.description = plugin.getDescription();
+// 			plugin.unload();
+// 		} catch (NSPluginException e) {
+// 			LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
+// 		} catch (...) {
+// 			LOG_CRITICAL_STD(_T("Unknown Error loading: ") + info.dll);
+// 		}
+// 		ret.push_back(info);
+// 	}
+// 	return ret;
+// }
 
 
 void NSClientT::load_all_plugins(int mode) {
@@ -527,29 +527,36 @@ void NSClientT::load_all_plugins(int mode) {
 	std::pair<std::wstring,std::wstring> v;
 
 	BOOST_FOREACH(v, plugins) {
-		std::wstring desc;
-		std::wstring name = v.second;
 		try {
-			NSCPlugin plugin(next_plugin_id_++, pluginPath / v.second, v.first);
-			name = plugin.getModule();
-			plugin.load_dll();
-			plugin.load_plugin(mode);
-			desc = plugin.getName() + _T(" - ");
-			desc += plugin.getDescription();
-			plugin.unload();
-		} catch (NSPluginException e) {
-			desc += _T("unknown module");
-			LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
+			addPlugin(pluginPath / v.second, v.second);
+		} catch (NSPluginException &e) {
+			LOG_CRITICAL_STD(_T("Failed to register plugin: ") + e.what());
 		} catch (...) {
-			desc += _T("unknown module");
-			LOG_CRITICAL_STD(_T("Unknown Error loading: ") + name);
+			LOG_CRITICAL_STD(_T("Failed to register plugin key: ") + v.second);
 		}
-		try {
-			if (v.first.empty() && !settings_manager::get_settings()->has_key(MAIN_MODULES_SECTION, v.second))
-				settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, name, settings::settings_core::key_string, desc, desc, _T("disabled"), false);
-		} catch (...) {
-			LOG_CRITICAL_STD(_T("Failed to register plugin key: ") + name);
-		}
+// 		std::wstring desc;
+// 		std::wstring name = v.second;
+// 		try {
+// 			NSCPlugin plugin(next_plugin_id_++, pluginPath / v.second, v.first);
+// 			name = plugin.getModule();
+// 			plugin.load_dll();
+// 			plugin.load_plugin(mode);
+// 			desc = plugin.getName() + _T(" - ");
+// 			desc += plugin.getDescription();
+// 			plugin.unload();
+// 		} catch (NSPluginException e) {
+// 			desc += _T("unknown module");
+// 			LOG_CRITICAL_STD(_T("Error loading: ") + e.file_ + _T(" root cause: ") + e.error_);
+// 		} catch (...) {
+// 			desc += _T("unknown module");
+// 			LOG_CRITICAL_STD(_T("Unknown Error loading: ") + name);
+// 		}
+// 		try {
+// 			if (v.first.empty() && !settings_manager::get_settings()->has_key(MAIN_MODULES_SECTION, v.second))
+// 				settings_manager::get_core()->register_key(MAIN_MODULES_SECTION, name, settings::settings_core::key_string, desc, desc, _T("disabled"), false);
+// 		} catch (...) {
+// 			LOG_CRITICAL_STD(_T("Failed to register plugin key: ") + name);
+// 		}
 	}
 }
 
@@ -846,9 +853,14 @@ int NSClientT::commandLineExec(const wchar_t* module, const unsigned int argLen,
 	}
 	try {
 		plugin_type plugin = addPlugin(getBasePath() / boost::filesystem::wpath(_T("modules")) / boost::filesystem::wpath(module), _T(""));
-		LOG_DEBUG_STD(_T("Loading plugin: ") + plugin->getName() + _T("..."));
-		plugin->load_plugin(NSCAPI::dontStart);
-		return plugin->commandLineExec(argLen, args);
+		if (plugin) {
+			LOG_DEBUG_STD(_T("Loading plugin: ") + plugin->getName() + _T("..."));
+			plugin->load_plugin(NSCAPI::dontStart);
+			return plugin->commandLineExec(argLen, args);
+		} else {
+			LOG_ERROR_CORE_STD(_T("Failed to load: ") + std::wstring(module) + _T(" available modules are: ") + moduleList);
+			return 1;
+		}
 	} catch (NSPluginException e) {
 		LOG_MESSAGE_STD(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
 	}
@@ -973,6 +985,15 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::wpath file, std::
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex."));
 			return plugin;
 		}
+
+		BOOST_FOREACH(plugin_type plug, plugins_) {
+			if (plug->is_duplicate(file, alias)) {
+				plugin.reset();
+				return plug;
+			}
+		}
+
+
 		plugins_.insert(plugins_.end(), plugin);
 		commands_.add_plugin(plugin);
 		channels_.add_plugin(plugin);

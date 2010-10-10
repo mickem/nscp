@@ -283,10 +283,10 @@ namespace PDHCollectors {
 	public:
 		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false) {}
 		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0), hasValue_(false) {
-			PDHCounterMutexHandler mutex(mutex_);
+			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
 				return;
-			buffer = new int[length];
+			buffer = new TType[length];
 			for (unsigned int i=0; i<length;i++)
 				buffer[i] = 0;
 		}

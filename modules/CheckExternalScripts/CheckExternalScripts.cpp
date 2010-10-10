@@ -75,7 +75,7 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
 		settings.set_alias(alias, _T("external scripts"));
 
-		settings.add_path_to_settings()
+		settings.alias().add_path_to_settings()
 			(_T("EXTERNAL SCRIPT SECTION"), _T("Section for external scripts configuration options (CheckExternalScripts)."))
 
 			(_T("scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)), 
@@ -91,7 +91,7 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 			_T("EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION"), _T(""))
 			;
 
-		settings.add_key_to_settings()
+		settings.alias().add_key_to_settings()
 			(_T("timeout"), sh::uint_key(&timeout, 60),
 			_T("COMMAND TIMEOUT"), _T("The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones."))
 

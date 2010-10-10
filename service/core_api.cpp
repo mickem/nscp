@@ -341,10 +341,11 @@ wchar_t* copyString(const std::wstring &str) {
 	return tc;
 }
 NSCAPI::errorReturn NSAPIGetPluginList(int *len, NSCAPI::plugin_info *list[]) {
-	NSClientT::plugin_info_list plugList= mainClient.get_all_plugins();
-	*len = plugList.size();
+//	NSClientT::plugin_info_list plugList= mainClient.get_all_plugins();
+	*len = 0; //plugList.size();
 
 	*list = new NSCAPI::plugin_info[*len+1];
+	/*
 	int i=0;
 	for(NSClientT::plugin_info_list::const_iterator cit = plugList.begin(); cit != plugList.end(); ++cit,i++) {
 		(*list)[i].dll = copyString((*cit).dll);
@@ -352,6 +353,7 @@ NSCAPI::errorReturn NSAPIGetPluginList(int *len, NSCAPI::plugin_info *list[]) {
 		(*list)[i].version = copyString((*cit).version);
 		(*list)[i].description = copyString((*cit).description);
 	}
+	*/
 	return NSCAPI::isSuccess;
 }
 NSCAPI::errorReturn NSAPIReleasePluginList(int len, NSCAPI::plugin_info *list[]) {

@@ -28,11 +28,13 @@ namespace dll {
 					module_ = fix_module_name(module_);
 				}
 			}
-			boost::filesystem::wpath fix_module_name( boost::filesystem::wpath module_ ) {
-				boost::filesystem::wpath mod = module_ / get_extension();
+			static boost::filesystem::wpath fix_module_name( boost::filesystem::wpath module ) {
+				if (boost::filesystem::is_regular(module))
+					return module;
+				boost::filesystem::wpath mod = module / get_extension();
 				if (boost::filesystem::is_regular(mod))
 					return mod;
-				return module_;
+				return module;
 			}
 			static std::wstring get_extension() {
 #if defined(CYGWIN)
@@ -95,7 +97,16 @@ namespace dll {
 			}
 
 			bool is_loaded() const { return handle_!=NULL; }
-			std::wstring get_file() const { return module_.string(); }
+			boost::filesystem::wpath get_file() const { return module_; }
+			std::wstring get_filename() const { return module_.leaf(); }
+			std::wstring get_module_name() {
+				std::wstring ext = get_extension();
+				int l = ext.length();
+				std::wstring fn = get_filename();
+				if ((fn.length() > l) && (fn.substr(fn.size()-l) == ext))
+					return fn.substr(0, fn.size()-l);
+				return fn;
+			}
 		};
 	}
 }

@@ -71,11 +71,11 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
 		settings.set_alias(_T("CheckEventlog"), alias);
 
-		settings.add_path_to_settings()
+		settings.alias().add_path_to_settings()
 			(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CHeckEventLog.dll)."))
 			;
 
-		settings.add_key_to_settings()
+		settings.alias().add_key_to_settings()
 			(_T("debug"), sh::bool_key(&debug_, false),
 			_T("DEBUG"), _T("Log all \"hits\" and \"misses\" on the eventlog filter chain, useful for debugging eventlog checks but very very very noisy so you don't want to accidentally set this on a real machine."))
 

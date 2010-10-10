@@ -374,40 +374,40 @@ namespace setting_keys {
 
 	namespace scheduler {
 		DEFINE_PATH(SECTION, SCHEDULER_SECTION);
-		DESCRIBE_SETTING(SECTION, "SCHEDULER SECTION", "Section for the Scheduler module.");
+		//DESCRIBE_SETTING(SECTION, "SCHEDULER SECTION", "Section for the Scheduler module.");
 
 		DEFINE_PATH(SCHEDULES_SECTION, SCHEDULER_SECTION_SCH);
-		DESCRIBE_SETTING(SCHEDULES_SECTION, "SCHEDULES SECTION", "Section for defining schedules for the Scheduler module.");
+		//DESCRIBE_SETTING(SCHEDULES_SECTION, "SCHEDULES SECTION", "Section for defining schedules for the Scheduler module.");
 
 		DEFINE_PATH(DEFAULT_SCHEDULE_SECTION, SCHEDULER_SECTION_DEF);
-		DESCRIBE_SETTING(DEFAULT_SCHEDULE_SECTION, "DEFAULT SCHEDULER SECTION", "Default settings for all scheduled commands");
+		//DESCRIBE_SETTING(DEFAULT_SCHEDULE_SECTION, "DEFAULT SCHEDULER SECTION", "Default settings for all scheduled commands");
 
 		DEFINE_SETTING_I(THREADS, SCHEDULER_SECTION, "debug threads", 1);
-		DESCRIBE_SETTING_ADVANCED(THREADS, "THREADS", "Number of threads to use int he thread pool (increase if you have many scheduled items)");
+		//DESCRIBE_SETTING_ADVANCED(THREADS, "THREADS", "Number of threads to use int he thread pool (increase if you have many scheduled items)");
 
 		DEFINE_SETTING_S(INTERVAL, SCHEDULER_SECTION_FAKE, "interval", "5m");
-		DESCRIBE_SETTING(INTERVAL, "SCHEDULE INTERVAL", "Time in seconds between each check");
+		//DESCRIBE_SETTING(INTERVAL, "SCHEDULE INTERVAL", "Time in seconds between each check");
 
 		DEFINE_SETTING_S(COMMAND, SCHEDULER_SECTION_FAKE, "command", "check_ok");
-		DESCRIBE_SETTING(COMMAND, "SCHEDULE COMMAND", "Command to run");
+		//DESCRIBE_SETTING(COMMAND, "SCHEDULE COMMAND", "Command to run");
 
 		DEFINE_SETTING_S(CHANNEL, SCHEDULER_SECTION_FAKE, "channel", "NSCA");
-		DESCRIBE_SETTING(CHANNEL, "SCHEDULE CHANNEL", "Channel to send results on");
+		//DESCRIBE_SETTING(CHANNEL, "SCHEDULE CHANNEL", "Channel to send results on");
 
 		DEFINE_SETTING_S(REPORT_MODE, SCHEDULER_SECTION_FAKE, "report", "all");
-		DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+		//DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
 
 		DEFINE_SETTING_S(INTERVAL_D, SCHEDULER_SECTION_DEF, "interval", "5m");
-		DESCRIBE_SETTING(INTERVAL_D, "SCHEDULE INTERVAL", "Time in seconds between each check");
+		//DESCRIBE_SETTING(INTERVAL_D, "SCHEDULE INTERVAL", "Time in seconds between each check");
 
 		DEFINE_SETTING_S(COMMAND_D, SCHEDULER_SECTION_DEF, "command", "check_ok");
-		DESCRIBE_SETTING(COMMAND_D, "SCHEDULE COMMAND", "Command to run");
+		//DESCRIBE_SETTING(COMMAND_D, "SCHEDULE COMMAND", "Command to run");
 
 		DEFINE_SETTING_S(CHANNEL_D, SCHEDULER_SECTION_DEF, "channel", "NSCA");
-		DESCRIBE_SETTING(CHANNEL_D, "SCHEDULE CHANNEL", "Channel to send results on");
+		//DESCRIBE_SETTING(CHANNEL_D, "SCHEDULE CHANNEL", "Channel to send results on");
 
 		DEFINE_SETTING_S(REPORT_MODE_D, SCHEDULER_SECTION_DEF, "report", "all");
-		DESCRIBE_SETTING(REPORT_MODE_D, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
+		//DESCRIBE_SETTING(REPORT_MODE_D, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
 
 	}
 

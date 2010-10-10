@@ -61,11 +61,11 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
 		settings.set_alias(_T("NSCA"), alias, _T("agent"));
 
-		settings.add_path_to_settings()
+		settings.alias().add_path_to_settings()
 			(_T("NSCA AGENT SECTION"), _T("Section for NSCA passive check module."))
 			;
 
-		settings.add_key_to_settings()
+		settings.alias().add_key_to_settings()
 			(_T("hostname"), sh::string_key(&hostname_),
 			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
 
@@ -80,11 +80,11 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 			;
 
-		settings.add_path_to_settings(_T("server"))
+		settings.alias().add_path_to_settings(_T("server"))
 			(_T("NSCA SERVER"), _T("Configure the NSCA server to report to."))
 			;
 
-		settings.add_key_to_settings(_T("server"))
+		settings.alias().add_key_to_settings(_T("server"))
 			(_T("host"), sh::wstring_key(&nscahost_),
 			_T("NSCA HOST"), _T("The NSCA server to report results to."))
 

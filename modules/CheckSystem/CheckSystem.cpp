@@ -72,7 +72,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 		sh::settings_registry settings(get_core());
 		settings.set_alias(_T("check"), alias, _T("system/windows"));
 
-		settings.add_path_to_settings()
+		settings.alias().add_path_to_settings()
 			(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
 
 			(_T("service mapping"), sh::wstring_map_path(&service_mappings)
@@ -85,7 +85,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			;
 
 
- 		settings.add_key_to_settings()
+ 		settings.alias().add_key_to_settings()
  			(_T("default"), sh::bool_key(&default_counters),
  			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
 // 
@@ -196,11 +196,17 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 							bStatus = false;
 						}
 						if (bStatus) {
-							PDH::PDHCounter *pCounter = NULL;
+							
+							//typedef boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > cnt_type;
+							typedef boost::shared_ptr<PDH::PDHCounter> counter_ptr;
+							//typedef boost::shared_ptr<PDH::PDHCounterListener> cnt_type;
+							counter_ptr pCounter;
+							//PDH::PDHCounter *pCounter = NULL;
 							PDH::PDHQuery pdh;
 							try {
-								PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
-								pCounter = pdh.addCounter(counter, &cDouble);
+								//pCounter.reset(new PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE>);
+								//PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+								pdh.addCounter(counter);
 								pdh.open();
 
 								if (pCounter != NULL) {
@@ -278,8 +284,8 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 					bool bOpend = false;
 					try {
 						PDH::PDHQuery pdh;
-						PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
-						pdh.addCounter(counter, &cDouble);
+						//PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
+						pdh.addCounter(counter);
 						pdh.open();
 						pdh.gatherData();
 						pdh.close();
@@ -1126,8 +1132,10 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 				}
 			}
 			PDH::PDHQuery pdh;
-			PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
-			pdh.addCounter(counter.data, &cDouble);
+			typedef boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > ptr_lsnr_type;
+			ptr_lsnr_type cDouble(new PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE>());
+			//boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > cDouble;
+			pdh.addCounter(counter.data, cDouble);
 			pdh.open();
 			if (bCheckAverages) {
 				pdh.collect();
@@ -1135,7 +1143,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 			}
 			pdh.gatherData();
 			pdh.close();
-			double value = cDouble.getValue();
+			double value = cDouble->getValue();
 			if (bNSClient) {
 				if (!msg.empty())
 					msg += _T(",");

@@ -91,7 +91,7 @@ namespace nsclient {
 			}
 			std::wstring lc = make_key(cmd);
 			if (!have_plugin(plugin_id))
-				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id) + ": " + unsafe_get_all_plugin_ids());
+				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
 			descriptions_[lc] = desc;
 			commands_[lc] = plugins_[plugin_id];
 		}
