@@ -27,6 +27,8 @@
 #include <file_helpers.hpp>
 #include <checkHelpers.hpp>
 
+/* test */
+
 namespace sh = nscapi::settings_helper;
 
 CheckDisk gCheckDisk;
