@@ -72,7 +72,7 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("hostname cache"), sh::bool_key(&cacheNscaHost_),
 			_T("CACHE HOSTNAME"), _T(""))
 
-			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAAgent::set_delay, this, _1), 0),
+			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAAgent::set_delay, this, _1), _T("0")),
 			_T("DELAY"), _T(""))
 
 			(_T("payload length"), sh::uint_key(&payload_length_, 512),

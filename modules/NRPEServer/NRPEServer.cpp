@@ -69,12 +69,6 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 			(_T("port"), sh::uint_key(&info_.port, 5666),
 			_T("PORT NUMBER"), _T("Port to use for NRPE."))
 
-			(_T("bind to"), sh::string_key(&info_.address),
-			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
-
-			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
-			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
-
 			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
 			_T("THREAD POOL"), _T(""))
 
@@ -99,6 +93,18 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
 			_T("SSL CERTIFICATE"), _T(""))
 			;
+
+		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
+
+			(_T("bind to"), sh::string_key(&info_.address),
+			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
+
+			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
+			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
+
+			;
+
+
 
 		settings.register_all();
 		settings.notify();

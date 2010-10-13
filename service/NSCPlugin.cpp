@@ -45,7 +45,7 @@ NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file,
 	,fHideTray(NULL)
 	,fHasNotificationHandler(NULL)
 	,fHandleNotification(NULL)
-	,bLoaded_(false)
+	,loaded_(false)
 	,lastIsMsgPlugin_(false)
 	,broken_(false)
 	,plugin_id_(id)
@@ -131,13 +131,18 @@ void NSCPlugin::load_dll() {
 		throw NSPluginException(module_, e.what());
 	}
 	loadRemoteProcs_();
-	bLoaded_ = true;
 }
 
 bool NSCPlugin::load_plugin(NSCAPI::moduleLoadMode mode) {
+	if (loaded_)
+		return true;
 	if (!fLoadModule)
 		throw NSPluginException(module_, _T("Critical error (fLoadModule)"));
-	return fLoadModule(alias_.c_str(), mode);
+	if (fLoadModule(alias_.c_str(), mode)) {
+		loaded_ = true;
+		return true;
+	}
+	return false;
 }
 
 void NSCPlugin::setBroken(bool broken) {
@@ -299,7 +304,7 @@ void NSCPlugin::handleMessage(int msgType, const wchar_t* file, const int line, 
 void NSCPlugin::unload() {
 	if (!isLoaded())
 		return;
-	bLoaded_ = false;
+	loaded_ = false;
 	if (!fUnLoadModule)
 		throw NSPluginException(module_, _T("Critical error (fUnLoadModule)"));
 	try {

@@ -17,6 +17,7 @@ namespace nscapi {
 			virtual NSCAPI::settings_type get_type() const = 0;
 			virtual std::wstring get_default_as_string() const = 0;
 			virtual void notify(nscapi::core_wrapper* core_, std::wstring path, std::wstring key) const = 0;
+			virtual void notify(nscapi::core_wrapper* core_, std::wstring parent, std::wstring path, std::wstring key) const = 0;
 		};
 		template<class T>
 		class typed_key : public key_interface {
@@ -49,6 +50,11 @@ namespace nscapi {
 				T value = boost::lexical_cast<T>(core_->getSettingsString(path, key, typed_key<T>::default_value_as_text_));
 				update_target(&value);
 			}
+			virtual void notify(nscapi::core_wrapper* core_, std::wstring parent, std::wstring path, std::wstring key) const {
+				std::wstring default_value = core_->getSettingsString(parent, key, typed_key<T>::default_value_as_text_);
+				T value = boost::lexical_cast<T>(core_->getSettingsString(path, key, default_value));
+				update_target(&value);
+			}
 		};
 		template<class T>
 		class typed_path_value : public typed_key<T> {
@@ -59,6 +65,12 @@ namespace nscapi {
 			}
 			virtual void notify(nscapi::core_wrapper* core_, std::wstring path, std::wstring key) const {
 				std::wstring val = core_->getSettingsString(path, key, typed_key<T>::default_value_as_text_);
+				T value = boost::lexical_cast<T>(core_->expand_path(val));
+				update_target(&value);
+			}
+			virtual void notify(nscapi::core_wrapper* core_, std::wstring parent, std::wstring path, std::wstring key) const {
+				std::wstring def_val = core_->getSettingsString(parent, key, typed_key<T>::default_value_as_text_);
+				std::wstring val = core_->getSettingsString(path, key, def_val);
 				T value = boost::lexical_cast<T>(core_->expand_path(val));
 				update_target(&value);
 			}
@@ -79,6 +91,11 @@ namespace nscapi {
 				T value = static_cast<T>(core_->getSettingsInt(path, key, default_value_as_int_));
 				update_target(&value);
 			}
+			virtual void notify(nscapi::core_wrapper* core_, std::wstring parent, std::wstring path, std::wstring key) const {
+				T default_value = static_cast<T>(core_->getSettingsInt(parent, key, default_value_as_int_));
+				T value = static_cast<T>(core_->getSettingsInt(path, key, default_value));
+				update_target(&value);
+			}
 		protected:
 			int default_value_as_int_;
 		};
@@ -91,6 +108,11 @@ namespace nscapi {
 			}
 			virtual void notify(nscapi::core_wrapper* core_, std::wstring path, std::wstring key) const {
 				T value = static_cast<T>(core_->getSettingsBool(path, key, typed_int_value<T>::default_value_as_int_==1));
+				update_target(&value);
+			}
+			virtual void notify(nscapi::core_wrapper* core_, std::wstring parent, std::wstring path, std::wstring key) const {
+				T default_value = static_cast<T>(core_->getSettingsBool(parent, key, typed_int_value<T>::default_value_as_int_==1));
+				T value = static_cast<T>(core_->getSettingsBool(path, key, default_value));
 				update_target(&value);
 			}
 		};
@@ -264,6 +286,7 @@ namespace nscapi {
 		struct key_info {
 			std::wstring path;
 			std::wstring key_name;
+			std::wstring parent;
 
 			boost::shared_ptr<key_interface> key;
 			description_container description;
@@ -274,13 +297,23 @@ namespace nscapi {
 				, key(key)
 				, description(description_)
 			{}
-			key_info(const key_info& obj) : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description) {}
+			key_info(const key_info& obj) : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description), parent(obj.parent) {}
 			virtual key_info& operator=(const key_info& obj) {
 				path = obj.path;
 				key_name = obj.key_name;
 				key = obj.key;
 				description = obj.description;
+				parent = obj.parent;
 				return *this;
+			}
+			void set_parent(std::wstring parent_) {
+				parent = parent_;
+			}
+			bool has_parent() const {
+				return !parent.empty();
+			}
+			std::wstring get_parent() const {
+				return parent;
 			}
 		};
 		struct path_info {
@@ -343,15 +376,20 @@ namespace nscapi {
 		public:
 			settings_keys_easy_init(settings_registry* owner_) : owner(owner_) {}
 			settings_keys_easy_init(std::wstring path, settings_registry* owner_) : owner(owner_), path_(path) {}
+			settings_keys_easy_init(std::wstring path, std::wstring parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent) {}
 
 			settings_keys_easy_init& operator()(std::wstring path, std::wstring key_name, key_interface *value, std::wstring title, std::wstring description) {
 				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description)));
+				if (!parent_.empty())
+					d->set_parent(parent_);
 				add(d);
 				return *this;
 			}
 
 			settings_keys_easy_init& operator()(std::wstring key_name, key_interface* value, std::wstring title, std::wstring description) {
 				boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description)));
+				if (!parent_.empty())
+					d->set_parent(parent_);
 				add(d);
 				return *this;
 			}
@@ -361,6 +399,7 @@ namespace nscapi {
 		private:
 			settings_registry* owner;
 			std::wstring path_;
+			std::wstring parent_;
 		};	
 
 
@@ -390,9 +429,16 @@ namespace nscapi {
 		class alias_extension {
 		public:
 			alias_extension(settings_registry * owner, std::wstring alias) : owner_(owner), alias_(alias) {}
+			alias_extension(const alias_extension &other) : owner_(other.owner_), alias_(other.alias_), parent_(other.parent_) {}
+			alias_extension& operator = (const alias_extension& other) {
+				owner_ = other.owner_;
+				alias_ = other.alias_;
+				parent_ = other.parent_;
+				return *this;
+			}
 
 			settings_keys_easy_init add_key_to_path(std::wstring path) {
-				return settings_keys_easy_init(get_path(path), owner_);
+				return settings_keys_easy_init(get_path(path), parent_, owner_);
 			}
 			settings_paths_easy_init add_path(std::wstring path) {
 				return settings_paths_easy_init(get_path(path), owner_);
@@ -405,7 +451,7 @@ namespace nscapi {
 
 
 			settings_keys_easy_init add_key_to_settings(std::wstring path = _T("")) {
-				return settings_keys_easy_init(get_settings_path(path), owner_);
+				return settings_keys_easy_init(get_settings_path(path), parent_, owner_);
 			}
 			settings_paths_easy_init add_path_to_settings(std::wstring path = _T("")) {
 				return settings_paths_easy_init(get_settings_path(path), owner_);
@@ -415,6 +461,12 @@ namespace nscapi {
 					return _T("/settings/") + alias_;
 				return _T("/settings/") + alias_ + _T("/") + path;
 			}
+
+			alias_extension add_parent(std::wstring parent_path) {
+				set_parent_path(parent_path);
+				return *this;
+			}
+
 
 			static std::wstring get_alias(std::wstring cur, std::wstring def) {
 				if (cur.empty())
@@ -436,10 +488,14 @@ namespace nscapi {
 			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
 				alias_ = get_alias(prefix, cur, def);
 			}
+			void set_parent_path(std::wstring parent) {
+				parent_ = parent;
+			}
 
 		private:
 			std::wstring alias_;
 			settings_registry * owner_;
+			std::wstring parent_;
 		};
 
 		class settings_registry {
@@ -494,8 +550,13 @@ namespace nscapi {
 
 			void register_all() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
-					if (v->key)
-						core_->settings_register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced);
+					if (v->key) {
+						//std::wcout << _T("Setting: ") << v->key_name << _T(" ===> ") << v->parent << std::endl;
+						std::wstring desc = v->description.description;
+						if (v->has_parent())
+							desc += _T(" Parent element can be found under: ") + v->parent;
+						core_->settings_register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), v->description.advanced);
+					}
 				}
 				BOOST_FOREACH(path_list::value_type v, paths_) {
 					core_->settings_register_path(v->path_name, v->description.title, v->description.description, v->description.advanced);

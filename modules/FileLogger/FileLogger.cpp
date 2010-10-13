@@ -103,7 +103,7 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			//(_T("debug"), sh::bool_key(&debug_, false),
 			//_T("DEBUG LOGGING"), _T("Enable debug logging can help track down errors and find problems but will impact overall performance negativly."))
 
-			(_T("log mask"), sh::wstring_key(&log_mask, false),
+			(_T("log mask"), sh::wstring_key(&log_mask, _T("false")),
 			_T("LOG MASK"), _T("The log mask information, error, warning, critical, debug"))
 
 			(_T("root"), sh::wstring_key(&cfg_root_, _T("auto")),

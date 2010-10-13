@@ -517,6 +517,7 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 
 void NSClientT::load_all_plugins(int mode) {
 	boost::filesystem::wpath pluginPath;
+	{
 	try {
 		pluginPath = expand_path(_T("${module-path}"));
 	} catch (std::exception &e) {
@@ -534,6 +535,16 @@ void NSClientT::load_all_plugins(int mode) {
 		} catch (...) {
 			LOG_CRITICAL_STD(_T("Failed to register plugin key: ") + v.second);
 		}
+		}
+
+	}
+
+	try {
+		loadPlugins(mode);
+	} catch (...) {
+		LOG_ERROR_CORE_STD(_T("Unknown exception loading plugins"));
+	}
+
 // 		std::wstring desc;
 // 		std::wstring name = v.second;
 // 		try {
@@ -558,7 +569,6 @@ void NSClientT::load_all_plugins(int mode) {
 // 			LOG_CRITICAL_STD(_T("Failed to register plugin key: ") + name);
 // 		}
 	}
-}
 
 void NSClientT::session_error(std::wstring file, unsigned int line, std::wstring msg) {
 	NSAPIMessage(NSCAPI::error, file.c_str(), line, msg.c_str());

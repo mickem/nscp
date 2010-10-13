@@ -98,11 +98,12 @@ public:
  */
 class NSCPlugin : boost::noncopyable {
 private:
-	bool bLoaded_;			// Status of plug in
+	//bool bLoaded_;			// Status of plug in
 	dll::dll module_;
 	bool broken_;
 	unsigned int plugin_id_;
 	std::wstring alias_;
+	bool loaded_;
 
 	nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
 	nscapi::plugin_api::lpLoadModule fLoadModule;
@@ -172,7 +173,7 @@ public:
 		return lastIsMsgPlugin_;
 	}
 	bool isLoaded() const {
-		return bLoaded_;
+		return module_.is_loaded();
 	}
 	unsigned int get_id() const { return plugin_id_; }
 
