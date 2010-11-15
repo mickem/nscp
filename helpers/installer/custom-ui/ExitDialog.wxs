@@ -4,7 +4,7 @@
     <UI>
       <Dialog Id="ExitDialog" Width="370" Height="270" Title="$(loc.ExitDialog_Title)">
         <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="$(loc.WixUIFinish)">
-			<Publish Event="DoAction" Value="StartAllServices">NOT REMOVE = "ALL"</Publish>
+			<Publish Event="DoAction" Value="ExitDialogExec">NOT REMOVE = "ALL"</Publish>
 			<Publish Event="EndDialog" Value="Return">1</Publish>
         </Control>
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="$(loc.WixUICancel)" />

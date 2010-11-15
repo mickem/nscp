@@ -33,7 +33,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	return TRUE;
 }
 
-NRPEListener::NRPEListener() : noPerfData_(false), buffer_length_(0) {
+NRPEListener::NRPEListener() : noPerfData_(false), buffer_length_(0), max_packet_count_(1) {
 }
 NRPEListener::~NRPEListener() {
 }
@@ -86,6 +86,7 @@ bool NRPEListener::loadModule() {
 	socketTimeout_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT ,NRPE_SETTINGS_READ_TIMEOUT_DEFAULT);
 	scriptDirectory_ = NSCModuleHelper::getSettingsString(NRPE_SECTION_TITLE, NRPE_SETTINGS_SCRIPTDIR ,NRPE_SETTINGS_SCRIPTDIR_DEFAULT);
 	buffer_length_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN, NRPE_SETTINGS_STRLEN_DEFAULT);
+	max_packet_count_ = NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_COUNT, NRPE_SETTINGS_COUNT_DEFAULT);
 	if (buffer_length_ != 1024)
 		NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(buffer_length_));
 	NSC_DEBUG_MSG_STD(_T("Loading all commands (from NRPE)"));
@@ -292,72 +293,42 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 	}
 	try {
 		simpleSocket::DataBuffer block;
-		int i;
-		int maxWait = socketTimeout_*10;
-		for (i=0;i<maxWait;i++) {
-			bool lastReadHasMore = false;
-			try {
-				lastReadHasMore = client->readAll(block, 1048);
-			} catch (simpleSocket::SocketException e) {
-				NSC_LOG_MESSAGE(_T("Could not read NRPE packet from socket :") + e.getMessage());
-				client->close();
-				return;
-			}
-			if (block.getLength() >= NRPEPacket::getBufferLength(buffer_length_))
-				break;
-			if (!lastReadHasMore) {
-				NSC_LOG_MESSAGE(_T("Could not read a full NRPE packet from socket, only got: ") + strEx::itos(block.getLength()));
-				client->close();
-				return;
-			}
-			Sleep(100);
-		}
-		if (i >= maxWait) {
-			NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout), we only got: ") + strEx::itos(block.getLength()));
+		if (!read_all(client, block, NRPEPacket::getBufferLength(buffer_length_), socketTimeout_))
+			return;
+		NRPEData nrpe_data(buffer_length_);
+		if (block.getLength() != nrpe_data.get_packet_length()) {
+			NSC_LOG_ERROR_STD(_T("We got more then we wanted ") + strEx::itos(NRPEPacket::getBufferLength(buffer_length_)) + _T(", we got: ") + strEx::itos(block.getLength()));
 			client->close();
 			return;
 		}
-		if (block.getLength() == NRPEPacket::getBufferLength(buffer_length_)) {
-			try {
-				NRPEPacket out = handlePacket(NRPEPacket(block.getBuffer(), block.getLength(), buffer_length_));
-				block.copyFrom(out.getBuffer(), out.getBufferLength());
-			} catch (NRPEPacket::NRPEPacketException e) {
-				NSC_LOG_ERROR_STD(_T("NRPESocketException: ") + e.getMessage());
-				try {
-					NRPEPacket err(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("Could not construct return paket in NRPE handler check clientside (nsclient.log) logs..."), buffer_length_);
-					block.copyFrom(err.getBuffer(), err.getBufferLength());
-				} catch (NRPEPacket::NRPEPacketException e) {
-					NSC_LOG_ERROR_STD(_T("NRPESocketException (again): ") + e.getMessage());
+		try {
+			while (nrpe_data.read(block.getBuffer(), block.getLength())) {
+				if (nrpe_data.size() > max_packet_count_) {
+					NSC_LOG_ERROR_STD(_T("Client tried to send more data then we wanted (maximum packetsize is: ") + strEx::itos(max_packet_count_) + _T(")") );
 					client->close();
 					return;
+				}
+				if (!read_all(client, block, NRPEPacket::getBufferLength(buffer_length_), socketTimeout_)) {
+					break;
 				}
 			}
-			int maxWait = socketTimeout_*10;
-			for (i=0;i<maxWait;i++) {
-				bool lastReadHasMore = false;
-				try {
-					if (client->canWrite())
-						lastReadHasMore = client->sendAll(block);
-				} catch (simpleSocket::SocketException e) {
-					NSC_LOG_MESSAGE(_T("Could not send NRPE packet from socket :") + e.getMessage());
-					client->close();
-					return;
-				}
-				if (!lastReadHasMore) {
-					client->close();
-					return;
-				}
-				Sleep(100);
-			}
-			if (i >= maxWait) {
-				NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout)"));
+			nrpe_data = handlePacket(nrpe_data);
+		} catch (NRPEPacket::NRPEPacketException e) {
+			NSC_LOG_ERROR_STD(_T("Exception handling NRPE packet: ") + e.getMessage());
+			nrpe_data.set_error(NSCAPI::returnUNKNOWN, _T("Could not construct return packet in NRPE handler check client side (nsclient.log) logs..."));
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("Exception handling NRPE packet"));
+			nrpe_data.set_error(NSCAPI::returnUNKNOWN, _T("Could not construct return packet in NRPE handler check client side (nsclient.log) logs..."));
+		}
+		int max_packets = min(nrpe_data.size(),max_packet_count_);
+
+		for (int i=0;i<max_packets;i++) {
+			if (!copyOutPaket(i, nrpe_data, block, i==(max_packets-1))) {
+				NSC_LOG_ERROR_STD(_T("Failed to prepare data for sending"));
 				client->close();
 				return;
 			}
-		} else {
-			NSC_LOG_ERROR_STD(_T("We got more then we wanted ") + strEx::itos(NRPEPacket::getBufferLength(buffer_length_)) + _T(", we only got: ") + strEx::itos(block.getLength()));
-			client->close();
-			return;
+			write_all(client, block, socketTimeout_);
 		}
 	} catch (simpleSocket::SocketException e) {
 		NSC_LOG_ERROR_STD(_T("SocketException: ") + e.getMessage());
@@ -369,22 +340,76 @@ void NRPEListener::onAccept(simpleSocket::Socket *client)
 	client->close();
 }
 
-NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
-	if (p.getType() != NRPEPacket::queryPacket) {
-		NSC_LOG_ERROR(_T("Request is not a query."));
-		throw NRPEException(_T("Invalid query type: ") + strEx::itos(p.getType()));
+
+bool NRPEListener::copyOutPaket(int index, NRPEData &data, simpleSocket::DataBuffer &block, bool last) {
+	try {
+		data.write(index, block, last);
+	} catch (NRPEPacket::NRPEPacketException e) {
+		NSC_LOG_ERROR_STD(_T("NRPEPacketException: ") + e.getMessage());
+		return false;
 	}
-	if (p.getVersion() != NRPEPacket::version2) {
-		NSC_LOG_ERROR(_T("Request had unsupported version."));
-		throw NRPEException(_T("Invalid version"));
+	return true;
+}
+
+
+bool NRPEListener::read_all(simpleSocket::Socket *client, simpleSocket::DataBuffer &block, unsigned int wanted_bytes, int timeout) {
+	int i;
+	int maxWait = timeout*10;
+	for (i=0;i<maxWait;i++) {
+		bool lastReadHasMore = false;
+		try {
+			lastReadHasMore = client->readAll(block, 1048);
+		} catch (simpleSocket::SocketException e) {
+			NSC_LOG_MESSAGE(_T("Could not read NRPE packet from socket :") + e.getMessage());
+			client->close();
+			return false;
+		}
+		if (block.getLength() >= wanted_bytes)
+			return true;
+		if (!lastReadHasMore) {
+			NSC_LOG_MESSAGE(_T("Could not read a full NRPE packet from socket, only got: ") + strEx::itos(block.getLength()));
+			client->close();
+			return false;
+		}
+		Sleep(100);
 	}
-	if (!p.verifyCRC()) {
-		NSC_LOG_ERROR(_T("Request had invalid checksum."));
-		throw NRPEException(_T("Invalid checksum"));
+	if (i >= maxWait) {
+		NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout), we only got: ") + strEx::itos(block.getLength()));
+		client->close();
+		return false;
 	}
+	return true;
+}
+bool NRPEListener::write_all(simpleSocket::Socket *client, simpleSocket::DataBuffer &block, int timeout) {
+	int maxWait = timeout*10;
+	int i;
+	for (i=0;i<maxWait;i++) {
+		bool lastReadHasMore = false;
+		try {
+			if (client->canWrite())
+				lastReadHasMore = client->sendAll(block);
+		} catch (simpleSocket::SocketException e) {
+			NSC_LOG_MESSAGE(_T("Could not send NRPE packet from socket :") + e.getMessage());
+			client->close();
+			return false;
+		}
+		if (!lastReadHasMore) {
+			return true;
+		}
+		Sleep(100);
+	}
+	if (i >= maxWait) {
+		NSC_LOG_ERROR_STD(_T("Timeout reading NRPE-packet (increase socket_timeout)"));
+		client->close();
+		return false;
+	}
+	return true;
+}
+NRPEData NRPEListener::handlePacket(NRPEData p) {
+	p.validate_query();
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');
 	if (cmd.first == _T("_NRPE_CHECK")) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnOK, _T("I (") + NSCModuleHelper::getApplicationVersionString() + _T(") seem to be doing fine..."), buffer_length_);
+		return NRPEData(NSCAPI::returnOK, _T("I (") + NSCModuleHelper::getApplicationVersionString() + _T(") seem to be doing fine..."), buffer_length_);
 	}
 	std::wstring msg, perf;
 
@@ -411,7 +436,7 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 	try {
 		ret = NSCModuleHelper::InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
 	} catch (...) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), buffer_length_);
+		return NRPEData(NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), buffer_length_);
 	}
 	switch (ret) {
 		case NSCAPI::returnInvalidBufferLen:
@@ -431,14 +456,16 @@ NRPEPacket NRPEListener::handlePacket(NRPEPacket p) {
 			msg = _T("UNKNOWN: Internal error.");
 			ret = NSCAPI::returnUNKNOWN;
 	}
-	if (msg.length() >= buffer_length_-1) {
-		NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
-		msg = msg.substr(0,buffer_length_-2);
+	if (max_packet_count_ == 1) {
+		if (msg.length() >= buffer_length_-1) {
+			NSC_LOG_ERROR(_T("Truncating return data as it is bigger then NRPE allows :("));
+			msg = msg.substr(0,buffer_length_-2);
+		}
 	}
 	if (perf.empty()||noPerfData_) {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg, buffer_length_);
+		return NRPEData(ret, msg, buffer_length_);
 	} else {
-		return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, ret, msg + _T("|") + perf, buffer_length_);
+		return NRPEData(ret, msg + _T("|") + perf, buffer_length_);
 	}
 }
 

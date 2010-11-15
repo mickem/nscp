@@ -28,6 +28,8 @@ public:
 		hInstall_ = NULL;
 	}
 
+	MSIHANDLE get_handle_raw() const { return hInstall_; }
+
 	std::wstring getTargetPath(std::wstring path) {
 		TCHAR tmpBuf[MAX_PATH];
 		DWORD len = 0;
@@ -558,6 +560,7 @@ public:
 		std::wstring buf_;
 	public:
 		custom_action_data_w() {}
+		custom_action_data_w(std::wstring buf) : buf_(buf) {}
 		~custom_action_data_w() {}
 
 		void insert_string(std::wstring str) {
@@ -600,6 +603,13 @@ public:
 	};
 
 
+	std::wstring get_deferred_action_data(std::wstring wzAction) {
+		try {
+			return getPropery(wzAction);
+		} catch(...) {
+			return _T("");
+		}
+	}
 
 	/********************************************************************
 	WcaDoDeferredAction() - schedules an action at this point in the script
@@ -650,7 +660,6 @@ public:
 		std::list<std::wstring> ret;
 		for (int i=0; ::MsiEnumProducts(i, reinterpret_cast<TCHAR*>(&buffer)) == ERROR_SUCCESS; i++) {
 			std::wstring name = getProductName(buffer);
-			logMessage(_T("Found a product: ") + (std::wstring)buffer + _T("=") + name);
 			ret.push_back(buffer);
 		}
 		return ret;

@@ -33,5 +33,11 @@ public:
 		basic_command_line_parser_ex(const std::wstring args) 
 			: boost::program_options::basic_command_line_parser<charT>(boost::program_options::split_winmain(args))
 		{}
+		basic_command_line_parser_ex(const std::vector<std::wstring> args) 
+			: boost::program_options::basic_command_line_parser<charT>(args)
+		{}
+		basic_command_line_parser_ex(const std::list<std::wstring> args) 
+			: boost::program_options::basic_command_line_parser<charT>(args)
+		{}
 
 };

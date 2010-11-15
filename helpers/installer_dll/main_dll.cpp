@@ -174,10 +174,38 @@ UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
 	return ERROR_SUCCESS;
 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
+	if (file_helpers::checks::exists(source)) {
+		h.logMessage(_T("Copying: ") + source + _T(" to ") + target);
+		if (!CopyFile(source.c_str(), target.c_str(), FALSE)) {
+			h.errorMessage(_T("Failed to copy file: ") + error::lookup::last_error());
+		}
+	} else {
+		h.logMessage(_T("Copying failed: ") + source + _T(" to ") + target + _T(" source was not found."));
+	}
+
+}
+
+void copy_file_defered(msi_helper &h, std::wstring source, std::wstring target) {
+	h.logMessage(_T("Copying: (defered) ") + source + _T(" to ") + target);
+
+	msi_helper::custom_action_data_w custom_data;
+	custom_data.write_string(source);
+	custom_data.write_string(target);
+	if (custom_data.has_data()) {
+		h.logMessage(_T("Scheduling (ExecCopyFileDefered): ") + custom_data.to_string());
+		HRESULT hr = h.do_deferred_action(L"ExecCopyFileDefered", custom_data, 1 * COST_SERVICE_INSTALL);
+		if (FAILED(hr)) {
+			h.errorMessage(_T("failed to schedule ExecCopyFileDefered"));
+		}
+	} else
+		h.logMessage(_T("No services scheduled"));
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //#pragma comment(linker, "/EXPORT:ImportConfig=_ImportConfig@4")
-UINT ImportConfig (msi_helper &h) {
+UINT doImportConfig (msi_helper &h) {
 	try {
 		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
 		std::wstring main = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
@@ -194,6 +222,7 @@ UINT ImportConfig (msi_helper &h) {
 		h.setupMyProperty(_T("CONF_WMI"), _T(""));
 
 		std::wstring filename = target + _T("\\") + main;
+		h.logMessage(_T("Old configuration file: ") + filename);
 		if (!file_helpers::checks::exists(filename)) {
 			h.logMessage(_T("Old configuration file not found: ") + filename);
 			h.setProperty(_T("CONF_CHECKS_GRAY"), _T(""));
@@ -206,7 +235,12 @@ UINT ImportConfig (msi_helper &h) {
 		if (Settings::getInstance()->getActiveType() == _T("INI-file")) {
 			h.logMessage(_T("Making backup copy (old_nsc.ini) of: ") + filename);
 			h.setProperty(_T("CONF_CAN_WRITE"), _T("1"));
-			CopyFile(filename.c_str(), (h.getTempPath() + _T("\\old_nsc.ini")).c_str(), FALSE);
+			std::wstring restore_prefix = h.getTempPath() + _T("\\old_");
+			h.setProperty(_T("RESTORE_PREFIX"), restore_prefix);
+			copy_file(h, filename, restore_prefix + main);
+			if (main != custom && !custom.empty()) {
+				copy_file(h, target + _T("\\") + custom, restore_prefix + custom);
+			}
 		} else {
 			h.logMessage(_T("Registry setting (not supported) from: ") + filename);
 			h.setProperty(_T("CONF_CAN_WRITE"), _T("0"));
@@ -279,7 +313,7 @@ UINT ImportConfig (msi_helper &h) {
 
 extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ImportConfig"));
-	return ImportConfig(h);
+	return doImportConfig(h);
 }
 
 bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description) {
@@ -331,13 +365,20 @@ bool write_config(msi_helper &h, std::wstring path, std::wstring file);
 extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ScheduleWriteConfig"));
 	try {
+
+		msi_helper::WCA_TODO todoComponent = h.get_component_todo(_T("MainClient"));
+		if (todoComponent != msi_helper::WCA_TODO_REINSTALL && todoComponent != msi_helper::WCA_TODO_INSTALL) {
+			h.logMessage(_T("Component 'MainClient' action state (") + strEx::itos(todoComponent) + _T(") is not scheduled for installation (will not write config)"));
+			return ERROR_SUCCESS;
+		}
+
 		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
 		std::wstring main_conf = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
 		std::wstring custom_conf = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
 
 		if (h.getPropery(_T("IMPORT_CONFIG")) != _T("1")) {
 			h.logMessage(_T("Config has not previously been loaded (probably running in islen, loading now..."));
-			ImportConfig(h);
+			doImportConfig(h);
 			h.logMessage(_T("Old config loaded..."));
 			h.setProperty(_T("KEEP_WHICH_CONFIG"), _T("NEW"));
 			//OverrideDefaults(hInstall);
@@ -350,11 +391,23 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		h.logMessage(_T("config file (update): ") + write);
 
 		if (h.getPropery(_T("CONF_CAN_WRITE")) == _T("1")) {
+			std::wstring restore_prefix = h.getPropery(_T("RESTORE_PREFIX"));
 			if (h.getPropery(_T("KEEP_WHICH_CONFIG")) == _T("OLD")) {
-				CopyFile((target + _T("\\nsc.ini")).c_str(), (target + _T("\\nsc.new")).c_str(), FALSE);
-				CopyFile((h.getTempPath() + _T("\\old_nsc.ini")).c_str(), (target + _T("\\nsc.ini")).c_str(), FALSE);
+				// copy NEW -> .new and OLD -> .ini
+				h.logMessage(_T("Restoring OLD configuration from: ") + restore_prefix);
+				copy_file_defered(h, target + _T("\\") + main_conf, target + _T("\\") + main_conf + _T(".new"));
+				copy_file_defered(h, restore_prefix + main_conf, target + _T("\\") + main_conf);
+				if (main_conf != custom_conf && !custom_conf.empty()) {
+					copy_file_defered(h, target + _T("\\") + custom_conf, target + _T("\\") + custom_conf + _T(".new"));
+					copy_file_defered(h, restore_prefix + custom_conf, target + _T("\\") + custom_conf);
+				}
 			} else {
-				CopyFile((h.getTempPath() + _T("\\old_nsc.ini")).c_str(), (target + _T("\\nsc.old")).c_str(), FALSE);
+				// copy OLD -> .old and NEW-> .ini
+				h.logMessage(_T("Creating .OLD configuration from: ") + restore_prefix);
+				copy_file_defered(h, restore_prefix + main_conf, target + _T("\\") + main_conf + _T(".old"));
+				if (main_conf != custom_conf && !custom_conf.empty()) {
+					copy_file_defered(h, restore_prefix + custom_conf, target + _T("\\") + custom_conf + _T(".old"));
+				}
 			}
 		}
 		if (h.getPropery(_T("KEEP_WHICH_CONFIG")) == _T("NEW")) {
@@ -372,6 +425,28 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 	}
 	return ERROR_SUCCESS;
 }
+
+extern "C" UINT __stdcall ExecCopyFileDefered(MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("ExecCopyFileDefered"));
+	try {
+		h.logMessage(_T("RAW: ") + h.getPropery(L"CustomActionData"));
+		msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
+		h.logMessage(_T("Got CA data: ") + data.to_string());
+		while (data.has_more()) {
+			std::wstring src = data.get_next_string();
+			std::wstring tgt = data.get_next_string();
+			copy_file(h, src, tgt);
+		}
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to install service: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+}
+
 extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ExecWriteConfig"));
 	try {
@@ -469,6 +544,7 @@ bool write_config(msi_helper &h, std::wstring path, std::wstring file) {
 			return hr;
 		}
 	}
+	return true;
 }
 
 
@@ -492,7 +568,7 @@ bool start(msi_helper &h, std::wstring service_name = _T("")) {
 	}
 	return true;
 }
-
+/*
 bool stop(msi_helper &h, std::wstring service_name = _T("")) {
 	if (service_name.empty())
 		service_name = SZSERVICENAME;
@@ -508,16 +584,17 @@ bool stop(msi_helper &h, std::wstring service_name = _T("")) {
 	}
 	return true;
 }
-
+*/
 
 //#pragma comment(linker, "/EXPORT:UpdateConfig=_UpdateConfig@4")
 
-extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("StartService"));
+
+extern "C" UINT __stdcall SchedStartAllServices (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("SchedStartAllServices"));
 	try {
 		std::wstring val = h.getPropery(_T("START_SERVICE_ON_EXIT"));
 		if (val == _T("1")) {
-			// anything to do?
+
 			if (h.table_exists(L"Services")) {
 				PMSIHANDLE hView = h.open_execute_view(vcsServiceQuery);
 				if (h.isNull(hView)) {
@@ -526,9 +603,11 @@ extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 				}
 
 				msi_helper::custom_action_data_w custom_data;
+				int count = 0;
 				PMSIHANDLE hRec = h.fetch_record(hView);
-				while (hRec != NULL)
-				{
+				while (hRec != NULL) {
+
+
 					std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
 					std::wstring component = h.get_record_string(hRec, feqComponent);
 
@@ -539,6 +618,11 @@ extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 						hRec = h.fetch_record(hView);
 						continue;
 					}
+
+					h.updateProgress(_T("We SHOULD start service"), shortname);
+					custom_data.insert_string(shortname);
+					count++;
+
 					try {
 						if (!serviceControll::isStarted(shortname)) {
 							h.updateProgress(_T("Starting service"), shortname);
@@ -547,8 +631,16 @@ extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 					} catch (const serviceControll::SCException& e) {
 						h.logMessage(_T("Failed to start service: ") + shortname + _T(": ") + e.error_);
 					}
+
+
 					hRec = h.fetch_record(hView);
 				}
+
+// 				HRESULT hr = h.do_deferred_action(L"StartAllServices", custom_data, count * COST_SERVICE_INSTALL);
+// 				if (FAILED(hr)) {
+// 					h.errorMessage(_T("failed to schedule:  StopAllServices"));
+// 					return hr;
+// 				}
 			}
 		}
 		val = h.getPropery(_T("DONATE_ON_EXIT"));
@@ -569,50 +661,101 @@ extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
 	return ERROR_SUCCESS;
 }
 
+extern "C" UINT __stdcall ExitDialogExec (MSIHANDLE hInstall) {
+	return SchedStartAllServices(hInstall);
+}
+
+
+extern "C" UINT __stdcall StartAllServices (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("StartAllServices"));
+	try {
+		msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
+
+		while (data.has_more()) {
+			// extract the custom action data and if rolling back, swap INSTALL and UNINSTALL
+			std::wstring shortname = data.get_next_string();
+
+			try {
+				if (!serviceControll::isStarted(shortname)) {
+					h.updateProgress(_T("Starting service"), shortname);
+					serviceControll::Start(shortname);
+				}
+			} catch (const serviceControll::SCException& e) {
+				h.logMessage(_T("Failed to start service: ") + shortname + _T(": ") + e.error_);
+			}
+		}
+
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to process finalizing stuff: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to process finalizing stuff: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+}
+
+extern "C" UINT __stdcall SchedStopAllServices (MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("SchedStopAllServices"));
+	std::wstring shortname = _T("UNKNOWN");
+	try {
+		if (h.table_exists(L"Services")) {
+			PMSIHANDLE hView = h.open_execute_view(vcsServiceQuery);
+			if (h.isNull(hView)) {
+				h.logMessage(_T("Failed to query service view!"));
+				return ERROR_INSTALL_FAILURE;
+			}
+
+			msi_helper::custom_action_data_w custom_data;
+			int count = 0;
+			PMSIHANDLE hRec = h.fetch_record(hView);
+			while (hRec != NULL) {
+				shortname = h.get_record_formatted_string(hRec, feqShortName);
+
+				h.updateProgress(_T("We SHOULD stop service"), shortname);
+				custom_data.insert_string(shortname);
+				count++;
+
+				hRec = h.fetch_record(hView);
+			}
+
+			HRESULT hr = h.do_deferred_action(L"StopAllServices", custom_data, count * COST_SERVICE_INSTALL);
+			if (FAILED(hr)) {
+				h.errorMessage(_T("failed to schedule:  StopAllServices"));
+				return hr;
+			}
+		} else {
+			h.logMessage(_T("Failed to schedule stop all services table not found"));
+		}
+	} catch (installer_exception e) {
+		h.errorMessage(_T("Failed to process finalizing stuff: ") + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (...) {
+		h.errorMessage(_T("Failed to process finalizing stuff: <UNKNOWN EXCEPTION>"));
+		return ERROR_INSTALL_FAILURE;
+	}
+	return ERROR_SUCCESS;
+}
 
 extern "C" UINT __stdcall StopAllServices (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("StopAllServices"));
 	try {
+		msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
 
-		// anything to do?
-		if (!h.table_exists(L"Services")) {
-			h.logMessage(_T("Services table doesn't exist, so there are no services to configure."));
-			return ERROR_SUCCESS;
-		}
+		while (data.has_more()) {
+			// extract the custom action data and if rolling back, swap INSTALL and UNINSTALL
+			std::wstring shortname = data.get_next_string();
 
-		// query and loop through all the firewall exceptions
-		PMSIHANDLE hView = h.open_execute_view(vcsServiceQuery);
-		if (h.isNull(hView)) {
-			h.logMessage(_T("Failed to query service view!"));
-			return ERROR_INSTALL_FAILURE;
-		}
-
-		msi_helper::custom_action_data_w custom_data;
-		PMSIHANDLE hRec = h.fetch_record(hView);
-		while (hRec != NULL)
-		{
-			std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
-			std::wstring component = h.get_record_string(hRec, feqComponent);
-
-			// figure out what we're doing for this exception, treating reinstall the same as install
-			msi_helper::WCA_TODO todoComponent = h.get_component_todo(component);
-			if (todoComponent == msi_helper::WCA_TODO_REINSTALL)
-				todoComponent = msi_helper::WCA_TODO_INSTALL;
-			h.logMessage(_T("Component '") + component + _T("' action state (") + strEx::itos(todoComponent));
-			if (todoComponent != msi_helper::WCA_TODO_INSTALL && todoComponent != msi_helper::WCA_TODO_UNINSTALL) {
-				h.logMessage(_T("Component '") + component + _T("' action state (") + strEx::itos(todoComponent) + _T(") doesn't match request (IN/UN/RE)"));
-				hRec = h.fetch_record(hView);
-				continue;
-			}
 			try {
-				if (serviceControll::isStarted(shortname)) {
-					h.updateProgress(_T("Stopping service"), shortname);
-					serviceControll::Stop(shortname);
+				if (!serviceControll::isStarted(shortname)) {
+					h.updateProgress(_T("Starting service"), shortname);
+					serviceControll::Start(shortname);
+				} else {
+					h.logMessage(_T("Service already started: ") + shortname);
 				}
 			} catch (const serviceControll::SCException& e) {
-				h.logMessage(_T("Failed to stop service: ") + shortname + _T(": ") + e.error_);
+				h.logMessage(_T("Failed to start service: ") + shortname + _T(": ") + e.error_);
 			}
-			hRec = h.fetch_record(hView);
 		}
 	} catch (installer_exception e) {
 		h.errorMessage(_T("Failed to stop service: ") + e.what());

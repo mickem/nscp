@@ -5,9 +5,28 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
+ 
+2010-11-14 MickeM
+ * Added the "extended NRPE payload packet patch"
+   Should have done this years ago but alas I have not.
+   This allows you to (with a patched NRPE) send and recieve more then 1024 chars (in a backwards compatible way)
+   cf: https://dev.icinga.org/attachments/113/nrpe_multiline.patch
+   To enable this you set the following. The value is the number of packets we allow.
+   [NRPE]
+   packet_count=10
+   NOTICE for this to make sence you need to extend the "main payload buffer" which will most likely run out.
+   [Settings]
+   string_length=16000
+   This value "should" be NRPE:packet_count*NRPE:string_length(1024)
+
+
+2010-10-17 MickeM
+ * Added new command timeout which runs a command in a thread and timeouts after a given time.
+   *NOTICE* this is not a good command to use since it will leak memory/resources when it "kills threads"
+ * Added new command: negate which can alter the result of other commands
 
 2010-09-29 MickeM
- * Reverted a merg miss in CheckDIsk
+ * Reverted a merge miss in CheckDisk
  * Added so IN (...) accepts strings without qoutes in the SQL Query syntax of CheckEventlog
  * Added new "parsing structure" str(...) to create strings in the SQL query without using ticks (') to allow "nasty meta char thingy")
  * Extended error parsing (eventlog messages) to allow up to 24 arguments (up from 11)

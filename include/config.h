@@ -110,6 +110,8 @@
 #define NRPE_SETTINGS_SCRIPTDIR_DEFAULT _T("")
 #define NRPE_SETTINGS_STRLEN _T("string_length")
 #define NRPE_SETTINGS_STRLEN_DEFAULT 1024
+#define NRPE_SETTINGS_COUNT _T("packet_count")
+#define NRPE_SETTINGS_COUNT_DEFAULT 1
 
 // External Script Settings headlines
 #define EXTSCRIPT_SECTION_TITLE _T("External Script")

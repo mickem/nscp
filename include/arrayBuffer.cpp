@@ -37,6 +37,21 @@ arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, 
 	return ret;
 }
 /**
+ * Make a list out of a array of char arrays (arguments type)
+ * @param argLen Length of argument array
+ * @param *argument[] Argument array
+ * @return Argument wrapped as a list
+ */
+arrayBuffer::arrayVector arrayBuffer::arrayBuffer2vector(const unsigned int argLen, TCHAR *argument[]) {
+	arrayVector ret;
+	int i=0;
+	for (unsigned int i=0;i<argLen;i++) {
+		std::wstring s = argument[i];
+		ret.push_back(s);
+	}
+	return ret;
+}
+/**
 * Create an arrayBuffer from a list.
 * This is the reverse of arrayBuffer2list.
 * <b>Notice</b> it is up to the caller to free the memory allocated in the returned buffer.

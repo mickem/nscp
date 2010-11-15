@@ -20,15 +20,37 @@
 ***************************************************************************/
 #pragma once
 
+#include <string>
 
 typedef short int16_t;
 typedef unsigned long u_int32_t;
+
+
+class NRPEException {
+	std::wstring error_;
+public:
+/*		NRPESocketException(simpleSSL::SSLException e) {
+		error_ = e.getMessage();
+	}
+	NRPEException(NRPEPacket::NRPEPacketException e) {
+		error_ = e.getMessage();
+	}
+	*/
+	NRPEException(std::wstring s) {
+		error_ = s;
+	}
+	std::wstring getMessage() {
+		return error_;
+	}
+};
 
 class NRPEPacket {
 public:
 	static const short unknownPacket = 0;
 	static const short queryPacket = 1;
 	static const short responsePacket = 2;
+	static const short extendedResponsePacket = 3;
+	static const short extendedQueryPacket = 4;
 	static const short version2 = 2;
 
 	class NRPEPacketException {
@@ -102,10 +124,10 @@ public:
 		p->result_code = htons(NSCHelper::nagios2int(result_));
 		p->packet_type = htons(type_);
 		p->packet_version = htons(version_);
-		if (payload_.length() >= buffer_length_-1)
-			throw NRPEPacketException(_T("To much data cant create return packet (truncate datat)"));
+		if (payload_.length() > buffer_length_-1)
+			throw NRPEPacketException(_T("To much data cant create return packet (truncate data): ") + strEx::itos(payload_.length()));
 		//ZeroMemory(p->buffer, buffer_length_-1);
-		strncpy_s(p->buffer, buffer_length_-1, strEx::wstring_to_string(payload_).c_str(), payload_.length());
+		strncpy_s(p->buffer, buffer_length_, strEx::wstring_to_string(payload_).c_str(), payload_.length());
 		p->buffer[payload_.length()] = 0;
 		p->crc32_value = 0;
 		p->crc32_value = htonl(calculate_crc32(tmpBuffer, getBufferLength()));
@@ -158,8 +180,136 @@ public:
 		return ss.str();
 	}
 
+	bool is_last() const {
+		return getType() != extendedQueryPacket;
+	}
+
+	void set_type( short type ) {
+		type_ = type;
+	}
+
 };
 
+class NRPEData {
+private:
+	typedef std::vector<NRPEPacket*> packet_list;
+	packet_list packets;
+	unsigned int payload_size_;
+
+
+public:
+
+	NRPEData(unsigned int payload_size)
+		: payload_size_(payload_size)
+	{};
+// 	NRPEData(char *buffer, unsigned int length, unsigned int payload_size) 
+// 		 : payload_size_(payload_size)
+// 		 , allow_multiple_packets_(false) 
+// 	{
+// 		packets.push_back(new NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, buffer, length, payload_size));
+// 	}
+	NRPEData(NSCAPI::nagiosReturn result, std::wstring payload, unsigned int payload_size) 
+		: payload_size_(payload_size)
+	{
+		if (payload.size() >= payload_size_) {
+			int i=0;
+			unsigned int sz_each = payload_size_-1;
+			for (int i=0;i<payload.size();i+=sz_each) {
+				int len = payload.size()>sz_each?sz_each:payload.length();
+				std::wstring p = payload.substr(i, len);
+				packets.push_back(new NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, result, p, payload_size_));
+			}
+		} else
+			packets.push_back(new NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, result, payload, payload_size_));
+	}
+	NRPEData(NRPEData &other) {
+		packets = other.steal_packets();
+		payload_size_ = other.payload_size_;
+	}
+	void operator=(NRPEData &other) {
+		packets = other.steal_packets();
+		payload_size_ = other.payload_size_;
+	}
+
+	packet_list steal_packets() {
+		packet_list ret = packets;
+		packets.clear();
+		return ret;
+	}
+
+
+	~NRPEData() {
+		erase_all();
+	}
+	void erase_all() {
+		for (packet_list::iterator it = packets.begin(); it != packets.end(); ++it) {
+			delete (*it);
+		}
+		packets.clear();
+	}
+
+
+	std::wstring::size_type size() const { return packets.size(); }
+	unsigned int payload_size() const { return payload_size_; }
+
+	std::wstring toString() {
+		std::wstringstream ss;
+		int i=0;
+		for (packet_list::iterator it = packets.begin(); it != packets.end(); ++it) {
+			ss << _T("[") << i++ << _T("] ") << (*it)->toString();
+		}
+		return ss.str();
+	}
+
+	void validate_query() {
+		for (packet_list::iterator it = packets.begin(); it != packets.end(); ++it) {
+			if ((*it)->getType() != NRPEPacket::queryPacket && (*it)->getType() != NRPEPacket::extendedQueryPacket) {
+				NSC_LOG_ERROR(_T("Request is not a query."));
+				throw NRPEException(_T("Invalid query type: ") + strEx::itos((*it)->getType()));
+			}
+			if ((*it)->getVersion() != NRPEPacket::version2) {
+				NSC_LOG_ERROR(_T("Request had unsupported version."));
+				throw NRPEException(_T("Invalid version"));
+			}
+			if (!(*it)->verifyCRC()) {
+				NSC_LOG_ERROR(_T("Request had invalid checksum."));
+				throw NRPEException(_T("Invalid checksum"));
+			}
+		}
+	}
+	bool read(const char * buffer, const unsigned int len) {
+		NRPEPacket *d = new NRPEPacket(buffer, len, payload_size_);
+		packets.push_back(d);
+		return !d->is_last();
+	}
+
+	std::wstring getPayload() {
+		std::wstring s;
+		for (packet_list::iterator it = packets.begin(); it != packets.end(); ++it) {
+			s += (*it)->getPayload();
+		}
+		return s;
+	}
+
+	unsigned int get_packet_length() {
+		return NRPEPacket::getBufferLength(payload_size_);
+	}
+	void set_error(NSCAPI::nagiosReturn result, std::wstring payload) {
+		erase_all();
+		packets.push_back(new NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, result, payload, payload_size_));
+	}
+
+	bool write(unsigned int index, simpleSocket::DataBuffer &block, bool last) {
+		if (index >= packets.size())
+			throw NRPEException(_T("Trying to read non existing packet"));
+		NRPEPacket *current = packets[index];
+		current->set_type(last?NRPEPacket::responsePacket:NRPEPacket::extendedResponsePacket);
+		block.copyFrom(current->getBuffer(), current->getBufferLength());
+		return index == packets.size()-1;
+	}
+
+
+};
 
 
 

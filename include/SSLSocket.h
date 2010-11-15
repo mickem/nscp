@@ -308,7 +308,9 @@ namespace simpleSSL {
 		virtual bool sendAll(const char * buffer, unsigned int len) {
 			try {
 				return ssl.sendAll(buffer, len);
-			} catch (simpleSSL::SSLException e) {
+			} catch (simpleSSL::SSLException &e) {
+				throw simpleSocket::SocketException(e.getMessage());
+			} catch (simpleSocket::SocketException &e) {
 				throw simpleSocket::SocketException(e.getMessage());
 			} catch (...) {
 				throw simpleSocket::SocketException(_T("Unhandeled socket exception"));

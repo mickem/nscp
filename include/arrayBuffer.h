@@ -23,6 +23,7 @@
 #include <tchar.h>
 #include <string>
 #include <list>
+#include <vector>
 #include <iostream>
 /**
  * @ingroup NSClient++
@@ -56,8 +57,10 @@ namespace arrayBuffer {
 	typedef TCHAR* arrayBufferItem;
 	typedef arrayBufferItem* arrayBuffer;
 	typedef std::list<std::wstring> arrayList;
+	typedef std::vector<std::wstring> arrayVector;
 	void set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument);
 	arrayList arrayBuffer2list(const unsigned int argLen, TCHAR **argument);
+	arrayVector arrayBuffer2vector(const unsigned int argLen, TCHAR **argument);
 	arrayBuffer list2arrayBuffer(const arrayList lst, unsigned int &argLen);
 	arrayBuffer split2arrayBuffer(const TCHAR* buffer, TCHAR splitChar, unsigned int &argLen);
 	arrayBuffer split2arrayBuffer(const std::wstring inBuf, TCHAR splitChar, unsigned int &argLen, bool escape = false);

@@ -10,3 +10,7 @@ EXPORTS
 	ScheduleUnInstallService
 	ExecServiceInstall
 	NeedUninstall
+	SchedStopAllServices
+	SchedStartAllServices
+	ExitDialogExec
+	ExecCopyFileDefered

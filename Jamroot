@@ -345,6 +345,7 @@ install dist-script-libs : all-script-libs-targets : <conditional>@generate-scri
 explicit dist-script-libs ;
 
 alias build-binaries : dist dist-modules dist-helpers dist-scripts dist-script-libs ;
+#alias build-binaries : dist-helpers ;
 explicit build-binaries ;
 
 alias build-nagios-plugins : helpers/plugins ;

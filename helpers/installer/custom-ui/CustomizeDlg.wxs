@@ -23,8 +23,10 @@
           <Publish Event="NewDialog" Value="[WixUI_CustomizeDlg_BackFeatureTree]">NOT Installed AND WixUI_Mode = "FeatureTree"</Publish>
         </Control>
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="$(loc.WixUINext)">
-          <Publish Event="DoAction" Value="ReadOldConfig">INSCON_CONFIGURE="1"</Publish>
-          <Publish Event="DoAction" Value="StopAllServices">INSCON_CONFIGURE="1"</Publish>
+          <Publish Event="DoAction" Value="ImportConfig">INSCON_CONFIGURE=1</Publish>
+<!--
+          <Publish Event="DoAction" Value="StopAllServices">INSCON_CONFIGURE=1</Publish>
+-->
           <Publish Event="NewDialog" Value="[WixUI_CustomizeDlg_Next]">INSCON_CONFIGURE=0</Publish>
           <Publish Event="NewDialog" Value="[WixUI_CustomizeDlg_Next_Conf]">INSCON_CONFIGURE=1</Publish>
           <Subscribe Event="SelectionNoItems" Attribute="Enabled" />

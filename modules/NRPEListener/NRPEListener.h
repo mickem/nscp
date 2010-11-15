@@ -54,6 +54,7 @@ private:
 	std::wstring scriptDirectory_;
 	unsigned int buffer_length_;
 	std::wstring root_;
+	unsigned int max_packet_count_;
 
 public:
 	NRPEListener();
@@ -84,23 +85,9 @@ public:
 	std::wstring getConfigurationMeta();
 
 private:
-	class NRPEException {
-		std::wstring error_;
-	public:
-/*		NRPESocketException(simpleSSL::SSLException e) {
-			error_ = e.getMessage();
-		}
-		NRPEException(NRPEPacket::NRPEPacketException e) {
-			error_ = e.getMessage();
-		}
-		*/
-		NRPEException(std::wstring s) {
-			error_ = s;
-		}
-		std::wstring getMessage() {
-			return error_;
-		}
-	};
+	bool copyOutPaket(int index, NRPEData &data, simpleSocket::DataBuffer &block, bool last);
+	bool write_all(simpleSocket::Socket *client, simpleSocket::DataBuffer &block, int timeout);
+	bool read_all(simpleSocket::Socket *client, simpleSocket::DataBuffer &block, unsigned int wanted_bytes, int timeout);
 
 
 private:
@@ -108,7 +95,7 @@ private:
 	void onClose();
 
 
-	NRPEPacket handlePacket(NRPEPacket p);
+	NRPEData handlePacket(NRPEData p);
 	int executeNRPECommand(std::wstring command, std::wstring &msg, std::wstring &perf);
 	void addAllScriptsFrom(std::wstring path);
 	void addCommand(command_type type, strEx::blindstr key, std::wstring args = _T("")) {
