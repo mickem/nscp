@@ -158,7 +158,9 @@
                 <File Id="script003" Name="c_nrdb.bat" LongName="check_no_rdp.bat" DiskId="1" Source="$(var.Source)/scripts/check_no_rdp.bat" Vital="no" />
                 <File Id="script004" Name="c_prt.vbs" LongName="check_printer.vbs" DiskId="1" Source="$(var.Source)/scripts/check_printer.vbs" Vital="no" />
                 <File Id="script005" Name="c_ok.bat" LongName="check_ok.bat" DiskId="1" Source="$(var.Source)/scripts/check_ok.bat" Vital="no" />
-                <File Id="sample001" Name="c_test.bat" LongName="check_test.bat" DiskId="1" Source="$(var.Source)/scripts/check_test.bat" Vital="no" />
+                <File Id="script005" Name="c_ok.bat" LongName="check_ok.bat" DiskId="1" Source="$(var.Source)/scripts/check_ok.bat" Vital="no" />
+                <File Id="script006" Name="c_files.vbs" LongName="check_files.vbs" DiskId="1" Source="$(var.Source)/scripts/check_files.vbs" Vital="no" />
+                <File Id="script007" Name="c_ping.bat" LongName="check_ping.bat" DiskId="1" Source="$(var.Source)/scripts/check_ping.bat" Vital="no" />
                 <File Id="sample002" Name="c_test.ps1" LongName="check_test.ps1" DiskId="1" Source="$(var.Source)/scripts/check_test.ps1" Vital="no" />
                 <File Id="sample003" Name="c_test.vbs" LongName="check_test.vbs" DiskId="1" Source="$(var.Source)/scripts/check_test.vbs" Vital="no" />
                 <File Id="lua001" Name="test.lua" LongName="test.lua" DiskId="1" Source="$(var.Source)/scripts/test.lua" Vital="no" />
