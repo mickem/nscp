@@ -119,6 +119,23 @@ namespace parsers {
 				};
 			};
 			template<typename THandler>
+			struct operator_not_like : public simple_bool_binary_operator_impl<THandler> {
+				bool eval_int(value_type type, THandler &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					return false;
+				}
+				bool eval_string(value_type type, THandler &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
+					std::wstring s1 = left.get_string(handler);
+					std::wstring s2 = right.get_string(handler);
+					bool res;
+					if (s1.size() > s2.size() && s2.size() > 0)
+						return s1.find(s2) == std::wstring::npos;
+					return s2.find(s1) == std::wstring::npos;
+					//if (res)
+					//	std::wcout << _T("Found: ") << s1 << _T(" in ") << s2 << std::endl;
+					return res;
+				};
+			};
+			template<typename THandler>
 			struct operator_not_in : public simple_bool_binary_operator_impl<THandler> {
 
 				typedef typename expression_ast<THandler>::list_type list_type;
@@ -294,6 +311,8 @@ namespace parsers {
 				return bin_op_type(new operator_impl::operator_ne<THandler>());
 			if (op == op_like)
 				return bin_op_type(new operator_impl::operator_like<THandler>());
+			if (op == op_not_like)
+				return bin_op_type(new operator_impl::operator_not_like<THandler>());
 
 			if (op == op_and)
 				return bin_op_type(new operator_impl::operator_and<THandler>());

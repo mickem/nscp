@@ -23,10 +23,16 @@
 #include <msvc_wrappers.h>
 #include <Userenv.h>
 #include <remote_processes.hpp>
+#include <file_helpers.hpp>
 #include <Lmcons.h>
 //#ifdef DEBUG
 #include <crtdbg.h>
 //#endif
+#ifdef USE_BREAKPAD
+#include <breakpad/exception_handler_win32.hpp>
+// Used for breakpad crash handling
+static ExceptionManager *g_exception_manager = NULL;
+#endif
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 bool g_bConsoleLog = false;
@@ -549,6 +555,7 @@ void NSClientT::session_info(std::wstring file, unsigned int line, std::wstring 
  */
 bool NSClientT::initCore(bool boot, std::wstring module) {
 	LOG_DEBUG(_T("Attempting to start NSCLient++ - " SZVERSION));
+	std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
 		Settings::getInstance()->setFile(getBasePath(), _T("NSC.ini"));
 		if (debug_ == log_debug) {
@@ -564,6 +571,37 @@ bool NSClientT::initCore(bool boot, std::wstring module) {
 		LOG_ERROR_STD(_T("Unknown exception reading settings..."));
 		return false;
 	}
+
+#ifdef USE_BREAKPAD
+	if (!g_exception_manager) {
+		g_exception_manager = new ExceptionManager(false);
+
+		g_exception_manager->setup_app(SZSERVICENAME, STRPRODUCTVER, STRPRODUCTDATE);
+
+		if (Settings::getInstance()->getInt(CRASH_SECTION_TITLE, CRASH_RESTART, CRASH_RESTART_DEFAULT)==1)
+			g_exception_manager->setup_restart(Settings::getInstance()->getString(CRASH_SECTION_TITLE, CRASH_RESTART_NAME, SZSERVICENAME));
+
+		bool crashHandling = false;
+		if (Settings::getInstance()->getInt(CRASH_SECTION_TITLE, CRASH_SUBMIT, CRASH_SUBMIT_DEFAULT)==1) {
+			std::wstring crashUrl = Settings::getInstance()->getString(CRASH_SECTION_TITLE, CRASH_SUBMIT_URL, CRASH_SUBMIT_URL_DEFAULT);
+			g_exception_manager->setup_submit(false, crashUrl);
+			NSC_DEBUG_MSG(_T("Submitting crash dumps to central server: ") + crashUrl);
+			crashHandling = true;
+		}
+		if (Settings::getInstance()->getInt(CRASH_SECTION_TITLE, CRASH_ARCHIVE, CRASH_ARCHIVE_DEFAULT)==1) {
+			std::wstring crashFolder = Settings::getInstance()->getString(CRASH_SECTION_TITLE, CRASH_ARCHIVE_FOLDER, file_helpers::folders::get_subfolder(appRoot, _T("crash dumps")));
+			g_exception_manager->setup_archive(crashFolder);
+			NSC_DEBUG_MSG(_T("Archiving crash dumps in: ") + crashFolder);
+			crashHandling = true;
+		}
+		if (!crashHandling) {
+			NSC_LOG_ERROR(_T("No crash handling configured"));
+		}
+		g_exception_manager->StartMonitoring();
+	}
+#else
+	LOG_ERROR_STD(_T("Warning Not compiled with breakpad support!"));
+#endif
 
 	if (enable_shared_session_) {
 		LOG_MESSAGE_STD(_T("Enabling shared session..."));

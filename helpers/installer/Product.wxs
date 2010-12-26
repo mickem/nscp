@@ -97,6 +97,7 @@
 													LongName="$(var.App.Title) ($(var.PlatForm)) system tray)" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
 													IconIndex="0" Description="Start the $(var.App.Title) systemtray agent"/>
 							</File>
+							<File Id="NSClientErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
 							
 							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="yes"/>
 							<?ifdef var.boost ?>

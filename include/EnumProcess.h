@@ -84,6 +84,7 @@ public:
 		std::wstring filename;
 		std::wstring command_line;
 		DWORD  dwPID;
+		bool hung;
 	};
 
 	typedef std::list<CProcessEntry> process_list;
@@ -107,6 +108,7 @@ public:
 	std::wstring GetCommandLine(HANDLE hProcess);
 	void enable_token_privilege(LPTSTR privilege);
 	void disable_token_privilege(LPTSTR privilege);
+	std::vector<DWORD> find_crashed_pids(CEnumProcess::error_reporter * error_interface);
 	bool has_PSAPI() {
 		return PSAPI != NULL;
 	}

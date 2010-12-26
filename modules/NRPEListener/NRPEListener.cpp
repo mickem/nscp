@@ -411,6 +411,10 @@ NRPEData NRPEListener::handlePacket(NRPEData p) {
 	if (cmd.first == _T("_NRPE_CHECK")) {
 		return NRPEData(NSCAPI::returnOK, _T("I (") + NSCModuleHelper::getApplicationVersionString() + _T(") seem to be doing fine..."), buffer_length_);
 	}
+// 	if (cmd.first == _T("__CRASH__")) {
+// 		int *foo = NULL;
+// 		*foo = 2;
+// 	}
 	std::wstring msg, perf;
 
 	if (NSCModuleHelper::getSettingsInt(NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS, NRPE_SETTINGS_ALLOW_ARGUMENTS_DEFAULT) == 0) {

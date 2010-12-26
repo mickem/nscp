@@ -5,7 +5,57 @@ TODO:
  * Improved socket performance (would be nice if we could be used as a "hub")
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
+
+2010-12-26 MickeM
+ * Improved crash reporter to support BOTH archive and send.
+ * Improved crash reporter to archive under APPDATA (Local Settings/NSClient++/crash dumps)
+ * Started on the new CheckNSCP (internal health plugin)
+ * Added a "text description" file to crash dump folder to see which version crashed and what not.
+ * General improvments to the crash helper.
+ * Added check_nscp which is a basic command to check the internal health of NSClient++
+
+2010-12-25 MickeM
+ * Fixed issue with performance coutners and erroneouse pointers in some rare cases.
+   (Thank you google breakpad)
+ * Added date to crash reports (to make it simpler to find correct symbols)
  
+2010-12-14 MickeM
+ * CheckEventLog: Fixed so type can be compared to various string keys: error, warning, info, auditSuccess, auditFailure
+ * CheckEventLog: Fixed so invalid parses are reported better (check the "rest" buffer)
+    CheckEventLog file=Application "filter=generated gt -600m AND message LIKE 'Click2Run'" ...
+    WARNING:Parsing failed: AND message LIKE 'Click2Run'
+ * CheckEventLog: Added support for "not like" operator.
+    CheckEventLog file=Application "filter=generated gt -600m AND message not like 'Click2Run'" ...
+ * CrashHandler: Added several options to the crash handler (so it can be configurable)
+    Everything reside under the [crash] sectiuon and the avalible keys are:
+     * restart=1 # if we shall restart the service when a crash is detected.
+     * service_name=<name of service to restart>
+     * submit=0 # if we shall submit crash reports to crash.nsclient.org
+     * url=http://crash.nsclient.org/submit
+     * archive=1 # Archive crashdumps
+     * folder=<appfolder>/dumps
+ 
+2010-12-13 MickeM
+ + Added not responding detection to CheckProcState
+   All "hung" processes will be considerd "hung" (and not started/stopped)
+   When process is "not hung" (badapp.exe)
+    CheckProcState quake.exe=stopped badapp.exe=started notepad++.exe=started
+     OK:OK: All processes are running.
+    CheckProcState quake.exe=stopped badapp.exe=hung notepad++.exe=started
+     CRITICAL:CRITICAL: BadApp.exe: started (critical)
+   Where as when it is hung:
+    CheckProcState quake.exe=stopped badapp.exe=started notepad++.exe=started
+     CRITICAL:CRITICAL: BadApp.exe: hung (critical)
+    CheckProcState quake.exe=stopped badapp.exe=hung notepad++.exe=started
+     OK:OK: All processes are running.
+   
+2010-12-12 MickeM
+ + Added initial support for google breakpad
+   This means if nsclient++ crash two things will happen now.
+   1. Crash reports will be sent to crash.nsclient.org (this will be optionalin the near future)
+   2. service will restart
+   You can try this out in /test mode using the "assert" command.
+   
 2010-11-14 MickeM
  * Added the "extended NRPE payload packet patch"
    Should have done this years ago but alas I have not.

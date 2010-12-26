@@ -1,8 +1,8 @@
 @echo off
 @call env.bat
 
-echo :: %jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% runtime-link=static warnings=off --with-psdk="%PLATTFORM_SDK_INCLUDE%" %* build-binaries >> build.log
-        %jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% runtime-link=static warnings=off --with-psdk="%PLATTFORM_SDK_INCLUDE%" %* build-binaries
+echo :: %jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% runtime-link=static warnings=off "--with-psdk=%PLATTFORM_SDK_INCLUDE%" "--with-breakpad=%GOOGLE_BREAKPAD_INCLUDE%" %* build-binaries >> build.log
+        %jam% --toolset=msvc --with-lua=%LUA_SOURCE% --with-openssl --include-path=%NSCP_INCLUDE% --with-boost --with-cryptopp=%CRYPTOPP_SOURCE% runtime-link=static warnings=off "--with-psdk=%PLATTFORM_SDK_INCLUDE%" "--with-breakpad=%GOOGLE_BREAKPAD_INCLUDE%" %* build-binaries
 if %ERRORLEVEL% == 1 goto :error
 echo :: Result: %ERRORLEVEL% >> build.log
 

@@ -228,6 +228,22 @@
 #define LOG_ROOT _T("root_folder")
 #define LOG_ROOT_DEFAULT _T("exe")
 
+
+// CRash settings
+#define CRASH_SECTION_TITLE _T("crash")
+#define CRASH_RESTART _T("restart")
+#define CRASH_RESTART_DEFAULT 1
+#define CRASH_RESTART_NAME _T("service_name")
+
+#define CRASH_SUBMIT _T("submit")
+#define CRASH_SUBMIT_DEFAULT 0
+#define CRASH_SUBMIT_URL _T("url")
+#define CRASH_SUBMIT_URL_DEFAULT _T("http://crash.nsclient.org/submit")
+
+#define CRASH_ARCHIVE _T("archive")
+#define CRASH_ARCHIVE_DEFAULT 1
+#define CRASH_ARCHIVE_FOLDER _T("folder")
+
 // Main Settings
 #define MAIN_SECTION_TITLE _T("Settings")
 #define MAIN_USEFILE _T("use_file")

@@ -155,7 +155,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			NSC_LOG_ERROR_STD(_T("Create StopEvent failed: ") + error::lookup::last_error());
 			return 0;
 		}
-		file_.set_file(_T("nsclient++"),_T("process_info.csv"));
+		file_.set_file(SZAPPNAME,_T("process_info.csv"));
 		NSC_DEBUG_MSG_STD(_T("Logging perfoamnce metrics to: ") + file_.getFileName());
 		PDH::PDHQuery pdh;
 		bool bInit = true;

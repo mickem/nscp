@@ -1,0 +1,25 @@
+local target = reporter ;
+
+exe $(target)
+
+	: # sources
+	reporter.cpp
+	reporter.rc
+
+	/breakpad//common
+	/breakpad//crash_report_sender
+
+	../../include/ServiceCmd.cpp
+	
+	: # requirements
+	#<user-interface>gui
+	<runtime-link>static
+	<threading>multi
+	<find-static-library>Userenv
+	<find-static-library>ole32
+	<find-static-library>gdi32
+	<find-static-library>Wininet
+	: # default build
+
+	: # usage requirements
+	;

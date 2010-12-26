@@ -2723,7 +2723,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\include\pdh\single_threaded_impl.hpp"
+				RelativePath="..\..\include\pdh\thread_safe_impl.hpp"
 				>
 			</File>
 		</Filter>

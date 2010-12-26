@@ -33,7 +33,15 @@
 ; Extreamly early beta of a task-schedule checker
 ;CheckTaskSched.dll
 
+[crash]
+; Archive crash dump files if a crash is detected
+;archive=1
 
+; Submit crash reports to a crash report server (this overrrides archive)
+;submit=0
+
+; Restart service if a crash is detected
+;restart=1
 
 [Settings]
 ;# OBFUSCATED PASSWORD

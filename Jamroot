@@ -20,6 +20,7 @@ if $(toolset) = "msvc" {
 	import bjam/lua ;
 	import bjam/openssl ;
 	import bjam/boost ;
+	import bjam/breakpad ;
 	import bjam/cryptopp ;
 	import bjam/psdk ;
 }
@@ -54,6 +55,7 @@ path-constant BOOST_STAGE_LOCATE : $(stage-locate) ;
 if ( $(toolset) = "msvc" || $(toolset) = "msvc-8.0" ) {
 	using bjam/openssl : : $(TOP)/lib-source/openssl-0.9.8g/include $(TOP)/lib ;
 	using bjam/boost : : $(TOP)/lib-source/boost_1_35_0 $(TOP)/lib ;
+	using bjam/breakpad : : $(TOP)/lib-source/breakpad $(TOP)/lib ;
 	using bjam/lua : : $(TOP)/lib-source/lua-5.1.2 ;
 	using bjam/cryptopp : : $(TOP)/lib-source/"Crypto++"/src ;
 	using bjam/psdk : : /foo ;
@@ -77,6 +79,13 @@ if ( $(toolset) = "msvc" || $(toolset) = "msvc-8.0" ) {
 		bjam/boost.printEnv ;
 	} else {
 		echo "boost not avaliable! some features DISABLED (for instance regular expressions) (enable with --with-boost)" ; 
+	}
+
+	if [ bjam/breakpad.isEnabled ] = true {
+		echo "breakpad found (disable with --without-breakpad)" ; 
+		bjam/breakpad.printEnv ;
+	} else {
+		echo "breakpad not avaliable! some features DISABLED (for instance regular expressions) (enable with --with-breakpad)" ; 
 	}
 
 	if [ bjam/cryptopp.isEnabled ] = true {
@@ -131,6 +140,14 @@ exe $(target)
 	include/ServiceCmd.cpp
 	include/Socket.cpp
 	include/b64/b64.c
+	
+	include/breakpad/breakpad_config.cpp
+#	include/breakpad/crash_sender_win32.cpp
+	include/breakpad/exception_handler_win32.cpp
+	
+	/breakpad//exception_handler
+	/breakpad//crash_generation_client
+	/breakpad//common
 
 	: # requirements
 	<dependency>$(target).exe.manifest
@@ -139,6 +156,7 @@ exe $(target)
 	<find-static-library>Userenv
 	<find-static-library>ole32
 	<variant>release:<dependency>update_version 
+
 	: # default build
 
 	: # usage requirements
@@ -276,7 +294,7 @@ explicit all-scripts-targets ;
 alias all-script-libs-targets : $(all-script-libs-lst) ;
 explicit all-script-libs-targets ;
 
-alias all-root-targets : $(target) $(target-config) $(target-readme) $(target-guide) $(target-refman) $(target-license) $(target-changelog) $(target-counters) helpers/systray_helper ;
+alias all-root-targets : $(target) $(target-config) $(target-readme) $(target-guide) $(target-refman) $(target-license) $(target-changelog) $(target-counters) helpers/systray_helper helpers/error_reporter ;
 explicit all-root-targets ;
 
 alias all-modules-targets : $(all-modules) ;
@@ -345,7 +363,7 @@ install dist-script-libs : all-script-libs-targets : <conditional>@generate-scri
 explicit dist-script-libs ;
 
 alias build-binaries : dist dist-modules dist-helpers dist-scripts dist-script-libs ;
-#alias build-binaries : dist-helpers ;
+#alias build-binaries : dist ;
 explicit build-binaries ;
 
 alias build-nagios-plugins : helpers/plugins ;

@@ -65,6 +65,54 @@ namespace file_helpers {
 		static std::wstring combine_pattern(pattern_type pattern) {
 			return pattern.first + _T("\\") + pattern.second;
 		}
+	};
+
+	class folders {
+#ifndef CSIDL_COMMON_APPDATA 
+#define CSIDL_COMMON_APPDATA 0x0023 
+#define CSIDL_LOCAL_APPDATA  0x001c
+#endif
+		typedef BOOL (WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
+		static BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
+			static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
+			if (!__SHGetSpecialFolderPath) {
+				HMODULE hDLL = LoadLibrary(_T("shell32.dll"));
+				if (hDLL != NULL) { 
+					__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+				}
+			}
+			if(__SHGetSpecialFolderPath)
+				return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
+			return FALSE;
+		}
+	public:
+		static inline std::wstring get_folder(int folderId) {
+			TCHAR buf[MAX_PATH+1];
+			if (!_SHGetSpecialFolderPath(NULL, buf, folderId, FALSE)) {
+				return _T("");
+			}
+			return buf;
+		}
+
+		static std::wstring get_local_appdata() {
+			return get_folder(CSIDL_LOCAL_APPDATA);
+		}
+
+		static std::wstring get_local_appdata_folder(std::wstring pathname) {
+			return get_subfolder(file_helpers::folders::get_local_appdata(), pathname);
+		}
+		static std::wstring get_local_appdata_file(std::wstring pathname, std::wstring filename) {
+			return get_local_appdata_folder(pathname) + _T("\\") + filename;
+		}
+
+		static std::wstring get_subfolder(std::wstring root, std::wstring folder) {
+			std::wstring path = root + _T("\\") + folder;
+			if (!file_helpers::checks::exists(path)) {
+				if (_wmkdir(path.c_str()) != 0)
+					return _T("");
+			}
+			return path;
+		}
 
 
 	};

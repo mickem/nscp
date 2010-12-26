@@ -5,27 +5,10 @@
 #include <stdio.h>
 #include <string>
 
+#include <file_helpers.hpp>
+
 
 namespace simple_file {
-
-#ifndef CSIDL_COMMON_APPDATA 
-#define CSIDL_COMMON_APPDATA 0x0023 
-#define CSIDL_LOCAL_APPDATA  0x001c
-#endif
-	typedef BOOL (WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
-		static BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
-			static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
-			if (!__SHGetSpecialFolderPath) {
-				HMODULE hDLL = LoadLibrary(_T("shell32.dll"));
-				if (hDLL != NULL) { 
-					__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
-				}
-			}
-			if(__SHGetSpecialFolderPath)
-				return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
-			return FALSE;
-		}
-
 
 	class file_appender {
 		std::wstring file_;
@@ -46,33 +29,12 @@ namespace simple_file {
 			return file_;
 		}
 		std::wstring getFileName(std::wstring pathname, std::wstring filename) {
-			if (file_.empty()) {
-				std::wstring path = getFolder() + _T("\\") + pathname;
-				if (!directoryExists(path)) {
-					if (_wmkdir(path.c_str()) != 0)
-						return _T("");
-				}
-				file_ = path + _T("\\") + filename;
-			}
+			if (file_.empty()) 
+				file_ = file_helpers::folders::get_local_appdata_file(pathname, filename);
 			return file_;
 		}
 	private:
-		inline std::wstring getFolder() {
-			TCHAR buf[MAX_PATH+1];
-			if (!_SHGetSpecialFolderPath(NULL, buf, CSIDL_LOCAL_APPDATA, FALSE)) {
-				return _T("") + error::lookup::last_error();
-			}
-			return buf;
-		}
-		bool directoryExists(std::wstring path) {
-			DWORD dwAtt = ::GetFileAttributes(path.c_str());
-			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
-				return false;
-			} else if ((dwAtt&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
-				return true;
-			}
-			return false;
-		}
+
 
 		HANDLE openAppendOrNew(std::wstring file) {
 			DWORD numberOfBytesWritten = 0;

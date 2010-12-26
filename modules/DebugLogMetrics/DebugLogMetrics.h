@@ -26,18 +26,18 @@ NSC_WRAPPERS_MAIN();
 
 class DebugLogMetrics {
 private:
-	struct command_data {
-		command_data() {}
-		command_data(std::wstring command_, std::wstring arguments_) : command(command_), arguments(arguments_) {}
-		std::wstring command;
-		std::wstring arguments;
-	};
-	typedef std::map<strEx::blindstr, command_data> command_list;
-	command_list commands;
-	command_list alias;
-	unsigned int timeout;
-	std::wstring scriptDirectory_;
-	std::wstring root_;
+// 	struct command_data {
+// 		command_data() {}
+// 		command_data(std::wstring command_, std::wstring arguments_) : command(command_), arguments(arguments_) {}
+// 		std::wstring command;
+// 		std::wstring arguments;
+// 	};
+// 	typedef std::map<strEx::blindstr, command_data> command_list;
+// 	command_list commands;
+// 	command_list alias;
+// 	unsigned int timeout;
+// 	std::wstring scriptDirectory_;
+// 	std::wstring root_;
 	PDHCollectorThread pdhThread;
 
 public:

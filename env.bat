@@ -80,6 +80,9 @@ rem ########################
 rem #
 rem #
 rem #
+
+SET GOOGLE_BREAKPAD_INCLUDE=C:\source\google-breakpad\trunk\src
+
 SET ZIP7_PATH=C:\Program Files\7-Zip
 SET PERL_PATH=C:\Perl64\bin
 SET TOOLS_DIR=c:\source\tools

@@ -38,9 +38,9 @@ DebugLogMetrics::DebugLogMetrics() : pdhThread(_T("debugThread")) {}
 DebugLogMetrics::~DebugLogMetrics() {}
 
 bool DebugLogMetrics::loadModule() {
-	timeout = NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
-	scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
-	root_ = NSCModuleHelper::getBasePath();
+// 	timeout = NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
+// 	scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
+// 	root_ = NSCModuleHelper::getBasePath();
 	pdhThread.createThread(_T("NSClient++"));
 	return true;
 }

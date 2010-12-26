@@ -257,9 +257,14 @@ namespace parsers {
 
 			iterator_type iter = expr.begin();
 			iterator_type end = expr.end();
-			if (phrase_parse(iter, end, calc, ascii::space, resulting_tree))
-				return true;
+			if (phrase_parse(iter, end, calc, ascii::space, resulting_tree)) {
+				rest = std::wstring(iter, end);
+				return rest.empty();
+				//std::wcout<< _T("Rest: ") << rest << std::endl;
+				//return true;
+			}
 			rest = std::wstring(iter, end);
+			//std::wcout << _T("Rest: ") << rest << std::endl;
 			return false;
 		}
 
