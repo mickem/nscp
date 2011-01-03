@@ -43,12 +43,7 @@ void CheckExternalScripts::addAllScriptsFrom(std::wstring path) {
 		pattern.first = NSCModuleHelper::getBasePath() + _T("\\") + pattern.first;
 	if (!file_helpers::checks::exists(pattern.first))
 		NSC_LOG_ERROR_STD(_T("Path was not found: ") + pattern.first);
-/* TODO: do we need this?
-	std::wstring::size_type pos = path.find_last_of('*');
-	if (pos == std::wstring::npos) {
-		path += _T("*.*");
-	}
-	*/
+
 	WIN32_FIND_DATA wfd;
 	std::wstring real_path = file_helpers::patterns::combine_pattern(pattern);
 	HANDLE hFind = FindFirstFile(real_path.c_str(), &wfd);
@@ -83,61 +78,92 @@ void CheckExternalScripts::addWrappedCommand(std::wstring key, std::wstring tpl,
 }
 
 bool CheckExternalScripts::loadModule() {
-	timeout = NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
-	scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
-	std::list<std::wstring>::const_iterator it;
-	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(EXTSCRIPT_SCRIPT_SECTION_TITLE);
-	for (it = commands.begin(); it != commands.end(); ++it) {
-		if ((*it).empty())
-			continue;
-		std::wstring s = NSCModuleHelper::getSettingsString(EXTSCRIPT_SCRIPT_SECTION_TITLE, (*it), _T(""));
-		if (s.empty()) {
-			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
-		} else {
-			strEx::token tok = strEx::getToken(s, ' ', true);
-			addCommand((*it).c_str(), tok.first, tok.second);
-		}
-	}
-
-	commands = NSCModuleHelper::getSettingsSection(EXTSCRIPT_ALIAS_SECTION_TITLE);
-	for (it = commands.begin(); it != commands.end(); ++it) {
-		if ((*it).empty())
-			continue;
-		std::wstring s = NSCModuleHelper::getSettingsString(EXTSCRIPT_ALIAS_SECTION_TITLE, (*it), _T(""));
-		if (s.empty()) {
-			NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
-		} else {
-			strEx::token tok = strEx::getToken(s, ' ', true);
-			addAlias((*it).c_str(), tok.first, tok.second);
-		}
-	}
-
-	std::map<std::wstring,std::wstring> wrappers;
-	std::list<std::wstring> wrappings = NSCModuleHelper::getSettingsSection(EXTSCRIPT_WRAPPINGS_SECTION_TITLE);
-	for (it = wrappings.begin(); it != wrappings.end(); ++it) {
-		std::wstring val = NSCModuleHelper::getSettingsString(EXTSCRIPT_WRAPPINGS_SECTION_TITLE, *it, _T(""));
-		if (!(*it).empty() && !val.empty()) {
-			wrappers[(*it)] = val;
-		}
-	}
-	std::list<std::wstring> wscript = NSCModuleHelper::getSettingsSection(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE);
-	for (it = wscript.begin(); it != wscript.end(); ++it) {
-		std::wstring val = NSCModuleHelper::getSettingsString(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE, *it, _T(""));
-		if (!(*it).empty() && !val.empty()) {
-			std::wstring type = getWrapping(val);
-			std::map<std::wstring,std::wstring>::const_iterator cit = wrappers.find(type);
-			if (cit == wrappers.end()) {
-				NSC_LOG_ERROR_STD(_T("Failed to find wrappings for: ") + type + _T(" (" + (*it) + _T(")")));
+	try {
+		timeout = NSCModuleHelper::getSettingsInt(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT ,EXTSCRIPT_SETTINGS_TIMEOUT_DEFAULT);
+		scriptDirectory_ = NSCModuleHelper::getSettingsString(EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR ,EXTSCRIPT_SETTINGS_SCRIPTDIR_DEFAULT);
+		std::list<std::wstring>::const_iterator it;
+		std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(EXTSCRIPT_SCRIPT_SECTION_TITLE);
+		for (it = commands.begin(); it != commands.end(); ++it) {
+			if ((*it).empty())
+				continue;
+			std::wstring s = NSCModuleHelper::getSettingsString(EXTSCRIPT_SCRIPT_SECTION_TITLE, (*it), _T(""));
+			if (s.empty()) {
+				NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
 			} else {
-				addWrappedCommand((*it), (*cit).second, val);
+				strEx::token tok = strEx::getToken(s, ' ', true);
+				addCommand((*it).c_str(), tok.first, tok.second);
 			}
 		}
-	}
-
-	if (!scriptDirectory_.empty()) {
-		addAllScriptsFrom(scriptDirectory_);
-	}
-	root_ = NSCModuleHelper::getBasePath();
+	
+		commands = NSCModuleHelper::getSettingsSection(EXTSCRIPT_ALIAS_SECTION_TITLE);
+		for (it = commands.begin(); it != commands.end(); ++it) {
+			if ((*it).empty())
+				continue;
+			std::wstring s = NSCModuleHelper::getSettingsString(EXTSCRIPT_ALIAS_SECTION_TITLE, (*it), _T(""));
+			if (s.empty()) {
+				NSC_LOG_ERROR_STD(_T("Invalid command definition: ") + (*it));
+			} else {
+				strEx::token tok = strEx::getToken(s, ' ', true);
+				addAlias((*it).c_str(), tok.first, tok.second);
+			}
+		}
+	
+		std::map<std::wstring,std::wstring> wrappers;
+		std::list<std::wstring> wrappings = NSCModuleHelper::getSettingsSection(EXTSCRIPT_WRAPPINGS_SECTION_TITLE);
+		for (it = wrappings.begin(); it != wrappings.end(); ++it) {
+			std::wstring val = NSCModuleHelper::getSettingsString(EXTSCRIPT_WRAPPINGS_SECTION_TITLE, *it, _T(""));
+			if (!(*it).empty() && !val.empty()) {
+				wrappers[(*it)] = val;
+			}
+		}
+		std::list<std::wstring> wscript = NSCModuleHelper::getSettingsSection(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE);
+		for (it = wscript.begin(); it != wscript.end(); ++it) {
+			std::wstring val = NSCModuleHelper::getSettingsString(EXTSCRIPT_WRAPPED_SCRIPT_SECTION_TITLE, *it, _T(""));
+			if (!(*it).empty() && !val.empty()) {
+				std::wstring type = getWrapping(val);
+				std::map<std::wstring,std::wstring>::const_iterator cit = wrappers.find(type);
+				if (cit == wrappers.end()) {
+					NSC_LOG_ERROR_STD(_T("Failed to find wrappings for: ") + type + _T(" (" + (*it) + _T(")")));
+				} else {
+					addWrappedCommand((*it), (*cit).second, val);
+				}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+			}
+		}
+	
+		if (!scriptDirectory_.empty()) {
+			addAllScriptsFrom(scriptDirectory_);
+	
+	
+	
+	
+		}
+		root_ = NSCModuleHelper::getBasePath();
+	} catch (...) {
+		return false;
+}
 	return true;
 }
 bool CheckExternalScripts::unloadModule() {
@@ -189,15 +215,6 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::blindstr c
 			return NSCAPI::returnUNKNOWN;
 		}
 		return NSCHelper::int2nagios(result);
-		/*
-	} else if (cd.type == script_dir) {
-		std::wstring args = arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
-		std::wstring cmd = scriptDirectory_ + command.c_str() + _T(" ") +args;
-		return executeNRPECommand(cmd, message, perf);
-	} else {
-		NSC_LOG_ERROR_STD(_T("Unknown script type: ") + command.c_str());
-		return NSCAPI::critical;
-		*/
 	}
 
 }

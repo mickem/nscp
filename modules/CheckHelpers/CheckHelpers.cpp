@@ -33,12 +33,6 @@
 
 CheckHelpers gCheckHelpers;
 
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
 CheckHelpers::CheckHelpers() {
 }
 CheckHelpers::~CheckHelpers() {
@@ -74,73 +68,75 @@ bool CheckHelpers::hasCommandHandler() {
 bool CheckHelpers::hasMessageHandler() {
 	return false;
 }
-NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
+NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) 
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.empty()) {
-		msg = NSCHelper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
+	std::list<std::wstring> arguments = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (arguments.empty()) {
+		message = NSCHelper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
 		return status;
 	}
 	std::list<std::wstring>::const_iterator cit;
-	for (cit=args.begin();cit!=args.end();++cit)
-		msg += *cit;
+	for (cit=arguments.begin();cit!=arguments.end();++cit)
+		message += *cit;
 	return status;
 }
 
-NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
-	if (command == _T("CheckAlwaysOK")) {
+NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+	if (command == _T("CheckVersion")) {
+		message = NSCModuleHelper::getApplicationVersionString();
+		return NSCAPI::returnOK;
+	} else if (command == _T("CheckAlwaysOK")) {
 		if (argLen < 2) {
-			msg = _T("ERROR: Missing arguments.");
+			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
-		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
+		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], message, perf);
 		return NSCAPI::returnOK;
-	} else if (command == _T("CheckVersion")) {
-		msg = NSCModuleHelper::getApplicationVersionString();
-		return NSCAPI::returnOK;
-	} else if (command == _T("CheckOK")) {
-		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, msg, perf);
-	} else if (command == _T("CheckWARNING")) {
-		return checkSimpleStatus(NSCAPI::returnWARN, argLen, char_args, msg, perf);
-	} else if (command == _T("CheckCRITICAL")) {
-		return checkSimpleStatus(NSCAPI::returnCRIT, argLen, char_args, msg, perf);
 	} else if (command == _T("CheckAlwaysCRITICAL")) {
 		if (argLen < 2) {
-			msg = _T("ERROR: Missing arguments.");
+			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
-		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
+		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], message, perf);
 		return NSCAPI::returnCRIT;
 	} else if (command == _T("CheckAlwaysWARNING")) {
 		if (argLen < 2) {
-			msg = _T("ERROR: Missing arguments.");
+			message = _T("ERROR: Missing arguments.");
 			return NSCAPI::returnUNKNOWN;
 		}
-		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], msg, perf);
+		NSCModuleHelper::InjectCommand(char_args[0], argLen-1, &char_args[1], message, perf);
 		return NSCAPI::returnWARN;
+	} else if (command == _T("CheckOK")) {
+		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, message, perf);
+	} else if (command == _T("check_ok")) {
+		return checkSimpleStatus(NSCAPI::returnOK, argLen, char_args, message, perf);
+	} else if (command == _T("CheckWARNING")) {
+		return checkSimpleStatus(NSCAPI::returnWARN, argLen, char_args, message, perf);
+	} else if (command == _T("CheckCRITICAL")) {
+		return checkSimpleStatus(NSCAPI::returnCRIT, argLen, char_args, message, perf);
 	} else if (command == _T("CheckMultiple")) {
-		return checkMultiple(argLen, char_args, msg, perf);
+		return checkMultiple(argLen, char_args, message, perf);
 	} else if (command == _T("Negate")) {
-		return negate(argLen, char_args, msg, perf);
+		return negate(argLen, char_args, message, perf);
 	} else if (command == _T("Timeout")) {
-		return timeout(argLen, char_args, msg, perf);
+		return timeout(argLen, char_args, message, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
-NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
+NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) 
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.empty()) {
-		msg = _T("Missing argument(s).");
+	std::list<std::wstring> arguments = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (arguments.empty()) {
+		message = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
 	typedef std::pair<std::wstring, std::list<std::wstring> > sub_command;
 	std::list<sub_command> commands;
 	sub_command currentCommand;
 	std::list<std::wstring>::const_iterator cit;
-	for (cit=args.begin();cit!=args.end();++cit) {
+	for (cit=arguments.begin();cit!=arguments.end();++cit) {
 		std::wstring arg = *cit;
 		std::pair<std::wstring,std::wstring> p = strEx::split(arg,_T("="));
 		if (p.first == _T("command")) {
@@ -162,9 +158,9 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, TCHA
 		NSCAPI::nagiosReturn tRet = NSCModuleHelper::InjectCommand((*cit2).first.c_str(), length, args, tMsg, tPerf);
 		arrayBuffer::destroyArrayBuffer(args, length);
 		returnCode = NSCHelper::maxState(returnCode, tRet);
-		if (!msg.empty())
-			msg += _T(", ");
-		msg += tMsg;
+		if (!message.empty())
+			message += _T(", ");
+		message += tMsg;
 		perf += tPerf;
 	}
 	return returnCode;
@@ -173,8 +169,8 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const unsigned int argLen, TCHA
 NSCAPI::nagiosReturn CheckHelpers::negate(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::vector<std::wstring> args = arrayBuffer::arrayBuffer2vector(argLen, char_args);
-	if (args.empty()) {
+	std::vector<std::wstring> arguments = arrayBuffer::arrayBuffer2vector(argLen, char_args);
+	if (arguments.empty()) {
 		msg = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
@@ -209,7 +205,7 @@ NSCAPI::nagiosReturn CheckHelpers::negate(const unsigned int argLen, TCHAR **cha
 		p.add("arguments", -1);
 
 		boost::program_options::variables_map vm;
-		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(args).options(desc).positional(p).run(), vm);
+		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(arguments).options(desc).positional(p).run(), vm);
 		boost::program_options::notify(vm); 
 
 		if (vm.count("help")) {
@@ -270,8 +266,8 @@ public:
 NSCAPI::nagiosReturn CheckHelpers::timeout(const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) 
 {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::vector<std::wstring> args = arrayBuffer::arrayBuffer2vector(argLen, char_args);
-	if (args.empty()) {
+	std::vector<std::wstring> arguments = arrayBuffer::arrayBuffer2vector(argLen, char_args);
+	if (arguments.empty()) {
 		msg = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
@@ -295,7 +291,7 @@ NSCAPI::nagiosReturn CheckHelpers::timeout(const unsigned int argLen, TCHAR **ch
 			("timeout,t",	boost::program_options::value<unsigned long>(&timeout), "The timeout value")
 
 			("command,q",	boost::program_options::wvalue<std::wstring>(&command), "Wrapped command to execute")
-			("arguments,a",	boost::program_options::wvalue<std::vector<std::wstring> >(&cmd_args), "List of arguments (for wrapped command)")
+			("arguments,a",	boost::program_options::wvalue<std::vector<std::wstring> >(&arguments), "List of arguments (for wrapped command)")
 			;
 
 		boost::program_options::positional_options_description p;
@@ -343,6 +339,7 @@ NSCAPI::nagiosReturn CheckHelpers::timeout(const unsigned int argLen, TCHAR **ch
 #endif
 }
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckHelpers);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckHelpers);

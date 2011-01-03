@@ -27,7 +27,7 @@
  * @param *argument[] Argument array
  * @return Argument wrapped as a list
  */
-arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, TCHAR *argument[]) {
+arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, wchar_t *argument[]) {
 	arrayList ret;
 	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
@@ -42,7 +42,7 @@ arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, 
  * @param *argument[] Argument array
  * @return Argument wrapped as a list
  */
-arrayBuffer::arrayVector arrayBuffer::arrayBuffer2vector(const unsigned int argLen, TCHAR *argument[]) {
+arrayBuffer::arrayVector arrayBuffer::arrayBuffer2vector(const unsigned int argLen, wchar_t *argument[]) {
 	arrayVector ret;
 	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
@@ -67,7 +67,7 @@ arrayBuffer::arrayBuffer arrayBuffer::list2arrayBuffer(const arrayList lst, unsi
 	int i;
 	for (i=0;it!=lst.end();++it,i++) {
 		std::wstring::size_type alen = (*it).size();
-		arrayBuffer[i] = new TCHAR[alen+2];
+		arrayBuffer[i] = new wchar_t[alen+2];
 		wcsncpy_s(arrayBuffer[i], alen+2, (*it).c_str(), alen+1);
 	}
 	if (i != argLen)
@@ -121,11 +121,11 @@ std::wstring arrayBuffer::arrayBuffer2string(arrayBuffer::arrayBuffer argument, 
 * @param &argLen [OUT] The length of the Array
 * @return The arrayBuffer
 */
-arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const TCHAR* buffer, TCHAR splitChar, unsigned int &argLen) {
+arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const wchar_t* buffer, wchar_t splitChar, unsigned int &argLen) {
 	if (!buffer)
 		throw ArrayBufferException(_T("Invalid buffer specified!"));
 	argLen = 0;
-	const TCHAR *p = buffer;
+	const wchar_t *p = buffer;
 	if (!p[0]) {
 		return createEmptyArrayBuffer(argLen);
 	}
@@ -135,12 +135,12 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const TCHAR* buffer, TCH
 		p++;
 	}
 	argLen++;
-	TCHAR **arrayBuffer = new TCHAR*[argLen];
+	wchar_t **arrayBuffer = new wchar_t*[argLen];
 	p = buffer;
 	for (unsigned int i=0;i<argLen;i++) {
-		const TCHAR *q = wcschr(p, (i<argLen-1)?splitChar:0);
+		const wchar_t *q = wcschr(p, (i<argLen-1)?splitChar:0);
 		unsigned int len = static_cast<int>(q-p);
-		arrayBuffer[i] = new TCHAR[len+1];
+		arrayBuffer[i] = new wchar_t[len+1];
 		wcsncpy_s(arrayBuffer[i], len+1, p, len);
 		arrayBuffer[i][len] = 0;
 		p = ++q;
@@ -154,7 +154,7 @@ void arrayBuffer::set(arrayBuffer arrayBuffer, const unsigned int argLen, const 
 		throw ArrayBufferException(_T("position is outside the buffer"));
 	delete [] arrayBuffer[position];
 	size_t len = argument.length();
-	arrayBuffer[position] = new TCHAR[len+2];
+	arrayBuffer[position] = new wchar_t[len+2];
 	wcsncpy_s(arrayBuffer[position], len+1, argument.c_str(), len);
 	arrayBuffer[position][len] = 0;
 }
@@ -167,7 +167,7 @@ void arrayBuffer::set(arrayBuffer arrayBuffer, const unsigned int argLen, const 
  * @param escape [IN] Set to true to try to escape ":s ie. //token1 "token2 with space" token3//
  * @return The arrayBuffer
  */
-arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf, TCHAR splitChar, unsigned int &argLen, bool escape) {
+arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf, wchar_t splitChar, unsigned int &argLen, bool escape) {
 	if (inBuf.empty())
 		return createEmptyArrayBuffer(argLen);
 
@@ -190,7 +190,6 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		}
 		// p1 = start of "this token"
 		// p2 = end of "this token" (next split char)
-		//std::wcout << _T("found token: ") << p1 << _T(":") << p2;
 
 		if (p2<=p1)
 			throw ArrayBufferException(_T("Invalid position"));
@@ -200,7 +199,6 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		if (escape && token[token.size()-1] == '\"')
 			token = token.substr(0, token.size()-1);
 
-		//std::wcout << _T(" -- ") << token << std::endl;
 
 		token_list.push_back(token);
 		if (p2 < inBuf.size())
@@ -213,7 +211,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 	argLen=0;
 	for (std::list<std::wstring>::const_iterator cit=token_list.begin();cit!=token_list.end();++cit) {
 		size_t len = (*cit).size();
-		TCHAR* token = new TCHAR[len+1];
+		wchar_t* token = new wchar_t[len+1];
 		wcsncpy_s(token, len+1, (*cit).c_str(), len);
 		arrayBuffer[argLen++] = token;
 	}
@@ -305,7 +303,7 @@ void arrayBuffer::destroyArrayBuffer(arrayBuffer::arrayBuffer argument, const un
 void arrayBuffer::test_createEmptyArrayBuffer() {
 	std::wcout << "arrayBuffer::test_createEmptyArrayBuffer() : ";
 	unsigned int argLen;
-	TCHAR ** c = createEmptyArrayBuffer(argLen);
+	wchar_t ** c = createEmptyArrayBuffer(argLen);
 	if ((c) && (argLen == 0))
 		std::wcout << "Succeeded" << std::endl;
 	else
@@ -318,10 +316,10 @@ void arrayBuffer::test_createEmptyArrayBuffer() {
  * @param splitter 
  * @param OUT_argLen 
  */
-void arrayBuffer::test_split2arrayBuffer_str(std::wstring buffer, TCHAR splitter, int OUT_argLen) {
+void arrayBuffer::test_split2arrayBuffer_str(std::wstring buffer, wchar_t splitter, int OUT_argLen) {
 	std::wcout << _T("arrayBuffer::test_split2arrayBuffer(") << buffer << _T(", ...) : ");
 	unsigned int argLen = 0;
-	TCHAR ** c = split2arrayBuffer(buffer, splitter, argLen);
+	wchar_t ** c = split2arrayBuffer(buffer, splitter, argLen);
 	if ((c) && (argLen == OUT_argLen))
 		std::wcout << _T("Succeeded") << std::endl;
 	else
@@ -334,10 +332,10 @@ void arrayBuffer::test_split2arrayBuffer_str(std::wstring buffer, TCHAR splitter
  * @param splitter 
  * @param OUT_argLen 
  */
-void arrayBuffer::test_split2arrayBuffer_char(TCHAR* buffer, TCHAR splitter, int OUT_argLen) {
+void arrayBuffer::test_split2arrayBuffer_char(wchar_t* buffer, wchar_t splitter, int OUT_argLen) {
 	std::wcout << _T("arrayBuffer::test_split2arrayBuffer(") << buffer << _T(", ...) : ");
 	unsigned int argLen = 0;
-	TCHAR ** c = split2arrayBuffer(buffer, splitter, argLen);
+	wchar_t ** c = split2arrayBuffer(buffer, splitter, argLen);
 	if ((c) && (argLen == OUT_argLen))
 		std::wcout << _T("Succeeded") << std::endl;
 	else

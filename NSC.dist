@@ -16,6 +16,7 @@
 ;CheckEventLog.dll
 ;CheckHelpers.dll
 ;CheckWMI.dll
+;CheckNSCP.dll
 ;
 ; Script to check external scripts and/or internal aliases.
 ;CheckExternalScripts.dll

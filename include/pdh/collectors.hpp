@@ -112,12 +112,21 @@ namespace PDHCollectors {
 		}
 	};
 
+	class PDHCollector : public PDH::PDHCounterListener{
+	public:
+		virtual std::wstring get_string() = 0;
+		virtual double get_double() = 0;
+		virtual __int64 get_int64() = 0;
+		virtual double get_average(int backlog) = 0;
+	};
+
+
 	template <class TType, int TCollectionFormat, class TMutextHandler = PDHCounterNoMutex>
 	class StaticPDHCounterListener {
 	};
 
 	template <class TType, class TMutextHandler>
-	class StaticPDHCounterListener<TType, format_double, TMutextHandler> : public PDH::PDHCounterListener {
+	class StaticPDHCounterListener<TType, format_double, TMutextHandler> : public PDHCollector {
 		TType value_;
 		TMutextHandler mutex_;
 		bool hasValue_;
@@ -145,6 +154,19 @@ namespace PDHCollectors {
 		DWORD getFormat() const {
 			return format_double;
 		}
+	public:
+		inline std::wstring get_string() {
+			return strEx::itos(getValue());
+		}
+		inline double get_double() {
+			return static_cast<double>(getValue());
+		}
+		__int64 get_int64() {
+			return getValue();
+		}
+		inline double get_average(int backlog) {
+			return static_cast<double>(getValue());
+		}
 	private:
 		std::wstring get_name() const {
 			if (parent_ != NULL)
@@ -154,7 +176,7 @@ namespace PDHCollectors {
 	};
 
 	template <class TType, class TMutextHandler>
-	class StaticPDHCounterListener<TType, format_long, TMutextHandler> : public PDH::PDHCounterListener {
+	class StaticPDHCounterListener<TType, format_long, TMutextHandler> : public PDHCollector {
 		TType value_;
 		TMutextHandler mutex_;
 		bool hasValue_;
@@ -181,6 +203,18 @@ namespace PDHCollectors {
 		DWORD getFormat() const {
 			return format_long;
 		}
+		inline std::wstring get_string() {
+			return strEx::itos(getValue());
+		}
+		inline double get_double() {
+			return static_cast<double>(getValue());
+		}
+		__int64 get_int64() {
+			return getValue();
+		}
+		inline double get_average(int backlog) {
+			return static_cast<double>(getValue());
+		}
 	private:
 		std::wstring get_name() const {
 			if (parent_ != NULL)
@@ -190,7 +224,7 @@ namespace PDHCollectors {
 	};
 
 	template <class TType, class TMutextHandler>
-	class StaticPDHCounterListener<TType, format_large, TMutextHandler> : public PDH::PDHCounterListener {
+	class StaticPDHCounterListener<TType, format_large, TMutextHandler> : public PDHCollector {
 		TMutextHandler mutex_;
 		TType value_;
 		bool hasValue_;
@@ -217,6 +251,18 @@ namespace PDHCollectors {
 		DWORD getFormat() const {
 			return format_large;
 		}
+		inline std::wstring get_string() {
+			return strEx::itos(getValue());
+		}
+		inline double get_double() {
+			return static_cast<double>(getValue());
+		}
+		__int64 get_int64() {
+			return getValue();
+		}
+		inline double get_average(int backlog) {
+			return static_cast<double>(getValue());
+		}
 	private:
 		std::wstring get_name() const {
 			if (parent_ != NULL)
@@ -227,7 +273,7 @@ namespace PDHCollectors {
 
 
 	template <class TType, class TMutextHandler>
-	class RoundINTPDHBufferListenerImpl : public PDH::PDHCounterListener {
+	class RoundINTPDHBufferListenerImpl : public PDHCollector {
 		TMutextHandler mutex_;
 		unsigned int length;
 		TType *buffer;
@@ -237,10 +283,10 @@ namespace PDHCollectors {
 	public:
 		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL) {}
 		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0), hasValue_(false), parent_(NULL) {
-			PDHCounterMutexHandler mutex(mutex_);
+			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
 				return;
-			buffer = new int[length];
+			buffer = new TType[length];
 			for (unsigned int i=0; i<length;i++)
 				buffer[i] = 0;
 		}
@@ -311,6 +357,18 @@ namespace PDHCollectors {
 					ret += buffer[i];
 			}
 			return (ret/backItems);
+		}
+		inline std::wstring get_string() {
+			return strEx::itos(getAvrage(length-1));
+		}
+		inline double get_double() {
+			return getAvrage(length-1);
+		}
+		__int64 get_int64() {
+			return static_cast<__int64>(getAvrage(length-1));
+		}
+		inline double get_average(int backlog) {
+			return getAvrage(backlog);
 		}
 		inline unsigned int getLength() const {
 			return length;

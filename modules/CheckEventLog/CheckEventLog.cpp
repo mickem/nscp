@@ -55,6 +55,75 @@ struct parse_exception {
 #include <parsers/grammar.cpp>
 #include <parsers/ast.cpp>
 
+
+bool CheckEventLog::loadModule() {
+	try {
+		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
+		lookup_names_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_LOOKUP_NAMES, EVENTLOG_LOOKUP_NAMES_DEFAULT)==1;
+		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
+		buffer_length_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
+	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
+	}
+	/*
+	parse(_T("321 = 123"));
+	parse(_T("123 = 123"));
+	parse(_T("id = 123"));
+	parse(_T("id = 321"));
+
+	parse(_T("id = '123'"));
+	parse(_T("id = '321'"));
+
+	parse(_T("id = convert(123)"));
+	parse(_T("id = convert(321)"));
+
+	parse(_T("id = 123 AND 123 = 123 AND id = 123x"));
+	parse(_T("id = 123 AND 123 = 321 OR 123 = 456 OR 123 = 123"));
+	
+	parse(_T("foo"));
+	parse(_T("1"));
+	parse(_T("foo = "));
+	parse(_T("foo = 1"));
+	parse(_T("'foo' = 1"));
+	parse(_T("foo = '1'"));
+	parse(_T("'hello'='world'"));
+
+	parse(_T("foo = bar"));
+	parse(_T("foo = bar AND bar = foo"));
+	parse(_T("foo = bar AND bar = 1"));
+	parse(_T("foo = bar AND bar = foo OR foo = bar"));
+	parse(_T("foo = bar AND bar = 1 OR foo = 1"));
+	parse(_T(" foo = bar AND ( test > 120 OR foo < 123) OR ugh IN (123, 456, 789)"));
+
+	parse(_T("aaa = 111 OR bbb = 222 OR ccc = 333"));
+	parse(_T("(aaa = 111) OR bbb = 222 OR ccc = 333"));
+	parse(_T("(aaa = 111 OR bbb = 222) OR ccc = 333"));
+	parse(_T("(aaa = 111 OR bbb = 222 OR ccc = 333)"));
+	parse(_T("aaa = 111 OR (bbb = 222 OR ccc = 333)"));
+	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = 333)"));
+	parse(_T("ccc = -333"));
+	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234)"));
+	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = -333)"));
+	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x"));
+	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x OR 123r = foo123"));
+*/
+	return true;
+}
+bool CheckEventLog::unloadModule() {
+	return true;
+}
+
+bool CheckEventLog::hasCommandHandler() {
+	return true;
+}
+bool CheckEventLog::hasMessageHandler() {
+	return false;
+}
 namespace filter {
 	namespace where {
 		struct type_obj : public parsers::where::varible_handler<type_obj> {
@@ -414,72 +483,6 @@ void CheckEventLog::parse(std::wstring expr) {
 	*/
 }
 
-bool CheckEventLog::loadModule() {
-	try {
-		NSCModuleHelper::registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
-		debug_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG, EVENTLOG_DEBUG_DEFAULT)==1;
-		lookup_names_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_LOOKUP_NAMES, EVENTLOG_LOOKUP_NAMES_DEFAULT)==1;
-		syntax_ = NSCModuleHelper::getSettingsString(EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX, EVENTLOG_SYNTAX_DEFAULT);
-		buffer_length_ = NSCModuleHelper::getSettingsInt(EVENTLOG_SECTION_TITLE, EVENTLOG_BUFFER, EVENTLOG_BUFFER_DEFAULT);
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-	}
-	/*
-	parse(_T("321 = 123"));
-	parse(_T("123 = 123"));
-	parse(_T("id = 123"));
-	parse(_T("id = 321"));
-
-	parse(_T("id = '123'"));
-	parse(_T("id = '321'"));
-
-	parse(_T("id = convert(123)"));
-	parse(_T("id = convert(321)"));
-
-	parse(_T("id = 123 AND 123 = 123 AND id = 123x"));
-	parse(_T("id = 123 AND 123 = 321 OR 123 = 456 OR 123 = 123"));
-	
-	parse(_T("foo"));
-	parse(_T("1"));
-	parse(_T("foo = "));
-	parse(_T("foo = 1"));
-	parse(_T("'foo' = 1"));
-	parse(_T("foo = '1'"));
-	parse(_T("'hello'='world'"));
-
-	parse(_T("foo = bar"));
-	parse(_T("foo = bar AND bar = foo"));
-	parse(_T("foo = bar AND bar = 1"));
-	parse(_T("foo = bar AND bar = foo OR foo = bar"));
-	parse(_T("foo = bar AND bar = 1 OR foo = 1"));
-	parse(_T(" foo = bar AND ( test > 120 OR foo < 123) OR ugh IN (123, 456, 789)"));
-
-	parse(_T("aaa = 111 OR bbb = 222 OR ccc = 333"));
-	parse(_T("(aaa = 111) OR bbb = 222 OR ccc = 333"));
-	parse(_T("(aaa = 111 OR bbb = 222) OR ccc = 333"));
-	parse(_T("(aaa = 111 OR bbb = 222 OR ccc = 333)"));
-	parse(_T("aaa = 111 OR (bbb = 222 OR ccc = 333)"));
-	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = 333)"));
-	parse(_T("ccc = -333"));
-	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234)"));
-	parse(_T("aaa = 111 OR bbb = 222 OR (ccc = -333)"));
-	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x"));
-	parse(_T("ccc = -333 AND ccc = to_date('AABBCC', 1234) OR aaa = 123x OR 123r = foo123"));
-*/
-	return true;
-}
-bool CheckEventLog::unloadModule() {
-	return true;
-}
-
-bool CheckEventLog::hasCommandHandler() {
-	return true;
-}
-bool CheckEventLog::hasMessageHandler() {
-	return false;
-}
 
 
 std::wstring find_eventlog_name(std::wstring name) {
@@ -561,7 +564,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
 	
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	std::list<std::wstring> arguments = arrayBuffer::arrayBuffer2list(argLen, char_args);
 
 	std::list<std::wstring> files;
 	EventLogQuery1Container query1;
@@ -587,7 +590,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::blindstr command,
 	*/
 
 	try {
-		MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_BEGIN(arguments)
 			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
 			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)

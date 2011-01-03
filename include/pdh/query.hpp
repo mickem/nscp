@@ -30,7 +30,9 @@
 namespace PDH {
 	class PDHQuery : public PDH::PDHImplSubscriber {
 	private:
-		typedef std::list<PDHCounter*> CounterList;
+		typedef PDHCounter* counter_ptr;
+		typedef PDHCounterListener* listener_ptr;
+		typedef std::list<counter_ptr> CounterList;
 		CounterList counters_;
 		PDH::PDH_HQUERY hQuery_;
 	public:
@@ -40,13 +42,13 @@ namespace PDH {
 			removeAllCounters();
 		}
 
-		PDHCounter* addCounter(std::wstring name, PDHCounterListener *listener) {
-			PDHCounter *counter = new PDHCounter(name, listener);
+		counter_ptr addCounter(std::wstring name, listener_ptr listener) {
+			counter_ptr counter = new PDHCounter(name, listener);
 			counters_.push_back(counter);
 			return counter;
 		}
-		PDHCounter* addCounter(std::wstring name) {
-			PDHCounter *counter = new PDHCounter(name);
+		counter_ptr addCounter(std::wstring name) {
+			counter_ptr counter = new PDHCounter(name);
 			counters_.push_back(counter);
 			return counter;
 		}

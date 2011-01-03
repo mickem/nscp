@@ -13,6 +13,7 @@ TODO:
  * Added a "text description" file to crash dump folder to see which version crashed and what not.
  * General improvments to the crash helper.
  * Added check_nscp which is a basic command to check the internal health of NSClient++
+ * Added check_files (script) submitted by 
 
 2010-12-25 MickeM
  * Fixed issue with performance coutners and erroneouse pointers in some rare cases.
