@@ -30,6 +30,7 @@
 #include <strEx.h>
 #include <nrpe/client/socket.hpp>
 
+namespace sh = nscapi::settings_helper;
 
 NRPEClient gNRPEClient;
 
@@ -44,16 +45,38 @@ bool NRPEClient::loadModule() {
 }
 
 bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	std::list<std::wstring> commands;
-	buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
+	std::map<std::wstring,std::wstring> commands;
+
 	try {
-		SETTINGS_REG_PATH(nrpe::CH_SECTION);
-		commands = GET_CORE()->getSettingsSection(setting_keys::nrpe::CH_SECTION_PATH);
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+
+		//"/settings/NRPE/client/handlers"
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(_T("NRPE"), alias, _T("client"));
+
+		settings.alias().add_path_to_settings()
+			(_T("EXTERNAL SCRIPT SECTION"), _T("Section for external scripts configuration options (CheckExternalScripts)."))
+
+			(_T("handlers"), sh::fun_values_path(boost::bind(&NRPEClient::addCommand, this, _1, _2)), 
+			_T("CLIENT HANDLER SECTION"), _T(""))
+
+			;
+
+		settings.alias().add_key_to_settings()
+
+			(_T("payload length"),  sh::uint_key(&buffer_length_, 1024),
+			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
+
+			;
+
+
+		settings.register_all();
+		settings.notify();
+
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		return false;
 	}
+	return true;
 
 	boost::filesystem::wpath p = GET_CORE()->getBasePath() + std::wstring(_T("/security/nrpe_dh_512.pem"));
 	cert_ = p.string();
@@ -63,16 +86,6 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		NSC_LOG_ERROR_STD(_T("Certificate not found: ") + cert_);
 	}
 
-
-	for (std::list<std::wstring>::const_iterator it = commands.begin(); it != commands.end(); ++it) {
-		NSC_DEBUG_MSG_STD(*it);
-		std::wstring s = GET_CORE()->getSettingsString(setting_keys::nrpe::CH_SECTION_PATH, (*it), _T(""));
-		if (s.empty()) {
-			NSC_LOG_ERROR_STD(_T("Invalid NRPE-client entry: ") + (*it));
-		} else {
-			addCommand((*it).c_str(), s);
-		}
-	}
 	return true;
 }
 
@@ -90,7 +103,7 @@ void NRPEClient::add_options(po::options_description &desc, nrpe_connection_data
 }
 
 
-void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
+void NRPEClient::addCommand(std::wstring key, std::wstring args) {
 	try {
 
 		NRPEClient::nrpe_connection_data command_data;
@@ -118,7 +131,7 @@ void NRPEClient::addCommand(strEx::blindstr key, std::wstring args) {
 		command_data.parse_arguments();
 
 		NSC_DEBUG_MSG_STD(_T("Added NRPE Client: ") + key.c_str() + _T(" = ") + command_data.toString());
-		commands[key] = command_data;
+		commands[key.c_str()] = command_data;
 
 		GET_CORE()->registerCommand(key.c_str(), command_data.toString());
 

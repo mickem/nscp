@@ -29,3 +29,4 @@ target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
 	version.lib
 )
+INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

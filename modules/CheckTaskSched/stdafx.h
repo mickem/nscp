@@ -33,8 +33,8 @@
 #include <objbase.h>
 
 #include <NSCAPI.h>
-#include <NSCHelper.h>
-#include <nsc_module_wrapper.hpp>
+#include <nscapi/plugin.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <checkHelpers.hpp>
 #include <filter_framework.hpp>
 

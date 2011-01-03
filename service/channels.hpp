@@ -52,7 +52,7 @@ namespace nsclient {
 		void remove_all() {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: channels::remove_all"));
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: channels::remove_all"));
 				return;
 			}
 			channels_.clear();
@@ -62,7 +62,7 @@ namespace nsclient {
 		void remove_plugin(unsigned long id) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex in remove_plugin for plugin id: ") + ::to_wstring(id));
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex in remove_plugin for plugin id: ") + ::to_wstring(id));
 				return;
 			}
 			channel_list_type::iterator it = channels_.begin();
@@ -82,7 +82,7 @@ namespace nsclient {
 		void register_listener(unsigned long plugin_id, std::wstring channel) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + channel);
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: ") + channel);
 				return;
 			}
 			std::wstring lc = make_key(channel);
@@ -95,7 +95,7 @@ namespace nsclient {
 			std::list<std::wstring> lst;
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex"));
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex"));
 				return lst;
 			}
 			
@@ -108,7 +108,7 @@ namespace nsclient {
 		std::list<plugin_type> get(std::wstring channel) {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + channel);
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: ") + channel);
 				throw channel_exception("Failed to get mutex (channel::get)");
 			}
 			std::wstring lc = make_key(channel);
@@ -135,7 +135,7 @@ namespace nsclient {
 		inline std::wstring make_key(std::wstring key) {
 			return boost::algorithm::to_lower_copy(key);
 		}
-		void log_error(std::wstring file, int line, std::wstring error) {
+		void log_error(std::string file, int line, std::wstring error) {
 			if (logger_ != NULL)
 				logger_->nsclient_log_error(file, line, error);
 		}

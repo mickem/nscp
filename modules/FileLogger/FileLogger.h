@@ -22,7 +22,7 @@
 
 NSC_WRAPPERS_MAIN();
 
-class FileLogger : public nscapi::impl::simple_plugin {
+class FileLogger : public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
 private:
 	std::string file_;
 	std::string format_;
@@ -54,7 +54,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	void handleMessage(int msgType, const wchar_t* file, int line, const TCHAR* message);
+	void handleMessage(int msgType, const std::string file, int line, std::string message);
 	int handleCommand(TCHAR* command, TCHAR **argument, TCHAR *returnBuffer, int returnBufferLen);
 	//void writeEntry(std::wstring line);
 

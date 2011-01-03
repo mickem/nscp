@@ -67,20 +67,25 @@ public:
 
 
 			if (vm.count("settings")) {
+				mainClient.set_console_log();
 				return parse_settings(argc, argv);
 			}
 			if (vm.count("test")) {
+				mainClient.set_console_log();
 				return parse_test(argc, argv);
 			}
 			if (vm.count("help")) {
+				mainClient.set_console_log();
 				std::cout << all << "\n";
 				return 1;
 			}
 			if (vm.count("settings-help")) {
+				mainClient.set_console_log();
 				std::cout << settings << "\n";
 				return 1;
 			}
 			if (vm.count("service-help")) {
+				mainClient.set_console_log();
 				std::cout << service << "\n";
 				return 1;
 			}

@@ -70,7 +70,7 @@ namespace settings {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void err(std::wstring file, int line, std::wstring message) = 0;
+			virtual void err(std::string file, int line, std::wstring message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an WARNING message.
 			///
@@ -79,7 +79,7 @@ namespace settings {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void warn(std::wstring file, int line, std::wstring message) = 0;
+			virtual void warn(std::string file, int line, std::wstring message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an INFO message.
 			///
@@ -88,7 +88,7 @@ namespace settings {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void info(std::wstring file, int line, std::wstring message) = 0;
+			virtual void info(std::string file, int line, std::wstring message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an DEBUG message.
 			///
@@ -97,10 +97,10 @@ namespace settings {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void debug(std::wstring file, int line, std::wstring message) = 0;
+			virtual void debug(std::string file, int line, std::wstring message) = 0;
 
 			void quick_debug(std::wstring message) {
-				debug(__FILEW__, __LINE__, message);
+				//debug(__FILE__, __LINE__, message);
 			}
 	};
 

@@ -842,11 +842,12 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(std::list<std::wstring> arguments, st
 }
 typedef struct NSPROCDATA__ {
 	unsigned int count;
+	unsigned int hung_count;
 	CEnumProcess::CProcessEntry entry;
 	std::wstring key;
 
-	NSPROCDATA__() : count(0) {}
-	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), entry(other.entry), key(other.key) {}
+	NSPROCDATA__() : count(0), hung_count(0) {}
+	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), hung_count(other.hung_count), entry(other.entry), key(other.key) {}
 } NSPROCDATA;
 typedef std::map<std::wstring,NSPROCDATA,strEx::StrICmp> NSPROCLST;
 
@@ -894,9 +895,13 @@ NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
 		if (it == ret.end()) {
 			ret[key].entry = (*entry);
 			ret[key].count = 1;
+			ret[key].hung_count = (*entry).hung?1:0;
 			ret[key].key = key;
-		} else
+		} else {
+			if ((*entry).hung) 
+				(*it).second.hung_count++;
 			(*it).second.count++;
+		}
 	}
 	return ret;
 }
@@ -1029,8 +1034,14 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 		} else {
 			checkHolders::MaxMinStateValueType<int, checkHolders::state_type> value;
 			if (bFound) {
-				value.count = (*proc).second.count;
-				value.state = checkHolders::state_started;
+				if ((*proc).second.hung_count > 0) {
+					NSC_LOG_ERROR_STD(_T("Hung proc: ") + strEx::itos((*proc).second.hung_count));
+					value.count = (*proc).second.count;
+					value.state = checkHolders::state_hung;
+				} else {
+					value.count = (*proc).second.count;
+					value.state = checkHolders::state_started;
+				}
 			} else {
 				value.count = 0;
 				value.state = checkHolders::state_stopped;

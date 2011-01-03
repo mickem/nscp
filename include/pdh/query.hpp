@@ -26,6 +26,7 @@
 #include <sstream>
 #include <error.hpp>
 #include <pdh/resolver.hpp>
+#include <boost/shared_ptr.hpp>
 
 namespace PDH {
 	class PDHQuery : public PDH::PDHImplSubscriber {

@@ -135,9 +135,9 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	}
 	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + nscapi::logging::to_string(log_mask_));
 	init_ = true;
-	std::wstring hello = _T("Starting to log for: ") + GET_CORE()->getApplicationName() + _T(" - ") + GET_CORE()->getApplicationVersionString();
-	handleMessage(NSCAPI::log, __FILEW__, __LINE__, hello.c_str());
-	NSC_LOG_MESSAGE_STD(_T("Log path is: ") + to_wstring(file_));
+	std::string hello = "Starting to log for: " + to_string(GET_CORE()->getApplicationName()) + " - " + to_string(GET_CORE()->getApplicationVersionString());
+	handleMessage(NSCAPI::log, __FILE__, __LINE__, hello);
+	handleMessage(NSCAPI::log, __FILE__, __LINE__, "Log path is: " + file_);
 	return true;
 }
 bool FileLogger::unloadModule() {
@@ -172,9 +172,9 @@ HANDLE openAppendOrNew(std::wstring file) {
 }
 */
 
-void FileLogger::handleMessage(int msgType, const wchar_t* file, int line, const TCHAR* message) {
+void FileLogger::handleMessage(int msgType, const std::string file, int line, std::string message) {
 	if (!init_) {
-		std::wcout << _T("Discarding: ") << message << std::endl;
+		std::wcout << _T("Discarding: ") << to_wstring(message) << std::endl;
 		return;
 	}
 	if (!nscapi::logging::matches(log_mask_, msgType))
@@ -182,13 +182,13 @@ void FileLogger::handleMessage(int msgType, const wchar_t* file, int line, const
 
 	std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
 	if (!stream) {
-		std::wcout << _T("File could not be opened, Discarding: ") << message << std::endl;
+		std::wcout << _T("File could not be opened, Discarding: ") << to_wstring(message) << std::endl;
 	}
 	stream << to_string(get_formated_date()) 
 		<< (": ") << to_string(nscapi::plugin_helper::translateMessageType(msgType))
-		<< (":") << to_string(std::wstring(file))
-		<<(":") << to_string(line) 
-		<< (": ") << to_string(std::wstring(message)) << std::endl;
+		<< (":") << file
+		<<(":") << line
+		<< (": ") << message << std::endl;
 }
 
 std::wstring FileLogger::get_formated_date() {

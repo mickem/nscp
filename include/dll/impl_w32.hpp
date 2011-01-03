@@ -1,6 +1,8 @@
 #pragma once
 #include <unicode_char.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/filesystem.hpp>
+
 #include <error.hpp>
 
 namespace dll {

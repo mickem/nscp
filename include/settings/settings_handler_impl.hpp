@@ -36,10 +36,10 @@ namespace settings {
 	class settings_handler_impl : public settings_core {
 	private:
 		class dummy_logger : public logger_interface {
-			void err(std::wstring file, int line, std::wstring message) {}
-			void warn(std::wstring file, int line, std::wstring message) {}
-			void info(std::wstring file, int line, std::wstring message) {}
-			void debug(std::wstring file, int line, std::wstring message) {}
+			void err(std::string file, int line, std::wstring message) {}
+			void warn(std::string file, int line, std::wstring message) {}
+			void info(std::string file, int line, std::wstring message) {}
+			void debug(std::string file, int line, std::wstring message) {}
 		};
 		typedef std::map<std::wstring, std::wstring> path_map;
 		typedef std::map<std::wstring,settings_core::path_description> reg_paths_type;
@@ -134,14 +134,14 @@ namespace settings {
 		///
 		/// @author mickem
 		void update_defaults() {
-			get_logger()->warn(__FILEW__, __LINE__, _T("Updating settings with default values!"));
+			get_logger()->warn(__FILE__, __LINE__, _T("Updating settings with default values!"));
 			BOOST_FOREACH(std::wstring path, get_reg_sections()) {
 				get()->add_path(path);
 				BOOST_FOREACH(std::wstring key, get_reg_keys(path)) {
 					settings_core::key_description desc = get_registred_key(path, key);
 					if (!desc.advanced) {
 						if (!get()->has_key(path, key)) {
-							get_logger()->debug(__FILEW__, __LINE__, _T("Adding: ") + path + _T(".") + key);
+							get_logger()->debug(__FILE__, __LINE__, _T("Adding: ") + path + _T(".") + key);
 							if (desc.type == key_string)
 								get()->set_string(path, key, desc.defValue);
 							else if (desc.type == key_bool)
@@ -149,10 +149,10 @@ namespace settings {
 							else if (desc.type == key_integer)
 								get()->set_int(path, key, strEx::stoi(desc.defValue));
 							else
-								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+								get_logger()->err(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						} else {
 							std::wstring val = get()->get_string(path, key);
-							get_logger()->debug(__FILEW__, __LINE__, _T("Setting old (already exists): ") + path + _T(".") + key + _T(" = ") + val);
+							get_logger()->debug(__FILE__, __LINE__, _T("Setting old (already exists): ") + path + _T(".") + key + _T(" = ") + val);
 							if (desc.type == key_string)
 								get()->set_string(path, key, val);
 							else if (desc.type == key_bool)
@@ -160,14 +160,14 @@ namespace settings {
 							else if (desc.type == key_integer)
 								get()->set_int(path, key, strEx::stoi(val));
 							else
-								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+								get_logger()->err(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						}
 					} else {
-						get_logger()->debug(__FILEW__, __LINE__, _T("Skipping (advanced): ") + path + _T(".") + key);
+						get_logger()->debug(__FILE__, __LINE__, _T("Skipping (advanced): ") + path + _T(".") + key);
 					}
 				}
 			}
-			get_logger()->info(__FILEW__, __LINE__, _T("DONE Updating settings with default values!"));
+			get_logger()->info(__FILE__, __LINE__, _T("DONE Updating settings with default values!"));
 		}
 		void migrate(instance_ptr from, instance_ptr to) {
 			if (!from || !to)

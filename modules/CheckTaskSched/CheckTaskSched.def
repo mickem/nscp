@@ -3,6 +3,7 @@ LIBRARY	CheckTaskSched
 EXPORTS
 	NSModuleHelperInit
 	NSLoadModule
+	NSLoadModuleEx
 	NSGetModuleName
 	NSGetModuleVersion
 	NSHasCommandHandler
@@ -11,5 +12,4 @@ EXPORTS
 	NSHandleCommand
 	NSUnloadModule
 	NSGetModuleDescription
-	NSCommandLineExec
-
+	NSDeleteBuffer

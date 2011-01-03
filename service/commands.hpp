@@ -52,7 +52,7 @@ namespace nsclient {
 		void remove_all() {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: commands::remove_all"));
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: commands::remove_all"));
 				return;
 			}
 			descriptions_.clear();
@@ -63,7 +63,7 @@ namespace nsclient {
 		void remove_plugin(unsigned long id) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex in remove_plugin for plugin id: ") + ::to_wstring(id));
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex in remove_plugin for plugin id: ") + ::to_wstring(id));
 				return;
 			}
 			command_list_type::iterator it = commands_.begin();
@@ -86,7 +86,7 @@ namespace nsclient {
 		void register_command(unsigned long plugin_id, std::wstring cmd, std::wstring desc) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + cmd);
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: ") + cmd);
 				return;
 			}
 			std::wstring lc = make_key(cmd);
@@ -101,7 +101,7 @@ private:
 			std::string ret;
 			std::pair<unsigned long,plugin_type> cit;
 			BOOST_FOREACH(cit, plugins_) {
-				ret += ::to_string(cit.first) + ", ";
+				ret += ::to_string(cit.first) + "(" + to_string(cit.second->getFilename()) + "), ";
 				//lst.push_back(::to_wstring(cit.first) + _T("=") + cit.second->getName());
 				//lst.push_back(::to_wstring(cit.first));
 			}
@@ -113,7 +113,7 @@ public:
 		std::wstring describe(std::wstring command) {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + command);
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: ") + command);
 				return _T("error: ") + command;
 			}
 			std::wstring lc = make_key(command);
@@ -127,7 +127,7 @@ public:
 			std::list<std::wstring> lst;
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex"));
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex"));
 				return lst;
 			}
 			std::pair<std::wstring,std::wstring> cit;
@@ -141,7 +141,7 @@ public:
 			std::list<std::wstring> lst;
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex"));
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex"));
 				return lst;
 			}
 			std::pair<unsigned long,plugin_type> cit;
@@ -155,7 +155,7 @@ public:
 		plugin_type get(std::wstring command) {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
-				log_error(__FILEW__, __LINE__, _T("Failed to get mutex: ") + command);
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: ") + command);
 				throw command_exception("Failed to get mutex (commands::get)");
 			}
 			std::wstring lc = make_key(command);
@@ -185,7 +185,7 @@ public:
 		static std::wstring make_key(std::wstring key) {
 			return boost::algorithm::to_lower_copy(key);
 		}
-		void log_error(std::wstring file, int line, std::wstring error) {
+		void log_error(std::string file, int line, std::wstring error) {
 			if (logger_ != NULL)
 				logger_->nsclient_log_error(file, line, error);
 		}

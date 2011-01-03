@@ -35,10 +35,10 @@ public:
 		noPerfData_ = !v;
 	}
 
-	void log_debug(std::wstring file, int line, std::wstring msg) {
+	void log_debug(std::string file, int line, std::wstring msg) {
 		GET_CORE()->Message(NSCAPI::debug, file, line, msg);
 	}
-	void log_error(std::wstring file, int line, std::wstring msg) {
+	void log_error(std::string file, int line, std::wstring msg) {
 		GET_CORE()->Message(NSCAPI::error, file, line, msg);
 	}
 };

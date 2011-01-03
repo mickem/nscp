@@ -29,20 +29,17 @@
 
 CheckTaskSched gCheckTaskSched;
 
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
+bool CheckTaskSched::loadModule() {
+	return false;
 }
-
-bool CheckTaskSched::loadModule(NSCAPI::moduleLoadMode mode) {
+bool CheckTaskSched::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		NSCModuleHelper::registerCommand(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
-		NSCModuleHelper::registerCommand(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+		get_core()->registerCommand(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
+		get_core()->registerCommand(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
 
 		SETTINGS_REG_PATH(task_scheduler::SECTION);
 		SETTINGS_REG_KEY_S(task_scheduler::SYNTAX);
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -77,14 +74,13 @@ bool CheckTaskSched::hasMessageHandler() {
 	MAP_CHAINED_FILTER(value, numeric)
 
 
-NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainer;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	typedef filters::chained_filter<TaskSched::wmi_filter,TaskSched::result> filter_chain;
 	filter_chain chain;
-	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.empty()) {
+	if (arguments.empty()) {
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
@@ -95,7 +91,7 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 
 	WMIContainer result_query;
 	try {
-		MAP_OPTIONS_BEGIN(args)
+		MAP_OPTIONS_BEGIN(arguments)
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 			MAP_OPTIONS_STR(_T("Alias"), alias)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
@@ -163,9 +159,9 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("CheckTaskSched"))
-		return TaskSchedule(argLen, char_args, msg, perf);
+		return TaskSchedule(arguments, message, perf);
 	return NSCAPI::returnIgnored;
 }
 int CheckTaskSched::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** char_args) {
@@ -190,7 +186,8 @@ int CheckTaskSched::commandLineExec(const TCHAR* command, const unsigned int arg
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckTaskSched);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckTaskSched);
-NSC_WRAPPERS_CLI_DEF(gCheckTaskSched);
+//NSC_WRAPPERS_CLI_DEF(gCheckTaskSched);

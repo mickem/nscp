@@ -13,7 +13,7 @@
 	extern "C" int NSGetModuleVersion(int *major, int *minor, int *revision); \
 	extern "C" NSCAPI::boolReturn NSHasCommandHandler(); \
 	extern "C" NSCAPI::boolReturn NSHasMessageHandler(); \
-	extern "C" void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message); \
+	extern "C" void NSHandleMessage(const char* data); \
 	extern "C" NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len); \
 	extern "C" int NSUnloadModule();
 
@@ -40,7 +40,7 @@
 #define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG((std::wstring)msg)
 #define NSC_DEBUG_MSG(msg) NSC_ANY_MSG(msg,NSCAPI::debug)
 
-#define NSC_ANY_MSG(msg, type) GET_CORE()->Message(type, __FILEW__, __LINE__, msg)
+#define NSC_ANY_MSG(msg, type) GET_CORE()->Message(type, __FILE__, __LINE__, msg)
 
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point
@@ -125,9 +125,9 @@
 		} \
 	}
 #define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
-	extern void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message) { \
+	extern void NSHandleMessage(const char* data) { \
 		try { \
-			toObject.handleMessage(msgType, file, line, message); \
+			toObject.handleMessageRAW(data); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: handleMessage(...)")); \
 		} \
@@ -141,7 +141,7 @@
 		} \
 	}
 #define NSC_WRAPPERS_IGNORE_MSG_DEF() \
-	extern void NSHandleMessage(int msgType, wchar_t* file, int line, wchar_t* message) {} \
+	extern void NSHandleMessage(const char* data) {} \
 	extern NSCAPI::boolReturn NSHasMessageHandler() { return NSCAPI::isfalse; }
 #define NSC_WRAPPERS_HANDLE_CMD_DEF(toObject) \
 	extern NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) \

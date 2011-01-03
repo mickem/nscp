@@ -53,4 +53,6 @@ public:
 	NSCAPI::nagiosReturn checkMultiple(const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	NSCAPI::nagiosReturn checkSimpleStatus(NSCAPI::nagiosReturn status, const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	NSCAPI::nagiosReturn checkSimpleStatus(NSCAPI::nagiosReturn status, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn timeout(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn negate(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 };

@@ -87,8 +87,13 @@ NSCPlugin::NSCPlugin(NSCPlugin &other)
  * Default d-tor
  */
 NSCPlugin::~NSCPlugin() {
-	if (isLoaded())
-		unload();
+	if (isLoaded()) {
+		try {
+			unload();
+		} catch (NSPluginException &e) {
+			// ...
+		}
+	}
 }
 /**
  * Returns the name of the plug in.
@@ -288,11 +293,11 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t *command, std::strin
  * @param line The line in the file that generated the message generally __LINE__
  * @throws NSPluginException if the module is not loaded.
  */
-void NSCPlugin::handleMessage(int msgType, const wchar_t* file, const int line, const wchar_t *message) {
+void NSCPlugin::handleMessage(const char* data) {
 	if (!fHandleMessage)
 		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {
-		fHandleMessage(msgType, file, line, message);
+		fHandleMessage(data);
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in handleMessage."));
 	}
@@ -310,7 +315,7 @@ void NSCPlugin::unload() {
 	try {
 		fUnLoadModule();
 	} catch (...) {
-		throw NSPluginException(module_, _T("Unhandled exception in handleMessage."));
+		throw NSPluginException(module_, _T("Unhandled exception in fUnLoadModule."));
 	}
 	module_.unload_library();
 }

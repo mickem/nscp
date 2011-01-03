@@ -27,13 +27,14 @@ NSC_WRAPPERS_CLI();
 #include <checkHelpers.hpp>
 #include "TaskSched.h"
 
-class CheckTaskSched {
+class CheckTaskSched : public nscapi::impl::SimpleCommand, public nscapi::impl::simple_plugin {
 private:
 	std::wstring syntax;
 
 public:
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	std::wstring getModuleName() {
@@ -42,18 +43,18 @@ public:
 	std::wstring getModuleDescription() {
 		return _T("CheckTaskSched can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	int CheckTaskSched::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
 	// Check commands
-	NSCAPI::nagiosReturn TaskSchedule(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn TaskSchedule(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 
 
 

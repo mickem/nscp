@@ -132,7 +132,7 @@ private:
 	void add_options(po::options_description &desc, nrpe_connection_data &command_data);
 
 private:
-	void addCommand(strEx::blindstr key, std::wstring args);
+	void addCommand(std::wstring key, std::wstring args);
 
 };
 

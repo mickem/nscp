@@ -158,9 +158,10 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 		if (dwPIDs[i] == 0)
 			continue;
 		CProcessEntry entry;
+		entry.hung = false;
 		try {
-			if (error_interface!=NULL)
-				error_interface->report_debug_enter(_T("describe_pid"));
+// 			if (error_interface!=NULL)
+// 				error_interface->report_debug_enter(_T("describe_pid"));
 			try {
 				entry = describe_pid(dwPIDs[i], expand_command_line);
 			} catch (process_enumeration_exception &e) {
@@ -168,8 +169,8 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 					error_interface->report_warning(e.what());
 				entry = describe_pid(dwPIDs[i], false);
 			}
-			if (error_interface!=NULL)
-				error_interface->report_debug_exit(_T("describe_pid"));
+// 			if (error_interface!=NULL)
+// 				error_interface->report_debug_exit(_T("describe_pid"));
 			if (VDMDBG!=NULL&&find_16bit) {
 				if (error_interface!=NULL)
 					error_interface->report_debug(_T("Looking for 16bit apps"));
@@ -183,16 +184,68 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 			ret.push_back(entry);
 		} catch (process_enumeration_exception &e) {
 			if (error_interface!=NULL)
-				error_interface->report_error(_T("Unhandled exception describing PID: ") + strEx::itos(dwPIDs[i]) + _T(": ") + e.what());
+				error_interface->report_error(_T("Unhandeled exception describing PID: ") + strEx::itos(dwPIDs[i]) + _T(": ") + e.what());
 		} catch (...) {
 			if (error_interface!=NULL)
 				error_interface->report_error(_T("Unknown exception describing PID: ") + strEx::itos(dwPIDs[i]));
 		}
 	}
+
+	std::vector<DWORD> hung_pids = find_crashed_pids(error_interface);
+	for (process_list::iterator entry = ret.begin(); entry != ret.end(); ++entry) {
+		if (std::find(hung_pids.begin(), hung_pids.end(), entry->dwPID) != hung_pids.end())
+			(*entry).hung = true;
+		else
+			(*entry).hung = false;
+	}
+
 	delete [] dwPIDs;
 	if (error_interface!=NULL)
 		error_interface->report_debug_exit(_T("enumerate_processes"));
 	return ret;
+}
+
+struct enum_data {
+	CEnumProcess::error_reporter * error_interface;
+	std::vector<DWORD> crashed_pids;
+
+};
+
+BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam ) {
+	enum_data *data = reinterpret_cast<enum_data*>(lParam);
+	DWORD pid;
+	GetWindowThreadProcessId(hwnd, &pid);
+	if (GetWindow(hwnd, GW_OWNER) != NULL)
+		return TRUE;
+	PDWORD result;
+	if (!SendMessageTimeout(hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 500, reinterpret_cast<PDWORD_PTR>(&result))) {
+		if (data->error_interface!=NULL)
+			data->error_interface->report_debug(_T("pid: ") + strEx::itos(pid) + _T(" was hung"));
+		data->crashed_pids.push_back(pid);
+	}
+
+// 	TCHAR *buffer = new TCHAR[1024];
+// 	int len = GetWindowText(hwnd, buffer, 1023);
+// 	buffer[30] = 0;
+// 	if (data->error_interface!=NULL)
+// 		data->error_interface->report_debug(_T("pid: ") + res + strEx::itos(pid) + _T(" - ") + strEx::itos(len) + _T(" - ") + buffer);
+// 	//std::wcout << _T("pid: ") << pid << _T(" - ") << len << _T(" : ") << buffer << std::endl;
+// 	delete [] buffer;
+	return TRUE;
+}
+
+std::vector<DWORD> CEnumProcess::find_crashed_pids(CEnumProcess::error_reporter * error_interface) {
+	if (error_interface)
+		error_interface->report_debug_enter(_T("find_crashed_pids"));
+	enum_data data;
+	data.error_interface = error_interface;
+	if(!EnumWindows(&EnumWindowsProc, reinterpret_cast<LPARAM>(&data))) {
+		if (error_interface)
+			error_interface->report_error(_T("Failed to enumerate windows: ") + error::lookup::last_error());
+	}
+	if (error_interface)
+		error_interface->report_debug_exit(_T("find_crashed_pids"));
+	return data.crashed_pids;
 }
 
 CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_command_line) {
@@ -226,6 +279,7 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 			entry.filename = path;
 		}
 	}
+
 	CloseHandle(hProc);
 	return entry;
 }

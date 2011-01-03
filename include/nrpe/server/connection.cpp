@@ -34,7 +34,7 @@ namespace nrpe {
 		}
 
 		void connection::start() {
-			handler_->log_debug(__FILEW__, __LINE__, _T("starting data connection"));
+			handler_->log_debug(__FILE__, __LINE__, _T("starting data connection"));
 			start_read_request(buffer_, 30);
 		}
 
@@ -48,9 +48,9 @@ namespace nrpe {
 		}
 
 		void connection::timeout(const boost::system::error_code& e) {
-			handler_->log_debug(__FILEW__, __LINE__, _T("Timeout"));
+			handler_->log_debug(__FILE__, __LINE__, _T("Timeout"));
 			if (e != boost::asio::error::operation_aborted) {
-				handler_->log_debug(__FILEW__, __LINE__, _T("Timeout <<<-"));
+				handler_->log_debug(__FILE__, __LINE__, _T("Timeout <<<-"));
 				boost::system::error_code ignored_ec;
 				socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
 			}
@@ -58,7 +58,7 @@ namespace nrpe {
 
 
 		void connection::handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-			handler_->log_debug(__FILEW__, __LINE__, _T("handle_read data connection"));
+			handler_->log_debug(__FILE__, __LINE__, _T("handle_read data connection"));
 			if (!e) {
 				bool result;
 				buffer_type::iterator begin = buffer_.begin();
@@ -88,7 +88,7 @@ namespace nrpe {
 					}
 				}
 			} else {
-				handler_->log_debug(__FILEW__, __LINE__, _T("Failed to read request"));
+				handler_->log_debug(__FILE__, __LINE__, _T("Failed to read request"));
 			}
 		}
 
@@ -98,7 +98,7 @@ namespace nrpe {
 		}
 
 		void connection::handle_write_response(const boost::system::error_code& e) {
-			handler_->log_debug(__FILEW__, __LINE__, _T("Written data"));
+			handler_->log_debug(__FILE__, __LINE__, _T("Written data"));
 			if (!e) {
 				// Initiate graceful connection closure.
 				boost::system::error_code ignored_ec;

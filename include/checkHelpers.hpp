@@ -23,6 +23,7 @@
 #include <string>
 #include <strEx.h>
 
+#define MAKE_PERFDATA_SIMPLE(alias, value, unit) _T("'") + alias + _T("'=") + value + unit
 #define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T("; ")
 #define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax + _T("; ")
 
@@ -136,7 +137,10 @@ namespace checkHolders {
 				return crit.gatherPerfData(getAlias(), value, warn, crit);
 			else if (warn.hasBounds())
 				return warn.gatherPerfData(getAlias(), value, warn, crit);
-			return _T("");
+			else {
+				TContents tmp;
+				return tmp.gatherPerfData(getAlias(), value);
+			}
 		}
 		bool hasBounds() {
 			return warn.hasBounds() || crit.hasBounds();
@@ -156,8 +160,11 @@ namespace checkHolders {
 				//std::wcout << _T("short") << std::endl;
 				tstr = getAlias() + _T(": ") + TContents::toStringShort(value);
 			}
-			if (perfData)
+			if (perfData) {
+				if (!perf.empty())
+					perf += _T(" ");
 				perf += gatherPerfData(value);
+			}
 			if (!message.empty() && !tstr.empty())
 				message += _T(", ");
 			if (!tstr.empty())
@@ -175,6 +182,8 @@ namespace checkHolders {
 		virtual void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) = 0;
 		virtual void set_warn_bound(std::wstring value) = 0;
 		virtual void set_crit_bound(std::wstring value) = 0;
+		virtual void set_showall(showType show_) = 0;
+
 		//virtual std::wstring get_default_alias() = 0;
 
 	};
@@ -212,6 +221,9 @@ namespace checkHolders {
 		*/
 		bool showAll() {
 			return impl_.showAll();
+		}
+		void set_showall(showType show_) {
+			impl_.show = show_;
 		}
 		std::wstring gatherPerfData(container_value_type &value) {
 			typename impl_type::TPayloadValueType real_value = get_value(value);
@@ -307,7 +319,7 @@ namespace checkHolders {
 		}
 		void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
-				//(*cit)->set_showall(show);
+				(*cit)->set_showall(show);
 				(*cit)->runCheck(value, returnCode, message, perf);
 			}
 			std::wcout << _T("result: ") << message << std::endl;
@@ -501,6 +513,7 @@ namespace checkHolders {
 	const int state_started   = 0x01;
 	const int state_stopped   = 0x02;
 	const int state_not_found = 0x06;
+	const int state_hung      = 0x0e;
 
 	class state_handler {
 	public:
@@ -516,6 +529,8 @@ namespace checkHolders {
 					ret |= state_none;
 				else if (*it == _T("not found"))
 					ret |= state_not_found;
+				else if (*it == _T("hung"))
+					ret |= state_hung;
 			}
 			return ret;
 		}
@@ -528,6 +543,8 @@ namespace checkHolders {
 				return _T("none");
 			else if (value == state_not_found)
 				return _T("not found");
+			else if (value == state_hung)
+				return _T("hung");
 			return _T("unknown");
 		}
 		static std::wstring print_unformated(state_type value) {
@@ -581,6 +598,10 @@ namespace checkHolders {
 		static std::wstring gatherPerfData(std::wstring alias, TType &value, TType warn, TType crit) {
 			std::wstring unit = THandler::get_perf_unit(min(warn, min(crit, value)));
 			return MAKE_PERFDATA(alias, THandler::print_perf(value, unit), unit, THandler::print_perf(warn, unit), THandler::print_perf(crit, unit));
+		}
+		static std::wstring gatherPerfData(std::wstring alias, TType &value) {
+			std::wstring unit = THandler::get_perf_unit(value);
+			return MAKE_PERFDATA_SIMPLE(alias, THandler::print_perf(value, unit), unit);
 		}
 
 	private:
@@ -738,7 +759,26 @@ namespace checkHolders {
 				MAKE_PERFDATA(alias + _T(" %"), THandler::print_unformated(value_p), _T("%"), THandler::print_unformated(warn_p), THandler::print_unformated(crit_p))
 				+ _T(" ") +
 				MAKE_PERFDATA_EX(alias, THandler::print_perf(value.value, unit), unit, THandler::print_perf(warn_v, unit), THandler::print_perf(crit_v, unit), 
-				THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
+					THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
+				;
+		}
+		std::wstring gatherPerfData(std::wstring alias, TType &value) {
+			unsigned int value_p;
+			TType::TValueType value_v;
+			if (type_ == percentage_upper) {
+				value_p = value.getUpperPercentage();
+			} else if (type_ == percentage_lower) {
+				value_p = value.getLowerPercentage();
+			} else if (type_ == value_upper) {
+				value_p = value.getUpperPercentage();
+			} else {
+				value_p = value.getLowerPercentage();
+			}
+			std::wstring unit = THandler::get_perf_unit(value.value);
+			return 
+				MAKE_PERFDATA_SIMPLE(alias + _T(" %"), THandler::print_unformated(value_p), _T("%"))
+				+ _T(" ") +
+				MAKE_PERFDATA_SIMPLE(alias, THandler::print_perf(value.value, unit), unit)
 				;
 		}
 	private:
@@ -787,6 +827,9 @@ namespace checkHolders {
 			return value_;
 		}
 		std::wstring gatherPerfData(std::wstring alias, TType &value, TType warn, TType crit) {
+			return "";
+		}
+		std::wstring gatherPerfData(std::wstring alias, TType &value) {
 			return "";
 		}
 		const StateBounds & operator=(std::wstring value) {
@@ -852,6 +895,9 @@ namespace checkHolders {
 			}
 			return _T("");
 		}
+		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+			return _T("");
+		}
 		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
 			if ((state.hasBounds())&&(!state.check(value.state))) {
 				message = lable + _T(": ") + formatState(TStateHolder::toStringShort(value.state), type);
@@ -900,6 +946,9 @@ namespace checkHolders {
 		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
 			return _T("");
 		}
+		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+			return _T("");
+		}
 		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
 			if (filter.hasFilter()) {
 				if (!filter.matchFilter(value))
@@ -946,6 +995,9 @@ namespace checkHolders {
 			}
 			return _T("");
 		}
+		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+			return _T("");
+		}
 		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
 			if ((state.hasBounds())&&(!state.check(value))) {
 				message = lable + _T(": ") + formatState(TStateHolder::toStringLong(value), type);
@@ -990,6 +1042,10 @@ namespace checkHolders {
 				return min.gatherPerfData(alias, value, 0, 0);
 			}
 			return _T("");
+		}
+		std::wstring gatherPerfData(std::wstring alias, typename THolder::TValueType &value) {
+			THolder tmp;
+			return tmp.gatherPerfData(alias, value);
 		}
 		bool check(typename THolder::TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
 			if ((max.hasBounds())&&(max.check(value) != below)) {
@@ -1085,7 +1141,12 @@ namespace checkHolders {
 				return eq.gatherPerfData(alias, value, warn.eq.getPerfBound(value), crit.eq.getPerfBound(value));
 			} else {
 				NSC_DEBUG_MSG_STD(_T("Missing bounds for: ") + alias);
+				return _T("");
 			}
+		}
+		std::wstring gatherPerfData(std::wstring alias, typename THolder::TValueType &value) {
+			THolder tmp;
+			return tmp.gatherPerfData(alias, value);
 		}
 		bool check(typename THolder::TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
 			if ((max.hasBounds())&&(max.check(value) == above)) {

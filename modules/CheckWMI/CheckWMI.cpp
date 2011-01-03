@@ -29,23 +29,20 @@
 
 CheckWMI gCheckWMI;
 
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
 CheckWMI::CheckWMI() {
 }
 CheckWMI::~CheckWMI() {
 }
 
 
-bool CheckWMI::loadModule(NSCAPI::moduleLoadMode mode) {
+bool CheckWMI::loadModule() {
+	return false;
+}
+bool CheckWMI::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		NSCModuleHelper::registerCommand(_T("CheckWMIValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
-		NSCModuleHelper::registerCommand(_T("CheckWMI"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
+		get_core()->registerCommand(_T("CheckWMIValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
+		get_core()->registerCommand(_T("CheckWMI"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -78,14 +75,13 @@ bool CheckWMI::hasMessageHandler() {
 #define MAP_CHAINED_FILTER_NUMERIC(value) \
 	MAP_CHAINED_FILTER(value, numeric)
 
-NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainer;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	typedef filters::chained_filter<WMIQuery::wmi_filter,WMIQuery::wmi_row> filter_chain;
 	filter_chain chain;
-	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.empty()) {
+	if (arguments.empty()) {
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
@@ -98,7 +94,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 
 	WMIContainer result_query;
 	try {
-		MAP_OPTIONS_BEGIN(args)
+		MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_STR(_T("Query"), query)
 		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 		MAP_OPTIONS_STR(_T("namespace"), ns)
@@ -168,10 +164,9 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const unsigned int argLen, TCHAR *
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<long long, checkHolders::int64_handler> > > WMIContainer;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	if (arguments.empty()) {
 		message = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -187,7 +182,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TC
 	// Query=Select ... MaxWarn=5 MaxCrit=12 Check=Col1 --(later)-- Match==test Check=Col2
 	// MaxWarnNumeric:ID=>5
 	try {
-		MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_BEGIN(arguments)
 			MAP_OPTIONS_SHOWALL(tmpObject)
 			MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T(""))
 			MAP_OPTIONS_STR(_T("namespace"), ns)
@@ -268,11 +263,11 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const unsigned int argLen, TC
 }
 
 
-NSCAPI::nagiosReturn CheckWMI::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckWMI::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("CheckWMI")) {
-		return CheckSimpleWMI(argLen, char_args, msg, perf);
+		return CheckSimpleWMI(arguments, message, perf);
 	} else if (command == _T("CheckWMIValue")) {
-		return CheckSimpleWMIValue(argLen, char_args, msg, perf);
+		return CheckSimpleWMIValue(arguments, message, perf);
 	}	
 	return NSCAPI::returnIgnored;
 }
@@ -339,7 +334,8 @@ int CheckWMI::commandLineExec(const TCHAR* command, const unsigned int argLen, T
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckWMI);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckWMI);
-NSC_WRAPPERS_CLI_DEF(gCheckWMI);
+//NSC_WRAPPERS_CLI_DEF(gCheckWMI);

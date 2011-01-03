@@ -22,6 +22,7 @@
 
 
 #include <unicode_char.hpp>
+#include <string>
 
 namespace NSCAPI {
 
@@ -126,7 +127,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsBool)(const wchar_t*, const wchar_t*, int);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const wchar_t*, wchar_t***, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(wchar_t***, unsigned int *);
-		typedef void (*lpNSAPIMessage)(int, const wchar_t*, const int, const wchar_t*);
+		typedef void (*lpNSAPIMessage)(const char*, unsigned int);
 		typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 		typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
 		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
@@ -164,7 +165,7 @@ namespace nscapi {
 		typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
 		typedef int (*lpDeleteBuffer)(char**);
 		typedef int (*lpCommandLineExec)(const unsigned int,wchar_t**);
-		typedef int (*lpHandleMessage)(int,const wchar_t*,const int,const wchar_t*);
+		typedef int (*lpHandleMessage)(const char*);
 		typedef int (*lpUnLoadModule)();
 		typedef void (*lpShowTray)();
 		typedef void (*lpHideTray)();

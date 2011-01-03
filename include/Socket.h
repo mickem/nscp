@@ -226,8 +226,15 @@ namespace simpleSocket {
 
 		virtual void close() {
 			if (socket_)
-				closesocket(socket_);
+				::closesocket(socket_);
 			socket_ = NULL;
+		}
+		virtual void setLinger(int timeout) {
+			if (this->setsockopt(SOL_SOCKET, SO_LINGER, (const char*)&timeout, sizeof(timeout)) == SOCKET_ERROR)
+				throw SocketException(_T("Failed to set linger on socket: "), ::WSAGetLastError());
+		}
+		virtual int setsockopt(int level, int optname, const char * optval, int optlen) {
+			return ::setsockopt(socket_, level, optname, optval, optlen);
 		}
 		virtual void setNonBlock() {
 			unsigned long NoBlock = 1;
@@ -235,6 +242,13 @@ namespace simpleSocket {
 			FD_SET(socket_, &write_);
 			FD_SET(socket_, &excp_);
 			this->ioctlsocket(FIONBIO, &NoBlock);
+		}
+		virtual void setBlock() {
+			unsigned long Block = 0;
+			FD_SET(socket_, &read_);
+			FD_SET(socket_, &write_);
+			FD_SET(socket_, &excp_);
+			this->ioctlsocket(FIONBIO, &Block);
 		}
 		virtual bool canRead(long timeout = -1) {
 			timeval timeout_;
@@ -722,3 +736,103 @@ DWORD simpleSocket::Listener<TListenerType, TSocketType>::ListenerThread::thread
 
 
 
+namespace socketHelpers {
+	class allowedHosts {
+		struct host_record {
+			host_record() : mask(0) {}
+			host_record(std::wstring r) : mask(0), record(r) {}
+			std::wstring record;
+			std::wstring host;
+			u_long in_addr;
+			unsigned long mask;
+		};
+	public:
+		typedef std::list<host_record> host_list; 
+	private:
+		host_list allowedHosts_;
+		bool cachedAddresses_;
+	public:
+		allowedHosts() : cachedAddresses_(true) {}
+
+		unsigned int lookupMask(std::wstring mask) {
+			unsigned int masklen = 32;
+			if (!mask.empty()) {
+				std::wstring::size_type pos = mask.find_first_of(_T("0123456789"));
+				if (pos != std::wstring::npos) {
+					masklen = strEx::stoi(mask.substr(pos));
+				}
+			}
+			if (masklen > 32)
+				masklen = 32;
+			return ::ntohl((0xffffffff >> (32 - masklen )) << (32 - masklen));
+		}
+		void lookupList() {
+			for (host_list::iterator it = allowedHosts_.begin();it!=allowedHosts_.end();++it) {
+				std::wstring record = (*it).record;
+				if (record.length() > 0) {
+					try {
+						std::wstring::size_type pos = record.find('/');
+						if (pos == std::wstring::npos) {
+							(*it).host = record;
+							(*it).mask = lookupMask(_T(""));
+						} else {
+							(*it).host = record.substr(0, pos);
+							(*it).mask = lookupMask(record.substr(pos));
+						}
+						if ((!(*it).host.empty()) && isalpha((*it).host[0]))
+							(*it).in_addr = simpleSocket::Socket::getHostByNameAsIN((*it).host).S_un.S_addr;
+						else
+							(*it).in_addr = ::inet_addr(strEx::wstring_to_string((*it).host).c_str()); // simpleSocket::Socket::getHostByAddrAsIN((*it).host);
+						/*
+						std::wcerr << _T("Added: ")
+							<< simpleSocket::Socket::inet_ntoa((*it).in_addr)
+							<< _T(" with mask ")
+							<< simpleSocket::Socket::inet_ntoa((*it).mask)
+							//<< _T("(") << (*it).mask << _T(")") 
+							<< _T(" from ")
+							<< (*it).record <<
+							std::endl;
+							*/
+							
+							
+					} catch (simpleSocket::SocketException e) {
+						std::wcerr << _T("Filed to lookup host: ") << e.getMessage() << std::endl;
+					}
+				}
+			}
+		}
+
+		void setAllowedHosts(const std::list<std::wstring> list, bool cachedAddresses) {
+			for (std::list<std::wstring>::const_iterator it = list.begin(); it != list.end(); ++it) {
+				allowedHosts_.push_back(host_record(strEx::trim(*it, _T(" \t"))));
+			}
+			cachedAddresses_ = cachedAddresses;
+//			if ((!allowedHosts.empty()) && (allowedHosts.front() == "") )
+//				allowedHosts.pop_front();
+			//allowedHosts_ = allowedHosts;
+			lookupList();
+		}
+		bool matchHost(host_record allowed, struct in_addr remote) {
+			/*
+			if ((allowed.in_addr&allowed.mask)==(remote.S_un.S_addr&allowed.mask)) {
+				std::cerr << "Matched: " << simpleSocket::Socket::inet_ntoa(allowed.in_addr)  << " with " << 
+					simpleSocket::Socket::inet_ntoa(remote.S_un.S_addr) << std::endl;
+			}
+			*/
+			return ((allowed.in_addr&allowed.mask)==(remote.S_un.S_addr&allowed.mask));
+		}
+		bool inAllowedHosts(struct in_addr remote) {
+			if (allowedHosts_.empty())
+				return true;
+			host_list::const_iterator cit;
+			if (!cachedAddresses_) {
+				lookupList();
+			}
+			for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
+				if (matchHost((*cit), remote))
+					return true;
+			}
+			return false;
+		}
+	};
+}

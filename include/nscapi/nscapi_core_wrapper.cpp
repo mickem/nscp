@@ -44,7 +44,7 @@ using namespace nscp::helpers;
 #define CORE_DEBUG_MSG_STD(msg) CORE_DEBUG_MSG((std::wstring)msg)
 #define CORE_DEBUG_MSG(msg) CORE_ANY_MSG(msg,NSCAPI::debug)
 
-#define CORE_ANY_MSG(msg, type) Message(type, __FILEW__, __LINE__, msg)
+#define CORE_ANY_MSG(msg, type) Message(type, __FILE__, __LINE__, msg)
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -60,19 +60,32 @@ using namespace nscp::helpers;
  * @param message Message in human readable format
  * @throws nscapi::nscapi_exception When core pointer set is unavailable.
  */
-void nscapi::core_wrapper::Message(int msgType, std::wstring file, int line, std::wstring message) {
+void nscapi::core_wrapper::Message(int msgType, std::string file, int line, std::wstring logMessage) {
 	if (fNSAPIMessage) {
 		if ((msgType == NSCAPI::debug) && (!logDebug()))
 			return;
-		/*
-		std::wstring::size_type pos = file.find_last_of("\\");
-		if (pos != std::wstring::npos)
-			file = file.substr(pos);
-			*/
-		return fNSAPIMessage(msgType, file.c_str(), line, message.c_str());
+		LogMessage::Message_Level msgType = ::LogMessage::Message_Level::Message_Level_LOG_WARNING;
+		if (msgType == NSCAPI::warning)
+			msgType = ::LogMessage::Message_Level::Message_Level_LOG_WARNING;
+		std::string str;
+		try {
+			LogMessage::LogMessage message;
+			LogMessage::Message *msg = message.add_message();
+			msg->set_level(msgType);
+			msg->set_file(file);
+			msg->set_line(line);
+			msg->set_message(to_string(logMessage));
+			if (!message.SerializeToString(&str)) {
+				std::cout << "Failed to generate message";
+			}
+			return fNSAPIMessage(str.c_str(), str.size());
+		} catch (...) {
+			std::wcout << _T("Failed to generate message: ");
+		}
+// 		return fNSAPIMessage(to_string(logMessage).c_str(), logMessage.size());
 	}
 	else
-		std::wcout << _T("*** *** *** NSCore not loaded, dumping log: ") << file << _T(":") << line << _T(": ") << std::endl << message << std::endl;
+		std::wcout << _T("*** *** *** NSCore not loaded, dumping log: ") << to_wstring(file) << _T(":") << line << _T(": ") << std::endl << logMessage << std::endl;
 }
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
@@ -523,7 +536,9 @@ std::wstring nscapi::core_wrapper::describeCommand(std::wstring command) {
 void nscapi::core_wrapper::registerCommand(std::wstring command, std::wstring description) {
 	if (!fNSAPIRegisterCommand)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	fNSAPIRegisterCommand(id_, command.c_str(), description.c_str());
+	if (fNSAPIRegisterCommand(id_, command.c_str(), description.c_str()) != NSCAPI::isSuccess) {
+		CORE_LOG_ERROR_STD(_T("Failed to register command: ") + command + _T(" in plugin: ") + to_wstring(id_));
+	}
 }
 
 

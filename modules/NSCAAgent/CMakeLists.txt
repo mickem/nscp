@@ -44,3 +44,4 @@ target_link_libraries(${TARGET}
 	${OPENSSL_LIBRARIES}
 	${EXTRA_LIBS}
 )
+INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

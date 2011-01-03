@@ -130,7 +130,7 @@ namespace nscapi {
 		void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 		void settings_save();
 
-		void Message(int msgType, std::wstring file, int line, std::wstring message);
+		void Message(int msgType, std::string file, int line, std::wstring message);
 		NSCAPI::nagiosReturn InjectCommandRAW(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		void DestroyBuffer(char**buffer);
 		NSCAPI::nagiosReturn InjectCommand(const std::wstring command, const std::list<std::wstring> argument, std::string & result);

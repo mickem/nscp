@@ -136,7 +136,7 @@ namespace settings {
 			path_map::iterator it = sections_.find(path_new);
 			if (it == sections_.end())
 				return path_new;
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Mapping: ") + path_new + _T(" to ") + (*it).second);
+			//get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Mapping: ") + path_new + _T(" to ") + (*it).second);
 			return (*it).second;
 		}
 		settings_core::key_path_type map_key(settings_core::key_path_type new_key) {
@@ -271,9 +271,9 @@ namespace settings {
 				get_core()->get_logger()->quick_debug(key.first + _T("//") + key.second + _T("//") + value.get_string());
 				WritePrivateProfileString(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), get_file_name().c_str());
 			} catch (settings_exception e) {
-				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
+				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {
-				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
+				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
 
@@ -291,7 +291,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void get_real_sections(std::wstring path, string_list &list) {
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
+			get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			//string_list lst = get_mapped_sections(path);
 			//list.insert(list.end(), lst.begin(), lst.end());
 			/*
@@ -302,10 +302,10 @@ namespace settings {
 					std::wstring::size_type pos = mapped.find(L'/', 1);
 					if (pos != std::wstring::npos)
 						mapped = mapped.substr(0,pos);
-					get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Found: ")) + mapped);
+					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Found: ")) + mapped);
 					list.push_back(mapped);
 				} else if (mapped.length() > path.length() && mapped == path.substr(0, path.length())) {
-					get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Found: FUCKED")) + mapped);
+					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Found: FUCKED")) + mapped);
 				}
 			}
 			*/
@@ -326,7 +326,7 @@ namespace settings {
 			} else {
 				for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
 					std::wstring mapped = get_core()->reverse_map_path((*cit).pItem);
-					get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Looking for: ")) + mapped + _T(": ") + mapped);
+					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Looking for: ")) + mapped + _T(": ") + mapped);
 					std::wstring::size_type mapped_len = mapped.length();
 					std::wstring::size_type path_len = path.length();
 					if (mapped_len > path_len+1 && mapped.substr(0,path_len) == path) {
@@ -402,7 +402,7 @@ namespace settings {
 			return ret != UNLIKELY_STRING;
 		}
 		void int_read_section(std::wstring section, string_list &list, unsigned int bufferLength = BUFF_LEN) {
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading (OLD) section: ") + section);
+			//get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading (OLD) section: ") + section);
 			// @TODO this is not correct!
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
@@ -432,7 +432,7 @@ namespace settings {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				//filename_ = (get_core()->get_base() / get_core()->get_boot_string(get_context(), _T("file"), _T("nsc.ini"))).string();
-				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading old settings from: ") + filename_);
+				get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading old settings from: ") + filename_);
 			}
 			return filename_;
 		}

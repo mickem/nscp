@@ -35,12 +35,12 @@ namespace nrpe {
 			}
 			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {
-				request_handler_->log_error(__FILEW__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info.get_endpoint_str());
+				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info.get_endpoint_str());
 				return;
 			}
 			if (info.use_ssl) {
 				SSL_CTX_set_cipher_list(context_.impl(), "ADH");
-				request_handler_->log_debug(__FILEW__, __LINE__, _T("Using cert: ") + to_wstring(info.certificate));
+				request_handler_->log_debug(__FILE__, __LINE__, _T("Using cert: ") + to_wstring(info.certificate));
 				context_.use_tmp_dh_file(to_string(info.certificate));
 				context_.set_verify_mode(boost::asio::ssl::context::verify_none);
 			}
@@ -50,7 +50,7 @@ namespace nrpe {
 			ip::tcp::endpoint endpoint = *endpoint_iterator;
 			acceptor_.open(endpoint.protocol());
 			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
-			request_handler_->log_debug(__FILEW__, __LINE__, _T("Attempting to bind to: ") + info.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info.get_endpoint_str());
 			acceptor_.bind(endpoint);
 			if (info.back_log == connection_info::backlog_default)
 				acceptor_.listen();
@@ -62,7 +62,7 @@ namespace nrpe {
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					)
 				);
-			request_handler_->log_debug(__FILEW__, __LINE__, _T("Bound to: ") + info.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info.get_endpoint_str());
 
 			//io_service_.post(boost::bind(&Server::startAccept, this));
 
@@ -77,7 +77,7 @@ namespace nrpe {
 					new boost::thread( boost::bind(&boost::asio::io_service::run, &io_service_) ));
 				threads_.push_back(thread);
 			}
-			request_handler_->log_debug(__FILEW__, __LINE__, _T("Thredpool containes: ") + to_wstring(thread_pool_size_));
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Thredpool containes: ") + to_wstring(thread_pool_size_));
 
 			// Wait for all threads in the pool to exit.
 			//for (std::size_t i = 0; i < threads.size(); ++i)
@@ -93,7 +93,7 @@ namespace nrpe {
 		void server::handle_accept(const boost::system::error_code& e) {
 			if (!e) {
 				std::string s = new_connection_->socket().remote_endpoint().address().to_string();
-				request_handler_->log_debug(__FILEW__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
+				request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
 
 				new_connection_->start();
 				new_connection_.reset(nrpe::server::factories::create(io_service_, context_, request_handler_, use_ssl_));
@@ -104,7 +104,7 @@ namespace nrpe {
 						)
 					);
 			} else {
-				request_handler_->log_error(__FILEW__, __LINE__, _T("Socket ERROR: ") + to_wstring(e.message()));
+				request_handler_->log_error(__FILE__, __LINE__, _T("Socket ERROR: ") + to_wstring(e.message()));
 			}
 		}
 

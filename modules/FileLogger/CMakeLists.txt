@@ -29,3 +29,4 @@ target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 )
+INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

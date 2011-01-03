@@ -20,7 +20,7 @@ namespace nrpe {
 		}
 
 		void tcp_connection::stop() {
-			handler_->log_debug(__FILEW__, __LINE__, _T("stopped data connection"));
+			handler_->log_debug(__FILE__, __LINE__, _T("stopped data connection"));
 		}
 
 		void tcp_connection::start_read_request(buffer_type &buffer, int timeout) {

@@ -24,7 +24,7 @@ namespace parsers {
 			where_grammar();
 			
 			qi::rule<Iterator, expression_ast<THandler>(), ascii::space_type>  expression, and_expr, not_expr, cond_expr, identifier, list_expr;
-			qi::rule<Iterator, std::wstring(), ascii::space_type> string_literal, variable_name;
+			qi::rule<Iterator, std::wstring(), ascii::space_type> string_literal, variable_name, string_literal_ex;
 			qi::rule<Iterator, unsigned int(), ascii::space_type> number;
 			qi::rule<Iterator, operators(), ascii::space_type> op;
 			qi::rule<Iterator, list_value<THandler>(), ascii::space_type> value_list;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core_api.h"
+#include "logger.hpp"
 #include <settings/settings_core.hpp>
 
 class settings_logger : public settings::logger_interface {
@@ -13,9 +14,7 @@ public:
 	/// @param message the message to log
 	///
 	/// @author mickem
-	void err(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::error, file.c_str(), line, message.c_str());
-	}
+	void err(std::string file, int line, std::wstring message);
 	//////////////////////////////////////////////////////////////////////////
 	/// Log an WARNING message.
 	///
@@ -24,9 +23,7 @@ public:
 	/// @param message the message to log
 	///
 	/// @author mickem
-	void warn(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::warning, file.c_str(), line, message.c_str());
-	}
+	void warn(std::string file, int line, std::wstring message);
 	//////////////////////////////////////////////////////////////////////////
 	/// Log an INFO message.
 	///
@@ -35,9 +32,7 @@ public:
 	/// @param message the message to log
 	///
 	/// @author mickem
-	void info(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::log, file.c_str(), line, message.c_str());
-	}
+	void info(std::string file, int line, std::wstring message);
 	//////////////////////////////////////////////////////////////////////////
 	/// Log an DEBUG message.
 	///
@@ -46,7 +41,5 @@ public:
 	/// @param message the message to log
 	///
 	/// @author mickem
-	void debug(std::wstring file, int line, std::wstring message) {
-		NSAPIMessage(NSCAPI::debug, file.c_str(), line, message.c_str());
-	}
+	void debug(std::string file, int line, std::wstring message);
 };

@@ -35,7 +35,7 @@ NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen);
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen);
 NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue, wchar_t* buffer, unsigned int bufLen);
 int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultValue);
-void NSAPIMessage(int msgType, const wchar_t* file, const int line, const wchar_t* message);
+void NSAPIMessage(const char* data,unsigned int count);
 void NSAPIStopServer(void);
 NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t*, wchar_t***, unsigned int *);

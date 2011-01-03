@@ -23,6 +23,10 @@
 #include <strEx.h>
 #include <time.h>
 #include <utils.h>
+#include <vector>
+#include <program_options_ex.hpp>
+#include <boost/program_options.hpp>
+#include <boost/thread/thread.hpp>
 
 CheckHelpers gCheckHelpers;
 
@@ -30,6 +34,7 @@ CheckHelpers::CheckHelpers() {
 }
 CheckHelpers::~CheckHelpers() {
 }
+
 
 bool CheckHelpers::loadModule() {
 	return false;
@@ -114,6 +119,8 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const strEx::wci_string command
 		return checkSimpleStatus(NSCAPI::returnCRIT, arguments, message, perf);
 	} else if (command == _T("checkmultiple")) {
 		return checkMultiple(arguments, message, perf);
+	} else if (command == _T("Negate")) {
+		return negate(arguments, message, perf);
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -156,6 +163,162 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> a
 	return returnCode;
 }
 
+NSCAPI::nagiosReturn CheckHelpers::negate(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) 
+{
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	if (arguments.empty()) {
+		msg = _T("Missing argument(s).");
+		return NSCAPI::returnCRIT;
+	}
+
+	std::wstring command;
+	NSCAPI::nagiosReturn OK = NSCAPI::returnOK, WARN = NSCAPI::returnWARN, CRIT = NSCAPI::returnCRIT, UNKNOWN = NSCAPI::returnUNKNOWN;
+	std::vector<std::wstring> cmd_args;
+
+	//#define USE_BOOST
+
+	try {
+
+
+		boost::program_options::options_description desc("Allowed options");
+		desc.add_options()
+			("help,h", "Show this help message.")
+
+ 			("ok,o",		boost::program_options::wvalue<std::wstring>(), "The state to return instead of OK")
+ 			("warning,w",	boost::program_options::wvalue<std::wstring>(), "The state to return instead of WARNING")
+ 			("critical,c",	boost::program_options::wvalue<std::wstring>(), "The state to return instead of CRITICAL")
+ 			("unknown,u",	boost::program_options::wvalue<std::wstring>(), "The state to return instead of UNKNOWN")
+
+			("command,q",	boost::program_options::wvalue<std::wstring>(&command), "Wrapped command to execute")
+   			("arguments,a",	boost::program_options::wvalue<std::vector<std::wstring> >(&cmd_args), "List of arguments (for wrapped command)")
+			;
+
+		boost::program_options::positional_options_description p;
+		p.add("arguments", -1);
+
+		std::vector<std::wstring> arg_list(arguments.begin(), arguments.end());
+
+		boost::program_options::variables_map vm;
+		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(arg_list).options(desc).positional(p).run(), vm);
+		boost::program_options::notify(vm); 
+
+		if (vm.count("help")) {
+			std::stringstream ss;
+			desc.print(ss);
+			msg = strEx::string_to_wstring(ss.str());
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		if (vm.count("ok"))
+			OK = nscapi::plugin_helper::translateReturn(vm["ok"].as<std::wstring>());
+		if (vm.count("warning"))
+			WARN = nscapi::plugin_helper::translateReturn(vm["warning"].as<std::wstring>());
+		if (vm.count("critical"))
+			CRIT = nscapi::plugin_helper::translateReturn(vm["critical"].as<std::wstring>());
+		if (vm.count("unknown"))
+			UNKNOWN = nscapi::plugin_helper::translateReturn(vm["unknown"].as<std::wstring>());
+
+	} catch (std::exception &e) {
+		msg = _T("Could not parse command: ") + strEx::string_to_wstring(e.what());
+		return NSCAPI::returnCRIT;
+	} catch (...) {
+		msg = _T("Could not parse command: <UNKNOWN EXCEPTION>");
+		return NSCAPI::returnCRIT;
+	}
+	std::list<std::wstring> cmd_args_l(cmd_args.begin(), cmd_args.end());
+
+	NSCAPI::nagiosReturn tRet = GET_CORE()->InjectSimpleCommand(command, cmd_args_l, msg, perf);
+	switch (tRet) {
+		case NSCAPI::returnOK:
+			return OK;
+		case NSCAPI::returnCRIT:
+			return CRIT;
+		case NSCAPI::returnWARN:
+			return WARN;
+		case NSCAPI::returnUNKNOWN:
+			return UNKNOWN;
+		default:
+			return UNKNOWN;
+	}
+}
+
+
+class worker {
+public:
+	void proc(std::wstring command, std::list<std::wstring> arguments) {
+		code = GET_CORE()->InjectSimpleCommand(command, arguments, msg, perf);
+	}
+	std::wstring msg;
+	std::wstring perf;
+	NSCAPI::nagiosReturn code;
+
+};
+
+NSCAPI::nagiosReturn CheckHelpers::timeout(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) 
+{
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	if (arguments.empty()) {
+		msg = _T("Missing argument(s).");
+		return NSCAPI::returnCRIT;
+	}
+
+	std::wstring command;
+	NSCAPI::nagiosReturn retCode = NSCAPI::returnUNKNOWN;
+	std::vector<std::wstring> cmd_args;
+	unsigned long timeout = 30;
+
+	try {
+
+		boost::program_options::options_description desc("Allowed options");
+		desc.add_options()
+			("help,h", "Show this help message.")
+
+			("timeout,t",	boost::program_options::value<unsigned long>(&timeout), "The timeout value")
+
+			("command,q",	boost::program_options::wvalue<std::wstring>(&command), "Wrapped command to execute")
+			("arguments,a",	boost::program_options::wvalue<std::vector<std::wstring> >(&cmd_args), "List of arguments (for wrapped command)")
+			;
+
+		boost::program_options::positional_options_description p;
+		p.add("arguments", -1);
+
+		std::vector<std::wstring> arg_list(arguments.begin(), arguments.end());
+
+		boost::program_options::variables_map vm;
+		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(arg_list).options(desc).positional(p).run(), vm);
+		boost::program_options::notify(vm); 
+
+		if (vm.count("help")) {
+			std::stringstream ss;
+			desc.print(ss);
+			msg = strEx::string_to_wstring(ss.str());
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		if (vm.count("return"))
+			retCode = nscapi::plugin_helper::translateReturn(vm["return"].as<std::wstring>());
+
+	} catch (std::exception &e) {
+		msg = _T("Could not parse command: ") + strEx::string_to_wstring(e.what());
+		return NSCAPI::returnCRIT;
+	} catch (...) {
+		msg = _T("Could not parse command: <UNKNOWN EXCEPTION>");
+		return NSCAPI::returnCRIT;
+	}
+	std::list<std::wstring> cmd_args_l(cmd_args.begin(), cmd_args.end());
+
+	worker obj;
+	boost::shared_ptr<boost::thread> t = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker::proc, obj, command, cmd_args_l)));
+
+	if (t->timed_join(boost::posix_time::seconds(timeout))) {
+		msg = obj.msg;
+		perf = obj.perf;
+		return obj.code;
+	}
+	t->detach();
+	msg = _T("Thread failed to return within given timeout");
+	return retCode;
+}
 
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gCheckHelpers);

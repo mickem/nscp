@@ -380,7 +380,7 @@ namespace settings {
 		/// @author mickem
 		virtual string_list get_sections(std::wstring path) {
 			MUTEX_GUARD();
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
+			get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			string_list ret;
 			get_cached_sections_unsafe(path, ret);
 			get_real_sections(path, ret);

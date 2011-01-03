@@ -29,19 +29,19 @@
 #ifdef _WIN32
 #include <ServiceCmd.h>
 #endif
+#include "logger.hpp"
 
 using namespace nscp::helpers;
 
 #define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
-#define LOG_ERROR(msg) LOG_ANY(msg, NSCAPI::error)
 #define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
-#define LOG_CRITICAL(msg) LOG_ANY(msg, NSCAPI::critical)
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
-#define LOG_MESSAGE(msg) LOG_ANY(msg, NSCAPI::log)
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
-#define LOG_DEBUG(msg) LOG_ANY(msg, NSCAPI::debug)
 
-#define LOG_ANY(msg, type) NSAPIMessage(type, __FILEW__, __LINE__, msg)
+#define LOG_ERROR(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_CRITICAL(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_MESSAGE(msg) { std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_DEBUG(msg) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 
 NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned int bufLen) {
 	try {
@@ -85,8 +85,8 @@ NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen)
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, SZVERSION, NSCAPI::isSuccess);
 }
-void NSAPIMessage(int msgType, const wchar_t* file, const int line, const wchar_t* message) {
-	mainClient.reportMessage(msgType, file, line, message);
+void NSAPIMessage(const char* data, unsigned int count) {
+	mainClient.reportMessage(std::string(data, count));
 }
 void NSAPIStopServer(void) {
 #ifdef WIN32
@@ -292,7 +292,7 @@ NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,con
 	try {
 		mainClient.registerCommand(id, cmd, desc);
 	} catch (nsclient::commands::command_exception &e) {
-		LOG_ERROR_STD(_T("Exception registrying command: ") + ::to_wstring(e.what()) + _T(", from: ") + to_wstring(id));
+		LOG_ERROR_STD(_T("Exception registrying command '") + cmd + _T("': ") + ::to_wstring(e.what()) + _T(", from: ") + to_wstring(id));
 		return NSCAPI::isfalse;
 	} catch (...) {
 		LOG_ERROR_STD(_T("Unknown exception registrying command: ") + std::wstring(cmd) + _T(", from: ") + to_wstring(id));

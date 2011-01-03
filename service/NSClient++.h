@@ -74,6 +74,7 @@ public:
 		std::wstring description;
 	};
 	typedef std::list<plugin_info_type> plugin_info_list;
+	nsclient::logging_queue::master logger_master_;
 private:
 
 	class NSException {
@@ -84,29 +85,14 @@ private:
 			return what_;
 		}
 	};
-	struct cached_log_entry {
-		cached_log_entry(int msgType_, std::wstring file_, int line_, std::wstring message_) 
-			: msgType(msgType_),
-			file(file_),
-			line(line_),
-			message(message_)
-		{}
-		int msgType;
-		std::wstring file;
-		int line;
-		std::wstring message;
-	};
 
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 	typedef std::vector<plugin_type> pluginList;
-	//typedef std::map<std::wstring,std::wstring> cmdMap;
-	typedef std::list<cached_log_entry> log_cache_type;
 	pluginList plugins_;
-	pluginList messageHandlers_;
-	boost::filesystem::wpath  basePath;
+	boost::filesystem::wpath basePath;
 	boost::timed_mutex internalVariables;
-	boost::timed_mutex messageMutex;
 	boost::shared_mutex m_mutexRW;
+
 	//boost::shared_mutex m_mutexRWcmdDescriptions;
 	//cmdMap cmdDescriptions_;
 	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
@@ -119,8 +105,7 @@ private:
 	std::auto_ptr<nsclient_session::shared_client_session> shared_client_;
 	std::auto_ptr<nsclient_session::shared_server_session> shared_server_;
 	*/
-	log_cache_type log_cache_;
-	bool plugins_loaded_;
+
 	bool enable_shared_session_;
 	nsclient::commands commands_;
 	nsclient::channels channels_;
@@ -130,7 +115,9 @@ private:
 public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), plugins_loaded_(false), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0) {}
+	NSClientT(void) : debug_(log_unknown), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0) {
+		logger_master_.start_slave();
+	}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
 		if (debug)
@@ -152,12 +139,13 @@ public:
 
 
 	// Logger impl
-	void nsclient_log_error(std::wstring file, int line, std::wstring error);
+	void nsclient_log_error(std::string file, int line, std::wstring error);
 
 	// Service API
 	static NSClient* get_global_instance();
-	void handle_error(unsigned int line, wchar_t *file, std::wstring message) {
-		reportMessage(NSCAPI::error, file, line, message);
+	void handle_error(unsigned int line, const char *file, std::wstring message) {
+		std::string s = nsclient::logger_helper::create_error(file, line, message);
+		reportMessage(s.c_str());
 	}
 	void handle_startup();
 	void handle_shutdown();
@@ -173,7 +161,7 @@ public:
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-	void reportMessage(int msgType, const wchar_t* file, const int line, std::wstring message);
+	void reportMessage(std::string data);
 	int commandLineExec(const wchar_t* module, const unsigned int argLen, wchar_t** args);
 
 	//plugin_type loadPlugin(const boost::filesystem::wpath plugin, std::wstring alias);
@@ -193,10 +181,11 @@ public:
 	std::list<std::wstring> list_commands();
 
 	// Shared session interface:
-	void session_error(std::wstring file, unsigned int line, std::wstring msg);
-	void session_info(std::wstring file, unsigned int line, std::wstring msg);
-	void session_log_message(int msgType, const wchar_t* file, const int line, std::wstring message) {
-		reportMessage(msgType, file, line, message);
+	void session_error(std::string file, unsigned int line, std::wstring msg);
+	void session_info(std::string file, unsigned int line, std::wstring msg);
+	void session_log_message(int msgType, const char* file, const int line, std::wstring message) {
+		std::string s = nsclient::logger_helper::create_info(file, line, message);
+		reportMessage(s.c_str());
 	}
 	int session_inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 		return 0; // TODO: Readd this!!! inject(command, arguments, splitter, escape, msg, perf);
@@ -206,6 +195,9 @@ public:
 	}
 
 	std::wstring expand_path(std::wstring file);
+	void set_console_log() {
+		logger_master_.set_console_log();
+	}
 
 
 	public:
@@ -222,8 +214,3 @@ extern NSClient mainClient;	// Global core instance forward declaration.
 
 std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
-
-/*
-#define LOG_DEBUG_STD(msg)
-#define LOG_DEBUG(msg)
-*/

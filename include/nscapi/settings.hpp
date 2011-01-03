@@ -553,8 +553,10 @@ namespace nscapi {
 					if (v->key) {
 						//std::wcout << _T("Setting: ") << v->key_name << _T(" ===> ") << v->parent << std::endl;
 						std::wstring desc = v->description.description;
-						if (v->has_parent())
+						if (v->has_parent()) {
 							desc += _T(" Parent element can be found under: ") + v->parent;
+							core_->settings_register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), v->description.advanced);
+						}
 						core_->settings_register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), v->description.advanced);
 					}
 				}
@@ -566,10 +568,14 @@ namespace nscapi {
 			void notify() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
 					try {
-						if (v->key)
-							v->key->notify(core_, v->path, v->key_name);
+						if (v->key) {
+							if (v->has_parent())
+								v->key->notify(core_, v->parent, v->path, v->key_name);
+							else
+								v->key->notify(core_, v->path, v->key_name);
+						}
 					} catch (...) {
-						core_->Message(NSCAPI::error, __FILEW__, __LINE__, _T("Failed to register: ") + v->key_name);
+						core_->Message(NSCAPI::error, __FILE__, __LINE__, _T("Failed to register: ") + v->key_name);
 					}
 				}
 				BOOST_FOREACH(path_list::value_type v, paths_) {
@@ -577,7 +583,7 @@ namespace nscapi {
 						if (v->path)
 							v->path->notify(core_, v->path_name);
 					} catch (...) {
-						core_->Message(NSCAPI::error, __FILEW__, __LINE__, _T("Failed to register: ") + v->path_name);
+						core_->Message(NSCAPI::error, __FILE__, __LINE__, _T("Failed to register: ") + v->path_name);
 					}
 				}
 

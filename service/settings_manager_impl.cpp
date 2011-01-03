@@ -5,8 +5,7 @@
 #include "NSClient++.h"
 
 #define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
-#define LOG_CRITICAL(msg) \
-	NSAPIMessage(NSCAPI::critical, __FILEW__, __LINE__, msg)
+#define LOG_CRITICAL(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s.c_str()); }
 
 extern NSClient mainClient;
 
@@ -86,12 +85,15 @@ namespace settings_manager {
 			get_core()->set_logger(new settings_logger());
 			get_core()->set_base(mainClient.expand_path(_T("${base-path}")));
 			get_core()->boot(context);
-			get_core()->register_key(SETTINGS_REG_KEY_I_GEN(settings_def::PAYLOAD_LEN, settings::settings_core::key_integer));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::ALLOWED_HOSTS, settings::settings_core::key_string));
-			get_core()->register_key(SETTINGS_REG_KEY_B_GEN(protocol_def::CACHE_ALLOWED, settings::settings_core::key_bool));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::MASTER_KEY, settings::settings_core::key_string));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::PWD, settings::settings_core::key_string));
-			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::OBFUSCATED_PWD, settings::settings_core::key_string));
+
+
+
+// 			get_core()->register_key(SETTINGS_REG_KEY_I_GEN(settings_def::PAYLOAD_LEN, settings::settings_core::key_integer));
+// 			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::ALLOWED_HOSTS, settings::settings_core::key_string));
+// 			get_core()->register_key(SETTINGS_REG_KEY_B_GEN(protocol_def::CACHE_ALLOWED, settings::settings_core::key_bool));
+// 			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::MASTER_KEY, settings::settings_core::key_string));
+// 			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::PWD, settings::settings_core::key_string));
+// 			get_core()->register_key(SETTINGS_REG_KEY_S_GEN(protocol_def::OBFUSCATED_PWD, settings::settings_core::key_string));
 		} catch (settings::settings_exception e) {
 			LOG_CRITICAL_STD(_T("Failed to initialize settings: ") + e.getError());
 			return false;

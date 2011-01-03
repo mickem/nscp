@@ -13,8 +13,8 @@ namespace nrpe {
 				return *this;
 			}
 			virtual nrpe::packet handle(nrpe::packet packet) = 0;
-			virtual void log_debug(std::wstring file, int line, std::wstring msg) = 0;
-			virtual void log_error(std::wstring file, int line, std::wstring msg) = 0;
+			virtual void log_debug(std::string file, int line, std::wstring msg) = 0;
+			virtual void log_error(std::string file, int line, std::wstring msg) = 0;
 			virtual nrpe::packet create_error(std::wstring msg) = 0;
 			virtual unsigned int get_payload_length() = 0;
 			virtual void set_payload_length(unsigned int payload) = 0;

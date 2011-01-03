@@ -1,7 +1,11 @@
 #include <parsers/grammar.hpp>
+#include <iostream>
+#include <fstream>
+
 
 namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
+namespace phoenix = boost::phoenix;
 
 namespace parsers {
 	namespace where {
@@ -117,7 +121,8 @@ namespace parsers {
 					;
 
 			identifier 
-					= (variable_name >> '(' >> list_expr >> ')')		[_val = build_if(_1, _2)]
+					= "str" >> string_literal_ex						[_val = build_is(_1)]
+					| (variable_name >> '(' >> list_expr >> ')')		[_val = build_if(_1, _2)]
 					| variable_name										[_val = build_iv(_1)]
 					| string_literal									[_val = build_is(_1)]
 					| qi::lexeme[
@@ -139,6 +144,8 @@ namespace parsers {
 						>> *( ',' >> string_literal )					[_val += build_is(_1) ]
 					|	number											[_val = build_ii(_1) ]
 						>> *( ',' >> number ) 							[_val += build_ii(_1) ]
+					|	variable_name									[_val = build_is(_1) ]
+						>> *( ',' >> variable_name )					[_val += build_is(_1) ]
 					;
 
 			op 		= qi::lit("<=")										[_val = op_le]
@@ -154,6 +161,7 @@ namespace parsers {
 					| qi::lit("ge")										[_val = op_ge]
 					| qi::lit("gt")										[_val = op_gt]
 					| qi::lit("like")									[_val = op_like]
+					| qi::lit("not like")								[_val = op_not_like]
 					;
 
 			number
@@ -162,11 +170,41 @@ namespace parsers {
 			variable_name
 					= qi::lexeme[+(ascii::alpha)						[_val += _1]]
 					;
-			string_literal	
+			string_literal
 					= qi::lexeme[ '\'' 
 							>>  +( ascii::char_ - '\'' )				[_val += _1] 
 							>> '\''] 
 					;
+			string_literal_ex
+					= qi::lexeme[ '(' 
+							>>  +( ascii::char_ - ')' )					[_val += _1] 
+							>> ')'] 
+					;
+
+// 					qi::on_error<qi::fail>( expression , std::wcout
+// 						<< phoenix::val(_T("Error! Expecting "))
+// 						<< _4                               // what failed?
+// 						<< phoenix::val(_T(" here: \""))
+// 						<< phoenix::construct<std::wstring>(_3, _2)   // iterators to error-pos, end
+// 						<< phoenix::val(_T("\""))
+// 						<< std::endl
+//);
+// 					qi::on_error<qi::fail>( expression , std::cout
+// 						<< phoenix::val("Error! Expecting ")
+// 						<< _4                               // what failed?
+// 						<< phoenix::val(" here: \"")
+// 						<< phoenix::construct<std::string>(_3, _2)   // iterators to error-pos, end
+// 						<< phoenix::val("\"")
+// 						<< std::endl
+// 						);
+
+			//				<< ("Error! Expecting ")
+			//				<< _4                               // what failed?
+			//				<< (" here: \"")
+			//				<< construct<std::string>(_3, _2)   // iterators to error-pos, end
+			//				<< ("\"")
+// 			<< std::endl
+
 		}
 
 	}

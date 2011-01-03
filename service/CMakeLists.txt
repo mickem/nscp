@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
+SET(TARGET nscp)
+
 PROJECT(service)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
@@ -7,16 +9,24 @@ LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
-# Workaround for bug 0003353 in cmake (aparently not fixed)
-#WRAP_PROTO(PB_PLUGIN ${PB_PATH}/plugin.pb)
-#SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
+SET(VERSION_HPP ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp)
+
+ADD_CUSTOM_TARGET(
+	"${TARGET}_VERSION"
+	COMMAND ${PYTHON_EXECUTABLE}
+		"${BUILD_PYTHON_FOLDER}/version.py"
+		--file ${VERSION_TXT}
+		--generate-hpp ${VERSION_HPP}
+		--update build
+	)
 
 SET(service_SRCS
 	StdAfx.cpp
-	NSClient++.cpp
+	nsclient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
 	settings_manager_impl.cpp
+	settings_logger_impl.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 
@@ -36,6 +46,7 @@ IF(WIN32)
 		NSCPlugin.h
 		core_api.h
 		settings_manager_impl.h
+		settings_logger_impl.hpp
 		simple_client.hpp
 		settings_client.hpp
 		cli_parser.hpp
@@ -77,13 +88,24 @@ IF(WIN32)
 
 ENDIF(WIN32)
 
-add_executable (nsclient++ ${service_SRCS})
 
-target_link_libraries(nsclient++ 
+add_executable (${TARGET} ${service_SRCS})
+add_dependencies(${TARGET} ${TARGET}_VERSION)
+
+target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 )
+SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
+SET_TARGET_PROPERTIES(${TARGET}_VERSION PROPERTIES FOLDER "core")
 
-INSTALL(FILES ${PROJECT_SOURCE_DIR}/cmake/FindWt.cmake DESTINATION
-    ${CMAKE_INSTALL_PREFIX}/${WT_CMAKE_FINDER_INSTALL_DIR} )
+SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
+SOURCE_GROUP("Parser" REGULAR_EXPRESSION .*include/parser/.*)
+SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
+SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
+
+#SOURCE_GROUP("NSCP API/Sources" FILES ${NSCP_DEF_PLUGIN_CPP})
+#SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*settings.*)
+
+INSTALL(TARGETS ${TARGET} RUNTIME DESTINATION .)
 

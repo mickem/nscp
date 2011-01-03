@@ -165,6 +165,7 @@ namespace filter {
 			types_type types;
 			error_type errors;
 			static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
+			static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
 			EventLogRecord *record;
 			type_obj() : record(NULL) {
 				using namespace boost::assign;
@@ -172,7 +173,7 @@ namespace filter {
 				insert(types)
 					(_T("id"), (type_int))
 					(_T("source"), (type_string))
-					(_T("type"), (type_int))
+					(_T("type"), (type_custom_type))
 					(_T("severity"), (type_custom_severity))
 					(_T("message"), (type_string))
 					(_T("strings"), (type_string))
@@ -191,6 +192,8 @@ namespace filter {
 			}
 			bool can_convert(parsers::where::value_type from, parsers::where::value_type to) {
 				if ((from == parsers::where::type_string)&&(to == type_custom_severity))
+					return true;
+				if ((from == parsers::where::type_string)&&(to == type_custom_type))
 					return true;
 				return false;
 			}
@@ -259,17 +262,24 @@ namespace filter {
 			bool has_function(parsers::where::value_type to, std::wstring name, parsers::where::expression_ast<type_obj> subject) {
 				if (to == type_custom_severity)
 					return true;
+				if (to == type_custom_type)
+					return true;
 				return false;
 			}
 			handler::bound_function_type bind_function(parsers::where::value_type to, std::wstring name, parsers::where::expression_ast<type_obj> subject) {
 				handler::bound_function_type ret;
 				if (to == type_custom_severity)
 					ret = &type_obj::fun_convert_severity;
+				if (to == type_custom_type)
+					ret = &type_obj::fun_convert_type;
 				return ret;
 			}
 
 			parsers::where::expression_ast<type_obj> fun_convert_severity(parsers::where::value_type target_type, parsers::where::expression_ast<type_obj> const& subject) {
 				return parsers::where::expression_ast<type_obj>(parsers::where::int_value(convert_severity(subject.get_string(*this))));
+			}
+			parsers::where::expression_ast<type_obj> fun_convert_type(parsers::where::value_type target_type, parsers::where::expression_ast<type_obj> const& subject) {
+				return parsers::where::expression_ast<type_obj>(parsers::where::int_value(convert_type(subject.get_string(*this))));
 			}
 			int convert_severity(std::wstring str) {
 				if (str == _T("success") || str == _T("ok"))
@@ -283,7 +293,19 @@ namespace filter {
 				error(_T("Invalid severity: ") + str);
 				return strEx::stoi(str);
 			}
-
+			int convert_type(std::wstring str) {
+				if (str == _T("error"))
+					return EVENTLOG_ERROR_TYPE;
+				if (str == _T("warning"))
+					return EVENTLOG_WARNING_TYPE;
+				if (str == _T("info"))
+					return EVENTLOG_INFORMATION_TYPE;
+				if (str == _T("auditSuccess"))
+					return EVENTLOG_AUDIT_SUCCESS;
+				if (str == _T("auditFailure"))
+					return EVENTLOG_AUDIT_FAILURE;
+				return strEx::stoi(str);
+			}
 
 			std::wstring get_error() {
 				std::wstring ret;
@@ -493,6 +515,8 @@ void CheckEventLog::parse(std::wstring expr) {
 	*/
 }
 
+
+
 std::wstring find_eventlog_name(std::wstring name) {
 	try {
 		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
@@ -570,7 +594,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::wci_string comman
 	simple_timer time;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
 	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
-
+	
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 
 	std::list<std::wstring> files;
@@ -749,10 +773,10 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const strEx::wci_string comman
 			if (bStatus == FALSE) {
 				DWORD err = GetLastError();
 				if (err == ERROR_INSUFFICIENT_BUFFER) {
-					message = _T("EvenlogBuffer is too small change the value of ") + setting_keys::event_log::BUFFER_SIZE_PATH + _T("=") + strEx::itos(dwNeeded+1) + _T(": ") + error::lookup::last_error(err);
-					NSC_LOG_ERROR_STD(message);
-					CloseEventLog(hLog);
-					return NSCAPI::returnUNKNOWN;
+					if (!buffer_error_reported) {
+						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + setting_keys::event_log::BUFFER_SIZE_PATH + _T("=") + strEx::itos(dwNeeded+1) + _T(": ") + error::lookup::last_error(err));
+						buffer_error_reported = true;
+					}
 				} else if (err == ERROR_HANDLE_EOF) {
 					break;
 				} else {

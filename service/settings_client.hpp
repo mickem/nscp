@@ -1,5 +1,6 @@
 #pragma once
 #include <settings/settings_core.hpp>
+#include "logger.hpp"
 
 class NSClientT;
 namespace nsclient {
@@ -157,10 +158,12 @@ namespace nsclient {
 		}
 
 		void error_msg(std::wstring msg) {
-			core_->reportMessage(NSCAPI::error, __FILEW__, __LINE__, msg.c_str());
+			std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg.c_str());
+			core_->reportMessage(s.c_str());
 		}
 		void debug_msg(std::wstring msg) {
-			core_->reportMessage(NSCAPI::debug, __FILEW__, __LINE__, msg.c_str());
+			std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg.c_str());
+			core_->reportMessage(s.c_str());
 		}
 	};
 }

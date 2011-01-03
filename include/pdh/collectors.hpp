@@ -133,7 +133,7 @@ namespace PDHCollectors {
 		std::wstring lastError_;
 		const PDH::PDHCounter *parent_;
 	public:
-		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
@@ -182,7 +182,7 @@ namespace PDHCollectors {
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
 	public:
-		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
@@ -230,7 +230,7 @@ namespace PDHCollectors {
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
 	public:
-		StaticPDHCounterListener() : value_(0), hasValue_(false) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
@@ -281,8 +281,8 @@ namespace PDHCollectors {
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
 	public:
-		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false) {}
-		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0), hasValue_(false) {
+		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL) {}
+		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0), hasValue_(false), parent_(NULL) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
 				return;

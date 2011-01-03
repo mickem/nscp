@@ -123,9 +123,9 @@ namespace settings {
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), _T("; Undocumented key"));
 			} catch (settings_exception e) {
-				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
+				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {
-				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
+				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
 
@@ -140,9 +140,9 @@ namespace settings {
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(path.c_str(), NULL, NULL, _T("; Undocumented section"));
 			} catch (settings_exception e) {
-				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Failed to write section: ") + e.getError()));
+				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write section: ") + e.getError()));
 			} catch (...) {
-				get_core()->get_logger()->err(__FILEW__, __LINE__, std::wstring(_T("Unknown filure when writing section: ") + path));
+				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing section: ") + path));
 			}
 		}
 
@@ -156,7 +156,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void get_real_sections(std::wstring path, string_list &list) {
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
+			get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllSections(lst);
 			if (path.empty()) {
@@ -225,7 +225,7 @@ namespace settings {
 				return;
 			}
 			std::wstring f = get_file_name();
-			get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
+			get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));
@@ -251,7 +251,7 @@ namespace settings {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				//filename_ = get_core()->get_base() / boost::filesystem::wpath(get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini")));
-				get_core()->get_logger()->debug(__FILEW__, __LINE__, _T("Reading INI settings from: ") + filename_);
+				get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + filename_);
 			}
 			return filename_;
 		}

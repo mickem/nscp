@@ -33,6 +33,7 @@
 #include <strEx.h>
 
 #include "../libs/protobuf/plugin.proto.h"
+#include "../libs/protobuf/log.proto.h"
 
 using namespace nscp::helpers;
 
@@ -247,6 +248,30 @@ namespace nscapi {
 
 			virtual NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) = 0;
 		};
+
+
+		class simple_log_handler {
+		public:
+			void handleMessageRAW(std::string data) {
+				try {
+					LogMessage::LogMessage message;
+					message.ParseFromString(data);
+
+					for (int i=0;i<message.message_size();i++) {
+						LogMessage::Message msg = message.message(i);
+						handleMessage(msg.level(), msg.file(), msg.line(), msg.message());
+					}
+				} catch (std::exception &e) {
+					std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << e.what() <<  std::endl;;
+				} catch (...) {
+					std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << std::endl;;
+				}
+			}
+
+			virtual void handleMessage(int msgType, const std::string file, int line, std::string message) = 0;
+
+		};
+
 
 		class CommandImpl {
 
