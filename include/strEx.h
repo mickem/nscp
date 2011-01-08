@@ -811,7 +811,7 @@ namespace strEx {
 			std::locale &m_locE;
 		};
 		template<typename T>
-		int operator()(const T &s1, const T &s2)
+		int operator()(const T &s1, const T &s2) const
 		{
 			if (std::lexicographical_compare(s1.begin(), s1.end(), s2.begin(), s2.end(), CharLessI(m_locE)))
 				return -1;

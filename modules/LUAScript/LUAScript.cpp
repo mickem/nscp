@@ -29,38 +29,57 @@
 
 LUAScript gLUAScript;
 
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-{
-	NSCModuleWrapper::wrapDllMain(hModule, ul_reason_for_call);
-	return TRUE;
-}
-
 LUAScript::LUAScript() {
 }
 LUAScript::~LUAScript() {
 }
 
+namespace sh = nscapi::settings_helper;
 
-bool LUAScript::loadModule(NSCAPI::moduleLoadMode mode) {
-	//LUA Scripts
+bool LUAScript::loadModule() {
+	return false;
+}
+bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	//std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
-		SETTINGS_REG_PATH(lua::SECTION);
-	} catch (NSCModuleHelper::NSCMHExcpetion &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+
+		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		settings.set_alias(alias, _T("lua"));
+
+		settings.alias().add_path_to_settings()
+			(_T("LUA SCRIPT SECTION"), _T("Section for the LUAScripts module."))
+
+			(_T("scripts"), sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, _1)), 
+			_T("LUA SCRIPTS SECTION"), _T("A list of scripts available to run from the LuaSCript module."))
+			;
+
+		settings.register_all();
+		settings.notify();
+
+// 		if (!scriptDirectory_.empty()) {
+// 			addAllScriptsFrom(scriptDirectory_);
+// 		}
+ 		root_ = get_core()->getBasePath();
+
+		// 	} catch (nrpe::server::nrpe_exception &e) {
+		// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
+		// 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		return false;
 	}
-	std::list<std::wstring> commands = NSCModuleHelper::getSettingsSection(settings::lua::SECTION_PATH);
-	std::list<std::wstring>::const_iterator it;
-	for (it = commands.begin(); it != commands.end(); ++it) {
-		loadScript((*it));
-	}
+	return true;
+
+// 	std::list<std::wstring>::const_iterator it;
+// 	for (it = commands.begin(); it != commands.end(); ++it) {
+// 		loadScript((*it));
+// 	}
 	return true;
 }
 
 void LUAScript::register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function) {
 	NSC_LOG_MESSAGE(_T("Script loading: ") + script->get_script() + _T(": ") + command);
-	strEx::blindstr bstr = command.c_str();
+	strEx::wci_string bstr = command.c_str();
 	commands_[bstr] = lua_func(script, function);
 }
 
@@ -69,7 +88,7 @@ bool LUAScript::loadScript(const std::wstring file) {
 		std::wstring file_ = file;
 
 		if (!file_helpers::checks::exists(file_)) {
-			file_ = NSCModuleHelper::getBasePath() + file;
+			file_ = root_ + file;
 			if (!file_helpers::checks::exists(file_)) {
 				NSC_LOG_ERROR(_T("Script not found: ") + file + _T(" (") + file_ + _T(")"));
 				return false;
@@ -84,7 +103,6 @@ bool LUAScript::loadScript(const std::wstring file) {
 		NSC_LOG_ERROR_STD(_T("Could not load script: ") + file + _T(", ") + e.getMessage());
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);
-		//assert(false);
 	}
 	return false;
 }
@@ -129,17 +147,18 @@ bool LUAScript::reload(std::wstring &message) {
 
 
 
-NSCAPI::nagiosReturn LUAScript::handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn LUAScript::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("LuaReload")) {
-		return reload(msg)?NSCAPI::returnOK:NSCAPI::returnCRIT;
+		return reload(message)?NSCAPI::returnOK:NSCAPI::returnCRIT;
 	}
 	cmd_list::const_iterator cit = commands_.find(command);
 	if (cit == commands_.end())
 		return NSCAPI::returnIgnored;
-	return (*cit).second.handleCommand(this, command, argLen, char_args, msg, perf);
+	return (*cit).second.handleCommand(this, command.c_str(), arguments, message, perf);
 }
 
 
+NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gLUAScript);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gLUAScript);

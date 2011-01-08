@@ -18,24 +18,28 @@ MACRO ( SET_MULTITHREAD )
           "/D_DEBUG /MTd /Zi  /Ob0 /Od /GZ"
           CACHE STRING "MSVC MT flags " FORCE
       )
+	  SET(CMAKE_C_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
   
       SET (
         CMAKE_CXX_FLAGS_RELEASE
           "/MT /O2 /Ob2 /D NDEBUG"
           CACHE STRING "MSVC MT flags " FORCE
       )
+	  SET(CMAKE_C_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
   
       SET (
         CMAKE_CXX_FLAGS_MINSIZEREL
           "/MT /O1 /Ob1 /D NDEBUG"
           CACHE STRING "MSVC MT flags " FORCE
       )
+	  SET(CMAKE_C_FLAGS_MINSIZEREL ${CMAKE_CXX_FLAGS_MINSIZEREL})
   
       SET (
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
           "/MT /Zi /O2 /Ob1 /D NDEBUG"
           CACHE STRING "MSVC MT flags " FORCE
       )
+	  SET(CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
       
       # Maybe future CMake versions will implement this
       #SET (

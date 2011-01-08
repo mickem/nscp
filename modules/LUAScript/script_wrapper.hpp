@@ -193,22 +193,21 @@ namespace script_wrapper {
 			try {
 				int nargs = lua_gettop( L );
 				if (nargs == 0) {
-					return luaL_error(L, "nscp.execute requires atleast 1 argument!");
+					return luaL_error(L, "nscp.execute requires at least 1 argument!");
 				}
 				unsigned int argLen = nargs-1;
-				arrayBuffer::arrayBuffer arguments = arrayBuffer::createArrayBuffer(argLen);
+				std::list<std::wstring> arguments;
 				for (unsigned int i=argLen;i>0;i--) {
-					std::wstring arg = extract_string(L);
-					arrayBuffer::set(arguments, argLen, i-1, arg);
+					arguments.push_front(extract_string(L));
 					lua_pop(L, 1);
 				}
 				std::wstring command = extract_string(L);
 				lua_pop(L, 1);
-				std::wstring msg;
+				std::wstring message;
 				std::wstring perf;
-				NSCAPI::nagiosReturn ret = NSCModuleHelper::InjectCommand(command.c_str(), argLen, arguments, msg, perf);
+				NSCAPI::nagiosReturn ret = GET_CORE()->InjectSimpleCommand(command, arguments, message, perf);
 				push_code(L, ret);
-				lua_pushstring(L, strEx::wstring_to_string(msg).c_str());
+				lua_pushstring(L, strEx::wstring_to_string(message).c_str());
 				lua_pushstring(L, strEx::wstring_to_string(perf).c_str());
 				return 3;
 			} catch (...) {
@@ -241,7 +240,7 @@ namespace script_wrapper {
 				v = pop_string(L);
 			std::wstring k = pop_string(L);
 			std::wstring s = pop_string(L);
-			push_string(L, NSCModuleHelper::getSettingsString(s, k, v));
+			push_string(L, GET_CORE()->getSettingsString(s, k, v));
 			return 1;
 		}
 		static int getSection (lua_State *L) {
@@ -252,7 +251,7 @@ namespace script_wrapper {
 			if (nargs > 0)
 				v = pop_string(L);
 			try {
-				std::list<std::wstring> list = NSCModuleHelper::getSettingsSection(v);
+				std::list<std::wstring> list = GET_CORE()->getSettingsSection(v);
 				push_array(L, list);
 			} catch (...) {
 				return luaL_error(L, "Unknown exception getting section");
@@ -272,7 +271,7 @@ namespace script_wrapper {
 			for (int i=0;i<nargs;i++) {
 				str += pop_string(L);
 			}
-			NSCModuleHelper::Message(mode, w.first, w.second, str);
+			GET_CORE()->Message(mode, to_string(w.first), w.second, str);
 			return 0;
 		}
 
@@ -361,7 +360,7 @@ namespace script_wrapper {
 			return NSCAPI::returnUNKNOWN;
 		}
 
-		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, std::wstring function, strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) {
+		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, std::wstring function, std::wstring cmd, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
 			lua_manager::set_handler(L, handler);
 			lua_manager::set_script(L, this);
 			int nargs = lua_gettop( L );
@@ -370,13 +369,13 @@ namespace script_wrapper {
 				lua_pop(L, 1); // remove function from LUA stack
 				throw LUAException(_T("Failed to run script: ") + script_ + _T(": Function not found: handle"));
 			}
-			std::wstring cmd = command.c_str();
 			lua_pushstring(L, w2s(cmd).c_str()); 
 
-			lua_createtable(L, 0, argLen);
-			for (unsigned int i=0;i<argLen;i++) {
-				lua_pushnumber(L,i+1);
-				lua_pushstring(L,strEx::wstring_to_string(char_args[i]).c_str());
+			lua_createtable(L, 0, arguments.size());
+			int i=0;
+			BOOST_FOREACH(std::wstring arg, arguments) {
+				lua_pushnumber(L,i++);
+				lua_pushstring(L,strEx::wstring_to_string(arg).c_str());
 				lua_settable(L,-3);
 			}
 

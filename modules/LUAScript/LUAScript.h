@@ -25,7 +25,7 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 #include "script_wrapper.hpp"
 
-class LUAScript : script_wrapper::lua_handler {
+class LUAScript : public nscapi::impl::SimpleCommand, public script_wrapper::lua_handler, public nscapi::impl::simple_plugin {
 private:
 
 	class lua_func {
@@ -35,22 +35,25 @@ private:
 		script_wrapper::lua_script* script;
 		std::wstring function;
 
-		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &msg, std::wstring &perf) const {
-			return script->handleCommand(handler, function, command, argLen, char_args, msg, perf);
+		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) const {
+			return script->handleCommand(handler, function, command, arguments, msg, perf);
 		}
 	};
 
-	typedef std::map<strEx::blindstr,lua_func> cmd_list;
+	typedef std::map<strEx::wci_string,lua_func> cmd_list;
 	typedef std::list<script_wrapper::lua_script*> script_list;
 
 	cmd_list commands_;
 	script_list scripts_;
+	std::wstring root_;
 
 public:
 	LUAScript();
 	virtual ~LUAScript();
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+
 	bool unloadModule();
 	bool reload(std::wstring &msg);
 
@@ -60,15 +63,15 @@ public:
 	std::wstring getModuleDescription() {
 		return _T("LUAScript...");
 	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	bool loadScript(const std::wstring script);
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);
 

@@ -849,7 +849,7 @@ typedef struct NSPROCDATA__ {
 	NSPROCDATA__() : count(0), hung_count(0) {}
 	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), hung_count(other.hung_count), entry(other.entry), key(other.key) {}
 } NSPROCDATA;
-typedef std::map<std::wstring,NSPROCDATA,strEx::StrICmp> NSPROCLST;
+typedef std::map<std::wstring,NSPROCDATA> NSPROCLST;
 
 class NSC_error : public CEnumProcess::error_reporter {
 	void report_error(std::wstring error) {
