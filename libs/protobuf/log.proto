@@ -1,0 +1,22 @@
+package LogMessage;
+
+message Message {
+	enum Level {
+		LOG_DEBUG	=  0;
+		LOG_INFO 	= 10;
+		LOG_WARNING	= 20;
+		LOG_ERROR	= 30;
+		LOG_CRITICAL	= 40;
+	};
+	required Level	level	= 1;
+	optional string	sender	= 2;
+	optional string	file	= 3;
+	optional int32	line	= 4;
+	optional string	message = 5;
+};
+
+message LogMessage {
+	repeated Message message = 1;
+}
+
+
