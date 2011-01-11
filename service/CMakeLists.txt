@@ -7,8 +7,6 @@ INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 #INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
-
 SET(VERSION_HPP ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp)
 
 ADD_CUSTOM_TARGET(
@@ -29,6 +27,7 @@ SET(service_SRCS
 	settings_logger_impl.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDEDIR}/b64/b64.c
@@ -69,6 +68,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/settings/settings_core_impl.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_handler_impl.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
+		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 		${NSCP_INCLUDEDIR}/com_helpers.hpp
 		${NSCP_INCLUDEDIR}/dll/dll.hpp
 		${NSCP_INCLUDEDIR}/dll/impl_unix.hpp
@@ -88,12 +88,19 @@ IF(WIN32)
 
 ENDIF(WIN32)
 IF(BREAKPAD_FOUND)
-	SET(EXTRA_LIBS ${BREAKPAD_COMMON_LIBRARY})
+	SET(service_SRCS ${service_SRCS} ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp)
+	IF(WIN32)
+		SET(service_SRCS ${service_SRCS} ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp)
+	ENDIF(WIN32)
+	SET(EXTRA_LIBS ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_EXCEPTION_HANDLER_LIBRARY} ${BREAKPAD_CRASH_GENERATION_CLIENT_LIBRARY})
+	ADD_DEFINITIONS(-DUSE_BREAKPAD)
 ENDIF(BREAKPAD_FOUND)
 
 
 add_executable (${TARGET} ${service_SRCS})
 add_dependencies(${TARGET} ${TARGET}_VERSION)
+
+MESSAGE(STATUS "Extra: ${EXTRA_LIBS}")
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

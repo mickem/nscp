@@ -51,6 +51,8 @@ namespace nsclient {
 					std::wcout << _T("Reattaching to session 0") << std::endl;
 					core_->startTrayIcon(0);
 				} else if (s == _T("assert")) {
+					int *foo = 0;
+					*foo = 0;
 					throw "test";
 				} else {
 					strEx::token t = strEx::getToken(s, ' ');

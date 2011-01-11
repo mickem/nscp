@@ -43,7 +43,7 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	//std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
 
-		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, _T("lua"));
 
 		settings.alias().add_path_to_settings()

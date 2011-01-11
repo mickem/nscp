@@ -1,6 +1,8 @@
 #include "StdAfx.h"
 
 #include "settings_manager_impl.h"
+#include <settings/client/settings_proxy.hpp>
+#include <settings/client/settings_client.hpp>
 #include <config.h>
 #include "NSClient++.h"
 
@@ -11,6 +13,9 @@ extern NSClient mainClient;
 
 namespace settings_manager {
 	// Alias to make handling "compatible" with old syntax
+	nscapi::settings_helper::settings_impl_interface_ptr get_proxy() {
+		return nscapi::settings_helper::settings_impl_interface_ptr(new settings_client::settings_proxy(SettingsHandler::getInstance()));
+	}
 	settings::instance_ptr get_settings() {
 		return SettingsHandler::getInstance()->get();
 	}
@@ -30,6 +35,10 @@ namespace settings_manager {
 			file = fallback;
 		return mainClient.expand_path(file);
 	}
+	std::wstring NSCSettingsImpl::expand_path(std::wstring file) {
+		return mainClient.expand_path(file);
+	}
+
 
 	//////////////////////////////////////////////////////////////////////////
 	/// Create an instance of a given type.

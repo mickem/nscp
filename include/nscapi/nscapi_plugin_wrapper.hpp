@@ -31,6 +31,7 @@
 
 #include <unicode_char.hpp>
 #include <strEx.h>
+#include <nscapi/settings_proxy.hpp>
 
 #include "../libs/protobuf/plugin.proto.h"
 #include "../libs/protobuf/log.proto.h"
@@ -174,6 +175,9 @@ namespace nscapi {
 		public:
 			inline nscapi::core_wrapper* get_core() {
 				return nscapi::plugin_singleton->get_core();
+			}
+			inline boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy() {
+				return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(nscapi::plugin_singleton->get_core()));
 			}
 		};
 

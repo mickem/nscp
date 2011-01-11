@@ -171,6 +171,7 @@ void run_command(ExceptionManager* this_ptr, std::wstring exe, std::wstring comm
 
 static bool MinidumpCallback(const wchar_t *minidump_folder, const wchar_t *minidump_id, void *context, EXCEPTION_POINTERS *exinfo, MDRawAssertionInfo *assertion, bool succeeded) {
 	ExceptionManager* this_ptr = reinterpret_cast<ExceptionManager*>(context);
+	report_info(_T("Detected crash..."));
 
 	wchar_t minidump_path[MAX_PATH];
 	_snwprintf(minidump_path, sizeof(minidump_path), L"%s\\%s.dmp", minidump_folder, minidump_id);

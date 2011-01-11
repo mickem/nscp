@@ -59,6 +59,8 @@ namespace settings {
 			set_logger(NULL);
 		}
 
+		virtual std::wstring expand_path(std::wstring key) = 0;
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the basepath for the settings subsystem.
 		/// In other words set where the settings files reside

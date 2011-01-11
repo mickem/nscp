@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <nrpe/packet.hpp>
 
 
-class NRPEClient : public nscapi::impl::SimpleCommand {
+class NRPEClient : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin {
 private:
 	typedef enum {
 		inject, script, script_dir,

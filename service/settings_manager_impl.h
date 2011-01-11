@@ -3,6 +3,7 @@
 #include "settings_logger_impl.hpp"
 #include <settings/settings_core.hpp>
 #include <settings/settings_ini.hpp>
+#include <settings/client/settings_client.hpp>
 #ifdef WIN32
 #include <settings/settings_old.hpp>
 #include <settings/settings_registry.hpp>
@@ -46,8 +47,9 @@ namespace settings_manager {
 
 	// Alias to make handling "compatible" with old syntax
 	settings::instance_ptr get_settings();
-	 settings::instance_ptr get_settings_no_wait();
+	settings::instance_ptr get_settings_no_wait();
 	settings::settings_core* get_core();
+	nscapi::settings_helper::settings_impl_interface_ptr get_proxy();
 	void destroy_settings();
 	bool init_settings(std::wstring context = _T(""));
 }

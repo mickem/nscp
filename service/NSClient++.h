@@ -170,7 +170,6 @@ public:
 	std::wstring describeCommand(std::wstring command);
 	std::list<std::wstring> getAllCommandNames();
 	void registerCommand(unsigned int id, std::wstring cmd, std::wstring desc);
-	unsigned int getBufferLength();
 	void startTrayIcons();
 	void startTrayIcon(DWORD dwSessionId);
 

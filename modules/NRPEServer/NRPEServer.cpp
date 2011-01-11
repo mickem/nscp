@@ -58,7 +58,7 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 */
 	try {
 
-		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));
 
 		settings.alias().add_path_to_settings()

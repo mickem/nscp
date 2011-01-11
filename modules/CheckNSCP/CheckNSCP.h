@@ -29,8 +29,6 @@ private:
 	typedef std::list<std::string> error_list;
 	error_list errors_;
 public:
-	CheckNSCP();
-	virtual ~CheckNSCP();
 	// Module calls
 	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);

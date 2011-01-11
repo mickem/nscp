@@ -1,0 +1,91 @@
+# Modules section
+
+modules/FileLogger.dll=/modules/FileLogger
+modules/CheckSystem.dll=/modules/CheckSystem
+modules/CheckDisk.dll=/modules/CheckDisk
+modules/NSClientListener.dll=/modules/NSClientServer
+modules/NRPEListener.dll=/modules/NRPEServer
+modules/SysTray.dll=/modules/SysTray
+modules/CheckEventLog.dll=/modules/CheckEventLog
+modules/CheckHelpers.dll=/modules/CheckHelpers
+modules/CheckWMI.dll=/modules/CheckWMI
+modules/CheckNSCP.dll=/modules/CheckNSCP
+modules/CheckExternalScripts.dll=/modules/CheckExternalScripts
+modules/NSCAAgent.dll=/modules/NSCAAgent
+modules/LUAScript.dll=/modules/LUAScript
+modules/NRPEClient.dll=/modules/NRPEClient
+modules/CheckTaskSched.dll=/modules/CheckTaskSched
+
+# Crash section
+
+crash/archive=/settings/crash/archive
+crash/submit=/settings/crash/submit
+crash/restart=/settings/crash/restart
+
+# Settings section
+
+Settings/obfuscated_password=/settings/default/obfuscated password
+Settings/password=/settings/default/password
+Settings/allowed_hosts=/settings/allowed hosts
+Settings/shared_session=/settings/shared_session
+
+# Log section
+
+log/file=/settings/log/file
+log/date_mask=/settings/log/date mask
+# log/debug
+# log/root_folder
+
+NSClient/allowed_hosts=/settings/NSClientServer/allowed hosts
+NSClient/port=/settings/NSClientServer/port
+NSClient/bind_to_address=/settings/NSClientServer/bind to address
+NSClient/socket_timeout=/settings/NSClientServer/socket timeout
+
+NRPE/allowed_hosts=/settings/NRPE/server/allowed hosts
+NRPE/port=/settings/NRPE/server/port
+NRPE/bind_to_address=/settings/NRPE/server/bind to address
+NRPE/socket_timeout=/settings/NRPE/server/socket timeout
+NRPE/command_timeout=/settings/NRPE/server/command timeout
+NRPE/allow_arguments=/settings/NRPE/server/allow arguments
+NRPE/allow_nasty_meta_chars=/settings/NRPE/server/allow nasty meta chars
+NRPE/use_ssl=/settings/NRPE/server/ssl
+# NRPE/script_dir
+
+Check System/CPUBufferSize=/settings/CheckSystem/CPUBufferSize
+Check System/CheckResolution=/settings/CheckSystem/CheckResolution
+#Check System/check_all_services[SERVICE_BOOT_START]
+#Check System/check_all_services[SERVICE_SYSTEM_START]
+#Check System/check_all_services[SERVICE_AUTO_START]
+#Check System/check_all_services[SERVICE_DEMAND_START]
+#Check System/check_all_services[SERVICE_DISABLED]
+
+External Script/command_timeout=/settings/External Scripts/command timeout
+External Script/allow_arguments=/settings/External Scripts/allow arguments
+External Script/allow_nasty_meta_chars=/settings/External Scripts/allow_nasty_meta_chars
+External Script/script_dir=/settings/External Scripts/script folder
+
+#Script Wrappings/vbs=
+#Script Wrappings/ps1=
+#Script Wrappings/bat=
+
+External Scripts/*=/settings/External Scripts/command
+
+External Alias/*=/settings/External Alias/command
+
+#Wrapped Scripts/*=
+
+includes/*=/include/*
+
+#NSCA Agent/interval=
+#NSCA Agent/encryption_method=
+#NSCA Agent/password=
+#NSCA Agent/bind_to_address=
+#NSCA Agent/hostname=
+#NSCA Agent/nsca_host=192.168.0.1
+#NSCA Agent/nsca_port=5667
+
+#NSCA Commands/*=
+
+#NRPE Client Handlers/*=
+
+#LUA Scripts/*=

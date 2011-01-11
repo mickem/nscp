@@ -19,9 +19,6 @@
 #include <config.h>
 #include <msvc_wrappers.h>
 #include <arrayBuffer.h>
-//#include <settings/settings_ini.hpp>
-//#include <settings/settings_registry.hpp>
-//#include <settings/settings_old.hpp>
 #include <settings/settings_core.hpp>
 #include "settings_manager_impl.h"
 #include <b64/b64.h>

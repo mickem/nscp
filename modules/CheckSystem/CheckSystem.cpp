@@ -69,7 +69,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 		std::map<std::wstring,std::wstring> service_mappings;
 		bool default_counters;
 
-		sh::settings_registry settings(get_core());
+		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("check"), alias, _T("system/windows"));
 
 		settings.alias().add_path_to_settings()

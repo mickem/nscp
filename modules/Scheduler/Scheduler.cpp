@@ -39,7 +39,7 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		typedef std::map<std::wstring,std::wstring> schedule_map;
 		schedule_map schedules;
-		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("scheduler"), alias);
 
 		settings.alias().add_path_to_settings()
@@ -95,7 +95,7 @@ scheduler::target Scheduler::read_schedule(std::wstring path, std::wstring sched
 	scheduler::target item;
 	std::wstring report, duration;
 
-	sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+	sh::settings_registry settings(get_settings_proxy());
 
 	settings.path(path).add_path()
 		(_T("SCHEDULE DEFENITION"), _T("Schedule defenition for: ") + schedule_name)

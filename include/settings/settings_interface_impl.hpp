@@ -124,6 +124,11 @@ namespace settings {
 				throw settings_exception(_T("FATAL ERROR: Settings subsystem not initialized"));
 			return core_;
 		}
+		logger_interface* get_logger() const {
+			if (core_ == NULL)
+				throw settings_exception(_T("FATAL ERROR: Settings subsystem not initialized"));
+			return core_->get_logger();
+		}
 
 		void add_child(std::wstring context) {
 			MUTEX_GUARD();

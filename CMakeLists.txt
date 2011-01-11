@@ -57,9 +57,6 @@ ELSE(WIN32 AND MSVC)
 # TODO
 ENDIF(WIN32 AND MSVC)
 
-
-#SET(BREAKPAD_EXCEPTION_HANDLER_LIBRARIES "${INC_GOOGLE_BREAKPAD}/src" CACHE PATH "Path to Google breakpad include folder")
-
 # ### ### ### ###
 # Build related paths
 SET(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/build/python")
@@ -142,7 +139,7 @@ ELSE(WIN32)
   SET(DEPLOYROOT /usr/bin CACHE PATH "Path to deploy examples into)")
 ENDIF(WIN32)
 
-FIND_PACKAGE(GoogleBreakpad COMPONENTS common exception_handler crash_report_sender)
+FIND_PACKAGE(GoogleBreakpad COMPONENTS common exception_handler crash_report_sender crash_generation_client)
 if(BREAKPAD_FOUND)
 	MESSAGE(STATUS "Found google breakpad")
 	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DUSE_BREAK_PAD)
@@ -240,7 +237,7 @@ SET(NSCP_DEF_PLUGIN_CPP
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
-	${NSCP_INCLUDEDIR}/nscapi/settings.cpp
+	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 )
 
 SET(NSCP_DEF_PLUGIN_HPP
@@ -252,7 +249,8 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp	
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp
-	${NSCP_INCLUDEDIR}/nscapi/settings.hpp
+	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+	${NSCP_INCLUDEDIR}/nscapi/settings_proxy.hpp
 	${NSCP_INCLUDEDIR}/nscapi/macros.hpp
 )
 

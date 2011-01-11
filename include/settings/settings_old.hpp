@@ -5,121 +5,76 @@
 #include <settings/settings_core.hpp>
 #include <simpleini/SimpleIni.h>
 #include <settings/macros.h>
+#include <iostream>
+#include <fstream>
 
-#define MAIN_MODULES_SECTION_OLD _T("modules")
-#define MAIN_SECTION_TITLE _T("Settings")
-#define MAIN_STRING_LENGTH _T("string_length")
+
+//#define MAIN_MODULES_SECTION_OLD _T("modules")
+//#define MAIN_SECTION_TITLE _T("Settings")
+//#define MAIN_STRING_LENGTH _T("string_length")
 
 namespace settings {
 	class OLDSettings : public settings::SettingsInterfaceImpl {
 		std::wstring filename_;
 	public:
 		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			add_mapping(MAIN_MODULES_SECTION, MAIN_MODULES_SECTION_OLD);
-			add_mapping(setting_keys::settings_def::PAYLOAD_LEN_PATH, setting_keys::settings_def::PAYLOAD_LEN, MAIN_SECTION_TITLE, MAIN_STRING_LENGTH);
+			std::wstring fname = core->find_file(_T("${exe-path}/old-settings.map"), _T("old-settings.map"));
+			read_map_file(fname);
+		}
+		void read_map_file(std::wstring file) {
+			get_logger()->debug(__FILE__, __LINE__, _T("Reading MAP file: ") + file);
 
-#define SETTINGS_MAP_KEY_A(name, section, key) \
-	add_mapping(setting_keys::name ## _PATH, setting_keys::name, section, key);
-#define SETTINGS_MAP_SECTION_A(name, section) \
-	add_mapping(setting_keys::name ## _PATH, section);
+			std::ifstream in(strEx::wstring_to_string(file).c_str());
+			if(!in) {
+				get_logger()->err(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
+				return;
+			}
+			in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
 
-
-#define EXTSCRIPT_SECTION_TITLE _T("External Script")
-#define EXTSCRIPT_SETTINGS_ALLOW_ARGUMENTS _T("allow_arguments")
-#define EXTSCRIPT_SETTINGS_ALLOW_NASTY_META _T("allow_nasty_meta_chars")
-#define EXTSCRIPT_SETTINGS_TIMEOUT _T("command_timeout")
-#define EXTSCRIPT_SETTINGS_SCRIPTDIR _T("script_dir")
-#define EXTSCRIPT_SCRIPT_SECTION_TITLE _T("External Scripts")
-#define EXTSCRIPT_ALIAS_SECTION_TITLE _T("External Alias")
-
-			SETTINGS_MAP_KEY_A(external_scripts::TIMEOUT,		EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_TIMEOUT);
-			SETTINGS_MAP_KEY_A(external_scripts::SCRIPT_PATH,	EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_SCRIPTDIR);
-			SETTINGS_MAP_KEY_A(external_scripts::ALLOW_ARGS,	EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_ARGUMENTS);
-			SETTINGS_MAP_KEY_A(external_scripts::ALLOW_NASTY,	EXTSCRIPT_SECTION_TITLE, EXTSCRIPT_SETTINGS_ALLOW_NASTY_META);
-
-			SETTINGS_MAP_SECTION_A(external_scripts::SCRIPT_SECTION,EXTSCRIPT_SCRIPT_SECTION_TITLE);
-			SETTINGS_MAP_SECTION_A(external_scripts::ALIAS_SECTION,EXTSCRIPT_ALIAS_SECTION_TITLE);
-
-#define LOG_SECTION_TITLE _T("log")
-#define LOG_FILENAME _T("file") 
-#define LOG_DATEMASK _T("date_mask")
-
-			SETTINGS_MAP_KEY_A(log::FILENAME,	LOG_SECTION_TITLE, LOG_FILENAME);
-			SETTINGS_MAP_KEY_A(log::DATEMASK,	LOG_SECTION_TITLE, LOG_DATEMASK);
-			SETTINGS_MAP_KEY_A(log::DEBUG_LOG,	LOG_SECTION_TITLE, _T("debug"));
-
-#define EVENTLOG_SECTION_TITLE _T("Eventlog")
-#define EVENTLOG_DEBUG _T("debug")
-#define EVENTLOG_SYNTAX _T("syntax")
-			SETTINGS_MAP_KEY_A(event_log::DEBUG_KEY,	EVENTLOG_SECTION_TITLE, EVENTLOG_DEBUG);
-			SETTINGS_MAP_KEY_A(event_log::SYNTAX,		EVENTLOG_SECTION_TITLE, EVENTLOG_SYNTAX);
-
-
-#define LUA_SCRIPT_SECTION_TITLE _T("LUA Scripts")
-			SETTINGS_MAP_SECTION_A(lua::SECTION,	LUA_SCRIPT_SECTION_TITLE);
-
-#define NRPE_SECTION_TITLE _T("NRPE")
-#define NRPE_SETTINGS_READ_TIMEOUT _T("socket_timeout")
-#define NRPE_SETTINGS_PORT _T("port")
-#define NRPE_SETTINGS_BINDADDR _T("bind_to_address")
-#define NRPE_SETTINGS_LISTENQUE _T("socket_back_log")
-#define NRPE_SETTINGS_USE_SSL _T("use_ssl")
-#define NRPE_SETTINGS_STRLEN _T("string_length")
-#define NRPE_SETTINGS_PERFDATA _T("performance_data")
-#define NRPE_HANDLER_SECTION_TITLE _T("NRPE Handlers")
-#define NRPE_SETTINGS_SCRIPTDIR _T("script_dir")
-#define NRPE_SETTINGS_TIMEOUT _T("command_timeout")
-#define NRPE_SETTINGS_ALLOW_ARGUMENTS _T("allow_arguments")
-#define NRPE_SETTINGS_ALLOW_NASTY_META _T("allow_nasty_meta_chars")
-
-			SETTINGS_MAP_KEY_A(nrpe::PORT,			NRPE_SECTION_TITLE, NRPE_SETTINGS_PORT);
-			SETTINGS_MAP_KEY_A(nrpe::BINDADDR,		NRPE_SECTION_TITLE, NRPE_SETTINGS_BINDADDR);
-			SETTINGS_MAP_KEY_A(nrpe::LISTENQUE,		NRPE_SECTION_TITLE, NRPE_SETTINGS_LISTENQUE);
-			SETTINGS_MAP_KEY_A(nrpe::READ_TIMEOUT,	NRPE_SECTION_TITLE, NRPE_SETTINGS_READ_TIMEOUT);
-			SETTINGS_MAP_KEY_A(nrpe::KEYUSE_SSL,	NRPE_SECTION_TITLE, NRPE_SETTINGS_USE_SSL);
-			SETTINGS_MAP_KEY_A(nrpe::PAYLOAD_LENGTH,NRPE_SECTION_TITLE, NRPE_SETTINGS_STRLEN);
-			SETTINGS_MAP_KEY_A(nrpe::ALLOW_PERFDATA,NRPE_SECTION_TITLE, NRPE_SETTINGS_PERFDATA);
-			SETTINGS_MAP_KEY_A(nrpe::CMD_TIMEOUT,	NRPE_SECTION_TITLE, NRPE_SETTINGS_TIMEOUT);
-			SETTINGS_MAP_KEY_A(nrpe::ALLOW_ARGS,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_ARGUMENTS);
-			SETTINGS_MAP_KEY_A(nrpe::ALLOW_NASTY,	NRPE_SECTION_TITLE, NRPE_SETTINGS_ALLOW_NASTY_META);
-
-#define NSCA_AGENT_SECTION_TITLE _T("NSCA Agent")
-#define NSCA_CMD_SECTION_TITLE _T("NSCA Commands")
-
-#define NSCA_INTERVAL _T("interval")
-#define NSCA_HOSTNAME _T("hostname")
-#define NSCA_SERVER _T("nsca_host")
-#define NSCA_PORT _T("nsca_port")
-#define NSCA_ENCRYPTION _T("encryption_method")
-#define NSCA_PASSWORD _T("password")
-#define NSCA_DEBUG_THREADS _T("debug_threads")
-#define NSCA_CACHE_HOST _T("cache_hostname")
-
-			SETTINGS_MAP_KEY_A(nsca::INTERVAL,		NSCA_AGENT_SECTION_TITLE, NSCA_INTERVAL);
-			SETTINGS_MAP_KEY_A(nsca::HOSTNAME,		NSCA_AGENT_SECTION_TITLE, NSCA_HOSTNAME);
-			SETTINGS_MAP_KEY_A(nsca::SERVER_HOST,	NSCA_AGENT_SECTION_TITLE, NSCA_SERVER);
-			SETTINGS_MAP_KEY_A(nsca::SERVER_PORT,	NSCA_AGENT_SECTION_TITLE, NSCA_PORT);
-			SETTINGS_MAP_KEY_A(nsca::ENCRYPTION,	NSCA_AGENT_SECTION_TITLE, NSCA_ENCRYPTION);
-			SETTINGS_MAP_KEY_A(nsca::PASSWORD,		NSCA_AGENT_SECTION_TITLE, NSCA_PASSWORD);
-			SETTINGS_MAP_KEY_A(nsca::THREADS,		NSCA_AGENT_SECTION_TITLE, NSCA_DEBUG_THREADS);
-			SETTINGS_MAP_KEY_A(nsca::CACHE_HOST,	NSCA_AGENT_SECTION_TITLE, NSCA_CACHE_HOST);
-
-			SETTINGS_MAP_SECTION_A(nsca::CMD_SECTION,	NSCA_CMD_SECTION_TITLE);
-
-#define NSCLIENT_SECTION_TITLE _T("NSClient")
-#define NSCLIENT_SETTINGS_PORT _T("port")
-#define NSCLIENT_SETTINGS_VERSION _T("version")
-#define NSCLIENT_SETTINGS_BINDADDR _T("bind_to_address")
-#define NSCLIENT_SETTINGS_LISTENQUE _T("socket_back_log")
-#define NSCLIENT_SETTINGS_READ_TIMEOUT _T("socket_timeout")
-
-			SETTINGS_MAP_KEY_A(nsclient::PORT,			NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_PORT);
-			SETTINGS_MAP_KEY_A(nsclient::VERSION,		NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_VERSION);
-			SETTINGS_MAP_KEY_A(nsclient::BINDADDR,		NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_BINDADDR);
-			SETTINGS_MAP_KEY_A(nsclient::LISTENQUE,		NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_LISTENQUE);
-			SETTINGS_MAP_KEY_A(nsclient::READ_TIMEOUT,	NSCLIENT_SECTION_TITLE, NSCLIENT_SETTINGS_READ_TIMEOUT);
+			try{
+				std::string tmp;
+				while(true) {
+					std::getline(in,tmp);
+					parse_line(to_wstring(tmp));
+				}
+			}
+			catch(std::ifstream::failure e){
+				if(!in.eof())
+					cerr << e.what() <<'\n';
+			}
+		}
+		void parse_line(std::wstring line) {
+			int pos = line.find('#');
+			if (pos != -1)
+				line = line.substr(0, pos);
+			pos = line.find_first_not_of(_T(" \t"));
+			if (pos == -1)
+				return;
+			line = line.substr(pos);
+			pos = line.find('=');
+			if (pos == -1) {
+				get_logger()->err(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
+				return;
+			}
+			std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
+			std::pair<std::wstring,std::wstring> new_key = split_key(line.substr(pos+1));
+			if (old_key.second == _T("*") || old_key.second.empty()) {
+				add_mapping(new_key.first, old_key.first);
+				get_logger()->debug(__FILE__, __LINE__, _T("Adding: ") + old_key.first + _T(" >> ") + new_key.first);
+			} else {
+				add_mapping(new_key.first, new_key.second, old_key.first, old_key.second);
+				get_logger()->debug(__FILE__, __LINE__, _T("Adding: ") + old_key.first + _T(":") + old_key.second + _T(" >> ") + new_key.first + _T(":") + new_key.second);
+			}
 
 		}
+		std::pair<std::wstring,std::wstring> split_key(std::wstring key) {
+			std::pair<std::wstring,std::wstring> ret;
+			int pos = key.find_last_of('/');
+			if (pos == -1)
+				return std::pair<std::wstring,std::wstring>(key, _T(""));
+			return std::pair<std::wstring,std::wstring>(key.substr(0, pos), key.substr(pos+1));
+		}
+
 		typedef std::map<std::wstring,std::wstring> path_map;
 		typedef std::map<settings_core::key_path_type,settings_core::key_path_type> key_map;
 		path_map sections_;

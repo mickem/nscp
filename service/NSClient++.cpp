@@ -38,9 +38,16 @@
 #include "settings_client.hpp"
 #include "service_manager.hpp"
 #include <nscapi/nscapi_helper.hpp>
+#include <settings/client/settings_client.hpp>
 #include "cli_parser.hpp"
 
 #include "../libs/protobuf/plugin.proto.h"
+
+#ifdef USE_BREAKPAD
+#include <breakpad/exception_handler_win32.hpp>
+// Used for breakpad crash handling
+static ExceptionManager *g_exception_manager = NULL;
+#endif
 
 NSClient mainClient(SZSERVICENAME);	// Global core instance.
 
@@ -53,16 +60,6 @@ NSClient mainClient(SZSERVICENAME);	// Global core instance.
 #define LOG_DEBUG_CORE(msg) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::wstring(msg))
 
-
-#define SETTINGS_GET_BOOL_CORE(key) \
-	settings_manager::get_settings()->get_bool(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
-
-#define SETTINGS_GET_STRING_CORE(key) \
-	settings_manager::get_settings()->get_string(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
-/*
-#define SETTINGS_SET_STRING_CORE(key, value) \
-	settings::get_settings()->set_string(setting_keys::key ## _PATH, setting_keys::key, value);
-*/
 /**
  * START OF Tray starter MERGE HELPER
  */
@@ -97,10 +94,9 @@ public:
 		return 0;
 	}
 
-	static bool start(unsigned long  dwSessionId) {
-		boost::filesystem::wpath program = mainClient.getBasePath() / SETTINGS_GET_STRING_CORE(settings_def::SYSTRAY_EXE);
-		std::wstring cmdln = _T("\"") + program.string() + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
-		return tray_starter::startTrayHelper(dwSessionId, program.string(), cmdln);
+	static bool start(std::wstring command, unsigned long  dwSessionId) {
+		std::wstring cmdln = _T("\"") + command + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
+		return tray_starter::startTrayHelper(dwSessionId, command, cmdln);
 	}
 
 	static bool startTrayHelper(unsigned long dwSessionId, std::wstring exe, std::wstring cmdline, bool startThread = true) {
@@ -202,21 +198,6 @@ public:
 /**
  * End of class tray started (MERGE HELP)
  */
-
-#define XNSC_DEFINE_SETTING_KEY(name, tag) \
-	name ## _SECTION \
-	
- /**
- * RANDOM JUNK (MERGE HELP)
- */
-
-void display(std::wstring title, std::wstring message) {
-#ifdef WIN32
-	::MessageBox(NULL, message.c_str(), title.c_str(), MB_OK|MB_ICONERROR);
-#endif
-	std::wcout << title << std::endl << message << std::endl;
-}
-
 
 bool is_module(boost::filesystem::wpath file ) 
 {
@@ -439,6 +420,8 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 	BOOST_FOREACH(std::wstring key, list) {
 		std::wstring val = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key);
+		if ((key.length() > 4) && (key.substr(key.length()-4) == _T(".dll")) )
+			key = key.substr(0, key.length()-4);
 		if (val.empty() || val == _T("enabled")) {
 			ret.insert(plugin_alias_list_type::value_type(_T(""), key));
 		} else if (val == _T("disabled") && !active) {
@@ -560,6 +543,8 @@ void NSClientT::session_info(std::string file, unsigned int line, std::wstring m
 //////////////////////////////////////////////////////////////////////////
 // Service functions
 
+namespace sh = nscapi::settings_helper;
+
 /**
  * Initialize the program
  * @param boot true if we shall boot all plugins
@@ -573,15 +558,92 @@ bool NSClientT::initCore(bool boot) {
 	if (!settings_manager::init_settings(context_)) {
 		return false;
 	}
-	LOG_INFO_CORE(_T("Got settings subsystem..."));
+	LOG_INFO_CORE(_T("Booted settings subsystem..."));
+
+	bool crash_submit = false;
+	bool crash_archive = false;
+	bool crash_restart = false;
+	std::wstring crash_url, crash_folder, crash_target, log_level;
 	try {
-		if (debug_)
-			settings_manager::get_settings()->set_int(_T("log"), _T("debug"), 1);
-		settings_manager::get_settings()->set_int(_T("Settings"), _T("shared_Session"), 1);
-		enable_shared_session_ = false; //SETTINGS_GET_BOOL_CORE(settings_def::SHARED_SESSION);
+
+		sh::settings_registry settings(settings_manager::get_proxy());
+
+		settings.add_path_to_settings()
+			(_T("log"),			_T("LOG SETTINGS"), _T("Section for configuring the log handling."))
+			(_T("shared session"),	_T("SHRED SESSION"), _T("Section for configuring the shared session."))
+			(_T("crash"),			_T("CRASH HANDLER"), _T("Section for configuring the crash handler."))
+			;
+
+		settings.add_key_to_settings(_T("log"))
+			(_T("level"), sh::wstring_key(&log_level, _T("INFO")),
+			_T("LOG LEVEL"), _T("Log level to use"))
+			;
+
+		settings.add_key_to_settings(_T("shared session"))
+			(_T("enabled"), sh::bool_key(&enable_shared_session_ , false),
+			_T("LOG LEVEL"), _T("Log level to use"))
+			;
+
+		settings.add_key_to_settings(_T("crash"))
+			(_T("submit"), sh::bool_key(&crash_submit, false),
+			_T("SUBMIT CRASHREPORTS"), _T("Submit crash reports to nsclient.org (or your configured submission server)"))
+
+			(_T("archive"), sh::bool_key(&crash_archive, true),
+			_T("ARCHIVE CRASHREPORTS"), _T("Archive crash reports in the archive folder"))
+
+			(_T("restart"), sh::bool_key(&crash_restart, true),
+			_T("RESTART"), _T("Submit crash reports to nsclient.org (or your configured submission server)"))
+
+			(_T("restart target"), sh::wstring_key(&crash_target, SZSERVICENAME),
+			_T("RESTART SERVICE NAME"), _T("The url to submit crash reports to"))
+
+			(_T("submit url"), sh::wstring_key(&crash_url, CRASH_SUBMIT_URL),
+			_T("SUBMISSION URL"), _T("The url to submit crash reports to"))
+
+			(_T("archive folder"), sh::wpath_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
+			CRASH_ARCHIVE_FOLDER_KEY, _T("The folder to archive crash dumps in"))
+			;
+
+		settings.register_all();
+		settings.notify();
+
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_CORE_STD(_T("Could not find settings: ") + e.getMessage());
 	}
+
+#ifdef USE_BREAKPAD
+
+	if (!g_exception_manager) {
+		g_exception_manager = new ExceptionManager(false);
+
+		g_exception_manager->setup_app(to_wstring(SZSERVICENAME), to_wstring(STRPRODUCTVER), to_wstring(STRPRODUCTDATE));
+
+		if (crash_restart) {
+			LOG_DEBUG_CORE(_T("On crash: restart: ") + crash_target);
+			g_exception_manager->setup_restart(crash_target);
+		}
+
+		bool crashHandling = false;
+		if (crash_submit) {
+			g_exception_manager->setup_submit(false, crash_url);
+			LOG_DEBUG_CORE(_T("Submitting crash dumps to central server: ") + crash_url);
+			crashHandling = true;
+		}
+		if (crash_archive) {
+			g_exception_manager->setup_archive(crash_folder);
+			LOG_DEBUG_CORE(_T("Archiving crash dumps in: ") + crash_folder);
+			crashHandling = true;
+		}
+		if (!crashHandling) {
+			LOG_ERROR_CORE(_T("No crash handling configured"));
+		} else {
+			g_exception_manager->StartMonitoring();
+		}
+	}
+#else
+	LOG_ERROR_CORE(_T("Warning Not compiled with google breakpad support!"));
+#endif
+
 
 	if (enable_shared_session_) {
 		LOG_DEBUG_CORE(_T("Enabling shared session..."));
@@ -800,12 +862,12 @@ void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon
 // 		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
 // 		return;
 // 	}
-	LOG_DEBUG_CORE_STD(_T("Got session change: ") + strEx::itos(dwSessionId));
-	if (!logon) {
-		LOG_DEBUG_CORE_STD(_T("Not a logon event: ") + strEx::itos(dwEventType));
-		return;
-	}
-	tray_starter::start(dwSessionId);
+// 	LOG_DEBUG_CORE_STD(_T("Got session change: ") + strEx::itos(dwSessionId));
+// 	if (!logon) {
+// 		LOG_DEBUG_CORE_STD(_T("Not a logon event: ") + strEx::itos(dwEventType));
+// 		return;
+// 	}
+// 	tray_starter::start(dwSessionId);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -855,21 +917,7 @@ int NSClientT::commandLineExec(const wchar_t* module, const unsigned int argLen,
 	return 0;
 }
 
-/**
- * Load a list of plug-ins
- * @param plugins A list with plug-ins (DLL files) to load
- */
-// void NSClientT::addPlugins(const std::list<std::wstring> plugins) {
-// 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
-// 	if (!readLock.owns_lock()) {
-// 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (002)."));
-// 		return;
-// 	}
-// 	std::list<std::wstring>::const_iterator it;
-// 	for (it = plugins.begin(); it != plugins.end(); ++it) {
-// 		loadPlugin(*it);
-// 	}
-// }
+
 /**
  * Unload all plug-ins (in reversed order)
  */
@@ -1014,22 +1062,6 @@ std::list<std::wstring> NSClientT::getAllCommandNames() {
 }
 void NSClientT::registerCommand(unsigned int id, std::wstring cmd, std::wstring desc) {
 	return commands_.register_command(id, cmd, desc);
-}
-
-unsigned int NSClientT::getBufferLength() {
-	static unsigned int len = 0;
-	if (len == 0) {
-		try {
-			len = settings_manager::get_settings()->get_int(SETTINGS_KEY(settings_def::PAYLOAD_LEN));
-		} catch (settings::settings_exception &e) {
-			LOG_DEBUG_CORE_STD(_T("Failed to get length: ") + e.getMessage());
-			return setting_keys::settings_def::PAYLOAD_LEN_DEFAULT;
-		} catch (...) {
-			LOG_ERROR_CORE(_T("Failed to get length: :("));
-			return setting_keys::settings_def::PAYLOAD_LEN_DEFAULT;
-		}
-	}
-	return len;
 }
 
 NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf) {

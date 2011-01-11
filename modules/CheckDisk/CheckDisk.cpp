@@ -50,7 +50,7 @@ bool CheckDisk::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		get_core()->registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
 		get_core()->registerCommand(_T("CheckFile2"), _T("Check various aspects of a file and/or folder."));
 
-		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));
 
 		settings.alias().add_path_to_settings()

@@ -31,19 +31,13 @@ CheckNSCP gCheckNSCP;
 
 namespace sh = nscapi::settings_helper;
 
-CheckNSCP::CheckNSCP() {
-}
-CheckNSCP::~CheckNSCP() {
-}
-
 bool CheckNSCP::loadModule() {
 	return false;
 }
 bool CheckNSCP::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	//std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
 
-		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("crash"), alias);
 
 		settings.alias().add_path_to_settings()
@@ -51,23 +45,19 @@ bool CheckNSCP::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("archive"), sh::wstring_key(&crashFolder ),
-			_T("ARCHIVE FOLDER"), _T("The archive folder for crash dunpes."))
+			(_T("archive folder"), sh::wstring_key(&crashFolder, CRASH_ARCHIVE_FOLDER),
+			CRASH_ARCHIVE_FOLDER_KEY, _T("The archive folder for crash dunpes."))
 			;
 
 		settings.register_all();
 		settings.notify();
 
 		get_core()->registerCommand(_T("check_nscp"), _T("Check the internal healt of NSClient++."));
-		//crashFolder = NSCModuleHelper::getSettingsString(CRASH_SECTION_TITLE, CRASH_ARCHIVE_FOLDER, file_helpers::folders::get_subfolder(appRoot, _T("crash dumps")));
-
-
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 	}
-
 	return true;
 }
 bool CheckNSCP::unloadModule() {

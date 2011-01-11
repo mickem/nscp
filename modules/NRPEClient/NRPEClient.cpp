@@ -50,7 +50,7 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
 		//"/settings/NRPE/client/handlers"
-		sh::settings_registry settings(nscapi::plugin_singleton->get_core());
+		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("client"));
 
 		settings.alias().add_path_to_settings()

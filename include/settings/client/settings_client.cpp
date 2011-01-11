@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nscapi/settings.hpp>
+#include <settings/client/settings_client.hpp>
 
 namespace nscapi {
 	namespace settings_helper {
