@@ -1542,6 +1542,118 @@
 				>
 			</File>
 			<File
+				RelativePath=".\file_finder.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\file_info.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\filter.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\parsers\helpers.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Distribution|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Nightly|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug-MemCheck|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug-MemCheck|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="OP5|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath="..\..\include\NSCHelper.cpp"
 				>
 				<FileConfiguration
@@ -1697,6 +1809,10 @@
 						PrecompiledHeaderThrough=""
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\OldCheckDisk.cpp"
+				>
 			</File>
 			<File
 				RelativePath=".\stdafx.cpp"
@@ -2018,7 +2134,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\filter.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\filter_framework.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\parsers\helpers.hpp"
 				>
 			</File>
 			<File
@@ -2031,6 +2155,14 @@
 			</File>
 			<File
 				RelativePath="..\..\include\utils.h"
+				>
+			</File>
+			<File
+				RelativePath=".\where_filter.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\where_filter_impl.hpp"
 				>
 			</File>
 		</Filter>

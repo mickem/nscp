@@ -23,7 +23,7 @@ public:
 		start_time = getFT();
 	}
 	unsigned long long stop() {
-		unsigned int  ret = getFT() - start_time;
+		unsigned int ret = static_cast<unsigned int>(getFT() - start_time);
 		start();
 		return ret/1000;
 	}

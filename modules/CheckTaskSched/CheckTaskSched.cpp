@@ -26,6 +26,8 @@
 #include <map>
 #include <vector>
 
+#include "filter.hpp"
+
 
 CheckTaskSched gCheckTaskSched;
 
@@ -78,49 +80,29 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainer;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	typedef filters::chained_filter<TaskSched::wmi_filter,TaskSched::result> filter_chain;
-	filter_chain chain;
-	std::list<std::wstring> args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (args.empty()) {
+	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (stl_args.empty()) {
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
 	unsigned int truncate = 0;
 	std::wstring query, alias;
 	bool bPerfData = true;
-	bool bDebug = false;
+	std::wstring masterSyntax = _T("%list%");
+	tasksched_filter::filter_argument args = tasksched_filter::factories::create_argument(_T("%task%"));
 
 	WMIContainer result_query;
 	try {
-		MAP_OPTIONS_BEGIN(args)
+		MAP_OPTIONS_BEGIN(stl_args)
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 			MAP_OPTIONS_STR(_T("Alias"), alias)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_BOOL_TRUE(_T("debug"), bDebug)
+			MAP_OPTIONS_BOOL_TRUE(_T("debug"), args->debug)
 			MAP_OPTIONS_NUMERIC_ALL(result_query, _T(""))
 			MAP_OPTIONS_SHOWALL(result_query)
-
-
-			MAP_CHAINED_FILTER(accountName)
-		MAP_CHAINED_FILTER_ALIAS(applicationName)
-		MAP_CHAINED_FILTER(comment)
-		MAP_CHAINED_FILTER(creator)
-		//FETCH_TASK_SIMPLE_DWORD(errorRetryCount, GetErrorRetryCount, 0);
-		//FETCH_TASK_SIMPLE_DWORD(errorRetryInterval, GetErrorRetryInterval, 0);
-		MAP_CHAINED_FILTER_ALIAS(exitCode)
-		MAP_CHAINED_FILTER(flags)
-		//FETCH_TASK_SIMPLE_DWORD(flags, GetIdleWait, 0)
-		MAP_CHAINED_FILTER(flags)
-		MAP_CHAINED_FILTER_ALIAS(mostRecentRunTime)
-		MAP_CHAINED_FILTER_ALIAS(nextRunTime)
-
-		MAP_CHAINED_FILTER(parameters)
-		//MAP_CHAINED_FILTER(priority)
-		//MAP_CHAINED_FILTER(status)
-		// Trigger
-		MAP_CHAINED_FILTER_ALIAS(workingDirectory)
-
-//			MAP_CHAINED_FILTER(_T("numeric"),numeric)
+			MAP_OPTIONS_STR(_T("master-syntax"), masterSyntax)
+			MAP_OPTIONS_STR(_T("filter"), args->filter)
+			MAP_OPTIONS_STR(_T("syntax"), args->syntax)
 			MAP_OPTIONS_MISSING(message,_T("Invalid argument: "))
 			MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
@@ -128,31 +110,33 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 		return NSCAPI::returnCRIT;
 	}
 
-	if (bDebug)
-		NSC_DEBUG_MSG_STD(_T("Filters: ") + chain.debug());
-	TaskSched::result::fetch_key key(true);
-	TaskSched::result_type rows;
+	tasksched_filter::filter_engine impl = tasksched_filter::factories::create_engine(args);
+	if (!impl) {
+		message = _T("Failed to initialize filter subsystem.");
+		return NSCAPI::returnUNKNOWN;
+	}
+	impl->boot();
+	NSC_DEBUG_MSG_STD(_T("Using: ") + impl->get_name() + _T(" ") + impl->get_subject());
+	if (!impl->validate(message)) {
+		return NSCAPI::returnUNKNOWN;
+	}
+	//NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
+	tasksched_filter::filter_result result = tasksched_filter::factories::create_result(args);
+
+//	task_sched::result::fetch_key key(true);
 	try {
 		TaskSched wmiQuery;
-		rows = wmiQuery.findAll(key);
+		wmiQuery.findAll(result, args, impl);
 	} catch (TaskSched::Exception e) {
 		message = _T("WMIQuery failed: ") + e.getMessage();
 		return NSCAPI::returnCRIT;
 	}
-	int hit_count = 0;
-
-	bool match = chain.get_inital_state();
-	for (TaskSched::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
-		match = chain.match(match, *citRow);
-		if (match) {
-			strEx::append_list(message, (*citRow).render(syntax));
-			hit_count++;
-		}
-	}
 
 	if (!bPerfData)
 		result_query.perfData = false;
-	result_query.runCheck(hit_count, returnCode, message, perf);
+	int count = result->get_match_count();
+	result_query.runCheck(count, returnCode, message, perf);
+	message = result->render(masterSyntax, returnCode);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");
 	if (message.empty())
@@ -166,24 +150,24 @@ NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const strEx::blindstr command
 	return NSCAPI::returnIgnored;
 }
 int CheckTaskSched::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** char_args) {
-	std::wstring query = command;
-	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
-	TaskSched::result_type rows;
-	try {
-		TaskSched::result::fetch_key key(true);
-		TaskSched wmiQuery;
-		rows = wmiQuery.findAll(key);
-	} catch (TaskSched::Exception e) {
-		NSC_LOG_ERROR_STD(_T("TaskSched failed: ") + e.getMessage());
-		return -1;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("TaskSched failed: UNKNOWN"));
-		return -1;
-	}
-	for (TaskSched::result_type::const_iterator cit = rows.begin(); cit != rows.end(); ++cit) {
-		std::wcout << (*cit).render(syntax) << std::endl;
-	}
-	return 0;
+// 	std::wstring query = command;
+// 	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
+// 	TaskSched::result_type rows;
+// 	try {
+// 		task_sched::result::fetch_key key(true);
+// 		TaskSched wmiQuery;
+// 		rows = wmiQuery.findAll(key);
+// 	} catch (TaskSched::Exception e) {
+// 		NSC_LOG_ERROR_STD(_T("TaskSched failed: ") + e.getMessage());
+// 		return -1;
+// 	} catch (...) {
+// 		NSC_LOG_ERROR_STD(_T("TaskSched failed: UNKNOWN"));
+// 		return -1;
+// 	}
+// 	for (TaskSched::result_type::const_iterator cit = rows.begin(); cit != rows.end(); ++cit) {
+// 		std::wcout << (*cit).render(syntax) << std::endl;
+// 	}
+ 	return 0;
 }
 
 

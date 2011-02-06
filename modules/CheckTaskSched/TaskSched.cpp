@@ -35,47 +35,26 @@ std::wstring TaskSched::sanitize_string(LPTSTR in) {
 }
 #define TASKS_TO_RETRIEVE 5
 
-#define FETCH_TASK_SIMPLE_STR(variable, func) \
-	if (key.variable) { \
-		LPWSTR lpwszStr; \
-		HRESULT hr = task->func(&lpwszStr); \
-		if (FAILED(hr)) { \
-			res.variable = _T("ERROR: ") + error::format::from_system(hr); \
-		} else { \
-			res.variable = lpwszStr; \
-			CoTaskMemFree(lpwszStr); \
-		} \
-	} 
-#define FETCH_TASK_SIMPLE_DWORD(variable, func, errVal) \
-	if (key.variable) { \
-	if (FAILED(task->func(&res.variable))) \
-	res.variable = errVal; \
-	} 
-
-
 unsigned long long systemtime_to_ullFiletime(SYSTEMTIME time) {
 	FILETIME FileTime;
 	SystemTimeToFileTime(&time, &FileTime);
 	return ((FileTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)FileTime.dwLowDateTime);
 }
 
+// 
+// #define FETCH_TASK_SIMPLE_TIME(variable, func) \
+// 	if (key.variable) { \
+// 	SYSTEMTIME st; \
+// 	HRESULT hr = task->func(&st); \
+// 	if (hr == SCHED_S_TASK_HAS_NOT_RUN) \
+// 		res.variable.never_ = true; \
+// 	else if (FAILED(hr)) \
+// 		throw Exception(_T("Failed to get value for: ") _T(# variable), hr); \
+// 	else if (SUCCEEDED(hr)) {\
+// 		res.variable = systemtime_to_ullFiletime(st); \
+// }}
 
-#define FETCH_TASK_SIMPLE_TIME(variable, func) \
-	if (key.variable) { \
-	SYSTEMTIME st; \
-	HRESULT hr = task->func(&st); \
-	if (hr == SCHED_S_TASK_HAS_NOT_RUN) \
-		res.variable.never_ = true; \
-	else if (FAILED(hr)) \
-		throw Exception(_T("Failed to get value for: ") _T(# variable), hr); \
-	else if (SUCCEEDED(hr)) {\
-		res.variable = systemtime_to_ullFiletime(st); \
-}}
-
-TaskSched::result_type TaskSched::findAll(result::fetch_key key)
-{
-	result_type ret;
-
+void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
 	CComPtr<ITaskScheduler> taskSched;
 	HRESULT hr = CoCreateInstance( CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
 	if (FAILED(hr)) {
@@ -87,43 +66,39 @@ TaskSched::result_type TaskSched::findAll(result::fetch_key key)
 	if (FAILED(hr)) {
 		throw Exception(_T("Failed to enum work items failed!"), hr);
 	}
-	FILETIME now_;
-	GetSystemTimeAsFileTime(&now_);
-	unsigned long long now = ((now_.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now_.dwLowDateTime);
 
 	LPWSTR *lpwszNames;
 	DWORD dwFetchedTasks = 0;
 	while (SUCCEEDED(taskSchedEnum->Next(TASKS_TO_RETRIEVE, &lpwszNames, &dwFetchedTasks)) && (dwFetchedTasks != 0)) {
 		while (dwFetchedTasks) {
 			CComPtr<ITask> task;
-			result res;
-			res.title = lpwszNames[--dwFetchedTasks];
+			std::wstring title = lpwszNames[--dwFetchedTasks];
 			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
 			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-			res.ullNow = now;
+			//res.ullNow = now;
 
-			FETCH_TASK_SIMPLE_STR(accountName, GetAccountInformation);
-			FETCH_TASK_SIMPLE_STR(applicationName, GetApplicationName);
-			FETCH_TASK_SIMPLE_STR(comment, GetComment);
-			FETCH_TASK_SIMPLE_STR(creator, GetCreator);
-			//FETCH_TASK_SIMPLE_DWORD(errorRetryCount, GetErrorRetryCount, 0);
-			//FETCH_TASK_SIMPLE_DWORD(errorRetryInterval, GetErrorRetryInterval, 0);
-			FETCH_TASK_SIMPLE_DWORD(exitCode, GetExitCode, 0);
-			FETCH_TASK_SIMPLE_DWORD(flags, GetFlags, 0);
-			//FETCH_TASK_SIMPLE_DWORD(flags, GetIdleWait, 0);
-			FETCH_TASK_SIMPLE_DWORD(flags, GetMaxRunTime, 0);
-			FETCH_TASK_SIMPLE_TIME(mostRecentRunTime,GetMostRecentRunTime);
-			FETCH_TASK_SIMPLE_TIME(nextRunTime,GetNextRunTime);
+			tasksched_filter::filter_obj info((ITask*)task, title);
+			result->process(info, engine->match(info));
+			//GetAccountInformation();
 
-			FETCH_TASK_SIMPLE_STR(parameters, GetParameters);
-			FETCH_TASK_SIMPLE_DWORD(priority, GetPriority, 0);
-			FETCH_TASK_SIMPLE_DWORD(status, GetStatus, 0);
-			// Trigger
-			FETCH_TASK_SIMPLE_STR(workingDirectory, GetWorkingDirectory);
-			//FETCH_TASK_SIMPLE_STR(data, GetWorkItemData);
-			ret.push_back(res);
+
+// 			//FETCH_TASK_SIMPLE_DWORD(errorRetryCount, GetErrorRetryCount, 0);
+// 			//FETCH_TASK_SIMPLE_DWORD(errorRetryInterval, GetErrorRetryInterval, 0);
+// 			FETCH_TASK_SIMPLE_DWORD(exitCode, GetExitCode, 0);
+// 			FETCH_TASK_SIMPLE_DWORD(flags, GetFlags, 0);
+// 			//FETCH_TASK_SIMPLE_DWORD(flags, GetIdleWait, 0);
+// 			FETCH_TASK_SIMPLE_DWORD(flags, GetMaxRunTime, 0);
+// 			FETCH_TASK_SIMPLE_TIME(mostRecentRunTime,GetMostRecentRunTime);
+// 			FETCH_TASK_SIMPLE_TIME(nextRunTime,GetNextRunTime);
+// 
+// 			FETCH_TASK_SIMPLE_STR(parameters, GetParameters);
+// 			FETCH_TASK_SIMPLE_DWORD(priority, GetPriority, 0);
+// 			FETCH_TASK_SIMPLE_DWORD(status, GetStatus, 0);
+// 			// Trigger
+// 			FETCH_TASK_SIMPLE_STR(workingDirectory, GetWorkingDirectory);
+// 			//FETCH_TASK_SIMPLE_STR(data, GetWorkItemData);
+// 			ret.push_back(res);
 		}
 		CoTaskMemFree(lpwszNames);
 	}
-	return ret;
 }

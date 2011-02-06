@@ -8,10 +8,6 @@ lib $(target)
 	../../include/NSCHelper.cpp
 	../../include/arrayBuffer.cpp
 
-
-	../../include/parsers/ast.cpp
-	../../include/parsers/grammar.cpp
-	../../include/parsers/where.cpp
 	../../include/parsers/helpers.cpp
 
 	: # requirements

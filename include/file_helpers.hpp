@@ -3,14 +3,18 @@
 namespace file_helpers {
 	class checks {
 	public:
-		static bool is_directory(std::wstring path) {
-			DWORD dwAtt = ::GetFileAttributes(path.c_str());
-			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
+		static bool is_directory(DWORD dwAttr) {
+			if (dwAttr == INVALID_FILE_ATTRIBUTES) {
 				return false;
-			} else if ((dwAtt&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
+			} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
 				return true;
 			}
 			return false;
+			//return ((dwAttr != INVALID_FILE_ATTRIBUTES) && ((dwAttr&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+		}
+
+		static bool is_directory(std::wstring path) {
+			return is_directory(::GetFileAttributes(path.c_str()));
 		}
 		static bool is_file(std::wstring path) {
 			DWORD dwAtt = ::GetFileAttributes(path.c_str());
@@ -65,6 +69,22 @@ namespace file_helpers {
 		static std::wstring combine_pattern(pattern_type pattern) {
 			return pattern.first + _T("\\") + pattern.second;
 		}
+
+		static pattern_type split_path_ex(std::wstring path) {
+			std::wstring baseDir;
+			if (file_helpers::checks::is_directory(path)) {
+				return pattern_type(path, _T(""));
+			}
+			std::wstring::size_type pos = path.find_last_of('\\');
+			if (pos == std::wstring::npos) {
+				pattern_type(path, _T("*.*"));
+			}
+			//NSC_DEBUG_MSG_STD(_T("Looking for: path: ") + path.substr(0, pos) + _T(", pattern: ") + path.substr(pos+1));
+			return pattern_type(path.substr(0, pos), path.substr(pos+1));
+		}
+
+
+
 	};
 
 	class folders {

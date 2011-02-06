@@ -10,11 +10,22 @@ lib $(target)
 
 	: # sources
 	$(source).cpp
+
+	file_filter.cpp
+	file_finder.cpp
+	file_info.cpp
+	OldCheckDisk.cpp
+
 	../../include/NSCHelper.cpp
 	../../include/arrayBuffer.cpp
 
+	../../include/parsers/helpers.cpp
+
+
+
 	: # requirements
 	<def-file>$(source).def
+	<source>/boost//regexp
 	#<user-interface>gui
 	#<runtime-link>static
 

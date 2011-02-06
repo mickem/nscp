@@ -1,4 +1,4 @@
-#include <parsers/grammar.hpp>
+#include <parsers/where/grammar/grammar.hpp>
 #include <iostream>
 #include <fstream>
 
@@ -29,6 +29,17 @@ namespace parsers {
 			template <typename A>
 			expression_ast<THandler> operator()(A const & v) const {
 				return expression_ast<THandler>(string_value(v));
+			}
+		};
+
+		template<typename THandler>
+		struct build_copy {
+			template <typename A>
+			struct result { typedef expression_ast<THandler> type; };
+
+			template <typename A>
+			expression_ast<THandler> operator()(A const v) const {
+				return v;
 			}
 		};
 
@@ -98,6 +109,7 @@ namespace parsers {
 			boost::phoenix::function<build_variable<THandler> > build_iv;
 			boost::phoenix::function<build_function<THandler> > build_if;
 			boost::phoenix::function<build_function_convert<THandler> > build_ic;
+			boost::phoenix::function<build_copy<THandler> > build_c;
 
 			expression	
 					= and_expr											[_val = _1]
@@ -112,12 +124,19 @@ namespace parsers {
 						>> *("NOT" >> cond_expr)						[_val != _1]
 					;
 
-			cond_expr	
-					= (identifier >> op >> identifier)					[_val = build_e(_1, _2, _3) ]
-					| (identifier >> "NOT IN" 
+			cond_expr
+					= (identifier_expr >> op >> identifier_expr)		[_val = build_e(_1, _2, _3) ]
+					| (identifier_expr >> "NOT IN" 
 						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_nin, _2) ]
-					| (identifier >> "IN" >> '(' >> value_list >> ')')	[_val = build_e(_1, op_in, _2) ]
+					| (identifier_expr >> "IN" 
+						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_in, _2) ]
 					| ('(' >> expression >> ')')						[_val = _1 ]
+					;
+
+			identifier_expr
+// 					= (identifier >> bitop >> identifier)				[_val = build_e(_1, _2, _3) ]
+// 					| ('(' >> identifier >> bitop >> identifier >> ')')	[_val = build_e(_1, _2, _3) ]
+					= identifier										[_val = _1 ]
 					;
 
 			identifier 
@@ -164,11 +183,15 @@ namespace parsers {
 					| qi::lit("not like")								[_val = op_not_like]
 					;
 
+			bitop 	= qi::lit("&")										[_val = op_binand]
+					| qi::lit("|")										[_val = op_binor]
+					;
+
 			number
 					= uint_												[_val = _1]
 					;
 			variable_name
-					= qi::lexeme[+(ascii::alpha)						[_val += _1]]
+					= qi::lexeme[+(ascii::alpha | ascii::char_('_'))	[_val += _1]]
 					;
 			string_literal
 					= qi::lexeme[ '\'' 

@@ -5,7 +5,7 @@ rem # Set the path to the boost build jam binary
 rem #
 rem SET jam=C:\src\tools\boost-jam-3.1.17\bin.ntx86\bjam.exe
 rem SET jam=D:\source\tools\bjam.exe
-set jam=C:\source\libraries\boost_1_42_0\bjam.exe
+set jam=D:\source\libraries\boost_1_45_0\bjam.exe
 
 rem #
 rem ########################
@@ -14,26 +14,23 @@ rem # Set the path to the boost build path (usualy inside the boost library loca
 rem #
 rem SET BOOST_BUILD_PATH=D:\tools\boost-build
 rem SET BOOST_BUILD_PATH=C:\src\lib-src\boost_1_39_0\tools\build\v2
-SET BOOST_BUILD_PATH=C:\source\libraries\boost_1_42_0\tools\build\v2
+SET BOOST_BUILD_PATH=D:\source\libraries\boost_1_45_0\tools\build\v2
 rem set BOOST_BUILD_PATH=D:\source\boost-build
-rem set BOOST_BUILD_PATH=C:\src\tools\nightly\boost-build\
 
 rem #
 rem ########################
 rem #
 rem # Set the path to your extra include directpy (openssl/boost/*)
 rem #
-SET TARGET_INC_DIR=C:\source\include
-SET BOOST_INCLUDE_DIR=%TARGET_INC_DIR%\boost-1_42\
-rem set TARGET_INC_DIR=d:\source\include
+SET TARGET_INC_DIR=D:\source\include
+SET BOOST_INCLUDE_DIR=%TARGET_INC_DIR%\boost-1_45\
 SET NSCP_INCLUDE=%TARGET_INC_DIR%
 rem #
 rem ########################
 rem #
 rem # Set the path to your extra library directory (openssl/boost/*)
 rem #
-SET TARGET_LIB_DIR=c:\source\lib
-rem SET TARGET_LIB_DIR=D:\source\lib
+SET TARGET_LIB_DIR=D:\source\lib
 rem #
 rem # Setup various relative paths (might need to tweak)
 rem #
@@ -46,7 +43,7 @@ rem #
 rem # Set the path to your Lua sources
 rem #
 rem set LUA_SOURCE=D:\source\NSCP-stable\lib-source\LUA\src\lua-5.1.2
-set LUA_SOURCE=C:\source\libraries\lua-5.1.4
+set LUA_SOURCE=d:\source\libraries\lua-5.1.4
 rem #
 rem ########################
 rem #
@@ -68,24 +65,23 @@ rem ########################
 rem #
 rem # Set the path to your WiX installation
 rem #
-SET WIX_PATH=c:\source\tools\wix-2.0
+SET WIX_PATH=d:\source\tools\wix-2.0
 rem #
 rem ########################
 rem #
 rem # Set the path to your Crypt++ sources
 rem #
-rem SET CRYPTOPP_SOURCE=D:\source\libs-c\crypto++-5.6.0
-SET CRYPTOPP_SOURCE=C:\source\libraries\cryptopp-5.6.0
+SET CRYPTOPP_SOURCE=D:\source\libraries\crypto++-5.6.1
 rem ########################
 rem #
 rem #
 rem #
 
-SET GOOGLE_BREAKPAD_INCLUDE=C:\source\google-breakpad\trunk\src
+SET GOOGLE_BREAKPAD_INCLUDE=d:\source\libraries\google-breakpad-svn\src
 
 SET ZIP7_PATH=C:\Program Files\7-Zip
-SET PERL_PATH=C:\Perl64\bin
-SET TOOLS_DIR=c:\source\tools
+SET PERL_PATH=C:\Strawberry\perl\bin
+SET TOOLS_DIR=D:\source\tools
 SET PUTTY_DIR="c:\Program Files (x86)\PuTTY"
 
 set PATH=%PATH%;%ZIP7_PATH%;%PERL_PATH%;%TOOLS_DIR%;%PUTTY_DIR%
@@ -93,4 +89,3 @@ set PATH=%PATH%;%ZIP7_PATH%;%PERL_PATH%;%TOOLS_DIR%;%PUTTY_DIR%
 rem # Used for building "other" stuff as "I do it".
 rem # set SOURCE_DIR=c:\src\lib-src\
 rem set BOOST_DIR=%SOURCE_DIR%\boost_1_39_0
-

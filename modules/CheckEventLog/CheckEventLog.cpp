@@ -34,7 +34,9 @@
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
 
-#include <parsers/where.hpp>
+#include <parsers/where_parser.hpp>
+#include <parsers/filter/where_filter.hpp>
+#include <parsers/filter/where_filter_impl.hpp>
 #include <simple_timer.hpp>
 
 #include "simple_registry.hpp"
@@ -50,11 +52,11 @@ CheckEventLog::~CheckEventLog() {
 struct parse_exception {
 	parse_exception(std::wstring) {}
 };
-
+/*
 #include <parsers/where.cpp>
 #include <parsers/grammar.cpp>
 #include <parsers/ast.cpp>
-
+*/
 
 bool CheckEventLog::loadModule() {
 	try {
@@ -124,47 +126,18 @@ bool CheckEventLog::hasCommandHandler() {
 bool CheckEventLog::hasMessageHandler() {
 	return false;
 }
-namespace filter {
-	namespace where {
-		struct type_obj : public parsers::where::varible_handler<type_obj> {
-			typedef parsers::where::varible_handler<type_obj> handler;
+namespace eventlog {
+	namespace filter {
+		struct eventlog_handler;
+		struct eventlog_obj {
 			typedef std::list<std::wstring> error_type;
-			typedef std::map<std::wstring,parsers::where::value_type> types_type;
-			types_type types;
+			typedef parsers::where::expression_ast<eventlog_handler> expression_ast_type;
+
 			error_type errors;
-			static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
-			static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
-			EventLogRecord *record;
-			type_obj() : record(NULL) {
-				using namespace boost::assign;
-				using namespace parsers::where;
-				insert(types)
-					(_T("id"), (type_int))
-					(_T("source"), (type_string))
-					(_T("type"), (type_custom_type))
-					(_T("severity"), (type_custom_severity))
-					(_T("message"), (type_string))
-					(_T("strings"), (type_string))
-					(_T("written"), (type_date))
-					(_T("generated"), (type_date));
-			}
-			type_obj(EventLogRecord *record) : record(record) {}
-			bool has_variable(std::wstring key) {
-				return types.find(key) != types.end();
-			}
-			parsers::where::value_type get_type(std::wstring key) {
-				types_type::const_iterator cit = types.find(key);
-				if (cit == types.end())
-					return parsers::where::type_invalid;
-				return cit->second;
-			}
-			bool can_convert(parsers::where::value_type from, parsers::where::value_type to) {
-				if ((from == parsers::where::type_string)&&(to == type_custom_severity))
-					return true;
-				if ((from == parsers::where::type_string)&&(to == type_custom_type))
-					return true;
-				return false;
-			}
+
+			EventLogRecord &record;
+			eventlog_obj(EventLogRecord &record) : record(record) {}
+
 			void error(std::wstring err) {
 				errors.push_back(err);
 			}
@@ -172,83 +145,33 @@ namespace filter {
 				return !errors.empty();
 			}
 			long long get_id() {
-				if (record == NULL) throw _T("Whoops"); return record->eventID(); 
+				return record.eventID(); 
 			}
 			std::wstring get_source() {
-				if (record == NULL) throw _T("Whoops"); return record->eventSource(); 
+				return record.eventSource(); 
 			}
 			long long get_el_type() {
-				if (record == NULL) throw _T("Whoops"); return record->eventType(); 
+				return record.eventType(); 
 			}
 			long long get_severity() {
-				if (record == NULL) throw _T("Whoops"); 
-				//NSC_DEBUG_MSG_STD(_T("Severity: ") + strEx::itos(record->severity()));
-				return record->severity();
+				return record.severity();
 			}
 			std::wstring get_message() {
-				if (record == NULL) throw _T("Whoops"); return record->render_message(); 
+				return record.render_message(); 
 			}
 			std::wstring get_strings() {
-				if (record == NULL) throw _T("Whoops"); return record->enumStrings(); 
+				return record.enumStrings(); 
 			}
 			long long get_written() {
-				if (record == NULL) throw _T("Whoops"); return record->written(); 
+				return record.written(); 
 			}
 			long long get_generated() {
-				if (record == NULL) throw _T("Whoops"); return record->generated(); 
+				return record.generated(); 
 			}
 
-			handler::bound_string_type bind_string(std::wstring key) {
-				handler::bound_string_type ret;
-				if (key == _T("source"))
-					ret = &type_obj::get_source;
-				else if (key == _T("message"))
-					ret = &type_obj::get_message;
-				else if (key == _T("strings"))
-					ret = &type_obj::get_strings;
-				else
-					NSC_DEBUG_MSG_STD(_T("Failed to bind (string): ") + key);
-				return ret;
-			}
-			handler::bound_int_type bind_int(std::wstring key) {
-				handler::bound_int_type ret;
-				if (key == _T("id"))
-					ret = &type_obj::get_id;
-				else if (key == _T("type"))
-					ret = &type_obj::get_el_type;
-				else if (key == _T("severity"))
-					ret = &type_obj::get_severity;
-				else if (key == _T("generated"))
-					ret = &type_obj::get_generated;
-				else if (key == _T("written"))
-					ret = &type_obj::get_written;
-				else
-					NSC_DEBUG_MSG_STD(_T("Failed to bind (int): ") + key);
-				return ret;
-			}
+			expression_ast_type fun_convert_severity(parsers::where::value_type target_type, expression_ast_type const& subject);
+			expression_ast_type fun_convert_type(parsers::where::value_type target_type, expression_ast_type const& subject);
 
-			bool has_function(parsers::where::value_type to, std::wstring name, parsers::where::expression_ast<type_obj> subject) {
-				if (to == type_custom_severity)
-					return true;
-				if (to == type_custom_type)
-					return true;
-				return false;
-			}
-			handler::bound_function_type bind_function(parsers::where::value_type to, std::wstring name, parsers::where::expression_ast<type_obj> subject) {
-				handler::bound_function_type ret;
-				if (to == type_custom_severity)
-					ret = &type_obj::fun_convert_severity;
-				if (to == type_custom_type)
-					ret = &type_obj::fun_convert_type;
-				return ret;
-			}
-
-			parsers::where::expression_ast<type_obj> fun_convert_severity(parsers::where::value_type target_type, parsers::where::expression_ast<type_obj> const& subject) {
-				return parsers::where::expression_ast<type_obj>(parsers::where::int_value(convert_severity(subject.get_string(*this))));
-			}
-			parsers::where::expression_ast<type_obj> fun_convert_type(parsers::where::value_type target_type, parsers::where::expression_ast<type_obj> const& subject) {
-				return parsers::where::expression_ast<type_obj>(parsers::where::int_value(convert_type(subject.get_string(*this))));
-			}
 			int convert_severity(std::wstring str) {
 				if (str == _T("success") || str == _T("ok"))
 					return 0;
@@ -284,6 +207,124 @@ namespace filter {
 				return ret;
 			}
 		};
+
+
+		struct eventlog_handler : public parsers::where::varible_handler<eventlog_handler, eventlog_obj> {
+			typedef parsers::where::varible_handler<eventlog_handler, eventlog_obj> handler;
+			typedef std::list<std::wstring> error_type;
+			typedef std::map<std::wstring,parsers::where::value_type> types_type;
+			typedef parsers::where::expression_ast<eventlog_handler> expression_ast_type;
+			typedef eventlog_obj object_type;
+
+			types_type types;
+			error_type errors;
+			EventLogRecord static_object;
+			static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
+			static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
+
+			eventlog_handler() : static_object(_T(""), NULL, 0){
+				using namespace boost::assign;
+				using namespace parsers::where;
+				insert(types)
+					(_T("id"), (type_int))
+					(_T("source"), (type_string))
+					(_T("type"), (type_custom_type))
+					(_T("severity"), (type_custom_severity))
+					(_T("message"), (type_string))
+					(_T("strings"), (type_string))
+					(_T("written"), (type_date))
+					(_T("generated"), (type_date));
+			}
+
+			eventlog_obj get_static_object() {
+				return eventlog_obj(static_object);
+
+			}
+
+			bool has_variable(std::wstring key) {
+				return types.find(key) != types.end();
+			}
+			parsers::where::value_type get_type(std::wstring key) {
+				types_type::const_iterator cit = types.find(key);
+				if (cit == types.end())
+					return parsers::where::type_invalid;
+				return cit->second;
+			}
+			bool can_convert(parsers::where::value_type from, parsers::where::value_type to) {
+				if ((from == parsers::where::type_string)&&(to == type_custom_severity))
+					return true;
+				if ((from == parsers::where::type_string)&&(to == type_custom_type))
+					return true;
+				return false;
+			}
+			void error(std::wstring err) {
+				errors.push_back(err);
+			}
+			bool has_error() {
+				return !errors.empty();
+			}
+			handler::bound_string_type bind_string(std::wstring key) {
+				handler::bound_string_type ret;
+				if (key == _T("source"))
+					ret = &eventlog_obj::get_source;
+				else if (key == _T("message"))
+					ret = &eventlog_obj::get_message;
+				else if (key == _T("strings"))
+					ret = &eventlog_obj::get_strings;
+				else
+					NSC_DEBUG_MSG_STD(_T("Failed to bind (string): ") + key);
+				return ret;
+			}
+			handler::bound_int_type bind_int(std::wstring key) {
+				handler::bound_int_type ret;
+				if (key == _T("id"))
+					ret = &eventlog_obj::get_id;
+				else if (key == _T("type"))
+					ret = &eventlog_obj::get_el_type;
+				else if (key == _T("severity"))
+					ret = &eventlog_obj::get_severity;
+				else if (key == _T("generated"))
+					ret = &eventlog_obj::get_generated;
+				else if (key == _T("written"))
+					ret = &eventlog_obj::get_written;
+				else
+					NSC_DEBUG_MSG_STD(_T("Failed to bind (int): ") + key);
+				return ret;
+			}
+
+			bool has_function(parsers::where::value_type to, std::wstring name, expression_ast_type subject) {
+				if (to == type_custom_severity)
+					return true;
+				if (to == type_custom_type)
+					return true;
+				return false;
+			}
+			handler::bound_function_type bind_function(parsers::where::value_type to, std::wstring name, expression_ast_type subject) {
+				handler::bound_function_type ret;
+				if (to == type_custom_severity)
+					ret = &eventlog_obj::fun_convert_severity;
+				if (to == type_custom_type)
+					ret = &eventlog_obj::fun_convert_type;
+				return ret;
+			}
+
+			std::wstring get_error() {
+				std::wstring ret;
+				BOOST_FOREACH(std::wstring s, errors) {
+					if (!ret.empty()) ret += _T(", ");
+					ret += s;
+				}
+				return ret;
+			}
+		};
+
+		eventlog_obj::expression_ast_type eventlog_obj::fun_convert_severity(parsers::where::value_type target_type, expression_ast_type const& subject) {
+			return expression_ast_type(parsers::where::int_value(convert_severity(subject.get_string(*this))));
+		}
+		eventlog_obj::expression_ast_type eventlog_obj::fun_convert_type(parsers::where::value_type target_type, expression_ast_type const& subject) {
+			return expression_ast_type(parsers::where::int_value(convert_type(subject.get_string(*this))));
+		}
+
 	}
 }
 
@@ -415,8 +456,8 @@ struct second_mode_filter : public any_mode_filter  {
 struct where_mode_filter : public any_mode_filter {
 	filter_container &data;
 	std::string message;
-	parsers::where::parser<filter::where::type_obj> ast_parser;
-	filter::where::type_obj dummy;
+	parsers::where::parser<eventlog::filter::eventlog_handler> ast_parser;
+	eventlog::filter::eventlog_handler handler;
 
 	where_mode_filter(filter_container &data) : data(data) {}
 	bool boot() {return true; }
@@ -433,22 +474,22 @@ struct where_mode_filter : public any_mode_filter {
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Parsing succeeded: ") + ast_parser.result_as_tree());
 
-		if (!ast_parser.derive_types(dummy) || dummy.has_error()) {
-			message = _T("Invalid types: ") + dummy.get_error();
+		if (!ast_parser.derive_types(handler) || handler.has_error()) {
+			message = _T("Invalid types: ") + handler.get_error();
 			return false;
 		}
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Type resolution succeeded: ") + ast_parser.result_as_tree());
 
-		if (!ast_parser.bind(dummy) || dummy.has_error()) {
-			message = _T("Variable and function binding failed: ") + dummy.get_error();
+		if (!ast_parser.bind(handler) || handler.has_error()) {
+			message = _T("Variable and function binding failed: ") + handler.get_error();
 			return false;
 		}
 		if (data.bDebug)
 			NSC_DEBUG_MSG_STD(_T("Binding succeeded: ") + ast_parser.result_as_tree());
 
-		if (!ast_parser.static_eval(dummy) || dummy.has_error()) {
-			message = _T("Static evaluation failed: ") + dummy.get_error();
+		if (!ast_parser.static_eval(handler) || handler.has_error()) {
+			message = _T("Static evaluation failed: ") + handler.get_error();
 			return false;
 		}
 		if (data.bDebug)
@@ -457,7 +498,7 @@ struct where_mode_filter : public any_mode_filter {
 		return true;
 	}
 	virtual bool match(EventLogRecord &record) {
-		filter::where::type_obj obj(&record);
+		eventlog::filter::eventlog_obj obj(record);
 		//NSC_DEBUG_MSG_STD(_T("Evaluating: ") + ast_parser.result_as_tree() + _T(": ") + strEx::itos(record.severity()) + _T(" >> ") + strEx::itos(ast_parser.evaluate(obj)));
 		bool ret = ast_parser.evaluate(obj);
 		if (obj.has_error()) {
