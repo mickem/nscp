@@ -45,6 +45,5 @@ public:
 	};
 
 	void findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine);
-	std::wstring sanitize_string(LPTSTR in);
 
 };

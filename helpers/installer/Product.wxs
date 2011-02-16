@@ -148,6 +148,7 @@
 								<File Id="ModSysTray.dll" Name="SysTray.dll" LongName="SysTray.dll" DiskId="1" Source="$(var.Source)/modules/SysTray.dll" Vital="no" />
 								<File Id="ModCheckDisk.dll" Name="CheckDsk.dll" LongName="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
 								<File Id="ModCheckTaskSched.dll" Name="TaskSch.dll" LongName="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
+								<File Id="ModCheckTaskSched2.dll" Name="TaskSch2.dll" LongName="CheckTaskSched2.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched2.dll" Vital="no" />
 								<File Id="ModCheckNSCP.dll" Name="CNSCP.dll" LongName="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
 							</Component>
 						</Directory>

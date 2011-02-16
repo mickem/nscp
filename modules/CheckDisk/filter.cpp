@@ -31,7 +31,8 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 			(_T("name"), (type_string))
 			(_T("version"), (type_string))
 			(_T("path"), (type_string))
-			(_T("line-count"), (type_int))
+			(_T("line_count"), (type_int))
+			(_T("size"), (type_size))
 			(_T("accessed"), (type_date))
 			(_T("written"), (type_date))
 			(_T("generated"), (type_date));
@@ -72,7 +73,9 @@ file_filter::filter_obj_handler::handler::bound_string_type file_filter::filter_
 
 file_filter::filter_obj_handler::handler::bound_int_type file_filter::filter_obj_handler::bind_int(std::wstring key) {
 	handler::bound_int_type ret;
-	if (key == _T("line-count"))
+	if (key == _T("size"))
+		ret = &object_type::get_size;
+	else if (key == _T("line_count"))
 		ret = &object_type::get_line_count;
 	else if (key == _T("access"))
 		ret = &object_type::get_access;
@@ -161,11 +164,21 @@ std::wstring file_filter::filter_obj::get_version() {
 
 	DWORD dwDummy;
 	DWORD dwFVISize = GetFileVersionInfoSize(fullpath.c_str(),&dwDummy);
+	if (dwFVISize == 0)
+		return _T("");
 	LPBYTE lpVersionInfo = new BYTE[dwFVISize+1];
-	GetFileVersionInfo(fullpath.c_str(),0,dwFVISize,lpVersionInfo);
+	if (!GetFileVersionInfo(fullpath.c_str(),0,dwFVISize,lpVersionInfo)) {
+		delete [] lpVersionInfo;
+		error(_T("Failed to get version for ") + fullpath + _T(": ") + error::lookup::last_error());
+		return _T("");
+	}
 	UINT uLen;
 	VS_FIXEDFILEINFO *lpFfi;
-	VerQueryValue( lpVersionInfo , _T("\\") , (LPVOID *)&lpFfi , &uLen );
+	if (!VerQueryValue( lpVersionInfo , _T("\\") , (LPVOID *)&lpFfi , &uLen )) {
+		delete [] lpVersionInfo;
+		error(_T("Failed to query version for ") + fullpath + _T(": ") + error::lookup::last_error());
+		return _T("");
+	}
 	DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
 	DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;
 	delete [] lpVersionInfo;
@@ -225,7 +238,7 @@ std::wstring file_filter::filter_obj::render(std::wstring syntax) {
 	if (cached_version)
 		strEx::replace(syntax, _T("%version%"), *cached_version);
 	if (cached_count)
-		strEx::replace(syntax, _T("%line-count%"), strEx::itos(*cached_count));
+		strEx::replace(syntax, _T("%line_count%"), strEx::itos(*cached_count));
 	return syntax;
 }
 
@@ -276,10 +289,9 @@ struct where_mode_filter : public file_filter::filter_engine_type {
 	}
 
 	bool match(file_filter::flyweight_type &record) {
-		file_filter::filter_obj obj(record);
-		bool ret = ast_parser.evaluate(obj);
-		if (obj.has_error()) {
-				data->error->report_error(_T("Error: ") + obj.get_error());
+		bool ret = ast_parser.evaluate(record);
+		if (record.has_error()) {
+				data->error->report_error(_T("Error: ") + record.get_error());
 		}
 		return ret;
 	}

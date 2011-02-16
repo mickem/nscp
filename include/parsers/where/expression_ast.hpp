@@ -30,6 +30,7 @@ namespace parsers {
 			type_int = 1, type_bool = 2, 
 			type_string = 10, 
 			type_date = 20, 
+			type_size = 30, 
 			type_custom_int = 1024,
 			type_custom_int_1 = 1024+1,
 			type_custom_int_2 = 1024+2,
@@ -58,7 +59,7 @@ namespace parsers {
 
 
 		inline bool type_is_int(value_type type) {
-			return type == type_int || type == type_bool || type == type_date || (type >= type_custom_int && type < type_custom_int_end);
+			return type == type_int || type == type_bool || type == type_date || type == type_size || (type >= type_custom_int && type < type_custom_int_end);
 		}
 
 		inline value_type get_return_type(operators op, value_type type) {
@@ -79,6 +80,8 @@ namespace parsers {
 				return _T("int");
 			if (type == type_date)
 				return _T("date");
+			if (type == type_size)
+				return _T("size");
 			if (type == type_invalid)
 				return _T("invalid");
 			if (type == type_tbd)

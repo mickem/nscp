@@ -130,13 +130,13 @@ namespace parsers {
 						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_nin, _2) ]
 					| (identifier_expr >> "IN" 
 						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_in, _2) ]
-					| ('(' >> expression >> ')')						[_val = _1 ]
+					| ('(' >> identifier_expr >> ')')					[_val = _1 ]
 					;
 
 			identifier_expr
-// 					= (identifier >> bitop >> identifier)				[_val = build_e(_1, _2, _3) ]
-// 					| ('(' >> identifier >> bitop >> identifier >> ')')	[_val = build_e(_1, _2, _3) ]
-					= identifier										[_val = _1 ]
+ 					= (identifier >> bitop >> identifier)				[_val = build_e(_1, _2, _3) ]
+ 					| ('(' >> identifier >> bitop >> identifier >> ')')	[_val = build_e(_1, _2, _3) ]
+					| identifier										[_val = _1 ]
 					;
 
 			identifier 

@@ -6,6 +6,28 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-02-16 MickeM
+ * Added new module CheckTaskSched2 which is the same as CheckTaskSched but designed for Vista and beyond.
+   So if you want to check "new tasks" on modern Windows use this module instead of the CheckTaskSched mosule.
+   They are exactly the same excep using different APIs (and somewhat different options)
+   The CheckTaskSched2 is somewhat limited as the only supported keys are: title, exit_code, status, most_recent_run_time
+
+2011-02-10 MickeM
+ * Fixed issue with where filters and & operator
+ * Added exact bounds to CheckTaskSched
+ * Added conversion of status from string
+ * Fixed time handling in CheckTaskSched to be "UTC" (hence the %most_recent_run_time% syntax string is also UTC)
+ 
+2011-02-01 MickeM
+ ! BREAKING CHANGE!
+ * Removed deprecated command CheckFile
+ * Deprecated command CheckFile2
+ * Added new command CheckFiles which replaces CheckFile2 and CheckFile
+   Command has the new where filter syntax like so:
+   CheckFiles path=D:\tmp pattern=*.exe "filter=version != 1.0" "syntax=%filename%: %version%" MaxWarn=1
+ * Replaced undocumented CheckTaskSched with a new where filter based command.
+   CheckTaskSched debug "filter=exit_code != 0" "syntax=%title%: %exit_code%"
+
 2010-12-26 MickeM
  * Improved crash reporter to support BOTH archive and send.
  * Improved crash reporter to archive under APPDATA (Local Settings/NSClient++/crash dumps)

@@ -83,6 +83,34 @@ namespace file_filter {
 
 
 	public:
+
+		filter_obj( const filter_obj& other) 
+			: ullSize(other.ullSize)
+			, ullCreationTime(other.ullCreationTime)
+			, ullLastAccessTime(other.ullLastAccessTime)
+			, ullLastWriteTime(other.ullLastWriteTime)
+			, ullNow(other.ullNow)
+			, filename(other.filename)
+			, path(other.path)
+			, cached_version(other.cached_version)
+			, cached_count(other.cached_count)
+			, attributes(other.attributes)
+		{}
+
+		const filter_obj& operator=( const filter_obj&other ) {
+			ullSize = other.ullSize;
+			ullCreationTime = other.ullCreationTime;
+			ullLastAccessTime = other.ullLastAccessTime;
+			ullLastWriteTime = other.ullLastWriteTime;
+			ullNow = other.ullNow;
+			filename = other.filename;
+			path = other.path;
+			cached_version = other.cached_version;
+			cached_count = other.cached_count;
+			attributes = other.attributes;
+		}
+
+
 		unsigned long long ullSize;
 		__int64 ullCreationTime;
 		__int64 ullLastAccessTime;

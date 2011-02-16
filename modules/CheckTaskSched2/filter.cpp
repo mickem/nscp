@@ -61,19 +61,19 @@ tasksched_filter::filter_obj_handler::handler::bound_string_type tasksched_filte
 	handler::bound_string_type ret;
 	if (key == _T("title"))
 		ret = &object_type::get_title;
-	else if (key == _T("account"))
-		ret = &object_type::get_account_name;
-	else if (key == _T("application"))
-		ret = &object_type::get_application_name;
-	else if (key == _T("comment"))
-		ret = &object_type::get_comment;
-	else if (key == _T("creator"))
-		ret = &object_type::get_creator;
-	else if (key == _T("parameters"))
-		ret = &object_type::get_parameters;
-	else if (key == _T("working_directory"))
-		ret = &object_type::get_working_directory;
- 	else
+// 	else if (key == _T("account"))
+// 		ret = &object_type::get_account_name;
+// 	else if (key == _T("application"))
+// 		ret = &object_type::get_application_name;
+// 	else if (key == _T("comment"))
+// 		ret = &object_type::get_comment;
+// 	else if (key == _T("creator"))
+// 		ret = &object_type::get_creator;
+// 	else if (key == _T("parameters"))
+// 		ret = &object_type::get_parameters;
+// 	else if (key == _T("working_directory"))
+// 		ret = &object_type::get_working_directory;
+//  	else
 		NSC_DEBUG_MSG_STD(_T("Failed to bind (string): ") + key);
 	return ret;
 }
@@ -81,20 +81,20 @@ tasksched_filter::filter_obj_handler::handler::bound_string_type tasksched_filte
 
 tasksched_filter::filter_obj_handler::handler::bound_int_type tasksched_filter::filter_obj_handler::bind_int(std::wstring key) {
 	handler::bound_int_type ret;
-	if (key == _T("error_retry_count"))
-		ret = &object_type::get_error_retry_count;
-	else if (key == _T("error_retry_interval"))
-		ret = &object_type::get_error_retry_interval;
-// 	else if (key == _T("idle_wait"))
-// 		ret = &object_type::get_idle_wait;
-	else if (key == _T("exit_code"))
+// 	if (key == _T("error_retry_count"))
+// 		ret = &object_type::get_error_retry_count;
+// 	else if (key == _T("error_retry_interval"))
+// 		ret = &object_type::get_error_retry_interval;
+// // 	else if (key == _T("idle_wait"))
+// // 		ret = &object_type::get_idle_wait;
+	if (key == _T("exit_code"))
 		ret = &object_type::get_exit_code;
-	else if (key == _T("flags"))
-		ret = &object_type::get_flags;
-	else if (key == _T("max_run_time"))
-		ret = &object_type::get_max_run_time;
-	else if (key == _T("priority"))
-		ret = &object_type::get_priority;
+// 	else if (key == _T("flags"))
+// 		ret = &object_type::get_flags;
+// 	else if (key == _T("max_run_time"))
+// 		ret = &object_type::get_max_run_time;
+// 	else if (key == _T("priority"))
+// 		ret = &object_type::get_priority;
  	else if (key == _T("status"))
  		ret = &object_type::get_status;
 	else if (key == _T("most_recent_run_time"))
@@ -112,38 +112,30 @@ bool tasksched_filter::filter_obj_handler::has_function(parsers::where::value_ty
 
 long tasksched_filter::filter_obj::convert_status(std::wstring status) {
 	if (status == _T("ready"))
-		return SCHED_S_TASK_READY;
+		return 3;
 	if (status == _T("running"))
-		return SCHED_S_TASK_RUNNING;
-	if (status == _T("not_scheduled"))
-		return SCHED_S_TASK_NOT_SCHEDULED;
-	if (status == _T("has_not_run"))
-		return SCHED_S_TASK_HAS_NOT_RUN;
+		return 4;
+	if (status == _T("unknown"))
+		return 0;
 	if (status == _T("disabled"))
-		return SCHED_S_TASK_DISABLED;
-	if (status == _T("no_more_runs"))
-		return SCHED_S_TASK_NO_MORE_RUNS;
-	if (status == _T("no_valid_triggers"))
-		return SCHED_S_TASK_NO_VALID_TRIGGERS;
-	return 0;
+		return 1;
+	if (status == _T("queued"))
+		return 2;
+	return strEx::stoi(status);
 }
 
 std::wstring tasksched_filter::filter_obj::convert_status(long status) {
 	std::wstring ret;
-	if (status == SCHED_S_TASK_READY)
+	if (status == 3)
 		return _T("ready");
-	if (status == SCHED_S_TASK_RUNNING)
+	if (status == 4)
 		return _T("running");
-	if (status == SCHED_S_TASK_NOT_SCHEDULED)
-		return _T("not_scheduled");
-	if (status == SCHED_S_TASK_HAS_NOT_RUN)
-		return _T("has_not_run");
-	if (status == SCHED_S_TASK_DISABLED)
+	if (status == 0)
+		return _T("unknown");
+	if (status == 1)
 		return _T("disabled");
-	if (status == SCHED_S_TASK_NO_MORE_RUNS)
-		return _T("has_more_runs");
-	if (status == SCHED_S_TASK_NO_VALID_TRIGGERS)
-		return _T("no_valid_triggers");
+	if (status == 2)
+		return _T("queued");
 	return strEx::itos(status);
 }
 
@@ -162,7 +154,7 @@ tasksched_filter::filter_obj_handler::handler::bound_function_type tasksched_fil
 
 //////////////////////////////////////////////////////////////////////////
 
-#define DEFINE_GET_EX(type, variable, helper, func) type tasksched_filter::filter_obj::get_ ## variable() { return helper.fetch(this, &ITask::func, variable); }
+#define DEFINE_GET_EX(type, variable, helper, func) type tasksched_filter::filter_obj::get_ ## variable() { return helper.fetch(this, &IRegisteredTask::func, variable); }
 
 #define DEFINE_GET_STRING(variable, helper, func) DEFINE_GET_EX(std::wstring, variable, helper, func)
 #define DEFINE_GET_DWORD(variable, helper, func) DEFINE_GET_EX(unsigned long, variable, helper, func)
@@ -170,26 +162,10 @@ tasksched_filter::filter_obj_handler::handler::bound_function_type tasksched_fil
 #define DEFINE_GET_DATE(variable, helper, func) DEFINE_GET_EX(tasksched_filter::filter_obj::task_sched_date, variable, helper, func)
 #define DEFINE_GET_HRESULT(variable, helper, func) DEFINE_GET_EX(long, variable, helper, func)
 
-DEFINE_GET_STRING(account_name, string_fetcher, GetAccountInformation);
-DEFINE_GET_STRING(application_name, string_fetcher, GetApplicationName);
-DEFINE_GET_STRING(comment, string_fetcher, GetComment);
-DEFINE_GET_STRING(creator, string_fetcher, GetCreator);
-DEFINE_GET_STRING(parameters, string_fetcher, GetParameters);
-DEFINE_GET_STRING(working_directory, string_fetcher, GetWorkingDirectory);
-
-DEFINE_GET_WORD(error_retry_count, word_fetcher, GetErrorRetryCount);
-DEFINE_GET_WORD(error_retry_interval, word_fetcher, GetErrorRetryInterval);
-DEFINE_GET_DWORD(exit_code, dword_fetcher, GetExitCode);
-DEFINE_GET_DWORD(flags, dword_fetcher, GetFlags);
-DEFINE_GET_DWORD(max_run_time, dword_fetcher, GetMaxRunTime);
-DEFINE_GET_DWORD(priority, dword_fetcher, GetPriority);
-//DEFINE_GET_WORD(idle_wait, word_fetcher, GetIdleWait);
-
-
-DEFINE_GET_HRESULT(status, hresult_fetcher, GetStatus);
-
-DEFINE_GET_DATE(most_recent_run_time, date_fetcher, GetMostRecentRunTime);
-// FETCH_TASK_SIMPLE_TIME(nextRunTime,GetNextRunTime);
+DEFINE_GET_STRING(title, string_fetcher, get_Name);
+DEFINE_GET_HRESULT(exit_code, hresult_fetcher, get_LastTaskResult);
+DEFINE_GET_WORD(status, state_fetcher, get_State);
+DEFINE_GET_DATE(most_recent_run_time, date_fetcher, get_LastRunTime);
 
 tasksched_filter::filter_obj::ast_expr_type tasksched_filter::filter_obj::fun_convert_status(parsers::where::value_type target_type, ast_expr_type const& subject) {
 	return ast_expr_type(parsers::where::int_value(convert_status(subject.get_string(*this))));
@@ -197,26 +173,26 @@ tasksched_filter::filter_obj::ast_expr_type tasksched_filter::filter_obj::fun_co
 
 
 std::wstring tasksched_filter::filter_obj::render(std::wstring format) {
-	strEx::replace(format, _T("%title%"), get_title());
-	strEx::replace(format, _T("%account%"), get_account_name());
-	strEx::replace(format, _T("%application%"), get_application_name());
-	strEx::replace(format, _T("%comment%"), get_comment());
-	strEx::replace(format, _T("%creator%"), get_creator());
-	strEx::replace(format, _T("%parameters%"), get_parameters());
-	strEx::replace(format, _T("%working_directory%"), get_working_directory());
-
+ 	strEx::replace(format, _T("%title%"), get_title());
+// 	strEx::replace(format, _T("%account%"), get_account_name());
+// 	strEx::replace(format, _T("%application%"), get_application_name());
+// 	strEx::replace(format, _T("%comment%"), get_comment());
+// 	strEx::replace(format, _T("%creator%"), get_creator());
+// 	strEx::replace(format, _T("%parameters%"), get_parameters());
+// 	strEx::replace(format, _T("%working_directory%"), get_working_directory());
+// 
 	strEx::replace(format, _T("%exit_code%"), strEx::itos(get_exit_code()));
-	strEx::replace(format, _T("%error_retry_count%"), strEx::itos(get_error_retry_count()));
-	strEx::replace(format, _T("%error_retry_interval%"), strEx::itos(get_error_retry_interval()));
-	strEx::replace(format, _T("%flags%"), strEx::itos(get_flags()));
-	//strEx::replace(format, _T("%idle_wait%"), strEx::itos(get_idle_wait()));
-	strEx::replace(format, _T("%max_run_time%"), strEx::itos(get_max_run_time()));
-	strEx::replace(format, _T("%priority%"), strEx::itos(get_priority()));
-	strEx::replace(format, _T("%status%"), convert_status(get_status()));
-
-	//	strEx::replace(format, _T("%next_run%"), strEx::format_date(get_next_run()));
-	if (get_most_recent_run_time()) {
-		task_sched_date date = get_most_recent_run_time();
+// 	strEx::replace(format, _T("%error_retry_count%"), strEx::itos(get_error_retry_count()));
+// 	strEx::replace(format, _T("%error_retry_interval%"), strEx::itos(get_error_retry_interval()));
+// 	strEx::replace(format, _T("%flags%"), strEx::itos(get_flags()));
+// 	//strEx::replace(format, _T("%idle_wait%"), strEx::itos(get_idle_wait()));
+// 	strEx::replace(format, _T("%max_run_time%"), strEx::itos(get_max_run_time()));
+// 	strEx::replace(format, _T("%priority%"), strEx::itos(get_priority()));
+ 	strEx::replace(format, _T("%status%"), convert_status(get_status()));
+// 
+// 	//	strEx::replace(format, _T("%next_run%"), strEx::format_date(get_next_run()));
+ 	if (get_most_recent_run_time()) {
+ 		task_sched_date date = get_most_recent_run_time();
 		unsigned long long t = date;
 		if (t == 0 || date.never_) {
 			strEx::replace(format, _T("%most_recent_run_time%"), _T("never"));

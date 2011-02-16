@@ -3,8 +3,6 @@ rem ########################
 rem #
 rem # Set the path to the boost build jam binary
 rem #
-rem SET jam=C:\src\tools\boost-jam-3.1.17\bin.ntx86\bjam.exe
-rem SET jam=D:\source\tools\bjam.exe
 set jam=D:\source\libraries\boost_1_45_0\bjam.exe
 
 rem #
@@ -12,10 +10,7 @@ rem ########################
 rem #
 rem # Set the path to the boost build path (usualy inside the boost library location)
 rem #
-rem SET BOOST_BUILD_PATH=D:\tools\boost-build
-rem SET BOOST_BUILD_PATH=C:\src\lib-src\boost_1_39_0\tools\build\v2
 SET BOOST_BUILD_PATH=D:\source\libraries\boost_1_45_0\tools\build\v2
-rem set BOOST_BUILD_PATH=D:\source\boost-build
 
 rem #
 rem ########################
@@ -65,7 +60,8 @@ rem ########################
 rem #
 rem # Set the path to your WiX installation
 rem #
-SET WIX_PATH=d:\source\tools\wix-2.0
+rem SET WIX_PATH=d:\source\tools\wix-2.0
+SET WIX_PATH=C:\Program Files (x86)\Windows Installer XML\bin
 rem #
 rem ########################
 rem #

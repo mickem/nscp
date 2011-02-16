@@ -10,9 +10,12 @@ namespace parsers {
 			return now;
 		}
 		void constants::reset() {
-			__time64_t ltime;
-			_time64(&ltime);
-			now = ltime;
+			__time64_t utctime;
+			_time64(&utctime);
+			now = utctime;
+// 			struct tm localtime;
+// 			_localtime64_s(&localtime, &utctime);
+// 			now = _mktime64(&localtime);
 		}
 
 

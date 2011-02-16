@@ -1,9 +1,12 @@
 #pragma once
 
+#define _WIN32_DCOM
+
 #include <map>
 #include <string>
 
-#include <MSTask.h>
+#include <taskschd.h>
+#include <ATLComTime.h>
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
@@ -58,35 +61,14 @@ namespace tasksched_filter {
 #define DECLARE_GET_HRESULT(variable) op_long variable; long get_ ## variable();
 #define DECLARE_GET_DATE(variable) op_date variable; task_sched_date get_ ## variable();
 
-		DECLARE_GET_STRING(account_name);
-		DECLARE_GET_STRING(application_name);
-		DECLARE_GET_STRING(comment);
-		DECLARE_GET_STRING(creator);
-		DECLARE_GET_STRING(parameters);
-		DECLARE_GET_STRING(working_directory);
+ 		DECLARE_GET_STRING(title);
+		DECLARE_GET_HRESULT(exit_code);
+ 		DECLARE_GET_WORD(status);
+ 		DECLARE_GET_DATE(most_recent_run_time);
 
-		DECLARE_GET_WORD(error_retry_count);
-		DECLARE_GET_WORD(error_retry_interval);
-		//DECLARE_GET_WORD(idle_wait);
-		DECLARE_GET_DWORD(exit_code);
-		DECLARE_GET_DWORD(flags);
-		DECLARE_GET_DWORD(max_run_time);
-		DECLARE_GET_DWORD(priority);
-
-		DECLARE_GET_HRESULT(status);
-
-		DECLARE_GET_DATE(most_recent_run_time);
-
-		ITask* task;
-		//unsigned long long now;
-		filter_obj(ITask* task, std::wstring title) : task(task), title(title) {
-// 			FILETIME now_;
-// 			GetSystemTimeAsFileTime(&now_);
-// 			now = ((now_.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now_.dwLowDateTime);
-		}
-		filter_obj() : task(NULL)/*, now(0)*/ {}
-
-		std::wstring get_title() { return title; }
+		IRegisteredTask* task;
+		filter_obj(IRegisteredTask* task) : task(task) {}
+		filter_obj() : task(NULL) {}
 
 		ast_expr_type fun_convert_status(parsers::where::value_type target_type, ast_expr_type const& subject);
 
@@ -105,11 +87,11 @@ namespace tasksched_filter {
 			typedef typename TTarget raw_type;
 			typedef typename TReturn data_type;
 			typedef typename boost::optional<TReturn> client_type;
-			typedef HRESULT (__stdcall ITask::*fun_ptr_type)(raw_type*);
+			typedef HRESULT (__stdcall IRegisteredTask::*fun_ptr_type)(raw_type*);
 		};
 		struct string_fetch_traits : public fetch_traits<LPWSTR, std::wstring> {
 			static std::wstring get_default() { return _T(""); }
-			static void cleanup(LPWSTR obj) {CoTaskMemFree(obj); }
+			static void cleanup(LPWSTR obj) {SysFreeString(obj); }
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
 			static std::wstring convert(HRESULT hr, LPWSTR value) { return value; }
 		};
@@ -121,16 +103,17 @@ namespace tasksched_filter {
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
 			static TReturn convert(HRESULT hr, TTarget value) { return value; }
 		};
-		struct date_fetch_traits : public fetch_traits<SYSTEMTIME, task_sched_date> {
-			typedef SYSTEMTIME TTarget;
+		struct date_fetch_traits : public fetch_traits<DATE, task_sched_date> {
+			typedef DATE TTarget;
 			typedef task_sched_date TReturn;
 			static TReturn get_default() { return task_sched_date(); }
 			static void cleanup(TTarget obj) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr) && hr != SCHED_S_TASK_HAS_NOT_RUN; }
 			static TReturn convert(HRESULT hr, TTarget &value) {
-				if (hr == SCHED_S_TASK_HAS_NOT_RUN)
-					return task_sched_date(true);
-				return task_sched_date(systemtime_to_ullFiletime(value)); 
+				COleDateTime date(value);
+				SYSTEMTIME tmp;
+				date.GetAsSystemTime(tmp);
+				return task_sched_date(systemtime_to_ullFiletime(tmp)); 
 			}
 		};
 
@@ -170,9 +153,9 @@ namespace tasksched_filter {
 		fetcher<word_fetch_traits<HRESULT, long> > hresult_fetcher;
 		fetcher<word_fetch_traits<DWORD, unsigned long> > dword_fetcher;
 		fetcher<word_fetch_traits<WORD, unsigned short> > word_fetcher;
+		fetcher<word_fetch_traits<TASK_STATE, unsigned short> > state_fetcher;
 		fetcher<date_fetch_traits > date_fetcher;
 
-		std::wstring title;
 		std::wstring render(std::wstring format);
 
 	public:

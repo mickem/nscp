@@ -76,7 +76,6 @@ namespace parsers {
 			template<typename THandler>
 			struct operator_eq : public simple_bool_binary_operator_impl<THandler> {
 				bool eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
-					std::wcout << left.get_int(handler) << _T(" -==- ") << right.get_int(handler) << std::endl;
 					return left.get_int(handler) == right.get_int(handler);
 				}
 				bool eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
@@ -133,7 +132,6 @@ namespace parsers {
 			template<typename THandler>
 			struct operator_bin_and : public simple_int_binary_operator_impl<THandler> {
 				long long eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
-					std::wcout << left.get_int(handler) << _T(" -&- ") << right.get_int(handler) << std::endl;
 					return left.get_int(handler) & right.get_int(handler);
 				}
 				long long eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
@@ -277,6 +275,9 @@ namespace parsers {
 						if (type == type_date) {
 							return expression_ast<THandler>(int_value(parse_time((*item).get_int(object), (*unit).get_string(object))));
 						}
+						if (type == type_size) {
+							return expression_ast<THandler>(int_value(parse_size((*item).get_int(object), (*unit).get_string(object))));
+						}
 						object.error(_T("m:Failed to handle type: ") + to_string(type) + _T(" ") + (*item).to_string() + _T(", ") + (*unit).to_string());
 						return expression_ast<THandler>(int_value(FALSE));
 					}
@@ -305,6 +306,23 @@ namespace parsers {
 					return now + value;
 				}
 
+				inline long long parse_size(long long value, std::wstring unit) const {
+					long long now = constants::get_now();
+					if (unit.empty())
+						return now + value;
+					else if ( (unit == _T("b")) || (unit == _T("B")) )
+						return now + (value);
+					else if ( (unit == _T("k")) || (unit == _T("k")) )
+						return now + (value * 1024);
+					else if ( (unit == _T("m")) || (unit == _T("M")) )
+						return now + (value * 1024 * 1024);
+					else if ( (unit == _T("g")) || (unit == _T("G")) )
+						return now + (value * 1024 * 1024 * 1024);
+					else if ( (unit == _T("t")) || (unit == _T("T")) )
+						return now + (value * 1024 * 1024 * 1024 * 1024);
+					return now + value;
+				}
+				
 			};
 
 

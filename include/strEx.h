@@ -71,6 +71,13 @@ namespace strEx {
 			lst += sep;
 		lst += append;
 	}
+	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
+		if (append.empty())
+			return;
+		if (!lst.empty())
+			lst += sep;
+		lst += append;
+	}
 
 	inline std::string wstring_to_string( const wchar_t* pStr, int len) {
 		if (pStr == NULL)
@@ -211,12 +218,13 @@ namespace strEx {
 
 	static const __int64 SECS_BETWEEN_EPOCHS = 11644473600;
 	static const __int64 SECS_TO_100NS = 10000000;
+	inline unsigned long long filetime_to_time(unsigned long long filetime) {
+		return (filetime - (SECS_BETWEEN_EPOCHS * SECS_TO_100NS)) / SECS_TO_100NS;
+	}
 	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		if (filetime == 0)
 			return _T("ZERO");
-		filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
-		filetime /= SECS_TO_100NS;
-		return format_date(static_cast<time_t>(filetime), format);
+		return format_date(static_cast<time_t>(filetime_to_time(filetime)), format);
 	}
 
 	inline void strip_CRLF(wchar_t *string) {

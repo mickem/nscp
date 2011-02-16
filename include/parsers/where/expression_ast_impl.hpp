@@ -114,7 +114,7 @@ namespace parsers {
 		expression_ast<THandler> binary_op<THandler>::evaluate(value_type type, object_type &object) const {
 			factory<THandler>::bin_op_type impl = factory<THandler>::get_binary_operator(op, left, right);
 			value_type expected_type = get_return_type(op, type);
-			if (expected_type == type_bool || expected_type == type_int) {
+			if (type_is_int(type)) {
 				return impl->evaluate(object, left, right);
 			}
 			object.error(_T("Missing operator implementation"));

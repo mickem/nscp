@@ -1,20 +1,18 @@
-local target = CheckDisk ;
+local target = CheckTaskSched2 ;
 local source = $(target) ;
 
 project 
 	: requirements
-	<find-static-library>version
+	<find-static-library>Mstask
 	;
+
 
 lib $(target)
 
 	: # sources
 	$(source).cpp
-
+	TaskSched.cpp
 	filter.cpp
-	file_finder.cpp
-	file_info.cpp
-	OldCheckDisk.cpp
 
 	../../include/NSCHelper.cpp
 	../../include/arrayBuffer.cpp
@@ -22,14 +20,15 @@ lib $(target)
 	../../include/parsers/helpers.cpp
 
 
-
 	: # requirements
 	<def-file>$(source).def
 	<source>/boost//regexp
+
 	#<user-interface>gui
-	#<runtime-link>static
+	<runtime-link>static
 
 	: # default build
 
 	: # usage requirements
 	;
+

@@ -325,7 +325,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		//file_finder::get_size sizeFinder;
 		file_helpers::patterns::pattern_type splitpath = file_helpers::patterns::split_pattern(path.data);
 
-		file_filter::filter_argument argument = file_filter::factories::create_argument(splitpath.second, debug, _T(""));
+		file_filter::filter_argument argument = file_filter::factories::create_argument(splitpath.second, -1, _T(""));
 		file_filter::filter_result result = file_filter::factories::create_result(argument);
 		file_finder::recursive_scan(result, argument, impl, splitpath.first);
 
@@ -527,7 +527,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(const unsigned int argLen, TCHAR
 NSCAPI::nagiosReturn CheckDisk::CheckFiles(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsUInteger> CheckFileContainer;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> CheckFileQuery1Container;
+	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> CheckFileQuery2Container;
 	typedef std::pair<int,file_finder::filter> filteritem_type;
 	typedef std::list<filteritem_type> filterlist_type;
 	if (stl_args.empty()) {
@@ -538,17 +539,19 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(const unsigned int argLen, TCHAR **ch
 	file_finder::PathContainer tmpObject;
 	std::list<std::wstring> paths;
 	unsigned int truncate = 0;
-	CheckFileContainer query;
+	CheckFileQuery1Container query1;
+	CheckFileQuery2Container query2;
 	std::wstring masterSyntax = _T("%list%");
 	std::wstring alias;
 	bool bPerfData = true;
 	bool ignoreError = false;
 
-	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), false, _T("%filename%"));
+	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), -1, _T("%filename%"));
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
-			MAP_OPTIONS_NUMERIC_ALL(query, _T(""))
+			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
+			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_STR(_T("syntax"), args->syntax)
@@ -603,12 +606,25 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(const unsigned int argLen, TCHAR **ch
 		}
 	}
 	message = result->render(masterSyntax, returnCode);
-	if (!alias.empty())
-		query.alias = alias;
-	else
-		query.alias = _T("found files");
-	unsigned int count = result->get_match_count();
-	query.runCheck(count, returnCode, message, perf);
+
+	if (!bPerfData) {
+		query1.perfData = false;
+		query2.perfData = false;
+	}
+
+	if (query1.alias.empty())
+		query1.alias = _T("found files");
+	if (query2.alias.empty())
+		query2.alias = _T("found files");
+	unsigned long count = result->get_match_count();
+	if (query1.hasBounds())
+		query1.runCheck(count, returnCode, message, perf);
+	else if (query2.hasBounds())
+		query2.runCheck(count, returnCode, message, perf);
+	else {
+		message = _T("No bounds specified!");
+		return NSCAPI::returnUNKNOWN;
+	}
 	if ((truncate > 0) && (message.length() > (truncate-4))) {
 		message = message.substr(0, truncate-4) + _T("...");
 		//perf = _T("");

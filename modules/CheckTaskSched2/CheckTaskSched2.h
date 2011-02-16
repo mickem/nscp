@@ -18,39 +18,46 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "StdAfx.h"
-#include ".\TaskSched.h"
+NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
 
-#include <objidl.h>
-#include <map>
+#include <config.h>
+#include <strEx.h>
+#include <utils.h>
+#include <checkHelpers.hpp>
+#include "TaskSched.h"
 
-#define TASKS_TO_RETRIEVE 5
+class CheckTaskSched2 {
+private:
+	std::wstring syntax;
 
-void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
-	CComPtr<ITaskScheduler> taskSched;
-	HRESULT hr = CoCreateInstance( CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
-	if (FAILED(hr)) {
-		throw Exception(_T("CoCreateInstance for CLSID_CTaskScheduler failed!"), hr);
+public:
+	// Module calls
+	bool loadModule();
+	bool unloadModule();
+
+	std::wstring getModuleName() {
+		return _T("CheckTaskSched2");
+	}
+	std::wstring getModuleDescription() {
+		return _T("CheckTaskSched2 can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
+	}
+	NSCModuleWrapper::module_version getModuleVersion() {
+		NSCModuleWrapper::module_version version = {0, 0, 1 };
+		return version;
 	}
 
-	CComPtr<IEnumWorkItems> taskSchedEnum;
-	hr = taskSched->Enum(&taskSchedEnum);
-	if (FAILED(hr)) {
-		throw Exception(_T("Failed to enum work items failed!"), hr);
-	}
+	bool hasCommandHandler();
+	bool hasMessageHandler();
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	int CheckTaskSched2::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
 
-	LPWSTR *lpwszNames;
-	DWORD dwFetchedTasks = 0;
-	while (SUCCEEDED(taskSchedEnum->Next(TASKS_TO_RETRIEVE, &lpwszNames, &dwFetchedTasks)) && (dwFetchedTasks != 0)) {
-		while (dwFetchedTasks) {
-			CComPtr<ITask> task;
-			std::wstring title = lpwszNames[--dwFetchedTasks];
-			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
-			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-			tasksched_filter::filter_obj info((ITask*)task, title);
-			result->process(info, engine->match(info));
+	// Check commands
+	NSCAPI::nagiosReturn TaskSchedule(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 
-		}
-		CoTaskMemFree(lpwszNames);
-	}
-}
+
+
+private:
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
+};
