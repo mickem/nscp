@@ -23,34 +23,51 @@
 
 #include <objidl.h>
 #include <map>
+#include <comdef.h>
 
-#define TASKS_TO_RETRIEVE 5
+#pragma comment(lib, "taskschd.lib")
+#pragma comment(lib, "comsupp.lib")
 
 void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
-	CComPtr<ITaskScheduler> taskSched;
-	HRESULT hr = CoCreateInstance( CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
+	CComPtr<ITaskService> taskSched;
+	HRESULT hr = CoCreateInstance( CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, reinterpret_cast<void**>(&taskSched));
 	if (FAILED(hr)) {
 		throw Exception(_T("CoCreateInstance for CLSID_CTaskScheduler failed!"), hr);
 	}
 
-	CComPtr<IEnumWorkItems> taskSchedEnum;
-	hr = taskSched->Enum(&taskSchedEnum);
+	taskSched->Connect(_variant_t(), _variant_t(),
+		_variant_t(), _variant_t());
+
+	ITaskFolder *pRootFolder = NULL;
+	hr = taskSched->GetFolder( _bstr_t( L"\\") , &pRootFolder );
+	if (FAILED(hr)) {
+		throw Exception(_T("Failed to get root folder!"), hr);
+	}
+
+	CComPtr<IRegisteredTaskCollection> pTaskCollection;
+	hr = pRootFolder->GetTasks(NULL, &pTaskCollection);
 	if (FAILED(hr)) {
 		throw Exception(_T("Failed to enum work items failed!"), hr);
 	}
 
-	LPWSTR *lpwszNames;
-	DWORD dwFetchedTasks = 0;
-	while (SUCCEEDED(taskSchedEnum->Next(TASKS_TO_RETRIEVE, &lpwszNames, &dwFetchedTasks)) && (dwFetchedTasks != 0)) {
-		while (dwFetchedTasks) {
-			CComPtr<ITask> task;
-			std::wstring title = lpwszNames[--dwFetchedTasks];
-			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
-			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-			tasksched_filter::filter_obj info((ITask*)task, title);
-			result->process(info, engine->match(info));
+	LONG numTasks = 0;
+	hr = pTaskCollection->get_Count(&numTasks);
+	if (FAILED(hr)) {
+		throw Exception(_T("Failed to get count!"), hr);
+	}
 
+	if( numTasks == 0 ) {
+		return;
+	}
+
+	TASK_STATE taskState;
+
+	for(LONG i=0; i < numTasks; i++) {
+		CComPtr<IRegisteredTask> pRegisteredTask = NULL;
+		hr = pTaskCollection->get_Item(_variant_t(i+1), &pRegisteredTask);
+		if(SUCCEEDED(hr)) {
+			tasksched_filter::filter_obj info((IRegisteredTask*)pRegisteredTask);
+			result->process(info, engine->match(info));
 		}
-		CoTaskMemFree(lpwszNames);
 	}
 }

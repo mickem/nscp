@@ -74,6 +74,7 @@
 
 #define CRASH_SUBMIT_URL _T("http://crash.nsclient.org/submit")
 #define CRASH_ARCHIVE_FOLDER _T("${shared-path}/crash-dumps")
+#define CRASH_ARCHIVE_FOLDER_KEY _T("folder")
 
 #ifdef WIN32
 #define DEFAULT_CONF_LOCATION _T("old")

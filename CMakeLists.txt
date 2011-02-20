@@ -34,8 +34,9 @@ SET(OPENSSL_LIBRARY_DIR "${NSCP_LIBRARYDIR}" CACHE PATH "Path to openssl librari
 SET(PROTOBUF_DIR "${INC_PROTOBUF_DIR}" CACHE PATH "Path to google protocol buffer root")
 IF(WIN32 AND MSVC)
 	SET(PROTOBUF_INCLUDE_DIR "${PROTOBUF_DIR}/src" "Path to google protocol buffer source")
-	SET(PROTOBUF_LIBRARYDIR_RELEASE "${PROTOBUF_DIR}/vsprojects/x64/Release")
-	SET(PROTOBUF_LIBRARYDIR_DEBUG "${PROTOBUF_DIR}/vsprojects/x64/Debug")
+	SET(PROTOBUF_LIBRARYDIR "${INC_PROTOBUF_LIBRARYDIR}")
+	SET(PROTOBUF_LIBRARY_PREFIX "")
+	SET(PROTOBUF_LIBRARY_PREFIX_DEBUG "debug-")
 	SET(PROTOBUF_BINARYDIR "${PROTOBUF_DIR}/vsprojects/debug")
 ELSE(WIN32 AND MSVC)
 # TODO
@@ -45,7 +46,13 @@ ENDIF(WIN32 AND MSVC)
 SET(CRYPTOPP_DIR "${INC_CRYPTOPP_DIR}" CACHE PATH "Path to crypto++ root folder")
 # ### ### ### ###
 # Lua
-SET(LUA_DIR "${INC_LUA_DIR}" CACHE PATH "Path to Lua installation")
+FIND_PATH(LUA_INCLUE_DIR lua.h
+	${INC_LUA_DIR}
+	${INC_LUA_DIR}/src
+	${LUA_DIR}
+	${LUA_DIR}/src
+	/usr/include/lua
+)
 # ### ### ### ###
 # Google breakpad
 SET(GOOGLE_BREAKPAD_DIR "${INC_GOOGLE_BREAKPAD_DIR}" CACHE PATH "Path to google protocol breakpad root")
@@ -207,7 +214,7 @@ ELSE (NOT PYTHONINTERP_FOUND)
 ENDIF (NOT PYTHONINTERP_FOUND)
 
 
-SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DUNICODE -D_UNICODE -D_WIN32_WINNT=0x0400)
+SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DUNICODE -D_UNICODE -D_WIN32_WINNT=0x0403)
 # TODO: Fix this issue! (crypto++ and masm)
 IF (WIN32)
 	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DCRYPTOPP_DISABLE_ASM)
@@ -252,6 +259,37 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 	${NSCP_INCLUDEDIR}/nscapi/settings_proxy.hpp
 	${NSCP_INCLUDEDIR}/nscapi/macros.hpp
+)
+
+SET(NSCP_FILTER_CPP
+	${NSCP_INCLUDEDIR}/parsers/helpers.cpp
+)
+
+SET(NSCP_FILTER_HPP
+	${NSCP_INCLUDEDIR}/parsers/ast.hpp
+	${NSCP_INCLUDEDIR}/parsers/eval.hpp
+	${NSCP_INCLUDEDIR}/parsers/helpers.hpp
+	${NSCP_INCLUDEDIR}/parsers/where.hpp
+	${NSCP_INCLUDEDIR}/parsers/where_parser.hpp
+	
+	${NSCP_INCLUDEDIR}/parsers/filter/where_filter.hpp
+	${NSCP_INCLUDEDIR}/parsers/filter/where_filter_impl.hpp	
+	
+	${NSCP_INCLUDEDIR}/parsers/where/ast_bind.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/ast_static_eval.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/ast_type_inference.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/ast_visitors.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/expression_ast.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/expression_ast_impl.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/list_value.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/operators.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/operators_impl.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/unary_fun.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/variable.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/varible_handler.hpp
+	
+	${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.hpp
+	${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar_impl.hpp	
 )
 
 SET(NSCP_DEF_PLUGIN_LIB

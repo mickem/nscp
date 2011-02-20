@@ -7,8 +7,13 @@ PROJECT(${TARGET})
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
+	file_finder.cpp
+	file_info.cpp
+	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_FILTER_CPP}
 )
+
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
@@ -17,8 +22,12 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
+		file_finder.hpp
+		file_info.hpp
+		filter.hpp	
 
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_FILTER_HPP}
 	)
 ENDIF(WIN32)
 

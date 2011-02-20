@@ -20,7 +20,7 @@
 ***************************************************************************/
 
 #include "stdafx.h"
-#include "CheckTaskSched.h"
+#include "CheckTaskSched2.h"
 #include <strEx.h>
 #include <time.h>
 #include <map>
@@ -29,12 +29,12 @@
 #include "filter.hpp"
 
 
-CheckTaskSched gCheckTaskSched;
+CheckTaskSched2 gCheckTaskSched2;
 
-bool CheckTaskSched::loadModule() {
+bool CheckTaskSched2::loadModule() {
 	return false;
 }
-bool CheckTaskSched::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckTaskSched2::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		get_core()->registerCommand(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
 		get_core()->registerCommand(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
@@ -63,7 +63,7 @@ bool CheckTaskSched::hasMessageHandler() {
 
 
 
-NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckTaskSched2::TaskSchedule(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainerQuery1;
 	typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainerQuery2;
 
@@ -140,12 +140,12 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> argume
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckTaskSched2::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("CheckTaskSched"))
 		return TaskSchedule(arguments, message, perf);
 	return NSCAPI::returnIgnored;
 }
-int CheckTaskSched::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** char_args) {
+int CheckTaskSched2::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** char_args) {
 // 	std::wstring query = command;
 // 	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
 // 	TaskSched::result_type rows;

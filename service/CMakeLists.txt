@@ -97,6 +97,10 @@ IF(BREAKPAD_FOUND)
 ENDIF(BREAKPAD_FOUND)
 
 
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../files/old-settings.map ${CMAKE_CURRENT_BINARY_DIR}/old-settings.map COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../files/counters.defs ${CMAKE_CURRENT_BINARY_DIR}/counters.defs COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../files/license.txt ${CMAKE_CURRENT_BINARY_DIR}/license.txt COPYONLY)
+    
 add_executable (${TARGET} ${service_SRCS})
 add_dependencies(${TARGET} ${TARGET}_VERSION)
 

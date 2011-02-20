@@ -18,39 +18,31 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "StdAfx.h"
-#include ".\TaskSched.h"
 
-#include <objidl.h>
-#include <map>
+#pragma once
 
-#define TASKS_TO_RETRIEVE 5
 
-void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
-	CComPtr<ITaskScheduler> taskSched;
-	HRESULT hr = CoCreateInstance( CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
-	if (FAILED(hr)) {
-		throw Exception(_T("CoCreateInstance for CLSID_CTaskScheduler failed!"), hr);
-	}
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+// Windows Header Files:
+//#include <windows.h>
 
-	CComPtr<IEnumWorkItems> taskSchedEnum;
-	hr = taskSched->Enum(&taskSchedEnum);
-	if (FAILED(hr)) {
-		throw Exception(_T("Failed to enum work items failed!"), hr);
-	}
+#include <string>
+#include <functional>
 
-	LPWSTR *lpwszNames;
-	DWORD dwFetchedTasks = 0;
-	while (SUCCEEDED(taskSchedEnum->Next(TASKS_TO_RETRIEVE, &lpwszNames, &dwFetchedTasks)) && (dwFetchedTasks != 0)) {
-		while (dwFetchedTasks) {
-			CComPtr<ITask> task;
-			std::wstring title = lpwszNames[--dwFetchedTasks];
-			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
-			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-			tasksched_filter::filter_obj info((ITask*)task, title);
-			result->process(info, engine->match(info));
+#define _WIN32_DCOM
+#include <objbase.h>
 
-		}
-		CoTaskMemFree(lpwszNames);
-	}
-}
+#include <NSCAPI.h>
+#include <nscapi/plugin.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <checkHelpers.hpp>
+#include <filter_framework.hpp>
+
+#include <atlbase.h>
+//#include <atlcom.h>
+//#include <atlstr.h>
+#include <atlsafe.h>
+
+#ifdef MEMCHECK
+#include <vld.h>
+#endif

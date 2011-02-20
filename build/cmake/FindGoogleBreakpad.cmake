@@ -11,15 +11,6 @@
 
 FIND_PATH(BREAKPAD_INCLUDE_DIR google_breakpad/client/breakpad_types.h)
 
-
-#google-breakpad-common.lib
-#google-breakpad-crash_generation_client.lib
-#google-breakpad-crash_generation_server.lib
-#google-breakpad-crash_report_sender.lib
-#google-breakpad-exception_handler.lib
-#google-breakpad-gmock.lib
-#google-breakpad-gtest.lib
-
 IF(NOT GoogleBreakpad_FIND_COMPONENTS)
 	SET(GoogleBreakpad_FIND_COMPONENTS common exception_handler)
 ENDIF(NOT GoogleBreakpad_FIND_COMPONENTS)

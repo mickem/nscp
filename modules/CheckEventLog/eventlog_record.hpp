@@ -199,21 +199,6 @@ public:
 		return get_time(pevlr_->TimeWritten);
 	}
 
-	inline boost::posix_time::ptime systemtime_to_time(const SYSTEMTIME &time) {
-		struct tm tmTime;
-		memset(&tmTime, 0, sizeof(tmTime));
-
-		tmTime.tm_sec = time.wSecond; // seconds after the minute - [0,59]
-		tmTime.tm_min = time.wMinute; // minutes after the hour - [0,59]
-		tmTime.tm_hour = time.wHour;  // hours since midnight - [0,23]
-		tmTime.tm_mday = time.wDay;  // day of the month - [1,31]
-		tmTime.tm_mon = time.wMonth-1; // months since January - [0,11]
-		tmTime.tm_year = time.wYear-1900; // years since 1900
-		tmTime.tm_wday = time.wDayOfWeek; // days since Sunday - [0,6]
-
-		return boost::posix_time::ptime_from_tm(tmTime);
-	}
-
 	std::wstring render(bool propper, std::wstring syntax, std::wstring date_format = DATE_FORMAT) {
 		if (propper) {
 			// To obtain the appropriate message string from the message file, load the message file with the LoadLibrary function and use the FormatMessage function
@@ -223,8 +208,8 @@ public:
 		}
 
 		strEx::replace(syntax, _T("%source%"), eventSource());
-		strEx::replace(syntax, _T("%generated%"), strEx::format_date(systemtime_to_time(get_time_generated()), date_format));
-		strEx::replace(syntax, _T("%written%"), strEx::format_date(systemtime_to_time(get_time_written()), date_format));
+		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), date_format));
+		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), date_format));
 		strEx::replace(syntax, _T("%generated-raw%"), strEx::itos(pevlr_->TimeGenerated));
 		strEx::replace(syntax, _T("%written-raw%"), strEx::itos(pevlr_->TimeWritten));
 		strEx::replace(syntax, _T("%type%"), translateType(eventType()));

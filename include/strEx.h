@@ -169,60 +169,18 @@ namespace strEx {
 			lst += sep;
 		lst += append;
 	}
-/*
-	inline std::string wstring_to_string( const wchar_t* pStr, int len) {
-		if (pStr == NULL)
-			throw string_exception(_T("Invalid pointer in wstring_to_string"));
-		if (len < 0 && len != -1) 
-			throw string_exception(_T("Invalid string length in wstring_to_string"));
-
-		// figure out how many narrow characters we are going to get 
-		int nChars = WideCharToMultiByte( CP_ACP , 0 , pStr , len , NULL , 0 , NULL , NULL ) ; 
-		if ( len == -1 )
-			-- nChars ; 
-		if ( nChars == 0 )
-			return "" ;
-
-		// convert the wide string to a narrow string
-		// nb: slightly naughty to write directly into the string like this
-		std::string buf ;
-		buf.resize( nChars ) ;
-		WideCharToMultiByte( CP_ACP , 0 , pStr , len , 
-			const_cast<char*>(buf.c_str()) , nChars , NULL , NULL ) ; 
-
-		return buf ; 
+	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
+		if (append.empty())
+			return;
+		if (!lst.empty())
+			lst += sep;
+		lst += append;
 	}
-	*/
 	inline std::string wstring_to_string( const std::wstring& str ) {
 		return boost::lexical_cast<std::string>(str) ;
-		//return wstring_to_string(str.c_str(), static_cast<int>(str.length()));
 	}
-/*
-	inline std::wstring string_to_wstring( const char* pStr , int len ) {
-		if (pStr == NULL)
-			throw string_exception(_T("Invalid pointer in wstring_to_string"));
-		if (len < 0 && len != -1) 
-			throw string_exception(_T("Invalid string length in wstring_to_string"));
-
-		// figure out how many wide characters we are going to get 
-		int nChars = MultiByteToWideChar( CP_ACP , 0 , pStr , len , NULL , 0 ) ; 
-		if ( len == -1 )
-			-- nChars ; 
-		if ( nChars == 0 )
-			return L"" ;
-
-		// convert the narrow string to a wide string 
-		// nb: slightly naughty to write directly into the string like this
-		std::wstring buf ;
-		buf.resize( nChars ) ; 
-		MultiByteToWideChar( CP_ACP , 0 , pStr , len , const_cast<wchar_t*>(buf.c_str()) , nChars ) ; 
-
-		return buf ;
-	}
-	*/
 	inline std::wstring string_to_wstring( const std::string& str ) {
 		return boost::lexical_cast<std::wstring>(str) ;
-		//return string_to_wstring(str.c_str(), static_cast<int>(str.length())) ;
 	}
 
 	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
@@ -280,13 +238,10 @@ namespace strEx {
 		std::wstring ss = date_ss.str();
 		return ss;
 	}
-
-
-	inline std::wstring format_date(std::time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		return format_date(boost::posix_time::from_time_t(time), format);
-	}
-	/*
+#ifdef WIN32
 	inline std::wstring format_date(const SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+		TCHAR buf[51];
+
 		struct tm tmTime;
 		memset(&tmTime, 0, sizeof(tmTime));
 
@@ -304,38 +259,23 @@ namespace strEx {
 		buf[l] = 0;
 		return buf;
 	}
-#define MK_FORMAT_FTD(min, key, val) \
-	if (mtm->tm_year > min) \
-	strEx::replace(format, key, strEx::itos(val));  \
-	else  \
-	strEx::replace(format, key, _T("0"));
+#endif
 
 
+	inline std::wstring format_date(std::time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+		return format_date(boost::posix_time::from_time_t(time), format);
+	}
 
+	
 	static const __int64 SECS_BETWEEN_EPOCHS = 11644473600;
 	static const __int64 SECS_TO_100NS = 10000000;
+	inline unsigned long long filetime_to_time(unsigned long long filetime) {
+		return (filetime - (SECS_BETWEEN_EPOCHS * SECS_TO_100NS)) / SECS_TO_100NS;
+	}
 	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		if (filetime == 0)
 			return _T("ZERO");
-		filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
-		filetime /= SECS_TO_100NS;
-		return format_date(static_cast<time_t>(filetime), format);
-	}
-
-		int len = wcslen(string);
-		for (int i=0;i<len;i++) {
-			if (string[i] == 10 || string[i] == 13)
-				string[i] = L' ';
-		}
-	}
-	*/
-	static const unsigned long long SECS_BETWEEN_EPOCHS = 11644473600;
-	static const unsigned long long SECS_TO_100NS = 10000000;
-	
-	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
-		filetime /= SECS_TO_100NS;
-		return format_date(static_cast<time_t>(filetime), format);
+		return format_date(static_cast<time_t>(filetime_to_time(filetime)), format);
 	}
 
 	inline void replace(std::wstring &string, std::wstring replace, std::wstring with) {
@@ -739,54 +679,7 @@ namespace strEx {
 	//  And here's our case-blind string class.
 	//typedef std::basic_string<char, blind_traits<char>, std::allocator<char> >  blindstr;
 	typedef std::basic_string<wchar_t, blind_traits<wchar_t>, std::allocator<wchar_t> >  blindstr;
-/*
-	class StrICmp
-	{
-	public:
-		StrICmp(const std::string &Lang = "english") : m_locE(Lang.c_str())
-		{
-		}
-		class CharLessI
-		{
-		public:
-			CharLessI(std::locale &locE) : m_locE(locE)
-			{
-			}
-			template<typename T>
-			bool operator()(T c1, T c2)
-			{
-				return std::tolower(c1, m_locE) < std::tolower(c2, m_locE);
-			}
-		private:
-			std::locale &m_locE;
-		};
-		template<typename T>
-		int operator()(const T &s1, const T &s2)
-		{
-			if (std::lexicographical_compare(s1.begin(), s1.end(), s2.begin(), s2.end(), CharLessI(m_locE)))
-				return -1;
-			if (std::lexicographical_compare(s2.begin(), s2.end(), s1.begin(), s1.end(), CharLessI(m_locE)))
-				return 1;
-			return 0;
-		}
-	private:
-		std::locale m_locE;
-	};
 
-	template<typename T>
-	int StrCmpI(const T &s1, const T &s2, const std::string &Lang = "english")
-	{
-		return StrICmp(Lang)(s1, s2);
-	}
-
-	struct case_blind_string_compare : public std::binary_function<std::wstring, std::wstring, bool>
-	{
-		bool operator() (const std::wstring& x, const std::wstring& y) const {
-			return StrCmpI<std::wstring>(x,y) < 0;
-			//return _wcsicmp( x.c_str(), y.c_str() ) < 0;
-		}
-	};
-	*/
 
 
 

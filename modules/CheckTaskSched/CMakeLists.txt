@@ -8,8 +8,10 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	TaskSched.cpp
+	filter.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_FILTER_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -19,8 +21,10 @@ SET(SRCS ${SRCS}
 	"${TARGET}.h"
 	"${TARGET}.def"
 	TaskSched.h
+	filter.hpp	
 
 	${NSCP_DEF_PLUGIN_HPP}
+	${NSCP_FILTER_HPP}
 )
 
 add_library(${TARGET} MODULE ${SRCS})

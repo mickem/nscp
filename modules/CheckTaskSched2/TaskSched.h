@@ -18,39 +18,34 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "StdAfx.h"
-#include ".\TaskSched.h"
+#pragma once
 
-#include <objidl.h>
+#define _WIN32_DCOM
+
+#include <string>
 #include <map>
+#include <strEx.h>
+#include <error.hpp>
+#include <filter_framework.hpp>
+#include <error_com.hpp>
+#include <taskschd.h>
 
-#define TASKS_TO_RETRIEVE 5
+#include "filter.hpp"
 
-void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
-	CComPtr<ITaskScheduler> taskSched;
-	HRESULT hr = CoCreateInstance( CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
-	if (FAILED(hr)) {
-		throw Exception(_T("CoCreateInstance for CLSID_CTaskScheduler failed!"), hr);
-	}
-
-	CComPtr<IEnumWorkItems> taskSchedEnum;
-	hr = taskSched->Enum(&taskSchedEnum);
-	if (FAILED(hr)) {
-		throw Exception(_T("Failed to enum work items failed!"), hr);
-	}
-
-	LPWSTR *lpwszNames;
-	DWORD dwFetchedTasks = 0;
-	while (SUCCEEDED(taskSchedEnum->Next(TASKS_TO_RETRIEVE, &lpwszNames, &dwFetchedTasks)) && (dwFetchedTasks != 0)) {
-		while (dwFetchedTasks) {
-			CComPtr<ITask> task;
-			std::wstring title = lpwszNames[--dwFetchedTasks];
-			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
-			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-			tasksched_filter::filter_obj info((ITask*)task, title);
-			result->process(info, engine->match(info));
-
+class TaskSched
+{
+public:
+	class Exception {
+		std::wstring message_;
+	public:
+		Exception(std::wstring str, HRESULT code) {
+			message_ = str + _T(":") + error::format::from_system(code);
 		}
-		CoTaskMemFree(lpwszNames);
-	}
-}
+		std::wstring getMessage() {
+			return message_;
+		}
+	};
+
+	void findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine);
+
+};

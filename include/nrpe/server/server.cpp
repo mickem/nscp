@@ -31,7 +31,7 @@ namespace nrpe {
 			if (info.address.empty()) {
 				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.get_port()));
 			} else {
-				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.get_address(), info.port));
+				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.get_address(), info.get_port()));
 			}
 			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {

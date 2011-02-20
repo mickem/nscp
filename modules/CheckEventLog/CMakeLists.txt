@@ -8,11 +8,7 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
-	
-	${NSCP_INCLUDEDIR}/parsers/ast.cpp
-	${NSCP_INCLUDEDIR}/parsers/grammar.cpp
-	${NSCP_INCLUDEDIR}/parsers/helpers.cpp
-	${NSCP_INCLUDEDIR}/parsers/where.cpp
+	${NSCP_FILTER_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -27,13 +23,8 @@ IF(WIN32)
 		eventlog_record.hpp
 		simple_registry.hpp
 
-		${NSCP_INCLUDEDIR}/parsers/ast.hpp
-		${NSCP_INCLUDEDIR}/parsers/eval.hpp
-		${NSCP_INCLUDEDIR}/parsers/grammar.hpp
-		${NSCP_INCLUDEDIR}/parsers/helpers.hpp
-		${NSCP_INCLUDEDIR}/parsers/where.hpp	
-
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_FILTER_HPP}
 	)
 ENDIF(WIN32)
 

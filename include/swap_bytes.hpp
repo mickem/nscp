@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/static_assert.hpp>
+
 namespace swap_bytes {
 
 	// this function swap the bytes of values given it's size as a template

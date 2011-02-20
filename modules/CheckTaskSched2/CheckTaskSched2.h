@@ -19,41 +19,46 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
 
-#include <settings/macros.h>
+#include <config.h>
 #include <strEx.h>
 #include <utils.h>
 #include <checkHelpers.hpp>
+#include "TaskSched.h"
 
-
-class CheckEventLog {
+class CheckTaskSched2 : public nscapi::impl::SimpleCommand, public nscapi::impl::simple_plugin {
 private:
-	bool debug_;
-	std::wstring syntax_;
-	DWORD buffer_length_;
-	bool lookup_names_;
+	std::wstring syntax;
 
 public:
-	CheckEventLog();
-	virtual ~CheckEventLog();
 	// Module calls
-	bool loadModule(NSCAPI::moduleLoadMode mode);
+	bool loadModule();
+	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	std::wstring getModuleName() {
-		return _T("Event log Checker.");
-	}
-	NSCModuleWrapper::module_version getModuleVersion() {
-		NSCModuleWrapper::module_version version = {0, 0, 1 };
-		return version;
+		return _T("CheckTaskSched2");
 	}
 	std::wstring getModuleDescription() {
-		return _T("Check for errors and warnings in the event log.\nThis is only supported through NRPE so if you plan to use only NSClient this wont help you at all.");
+		return _T("CheckTaskSched2 can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
 	}
-
-	void parse(std::wstring expr);
+	nscapi::plugin_wrapper::module_version getModuleVersion() {
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
+		return version;
+	}
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	int CheckTaskSched::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
+
+	// Check commands
+	NSCAPI::nagiosReturn TaskSchedule(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+
+
+
+private:
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 };

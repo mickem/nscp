@@ -5,34 +5,24 @@
 namespace file_helpers {
 	class checks {
 	public:
+#ifdef WIN32
+		static bool is_directory(DWORD dwAttr) {
+			if (dwAttr == INVALID_FILE_ATTRIBUTES) {
+ 				return false;
+			} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
+ 				return true;
+ 			}
+ 			return false;
+ 		}
+#endif
 		static bool is_directory(std::wstring path) {
 			return boost::filesystem::is_directory(path);
 		}
-// 		static bool is_directory(DWORD dwAtt) {
-// 			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
-// 				return false;
-// 			} else if ((dwAtt&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
-// 				return true;
-// 			}
-// 			return false;
-// 		}
 		static bool is_file(std::wstring path) {
 			return boost::filesystem::is_regular(path);
-// 			DWORD dwAtt = ::GetFileAttributes(path.c_str());
-// 			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
-// 				return false;
-// 			} else if ((dwAtt&FILE_ATTRIBUTE_NORMAL)==FILE_ATTRIBUTE_NORMAL) {
-// 				return true;
-// 			}
-// 			return false;
 		}
 		static bool exists(std::wstring path) {
 			return boost::filesystem::exists(path);
-// 			DWORD dwAtt = ::GetFileAttributes(path.c_str());
-// 			if (dwAtt == INVALID_FILE_ATTRIBUTES) {
-// 				return false;
-// 			}
-// 			return true;
 		}
 	};
 
@@ -63,11 +53,19 @@ namespace file_helpers {
 				return pattern_type(path, _T(""));
 			return pattern_type(path.branch_path(), path.leaf() /*filename()*/);
 		}
+		static pattern_type split_path_ex(std::wstring path) {
+			std::wstring baseDir;
+			if (file_helpers::checks::is_directory(path)) {
+				return pattern_type(path, _T(""));
+			}
+			std::wstring::size_type pos = path.find_last_of('\\');
+			if (pos == std::wstring::npos) {
+				pattern_type(path, _T("*.*"));
+			}
+			return pattern_type(path.substr(0, pos), path.substr(pos+1));
+		}
 		static boost::filesystem::wpath combine_pattern(pattern_type pattern) {
 			return pattern.first / pattern.second;
 		}
-
-
-	};
-
+	}; // END patterns
 }

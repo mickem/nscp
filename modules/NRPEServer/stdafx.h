@@ -20,6 +20,10 @@
 ***************************************************************************/
 #pragma once
 
+#ifdef WINDOWS
+include <Windows.h>
+#endif
+
 #include <string>
 #include <functional>
 #include <map>
