@@ -49,14 +49,14 @@ bool CheckTaskSched2::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mo
 	syntax = SETTINGS_GET_STRING(task_scheduler::SYNTAX);
 	return true;
 }
-bool CheckTaskSched::unloadModule() {
+bool CheckTaskSched2::unloadModule() {
 	return true;
 }
 
-bool CheckTaskSched::hasCommandHandler() {
+bool CheckTaskSched2::hasCommandHandler() {
 	return true;
 }
-bool CheckTaskSched::hasMessageHandler() {
+bool CheckTaskSched2::hasMessageHandler() {
 	return false;
 }
 
@@ -168,7 +168,7 @@ int CheckTaskSched2::commandLineExec(const TCHAR* command, const unsigned int ar
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckTaskSched);
+NSC_WRAPPERS_MAIN_DEF(gCheckTaskSched2);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckTaskSched);
+NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckTaskSched2);
 //NSC_WRAPPERS_CLI_DEF(gCheckTaskSched);
