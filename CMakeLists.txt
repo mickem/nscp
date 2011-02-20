@@ -192,17 +192,17 @@ IF(WIN32)
 		"C:/Program Files/Microsoft SDKs/Windows/v6.1/include"
 	)
 
-	if(CMAKE_SIZEOF_VOID_P MATCHES 4)
-		FIND_PATH(PSDK_61_LIBRARY_DIRS WS2_32.Lib
-			${INC_PSDK_61}/lib
-			"C:/Program Files/Microsoft SDKs/Windows/v6.1/lib"
-		)
-	else()
+	if(CMAKE_CL_64)
 		FIND_PATH(PSDK_61_LIBRARY_DIRS WSock32.Lib
 			${INC_PSDK_61}/lib/x64
 			"C:/Program Files/Microsoft SDKs/Windows/v6.1/lib/x64"
 		)
-	endif()
+	else(CMAKE_CL_64)
+		FIND_PATH(PSDK_61_LIBRARY_DIRS WS2_32.Lib
+			${INC_PSDK_61}/lib
+			"C:/Program Files/Microsoft SDKs/Windows/v6.1/lib"
+		)
+	endif(CMAKE_CL_64)
 	if(PSDK_61_INCLUDE_DIRS AND PSDK_61_LIBRARY_DIRS)
 		SET(PSDK_61_FOUND TRUE)
 		message(STATUS "Found PSDK 6.1 (${CMAKE_SIZEOF_VOID_P}): ${PSDK_61_INCLUDE_DIRS} (${PSDK_61_LIBRARY_DIRS})")
