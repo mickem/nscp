@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
+	<!--
+	<?define boost = "false" ?>
+	 -->
+	<?ifdef var.boost ?>
+		<?define PlatForm = "$(var.arch)" ?>
+		<?define Mode = "Nightly" ?>
+		<?define SysTray.ConfigurationName = "BOOST BUILD" ?>
+	<?else?>
+		<?if "$(var.SysTray.ConfigurationName)" = "Debug|Win32"?>
+			<?define PlatForm = "Win32" ?>
+			<?define Mode = "Debug" ?>
+		<?elseif "$(var.SysTray.ConfigurationName)" = "Debug|x64"?>
+			<?define PlatForm = "x64" ?>
+			<?define Mode = "Debug" ?>
+		<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|Win32"?>
+			<?define PlatForm = "Win32" ?>
+			<?define Mode = "Nightly" ?>
+		<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|x64"?>
+			<?define PlatForm = "x64" ?>
+			<?define Mode = "Nightly" ?>
+		<?else?>
+			<?define PlatForm = "Unknown: plattform" ?>
+		<?endif?>
+	<?endif?>
+
+	<?if "$(var.PlatForm)" = "x64"?>
+		<?define PlatForm.x64 ?>
+		<?define Postfix.GUID = "DD5862EE637C" ?>
+	<?else?>
+		<?define Postfix.GUID = "DD5862EE637B" ?>
+		<?define PlatForm.Win32 ?>
+	<?endif?>
+	
+	<?ifdef var.PlatForm.Win32?>
+		<?define ProgramFiles = "ProgramFilesFolder" ?>
+		<?define Win64 = "no" ?>
+		<?define Plattform = "Intel" ?>
+	<?else?>
+		<?define ProgramFiles = "ProgramFiles64Folder" ?>
+		<?define Win64 = "yes" ?>
+		<?define Plattform = "x64" ?>
+	<?endif?>
+	<?ifndef var.Source ?>
+		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
+	<?endif?>
+	<?ifndef var.Helpers ?>
+		<?define Helpers = "../../$(var.PlatForm)/$(var.Mode)-helpers/" ?>
+	<?endif?>
+
+	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
+	<?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
+	<?include config.wxs ?>
+
+	<Product Id="????????-????-????-????-????????????" Name="$(var.App.Title) ($(var.PlatForm))" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC"
+					UpgradeCode="$(var.UpgradeCode)">
+
+		<Package Id="????????-????-????-????-????????????" Description="A simple windows monitor agent for (amongst others) Nagios."
+						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes" Languages="1033" Platforms="$(var.Plattform)" />
+
+		<Upgrade Id="$(var.UpgradeCode)">
+			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="yes" Maximum="$(var.Version.String)"/>
+			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="yes"/>
+		</Upgrade>
+
+		<?ifdef var.PlatForm.Win32?>
+			<Condition Message="x64 bit version not supported (by installer) on Win32 bit platform (get Win32 bit version instead)">NOT VersionNT64</Condition>
+		<?else?>
+			<Condition Message="Win32 bit version not supported (by installer) on x64 bit platform (get x64 bit version instead)">VersionNT64</Condition>
+		<?endif?>
+		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high">
+		</Media>
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="$(var.ProgramFiles)">
+					<Directory Id="INSTALLLOCATION" Name="$(var.App.ShortPath)" LongName="$(var.App.Path)">
+						<Component Id="MainClient" Guid="F6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+							<File Id="NSClientEXE" Name="nscp.exe" LongName="nscp.exe" DiskId="1"
+										Source="$(var.Source)/nscp.exe" Vital="yes">
+								<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="NSCPTest"
+													LongName="$(var.App.Title) ($(var.PlatForm), test)" WorkingDirectory="INSTALLDIR" Icon="nscp.exe"
+													IconIndex="0" Arguments="/test" Description="Run $(var.App.Title) in test mode"/>
+								<Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="NSCPStrt"
+													LongName="Start $(var.App.Title) ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nscp.exe"
+													IconIndex="0" Arguments="/start" Description="Start the $(var.App.Title) service"/>
+								<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="NSCPStop"
+													LongName="Stop $(var.App.Title) ($(var.PlatForm))" WorkingDirectory='INSTALLDIR' Icon="nscp.exe"
+													IconIndex="0" Arguments="/stop" Description="Stop the $(var.App.Title) service"/>
+								<Shortcut Id="StarmentNSCHelp" Target="[HELP_LINK]" Icon="doc.ico" Directory="ProgramMenuDir" Name="Help" LongName="Documentation" Description="Visit the NSClient++ WIKI for documentation">
+									<Icon Id="doc.ico" SourceFile="help.ico"/>
+								</Shortcut>
+							</File>
+							<!--
+							<File Id="NSClientTRAY" Name="nstray.exe" DiskId="1"
+										Source="$(var.Source)/nstray.exe" Vital="yes">
+								<Shortcut Id="StartmenuNSClientTray" Directory="ProgramMenuDir" Name="NSCPTray"
+													LongName="$(var.App.Title) ($(var.PlatForm)) system tray)" WorkingDirectory="INSTALLDIR" Icon="nstray.exe"
+													IconIndex="0" Description="Start the $(var.App.Title) systemtray agent"/>
+							</File>
+							-->
+							<File Id="NSClientErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
+
+							<!--
+							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="yes"/>
+							<?ifdef var.boost ?>
+								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog.txt" Vital="no"/>
+							<?else?>
+								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no"/>
+							<?endif?>
+							<File Id="Counters" Name="counters.def" LongName="counters.defs" DiskId="1" Source="$(var.Source)/counters.defs" Vital="no"/>
+							<File Id="License" Name="license.txt" LongName="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="no"/>
+							-->
+							<RemoveFile Id="LogFile1" Name="nsclient.log" On="uninstall" />
+							<RemoveFile Id="LogFile2" Name="nsc.log" On="uninstall" />
+							<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
+							<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
+						</Component>
+						<Component Id="FireWallException" Guid="F6636DB0-A0B9-4dA2-B75D-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
+						<Component Id="ServiceRegistration" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
+						<Component Id="Documentation" Guid="9B490E67-5472-4267-889C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+							<!--
+							<File Id="doc.usage.nagios" Name="nagios.pdf" LongName="Nagios Usage Guide.pdf" DiskId="1" Source="$(var.Source)/Nagios Usage Guide.pdf" Vital="no" >
+								<Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="nagios"
+													LongName="Nagios Usage Guide" WorkingDirectory="INSTALLDIR" Description="Nagios Usage Guide"/>
+							</File>
+							<File Id="doc.reference" Name="nsclient.pdf" LongName="NSClient++ Reference Manual.pdf" DiskId="1" Source="$(var.Source)/NSClient++ Reference Manual.pdf" Vital="no" >
+								<Shortcut Id="Startmenu.doc.ref" Directory="ProgramMenuDir" Name="refman"
+													LongName="NSClient++ Reference Manual" WorkingDirectory="INSTALLDIR" Description="NSClient++ Reference Manual"/>
+							</File>
+							-->
+						</Component>
+						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
+							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+													 <!--
+								<File Id="NRPEListenerDLL" Name="NRPELsnr.dll" LongName="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEListener.dll" Vital="no" />
+								<File Id="NRPEClientDLL" Name="NRPEClnt.dll" LongName="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
+														-->
+							</Component>
+							<Component Id="NSCListener" Guid="6DAF8BB9-9A56-48f5-B2C5-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+													 <!--
+								<File Id="NSCListenerDLL" Name="NSCLsnr.dll" LongName="NSClientListener.dll" DiskId="1" Source="$(var.Source)/modules/NSClientListener.dll" Vital="no" />
+														-->
+							</Component>
+							<Component Id="NSCA" Guid="8820A304-C596-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+													 <!--
+								<File Id="NSCAAgentDLL" Name="NSCAAgnt.dll" LongName="NSCAAgent.dll" DiskId="1" Source="$(var.Source)/modules/NSCAAgent.dll" Vital="no" />
+														-->
+							</Component>
+							<Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+													 <!--
+								<File Id="A_DebugLogMetrics.dll" Name="ADebug.dll" LongName="A_DebugLogMetrics.dll" DiskId="1" Source="$(var.Source)/modules/A_DebugLogMetrics.dll" Vital="no" />
+														-->
+								<File Id="ModCheckEventLog.dll" Name="EvntLg.dll" LongName="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
+								<File Id="ModCheckExternalScripts.dll" Name="ExtScr.dll" LongName="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
+								<File Id="ModCheckHelpers.dll" Name="Helpers.dll" LongName="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
+								<File Id="ModCheckSystem.dll" Name="System.dll" LongName="CheckSystem.dll" DiskId="1" Source="$(var.Source)/modules/CheckSystem.dll" Vital="no" />
+								<File Id="ModCheckWMI.dll" Name="WMI.dll" LongName="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
+								<File Id="ModFileLogger.dll" Name="Logger.dll" LongName="FileLogger.dll" DiskId="1" Source="$(var.Source)/modules/FileLogger.dll" Vital="no" />
+								<File Id="ModLUAScript.dll" Name="LUAScr.dll" LongName="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
+								<!--
+								<File Id="ModRemoteConfiguration.dll" Name="RmtCfg.dll" LongName="RemoteConfiguration.dll" DiskId="1" Source="$(var.Source)/modules/RemoteConfiguration.dll" Vital="no" />
+								<File Id="ModSysTray.dll" Name="SysTray.dll" LongName="SysTray.dll" DiskId="1" Source="$(var.Source)/modules/SysTray.dll" Vital="no" />
+														-->
+								<File Id="ModCheckDisk.dll" Name="CheckDsk.dll" LongName="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
+								<File Id="ModCheckTaskSched.dll" Name="TaskSch.dll" LongName="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
+								<File Id="ModCheckTaskSched2.dll" Name="TaskSch2.dll" LongName="CheckTaskSched2.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched2.dll" Vital="no" />
+								<File Id="ModCheckNSCP.dll" Name="CNSCP.dll" LongName="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
+							</Component>
+						</Directory>
+            <Directory Id="INSTALLLOCATION_SCRIPTS" Name="scripts">
+              <Component Id="Scripts" Guid="9B490E67-5472-4268-96DF-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+				  <!--
+                <File Id="script001" Name="c_60s.bat" LongName="check_60s.bat" DiskId="1" Source="$(var.Source)/scripts/check_60s.bat" Vital="no" />
+                <File Id="script002" Name="c_btry.vbs" LongName="check_battery.vbs" DiskId="1" Source="$(var.Source)/scripts/check_battery.vbs" Vital="no" />
+                <File Id="script003" Name="c_nrdb.bat" LongName="check_no_rdp.bat" DiskId="1" Source="$(var.Source)/scripts/check_no_rdp.bat" Vital="no" />
+                <File Id="script004" Name="c_prt.vbs" LongName="check_printer.vbs" DiskId="1" Source="$(var.Source)/scripts/check_printer.vbs" Vital="no" />
+                <File Id="script005" Name="c_ok.bat" LongName="check_ok.bat" DiskId="1" Source="$(var.Source)/scripts/check_ok.bat" Vital="no" />
+                <File Id="script006" Name="c_files.vbs" LongName="check_files.vbs" DiskId="1" Source="$(var.Source)/scripts/check_files.vbs" Vital="no" />
+                <File Id="script007" Name="c_ping.bat" LongName="check_ping.bat" DiskId="1" Source="$(var.Source)/scripts/check_ping.bat" Vital="no" />
+                <File Id="sample002" Name="c_test.ps1" LongName="check_test.ps1" DiskId="1" Source="$(var.Source)/scripts/check_test.ps1" Vital="no" />
+                <File Id="sample003" Name="c_test.vbs" LongName="check_test.vbs" DiskId="1" Source="$(var.Source)/scripts/check_test.vbs" Vital="no" />
+                <File Id="lua001" Name="test.lua" LongName="test.lua" DiskId="1" Source="$(var.Source)/scripts/test.lua" Vital="no" />
+				-->
+              </Component>
+              <Directory Id="INSTALLLOCATION_SCRIPTS_LIB" Name="lib">
+                <Component Id="ScriptLibs" Guid="9B490E67-5472-4267-96DF-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+					<!--
+                  <File Id="lib001" Name="nagplug.vbs" LongName="NagiosPlugins.vbs" DiskId="1" Source="$(var.Source)/scripts/lib/NagiosPlugins.vbs" Vital="no" />
+                  <File Id="lib002" Name="wrapper.vbs" LongName="wrapper.vbs" DiskId="1" Source="$(var.Source)/scripts/lib/wrapper.vbs" Vital="no" />
+				  -->
+                </Component>
+              </Directory>
+            </Directory>
+					</Directory>
+				</Directory>
+
+			<!-- ### Start Menu Items ### -->
+				<Directory Id="ProgramMenuFolder" Name="PMenu" LongName="Programs">
+					<Directory Id="ProgramMenuDir" Name='NSClient' LongName="$(var.App.StartMenuPath)" />
+				</Directory>
+			</Directory>
+
+		<!-- ### FEATURES START ### -->
+			<Feature Id="ProductFeature" Title="NSClient++ $(var.PlatForm)" Description="Binaries for $(var.PlatForm)"
+							 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
+				<Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
+					<ComponentRef Id="MainClient" />
+				</Feature>
+				<Feature Id="FireWallException" Title="Firewall Exception" Description="Add an exception to the windows firewall" Level="1">
+					<ComponentRef Id="FireWallException" />
+				</Feature>
+				<Feature Id="ServiceRegistration" Title="Register service" Description="Register the NSClient++ service" Level="1">
+					<ComponentRef Id="ServiceRegistration" />
+				</Feature>
+				<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1">
+					<ComponentRef Id="Documentation" />
+				</Feature>
+				<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
+				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
+					<ComponentRef Id="Plugins" />
+				</Feature>
+				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Listener Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="disallow">
+					<ComponentRef Id="NRPEListener" />
+				</Feature>
+				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Listener Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
+					<ComponentRef Id="NSCListener" />
+				</Feature>
+				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
+					<ComponentRef Id="NSCA" />
+				</Feature>
+				<Feature Id="SampleScripts" Title="Sample Scripts" Description="Some sample client-side scripts to use with NRPE" Level="1" Absent="disallow">
+          <ComponentRef Id="Scripts" />
+          <ComponentRef Id="ScriptLibs" />
+        </Feature>
+			</Feature>
+		</Feature>
+
+		<CustomTable Id="WixFirewallException">
+			<Column Id="Id"					Category="Identifier"	PrimaryKey="yes"	Type="string"	Width="72"	Modularize="Column"											Description="The primary key, a non-localized token."/>
+			<Column Id="Name"				Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255" Modularize="Property"	Nullable="yes" Localizable="yes" Description="Localizable display name."/>
+			<Column Id="RemoteAddresses"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="2"	Modularize="Property"	Nullable="yes"									Description="Remote address to accept incoming connections from."/>
+			<Column Id="Port"				Category="Formatted"	PrimaryKey="no"		Type="int"		Width="2"	Modularize="Property"	Nullable="yes" MinValue="1"			Description="Port number."/>
+			<Column Id="Protocol"			Category="Integer"		PrimaryKey="no"		Type="int"		Width="2"	MinValue="6" Nullable="yes" MaxValue="17"							Description="Protocol (6=TCP; 17=UDP)."/>
+			<Column Id="Program"			Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"		Description="Exception for a program (formatted path name)."/>
+			<Column Id="Attributes"			Category="Integer"		PrimaryKey="no"		Type="int"		Width="4"	Nullable="yes" MinValue="0" MaxValue="65536" Description="Vital=1"/>
+			<Column Id="Component_"			Category="Identifier"	PrimaryKey="no"		Type="string"	Width="72"	Modularize="Column"											Description="Foreign key into the Component table referencing component that controls the firewall configuration."/>
+			<Row>
+				<Data Column="Id">FWX1</Data>
+				<Data Column="Name">NSClient++ Monitoring Agent</Data>
+				<Data Column="Component_">FireWallException</Data>
+				<Data Column="Program">[#NSClientEXE]</Data>
+			</Row>
+		</CustomTable>
+
+		<CustomTable Id="Services">
+			<Column Id="Id"			Category="Identifier"	PrimaryKey="yes"	Type="string"	Width="72"	Modularize="Column"
+					Description="The primary key, a non-localized token."/>
+			<Column Id="ShortName"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255" Modularize="Property"	Nullable="yes" Localizable="yes" 
+					Description="Service name."/>
+			<Column Id="LongName"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
+					Description="Service long name."/>
+			<Column Id="Description" Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
+					Description="The description"/>
+			<Column Id="Program"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
+					Description="Exception for a program (formatted path name)."/>
+			<Column Id="Attributes"	Category="Integer"		PrimaryKey="no"		Type="int"		Width="4"							Nullable="yes" MinValue="0" MaxValue="65536" 
+					Description="Vital=1"/>
+			<Column Id="Component_"	Category="Identifier"	PrimaryKey="no"		Type="string"	Width="72"	Modularize="Column"	
+					Description="Foreign key into the Component table referencing component that controls the firewall configuration."/>
+			<Row>
+				<Data Column="Id">SVC</Data>
+				<Data Column="ShortName">NSClientpp</Data>
+				<Data Column="LongName">$(var.App.Title) ($(var.PlatForm))</Data>
+				<Data Column="Description">Monitoring agent for nagios (and others) used to respond to status queries.</Data>
+				<Data Column="Component_">ServiceRegistration</Data>
+				<Data Column="Program">[#NSClientEXE]</Data>
+			</Row>
+		</CustomTable>
+
+		<?include properties.wxs ?>
+
+		<CustomAction Id='ImportConfig'             BinaryKey='InstallerHelper' DllEntry='ImportConfig'               Impersonate='no' Execute="immediate" Return="check" />
+		<CustomAction Id='ScheduleWriteConfig'      BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig'        Impersonate='no' Execute="immediate" Return="check" />
+		<CustomAction Id="ExecWriteConfig"          BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig"            Impersonate="no" Execute="deferred" Return="check"  />
+
+    <CustomAction Id='NeedUninstall'            BinaryKey='InstallerHelper' DllEntry='NeedUninstall'              Impersonate='no' Execute="immediate" Return="check" />
+		
+
+		<CustomAction Id="PreventDowngrading"       Error="Newer version already installed." />
+
+		<CustomAction Id='SchedServiceInstall'        BinaryKey='InstallerHelper' DllEntry='ScheduleInstallService'   Impersonate="no" Execute="immediate" Return="check" />
+    <CustomAction Id='SchedServiceUnInstall'      BinaryKey='InstallerHelper' DllEntry='ScheduleUnInstallService' Impersonate="no" Execute="immediate" Return="check" />
+		<CustomAction Id="WixRollbackServiceInstall"  BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall"       Impersonate="no" Execute="rollback"  Return="check"  />
+		<CustomAction Id="WixExecServiceInstall"      BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall"       Impersonate="no" Execute="deferred"  Return="check"  />
+		<CustomAction Id="WixRollbackServiceUninstall" BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall"      Impersonate="no" Execute="rollback"  Return="check"  />
+    <CustomAction Id="WixExecServiceUninstall"    BinaryKey="InstallerHelper" DllEntry="ExecServiceInstall"       Impersonate="no" Execute="deferred"  Return="check" />
+
+    <CustomAction Id='SchedStopAllServices'       BinaryKey='InstallerHelper' DllEntry='SchedStopAllServices'     Impersonate="no" Execute="immediate" Return="check" />
+    <CustomAction Id='ExitDialogExec'             BinaryKey='InstallerHelper' DllEntry='ExitDialogExec'           Impersonate="no" Execute="immediate" Return="check" />
+    <CustomAction Id='StartAllServices'           BinaryKey='InstallerHelper' DllEntry='StartAllServices'         Impersonate="no" Execute="deferred" Return="check" />
+    <CustomAction Id='StopAllServices'            BinaryKey='InstallerHelper' DllEntry='StopAllServices'          Impersonate="no" Execute="deferred" Return="check" />
+    <CustomAction Id='ExecCopyFileDefered'        BinaryKey='InstallerHelper' DllEntry='ExecCopyFileDefered'      Impersonate="no" Execute="deferred" Return="check" />
+
+    <CustomAction Id="WixSchedFirewallExceptionsInstall" 
+                                                  BinaryKey="WixFirewallCA" DllEntry="SchedFirewallExceptionsInstall"   Impersonate="no" Execute="immediate" Return="check" />
+    <CustomAction Id="WixSchedFirewallExceptionsUninstall"
+                                                  BinaryKey="WixFirewallCA" DllEntry="SchedFirewallExceptionsUninstall" Impersonate="no" Execute="immediate" Return="check" />
+		<CustomAction Id="WixRollbackFirewallExceptionsInstall" 
+                                                  BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions"           Impersonate="no" Execute="rollback" Return="check" />
+    <CustomAction Id="WixExecFirewallExceptionsInstall"
+                                                  BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions"           Impersonate="no" Execute="deferred" Return="check" />
+		<CustomAction Id="WixRollbackFirewallExceptionsUninstall" 
+                                                  BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions"           Impersonate="no" Execute="rollback" Return="check" />
+    <CustomAction Id="WixExecFirewallExceptionsUninstall"
+                                                  BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions"           Impersonate="no" Execute="deferred" Return="check" />
+
+
+		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/installer_dll.dll' />
+		<Binary Id='WixFirewallCA' SourceFile='$(var.Helpers)/installer_dll_fw.dll' />
+
+		<InstallExecuteSequence>
+			<RemoveExistingProducts After='InstallInitialize'/>
+      <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+      <Custom Action="ScheduleWriteConfig" After='InstallFiles' />
+      <Custom Action="SchedServiceInstall" After="InstallFiles" />
+      <Custom Action="SchedServiceUnInstall" Before="RemoveFiles" />
+      <Custom Action="SchedStopAllServices" Before="RemoveFiles" />
+
+      <Custom Action="WixSchedFirewallExceptionsUninstall" Before="RemoveFiles">
+				<![CDATA[ VersionNT >= 501 AND (ServicePackLevel >= 2 OR VersionNT >= 600) ]]>
+			</Custom>
+			<Custom Action="WixSchedFirewallExceptionsInstall" After="InstallFiles">
+				<![CDATA[ VersionNT >= 501 AND (ServicePackLevel >= 2 OR VersionNT >= 600) ]]>
+			</Custom>
+		</InstallExecuteSequence>
+
+		<InstallUISequence>
+			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+			<Custom Action="NeedUninstall" After="FindRelatedProducts" />
+		</InstallUISequence>
+
+		<Property Id="ALLUSERS"><![CDATA[2]]></Property>
+
+		<!-- ### User Interfaces ### -->
+		<UIRef Id="WixUI_Mondo" />
+		<UIRef Id="WixUI_ErrorProgressText" />
+
+		<!-- ### Icons -->
+		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/nscp.exe" />
+		<!--
+		<Icon Id="nstray.exe" SourceFile="$(var.Source)/nstray.exe" />
+			  -->
+	</Product>
+</Wix>

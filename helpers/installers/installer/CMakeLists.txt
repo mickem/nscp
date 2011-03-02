@@ -1,0 +1,36 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+
+SET(TARGET nsclient_installer)
+	
+PROJECT(${TARGET})
+
+SET(SRCS
+	Product.wxs
+	WixUI.wixlib
+)
+SET(DEPENDENCIES
+	nscp
+)
+GET_FILENAME_COMPONENT(_tmp_FILE WixUI_en-us.wxl ABSOLUTE)
+
+SET(LOCALIZATIONS
+	${_tmp_FILE}
+)
+
+#MESSAGE(STATUS "Wix source: ${SRCS}")
+#WIX_COMPILE(SRCS WIX_OBJS WixUI_en-us.wxl)
+#MESSAGE(STATUS "Wix obj: ${WIX_OBJS}")
+
+#SET (WIX_FULLOBJLIST ${WIXOBJ_LIST} )
+#SET (WIX_DEST ${TARGET}.msi)
+
+SET(WIX_CANDLE_FLAGS -dboost=true -darch=Win32 -dVersion.Major=1 -dVersion.Minor=1 -dVersion.Revision=1 -dVersion.Build=1 -dvar.Source=${NSCP_PROJECT_BINARY_DIR})
+SOURCE_GROUP(Generated FILES ${SRCS})
+#set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
+	
+SOURCE_GROUP(Sources FILES ${SRCS})
+ADD_WIX_INSTALLER(${TARGET} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
+
+MESSAGE(STATUS "====> ${NSCP_PROJECT_BINARY_DIR}")
+
+#ADD_DEPENDENCIES(${TARGET}_WiXInstall ${MAIN_NSCP_TARGET})
