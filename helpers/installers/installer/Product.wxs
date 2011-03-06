@@ -45,9 +45,11 @@
 	<?ifndef var.Source ?>
 		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
 	<?endif?>
+	<!--
 	<?ifndef var.Helpers ?>
 		<?define Helpers = "../../$(var.PlatForm)/$(var.Mode)-helpers/" ?>
 	<?endif?>
+	   -->
 
 	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
 	<?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
@@ -315,8 +317,8 @@
                                                   BinaryKey="WixFirewallCA" DllEntry="ExecFirewallExceptions"           Impersonate="no" Execute="deferred" Return="check" />
 
 
-		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/installer_dll.dll' />
-		<Binary Id='WixFirewallCA' SourceFile='$(var.Helpers)/installer_dll_fw.dll' />
+		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/main_dll.dll' />
+		<Binary Id='WixFirewallCA' SourceFile='$(var.Helpers)/fw_dll.dll' />
 
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
@@ -346,7 +348,7 @@
 		<UIRef Id="WixUI_ErrorProgressText" />
 
 		<!-- ### Icons -->
-		<Icon Id="nsclient.exe" SourceFile="$(var.Source)/nscp.exe" />
+		<Icon Id="nscp.exe" SourceFile="$(var.Source)/nscp.exe" />
 		<!--
 		<Icon Id="nstray.exe" SourceFile="$(var.Source)/nstray.exe" />
 			  -->

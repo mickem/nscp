@@ -1,0 +1,15 @@
+[settings]
+location=old
+;location=old
+location=ini
+;type=registry
+
+[old]
+file=NSC.ini
+
+[ini]
+file=NSClient.ini
+
+[registry]
+;root=/software/NSClient++
+;hive=HKEY_LOCAL_MACHINE

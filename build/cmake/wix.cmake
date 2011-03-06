@@ -15,7 +15,7 @@
 
 if (WIN32)
     MACRO(DBG_MSG _MSG)
-        MESSAGE(STATUS "${CMAKE_CURRENT_LIST_FILE}(${CMAKE_CURRENT_LIST_LINE}):\r\n ${_MSG}")
+        #MESSAGE(STATUS "${CMAKE_CURRENT_LIST_FILE}(${CMAKE_CURRENT_LIST_LINE}):\r\n ${_MSG}")
     ENDMACRO(DBG_MSG)
 
 
@@ -195,7 +195,10 @@ if (WIN32)
 		SET(WIX_OBJ_LIST)
 		WIX_COMPILE("${_sources}" WIX_OBJ_LIST "${_dependencies}")
 		WIX_LINK(${_target}.msi WIX_OBJ_LIST "${_loc_files}")
-		ADD_CUSTOM_TARGET(${_target} DEPENDS ${_target}.msi)
+		ADD_CUSTOM_TARGET(${_target} 
+			DEPENDS ${_target}.msi
+			SOURCES ${_sources}
+			)
     ENDMACRO(ADD_WIX_INSTALLER)
 
 endif(WIN32)

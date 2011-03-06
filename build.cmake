@@ -5,6 +5,7 @@ IF(WIN32)
 	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_ALL_NO_LIB)	# THis is used to disable "automatic linking on windows which seems to break since I dont know how to set link dir
 	SET(INC_NSCP_INCLUDEDIR D:/source/include)
 	SET(INC_PSDK_61 "C:/Program Files/Microsoft SDKs/Windows/v6.1/")
+	SET(INC_PSDK_2003 "C:/Program Files/Microsoft Platform SDK/")
 
 	if(CMAKE_CL_64)
 		MESSAGE(STATUS "Detected x64")
