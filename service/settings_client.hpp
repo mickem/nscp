@@ -38,6 +38,7 @@ namespace nsclient {
 		int migrate_from(std::wstring src) {
 			try {
 				debug_msg(_T("Migrating from: ") + src);
+				core_->load_all_plugins(NSCAPI::dontStart);
 				settings_manager::get_core()->migrate_from(src);
 				return 1;
 			} catch (settings::settings_exception e) {
@@ -50,6 +51,7 @@ namespace nsclient {
 		int migrate_to(std::wstring target) {
 			try {
 				debug_msg(_T("Migrating to: ") + target);
+				core_->load_all_plugins(NSCAPI::dontStart);
 				settings_manager::get_core()->migrate_to(target);
 				return 1;
 			} catch (settings::settings_exception e) {

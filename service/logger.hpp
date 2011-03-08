@@ -204,6 +204,7 @@ namespace nsclient {
 							p->handleMessage(cache_buf);
 						}
 					}
+					cache_.clear();
 				}
 				const char* buf = buffer.c_str();
 				BOOST_FOREACH(plugin_type p, plugins_) {

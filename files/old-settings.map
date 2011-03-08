@@ -27,7 +27,7 @@ crash/restart=/settings/crash/restart
 Settings/obfuscated_password=/settings/default/obfuscated password
 Settings/password=/settings/default/password
 Settings/allowed_hosts=/settings/allowed hosts
-Settings/shared_session=/settings/shared_session
+Settings/shared_session=/settings/shared session/enabled
 
 # Log section
 
@@ -36,10 +36,10 @@ log/date_mask=/settings/log/date mask
 # log/debug
 # log/root_folder
 
-NSClient/allowed_hosts=/settings/NSClientServer/allowed hosts
-NSClient/port=/settings/NSClientServer/port
-NSClient/bind_to_address=/settings/NSClientServer/bind to address
-NSClient/socket_timeout=/settings/NSClientServer/socket timeout
+NSClient/allowed_hosts=/settings/NSClient/server/allowed hosts
+NSClient/port=/settings/NSClient/server/port
+NSClient/bind_to_address=/settings/NSClient/server/bind to address
+NSClient/socket_timeout=/settings/NSClient/server/socket timeout
 
 NRPE/allowed_hosts=/settings/NRPE/server/allowed hosts
 NRPE/port=/settings/NRPE/server/port
@@ -68,7 +68,7 @@ External Script/script_dir=/settings/External Scripts/script folder
 #Script Wrappings/ps1=
 #Script Wrappings/bat=
 
-External Scripts/*=/settings/External Scripts/command
+External Scripts/*=/settings/external scripts/scripts
 
 External Alias/*=/settings/External Alias/command
 
