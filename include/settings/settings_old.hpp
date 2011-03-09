@@ -59,11 +59,9 @@ namespace settings {
 			std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
 			std::pair<std::wstring,std::wstring> new_key = split_key(line.substr(pos+1));
 			if (old_key.second == _T("*") || old_key.second.empty()) {
-				add_mapping(new_key.first, old_key.first);
-				get_logger()->debug(__FILE__, __LINE__, _T("Adding: ") + old_key.first + _T(" >> ") + new_key.first);
+				add_mapping(line.substr(pos+1), old_key.first);
 			} else {
 				add_mapping(new_key.first, new_key.second, old_key.first, old_key.second);
-				get_logger()->debug(__FILE__, __LINE__, _T("Adding: ") + old_key.first + _T(":") + old_key.second + _T(" >> ") + new_key.first + _T(":") + new_key.second);
 			}
 
 		}
@@ -83,6 +81,7 @@ namespace settings {
 		path_map sections_;
 		key_map keys_;
 		void add_mapping(std::wstring path_new, std::wstring path_old) {
+			get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Mapping: ") + path_new + _T(" to ") + path_old);
 			sections_[path_new] = path_old;
 		}
 		void add_mapping(std::wstring path_new, std::wstring key_new, std::wstring path_old, std::wstring key_old) {
@@ -94,7 +93,6 @@ namespace settings {
 			path_map::iterator it = sections_.find(path_new);
 			if (it == sections_.end())
 				return path_new;
-			//get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Mapping: ") + path_new + _T(" to ") + (*it).second);
 			return (*it).second;
 		}
 		settings_core::key_path_type map_key(settings_core::key_path_type new_key) {
@@ -344,7 +342,7 @@ namespace settings {
 					section_cache_type::const_iterator it = section_cache_.find(key.second);
 					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("=============>>>>>>>>>>>")) + key.first + _T(" >>>> ") + key.second);
 					if (it == section_cache_.end()) {
-						std::set<std::wstring> list = internal_read_keys_from_section(path);
+						std::set<std::wstring> list = internal_read_keys_from_section(key.second);
 						section_cache_[path] = list;
 						it = section_cache_.find(path);
 					}

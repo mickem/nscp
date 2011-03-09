@@ -26,7 +26,7 @@ crash/restart=/settings/crash/restart
 
 Settings/obfuscated_password=/settings/default/obfuscated password
 Settings/password=/settings/default/password
-Settings/allowed_hosts=/settings/allowed hosts
+Settings/allowed_hosts=/settings/default/allowed hosts
 Settings/shared_session=/settings/shared session/enabled
 
 # Log section
@@ -51,28 +51,23 @@ NRPE/allow_nasty_meta_chars=/settings/NRPE/server/allow nasty meta chars
 NRPE/use_ssl=/settings/NRPE/server/ssl
 # NRPE/script_dir
 
-Check System/CPUBufferSize=/settings/CheckSystem/CPUBufferSize
-Check System/CheckResolution=/settings/CheckSystem/CheckResolution
-#Check System/check_all_services[SERVICE_BOOT_START]
-#Check System/check_all_services[SERVICE_SYSTEM_START]
-#Check System/check_all_services[SERVICE_AUTO_START]
-#Check System/check_all_services[SERVICE_DEMAND_START]
-#Check System/check_all_services[SERVICE_DISABLED]
+#Check System/CPUBufferSize=/settings/check/system/windows/CPUBufferSize
+#Check System/CheckResolution=/settings/CheckSystem/CheckResolution
+Check System/check_all_services[SERVICE_BOOT_START]=/settings/check/system/windows/service mapping/SERVICE_BOOT_START
+Check System/check_all_services[SERVICE_SYSTEM_START]=/settings/check/system/windows/service mapping/SERVICE_SYSTEM_START
+Check System/check_all_services[SERVICE_AUTO_START]=/settings/check/system/windows/service mapping/SERVICE_AUTO_START
+Check System/check_all_services[SERVICE_DEMAND_START]=/settings/check/system/windows/service mapping/SERVICE_DEMAND_START
+Check System/check_all_services[SERVICE_DISABLED]=/settings/check/system/windows/service mapping/SERVICE_DISABLED
 
-External Script/command_timeout=/settings/External Scripts/command timeout
-External Script/allow_arguments=/settings/External Scripts/allow arguments
-External Script/allow_nasty_meta_chars=/settings/External Scripts/allow_nasty_meta_chars
-External Script/script_dir=/settings/External Scripts/script folder
+External Script/command_timeout=/settings/external scripts/command timeout
+External Script/allow_arguments=/settings/external scripts/allow arguments
+External Script/allow_nasty_meta_chars=/settings/external scripts/allow_nasty_meta_chars
+External Script/script_dir=/settings/external scripts/script folder
 
-#Script Wrappings/vbs=
-#Script Wrappings/ps1=
-#Script Wrappings/bat=
-
+Script Wrappings/*=/settings/external scripts/wrappings
 External Scripts/*=/settings/external scripts/scripts
-
-External Alias/*=/settings/External Alias/command
-
-#Wrapped Scripts/*=
+External Alias/*=/settings/external scripts/alias
+Wrapped Scripts/*=/settings/external scripts/wrapped scripts
 
 includes/*=/include/*
 
