@@ -30,6 +30,7 @@ class TNtServiceInfo;
 
 typedef std::list<TNtServiceInfo> TNtServiceInfoList;
 
+#define NSCP_SERVICE_DELAYED 5
 //=============================================================================
 // class TNtServiceInfo
 //
@@ -69,7 +70,7 @@ public:
 	std::wstring GetErrorControl(void);
 	std::wstring GetCurrentState(void);
 
-	static TNtServiceInfoList EnumServices(DWORD dwType, DWORD dwState);
+	static TNtServiceInfoList EnumServices(DWORD dwType, DWORD dwState, bool vista);
 	//static void EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList);
 	static TNtServiceInfo GetService(std::wstring);
 };

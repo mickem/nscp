@@ -95,7 +95,8 @@ std::wstring TNtServiceInfo::GetStartType(void)
 			_T("SYSTEM_START"), // 1
 			_T("AUTO_START"),	// 2
 			_T("DEMAND_START"), // 3
-			_T("DISABLED")		// 4
+			_T("DISABLED"),		// 4
+			_T("DELAYED")		// 5
 	};
 	return std::wstring(types[m_dwStartType]);
 }
@@ -132,11 +133,14 @@ std::wstring TNtServiceInfo::GetCurrentState(void)
 	return std::wstring(types[m_dwCurrentState]);
 }
 
+#ifndef SERVICE_CONFIG_DELAYED_AUTO_START_INFO
+#define SERVICE_CONFIG_DELAYED_AUTO_START_INFO 3
+#endif
 // Enumerate services on this machine and return a pointer to an array of objects.
 // Caller is responsible to delete this pointer using delete [] ...
 // dwType = bit OR of SERVICE_WIN32, SERVICE_DRIVER
 // dwState = bit OR of SERVICE_ACTIVE, SERVICE_INACTIVE
-TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState)
+TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, bool vista)
 {
 	TNtServiceInfoList ret;
 	// Maybe check if dwType and dwState have at least one constant specified
@@ -160,13 +164,25 @@ TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState)
 				info.m_strDisplayName = lpservice[ndx].lpDisplayName;
 				info.m_dwServiceType = lpservice[ndx].ServiceStatus.dwServiceType;
 				info.m_dwCurrentState = lpservice[ndx].ServiceStatus.dwCurrentState;
-				SC_HANDLE sh = ::OpenService(scman,lpservice[ndx].lpServiceName,SERVICE_QUERY_CONFIG);
-				if (::QueryServiceConfig(sh,lpqch,sizeof(Buffer),&bytesNeeded)) {
+				SC_HANDLE hService = ::OpenService(scman,lpservice[ndx].lpServiceName, SERVICE_QUERY_CONFIG);
+				if (::QueryServiceConfig(hService,lpqch,sizeof(Buffer),&bytesNeeded)) {
 					info.m_strBinaryPath = lpqch->lpBinaryPathName;
 					info.m_dwStartType = lpqch->dwStartType;
 					info.m_dwErrorControl = lpqch->dwErrorControl;
 				}
-				::CloseServiceHandle(sh);
+				if (vista) {
+					DWORD size = 0;
+					if (!QueryServiceConfig2(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, NULL, 0, &size) && (GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
+						BYTE *buffer = new BYTE[size+1];
+						if (QueryServiceConfig2(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, buffer, size, &size)) {
+							if ((BOOL)buffer[0]) {
+								info.m_dwStartType = NSCP_SERVICE_DELAYED;
+							}
+						}
+						delete [] buffer;
+					}
+				}
+				::CloseServiceHandle(hService);
 				ret.push_back(info);
 			}
 			delete [] lpservice;

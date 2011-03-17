@@ -579,9 +579,11 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> argu
 		lookups[SERVICE_AUTO_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_2, C_SYSTEM_SVC_ALL_2_DEFAULT);
 		lookups[SERVICE_DEMAND_START] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_3, C_SYSTEM_SVC_ALL_3_DEFAULT);
 		lookups[SERVICE_DISABLED] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_4, C_SYSTEM_SVC_ALL_4_DEFAULT);
+		lookups[NSCP_SERVICE_DELAYED] = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_SVC_ALL_5, C_SYSTEM_SVC_ALL_5_DEFAULT);
 
 
-		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE); 
+		bool vista = systemInfo::isAboveVista(systemInfo::getOSVersion());
+		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE, vista); 
 		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
 			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
 				tmpObject.data = (*service).m_strServiceName;

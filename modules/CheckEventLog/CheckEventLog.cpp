@@ -52,11 +52,7 @@ CheckEventLog::~CheckEventLog() {
 struct parse_exception {
 	parse_exception(std::wstring) {}
 };
-/*
-#include <parsers/where.cpp>
-#include <parsers/grammar.cpp>
-#include <parsers/ast.cpp>
-*/
+
 
 bool CheckEventLog::loadModule() {
 	try {

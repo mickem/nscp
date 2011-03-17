@@ -1,0 +1,121 @@
+import feature : feature ;
+import project ;
+import "class" : new ;
+import targets ;
+import property-set ;
+import common ;
+import type ;
+import toolset : flags ;
+
+# Make this module into a project.
+project.initialize $(__name__) ;
+project psdk61 ;
+
+if [ MATCH (--debug-configuration) : [ modules.peek : ARGV ] ]
+{
+   .debug-configuration = true ;
+}
+
+rule initialized ( )
+{
+    return $(.initialized) ;
+}
+
+
+rule isEnabled ( )
+{
+    return $(.enabled) ;
+}
+
+rule isDebug ( )
+{
+    return $(.debug-configuration) ;
+}
+
+rule get_includes ( )
+{
+    return $(.headers) ;
+}
+
+
+rule printEnv ( ) 
+{
+	echo "PSDK 61 LIBRARIES : $(.libraries) change with --with-psdk61-lib=<path>" ;
+	echo "PSDK 61 HEADERS : $(.headers) change with --with-psdk61=<path>" ;
+}
+
+
+# Initialize psdk61 support.
+rule init (
+    version ? :
+    headers         # Location of header files
+    libraries *     # Location of libraries, lib and bin subdirs of STLport.
+    )
+{
+
+	if $(.initialized)
+	{
+		errors.error "Attempt the reinitialize psdk61!" ;
+	}
+	else
+	{
+		.initialized = true ;
+
+		.libraries = $(libraries) ;
+		.headers = $(headers) ;
+		
+	    local project = [ project.current ] ;
+
+		local has-psdk61 = [ MATCH "^--with-psdk61=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-psdk61) {
+			.headers = $(has-psdk61) ;
+		}
+		local has-psdk61-lib = [ MATCH "^--with-psdk61-lib=(.*)" : [ modules.peek : ARGV ] ] ;
+		local has-generic-lib = [ MATCH "^--library-path=(.*)" : [ modules.peek : ARGV ] ] ;
+		if $(has-psdk61-lib) {
+			.libraries = $(has-psdk61-lib) ;
+		} else if $(has-generic-lib) {
+			.libraries = $(has-generic-lib) ;
+		}
+		
+		import toolset : flags ;
+		
+		if ( ( --with-psdk61 in  [ modules.peek : ARGV ] ) || $(has-psdk61) || $(has-psdk61-lib) )  
+			&& ! ( --without-psdk61 in  [ modules.peek : ARGV ] ) {
+			.enabled = true ;
+		} else {
+			.enabled = false ;
+		}
+				
+		project.pop-current ;
+	}
+}
+
+rule usage-requirements ( properties * )
+{
+	local result ;
+	if ( $(.enabled) = true ) {
+		result += <define>USE_PSDK61 ;
+		result += <include>$(.headers) ;
+	}
+	return $(result) ;
+}
+
+rule requirements ( properties * )
+{
+	local result ;
+	if ( $(.enabled) = true ) {
+		#result += <library-path>$(.libraries) ;
+		result += <search>$(.libraries) ;
+	}
+	return $(result) ;
+}
+
+lib taskschd 
+	: # source
+	: # requirements
+		<conditional>@requirements
+	: # default-build
+	: # usage-requirements
+		<conditional>@usage-requirements
+	;

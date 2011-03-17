@@ -298,7 +298,7 @@ NSCAPI::nagiosReturn CheckHelpers::timeout(const unsigned int argLen, TCHAR **ch
 		p.add("arguments", -1);
 
 		boost::program_options::variables_map vm;
-		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(args).options(desc).positional(p).run(), vm);
+		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(cmd_args).options(desc).positional(p).run(), vm);
 		boost::program_options::notify(vm); 
 
 		if (vm.count("help")) {

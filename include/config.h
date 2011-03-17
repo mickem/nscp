@@ -214,6 +214,8 @@
 #define C_SYSTEM_SVC_ALL_3_DEFAULT _T("ignored")
 #define C_SYSTEM_SVC_ALL_4 _T("check_all_services[SERVICE_DISABLED]")
 #define C_SYSTEM_SVC_ALL_4_DEFAULT _T("stopped")
+#define C_SYSTEM_SVC_ALL_5 _T("check_all_services[SERVICE_DELAYED]")
+#define C_SYSTEM_SVC_ALL_5_DEFAULT _T("ignored")
 
 #define C_TASKSCHED_SECTION _T("Task Scheduler")
 #define C_TASKSCHED_SYNTAX _T("syntax")

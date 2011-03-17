@@ -3,7 +3,6 @@ local source = $(target) ;
 
 project 
 	: requirements
-	<find-static-library>Mstask
 	;
 
 
@@ -19,6 +18,7 @@ lib $(target)
 
 	../../include/parsers/helpers.cpp
 
+	/psdk61//taskschd
 
 	: # requirements
 	<def-file>$(source).def

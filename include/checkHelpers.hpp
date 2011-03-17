@@ -110,7 +110,7 @@ namespace checkHolders {
 		CheckContainer(std::wstring data_, TContents warn_, TContents crit_) 
 			: data(data_), warn(warn_), crit(crit_), show(showUnknown) 
 		{}
-		CheckContainer(std::wstring name_, std::wstring alias_, TContents warn_, TContents crit_) 
+		CheckContainer(std::wstring data_, std::wstring alias_, TContents warn_, TContents crit_) 
 			: data(data_), alias(alias_), warn(warn_), crit(crit_), show(showUnknown) 
 		{}
 		CheckContainer(const TThisType &other) 

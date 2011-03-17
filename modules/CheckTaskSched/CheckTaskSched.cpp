@@ -68,8 +68,8 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 	typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainerQuery2;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::list<std::wstring> stl_args = arrayBuffer::arrayBuffer2list(argLen, char_args);
-	if (stl_args.empty()) {
+	std::list<std::wstring> arguments = arrayBuffer::arrayBuffer2list(argLen, char_args);
+	if (arguments.empty()) {
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
@@ -82,7 +82,7 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 	WMIContainerQuery1 query1;
 	WMIContainerQuery2 query2;
 	try {
-		MAP_OPTIONS_BEGIN(stl_args)
+		MAP_OPTIONS_BEGIN(arguments)
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 			MAP_OPTIONS_STR(_T("Alias"), alias)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
@@ -110,13 +110,11 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(const unsigned int argLen, TCH
 	if (!impl->validate(message)) {
 		return NSCAPI::returnUNKNOWN;
 	}
-	//NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
 	tasksched_filter::filter_result result = tasksched_filter::factories::create_result(args);
 
-//	task_sched::result::fetch_key key(true);
 	try {
-		TaskSched wmiQuery;
-		wmiQuery.findAll(result, args, impl);
+		TaskSched query;
+		query.findAll(result, args, impl);
 	} catch (TaskSched::Exception e) {
 		message = _T("WMIQuery failed: ") + e.getMessage();
 		return NSCAPI::returnCRIT;

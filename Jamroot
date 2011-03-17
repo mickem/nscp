@@ -16,13 +16,14 @@ path-constant TOP : . ;
 
 local toolset = [ MATCH "^--toolset=(.*)" : [ modules.peek : ARGV ] ] ;
 toolset ?= msvc ;
-if $(toolset) = "msvc" {
+if ( $(toolset) = "msvc" || $(toolset) = "msvc-8.0" ) {
 	import bjam/lua ;
 	import bjam/openssl ;
 	import bjam/boost ;
 	import bjam/breakpad ;
 	import bjam/cryptopp ;
 	import bjam/psdk ;
+	import bjam/psdk61 ;
 }
 import toolset : flags ;
 import notfile ;
@@ -59,6 +60,7 @@ if ( $(toolset) = "msvc" || $(toolset) = "msvc-8.0" ) {
 	using bjam/lua : : $(TOP)/lib-source/lua-5.1.2 ;
 	using bjam/cryptopp : : $(TOP)/lib-source/"Crypto++"/src ;
 	using bjam/psdk : : /foo ;
+	using bjam/psdk61 : : /foo ;
 
 	if [ bjam/lua.isEnabled ] = true {
 		echo "LUA support enabled (disable with --without-lua)" ; 
@@ -100,6 +102,12 @@ if ( $(toolset) = "msvc" || $(toolset) = "msvc-8.0" ) {
 		bjam/psdk.printEnv ;
 	} else {
 		echo "Plattform SDK not avaliable! Various features wont work (enable with --with-psdk)" ; 
+	}
+	if [ bjam/psdk61.isEnabled ] = true {
+		echo "Platform SDK found (disable with --without-psdk61)" ; 
+		bjam/psdk61.printEnv ;
+	} else {
+		echo "Plattform SDK not avaliable! Various features wont work (enable with --with-psdk61)" ; 
 	}
 	
 	notfile update_version : @update_version ;
@@ -205,7 +213,7 @@ all-script-libs =
     [ MATCH .*scripts/lib/(.+\\..*) : [ glob scripts/lib/* ] ]
     ;
 local all-script-libs-lst ;
-if $(toolset) = "msvc" {
+if ( $(toolset) = "msvc" || $(toolset) = "msvc-8.0" ) {
 	if ! ( [ bjam/lua.isEnabled ] = true ) {
 		echo "LUA support disabled skipping build of modules..." ;
 		local result ;
@@ -228,6 +236,19 @@ if $(toolset) = "msvc" {
 			if [ MATCH (.*CheckTaskSched.*) : $(l) ] {
 				echo "Not building module: $(l)" ;
 			} else if [ MATCH (.*CheckWMI.*) : $(l) ] {
+				echo "Not building module: $(l)" ;
+			} else {
+				result += $(l) ;
+			}
+		}
+		all-modules = $(result) ;
+	}
+	if ! ( [ bjam/psdk61.isEnabled ] = true ) {
+		echo "PSDK 61 support disabled skipping build of modules..." ;
+		local result ;
+		for local l in $(all-modules)
+		{
+			if [ MATCH (.*CheckTaskSched2.*) : $(l) ] {
 				echo "Not building module: $(l)" ;
 			} else {
 				result += $(l) ;

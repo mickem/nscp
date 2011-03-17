@@ -6,6 +6,13 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-03-17 MickeM
+ * Added proper volume support to CheckDriveSize
+
+2011-03-15 MickeM
+ * Added suport for delayed start to service check (default ignored)
+ * Added new option to CheckDriveSize ignore-unreadable which will ignore checking any unreadable disk drive.
+
 2011-02-16 MickeM
  * Added new module CheckTaskSched2 which is the same as CheckTaskSched but designed for Vista and beyond.
    So if you want to check "new tasks" on modern Windows use this module instead of the CheckTaskSched mosule.

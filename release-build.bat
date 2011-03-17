@@ -14,9 +14,9 @@ echo %jam% --toolset=msvc source-archive >> build.log
 if %ERRORLEVEL% == -1 goto :error
 echo :: Result: %ERRORLEVEL% >> build.log
 
-call :build_one address-model=32 variant=release debug-symbols=on debug-store=database --build-type=complete "--library-path=%TARGET_LIB_x86_DIR%" "--with-psdk-lib=%PLATTFORM_SDK_LIB_x86%"
+call :build_one address-model=32 variant=release debug-symbols=on debug-store=database --build-type=complete "--library-path=%TARGET_LIB_x86_DIR%" "--with-psdk-lib=%PLATTFORM_SDK_LIB_x86%" "--with-psdk61-lib=%PLATTFORM_SDK_61_LIB_x86%"
 IF DEFINED _ERROR goto :error
-call :build_one address-model=64 variant=release debug-symbols=on debug-store=database --build-type=complete "--library-path=%TARGET_LIB_x64_DIR%" "--with-psdk-lib=%PLATTFORM_SDK_LIB_x64%"
+call :build_one address-model=64 variant=release debug-symbols=on debug-store=database --build-type=complete "--library-path=%TARGET_LIB_x64_DIR%" "--with-psdk-lib=%PLATTFORM_SDK_LIB_x64%" "--with-psdk61-lib=%PLATTFORM_SDK_61_LIB_x64%"
 IF DEFINED _ERROR goto :error
 rem call build.bat runtime-link=static variant=release architecture=ia64 --library-path=%TARGET_LIB_IA64_DIR%
 

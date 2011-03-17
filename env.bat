@@ -46,7 +46,9 @@ rem # Set the path to your Platform SDK
 rem #
 rem SET PLATTFORM_SDK=D:\Program\Microsoft Platform SDK for Windows Server 2003 R2
 rem SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
-SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK
+# SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK
+SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
+SET PLATTFORM_SDK_61=C:\Program Files\Microsoft SDKs\Windows\v6.1
 rem #
 rem # Setup various relative paths (might need to tweak)
 rem #
@@ -55,6 +57,11 @@ SET PLATTFORM_SDK_INCLUDE=%PLATTFORM_SDK%\Include
 SET PLATTFORM_SDK_LIB_x86=%PLATTFORM_SDK_LIB%
 SET PLATTFORM_SDK_LIB_x64=%PLATTFORM_SDK_LIB%/AMD64/msi
 SET PLATTFORM_SDK_LIB_IA64=%PLATTFORM_SDK_LIB%/IA64
+SET PLATTFORM_SDK_61_LIB=%PLATTFORM_SDK_61%\Lib
+SET PLATTFORM_SDK_61_INCLUDE=%PLATTFORM_SDK_61%\Include
+SET PLATTFORM_SDK_61_LIB_x86=%PLATTFORM_SDK_61_LIB%
+SET PLATTFORM_SDK_61_LIB_x64=%PLATTFORM_SDK_61_LIB%/x64
+SET PLATTFORM_SDK_61_LIB_IA64=%PLATTFORM_SDK_61_LIB%/IA64
 rem #
 rem ########################
 rem #
@@ -78,7 +85,7 @@ SET GOOGLE_BREAKPAD_INCLUDE=d:\source\libraries\google-breakpad-svn\src
 SET ZIP7_PATH=C:\Program Files\7-Zip
 SET PERL_PATH=C:\Strawberry\perl\bin
 SET TOOLS_DIR=D:\source\tools
-SET PUTTY_DIR="c:\Program Files (x86)\PuTTY"
+SET "PUTTY_DIR=c:\Program Files (x86)\PuTTY"
 
 set PATH=%PATH%;%ZIP7_PATH%;%PERL_PATH%;%TOOLS_DIR%;%PUTTY_DIR%
 

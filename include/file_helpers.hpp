@@ -10,7 +10,6 @@ namespace file_helpers {
 				return true;
 			}
 			return false;
-			//return ((dwAttr != INVALID_FILE_ATTRIBUTES) && ((dwAttr&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
 		}
 
 		static bool is_directory(std::wstring path) {
@@ -33,6 +32,7 @@ namespace file_helpers {
 			return true;
 		}
 	};
+
 	class meta {
 	public:
 		static std::wstring get_path(std::wstring file) {
@@ -79,13 +79,9 @@ namespace file_helpers {
 			if (pos == std::wstring::npos) {
 				pattern_type(path, _T("*.*"));
 			}
-			//NSC_DEBUG_MSG_STD(_T("Looking for: path: ") + path.substr(0, pos) + _T(", pattern: ") + path.substr(pos+1));
 			return pattern_type(path.substr(0, pos), path.substr(pos+1));
 		}
-
-
-
-	};
+	}; // END patterns
 
 	class folders {
 #ifndef CSIDL_COMMON_APPDATA 

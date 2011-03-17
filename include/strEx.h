@@ -410,7 +410,7 @@ namespace strEx {
 #define BKMG_RANGE "BKMGTP"
 #define BKMG_SIZE 5
 
-	inline std::wstring itos_as_BKMG(unsigned __int64 i) {
+	inline std::wstring itos_as_BKMG(unsigned long long i) {
 		double cpy = static_cast<double>(i);
 		TCHAR postfix[] = _T(BKMG_RANGE);
 		int idx = 0;
@@ -425,7 +425,7 @@ namespace strEx {
 		ret += postfix[idx];
 		return ret;
 	}
-	inline std::wstring format_BKMG(unsigned __int64 i, std::wstring unit) {
+	inline std::wstring format_BKMG(unsigned long long i, std::wstring unit) {
 		double cpy = static_cast<double>(i);
 		TCHAR postfix[] = _T(BKMG_RANGE);
 		if (unit.length() == 0)
@@ -445,7 +445,7 @@ namespace strEx {
 		}
 		return itos(cpy);
 	}
-	inline std::wstring find_proper_unit_BKMG(unsigned __int64 i) {
+	inline std::wstring find_proper_unit_BKMG(unsigned long long i) {
 		double cpy = static_cast<double>(i);
 		TCHAR postfix[] = _T(BKMG_RANGE);
 		int idx = 0;
@@ -459,7 +459,7 @@ namespace strEx {
 	}
 
 	typedef std::list<std::wstring> splitList;
-	inline splitList splitEx(std::wstring str, std::wstring key) {
+	inline splitList splitEx(const std::wstring str, const std::wstring key) {
 		splitList ret;
 		std::wstring::size_type pos = 0, lpos = 0;
 		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {

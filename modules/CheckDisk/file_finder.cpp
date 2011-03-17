@@ -29,7 +29,7 @@ void file_finder::recursive_scan(file_filter::filter_result result, file_filter:
 			result->process(info, engine->match(info));
 			FindClose(hFind);
 		} else {
-			args->error->report_debug(_T("File was NOT found!"));
+			args->error->report_error(_T("File was NOT found!"));
 		}
 		return;
 	}
