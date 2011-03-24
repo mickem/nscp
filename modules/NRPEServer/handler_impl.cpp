@@ -10,13 +10,13 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	}
 	std::wstring msg, perf;
 
-	if (allowArgs_) {
+	if (!allowArgs_) {
 		if (!cmd.second.empty()) {
 			NSC_LOG_ERROR(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
 			throw nrpe::nrpe_exception(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
 		}
 	}
-	if (allowNasty_) {
+	if (!allowNasty_) {
 		if (cmd.first.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 			NSC_LOG_ERROR(_T("Request command contained illegal metachars!"));
 			throw nrpe::nrpe_exception(_T("Request command contained illegal metachars!"));
@@ -32,7 +32,7 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	NSCAPI::nagiosReturn ret = -3;
 	try {
 		NSC_DEBUG_MSG_STD(_T("Running command: ") + cmd.first);
-		ret = nscapi::plugin_singleton->get_core()->InjectSplitAndCommand(cmd.first, cmd.second, '!', msg, perf);
+		ret = nscapi::plugin_singleton->get_core()->InjectNRPECommand(cmd.first, cmd.second, msg, perf);
 		NSC_DEBUG_MSG_STD(_T("Running command: ") + cmd.first + _T(" = ") + msg);
 	} catch (...) {
 		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), p.get_payload_length());

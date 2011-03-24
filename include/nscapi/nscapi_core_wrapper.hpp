@@ -138,6 +138,7 @@ namespace nscapi {
 		NSCAPI::errorReturn NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::string result);
 		NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
 		NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
+		NSCAPI::nagiosReturn InjectNRPECommand(const std::wstring command, const std::wstring buffer, std::wstring & message, std::wstring & perf);
 		void StopService(void);
 		void Exit(void);
 		std::wstring getBasePath();

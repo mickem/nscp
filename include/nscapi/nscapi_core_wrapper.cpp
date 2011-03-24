@@ -245,12 +245,32 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSplitAndCommand(const wchar_t* 
 NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t spliwchar_t, std::wstring & message, std::wstring & perf, bool escape) {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::escaped_list_separator<wchar_t>(L'\\', spliwchar_t, L'\"'));
+	std::list<std::wstring> arglist;
+	if (escape) {
+		boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::escaped_list_separator<wchar_t>(L'\\', spliwchar_t, L'\"'));
+		BOOST_FOREACH(std::wstring s, tok)
+			arglist.push_back(s);
+	} else {
+		std::wstring split;
+		split.push_back(spliwchar_t);
+		boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::escaped_list_separator<wchar_t>(_T(""), split, _T("\"")));
+		BOOST_FOREACH(std::wstring s, tok)
+			arglist.push_back(s);
+	}
+	return InjectSimpleCommand(command.c_str(), arglist, message, perf);
+}
+
+NSCAPI::nagiosReturn nscapi::core_wrapper::InjectNRPECommand(const std::wstring command, const std::wstring buffer, std::wstring & message, std::wstring & perf) {
+	if (!fNSAPIInject)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	boost::tokenizer<boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::char_separator<wchar_t>(_T("!")));
 	std::list<std::wstring> arglist;
 	BOOST_FOREACH(std::wstring s, tok)
 		arglist.push_back(s);
 	return InjectSimpleCommand(command.c_str(), arglist, message, perf);
 }
+
+
 /**
  * Ask the core to shutdown (only works when run as a service, o/w does nothing ?
  * @todo Check if this might cause damage if not run as a service.

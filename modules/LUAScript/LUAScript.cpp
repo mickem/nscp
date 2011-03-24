@@ -79,8 +79,7 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 void LUAScript::register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function) {
 	NSC_LOG_MESSAGE(_T("Script loading: ") + script->get_script() + _T(": ") + command);
-	strEx::wci_string bstr = command.c_str();
-	commands_[bstr] = lua_func(script, function);
+	commands_[command] = lua_func(script, function);
 }
 
 bool LUAScript::loadScript(const std::wstring file) {
@@ -147,8 +146,8 @@ bool LUAScript::reload(std::wstring &message) {
 
 
 
-NSCAPI::nagiosReturn LUAScript::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("LuaReload")) {
+NSCAPI::nagiosReturn LUAScript::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+	if (command == _T("luareload")) {
 		return reload(message)?NSCAPI::returnOK:NSCAPI::returnCRIT;
 	}
 	cmd_list::const_iterator cit = commands_.find(command);

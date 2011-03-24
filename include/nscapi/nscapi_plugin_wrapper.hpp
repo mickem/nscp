@@ -231,7 +231,7 @@ namespace nscapi {
 					args.push_back(to_wstring(payload.arguments(i)));
 				}
 				std::wstring msg, perf;
-				NSCAPI::nagiosReturn ret = handleCommand(command.c_str(), args, msg, perf);
+				NSCAPI::nagiosReturn ret = handleCommand(command, args, msg, perf);
 
 				PluginCommand::ResponseMessage response_message;
 				::PluginCommand::Header* hdr = response_message.mutable_header();
@@ -250,7 +250,7 @@ namespace nscapi {
 				return ret;
 			}
 
-			virtual NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) = 0;
+			virtual NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) = 0;
 		};
 
 

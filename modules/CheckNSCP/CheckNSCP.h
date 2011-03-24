@@ -50,7 +50,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	void handleMessage(int msgType, const std::string file, int line, std::string message);
-	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	std::string render(int msgType, const std::string file, int line, std::string message);
 	NSCAPI::nagiosReturn check_nscp( std::list<std::wstring> arguments, std::wstring & msg, std::wstring & perf );
 	int get_crashes(std::wstring &last_crash);

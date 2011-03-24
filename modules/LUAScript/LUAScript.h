@@ -40,7 +40,7 @@ private:
 		}
 	};
 
-	typedef std::map<strEx::wci_string,lua_func> cmd_list;
+	typedef std::map<std::wstring,lua_func> cmd_list;
 	typedef std::list<script_wrapper::lua_script*> script_list;
 
 	cmd_list commands_;
@@ -71,7 +71,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	bool loadScript(const std::wstring script);
-	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);
 

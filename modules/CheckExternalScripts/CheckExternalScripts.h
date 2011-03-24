@@ -35,7 +35,7 @@ private:
 			return command + _T("(") + arguments + _T(")");
 		}
 	};
-	typedef std::map<strEx::wci_string, command_data> command_list;
+	typedef std::map<std::wstring, command_data> command_list;
 	command_list commands;
 	command_list alias;
 	unsigned int timeout;
@@ -67,7 +67,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
 
 private:

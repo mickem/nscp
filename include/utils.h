@@ -37,24 +37,24 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 			else if (p__.first == SHOW_FAIL) { obj.show = checkHolders::showProblems; }
 
 #define MAP_OPTIONS_DISK_ALL(obj, postfix, pfUpper, pfLower) \
-			else if (p__.first == _T("MaxWarn") pfUpper) { obj.warn.max.upper = p__.second; } \
-			else if (p__.first == _T("MaxCrit") pfUpper) { obj.crit.max.upper = p__.second; } \
-			else if (p__.first == _T("MinWarn") pfUpper) { obj.warn.min.upper = p__.second; } \
-			else if (p__.first == _T("MinCrit") pfUpper) { obj.crit.min.upper = p__.second; } \
-			else if (p__.first == _T("MaxWarn") pfLower) { obj.warn.max.lower = p__.second; } \
-			else if (p__.first == _T("MaxCrit") pfLower) { obj.crit.max.lower = p__.second; } \
-			else if (p__.first == _T("MinWarn") pfLower) { obj.warn.min.lower = p__.second; } \
-			else if (p__.first == _T("MinCrit") pfLower) { obj.crit.min.lower = p__.second; } \
-			else if (p__.first == _T("MaxWarn") postfix) { obj.warn.max.lower = p__.second; } \
-			else if (p__.first == _T("MaxCrit") postfix) { obj.crit.max.lower = p__.second; } \
-			else if (p__.first == _T("MinWarn") postfix) { obj.warn.min.upper = p__.second; } \
-			else if (p__.first == _T("MinCrit") postfix) { obj.crit.min.upper = p__.second; } 
+			else if (p__.first == _T("MaxWarn") pfUpper) { obj.warn.max_.upper = p__.second; } \
+			else if (p__.first == _T("MaxCrit") pfUpper) { obj.crit.max_.upper = p__.second; } \
+			else if (p__.first == _T("MinWarn") pfUpper) { obj.warn.min_.upper = p__.second; } \
+			else if (p__.first == _T("MinCrit") pfUpper) { obj.crit.min_.upper = p__.second; } \
+			else if (p__.first == _T("MaxWarn") pfLower) { obj.warn.max_.lower = p__.second; } \
+			else if (p__.first == _T("MaxCrit") pfLower) { obj.crit.max_.lower = p__.second; } \
+			else if (p__.first == _T("MinWarn") pfLower) { obj.warn.min_.lower = p__.second; } \
+			else if (p__.first == _T("MinCrit") pfLower) { obj.crit.min_.lower = p__.second; } \
+			else if (p__.first == _T("MaxWarn") postfix) { obj.warn.max_.lower = p__.second; } \
+			else if (p__.first == _T("MaxCrit") postfix) { obj.crit.max_.lower = p__.second; } \
+			else if (p__.first == _T("MinWarn") postfix) { obj.warn.min_.upper = p__.second; } \
+			else if (p__.first == _T("MinCrit") postfix) { obj.crit.min_.upper = p__.second; } 
 
 #define MAP_OPTIONS_NUMERIC_ALL(obj, postfix) \
-			else if (p__.first == (_T("MaxWarn") postfix)) { obj.warn.max = p__.second; } \
-			else if (p__.first == (_T("MaxCrit") postfix)) { obj.crit.max = p__.second; } \
-			else if (p__.first == (_T("MinWarn") postfix)) { obj.warn.min = p__.second; } \
-			else if (p__.first == (_T("MinCrit") postfix)) { obj.crit.min = p__.second; }
+			else if (p__.first == (_T("MaxWarn") postfix)) { obj.warn.max_ = p__.second; } \
+			else if (p__.first == (_T("MaxCrit") postfix)) { obj.crit.max_ = p__.second; } \
+			else if (p__.first == (_T("MinWarn") postfix)) { obj.warn.min_ = p__.second; } \
+			else if (p__.first == (_T("MinCrit") postfix)) { obj.crit.min_ = p__.second; }
 
 #define MAP_OPTIONS_EXACT_NUMERIC_ALL(obj, postfix) \
 			else if (p__.first == (_T("warn") postfix)) { obj.warn = p__.second; } \
@@ -74,6 +74,9 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 			else if (p__.first == value) { action; }
 #define MAP_OPTIONS_STR(value, obj) \
 			else if (p__.first == value) { obj = p__.second; }
+#define MAP_OPTIONS_DOUBLE(value, obj) \
+			else if (p__.first == value) { obj = strEx::stod(p__.second); }
+
 #define MAP_OPTIONS_STR2INT(value, obj) \
 			else if (p__.first == value) { obj = _wtoi(p__.second.c_str()); }
 #define MAP_OPTIONS_STR_AND(value, obj, extra) \

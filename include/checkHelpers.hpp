@@ -22,10 +22,11 @@
 
 #include <string>
 #include <strEx.h>
+#include <math.h>
 
 #define MAKE_PERFDATA_SIMPLE(alias, value, unit) _T("'") + alias + _T("'=") + value + unit
-#define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T("; ")
-#define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax + _T("; ")
+#define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit 
+#define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax
 
 namespace checkHolders {
 
@@ -108,14 +109,24 @@ namespace checkHolders {
 		CheckContainer() : show(showUnknown), perfData(true)
 		{}
 		CheckContainer(std::wstring data_, TContents warn_, TContents crit_) 
-			: data(data_), warn(warn_), crit(crit_), show(showUnknown) 
+			: data(data_), warn(warn_), crit(crit_), show(showUnknown), perfData(true)
 		{}
-		CheckContainer(std::wstring name_, std::wstring alias_, TContents warn_, TContents crit_) 
-			: data(data_), alias(alias_), warn(warn_), crit(crit_), show(showUnknown) 
+		CheckContainer(std::wstring data_, std::wstring alias_, TContents warn_, TContents crit_) 
+			: data(data_), alias(alias_), warn(warn_), crit(crit_), show(showUnknown), perfData(true)
 		{}
 		CheckContainer(const TThisType &other) 
-			: data(other.data), alias(other.alias), warn(other.warn), crit(other.crit), show(other.show) 
+			: data(other.data), alias(other.alias), warn(other.warn), crit(other.crit), show(other.show), perfData(other.perfData)
+
 		{}
+		CheckContainer<TContents>& operator =(const CheckContainer<TContents> &other) {
+			warn = other.warn;
+			crit = other.crit;
+			data = other.data;
+			alias = other.alias;
+			show = other.show;
+			perfData = other.perfData;
+			return *this;
+		}
 		std::wstring getAlias() {
 			if (alias.empty())
 				return data;
@@ -173,6 +184,29 @@ namespace checkHolders {
 		}
 	};
 
+	template <class TContents>
+	struct MagicCheckContainer : public CheckContainer<TContents> {
+		typedef CheckContainer<TContents> tParent;
+
+		MagicCheckContainer() : tParent() {}
+		MagicCheckContainer(std::wstring data_, TContents warn_, TContents crit_) : tParent(data_, warn_, crit_) {}
+		MagicCheckContainer(std::wstring data_, std::wstring alias_, TContents warn_, TContents crit_) : tParent(data_, alias_, warn_, crit_) {}
+		MagicCheckContainer(const TThisType &other) : tParent(other) {}
+
+		MagicCheckContainer<TContents>& operator =(const MagicCheckContainer<TContents> &other) {
+			tParent::operator =(other);
+			return *this;
+		}
+
+
+		void set_magic(double magic) {
+			warn.max_.set_magic(magic);
+			warn.min_.set_magic(magic);
+			crit.max_.set_magic(magic);
+			crit.min_.set_magic(magic);
+		}
+
+	};
 
 	template <class value_type>
 	struct check_proxy_interface {
@@ -624,6 +658,19 @@ namespace checkHolders {
 		TTypeValue getLowerPercentage() {
 			return (value*100)/total;
 		}
+
+		TTypeValue adjust_upper_magic(TTypeValue percentage, double normal, double magic) {
+			if (magic == 0)
+				return percentage;
+			return 100 - ( (100 - percentage) * pow(total / normal, magic) / (value / normal) );
+		}
+		TTypeValue adjust_lower_magic(TTypeValue percentage, double normal, double magic) {
+			if (magic == 0)
+				return percentage;
+			return ( (percentage) * pow(total / normal, magic) / (value / normal) );
+		}
+
+
 	};
 
 	template <typename TType = int, class THandler = int_handler >
@@ -650,9 +697,9 @@ namespace checkHolders {
 				std::wstring::size_type p = value.find_first_of('%');
 				if (p != std::wstring::npos) {
 					if (isUpper_)
-						pParent_->setPercentageUpper(value);
+						pParent_->setPercentageUpper(value.substr(0, p));
 					else
-						pParent_->setPercentageLower(value);
+						pParent_->setPercentageLower(value.substr(0, p));
 				} else {
 					if (isUpper_)
 						pParent_->setUpper(value);
@@ -671,26 +718,48 @@ namespace checkHolders {
 		typedef NumericPercentageBounds<TType, THandler> TMyType;
 		InternalValue upper;
 		InternalValue lower;
+		double normal_size;
+		double magic;
 
-		NumericPercentageBounds() : type_(none), upper(true), lower(false) {
+		NumericPercentageBounds() : type_(none), upper(true), lower(false), magic(0), normal_size(20*1024*1024) {
 			upper.setParent(this);
 			lower.setParent(this);
 		}
 
-		NumericPercentageBounds(const NumericPercentageBounds &other) {
+		NumericPercentageBounds(const NumericPercentageBounds &other) 
+			: type_(other.type_)
+			, value_(other.value_)
+			, magic(other.magic)
+			, normal_size(other.normal_size)
+			, upper(other.upper)
+			, lower(other.lower)
+		{
+			upper.setParent(this);
+			lower.setParent(this);
+
+		}
+
+		NumericPercentageBounds& operator =(const NumericPercentageBounds &other) {
 			type_ = other.type_;
 			value_ = other.value_;
+			magic = other.magic;
+			normal_size = other.normal_size;
+			upper = other.upper;
+			lower = other.lower;
+			upper.setParent(this);
+			lower.setParent(this);
+			return *this;
 		}
 		checkResultType check(TType value) const {
 			if (type_ == percentage_lower) {
-				if (value.getLowerPercentage() == value_)
+				if (value.getLowerPercentage() == value.adjust_lower_magic(value_, normal_size, magic))
 					return same;
-				else if (value.getLowerPercentage() > value_)
+				else if (value.getLowerPercentage() > value.adjust_lower_magic(value_, normal_size, magic))
 					return above;
 			} else if (type_ == percentage_upper) {
-				if (value.getUpperPercentage() == value_)
+				if (value.getUpperPercentage() == value.adjust_upper_magic(value_, normal_size, magic))
 					return same;
-				else if (value.getUpperPercentage() > value_)
+				else if (value.getUpperPercentage() > value.adjust_upper_magic(value_, normal_size, magic))
 					return above;
 			} else if (type_ == value_lower) {
 				if (value.value == value_)
@@ -726,33 +795,37 @@ namespace checkHolders {
 		typename TType::TValueType getPerfBound(TType value) {
 			return value_;
 		}
+		void set_magic(double magic_) {
+			magic = magic_;
+		}
+
 		std::wstring gatherPerfData(std::wstring alias, TType &value, typename TType::TValueType warn, typename TType::TValueType crit) {
 			unsigned int value_p, warn_p, crit_p;
-			TType::TValueType value_v, warn_v, crit_v;
+			TType::TValueType warn_v, crit_v;
 			if (type_ == percentage_upper) {
-				value_p = value.getUpperPercentage();
-				warn_p = warn;
-				crit_p = crit;
-				warn_v = static_cast<double>(value.total)*static_cast<double>(warn)/100.0;
-				crit_v = value.total*(double(crit)/100);;
+				value_p = static_cast<unsigned int>(value.getUpperPercentage());
+				warn_p = static_cast<unsigned int>(warn);
+				crit_p = static_cast<unsigned int>(crit);
+				warn_v = static_cast<unsigned int>(static_cast<double>(value.total)*static_cast<double>(warn)/100.0);
+				crit_v = static_cast<unsigned int>(value.total*(double(crit)/100));
 			} else if (type_ == percentage_lower) {
-				value_p = value.getLowerPercentage();
-				warn_p = warn;
-				crit_p = crit;
-				warn_v = static_cast<double>(value.total)*static_cast<double>(warn)/100.0;
-				crit_v = value.total*(double(crit)/100);
+				value_p = static_cast<unsigned int>(value.getLowerPercentage());
+				warn_p = static_cast<unsigned int>(warn);
+				crit_p = static_cast<unsigned int>(crit);
+				warn_v = static_cast<unsigned int>(static_cast<double>(value.total)*static_cast<double>(warn)/100.0);
+				crit_v = static_cast<unsigned int>(value.total*(double(crit)/100));
 			} else if (type_ == value_upper) {
-				value_p = value.getUpperPercentage();
-				warn_p = 100-(warn*100/value.total);
-				crit_p = 100-(crit*100/value.total);
-				warn_v = warn;
-				crit_v = crit;
+				value_p = static_cast<unsigned int>(value.getUpperPercentage());
+				warn_p = static_cast<unsigned int>(100-(warn*100/value.total));
+				crit_p = static_cast<unsigned int>(100-(crit*100/value.total));
+				warn_v = static_cast<unsigned int>(warn);
+				crit_v = static_cast<unsigned int>(crit);
 			} else {
-				value_p = value.getLowerPercentage();
-				warn_p = 100-(warn*100/value.total);
-				crit_p = 100-(crit*100/value.total);
-				warn_v = warn;
-				crit_v = crit;
+				value_p = static_cast<unsigned int>(value.getLowerPercentage());
+				warn_p = static_cast<unsigned int>(100-(warn*100/value.total));
+				crit_p = static_cast<unsigned int>(100-(crit*100/value.total));
+				warn_v = static_cast<unsigned int>(warn);
+				crit_v = static_cast<unsigned int>(crit);
 			}
 			std::wstring unit = THandler::get_perf_unit(min(warn_v, min(crit_v, value.value)));
 			return 
@@ -764,15 +837,14 @@ namespace checkHolders {
 		}
 		std::wstring gatherPerfData(std::wstring alias, TType &value) {
 			unsigned int value_p;
-			TType::TValueType value_v;
 			if (type_ == percentage_upper) {
-				value_p = value.getUpperPercentage();
+				value_p = static_cast<unsigned int>(value.getUpperPercentage());
 			} else if (type_ == percentage_lower) {
-				value_p = value.getLowerPercentage();
+				value_p = static_cast<unsigned int>(value.getLowerPercentage());
 			} else if (type_ == value_upper) {
-				value_p = value.getUpperPercentage();
+				value_p = static_cast<unsigned int>(value.getUpperPercentage());
 			} else {
-				value_p = value.getLowerPercentage();
+				value_p = static_cast<unsigned int>(value.getLowerPercentage());
 			}
 			std::wstring unit = THandler::get_perf_unit(value.value);
 			return 
@@ -852,21 +924,23 @@ namespace checkHolders {
 	template <class TValueType = MaxMinStateValueType, class TNumericHolder = NumericBounds<int, int_handler>, class TStateHolder = StateBounds<state_type, state_handler> >
 	class MaxMinStateBounds {
 	public:
-		TNumericHolder max;
-		TNumericHolder min;
+		TNumericHolder max_;
+		TNumericHolder min_;
 		TStateHolder state;
 		typedef MaxMinStateBounds<TValueType, TNumericHolder, TStateHolder > TMyType;
 
 		typedef typename TValueType TValueType;
 
 		MaxMinStateBounds() {}
-		MaxMinStateBounds(const MaxMinStateBounds &other) {
+		MaxMinStateBounds(const MaxMinStateBounds &other) : state(other.state), max_(other.max_), min_(other.min_) {}
+		MaxMinStateBounds &	operator =(const MaxMinStateBounds &other) {
 			state = other.state;
-			max = other.max;
-			min = other.min;
+			max_ = other.max_;
+			min_ = other.min_;
+			return *this;
 		}
 		bool hasBounds() {
-			return state.hasBounds() ||  max.hasBounds() || min.hasBounds();
+			return state.hasBounds() ||  max_.hasBounds() || min_.hasBounds();
 		}
 
 		static std::wstring toStringLong(typename TValueType &value) {
@@ -888,10 +962,10 @@ namespace checkHolders {
 		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
 			if (state.hasBounds()) {
 				// @todo
-			} else if (max.hasBounds()) {
-				return max.gatherPerfData(alias, value.count, warn.max.getPerfBound(value.count), crit.max.getPerfBound(value.count));
-			} else if (min.hasBounds()) {
-				return min.gatherPerfData(alias, value.count, warn.min.getPerfBound(value.count), crit.min.getPerfBound(value.count));
+			} else if (max_.hasBounds()) {
+				return max_.gatherPerfData(alias, value.count, warn.max_.getPerfBound(value.count), crit.max_.getPerfBound(value.count));
+			} else if (min_.hasBounds()) {
+				return min_.gatherPerfData(alias, value.count, warn.min_.getPerfBound(value.count), crit.min_.getPerfBound(value.count));
 			}
 			return _T("");
 		}
@@ -902,14 +976,14 @@ namespace checkHolders {
 			if ((state.hasBounds())&&(!state.check(value.state))) {
 				message = lable + _T(": ") + formatState(TStateHolder::toStringShort(value.state), type);
 				return true;
-			} else if ((max.hasBounds())&&(max.check(value.count) != below)) {
+			} else if ((max_.hasBounds())&&(max_.check(value.count) != below)) {
 				message = lable + _T(": ") + formatAbove(TNumericHolder::toStringShort(value.count), type);
 				return true;
-			} else if ((min.hasBounds())&&(min.check(value.count) != above)) {
+			} else if ((min_.hasBounds())&&(min_.check(value.count) != above)) {
 				message = lable + _T(": ") + formatBelow(TNumericHolder::toStringShort(value.count), type);
 				return true;
 			} else {
-				NSC_DEBUG_MSG_STD(_T("Missing bounds for check: ") + lable);
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for check: ") + lable);
 				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
@@ -1011,20 +1085,22 @@ namespace checkHolders {
 	template <class THolder = NumericBounds<int, int_handler> >
 	class MaxMinBounds {
 	public:
-		THolder max;
-		THolder min;
+		THolder max_;
+		THolder min_;
 		typedef MaxMinBounds<THolder > TMyType;
 
 		typedef typename THolder::TValueType TValueType;
 		//		typedef THolder::TFormatType TFormatType;
 
 		MaxMinBounds() {}
-		MaxMinBounds(const MaxMinBounds &other) {
-			max = other.max;
-			min = other.min;
+		MaxMinBounds(const MaxMinBounds &other) : max_(other.max_), min_(other.min_) {}
+		MaxMinBounds& operator=(const MaxMinBounds &other) {
+			max_ = other.max_;
+			min_ = other.min_;
+			return *this;
 		}
 		bool hasBounds() {
-			return max.hasBounds() || min.hasBounds();
+			return max_.hasBounds() || min_.hasBounds();
 		}
 		static std::wstring toStringLong(typename THolder::TValueType &value) {
 			return THolder::toStringLong(value);
@@ -1033,13 +1109,13 @@ namespace checkHolders {
 			return THolder::toStringShort(value);
 		}
 		std::wstring gatherPerfData(std::wstring alias, typename THolder::TValueType &value, TMyType &warn, TMyType &crit) {
-			if (max.hasBounds()) {
-				return max.gatherPerfData(alias, value, warn.max.getPerfBound(value), crit.max.getPerfBound(value));
-			} else if (min.hasBounds()) {
-				return min.gatherPerfData(alias, value, warn.min.getPerfBound(value), crit.min.getPerfBound(value));
+			if (max_.hasBounds()) {
+				return max_.gatherPerfData(alias, value, warn.max_.getPerfBound(value), crit.max_.getPerfBound(value));
+			} else if (min_.hasBounds()) {
+				return min_.gatherPerfData(alias, value, warn.min_.getPerfBound(value), crit.min_.getPerfBound(value));
 			} else {
 				NSC_LOG_MESSAGE_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
-				return min.gatherPerfData(alias, value, 0, 0);
+				return min_.gatherPerfData(alias, value, 0, 0);
 			}
 			return _T("");
 		}
@@ -1048,10 +1124,10 @@ namespace checkHolders {
 			return tmp.gatherPerfData(alias, value);
 		}
 		bool check(typename THolder::TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
-			if ((max.hasBounds())&&(max.check(value) != below)) {
+			if ((max_.hasBounds())&&(max_.check(value) != below)) {
 				message = lable + _T(": ") + formatAbove(THolder::toStringLong(value), type);
 				return true;
-			} else if ((min.hasBounds())&&(min.check(value) != above)) {
+			} else if ((min_.hasBounds())&&(min_.check(value) != above)) {
 				message = lable + _T(": ") + formatBelow(THolder::toStringLong(value), type);
 				return true;
 			} else {
@@ -1140,7 +1216,7 @@ namespace checkHolders {
 			} else if (eq.hasBounds()) {
 				return eq.gatherPerfData(alias, value, warn.eq.getPerfBound(value), crit.eq.getPerfBound(value));
 			} else {
-				NSC_DEBUG_MSG_STD(_T("Missing bounds for: ") + alias);
+				NSC_LOG_MESSAGE_STD(_T("Missing bounds for: ") + alias);
 				return _T("");
 			}
 		}

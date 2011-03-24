@@ -50,7 +50,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	std::wstring get_filter(unsigned int drvType);
-	NSCAPI::nagiosReturn handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 
 	// Check commands
 	NSCAPI::nagiosReturn CheckFileSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
@@ -60,5 +60,5 @@ public:
 	NSCAPI::nagiosReturn CheckSingleFile(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 
 private:
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
+	typedef checkHolders::MagicCheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 };

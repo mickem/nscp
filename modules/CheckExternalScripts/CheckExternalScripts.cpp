@@ -135,7 +135,7 @@ bool CheckExternalScripts::hasMessageHandler() {
 }
 
 
-NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
 	command_list::const_iterator cit = commands.find(command);
 	bool isAlias = false;
 	if (cit == commands.end()) {
@@ -150,17 +150,23 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const strEx::wci_string
 	if (isAlias || allowArgs_) {
 		int i=1;
 		BOOST_FOREACH(std::wstring str, arguments) {
-			if (isAlias || allowNasty_) {
+			if (!isAlias && !allowNasty_) {
 				if (str.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;
 				}
 			}
-			strEx::replace(args, _T("$ARG") + strEx::itos(i) + _T("$"), str);
+			strEx::replace(args, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
 		}
 	}
 	if (isAlias) {
-		return GET_CORE()->InjectSplitAndCommand(cd.command, args, ' ', message, perf, true);
+		try {
+			return GET_CORE()->InjectSplitAndCommand(cd.command, args, ' ', message, perf, true);
+		} catch (boost::escaped_list_error &e) {
+			NSC_LOG_MESSAGE(_T("Failed to parse alias expression: ") + strEx::string_to_wstring(e.what()));
+			NSC_LOG_MESSAGE(_T("We will now try parsing the old syntax instead..."));
+			return GET_CORE()->InjectSplitAndCommand(cd.command, args, ' ', message, perf, false);
+		}
 	} else {
 		int result = process::executeProcess(process::exec_arguments(root_, cd.command + _T(" ") + args, timeout), message, perf);
 		if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {

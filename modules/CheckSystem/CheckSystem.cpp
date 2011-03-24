@@ -65,9 +65,12 @@ bool CheckSystem::loadModule() {
 
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
+	data->check_intervall = 10;
 	try {
+		typedef std::map<std::wstring,std::wstring> counter_map_type;
 		std::map<std::wstring,std::wstring> service_mappings;
-		bool default_counters;
+		std::map<std::wstring,std::wstring> counters;
+		bool default_counters = true;
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("check"), alias, _T("system/windows"));
@@ -80,13 +83,14 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 			(_T("pdh"), _T("PDH COUNTER INFORMATION"), _T(""))
 
-			//(_T("pdh/counter"), _T("PDH COUNTERS"), _T(""))
+			(_T("pdh/counters"), sh::wstring_map_path(&counters)
+			, _T("PDH COUNTERS"), _T(""))
 
 			;
 
 
  		settings.alias().add_key_to_settings()
- 			(_T("default"), sh::bool_key(&default_counters),
+ 			(_T("default"), sh::bool_key(&default_counters, true),
  			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
 // 
 // 			(_T("hostname cache"), sh::bool_key(&cacheNscaHost_),
@@ -112,10 +116,13 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 		typedef PDHCollector::system_counter_data::counter cnt;
 		if (default_counters) {
-			data->counters.push_back(cnt(_T("cpu load"), _T("\\238(_total)\\6"), cnt::type_int64, cnt::format_large, cnt::rrd));
-			data->counters.push_back(cnt(_T("memory commit bytes"), _T("\\4\26"), cnt::type_int64, cnt::format_large, cnt::value));
-			data->counters.push_back(cnt(_T("memory commit limit"), _T("\\4\\30"), cnt::type_int64, cnt::format_large, cnt::value));
-			data->counters.push_back(cnt(_T("uptime"), _T("\\2\\674"), cnt::type_int64, cnt::format_large, cnt::value));
+			data->counters.push_back(cnt(PDH_SYSTEM_KEY_CPU, _T("\\238(_total)\\6"), cnt::type_int64, cnt::format_large, cnt::rrd));
+			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCB, _T("\\4\\26"), cnt::type_int64, cnt::format_large, cnt::value));
+			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCL, _T("\\4\\30"), cnt::type_int64, cnt::format_large, cnt::value));
+			data->counters.push_back(cnt(PDH_SYSTEM_KEY_UPT, _T("\\2\\674"), cnt::type_int64, cnt::format_large, cnt::value));
+		}
+		BOOST_FOREACH(counter_map_type::value_type c, counters) {
+			data->counters.push_back(cnt(c.first, c.second, cnt::type_int64, cnt::format_large, cnt::value));
 		}
 
 		get_core()->registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
@@ -387,23 +394,23 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
  * @param **args 
  * @return 
  */
-NSCAPI::nagiosReturn CheckSystem::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
 	CheckSystem::returnBundle rb;
-	if (command == _T("checkCPU")) {
+	if (command == _T("checkcpu")) {
 		return checkCPU(arguments, msg, perf);
-	} else if (command == _T("checkUpTime")) {
+	} else if (command == _T("checkuptime")) {
 		return checkUpTime(arguments, msg, perf);
-	} else if (command == _T("checkServiceState")) {
+	} else if (command == _T("checkservicestate")) {
 		return checkServiceState(arguments, msg, perf);
-	} else if (command == _T("checkProcState")) {
+	} else if (command == _T("checkprocstate")) {
 		return checkProcState(arguments, msg, perf);
-	} else if (command == _T("checkMem")) {
+	} else if (command == _T("checkmem")) {
 		return checkMem(arguments, msg, perf);
-	} else if (command == _T("checkCounter")) {
+	} else if (command == _T("checkcounter")) {
 		return checkCounter(arguments, msg, perf);
-	} else if (command == _T("listCounterInstances")) {
+	} else if (command == _T("listcounterinstances")) {
 		return listCounterInstances(arguments, msg, perf);
-	} else if (command == _T("checkSingleRegEntry")) {
+	} else if (command == _T("checksingleregentry")) {
 		return checkSingleRegEntry(arguments, msg, perf);
 	}
 	return NSCAPI::returnIgnored;
@@ -458,8 +465,8 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, st
 
 	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T(""))
-		MAP_OPTIONS_STR(_T("warn"), tmpObject.warn.max)
-		MAP_OPTIONS_STR(_T("crit"), tmpObject.crit.max)
+		MAP_OPTIONS_STR(_T("warn"), tmpObject.warn.max_)
+		MAP_OPTIONS_STR(_T("crit"), tmpObject.crit.max_)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_STR_AND(_T("time"), tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_STR_AND(_T("Time"), tmpObject.data, list.push_back(tmpObject))
@@ -522,8 +529,8 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(std::list<std::wstring> arguments,
 
 	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_NUMERIC_ALL(bounds, _T(""))
-		MAP_OPTIONS_STR(_T("warn"), bounds.warn.min)
-		MAP_OPTIONS_STR(_T("crit"), bounds.crit.min)
+		MAP_OPTIONS_STR(_T("warn"), bounds.warn.min_)
+		MAP_OPTIONS_STR(_T("crit"), bounds.crit.min_)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_STR(_T("Alias"), bounds.data)
 		MAP_OPTIONS_SHOWALL(bounds)
@@ -890,7 +897,7 @@ NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
 		if (getCmdLines && !(*entry).command_line.empty())
 			key = (*entry).command_line;
 		else
-			key = (*entry).filename;
+			key = boost::to_lower_copy((*entry).filename);
 		NSPROCLST::iterator it = ret.find(key);
 		if (it == ret.end()) {
 			ret[key].entry = (*entry);
@@ -1097,10 +1104,10 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_STR(_T("InvalidStatus"), invalidStatus)
 		MAP_OPTIONS_STR_AND(_T("Counter"), tmpObject.data, counters.push_back(tmpObject))
-		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max)
-		MAP_OPTIONS_STR(_T("MinWarn"), tmpObject.warn.min)
-		MAP_OPTIONS_STR(_T("MaxCrit"), tmpObject.crit.max)
-		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min)
+		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max_)
+		MAP_OPTIONS_STR(_T("MinWarn"), tmpObject.warn.min_)
+		MAP_OPTIONS_STR(_T("MaxCrit"), tmpObject.crit.max_)
+		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min_)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
 		MAP_OPTIONS_SHOWALL(tmpObject)
@@ -1128,33 +1135,51 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 	for (std::list<CounterContainer>::const_iterator cit = counters.begin(); cit != counters.end(); ++cit) {
 		CounterContainer counter = (*cit);
 		try {
-			std::wstring tstr;
-			if (bExpandIndex) {
-				PDH::PDHResolver::expand_index(counter.data);
-			}
-			if (!PDH::PDHResolver::validate(counter.data, tstr, bForceReload)) {
-				NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
-				if (bNSClient) {
-					NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
-					//msg = _T("0");
-				} else {
-					msg = _T("CRIT: Counter not found: ") + counter.data + _T(": ") + tstr;
-					return NSCAPI::returnCRIT;
+
+
+			double value  = 0;
+			if (counter.data.find('\\') == std::wstring::npos) {
+				PDHCollector *pObject = pdhThread.getThread();
+				if (!pObject) {
+					msg = _T("ERROR: PDH Collection thread not running.");
+					return NSCAPI::returnUNKNOWN;
 				}
+				value = pObject->get_double(counter.data);
+				if (value == -1) {
+					msg = _T("ERROR: Failed to get counter value: ") + counter.data;
+					return NSCAPI::returnUNKNOWN;
+				}
+			} else {
+				std::wstring tstr;
+				if (bExpandIndex) {
+					PDH::PDHResolver::expand_index(counter.data);
+				}
+				if (!PDH::PDHResolver::validate(counter.data, tstr, bForceReload)) {
+					NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
+					if (bNSClient) {
+						NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
+						//msg = _T("0");
+					} else {
+						msg = _T("CRIT: Counter not found: ") + counter.data + _T(": ") + tstr;
+						return NSCAPI::returnCRIT;
+					}
+				}
+				PDH::PDHQuery pdh;
+				typedef boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > ptr_lsnr_type;
+				ptr_lsnr_type cDouble(new PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE>());
+				//boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > cDouble;
+				pdh.addCounter(counter.data, cDouble);
+				pdh.open();
+				if (bCheckAverages) {
+					pdh.collect();
+					Sleep(1000);
+				}
+				pdh.gatherData();
+				pdh.close();
+				value = cDouble->getValue();
 			}
-			PDH::PDHQuery pdh;
-			typedef boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > ptr_lsnr_type;
-			ptr_lsnr_type cDouble(new PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE>());
-			//boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > cDouble;
-			pdh.addCounter(counter.data, cDouble);
-			pdh.open();
-			if (bCheckAverages) {
-				pdh.collect();
-				Sleep(1000);
-			}
-			pdh.gatherData();
-			pdh.close();
-			double value = cDouble->getValue();
+
+
 			if (bNSClient) {
 				if (!msg.empty())
 					msg += _T(",");

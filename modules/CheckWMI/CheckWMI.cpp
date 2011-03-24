@@ -263,10 +263,10 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(std::list<std::wstring> argum
 }
 
 
-NSCAPI::nagiosReturn CheckWMI::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("CheckWMI")) {
+NSCAPI::nagiosReturn CheckWMI::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+	if (command == _T("checkwmi")) {
 		return CheckSimpleWMI(arguments, message, perf);
-	} else if (command == _T("CheckWMIValue")) {
+	} else if (command == _T("checkwmivalue")) {
 		return CheckSimpleWMIValue(arguments, message, perf);
 	}	
 	return NSCAPI::returnIgnored;

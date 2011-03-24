@@ -26,6 +26,13 @@
 #include <boost/unordered_map.hpp>
 #include <boost/shared_ptr.hpp>
 
+
+#define PDH_SYSTEM_KEY_CPU _T("cpu")
+#define PDH_SYSTEM_KEY_MCB _T("memory commit bytes")
+#define PDH_SYSTEM_KEY_MCL _T("memory commit limit")
+#define PDH_SYSTEM_KEY_UPT _T("uptime")
+
+
 /**
  * @ingroup NSClientCompat
  * PDH collector thread (gathers performance data and allows for clients to retrieve it)
@@ -72,22 +79,23 @@ public:
 			data_format_struct data_format;
 			std::wstring alias;
 			std::wstring path;
-			collection_strategy_struct collection_strategy;
 			std::wstring buffer_size;
+			collection_strategy_struct collection_strategy;
 
-			boost::shared_ptr<PDHCollectors::PDHCollector> get_counter(int check_intervall);
+			boost::shared_ptr<PDHCollectors::PDHCollector> create(int check_intervall);
 
-			int get_length(int check_intervall) {
-				unsigned int i = strEx::stoui_as_time(buffer_size, check_intervall*100);
-				if (check_intervall == 0)
+			int get_buffer_length(int check_intervall) {
+				try {
+					unsigned int i = strEx::stoui_as_time(buffer_size, check_intervall*100);
+					if (check_intervall == 0)
+						return 100; // TODO fix this!
+					return i/(check_intervall*100)+10;
+				} catch (...) {
 					return 100; // TODO fix this!
-				return i/(check_intervall*100)+10;
+				}
+
 			}
 
-			// 			PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmtLim;
-			// 			PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmt;
-			// 			PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> upTime;
-			// 			PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> cpu;
 
 		};
 
@@ -98,19 +106,13 @@ public:
 
 private:
 
-	system_counter_data *data_;
+	//system_counter_data *data_;
 	MutexRW mutex_;
 	HANDLE hStopEvent_;
 	typedef boost::shared_ptr<PDHCollectors::PDHCollector> collector_ptr;
 	typedef boost::unordered_map<std::wstring,collector_ptr > counter_map;
 	counter_map counters_;
-//	int checkIntervall_;
-//	bool dontCollect_;
-
-	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmtLim;
-	PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> memCmt;
-	PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> upTime;
-	PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex> cpu;
+	int check_intervall_;
 
 public:
 	PDHCollector();
@@ -126,13 +128,8 @@ public:
 	bool loadCounter(PDH::PDHQuery &pdh);
 
 	__int64 get_int_value(std::wstring counter);
-
-
-private:
-//	bool isRunning(void);
-//	void startRunning(void);
-//	void stopRunning(void);
-
+	double get_avg_value(std::wstring counter, unsigned int delta);
+	double get_double(std::wstring counter);
 };
 
 

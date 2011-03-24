@@ -81,7 +81,6 @@ namespace settings {
 		path_map sections_;
 		key_map keys_;
 		void add_mapping(std::wstring path_new, std::wstring path_old) {
-			get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Mapping: ") + path_new + _T(" to ") + path_old);
 			sections_[path_new] = path_old;
 		}
 		void add_mapping(std::wstring path_new, std::wstring key_new, std::wstring path_old, std::wstring key_old) {
@@ -126,13 +125,11 @@ namespace settings {
 		/// @author mickem
 		virtual std::wstring get_real_string(settings_core::key_path_type key) {
 			key = map_key(key);
-			get_core()->get_logger()->quick_debug(key.first + _T("//") + key.second);
 			return internal_get_value(key.first, key.second);
 		}
 #define UNLIKELY_STRING _T("$$$EMPTY_KEY$$$")
 
 		std::wstring internal_get_value(std::wstring path, std::wstring key, int bufferSize = 1024) {
-			get_core()->get_logger()->quick_debug(path + _T("//") + key);
 			if (!has_key_int(path, key))
 				throw KeyNotFoundException(key);
 
@@ -191,7 +188,7 @@ namespace settings {
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
 				throw settings_exception(_T("internal_read_keys_from_section:: Failed to allocate memory for buffer!"));
-			unsigned int count = ::GetPrivateProfileSection(section.c_str(), buffer, bufferLength-2, get_file_name().c_str());
+			unsigned int count = ::GetPrivateProfileSection(section.c_str(), buffer, bufferLength, get_file_name().c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
 				return internal_read_keys_from_section(section, bufferLength*10);
@@ -233,7 +230,6 @@ namespace settings {
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 			try {
 				key = map_key(key);
-				get_core()->get_logger()->quick_debug(key.first + _T("//") + key.second + _T("//") + value.get_string());
 				WritePrivateProfileString(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), get_file_name().c_str());
 			} catch (settings_exception e) {
 				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
@@ -256,8 +252,6 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void get_real_sections(std::wstring path, string_list &list) {
-			get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
-
 			unsigned int path_length = path.length();
 			//string_list lst = get_mapped_sections(path);
 			//list.insert(list.end(), lst.begin(), lst.end());
@@ -275,7 +269,6 @@ namespace settings {
 					std::wstring::size_type pos = key.first.first.find(L'/', 1);
 					if (pos != std::wstring::npos)
 						key.first.first = key.first.first.substr(0,pos);
-					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Found: ")) + key.first.first);
 					list.push_back(key.first.first);
 				} else if (key.first.first.length() > path_length && path == key.first.first.substr(0, path_length)) {
 					std::wstring::size_type pos = key.first.first.find(L'/', path_length+1);
@@ -332,15 +325,12 @@ namespace settings {
 				if (path == key.first.first) {
 					if (has_key_int(key.second.first, key.second.second))
 						list.push_back(key.first.second);
-				} else {
-					//get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Found: TODO FOO fix sub sections")) + key.first.first);
 				}
 			}
 
 			BOOST_FOREACH(section_key_type key, sections_) {
 				if (key.first == path) {
 					section_cache_type::const_iterator it = section_cache_.find(key.second);
-					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("=============>>>>>>>>>>>")) + key.first + _T(" >>>> ") + key.second);
 					if (it == section_cache_.end()) {
 						std::set<std::wstring> list = internal_read_keys_from_section(key.second);
 						section_cache_[path] = list;
@@ -354,8 +344,6 @@ namespace settings {
 	private:
 
 		void int_read_section(std::wstring section, string_list &list, unsigned int bufferLength = BUFF_LEN) {
-			//get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading (OLD) section: ") + section);
-			// @TODO this is not correct!
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
 				throw settings_exception(_T("getSections:: Failed to allocate memory for buffer!"));

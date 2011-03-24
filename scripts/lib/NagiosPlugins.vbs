@@ -113,11 +113,11 @@ Class NagiosPlugin
 
 	Public Function get_threshold (threshold)
 		' Simple function to return the warning and critical threshold
-		If threshold = LCase("warning") Then
+		If LCase(threshold) = "warning" Then
 			get_threshold = threshold_warning
 		End IF
 		
-		If threshold = LCase("critical") Then
+		If LCase(threshold) = "critical" Then
 			get_threshold = threshold_critical
 		End If
 	End Function
@@ -135,7 +135,36 @@ Class NagiosPlugin
 		End If
 	End Function
 
+
+
+	Public Function get_threshold_perfdat(string)
+
+		Dim cintw0
+		Dim cintw
+		Dim x
+		Dim colon
+		
+		cintw0=get_threshold(string)
+		x=Replace(cintw0,"~","")
+		cintw0=Replace(x,"@","")
+		
+		colon=Instr(cintw0,":")
+		
+		If (colon > 1) Then
+			cintw=Left(cintw0,colon-1)
+		Else
+			If (colon=1) Then
+				cintw=Mid(cintw0,2)
+			Else
+				cintw=cintw0
+			End If
+		End If
+		
+		get_threshold_perfdat=cintw
 	
+	End Function
+	
+
 	Public Function check_threshold (value)
 		' Verify the thresholds for warning and critical
 		' Return 0 if ok (don't generate alert)
@@ -150,6 +179,8 @@ Class NagiosPlugin
 		'5		@10:20				>= 10 and <= 20, (inside the range of {10 .. 20})
 		
 		check_threshold = 0
+		
+		value = CDbl(value)
 		
 		Set re = New RegExp
 		re.IgnoreCase = True
@@ -231,31 +262,42 @@ Class NagiosPlugin
 				re.Pattern = "^([0-9]+)$"
 				Set threshold = re.Execute(threshold)
 				
-				If threshold(0) < 0 Or threshold(0) > value Then
-					parse_range = 0
-				Else
+				If value < 0 Or value > CDbl(threshold(0)) Then
 					parse_range = 1
+				Else
+					parse_range = 0
 				End If
 
 			Case 2
 				' outside value -> iinfinity
 				re.Pattern = "^([0-9]+):$"
 				Set threshold = re.Execute(threshold)
-				If value > threshold(0) Then
-					parse_range = 0
-				Else
-					parse_range = 1
-				End If
+
+				
+				For Each thres In threshold
+                                        'Wscript.Echo "SubMatches(0): " & thres.SubMatches(0) & " val: " & value
+					If value < CDbl(thres.SubMatches(0)) Then
+						parse_range = 1
+					Else
+						parse_range = 0
+					End If
+				Next
+				
+
 
 			Case 3
 				' outside the range infinity <- value
 				re.Pattern = "^~:([0-9]+)$"
 				Set threshold = re.Execute(threshold)
-				If value < threshold(0) Then
-					parse_range = 0
-				Else
-					parse_range = 1
-				End If
+
+				For Each thres In threshold
+					If value > CDbl(thres.SubMatches(0)) Then
+						parse_range = 1
+					Else
+						parse_range = 0
+					End If
+				Next
+
 
 			Case 4
 				' outside the range of value:value
@@ -263,7 +305,7 @@ Class NagiosPlugin
 				Set threshold = re.Execute(threshold)
 				
 				For Each thres In threshold
-					If value < thres.SubMatches(0) Or value > thres.SubMatches(1) Then
+					If value < CDbl(thres.SubMatches(0)) Or value > CDbl(thres.SubMatches(1)) Then
 						parse_range = 1
 					Else
 						parse_range = 0
@@ -275,8 +317,8 @@ Class NagiosPlugin
 				Set threshold = re.Execute(threshold)
 				
 				For Each thres In threshold
-					If value > thres.SubMatches(0) And value < thres.SubMatches(1) Then
-						Wscript.Echo "Bigger than " & thres.SubMatches(0) & " and smaller than " & thres.SubMatches(1)
+					If value >= CDbl(thres.SubMatches(0)) And value <= CDbl(thres.SubMatches(1)) Then
+						'Wscript.Echo "Bigger than " & thres.SubMatches(0) & " and smaller than " & thres.SubMatches(1)
 						parse_range = 1
 					Else
 						parse_range = 0

@@ -27,7 +27,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 // Logging calls for the core wrapper 
-
+/*
 #define NSC_LOG_ERROR_STD(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
 #define NSC_LOG_ERROR(msg) NSC_ANY_MSG(msg,NSCAPI::error)
 
@@ -41,6 +41,21 @@
 #define NSC_DEBUG_MSG(msg) NSC_ANY_MSG(msg,NSCAPI::debug)
 
 #define NSC_ANY_MSG(msg, type) GET_CORE()->Message(type, __FILE__, __LINE__, msg)
+*/
+#define NSC_LOG_ERROR_STD(msg) 
+#define NSC_LOG_ERROR(msg) 
+
+#define NSC_LOG_CRITICAL_STD(msg) 
+#define NSC_LOG_CRITICAL(msg) 
+
+#define NSC_LOG_MESSAGE_STD(msg) 
+#define NSC_LOG_MESSAGE(msg) 
+
+#define NSC_DEBUG_MSG_STD(msg)
+#define NSC_DEBUG_MSG(msg)
+
+#define NSC_ANY_MSG(msg, type)
+
 
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point

@@ -30,6 +30,7 @@
 #include "file_info.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
+#include <char_buffer.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -49,7 +50,8 @@ bool CheckDisk::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		get_core()->registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
 		get_core()->registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
-		get_core()->registerCommand(_T("CheckFile2"), _T("Check various aspects of a file and/or folder."));
+		get_core()->registerCommand(_T("CheckFile2"), _T("(deprecated) Check various aspects of a file and/or folder."));
+		get_core()->registerCommand(_T("CheckFiles"), _T("Check various aspects of a file and/or folder."));
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));
@@ -87,6 +89,112 @@ bool CheckDisk::hasMessageHandler() {
 
 
 
+class volume_helper {
+
+	typedef HANDLE (WINAPI *typeFindFirstVolumeW)( __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
+	typedef BOOL (WINAPI *typeFindNextVolumeW)( __inout HANDLE hFindVolume, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
+	typedef HANDLE (WINAPI *typeFindFirstVolumeMountPointW)( __in LPCWSTR lpszRootPathName, __out_ecount(cchBufferLength) LPWSTR lpszVolumeMountPoint, __in DWORD cchBufferLength );
+	typedef BOOL (WINAPI *typeGetVolumeNameForVolumeMountPointW)( __in LPCWSTR lpszVolumeMountPoint, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength );
+	typeFindFirstVolumeW ptrFindFirstVolumeW;
+	typeFindNextVolumeW ptrFindNextVolumeW;
+	typeFindFirstVolumeMountPointW ptrFindFirstVolumeMountPointW;
+	typeGetVolumeNameForVolumeMountPointW ptrGetVolumeNameForVolumeMountPointW;
+	HMODULE hLib;
+
+public:
+	typedef std::map<std::wstring,std::wstring> map_type;
+
+public:
+	volume_helper() : ptrFindFirstVolumeW(NULL) {
+		hLib = ::LoadLibrary(_TEXT("KERNEL32"));
+		if (hLib) {
+			// Find PSAPI functions
+			ptrFindFirstVolumeW = (typeFindFirstVolumeW)::GetProcAddress(hLib, "FindFirstVolumeW");
+			ptrFindNextVolumeW = (typeFindNextVolumeW)::GetProcAddress(hLib, "FindNextVolumeW");
+			ptrFindFirstVolumeMountPointW = (typeFindFirstVolumeMountPointW)::GetProcAddress(hLib, "FindFirstVolumeMountPointW");
+			ptrGetVolumeNameForVolumeMountPointW = (typeGetVolumeNameForVolumeMountPointW)::GetProcAddress(hLib, "GetVolumeNameForVolumeMountPointW");
+		}
+	}
+
+	~volume_helper() {
+
+	}
+
+	HANDLE FindFirstVolume(std::wstring &volume) {
+		if (ptrFindFirstVolumeW == NULL)
+			return INVALID_HANDLE_VALUE;
+		char_buffer  buffer(1024);
+		HANDLE h = ptrFindFirstVolumeW(buffer.unsafe_get_buffer(), buffer.length());
+		if (h != INVALID_HANDLE_VALUE)
+			volume = buffer.unsafe_get_buffer();
+		return h;
+	}
+	BOOL FindNextVolume(HANDLE hVolume, std::wstring &volume) {
+		if (ptrFindFirstVolumeW == NULL || hVolume == INVALID_HANDLE_VALUE)
+			return FALSE;
+		char_buffer  buffer(1024);
+		BOOL r = ptrFindNextVolumeW(hVolume, buffer.unsafe_get_buffer(), buffer.length());
+		if (r)
+			volume = buffer.unsafe_get_buffer();
+		return r;
+	}
+
+	void getVolumeInformation(std::wstring volume, std::wstring &name) {
+		char_buffer volumeName(1024);
+		char_buffer fileSysName(1024);
+		DWORD maximumComponentLength, fileSystemFlags;
+
+		if (!GetVolumeInformation(volume.c_str(), volumeName.unsafe_get_buffer(), volumeName.length(), 
+			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.unsafe_get_buffer(), fileSysName.length())) {
+				NSC_LOG_ERROR_STD(_T("Failed to get volume information: ") + volume);
+		} else {
+			name = volumeName.unsafe_get_buffer();
+		}
+	}
+
+
+	bool GetVolumeNameForVolumeMountPoint(std::wstring volumeMountPoint, std::wstring &volumeName) {
+		char_buffer buffer(1024);
+		if (ptrGetVolumeNameForVolumeMountPointW(volumeMountPoint.c_str(), buffer.unsafe_get_buffer(), buffer.length())) {
+			volumeName = buffer;
+			return true;
+		}
+		return false;
+	}
+	std::wstring GetVolumeNameForVolumeMountPoint(std::wstring volumeMountPoint) {
+		std::wstring volumeName;
+		GetVolumeNameForVolumeMountPoint(volumeMountPoint, volumeName);
+		return volumeName;
+	}
+
+	map_type get_volumes(map_type alias) {
+		map_type ret;
+		std::wstring volume;
+		HANDLE hVol = FindFirstVolume(volume);
+		if (hVol == INVALID_HANDLE_VALUE) {
+			NSC_LOG_ERROR_STD(_T("Failed to enumerate volumes"));
+			return ret;
+		}
+		BOOL bFlag = TRUE;
+		while (bFlag) {
+			map_type::iterator it = alias.find(volume);
+			if (it != alias.end())
+				ret[volume] = (*it).second;
+			else
+				ret[volume] = get_title(volume);
+			bFlag = FindNextVolume(hVol, volume);
+		}
+		return ret;
+	}
+
+	std::wstring get_title(std::wstring volume) {
+		std::wstring title;
+		getVolumeInformation(volume, title);
+		return title;
+	}
+
+
+};
 
 
 
@@ -111,6 +219,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 	bool bPerfData = true;
 	std::list<DriveContainer> drives;
 	std::wstring strCheckAll;
+	bool ignore_unreadable = false;
+	float magic = 0;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("Drive"), tmpObject.data, drives.push_back(tmpObject))
@@ -121,10 +231,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemovable, _T("REMOVABLE"))
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemote, _T("REMOTE"))
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterNoRootDir, _T("NO_ROOT_DIR"))
+		MAP_OPTIONS_BOOL_TRUE(_T("ignore-unreadable"), ignore_unreadable)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		//MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
 		MAP_OPTIONS_STR(CHECK_ALL, strCheckAll)
+		MAP_OPTIONS_DOUBLE(_T("magic"), magic)
 		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL_OTHERS, bCheckAllOthers)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 			else if (p2.first == _T("Drive")) {
@@ -142,14 +254,25 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 		bCheckAllDrives = true;
 
 	if (strCheckAll == _T("volumes")) {
+		volume_helper helper;
+		volume_helper::map_type volume_alias;
 
 		DWORD bufSize = GetLogicalDriveStrings(0, NULL)+5;
 		TCHAR *buffer = new TCHAR[bufSize+10];
 		if (GetLogicalDriveStrings(bufSize, buffer)>0) {
 			while (buffer[0] != 0) {
 				std::wstring drv = buffer;
+				volume_alias[helper.GetVolumeNameForVolumeMountPoint(drv)] = drv;
+				buffer = &buffer[drv.size()];
+				buffer++;
+			}
+		} else {
+			NSC_LOG_ERROR_STD(_T("Failed to get buffer size: ") + error::lookup::last_error());
+		}
 
-				UINT drvType = GetDriveType(drv.c_str());
+		volume_helper::map_type volumes = helper.get_volumes(volume_alias);
+		BOOST_FOREACH(volume_helper::map_type::value_type v, volumes) {
+			UINT drvType = GetDriveType(v.first.c_str());
 				if ( 
 					((!bFilter)&&(drvType == DRIVE_FIXED))  ||
 					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
@@ -158,15 +281,9 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ||
 					((bFilter)&&(bFilterNoRootDir)&&(drvType==DRIVE_NO_ROOT_DIR)) 
 					)
-					drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
+					drives.push_back(DriveContainer(v.first, v.second, tmpObject.warn, tmpObject.crit));
 				else
-					NSC_DEBUG_MSG_STD(_T("Ignoring drive: ") + drv);
-
-				buffer = &buffer[drv.size()];
-				buffer++;
-			}
-		} else {
-			NSC_LOG_ERROR_STD(_T("Failed to get buffer size: ") + error::lookup::last_error());
+				NSC_DEBUG_MSG_STD(_T("Ignoring drive: ") + v.second);
 		}
 	}
 
@@ -231,6 +348,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 			drive.data += _T(":");
 		drive.perfData = bPerfData;
 		UINT drvType = GetDriveType(drive.data.c_str());
+		std::wstring error;
 
 		if ((!bFilter)&&!((drvType == DRIVE_FIXED)||(drvType == DRIVE_NO_ROOT_DIR))) {
 			message = _T("UNKNOWN: Drive is not a fixed drive: ") + drive.getAlias() + _T(" (it is a ") + get_filter(drvType) + _T(" drive)");
@@ -244,14 +362,22 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 			)) {
 				message = _T("UNKNOWN: Drive does not match the current filter: ") + drive.getAlias() + _T(" (add FilterType=") + get_filter(drvType) + _T(" to check this drive)");
 				return NSCAPI::returnUNKNOWN;
-		}
+			}
 
-		ULARGE_INTEGER freeBytesAvailableToCaller;
-		ULARGE_INTEGER totalNumberOfBytes;
-		ULARGE_INTEGER totalNumberOfFreeBytes;
-		if (!GetDiskFreeSpaceEx(drive.data.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
-			message = _T("CRITICAL: Could not get free space for: ") + drive.getAlias() + _T(" ") + drive.data + _T(" reason: ") + error::lookup::last_error();
-			return NSCAPI::returnCRIT;
+			ULARGE_INTEGER freeBytesAvailableToCaller;
+			ULARGE_INTEGER totalNumberOfBytes;
+			ULARGE_INTEGER totalNumberOfFreeBytes;
+			if (!GetDiskFreeSpaceEx(drive.data.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+				DWORD err = GetLastError();
+				if (!ignore_unreadable || err != ERROR_ACCESS_DENIED) {
+					message = _T("CRITICAL: Could not get free space for: ") + drive.getAlias() + _T(" ") + drive.data + _T(" reason: ") + error::lookup::last_error(err);
+				return NSCAPI::returnCRIT;
+			}
+			drive.setDefault(tmpObject);
+			error = drive.getAlias() + _T(": unreadable");
+			freeBytesAvailableToCaller.QuadPart = 0;
+			totalNumberOfFreeBytes.QuadPart = 0;
+			totalNumberOfBytes.QuadPart = 0;
 		}
 
 		if (bNSClient) {
@@ -261,12 +387,17 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 			message += _T("&");
 			message += strEx::itos(totalNumberOfBytes.QuadPart);
 		} else {
-			checkHolders::PercentageValueType<checkHolders::disk_size_type, checkHolders::disk_size_type> value;
-			std::wstring tstr;
-			value.value = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
-			value.total = totalNumberOfBytes.QuadPart;
-			drive.setDefault(tmpObject);
-			drive.runCheck(value, returnCode, message, perf);
+			if (error.empty()) {
+				checkHolders::PercentageValueType<checkHolders::disk_size_type, checkHolders::disk_size_type> value;
+				std::wstring tstr;
+				value.value = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
+				value.total = totalNumberOfBytes.QuadPart;
+				drive.setDefault(tmpObject);
+				drive.set_magic(magic);
+				drive.runCheck(value, returnCode, message, perf);
+			} else {
+				strEx::append_list(message, error, _T(", "));
+			}
 		}
 	}
 	if (message.empty())
@@ -307,10 +438,10 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(std::list<std::wstring> args, std:
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("File"), tmpObject.data, paths.push_back(tmpObject))
 		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max)
-		MAP_OPTIONS_STR(_T("MinWarn"), tmpObject.warn.min)
-		MAP_OPTIONS_STR(_T("MaxCrit"), tmpObject.crit.max)
-		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min)
+		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max_)
+		MAP_OPTIONS_STR(_T("MinWarn"), tmpObject.warn.min_)
+		MAP_OPTIONS_STR(_T("MaxCrit"), tmpObject.crit.max_)
+		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min_)
 		MAP_OPTIONS_BOOL_TRUE(_T("debug"), debug)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
@@ -532,7 +663,6 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(std::list<std::wstring> args, std::ws
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
-	//file_finder::file_filter_function_ex finder;
 	file_finder::PathContainer tmpObject;
 	std::list<std::wstring> paths;
 	unsigned int truncate = 0;
@@ -633,16 +763,16 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(std::list<std::wstring> args, std::ws
 
 
 
-NSCAPI::nagiosReturn CheckDisk::handleCommand(const strEx::wci_string command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("CheckFileSize")) {
+NSCAPI::nagiosReturn CheckDisk::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+	if (command == _T("checkfilesize")) {
 		return CheckFileSize(arguments, message, perf);
-	} else if (command == _T("CheckDriveSize")) {
+	} else if (command == _T("checkdrivesize")) {
 		return CheckDriveSize(arguments, message, perf);
-	} else if (command == _T("CheckFiles")) {
+	} else if (command == _T("checkfiles")) {
 		return CheckFiles(arguments, message, perf);
-	} else if (command == _T("CheckSingleFile")) {
+	} else if (command == _T("checksinglefile")) {
 		return CheckSingleFile(arguments, message, perf);
-	} else if (command == _T("getFileAge")) {
+	} else if (command == _T("getfileage")) {
 		return getFileAge(arguments, message, perf);
 	}	
 	return NSCAPI::returnIgnored;
