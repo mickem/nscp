@@ -208,6 +208,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 	std::list<DriveContainer> drives;
 	std::wstring strCheckAll;
 	bool ignore_unreadable = false;
+	float magic = 0;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("Drive"), tmpObject.data, drives.push_back(tmpObject))
@@ -223,6 +224,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		//MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
 		MAP_OPTIONS_STR(CHECK_ALL, strCheckAll)
+		MAP_OPTIONS_DOUBLE(_T("magic"), magic)
 		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL_OTHERS, bCheckAllOthers)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 			else if (p2.first == _T("Drive")) {
@@ -379,6 +381,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(const unsigned int argLen, TCHAR 
 				value.value = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
 				value.total = totalNumberOfBytes.QuadPart;
 				drive.setDefault(tmpObject);
+				drive.set_magic(magic);
 				drive.runCheck(value, returnCode, message, perf);
 			} else {
 				strEx::append_list(message, error, _T(", "));
@@ -425,10 +428,10 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("File"), tmpObject.data, paths.push_back(tmpObject))
 		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max)
-		MAP_OPTIONS_STR(_T("MinWarn"), tmpObject.warn.min)
-		MAP_OPTIONS_STR(_T("MaxCrit"), tmpObject.crit.max)
-		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min)
+		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max_)
+		MAP_OPTIONS_STR(_T("MinWarn"), tmpObject.warn.min_)
+		MAP_OPTIONS_STR(_T("MaxCrit"), tmpObject.crit.max_)
+		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min_)
 		MAP_OPTIONS_BOOL_TRUE(_T("debug"), debug)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)

@@ -59,5 +59,5 @@ public:
 	NSCAPI::nagiosReturn CheckSingleFile(const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
 
 private:
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
+	typedef checkHolders::MagicCheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 };

@@ -6,6 +6,13 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-03-24 MickeM
+ * Added check_updates.vbs script
+ * Added a lot of useful(?) aliases
+
+2011-03-22 MickeM
+ * Added magic modifier (shamelessly stolen from check_mk) to CheckDriveSize
+
 2011-03-17 MickeM
  * Added proper volume support to CheckDriveSize
 
