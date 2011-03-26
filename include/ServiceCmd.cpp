@@ -35,7 +35,7 @@ namespace serviceControll {
 	 * @date 03-13-2004
 	 *
 	 */
-	void Install(std::wstring szName, std::wstring szDisplayName, LPCTSTR szDependencies, DWORD dwServiceType, std::wstring exe) {
+	void Install(std::wstring szName, std::wstring szDisplayName, std::wstring szDependencies, DWORD dwServiceType, std::wstring args, std::wstring exe) {
 		SC_HANDLE   schService;
 		SC_HANDLE   schSCManager;
 
@@ -46,6 +46,9 @@ namespace serviceControll {
 			exe = szPath;
 		}
 
+		std::wstring bin = _T("\"") + exe + _T("\"");
+		if (!args.empty())
+			bin += _T(" ") + args;
 		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 		if (!schSCManager)
 			throw SCException(_T("OpenSCManager failed:") + error::lookup::last_error());
@@ -57,10 +60,10 @@ namespace serviceControll {
 			dwServiceType,				// service type
 			SERVICE_AUTO_START,			// start type
 			SERVICE_ERROR_NORMAL,       // error control type
-			exe.c_str(),                     // service's binary
+			bin.c_str(),                // service's binary
 			NULL,                       // no load ordering group
 			NULL,                       // no tag identifier
-			szDependencies,			    // dependencies
+			szDependencies.c_str(),	    // dependencies
 			NULL,                       // LocalSystem account
 			NULL);                      // no password
 
@@ -72,7 +75,7 @@ namespace serviceControll {
 			}
 			throw SCException(_T("Unable to install service.") + error::lookup::last_error(err));
 		}
-		std::wcout << _T("Service ") << szName << _T(" installed...") << std::endl;;
+		std::wcout << _T("Service ") << szName << _T(" (") << bin << _T(") installed...") << std::endl;;
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 	}

@@ -43,7 +43,14 @@ public:
 			;
 
 		service.add_options()
-			("install", po::value<std::wstring>(), "Install service")
+			("install", "Install service")
+			("uninstall", "Uninstall service")
+			("start", "Start service")
+			("stop", "Stop service")
+			("info", "Show information about service")
+			("run", "Run as a service")
+			("name", po::value<std::wstring>(), "Name of service")
+			("description", po::value<std::wstring>()->default_value(_T("")), "Description of service")
 			;
 
 	}
@@ -69,6 +76,10 @@ public:
 			if (vm.count("settings")) {
 				mainClient.set_console_log();
 				return parse_settings(argc, argv);
+			}
+			if (vm.count("service")) {
+				//mainClient.set_console_log();
+				return parse_service(argc, argv);
 			}
 			if (vm.count("test")) {
 				mainClient.set_console_log();
@@ -106,15 +117,6 @@ public:
 // 		}
 // 		std::wcout << "Launching test mode - " << (server?_T("server mode"):_T("client mode")) << std::endl;
 // 		LOG_MESSAGE_STD(_T("Booting: ") SZSERVICEDISPLAYNAME );
-#ifdef WIN32
-		try {
-			if (serviceControll::isStarted(SZSERVICENAME)) {
-				std::wcerr << "Service seems to be started, this is probably not a good idea..." << std::endl;
-			}
-		} catch (...) {
-			// Empty by design
-		}
-#endif
 		nsclient::simple_client client(core_);
 		client.start();
 		return 0;
@@ -174,6 +176,83 @@ public:
 		}
 	}
 
+
+	int parse_service(int argc, wchar_t* argv[]) {
+		try {
+			po::options_description all("Allowed options (settings)");
+			all.add(desc).add(service);
+
+			po::variables_map vm;
+			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::notify(vm);
+
+			if (vm.count("help")) {
+				std::cout << all << "\n";
+				return 1;
+			}
+			bool debug = false;
+			if (vm.count("debug")) {
+				std::wcout << _T("----");
+				debug = true;
+			}
+			std::wstring name;
+			if (vm.count("name")) {
+				name = vm["name"].as<std::wstring>();
+			} else {
+				std::wcout << _T("TODO retrieve name from service here") << std::endl;
+			}
+			std::wstring desc;
+			if (vm.count("description")) {
+				desc = vm["description"].as<std::wstring>();
+			} else {
+				std::wcout << _T("TODO retrieve name from service here") << std::endl;
+			}
+			if (debug) {
+				std::wcout << _T("Service name: ") << name << std::endl;
+				std::wcout << _T("Service description: ") << desc << std::endl;
+			}
+
+			std::wstringstream ss;
+			ss << _T("run: ") << vm.count("run");
+			ss << _T(", name: ") << vm.count("name");
+			ss << _T(", info: ") << vm.count("info");
+
+			std::wstring s = ss.str();
+			OutputDebugString(s.c_str());
+			std::wcout << s << std::endl;
+
+			if (vm.count("run")) {
+				try {
+					mainClient.enableDebug(true);
+					mainClient.start_and_wait(name);
+				} catch (...) {
+					std::wcerr << _T("Unknown exception in service") << std::endl;
+				}
+			} else {
+				mainClient.set_console_log();
+				nsclient::client::service_manager service_manager(name);
+
+				if (vm.count("install")) {
+					service_manager.install(desc);
+				} else if (vm.count("uninstall")) {
+					service_manager.uninstall();
+				} else if (vm.count("start")) {
+					service_manager.start();
+				} else if (vm.count("stop")) {
+					service_manager.stop();
+				} else if (vm.count("info")) {
+					service_manager.info();
+				} else {
+					std::cerr << "Missing argument" << std::endl;
+					return 1;
+				}
+			}
+			return 0;
+		} catch(std::exception & e) {
+			std::cerr << "Unable to parse command line (settings): " << e.what() << std::endl;
+			return 1;
+		}
+	}
 };
 
 

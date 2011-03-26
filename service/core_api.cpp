@@ -77,18 +77,16 @@ NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.getBasePath().string(), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, SZAPPNAME, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, APPLICATION_NAME, NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, SZVERSION, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, CURRENT_SERVICE_VERSION, NSCAPI::isSuccess);
 }
 void NSAPIMessage(const char* data, unsigned int count) {
 	mainClient.reportMessage(std::string(data, count));
 }
 void NSAPIStopServer(void) {
-#ifdef WIN32
-	serviceControll::StopNoWait(SZSERVICENAME);
-#endif
+	mainClient.get_service_control().stop();
 }
 NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;

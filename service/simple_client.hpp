@@ -13,6 +13,10 @@ namespace nsclient {
 				std::wcout << _T("Service *NOT* started!") << std::endl;
 				return;
 			}
+
+			if (core_->get_service_control().is_started())
+				std::wcerr << "Service seems to be started (Sockets and such will probably not work)..." << std::endl;
+
 			//std::wcout << _T("Using settings from: ") << settings_manager::get_core()->get_settings_type_desc() << std::endl;
 			std::wcout << _T("Enter command to inject or exit to terminate...") << std::endl;
 /*

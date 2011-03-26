@@ -44,7 +44,7 @@ public:
 		return version;
 	}
 	std::wstring getModuleDescription() {
-		return _T("Checkes the state of " SZAPPNAME);
+		return _T("Checkes the state of the agent");
 	}
 
 	bool hasCommandHandler();

@@ -265,6 +265,8 @@
 					Description="The description"/>
 			<Column Id="Program"	Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
 					Description="Exception for a program (formatted path name)."/>
+			<Column Id="Dependencies" Category="Formatted"	PrimaryKey="no"		Type="string"	Width="255"	Modularize="Property"	Nullable="yes"
+					Description="Service Dependencies"/>
 			<Column Id="Attributes"	Category="Integer"		PrimaryKey="no"		Type="int"		Width="4"							Nullable="yes" MinValue="0" MaxValue="65536" 
 					Description="Vital=1"/>
 			<Column Id="Component_"	Category="Identifier"	PrimaryKey="no"		Type="string"	Width="72"	Modularize="Column"	
@@ -276,6 +278,7 @@
 				<Data Column="Description">Monitoring agent for nagios (and others) used to respond to status queries.</Data>
 				<Data Column="Component_">ServiceRegistration</Data>
 				<Data Column="Program">[#NSClientEXE]</Data>
+				<Data Column="Dependencies"></Data>
 			</Row>
 		</CustomTable>
 

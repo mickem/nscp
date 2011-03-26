@@ -49,7 +49,7 @@
 static ExceptionManager *g_exception_manager = NULL;
 #endif
 
-NSClient mainClient(SZSERVICENAME);	// Global core instance.
+NSClient mainClient;	// Global core instance.
 
 #define LOG_CRITICAL_CORE(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::wstring(msg))
@@ -240,6 +240,14 @@ int nscp_main(int argc, wchar_t* argv[])
 
 	cli_parser parser(&mainClient);
 
+	if (argc > 0) {
+		LOG_INFO_CORE(_T("Got arguments on command line"));
+		for (int i=0;i<argc;i++) {
+			LOG_INFO_CORE((std::wstring)_T("arg: ") + argv[i]);
+		}
+	} else {
+		LOG_INFO_CORE(_T("Got NO arguments on command line"));
+	}
 	parser.parse(argc, argv);
 
 	return -1;
@@ -247,21 +255,6 @@ int nscp_main(int argc, wchar_t* argv[])
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
 		if (false) {
-		} if ( wcscasecmp( _T("install"), argv[1]+1 ) == 0 ) {
-			nsclient::client::service_manager mgr(argc-1,&argv[1]);
-			return mgr.install();
-		} else if ( wcscasecmp( _T("uninstall"), argv[1]+1 ) == 0 ) {
-			nsclient::client::service_manager mgr(argc-1,&argv[1]);
-			return mgr.uninstall();
-		} else if ( wcscasecmp( _T("start"), argv[1]+1 ) == 0 ) {
-			nsclient::client::service_manager mgr(argc-1,&argv[1]);
-			return mgr.start();
-		} else if ( wcscasecmp( _T("stop"), argv[1]+1 ) == 0 ) {
-			nsclient::client::service_manager mgr(argc-1,&argv[1]);
-			return mgr.stop();
-		} else if ( wcscasecmp( _T("svc"), argv[1]+1 ) == 0 ) {
-			nsclient::client::service_manager mgr(argc-1,&argv[1]);
-			return mgr.print_command();
 		} else if ( wcscasecmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
 			std::wstring password;
 			if (!settings_manager::init_settings()) {
@@ -280,8 +273,8 @@ int nscp_main(int argc, wchar_t* argv[])
 		} else if ( wcscasecmp( _T("about"), argv[1]+1 ) == 0 ) {
 			try {
 				unsigned int next_plugin_id = 0;
-				LOG_INFO_CORE(SZAPPNAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
-				LOG_INFO_CORE(_T("Version: ") SZVERSION);
+				LOG_INFO_CORE(APPLICATION_NAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
+				LOG_INFO_CORE(_T("Version: ") CURRENT_SERVICE_VERSION);
 				LOG_INFO_CORE(_T("Architecture: ") SZARCH);
 
 				boost::filesystem::wpath pluginPath = (boost::filesystem::wpath)mainClient.getBasePath() / _T("modules");
@@ -324,7 +317,7 @@ int nscp_main(int argc, wchar_t* argv[])
 			}
 			return false;
 		} else if ( wcscasecmp( _T("version"), argv[1]+1 ) == 0 ) {
-			LOG_INFO_CORE(SZAPPNAME _T(" Version: ") SZVERSION _T(", Plattform: ") SZARCH);
+			LOG_INFO_CORE(APPLICATION_NAME _T(", Version: ") CURRENT_SERVICE_VERSION _T(", Platform: ") SZARCH);
 		} else if ( wcscasecmp( _T("d"), argv[1]+1 ) == 0 ) {
 			// Run command from command line (like NRPE) but with debug enabled
 		} else if ( wcscasecmp( _T("noboot"), argv[1]+1 ) == 0 ) {
@@ -351,25 +344,6 @@ int nscp_main(int argc, wchar_t* argv[])
 			std::wcout << msg << _T("|") << perf << std::endl;
 			mainClient.exitCore(true);
 			return nRetCode;
-		} else if ( wcscasecmp( _T("test"), argv[1]+1 ) == 0 ) {
-			bool server = false;
-			if (argc > 2 && wcscasecmp( _T("server"), argv[2] ) == 0 ) {
-				server = true;
-			}
-			std::wcout << "Launching test mode - " << (server?_T("server mode"):_T("client mode")) << std::endl;
-			LOG_INFO_CORE(_T("Booting: ") SZSERVICEDISPLAYNAME );
-#ifdef WIN32
-			try {
-				if (serviceControll::isStarted(SZSERVICENAME)) {
-					std::wcerr << "Service seems to be started, this is probably not a good idea..." << std::endl;
-				}
-			} catch (...) {
-				// Empty by design
-			}
-#endif
-			nsclient::simple_client client(&mainClient);
-			client.start();
-			return 0;
 		} else {
 			std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt -settings") << std::endl;
 			std::wcerr << _T("Usage: [-noboot] <ModuleName> <commnd> [arguments]") << std::endl;
@@ -385,19 +359,6 @@ int nscp_main(int argc, wchar_t* argv[])
 			nRetCode = mainClient.commandLineExec(argv[1], 0, NULL);
 		mainClient.exitCore(true);
 		return nRetCode;
-	} else if (argc > 1) {
-		mainClient.enableDebug(true);
-		std::wcerr << _T("Invalid command line argument: ") << argv[1] << std::endl;
-		std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt") << std::endl;
-		std::wcerr << _T("Usage: [-noboot] <ModuleName> <commnd> [arguments]") << std::endl;
-		return -1;
-	}
-	try {
-		std::wcout << _T("Running as service...") << std::endl;
-		mainClient.enableDebug(true);
-		mainClient.start_and_wait();
-	} catch (...) {
-		std::wcerr << _T("Unknown exception in service") << std::endl;
 	}
 	return nRetCode;
 }
@@ -553,7 +514,7 @@ namespace sh = nscapi::settings_helper;
  * @author mickem
  */
 bool NSClientT::initCore(bool boot) {
-	LOG_INFO_CORE(_T("Attempting to start NSCLient++ - ") SZVERSION);
+	LOG_INFO_CORE(_T("Attempting to start"));
 
 	if (!settings_manager::init_settings(context_)) {
 		return false;
@@ -594,7 +555,7 @@ bool NSClientT::initCore(bool boot) {
 			(_T("restart"), sh::bool_key(&crash_restart, true),
 			_T("RESTART"), _T("Submit crash reports to nsclient.org (or your configured submission server)"))
 
-			(_T("restart target"), sh::wstring_key(&crash_target, SZSERVICENAME),
+			(_T("restart target"), sh::wstring_key(&crash_target, get_service_control().get_service_name()),
 			_T("RESTART SERVICE NAME"), _T("The url to submit crash reports to"))
 
 			(_T("submit url"), sh::wstring_key(&crash_url, CRASH_SUBMIT_URL),
@@ -616,7 +577,7 @@ bool NSClientT::initCore(bool boot) {
 	if (!g_exception_manager) {
 		g_exception_manager = new ExceptionManager(false);
 
-		g_exception_manager->setup_app(to_wstring(SZSERVICENAME), to_wstring(STRPRODUCTVER), to_wstring(STRPRODUCTDATE));
+		g_exception_manager->setup_app(to_wstring(APPLICATION_NAME), to_wstring(STRPRODUCTVER), to_wstring(STRPRODUCTDATE));
 
 		if (crash_restart) {
 			LOG_DEBUG_CORE(_T("On crash: restart: ") + crash_target);
@@ -727,7 +688,7 @@ bool NSClientT::initCore(bool boot) {
 		LOG_ERROR_CORE_STD(_T("Unknown exception loading plugins"));
 		return false;
 	}
-	LOG_DEBUG_CORE_STD(_T("NSCLient++ - ") SZVERSION _T(" Started!"));
+	LOG_DEBUG_CORE_STD(APPLICATION_NAME _T(" - ") CURRENT_SERVICE_VERSION _T(" Started!"));
 	return true;
 }
 
@@ -763,7 +724,7 @@ void NSClientT::startTrayIcon(DWORD dwSessionId) {
 }
 
 bool NSClientT::exitCore(bool boot) {
-	LOG_DEBUG_CORE(_T("Attempting to stop NSCLient++ - ") SZVERSION);
+	LOG_DEBUG_CORE(_T("Attempting to stop"));
 	if (boot) {
 		try {
 			LOG_DEBUG_CORE(_T("Stopping: NON Message Handling Plugins"));
@@ -826,37 +787,10 @@ bool NSClientT::exitCore(bool boot) {
 			LOG_ERROR_CORE_STD(_T("UNknown exception raised: When stopping message plguins"));
 		}
 	}
-	LOG_INFO_CORE(_T("NSCLient++ - ") SZVERSION _T(" Stopped succcessfully"));
+	LOG_INFO_CORE(_T("Stopped succcessfully"));
 	logger_master_.stop_slave();
 	return true;
 }
-#ifdef WIN32x
-/**
- * Forward this to the main service dispatcher helper class
- * @param dwArgc 
- * @param *lpszArgv 
- */
-void WINAPI NSClientT::service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv) {
-	try {
-		//WTF!!! mainClient.service_main(dwArgc, lpszArgv);
-	} catch (service_helper::service_exception e) {
-		LOG_ERROR_STD(_T("Unknown service error: ") + e.what());
-	} catch (...) {
-		LOG_ERROR_STD(_T("Unknown service error!"));
-	}
-}
-DWORD WINAPI NSClientT::service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
-	return mainClient.service_ctrl_ex(dwControl, dwEventType, lpEventData, lpContext);
-}
-/**
- * Forward this to the main service dispatcher helper class
- * @param dwCtrlCode 
- */
-void WINAPI NSClientT::service_ctrl_dispatch(unsigned long dwCtrlCode) {
-	mainClient.service_ctrl_ex(dwCtrlCode, NULL, NULL, NULL);
-}
-#endif
-
 void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon, unsigned long dwEventType) {
 // 	if (shared_server_.get() == NULL) {
 // 		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
@@ -1320,7 +1254,8 @@ void NSClientT::nsclient_log_error(std::string file, int line, std::wstring erro
 NSClient* NSClientT::get_global_instance() {
 	return &mainClient;
 }
-void NSClientT::handle_startup() {
+void NSClientT::handle_startup(std::wstring service_name) {
+	service_name_ = service_name;
 	initCore(true);
 /*
 	DWORD dwSessionId = remote_processes::getActiveSessionId();
@@ -1330,8 +1265,35 @@ void NSClientT::handle_startup() {
 		LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
 		*/
 }
-void NSClientT::handle_shutdown() {
+void NSClientT::handle_shutdown(std::wstring service_name) {
 	exitCore(true);
+}
+
+NSClientT::service_controller NSClientT::get_service_control() {
+	return service_controller(service_name_);
+}
+
+void NSClientT::service_controller::stop() {
+#ifdef WIN32
+	serviceControll::StopNoWait(get_service_name());
+#endif
+}
+void NSClientT::service_controller::start() {
+#ifdef WIN32
+	serviceControll::Start(get_service_name());
+#endif
+}
+bool NSClientT::service_controller::is_started() {
+#ifdef WIN32
+	try {
+		if (serviceControll::isStarted(get_service_name())) {
+			return true;
+		}
+	} catch (...) {
+		return false;
+	}
+#endif
+	return false;
 }
 
 

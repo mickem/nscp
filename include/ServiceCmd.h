@@ -35,7 +35,7 @@ namespace serviceControll {
 			error += ss.str();
 		}
 	};
-	void Install(std::wstring,std::wstring,LPCTSTR,DWORD=SERVICE_WIN32_OWN_PROCESS, std::wstring exe=_T(""));
+	void Install(std::wstring,std::wstring,std::wstring,DWORD=SERVICE_WIN32_OWN_PROCESS, std::wstring args = _T(""), std::wstring exe=_T(""));
 	void ModifyServiceType(LPCTSTR szName, DWORD dwServiceType);
 	void Uninstall(std::wstring);
 	void Start(std::wstring);

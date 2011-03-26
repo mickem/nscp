@@ -280,6 +280,7 @@ namespace nsclient {
 			}
 
 			void log(std::string data) {
+				OutputDebugString(strEx::string_to_wstring(strEx::strip_hex(data)).c_str());
 				if (!mq_) {
 					log_fatal_error("Failed to send to logging queue: " + data);
 					return;
@@ -296,6 +297,9 @@ namespace nsclient {
 			}
 
 			void log_fatal_error(std::string message) {
+#ifdef WIN32
+				OutputDebugString(strEx::string_to_wstring(message).c_str());
+#endif
 				std::cout << "TODO: " << message << std::endl;
 			}
 

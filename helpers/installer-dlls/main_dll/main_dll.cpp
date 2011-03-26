@@ -12,11 +12,11 @@
 const UINT COST_SERVICE_INSTALL = 2000;
 
 LPCWSTR vcsServiceQuery =
-L"SELECT `ShortName`, `LongName`, `Description`, `Program`, `Attributes`, `Component_` FROM `Services`";
-enum eServiceQuery { feqShortName = 1, feqLongName, feqDesc, feqProgram, feqAttributes, feqComponent };
+L"SELECT `ShortName`, `LongName`, `Description`, `Program`, `Dependencies`, `Attributes`, `Component_` FROM `Services`";
+enum eServiceQuery { feqShortName = 1, feqLongName, feqDesc, feqProgram, feqDeps, feqAttributes, feqComponent };
 enum eFirewallExceptionAttributes { feaIgnoreFailures = 1 };
 
-bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description);
+bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description, std::wstring service_deps);
 bool uninstall(msi_helper &h, std::wstring service_name);
 UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched);
 
@@ -52,6 +52,7 @@ extern "C" UINT __stdcall ExecServiceInstall(__in MSIHANDLE hInstall) {
 			std::wstring shortname = data.get_next_string();
 			std::wstring longname = data.get_next_string();
 			std::wstring desc = data.get_next_string();
+			std::wstring deps = data.get_next_string();
 			int attr = data.get_next_int();
 			BOOL fIgnoreFailures = feaIgnoreFailures == (attr & feaIgnoreFailures);
 			std::wstring file = data.get_next_string();
@@ -59,7 +60,7 @@ extern "C" UINT __stdcall ExecServiceInstall(__in MSIHANDLE hInstall) {
 			case msi_helper::WCA_TODO_INSTALL:
 			case msi_helper::WCA_TODO_REINSTALL:
 				h.logMessage(_T("Installing service install: ") + shortname + _T(", ") + file);
-				install(h, file, shortname, longname, desc);
+				install(h, file, shortname, longname, desc, deps);
 				break;
 
 			case msi_helper::WCA_TODO_UNINSTALL:
@@ -108,6 +109,7 @@ UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
 			std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
 			std::wstring longname = h.get_record_formatted_string(hRec, feqLongName);
 			std::wstring desc = h.get_record_formatted_string(hRec, feqDesc);
+			std::wstring deps = h.get_record_formatted_string(hRec, feqDeps);
 			std::wstring program = h.get_record_formatted_string(hRec, feqProgram);
 			int attributes = h.get_record_integer(hRec, feqAttributes);
 			std::wstring component = h.get_record_string(hRec, feqComponent);
@@ -126,6 +128,7 @@ UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
 			custom_data.write_string(shortname);
 			custom_data.write_string(longname);
 			custom_data.write_string(desc);
+			custom_data.write_string(deps);
 			custom_data.write_int(attributes);
 			//custom_data.write_int(fetApplication);
 			custom_data.write_string(program);
@@ -273,7 +276,7 @@ extern "C" UINT __stdcall ImportConfig (MSIHANDLE hInstall) {
 }
 
 
-bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description) {
+bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_desc, std::wstring service_deps) {
 	h.updateProgress(_T("Preparing to install service"), service_short_name);
 	try {
 		if (serviceControll::isStarted(service_short_name)) {
@@ -285,13 +288,13 @@ bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, s
 			serviceControll::Uninstall(service_short_name);
 		}
 		h.updateProgress(_T("Installing service"), service_short_name);
-		serviceControll::Install(service_short_name, service_long_name, SZDEPENDENCIES, SERVICE_WIN32_OWN_PROCESS, exe);
+		serviceControll::Install(service_short_name, service_long_name, service_deps, SERVICE_WIN32_OWN_PROCESS, exe);
 	} catch (const serviceControll::SCException& e) {
 		h.errorMessage(_T("Failed to install service: ") + e.error_);
 		return false;
 	}
 	try {
-		serviceControll::SetDescription(service_short_name, service_description);
+		serviceControll::SetDescription(service_short_name, service_desc);
 	} catch (const serviceControll::SCException& e) {
 		h.errorMessage(_T("Failed to set description of service: ") + e.error_);
 	}
@@ -452,9 +455,7 @@ bool write_config(msi_helper &h, std::wstring path, std::wstring file) {
 }
 
 
-bool start(msi_helper &h, std::wstring service_name = _T("")) {
-	if (service_name.empty())
-		service_name = SZSERVICENAME;
+bool start(msi_helper &h, std::wstring service_name) {
 	if (!serviceControll::isInstalled(service_name)) {
 		h.logMessage(_T("Service was not installed (so we cannot start it): ")+ service_name);
 		return false;
@@ -473,9 +474,7 @@ bool start(msi_helper &h, std::wstring service_name = _T("")) {
 	return true;
 }
 
-bool stop(msi_helper &h, std::wstring service_name = _T("")) {
-	if (service_name.empty())
-		service_name = SZSERVICENAME;
+bool stop(msi_helper &h, std::wstring service_name) {
 	h.updateProgress(_T("Preparing to stopp service"), service_name);
 	try {
 		if (serviceControll::isStarted(service_name)) {

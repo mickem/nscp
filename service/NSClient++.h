@@ -110,12 +110,13 @@ private:
 	nsclient::commands commands_;
 	nsclient::channels channels_;
 	unsigned int next_plugin_id_;
+	std::wstring service_name_;
 
 
 public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0) {
+	NSClientT(void) : debug_(log_unknown), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
 		logger_master_.start_slave();
 	}
 	virtual ~NSClientT(void) {}
@@ -147,8 +148,8 @@ public:
 		std::string s = nsclient::logger_helper::create_error(file, line, message);
 		reportMessage(s.c_str());
 	}
-	void handle_startup();
-	void handle_shutdown();
+	void handle_startup(std::wstring service_name);
+	void handle_shutdown(std::wstring service_name);
 #ifdef _WIN32
 	void handle_session_change(unsigned long dwSessionId, bool logon);
 #endif
@@ -163,6 +164,24 @@ public:
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	void reportMessage(std::string data);
 	int commandLineExec(const wchar_t* module, const unsigned int argLen, wchar_t** args);
+
+	struct service_controller {
+		std::wstring service;
+		service_controller(std::wstring service) : service(service) {}
+		service_controller(const service_controller & other) : service(other.service) {}
+		service_controller& operator=(const service_controller & other) {
+			service = other.service;
+			return *this;
+		}
+		void stop();
+		void start();
+		std::wstring get_service_name() {
+			return service;
+		}
+		bool is_started();
+	};
+
+	service_controller get_service_control();
 
 	//plugin_type loadPlugin(const boost::filesystem::wpath plugin, std::wstring alias);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
@@ -189,9 +208,9 @@ public:
 	int session_inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf) {
 		return 0; // TODO: Readd this!!! inject(command, arguments, splitter, escape, msg, perf);
 	}
-	std::pair<std::wstring,std::wstring> session_get_name() {
-		return std::pair<std::wstring,std::wstring>(SZAPPNAME,SZVERSION);
-	}
+// 	std::pair<std::wstring,std::wstring> session_get_name() {
+// 		return std::pair<std::wstring,std::wstring>(SZAPPNAME,SZVERSION);
+// 	}
 
 	std::wstring expand_path(std::wstring file);
 	void set_console_log() {

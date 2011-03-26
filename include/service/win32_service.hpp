@@ -112,7 +112,14 @@ namespace service_helper_impl {
 		std::wstring			name_;
 		wchar_t					*serviceName_;
 	public:
-		win32_service(std::wstring name) : dispatchTable(NULL), name_(name), dwControlsAccepted(SERVICE_ACCEPT_STOP) {
+		win32_service() : dispatchTable(NULL), serviceName_(NULL), name_(), dwControlsAccepted(SERVICE_ACCEPT_STOP) {
+		}
+		virtual ~win32_service() {
+			delete [] dispatchTable;
+			delete [] serviceName_;
+		}
+
+		void create_dispatch_table(std::wstring name) {
 			serviceName_ = new wchar_t[name.length()+2];
 			wcsncpy(serviceName_, name.c_str(), name.length());
 			dispatchTable = new SERVICE_TABLE_ENTRY[2];
@@ -121,12 +128,11 @@ namespace service_helper_impl {
 			dispatchTable[1].lpServiceName = NULL;
 			dispatchTable[1].lpServiceProc = NULL;
 		}
-		virtual ~win32_service() {
-			delete [] dispatchTable;
-			delete [] serviceName_;
-		}
 
-		void start_and_wait() {
+		void start_and_wait(std::wstring name) {
+			name_ = name;
+			print_debug(_T("Starting: ") + name);
+			create_dispatch_table(name);
 			StartServiceCtrlDispatcher();
 		}
 
@@ -311,13 +317,13 @@ namespace service_helper_impl {
 				return;
 			}
 
-			TBase::handle_startup();
+			TBase::handle_startup(name_);
 
 			stop_mutex_.lock();
 
 
-			print_debug(_T("Shutting down..."));
-			TBase::handle_shutdown();
+			print_debug(_T("Shutting down: ") + name_);
+			TBase::handle_shutdown(name_);
 		}
 
 
