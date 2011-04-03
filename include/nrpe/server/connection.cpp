@@ -58,7 +58,6 @@ namespace nrpe {
 
 
 		void connection::handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-			handler_->log_debug(__FILE__, __LINE__, _T("handle_read data connection"));
 			if (!e) {
 				bool result;
 				buffer_type::iterator begin = buffer_.begin();
@@ -98,7 +97,6 @@ namespace nrpe {
 		}
 
 		void connection::handle_write_response(const boost::system::error_code& e) {
-			handler_->log_debug(__FILE__, __LINE__, _T("Written data"));
 			if (!e) {
 				// Initiate graceful connection closure.
 				boost::system::error_code ignored_ec;

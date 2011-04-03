@@ -389,6 +389,8 @@ SET(MAIN_NSCP_TARGET "nscp")
 MESSAGE(STATUS "NSCP Target: ${MAIN_NSCP_TARGET}")
 
 ADD_SUBDIRECTORY("scripts")
+ADD_SUBDIRECTORY("files")
+ADD_SUBDIRECTORY("docs")
 
 LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
 LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")

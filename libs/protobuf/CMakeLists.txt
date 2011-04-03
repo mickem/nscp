@@ -8,6 +8,9 @@ SET(TARGET protobuf)
 #PROJECT(${TARGET})
 
 SET(SRCS
+	plugin.proto
+	log.proto
+	
 	${PROTO_PLUGIN_SRC}
 	${PROTO_LOG_SRC}
 )

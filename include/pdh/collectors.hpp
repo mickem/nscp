@@ -282,13 +282,8 @@ namespace PDHCollectors {
 		const PDH::PDHCounter *parent_;
 	public:
 		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL) {}
-		RoundINTPDHBufferListenerImpl(int length_) : length(length_), current(0), hasValue_(false), parent_(NULL) {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
-				return;
-			buffer = new TType[length];
-			for (unsigned int i=0; i<length;i++)
-				buffer[i] = 0;
+		RoundINTPDHBufferListenerImpl(int length_) : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL) {
+			resize(length_);
 		}
 		virtual ~RoundINTPDHBufferListenerImpl() {
 			PDHCounterMutexHandler mutex(&mutex_);
@@ -342,8 +337,10 @@ namespace PDHCollectors {
 				throw PDHException(get_name(), _T("Failed to get mutex :("));
 			if (!hasValue_)
 				throw PDHException(get_name(), _T("No value has been collected yet"));
-			if ((backItems == 0) || (backItems >= length))
-				throw PDHException(get_name(), _T("Strange error buffer pointers are f*cked up"));
+			if (backItems == 0)
+				throw PDHException(get_name(), _T("No timeframe given on command line (ie. time=0)"));
+			if (backItems >= length)
+				throw PDHException(get_name(), _T("Length given larger then interval: ") + strEx::itos(backItems) + _T(" >= ") + strEx::itos(length));
 			double ret = 0;
 			if (current >= backItems) {
 				// Handle "whole" list.

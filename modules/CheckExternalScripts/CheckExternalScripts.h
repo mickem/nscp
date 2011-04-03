@@ -24,15 +24,40 @@ NSC_WRAPPERS_MAIN();
 #include <error.hpp>
 #include <execute_process.hpp>
 
-class CheckExternalScripts : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin {
+class CheckExternalScripts : public nscapi::impl::simple_plugin {
 private:
 	struct command_data {
 		command_data() {}
-		command_data(std::wstring command_, std::wstring arguments_) : command(command_), arguments(arguments_) {}
+		command_data(std::wstring command_, std::wstring arguments_) : command(command_) {
+			parser_arguments(arguments_);
+		}
+		void parser_arguments(std::wstring args) {
+			boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring> 
+				tok(args, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
+			BOOST_FOREACH(std::wstring s, tok) {
+				arguments.push_back(s);
+			}
+		}
+		std::wstring get_argument() {
+			std::wstring args;
+			BOOST_FOREACH(std::wstring s, arguments) {
+				if (!args.empty())
+					args += _T(" ");
+				args += s;
+			}
+			return args;
+		}
+
 		std::wstring command;
-		std::wstring arguments;
+		std::list<std::wstring> arguments;
 		std::wstring to_string() {
-			return command + _T("(") + arguments + _T(")");
+			std::wstring args;
+			BOOST_FOREACH(std::wstring s, arguments) {
+				if (!args.empty())
+					args += _T(" ");
+				args += s;
+			}
+			return command + _T("(") + get_argument() + _T(")");
 		}
 	};
 	typedef std::map<std::wstring, command_data> command_list;
@@ -67,7 +92,8 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	//NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
 
 private:

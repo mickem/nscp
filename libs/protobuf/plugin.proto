@@ -81,7 +81,8 @@ message Response {
 	
 	required Code result = 9;
 	required string message = 10;
-	repeated PerformanceData perf = 11;
+	optional string legacyPerf = 11;
+	repeated PerformanceData perf = 12;
 	
 }
 

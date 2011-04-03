@@ -32,14 +32,14 @@
 #define WSTR(x) _T(x)
 #endif
 
-#define SZAPPNAME WSTR("NSClient++")
+#define APPLICATION_NAME WSTR("NSClient++")
 
 // Version
 #define SZBETATAG " "
 //#define SZBETATAG " BETA "
 //#define SZBETATAG " BETA "
 #define _SZVERSION WSTR(STRPRODUCTVER) WSTR(SZBETATAG) WSTR(STRPRODUCTDATE)
-#define SZVERSION _SZVERSION
+#define CURRENT_SERVICE_VERSION _SZVERSION
 //STRPRODUCTVER SZBETATAG STRPRODUCTDATE
 //FILEVER[0]
 
@@ -54,16 +54,16 @@
 #endif
 
 // internal name of the service
-#define SZSERVICENAME        WSTR("NSClientpp")
+#define DEFAULT_SERVICE_NAME        WSTR("NSClientpp")
 
 // Description of service
-#define SZSERVICEDESCRIPTION WSTR("Nagios Windows Agent (Provides performance data for Nagios server)")
+#define DEFAULT_SERVICE_DESC WSTR("Windows Monitoring Agent (Provides performance data for monitoring solutions like Nagios)")
 
 // displayed name of the service
-#define SZSERVICEDISPLAYNAME SZSERVICENAME WSTR(" (Nagios) ") SZVERSION WSTR(" ") SZARCH
+#define SERVICE_NAME SZAPPNAME WSTR(" ") CURRENT_SERVICE_VERSION WSTR(" ") SZARCH
 
 // list of service dependencies - "dep1\0dep2\0\0"
-#define SZDEPENDENCIES       _T("")
+#define DEFAULT_SERVICE_DEPS       _T("")
 
 // Buffer size of incoming data (notice this is the maximum request length!)
 #define RECV_BUFFER_LEN		1024

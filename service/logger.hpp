@@ -48,7 +48,7 @@ namespace nsclient {
 				msg->set_level(msgType);
 				msg->set_file(file);
 				msg->set_line(line);
-				msg->set_message(to_string(logMessage));
+				msg->set_message(utf8::cvt<std::string>(logMessage));
 				if (!message.SerializeToString(&str)) {
 					return "Failed to generate message";
 				}

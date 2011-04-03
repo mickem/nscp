@@ -33,6 +33,8 @@ public:
 	}
 	virtual void set_perf_data(bool v) {
 		noPerfData_ = !v;
+		if (noPerfData_)
+			log_debug(__FILE__, __LINE__, _T("Performance data disabled!"));
 	}
 
 	void log_debug(std::string file, int line, std::wstring msg) {

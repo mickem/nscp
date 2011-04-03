@@ -9,3 +9,5 @@
 #endif
 
 #endif
+
+#include <unicode/ustring.h>

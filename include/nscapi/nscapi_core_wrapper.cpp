@@ -148,10 +148,8 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSimpleCommand(const std::wstrin
 			return NSCAPI::returnUNKNOWN;
 		}
 		::PluginCommand::Response payload = rsp_msg.payload(0);
-		msg = to_wstring(payload.message());
-		CORE_LOG_ERROR_STD(_T("Attempting to parse perf data"));
-		perf = to_wstring(::nscapi::functions::build_performance_data(payload));
-		CORE_LOG_ERROR_STD(_T("Attempting to parse perf data: '") + perf + _T("'"));
+		msg = utf8::cvt<std::wstring>(payload.message());
+		perf = utf8::cvt<std::wstring>(::nscapi::functions::build_performance_data(payload));
 	}
 	return ret;
 }

@@ -65,7 +65,7 @@ bool CheckSystem::loadModule() {
 
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
-	data->check_intervall = 10;
+	data->check_intervall = 100;
 	try {
 		typedef std::map<std::wstring,std::wstring> counter_map_type;
 		std::map<std::wstring,std::wstring> service_mappings;
@@ -90,8 +90,14 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 
  		settings.alias().add_key_to_settings()
- 			(_T("default"), sh::bool_key(&default_counters, true),
- 			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
+			(_T("default"), sh::bool_key(&default_counters, true),
+			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
+
+			(_T("default"), sh::bool_key(&default_counters, true),
+			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
+
+			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
+			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
 // 
 // 			(_T("hostname cache"), sh::bool_key(&cacheNscaHost_),
 // 			_T("CACHE HOSTNAME"), _T(""))

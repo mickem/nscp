@@ -33,6 +33,7 @@ Settings/shared_session=/settings/shared session/enabled
 
 log/file=/settings/log/file
 log/date_mask=/settings/log/date mask
+log/debug=/settings/log/level
 # log/debug
 # log/root_folder
 
@@ -47,7 +48,7 @@ NRPE/bind_to_address=/settings/NRPE/server/bind to address
 NRPE/socket_timeout=/settings/NRPE/server/socket timeout
 NRPE/command_timeout=/settings/NRPE/server/command timeout
 NRPE/allow_arguments=/settings/NRPE/server/allow arguments
-NRPE/allow_nasty_meta_chars=/settings/NRPE/server/allow nasty meta chars
+NRPE/allow_nasty_meta_chars=/settings/NRPE/server/allow nasty characters
 NRPE/use_ssl=/settings/NRPE/server/ssl
 # NRPE/script_dir
 
@@ -61,7 +62,7 @@ Check System/check_all_services[SERVICE_DISABLED]=/settings/check/system/windows
 
 External Script/command_timeout=/settings/external scripts/command timeout
 External Script/allow_arguments=/settings/external scripts/allow arguments
-External Script/allow_nasty_meta_chars=/settings/external scripts/allow_nasty_meta_chars
+External Script/allow_nasty_meta_chars=/settings/external scripts/allow nasty characters
 External Script/script_dir=/settings/external scripts/script folder
 
 Script Wrappings/*=/settings/external scripts/wrappings

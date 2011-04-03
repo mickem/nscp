@@ -7,6 +7,11 @@ namespace nsclient {
 		NSClient *core_;
 	public:
 		simple_client(NSClient *core) : core_(core) {}
+
+		void log(std::wstring msg) {
+			std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg); 
+			core_->reportMessage(s);
+		}
 		void start() {
 			core_->enableDebug(true);
 			if (!core_->initCore(true)) {
@@ -63,13 +68,11 @@ namespace nsclient {
 					std::wstring msg, perf;
 					NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, msg, perf);
 					if (ret == NSCAPI::returnIgnored) {
-						std::wcout << _T("No handler for command: ") << t.first << std::endl;
+						log(_T("No handler for command: ") + t.first);
 					} else {
-						std::wcout << nscapi::plugin_helper::translateReturn(ret) << _T(":");
-						std::wcout << msg;
+						log(nscapi::plugin_helper::translateReturn(ret) + _T(":") + msg);
 						if (!perf.empty())
-							std::cout << "|" << strEx::wstring_to_string(perf);
-						std::wcout << std::endl;
+							log(_T(" Perfoamcen data: ") + perf);
 					}
 				}
 			}

@@ -45,7 +45,8 @@ boost::shared_ptr<PDHCollectors::PDHCollector> PDHCollector::system_counter_data
 	} else if (data_type == type_int64 && data_format == format_large && collection_strategy == value) {
 		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex>);
 	} else if (data_type == type_int64 && data_format == format_large && collection_strategy == rrd) {
-		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex>(get_buffer_length(check_intervall)));
+		unsigned int buffer_size = get_buffer_length(check_intervall);
+		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex>(buffer_size));
 	}
 	return boost::shared_ptr<PDHCollectors::PDHCollector>();
 }
@@ -75,6 +76,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 	system_counter_data *data = reinterpret_cast<system_counter_data*>(lpParameter);
 
 	check_intervall_ = data->check_intervall;
+	std::wstring default_buffer_length = data->buffer_length;
 	PDH::PDHQuery pdh;
 	bool bInit = true;
 
@@ -90,6 +92,7 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			BOOST_FOREACH(system_counter_data::counter c, data->counters) {
 				try {
 					NSC_DEBUG_MSG_STD(_T("Loading counter: ") + c.alias + _T(" = ") + c.path);
+					c.set_default_buffer_size(default_buffer_length);
 					collector_ptr collector = c.create(check_intervall_);
 					if (collector) {
 						counters_[c.alias] = collector;

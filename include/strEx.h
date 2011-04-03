@@ -849,4 +849,54 @@ namespace nscp {
 	}
 }
 
+namespace utf8 {
+	/** Converts a std::wstring into a std::string with UTF-8 encoding. */
+	template<typename StringT>
+	StringT cvt(std::wstring const & string);
 
+	/** Converts a std::String with UTF-8 encoding into a std::wstring.	*/
+	template<typename StringT>
+	StringT cvt(std::string const & string );
+
+	/** Nop specialization for std::string. */
+	template <>
+	inline std::string cvt(std::string const & string) {
+		return string;
+	}
+
+	/** Nop specialization for std::wstring. */
+	template<>
+	inline std::wstring cvt(std::wstring const & rc_string) {
+		return rc_string;
+	}
+
+	template<>
+	inline std::string cvt(std::wstring const & str) {
+		// figure out how many narrow characters we are going to get 
+		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0, NULL, NULL);
+		if (nChars == 0)
+			return "";
+
+		// convert the wide string to a narrow string
+		// nb: slightly naughty to write directly into the string like this
+		std::string buf;
+		buf.resize(nChars);
+		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), str.length(), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
+		return buf ; 
+	}
+
+	template<>
+	inline std::wstring cvt(std::string const & str) {
+		// figure out how many wide characters we are going to get 
+		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0);
+		if (nChars == 0)
+			return L"";
+
+		// convert the narrow string to a wide string 
+		// nb: slightly naughty to write directly into the string like this
+		std::wstring buf;
+		buf.resize(nChars);
+		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), const_cast<wchar_t*>(buf.c_str()), nChars);
+		return buf;
+	}
+}

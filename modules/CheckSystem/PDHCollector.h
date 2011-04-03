@@ -83,6 +83,9 @@ public:
 			collection_strategy_struct collection_strategy;
 
 			boost::shared_ptr<PDHCollectors::PDHCollector> create(int check_intervall);
+			void set_default_buffer_size(std::wstring buffer_size_) {
+				buffer_size = buffer_size_;
+			}
 
 			int get_buffer_length(int check_intervall) {
 				try {
@@ -99,7 +102,8 @@ public:
 
 		};
 
-		int check_intervall;
+		unsigned int check_intervall;
+		std::wstring buffer_length;
 
 		std::list<counter> counters;
 	};

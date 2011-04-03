@@ -1,29 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
-	<!--
-	<?define boost = "false" ?>
-	 -->
-	<?ifdef var.boost ?>
-		<?define PlatForm = "$(var.arch)" ?>
-		<?define Mode = "Nightly" ?>
-		<?define SysTray.ConfigurationName = "BOOST BUILD" ?>
-	<?else?>
-		<?if "$(var.SysTray.ConfigurationName)" = "Debug|Win32"?>
-			<?define PlatForm = "Win32" ?>
-			<?define Mode = "Debug" ?>
-		<?elseif "$(var.SysTray.ConfigurationName)" = "Debug|x64"?>
-			<?define PlatForm = "x64" ?>
-			<?define Mode = "Debug" ?>
-		<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|Win32"?>
-			<?define PlatForm = "Win32" ?>
-			<?define Mode = "Nightly" ?>
-		<?elseif "$(var.SysTray.ConfigurationName)" = "Nightly|x64"?>
-			<?define PlatForm = "x64" ?>
-			<?define Mode = "Nightly" ?>
-		<?else?>
-			<?define PlatForm = "Unknown: plattform" ?>
-		<?endif?>
-	<?endif?>
+	<?define PlatForm = "$(var.arch)" ?>
+	<?define Mode = "Nightly" ?>
+	<?define SysTray.ConfigurationName = "BOOST BUILD" ?>
 
 	<?if "$(var.PlatForm)" = "x64"?>
 		<?define PlatForm.x64 ?>
@@ -45,11 +24,6 @@
 	<?ifndef var.Source ?>
 		<?define Source = "../../$(var.PlatForm)/$(var.Mode)/" ?>
 	<?endif?>
-	<!--
-	<?ifndef var.Helpers ?>
-		<?define Helpers = "../../$(var.PlatForm)/$(var.Mode)-helpers/" ?>
-	<?endif?>
-	   -->
 
 	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
 	<?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
@@ -104,14 +78,11 @@
 
 							<!--
 							<File Id="NSClientINI" Name="NSC.ini" LongName="NSC.ini" DiskId="1" Source="$(var.Path.ini)/NSC.ini" Vital="yes"/>
-							<?ifdef var.boost ?>
-								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog.txt" Vital="no"/>
-							<?else?>
-								<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no"/>
-							<?endif?>
+							-->
+							<File Id="Changelog" Name="change.log" LongName="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no"/>
 							<File Id="Counters" Name="counters.def" LongName="counters.defs" DiskId="1" Source="$(var.Source)/counters.defs" Vital="no"/>
 							<File Id="License" Name="license.txt" LongName="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="no"/>
-							-->
+							
 							<RemoveFile Id="LogFile1" Name="nsclient.log" On="uninstall" />
 							<RemoveFile Id="LogFile2" Name="nsc.log" On="uninstall" />
 							<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
@@ -120,33 +91,31 @@
 						<Component Id="FireWallException" Guid="F6636DB0-A0B9-4dA2-B75D-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
 						<Component Id="ServiceRegistration" Guid="F6636DB0-A0B9-4dA2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)" />
 						<Component Id="Documentation" Guid="9B490E67-5472-4267-889C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-							<!--
-							<File Id="doc.usage.nagios" Name="nagios.pdf" LongName="Nagios Usage Guide.pdf" DiskId="1" Source="$(var.Source)/Nagios Usage Guide.pdf" Vital="no" >
+							<File Id="doc.usage.nagios" Name="nagios.pdf" LongName="Nagios Usage Guide.pdf" DiskId="1" Source="$(var.Source)/docs/Nagios Usage Guide.pdf" Vital="no" >
 								<Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="nagios"
 													LongName="Nagios Usage Guide" WorkingDirectory="INSTALLDIR" Description="Nagios Usage Guide"/>
 							</File>
-							<File Id="doc.reference" Name="nsclient.pdf" LongName="NSClient++ Reference Manual.pdf" DiskId="1" Source="$(var.Source)/NSClient++ Reference Manual.pdf" Vital="no" >
+							<File Id="doc.reference" Name="nsclient.pdf" LongName="NSClient++ Reference Manual.pdf" DiskId="1" Source="$(var.Source)/docs/NSClient++ Reference Manual.pdf" Vital="no" >
 								<Shortcut Id="Startmenu.doc.ref" Directory="ProgramMenuDir" Name="refman"
 													LongName="NSClient++ Reference Manual" WorkingDirectory="INSTALLDIR" Description="NSClient++ Reference Manual"/>
 							</File>
-							-->
 						</Component>
+						<Directory Id="INSTALLLOCATION_SECURITY" Name="security">
+							<Component Id="NRPEServerCert" Guid="5A0246F8-5167-45db-2E46-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="NRPECert" Name="nrpe_dh.pem" LongName="nrpe_dh_512.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_512.pem" Vital="no"/>
+							</Component>
+						</Directory>
 						<Directory Id="INSTALLLOCATION_MODS" Name="modules">
-							<Component Id="NRPEListener" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-													 <!--
-								<File Id="NRPEListenerDLL" Name="NRPELsnr.dll" LongName="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEListener.dll" Vital="no" />
+							<Component Id="NRPEServer" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+								<File Id="NRPEListenerDLL" Name="NRPELsnr.dll" LongName="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEServer.dll" Vital="no" />
 								<File Id="NRPEClientDLL" Name="NRPEClnt.dll" LongName="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
-														-->
 							</Component>
 							<Component Id="NSCListener" Guid="6DAF8BB9-9A56-48f5-B2C5-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-													 <!--
-								<File Id="NSCListenerDLL" Name="NSCLsnr.dll" LongName="NSClientListener.dll" DiskId="1" Source="$(var.Source)/modules/NSClientListener.dll" Vital="no" />
-														-->
+								<File Id="NSCListenerDLL" Name="NSCLsnr.dll" LongName="NSClientListener.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
 							</Component>
 							<Component Id="NSCA" Guid="8820A304-C596-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-													 <!--
 								<File Id="NSCAAgentDLL" Name="NSCAAgnt.dll" LongName="NSCAAgent.dll" DiskId="1" Source="$(var.Source)/modules/NSCAAgent.dll" Vital="no" />
-														-->
+								<File Id="SchedulerDLL" Name="Sched.dll" LongName="Scheduler.dll" DiskId="1" Source="$(var.Source)/modules/Scheduler.dll" Vital="no" />
 							</Component>
 							<Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
 													 <!--
@@ -159,6 +128,7 @@
 								<File Id="ModCheckWMI.dll" Name="WMI.dll" LongName="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
 								<File Id="ModFileLogger.dll" Name="Logger.dll" LongName="FileLogger.dll" DiskId="1" Source="$(var.Source)/modules/FileLogger.dll" Vital="no" />
 								<File Id="ModLUAScript.dll" Name="LUAScr.dll" LongName="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
+								<File Id="ModCheckNSCP.dll" Name="CNSCP.dll" LongName="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
 								<!--
 								<File Id="ModRemoteConfiguration.dll" Name="RmtCfg.dll" LongName="RemoteConfiguration.dll" DiskId="1" Source="$(var.Source)/modules/RemoteConfiguration.dll" Vital="no" />
 								<File Id="ModSysTray.dll" Name="SysTray.dll" LongName="SysTray.dll" DiskId="1" Source="$(var.Source)/modules/SysTray.dll" Vital="no" />
@@ -166,12 +136,10 @@
 								<File Id="ModCheckDisk.dll" Name="CheckDsk.dll" LongName="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
 								<File Id="ModCheckTaskSched.dll" Name="TaskSch.dll" LongName="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
 								<File Id="ModCheckTaskSched2.dll" Name="TaskSch2.dll" LongName="CheckTaskSched2.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched2.dll" Vital="no" />
-								<File Id="ModCheckNSCP.dll" Name="CNSCP.dll" LongName="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
 							</Component>
 						</Directory>
             <Directory Id="INSTALLLOCATION_SCRIPTS" Name="scripts">
               <Component Id="Scripts" Guid="9B490E67-5472-4268-96DF-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-				  <!--
                 <File Id="script001" Name="c_60s.bat" LongName="check_60s.bat" DiskId="1" Source="$(var.Source)/scripts/check_60s.bat" Vital="no" />
                 <File Id="script002" Name="c_btry.vbs" LongName="check_battery.vbs" DiskId="1" Source="$(var.Source)/scripts/check_battery.vbs" Vital="no" />
                 <File Id="script003" Name="c_nrdb.bat" LongName="check_no_rdp.bat" DiskId="1" Source="$(var.Source)/scripts/check_no_rdp.bat" Vital="no" />
@@ -181,15 +149,14 @@
                 <File Id="script007" Name="c_ping.bat" LongName="check_ping.bat" DiskId="1" Source="$(var.Source)/scripts/check_ping.bat" Vital="no" />
                 <File Id="sample002" Name="c_test.ps1" LongName="check_test.ps1" DiskId="1" Source="$(var.Source)/scripts/check_test.ps1" Vital="no" />
                 <File Id="sample003" Name="c_test.vbs" LongName="check_test.vbs" DiskId="1" Source="$(var.Source)/scripts/check_test.vbs" Vital="no" />
+				  <!--
                 <File Id="lua001" Name="test.lua" LongName="test.lua" DiskId="1" Source="$(var.Source)/scripts/test.lua" Vital="no" />
 				-->
               </Component>
               <Directory Id="INSTALLLOCATION_SCRIPTS_LIB" Name="lib">
                 <Component Id="ScriptLibs" Guid="9B490E67-5472-4267-96DF-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-					<!--
                   <File Id="lib001" Name="nagplug.vbs" LongName="NagiosPlugins.vbs" DiskId="1" Source="$(var.Source)/scripts/lib/NagiosPlugins.vbs" Vital="no" />
                   <File Id="lib002" Name="wrapper.vbs" LongName="wrapper.vbs" DiskId="1" Source="$(var.Source)/scripts/lib/wrapper.vbs" Vital="no" />
-				  -->
                 </Component>
               </Directory>
             </Directory>
@@ -222,7 +189,8 @@
 					<ComponentRef Id="Plugins" />
 				</Feature>
 				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Listener Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="disallow">
-					<ComponentRef Id="NRPEListener" />
+					<ComponentRef Id="NRPEServer" />
+					<ComponentRef Id="NRPEServerCert" />
 				</Feature>
 				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Listener Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
 					<ComponentRef Id="NSCListener" />
@@ -273,11 +241,11 @@
 					Description="Foreign key into the Component table referencing component that controls the firewall configuration."/>
 			<Row>
 				<Data Column="Id">SVC</Data>
-				<Data Column="ShortName">NSClientpp</Data>
+				<Data Column="ShortName">nscp</Data>
 				<Data Column="LongName">$(var.App.Title) ($(var.PlatForm))</Data>
 				<Data Column="Description">Monitoring agent for nagios (and others) used to respond to status queries.</Data>
 				<Data Column="Component_">ServiceRegistration</Data>
-				<Data Column="Program">[#NSClientEXE]</Data>
+				<Data Column="Program">[#NSClientEXE] --service --run --name nscp</Data>
 				<Data Column="Dependencies"></Data>
 			</Row>
 		</CustomTable>

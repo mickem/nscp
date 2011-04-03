@@ -7,6 +7,16 @@ FILE (GLOB scripts_LIB "lib/*.vbs")
 
 SET(script_ALL ${scripts_BAT} ${scripts_VBS} ${scripts_PS1})
 
-INSTALL(FILES ${script_ALL} DESTINATION "scripts")
-INSTALL(FILES ${scripts_LIB} DESTINATION "scripts/lib")
+MESSAGE(STATUS "Copying script:")
+FOREACH(file ${script_ALL})
+	get_filename_component(filename ${file} NAME)
+	MESSAGE(STATUS " + ${filename}")
+	FILE(COPY ${file} DESTINATION ${CMAKE_BINARY_DIR}/scripts)
+ENDFOREACH(file ${script_ALL})
 
+
+FOREACH(file ${scripts_LIB})
+	get_filename_component(filename ${file} NAME)
+	MESSAGE(STATUS " + lib - ${filename}")
+	FILE(COPY ${file} DESTINATION ${CMAKE_BINARY_DIR}/scripts/lib)
+ENDFOREACH(file ${scripts_LIB})

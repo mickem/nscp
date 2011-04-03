@@ -38,6 +38,8 @@
 #include "settings_client.hpp"
 #include "service_manager.hpp"
 #include <nscapi/nscapi_helper.hpp>
+#include <nscapi/functions.hpp>
+
 #include <settings/client/settings_client.hpp>
 #include "cli_parser.hpp"
 
@@ -237,20 +239,8 @@ int main(int argc, char* argv[]) {
 int nscp_main(int argc, wchar_t* argv[])
 {
 	srand( (unsigned)time( NULL ) );
-
 	cli_parser parser(&mainClient);
-
-	if (argc > 0) {
-		LOG_INFO_CORE(_T("Got arguments on command line"));
-		for (int i=0;i<argc;i++) {
-			LOG_INFO_CORE((std::wstring)_T("arg: ") + argv[i]);
-		}
-	} else {
-		LOG_INFO_CORE(_T("Got NO arguments on command line"));
-	}
-	parser.parse(argc, argv);
-
-	return -1;
+	return parser.parse(argc, argv);
 
 	int nRetCode = 0;
 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
@@ -1042,7 +1032,8 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 			LOG_ERROR_CORE_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
 			return NSCAPI::returnUNKNOWN;
 		}
-		msg = to_wstring(rsp_msg.payload(0).message());
+		msg = utf8::cvt<std::wstring>(rsp_msg.payload(0).message());
+		perf = utf8::cvt<std::wstring>(nscapi::functions::build_performance_data(rsp_msg.payload(0)));
 		if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
 			return ret;
 		}
@@ -1065,7 +1056,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::string &request, std::string &response) {
 	std::wstring cmd = nsclient::commands::make_key(raw_command);
 	if (logDebug()) {
-		LOG_DEBUG_CORE_STD(_T("Injecting: ") + cmd + _T(": {{{") + strEx::strip_hex(to_wstring(request)) + _T("}}}"));
+		LOG_DEBUG_CORE_STD(_T("Injecting: ") + cmd + _T("..."));
 	}
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
@@ -1095,7 +1086,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 				return NSCAPI::returnIgnored;
 			}
 			NSCAPI::nagiosReturn c = plugin->handleCommand(cmd.c_str(), request, response);
-			LOG_DEBUG_CORE_STD(_T("Result ") + cmd + _T(": ") + nscapi::plugin_helper::translateReturn(c) + _T(" {{{") + strEx::strip_hex(to_wstring(response)) + _T("}}}"));
+			LOG_DEBUG_CORE_STD(_T("Result ") + cmd + _T(": ") + nscapi::plugin_helper::translateReturn(c));
 			return c;
 		} catch (nsclient::commands::command_exception &e) {
 			LOG_ERROR_CORE(_T("No handler for command: ") + cmd + _T(": ") + to_wstring(e.what()));
