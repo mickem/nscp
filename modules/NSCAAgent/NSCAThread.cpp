@@ -343,6 +343,7 @@ void NSCAThread::send(const std::list<Command::Result> &results) {
 			NSC_LOG_ERROR_STD(_T("<<< Failed to encrypt packet!"));
 			return;
 		}
+		socket.shutdown();
 		socket.setLinger(30);
 		socket.close();
 	} catch (simpleSocket::SocketException &e) {

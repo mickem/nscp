@@ -6,6 +6,9 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-04-01 MickeM
+ * Fixed (finally!!) the NSCA issue with multiple commands and missing "data"
+
 2011-03-24 MickeM
  * Added check_updates.vbs script
  * Added a lot of useful(?) aliases

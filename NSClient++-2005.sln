@@ -653,8 +653,10 @@ Global
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Itanium.ActiveCfg = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
+		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Mixed Platforms.Build.0 = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|Win32.ActiveCfg = Debug|Win32
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|x64.ActiveCfg = Debug|x64
+		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug|x64.Build.0 = Debug|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug-MemCheck|Any CPU.ActiveCfg = Debug-MemCheck|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug-MemCheck|Itanium.ActiveCfg = Debug-MemCheck|x64
 		{6F55C9BF-57F6-4A15-A058-C83A52F539EE}.Debug-MemCheck|Mixed Platforms.ActiveCfg = Debug-MemCheck|x64
@@ -1029,7 +1031,7 @@ Global
 		{53FB9872-5E74-4E62-892D-AD82C2ED67CE}.Release|x64.Build.0 = Release|x64
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Debug|Any CPU.ActiveCfg = Debug|Win32
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Debug|Itanium.ActiveCfg = Debug|Win32
-		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Debug|Win32.ActiveCfg = Debug|Win32
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Debug|x64.ActiveCfg = Debug|x64
 		{743B2362-DF6A-4C28-A6C9-0F970D8E1B66}.Debug-MemCheck|Any CPU.ActiveCfg = Debug|Win32
