@@ -15,6 +15,7 @@ modules/NSCAAgent.dll=/modules/NSCAAgent
 modules/LUAScript.dll=/modules/LUAScript
 modules/NRPEClient.dll=/modules/NRPEClient
 modules/CheckTaskSched.dll=/modules/CheckTaskSched
+modules/Scheduler.dll=/modules/Scheduler
 
 # Crash section
 
@@ -72,15 +73,18 @@ Wrapped Scripts/*=/settings/external scripts/wrapped scripts
 
 includes/*=/include/*
 
-#NSCA Agent/interval=
-#NSCA Agent/encryption_method=
-#NSCA Agent/password=
-#NSCA Agent/bind_to_address=
-#NSCA Agent/hostname=
-#NSCA Agent/nsca_host=192.168.0.1
-#NSCA Agent/nsca_port=5667
+NSCA Agent/interval=/settings/scheduler/default/interval
+NSCA Agent/hostname=/settings/NSCA/agent/hostname
+NSCA Commands/*=/settings/scheduler/schedules
 
-#NSCA Commands/*=
+
+NSCA Agent/encryption_method=/settings/NSCA/agent/server/encryption method
+NSCA Agent/nsca_host=/settings/NSCA/agent/server/host
+NSCA Agent/password=/settings/NSCA/agent/server/password
+NSCA Agent/nsca_port=/settings/NSCA/agent/server/port
+NSCA Agent/time_delay=/settings/NSCA/agent/delay
+#NSCA Agent/bind_to_address=
+
 
 #NRPE Client Handlers/*=
 

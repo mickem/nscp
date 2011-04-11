@@ -20,7 +20,7 @@
 #include <msvc_wrappers.h>
 #include <arrayBuffer.h>
 #include <settings/settings_core.hpp>
-#include "settings_manager_impl.h"
+#include "../helpers/settings_manager/settings_manager_impl.h"
 #include <b64/b64.h>
 #include <nscapi/nscapi_helper.hpp>
 #ifdef _WIN32

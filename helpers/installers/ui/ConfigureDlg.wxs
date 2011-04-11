@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Fragment>
+		<UI>
+			<Dialog Id="ConfigureDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+				<Control Id="allowed_hostsLabel" Type="Text" X="45" Y="53" Width="260" Height="15" TabSkip="no" Text="Allowed &amp;hosts: (this is the IP of the nagios (or other) server)" />
+				<Control Id="allowed_hosts" Type="Edit" X="45" Y="65" Width="280" Height="18" Property="ALLOWED_HOSTS" Text="{255}" />
+				<Control Id="nsclient_pwdLabel" Type="Text" X="45" Y="85" Width="260" Height="15" TabSkip="no" Text="NSClient &amp;password (only used via check_nt):" />
+				<Control Id="nsclient_pwdEdit" Type="Edit" X="45" Y="97" Width="280" Height="18" Property="NSCLIENT_PWD" Text="{255}" />
+
+				<Control Id="checkLabel" Type="GroupBox" X="45" Y="120" Width="280" Height="95" Text="Modules to load:" />
+				<Control Id="checkPluginsLabel" Type="CheckBox" X="50"	Y="130" Width="260" Height="20" Property="CONF_CHECKS" Text="Enable &amp;common check plugins" CheckBoxValue="1" />
+				<Control Id="checkNSClientLabel" Type="CheckBox" X="50"	Y="145" Width="260" Height="20" Property="CONF_NSCLIENT" Text="Enable nsc&amp;lient server (check_nt)" CheckBoxValue="1" />
+				<Control Id="checkNRPELabel" Type="CheckBox" X="50" Y="160" Width="260" Height="20" Property="CONF_NRPE" Text="Enable &amp;NRPE server (check_nrpe)" CheckBoxValue="1" />
+				<Control Id="checkNSCALabel" Type="CheckBox" X="50" Y="175" Width="260" Height="20" Property="CONF_NSCA" Text="Enable N&amp;SCA client (dont enable unless you really use NSCA)" CheckBoxValue="1" />
+				<Control Id="checkWMILabel" Type="CheckBox" X="50" Y="190" Width="260" Height="20" Property="CONF_WMI" Text="Enable &amp;WMI checks" CheckBoxValue="1" />
+
+				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+				</Control>
+				<Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+				</Control>
+				<Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+					<Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+				</Control>
+				<Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+
+				<Control Id="DescriptionWrite" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+					<Text>Basic Configuration (default values from old configuration)</Text>
+				</Control>
+
+				<Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+				<Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+					<Text>{\WixUI_Font_Title}NSClient++ Configuration</Text>
+				</Control>
+				<Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+			</Dialog>
+		</UI>
+	</Fragment>
+</Wix>

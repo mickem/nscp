@@ -108,6 +108,9 @@ scheduler::target Scheduler::read_schedule(std::wstring path, std::wstring sched
 		(_T("command"), sh::wstring_key(&item.command, def==NULL?_T("check_ok"):def->command),
 		_T("SCHEDULE COMMAND"), _T("Command to execute"))
 
+		(_T("alias"), sh::wstring_key(&item.alias, def==NULL?_T(""):def->alias),
+		_T("SCHEDULE ALIAS"), _T("The alias (service name) to report to server"))
+
 		(_T("report"), sh::wstring_key(&report, def==NULL?_T("all"):nscapi::report::to_string(def->report)),
 		_T("REPORT MODE"), _T("What to report to the server (any of the following: all, critical, warning, unknown, ok)"))
 
@@ -129,6 +132,7 @@ void Scheduler::add_schedule(std::wstring path, std::wstring alias, std::wstring
 	def.command = command;
 	scheduler::target item = read_schedule(path + _T("/") + alias, alias, &def);
 	strEx::parse_command(item.command, item.command, item.arguments);
+	NSC_DEBUG_MSG_STD(_T("Adding scheduled task: ") + alias);
 	scheduler_.add_task(item);
 }
 

@@ -1,0 +1,46 @@
+cmake_minimum_required(VERSION 2.6)
+
+SET(TARGET settings_manager)
+
+INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
+LINK_DIRECTORIES(${BOOST_LIB_DIRS})
+#INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
+
+SET(service_SRCS
+	settings_manager_impl.cpp
+	StdAfx.cpp
+
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
+	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+)
+
+IF(WIN32)
+	SET(service_SRCS ${service_SRCS}
+		StdAfx.h
+		settings_manager_impl.h
+		
+		${NSCP_INCLUDEDIR}/settings/Settings.h
+		${NSCP_INCLUDEDIR}/charEx.h
+		${NSCP_INCLUDEDIR}/config.h
+		${NSCP_INCLUDEDIR}/msvc_wrappers.h
+		${NSCP_INCLUDEDIR}/settings/macros.h
+		${NSCP_INCLUDEDIR}/settings/settings_ini.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_old.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_registry.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_http.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_core_impl.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_handler_impl.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
+		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+		${NSCP_INCLUDEDIR}/http/client.hpp
+
+	)
+ENDIF(WIN32)
+add_library (${TARGET} ${service_SRCS})
+
+SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
+
+SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
+SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)

@@ -81,11 +81,12 @@ INCLUDE(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
 SET(VERSION_TXT ${CMAKE_CURRENT_SOURCE_DIR}/version.txt)
 
-execute_process(
+EXECUTE_PROCESS(
 	COMMAND ${PYTHON_EXECUTABLE}
-		"${BUILD_PYTHON_FOLDER}/version.py"
-		--file ${VERSION_TXT}
-		--display
+		"${BUILD_PYTHON_FOLDER}/version.py" 
+		--file ${VERSION_TXT} 
+		--display 
+		--generate-hpp "${BUILD_PYTHON_FOLDER}/version.hpp"
 	OUTPUT_VARIABLE TMP_VERSION_OUT
 	)
 STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\1" VERSION_SERIES ${TMP_VERSION_OUT})
@@ -384,6 +385,7 @@ include_directories("${PROJECT_BINARY_DIR}")
 
 MESSAGE(STATUS "Build path: ${PROJECT_BINARY_DIR}")
 SET(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
+ADD_SUBDIRECTORY("helpers/settings_manager")
 ADD_SUBDIRECTORY("service")
 SET(MAIN_NSCP_TARGET "nscp")
 MESSAGE(STATUS "NSCP Target: ${MAIN_NSCP_TARGET}")

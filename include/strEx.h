@@ -80,37 +80,6 @@ namespace boost
 	}
 }
 
-namespace net {
-
-	struct url {
-		std::wstring protocol;
-		std::wstring host;
-		std::wstring path;
-		std::wstring query;
-
-	};
-	inline url parse(const std::wstring& url_s) {
-		url ret;
-		const std::wstring prot_end(_T("://"));
-		std::wstring::const_iterator prot_i = std::search(url_s.begin(), url_s.end(), prot_end.begin(), prot_end.end());
-		ret.protocol.reserve(std::distance(url_s.begin(), prot_i));
-		std::transform(url_s.begin(), prot_i, std::back_inserter(ret.protocol), std::ptr_fun<int,int>(std::tolower)); // protocol is icase
-		if( prot_i == url_s.end() )
-			return ret;
-		std::advance(prot_i, prot_end.length());
-		std::wstring::const_iterator path_i = std::find(prot_i, url_s.end(), L'/');
-		ret.host.reserve(std::distance(prot_i, path_i));
-		std::transform(prot_i, path_i, std::back_inserter(ret.host), std::ptr_fun<int,int>(std::tolower)); // host is icase
-		std::wstring::const_iterator query_i = std::find(path_i, url_s.end(), L'?');
-		ret.path.assign(path_i, query_i);
-		if( query_i != url_s.end() )
-			++query_i;
-		ret.query.assign(query_i, url_s.end());
-		return ret;
-	}
-
-
-}
 namespace strEx {
 	class string_exception : public std::exception {
 		std::wstring _what;
@@ -873,7 +842,7 @@ namespace utf8 {
 	template<>
 	inline std::string cvt(std::wstring const & str) {
 		// figure out how many narrow characters we are going to get 
-		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0, NULL, NULL);
+		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
 		if (nChars == 0)
 			return "";
 
@@ -881,14 +850,14 @@ namespace utf8 {
 		// nb: slightly naughty to write directly into the string like this
 		std::string buf;
 		buf.resize(nChars);
-		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), str.length(), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
 		return buf ; 
 	}
 
 	template<>
 	inline std::wstring cvt(std::string const & str) {
 		// figure out how many wide characters we are going to get 
-		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0);
+		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0);
 		if (nChars == 0)
 			return L"";
 
@@ -896,7 +865,7 @@ namespace utf8 {
 		// nb: slightly naughty to write directly into the string like this
 		std::wstring buf;
 		buf.resize(nChars);
-		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), const_cast<wchar_t*>(buf.c_str()), nChars);
+		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<wchar_t*>(buf.c_str()), nChars);
 		return buf;
 	}
 }

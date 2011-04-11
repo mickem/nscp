@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Fragment>
+		<UI>
+			<ComboBox Property='CONFIGURATION_TYPE'>
+				<ListItem Value="old://${exe-path}/nsc.ini" Text="Old 0.3.x Configuration (Program Files)" />
+				<ListItem Value="ini://${shared-path}/nsclient.ini" Text="INI file (Program files)" />
+				<ListItem Value="registry://HKEY_LOCAL_MACHINE/software/NSClient++" Text="Registry (HKLM)" />
+			</ComboBox>
+
+			<Dialog Id="SelectConfigurationDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+
+				<Control Id="WhichConfigOption" Type="ComboBox" X="45" Y="53" Width="260" Height="45" Property="CONFIGURATION_TYPE">
+					<Text>[CONFIGURATION_TYPE]</Text>
+				</Control>
+
+				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+				</Control>
+				<Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+				</Control>
+				<Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+					<Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+				</Control>
+				<Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+
+				<Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+					<Text>Which configuration file do you want to use?</Text>
+				</Control>
+
+				<Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+				<Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+					<Text>{\WixUI_Font_Title}NSClient++ Configuration</Text>
+				</Control>
+				<Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+			</Dialog>
+		</UI>
+	</Fragment>
+</Wix>

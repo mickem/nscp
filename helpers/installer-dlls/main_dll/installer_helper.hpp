@@ -50,6 +50,11 @@ public:
 		return cval != oval;
 	}
 
+	bool propertyTouched(std::wstring path) {
+		std::wstring old = getPropery(path + _T("_DEFAULT"));
+		std::wstring cur = getPropery(path);
+		return old != cur;
+	}
 	std::wstring getPropery(std::wstring path) {
 		TCHAR tmpBuf[MAX_PATH];
 		DWORD len = 0;
@@ -76,41 +81,15 @@ public:
 		}
 		return buffer;
 	}
-/*
-	void setPropertyAndOld(std::wstring key, std::wstring value) {
-		MsiSetProperty (hInstall_, key.c_str(), value.c_str());
-		MsiSetProperty (hInstall_, (key+_T("_OLD")).c_str(), value.c_str());
-	}
-	*/
-	void setupMyProperty(std::wstring key, std::wstring val) {
-		logMessage(_T("Setting old values: ") + key + _T("_OLD=") + val);
-		setPropertyIfEmpty(key+_T("_OLD"), val);
-		std::wstring oldDef = getPropery(key+_T("_DEFAULT"));
-		if (!oldDef.empty())
-			val = oldDef;
-		if (val == MY_EMPTY)
-			val = _T("");
-		logMessage(_T("Setting old values: ") + key + _T("=") + val);
-		setPropertyIfEmpty(key, val);
-	}
-	void setMyProperty(std::wstring key, std::wstring val) {
-		setProperty(key, val);
-	}
-	
+
 	void setPropertyIfEmpty(std::wstring key, std::wstring val) {
 		std::wstring old = getPropery(key);
 		if (old.empty())
 			setProperty(key, val);
 	}
-	void setPropertyAndOld(std::wstring key, std::wstring value, std::wstring oldvalue) {
-		MsiSetProperty (hInstall_, key.c_str(), value.c_str());
-		std::wstring old_key = key+_T("_OLD");
-		if (getPropery(old_key).empty())
-			setProperty(old_key, oldvalue);
-		//MsiSetProperty (hInstall_, (key+_T("_OLD")).c_str(), oldvalue.c_str());
-	}
-	void setPropertyOld(std::wstring key, std::wstring oldvalue) {
-		MsiSetProperty (hInstall_, (key+_T("_OLD")).c_str(), oldvalue.c_str());
+	void setPropertyAndOld(std::wstring key, std::wstring value) {
+		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
+		MsiSetProperty(hInstall_, (key+_T("_OLD")).c_str(), value.c_str());
 	}
 	void setProperty(std::wstring key, std::wstring value) {
 		MsiSetProperty (hInstall_, key.c_str(), value.c_str());
@@ -650,7 +629,6 @@ public:
 		std::list<std::wstring> ret;
 		for (int i=0; ::MsiEnumProducts(i, reinterpret_cast<TCHAR*>(&buffer)) == ERROR_SUCCESS; i++) {
 			std::wstring name = getProductName(buffer);
-			logMessage(_T("Found a product: ") + (std::wstring)buffer + _T("=") + name);
 			ret.push_back(buffer);
 		}
 		return ret;

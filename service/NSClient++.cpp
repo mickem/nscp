@@ -32,11 +32,12 @@
 //#include <Lmcons.h>
 //#include <remote_processes.hpp>
 #include "core_api.h"
-#include "settings_manager_impl.h"
+#include "../helpers/settings_manager/settings_manager_impl.h"
 #include <settings/macros.h>
 #include "simple_client.hpp"
 #include "settings_client.hpp"
 #include "service_manager.hpp"
+#include "settings_logger_impl.hpp"
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/functions.hpp>
 
@@ -236,121 +237,122 @@ int main(int argc, char* argv[]) {
 	delete [] wargv;
 }
 #endif
+
 int nscp_main(int argc, wchar_t* argv[])
 {
 	srand( (unsigned)time( NULL ) );
 	cli_parser parser(&mainClient);
 	return parser.parse(argc, argv);
 
-	int nRetCode = 0;
-	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
-		if (false) {
-		} else if ( wcscasecmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
-			std::wstring password;
-			if (!settings_manager::init_settings()) {
-				std::wcout << _T("Could not find settings") << std::endl;;
-				return 1;
-			}
-			std::wcout << _T("Enter password to encrypt (has to be a single word): ");
-			std::wcin >> password;
-			std::wstring xor_pwd = Encrypt(password);
-			std::wcout << _T("obfuscated_password=") << xor_pwd << std::endl;
-			std::wstring outPasswd = Decrypt(xor_pwd);
-			if (password != outPasswd) 
-				std::wcout << _T("ERROR: Password did not match: ") << outPasswd<< std::endl;
-			settings_manager::destroy_settings();
-			return 0;
-		} else if ( wcscasecmp( _T("about"), argv[1]+1 ) == 0 ) {
-			try {
-				unsigned int next_plugin_id = 0;
-				LOG_INFO_CORE(APPLICATION_NAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
-				LOG_INFO_CORE(_T("Version: ") CURRENT_SERVICE_VERSION);
-				LOG_INFO_CORE(_T("Architecture: ") SZARCH);
-
-				boost::filesystem::wpath pluginPath = (boost::filesystem::wpath)mainClient.getBasePath() / _T("modules");
-				LOG_INFO_CORE_STD(_T("Looking at plugins in: ") + pluginPath.string());
-
-				boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
-				for ( boost::filesystem::wdirectory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
-					if ( !is_directory(itr->status()) ) {
-						std::wstring file= itr->leaf();
-						LOG_INFO_CORE_STD(_T("Found: ") + file);
-						if (is_module(pluginPath / file)) {
-							NSCPlugin *plugin = new NSCPlugin(next_plugin_id++, pluginPath / file, _T(""));
-							std::wstring name = _T("<unknown>");
-							std::wstring description = _T("<unknown>");
-							try {
-								plugin->load_dll();
-								name = plugin->getName();
-								description = plugin->getDescription();
-							} catch(NSPluginException& e) {
-								LOG_ERROR_CORE_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
-							} catch (std::exception e) {
-								LOG_ERROR_CORE_STD(_T("exception loading plugin: ") + strEx::string_to_wstring(e.what()));
-							} catch (...) {
-								LOG_ERROR_CORE_STD(_T("Unknown exception loading plugin"));
-							}
-							LOG_INFO_CORE_STD(_T("* ") + name + _T(" (") + file + _T(")"));
-							std::list<std::wstring> list = strEx::splitEx(description, _T("\n"));
-							for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-								LOG_INFO_CORE_STD(_T("    ") + *cit);
-							}
-						}
-					}
-				}
-				LOG_INFO_CORE_STD(_T("Done listing plugins from: ") + pluginPath.string());
-				return true;
-			} catch (std::exception &e) {
-				LOG_ERROR_CORE_STD(_T("Exception: ") + to_wstring(e.what()));
-			} catch (...) {
-				LOG_ERROR_CORE_STD(_T("Unknown Exception: "));
-			}
-			return false;
-		} else if ( wcscasecmp( _T("version"), argv[1]+1 ) == 0 ) {
-			LOG_INFO_CORE(APPLICATION_NAME _T(", Version: ") CURRENT_SERVICE_VERSION _T(", Platform: ") SZARCH);
-		} else if ( wcscasecmp( _T("d"), argv[1]+1 ) == 0 ) {
-			// Run command from command line (like NRPE) but with debug enabled
-		} else if ( wcscasecmp( _T("noboot"), argv[1]+1 ) == 0 ) {
-			mainClient.enableDebug(false);
-			mainClient.initCore(false);
-			if (argc>=3)
-				nRetCode = mainClient.commandLineExec(argv[2], argc-3, &argv[3]);
-			else
-				nRetCode = mainClient.commandLineExec(argv[2], 0, NULL);
-			mainClient.exitCore(true);
-			return nRetCode;
-		} else if ( wcscasecmp( _T("c"), argv[1]+1 ) == 0 ) {
-			// Run command from command line (like NRPE)
-			mainClient.enableDebug(false);
-			mainClient.initCore(true);
-			std::wstring command, args, msg, perf;
-			if (argc > 2)
-				command = argv[2];
-			for (int i=3;i<argc;i++) {
-				if (i!=3) args += _T(" ");
-				args += argv[i];
-			}
-			nRetCode = mainClient.inject(command, args, msg, perf);
-			std::wcout << msg << _T("|") << perf << std::endl;
-			mainClient.exitCore(true);
-			return nRetCode;
-		} else {
-			std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt -settings") << std::endl;
-			std::wcerr << _T("Usage: [-noboot] <ModuleName> <commnd> [arguments]") << std::endl;
-			return -1;
-		}
-		return nRetCode;
-	} else if (argc > 2) {
-		std::wcout << _T(" * * * * * * * ") << std::endl;
-		mainClient.initCore(true);
-		if (argc>=3)
-			nRetCode = mainClient.commandLineExec(argv[1], argc-2, &argv[2]);
-		else
-			nRetCode = mainClient.commandLineExec(argv[1], 0, NULL);
-		mainClient.exitCore(true);
-		return nRetCode;
-	}
-	return nRetCode;
+// 	int nRetCode = 0;
+// 	if ( (argc > 1) && ((*argv[1] == '-') || (*argv[1] == '/')) ) {
+// 		if (false) {
+// 		} else if ( wcscasecmp( _T("encrypt"), argv[1]+1 ) == 0 ) {
+// 			std::wstring password;
+// 			if (!settings_manager::init_settings()) {
+// 				std::wcout << _T("Could not find settings") << std::endl;;
+// 				return 1;
+// 			}
+// 			std::wcout << _T("Enter password to encrypt (has to be a single word): ");
+// 			std::wcin >> password;
+// 			std::wstring xor_pwd = Encrypt(password);
+// 			std::wcout << _T("obfuscated_password=") << xor_pwd << std::endl;
+// 			std::wstring outPasswd = Decrypt(xor_pwd);
+// 			if (password != outPasswd) 
+// 				std::wcout << _T("ERROR: Password did not match: ") << outPasswd<< std::endl;
+// 			settings_manager::destroy_settings();
+// 			return 0;
+// 		} else if ( wcscasecmp( _T("about"), argv[1]+1 ) == 0 ) {
+// 			try {
+// 				unsigned int next_plugin_id = 0;
+// 				LOG_INFO_CORE(APPLICATION_NAME _T(" (C) Michael Medin - michael<at>medin<dot>name"));
+// 				LOG_INFO_CORE(_T("Version: ") CURRENT_SERVICE_VERSION);
+// 				LOG_INFO_CORE(_T("Architecture: ") SZARCH);
+// 
+// 				boost::filesystem::wpath pluginPath = (boost::filesystem::wpath)mainClient.getBasePath() / _T("modules");
+// 				LOG_INFO_CORE_STD(_T("Looking at plugins in: ") + pluginPath.string());
+// 
+// 				boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
+// 				for ( boost::filesystem::wdirectory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
+// 					if ( !is_directory(itr->status()) ) {
+// 						std::wstring file= itr->leaf();
+// 						LOG_INFO_CORE_STD(_T("Found: ") + file);
+// 						if (is_module(pluginPath / file)) {
+// 							NSCPlugin *plugin = new NSCPlugin(next_plugin_id++, pluginPath / file, _T(""));
+// 							std::wstring name = _T("<unknown>");
+// 							std::wstring description = _T("<unknown>");
+// 							try {
+// 								plugin->load_dll();
+// 								name = plugin->getName();
+// 								description = plugin->getDescription();
+// 							} catch(NSPluginException& e) {
+// 								LOG_ERROR_CORE_STD(_T("Exception raised: ") + e.error_ + _T(" in module: ") + e.file_);
+// 							} catch (std::exception e) {
+// 								LOG_ERROR_CORE_STD(_T("exception loading plugin: ") + strEx::string_to_wstring(e.what()));
+// 							} catch (...) {
+// 								LOG_ERROR_CORE_STD(_T("Unknown exception loading plugin"));
+// 							}
+// 							LOG_INFO_CORE_STD(_T("* ") + name + _T(" (") + file + _T(")"));
+// 							std::list<std::wstring> list = strEx::splitEx(description, _T("\n"));
+// 							for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+// 								LOG_INFO_CORE_STD(_T("    ") + *cit);
+// 							}
+// 						}
+// 					}
+// 				}
+// 				LOG_INFO_CORE_STD(_T("Done listing plugins from: ") + pluginPath.string());
+// 				return true;
+// 			} catch (std::exception &e) {
+// 				LOG_ERROR_CORE_STD(_T("Exception: ") + to_wstring(e.what()));
+// 			} catch (...) {
+// 				LOG_ERROR_CORE_STD(_T("Unknown Exception: "));
+// 			}
+// 			return false;
+// 		} else if ( wcscasecmp( _T("version"), argv[1]+1 ) == 0 ) {
+// 			LOG_INFO_CORE(APPLICATION_NAME _T(", Version: ") CURRENT_SERVICE_VERSION _T(", Platform: ") SZARCH);
+// 		} else if ( wcscasecmp( _T("d"), argv[1]+1 ) == 0 ) {
+// 			// Run command from command line (like NRPE) but with debug enabled
+// 		} else if ( wcscasecmp( _T("noboot"), argv[1]+1 ) == 0 ) {
+// 			mainClient.enableDebug(false);
+// 			mainClient.initCore(false);
+// 			if (argc>=3)
+// 				nRetCode = mainClient.commandLineExec(argv[2], argc-3, &argv[3]);
+// 			else
+// 				nRetCode = mainClient.commandLineExec(argv[2], 0, NULL);
+// 			mainClient.exitCore(true);
+// 			return nRetCode;
+// 		} else if ( wcscasecmp( _T("c"), argv[1]+1 ) == 0 ) {
+// 			// Run command from command line (like NRPE)
+// 			mainClient.enableDebug(false);
+// 			mainClient.initCore(true);
+// 			std::wstring command, args, msg, perf;
+// 			if (argc > 2)
+// 				command = argv[2];
+// 			for (int i=3;i<argc;i++) {
+// 				if (i!=3) args += _T(" ");
+// 				args += argv[i];
+// 			}
+// 			nRetCode = mainClient.inject(command, args, msg, perf);
+// 			std::wcout << msg << _T("|") << perf << std::endl;
+// 			mainClient.exitCore(true);
+// 			return nRetCode;
+// 		} else {
+// 			std::wcerr << _T("Usage: -version, -about, -install, -uninstall, -start, -stop, -encrypt -settings") << std::endl;
+// 			std::wcerr << _T("Usage: [-noboot] <ModuleName> <commnd> [arguments]") << std::endl;
+// 			return -1;
+// 		}
+// 		return nRetCode;
+// 	} else if (argc > 2) {
+// 		std::wcout << _T(" * * * * * * * ") << std::endl;
+// 		mainClient.initCore(true);
+// 		if (argc>=3)
+// 			nRetCode = mainClient.commandLineExec(argv[1], argc-2, &argv[2]);
+// 		else
+// 			nRetCode = mainClient.commandLineExec(argv[1], 0, NULL);
+// 		mainClient.exitCore(true);
+// 		return nRetCode;
+// 	}
+// 	return nRetCode;
 }
 
 std::list<std::wstring> NSClientT::list_commands() {
@@ -494,6 +496,22 @@ void NSClientT::session_info(std::string file, unsigned int line, std::wstring m
 //////////////////////////////////////////////////////////////////////////
 // Service functions
 
+
+struct nscp_settings_provider : public settings_manager::provider_interface {
+	virtual std::wstring expand_path(std::wstring file) {
+		return mainClient.expand_path(file);
+	}
+	virtual void log_fatal_error(std::wstring error) {
+		LOG_CRITICAL_CORE_STD(error);
+	}
+	virtual settings::logger_interface* create_logger() {
+		return new settings_logger();
+	}
+};
+
+
+nscp_settings_provider provider;
+
 namespace sh = nscapi::settings_helper;
 
 /**
@@ -506,7 +524,7 @@ namespace sh = nscapi::settings_helper;
 bool NSClientT::initCore(bool boot) {
 	LOG_INFO_CORE(_T("Attempting to start"));
 
-	if (!settings_manager::init_settings(context_)) {
+	if (!settings_manager::init_settings(&provider, context_)) {
 		return false;
 	}
 	LOG_INFO_CORE(_T("Booted settings subsystem..."));

@@ -122,8 +122,8 @@ namespace nscapi {
 					for (int i=0;i<payload.arguments_size();i++) {
 						args.push_back(to_wstring(payload.arguments(i)));
 					}
-					std::wstring msg = to_wstring(payload.message());
-					std::wstring perf = to_wstring(::nscapi::functions::build_performance_data(payload));
+					std::wstring msg = utf8::cvt<std::wstring>(payload.message());
+					std::wstring perf = utf8::cvt<std::wstring>(::nscapi::functions::build_performance_data(payload));
 					NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, command, code, msg, perf);
 				} catch (std::exception &e) {
 					std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << e.what() <<  std::endl;;

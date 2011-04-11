@@ -1,36 +1,46 @@
 <Include>
-<Property Id='ARPCOMMENTS'>NSClient++ is a </Property>
-<Property Id='ARPCONTACT'>michael@medin.name</Property>
-<Property Id='ARPHELPLINK'>http://nsclient.org</Property>
-<Property Id='ARPURLINFOABOUT'>http://nsclient.org</Property>
-<Property Id='ARPURLUPDATEINFO'>http://nsclient.org</Property>
-<Property Id='ARPHELPTELEPHONE'>http://nsclient.org</Property>
-<Property Id='ARPPRODUCTICON'>nsclient.exe</Property>
+	<!-- CONFIGURE APPLICATION INFORMATION -->
+	<Property Id="ARPCOMMENTS">NSClient++ is a monitoring Agent for amongst other systems Nagios</Property>
+	<Property Id="ARPCONTACT">michael@medin.name</Property>
+	<Property Id="ARPHELPLINK">http://nsclient.org</Property>
+	<Property Id="ARPURLINFOABOUT">http://nsclient.org</Property>
+	<Property Id="ARPURLUPDATEINFO">http://nsclient.org</Property>
+	<Property Id="ARPHELPTELEPHONE">http://nsclient.org</Property>
+	<Property Id="ARPPRODUCTICON">nscp.exe</Property>
 
-<Property Id="CONF_CHECKS_DEFAULT"></Property>
-<Property Id="CONF_NSCLIENT_DEFAULT"></Property>
-<Property Id="CONF_NRPE_DEFAULT"></Property>
-<Property Id="CONF_NSCA_DEFAULT"></Property>
-<Property Id="CONF_WMI_DEFAULT"></Property>
-<Property Id="ALLOW_CONFIGURATION" />
+	<!-- CONFIGURE DEFAULT VALUES (what will happen if missing from config) -->
+	<!--
+	<Property Id="CONF_CHECKS_DEFAULT">0</Property>
+	<Property Id="CONF_NSCLIENT_DEFAULT">0</Property>
+	<Property Id="CONF_NRPE_DEFAULT">0</Property>
+	<Property Id="CONF_NSCA_DEFAULT">0</Property>
+	<Property Id="CONF_WMI_DEFAULT">0</Property>
+	<Property Id="ALLOWED_HOSTS_DEFAULT"></Property>
+	<Property Id="NSCLIENT_PWD_DEFAULT"></Property>
+   -->
+	<Property Id="CONFIGURATION_TYPE_DEFAULT">ini://${shared-path}/nsclient.ini</Property>
 
-<!-- CONFIGURE DEFAULT VALUES-->
-<Property Id="ALLOWED_HOSTS_DEFAULT">$$EMPTY$$</Property>
-<Property Id="NSCLIENT_PWD_DEFAULT">$$EMPTY$$</Property>
+	<!-- CONFIGURE INITAL VALUES IN CONFIG UI -->
+	<!--
+	<Property Id="CONF_CHECKS">0</Property>
+	<Property Id="CONF_NSCLIENT">0</Property>
+	<Property Id="CONF_NRPE">0</Property>
+	<Property Id="CONF_NSCA">0</Property>
+	<Property Id="CONF_WMI">0</Property>
+	<Property Id="ALLOWED_HOSTS"></Property>
+	<Property Id="NSCLIENT_PWD"></Property>
+   -->
+	<Property Id="CONFIGURATION_TYPE">ini://${shared-path}/nsclient.ini</Property>
 
-<!-- CONFIGURE THE INSTALLER -->
-<Property Id='INSCON_CONFIGURE'>1</Property>
-<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>
-<Property Id='CUSTOM_CONFIGURATION_FILE'>NSC.ini</Property>
-<Property Id='HELP_LINK'>http://nsclient.org/nscp/</Property>
+	<!-- CONFIGURE THE INSTALLER -->
+	<Property Id="ALLOW_CONFIGURATION">1</Property>
+	<Property Id="MAIN_CONFIGURATION_FILE">nsclient.ini</Property>
+	<Property Id="CUSTOM_CONFIGURATION_FILE">nsclient.ini</Property>
+	<WixVariable Id="WixUIBannerBmp" Value="Bitmaps\bannrbmp.bmp" />
+	<WixVariable Id="WixUIDialogBmp" Value="Bitmaps\dlgbmp.bmp" />
 
-<Property Id='SHOW_START_ON_EXIT'>1</Property>
-<Property Id='START_SERVICE_ON_EXIT'></Property>
-<Property Id='SHOW_DONATE_ON_EXIT'>1</Property>
-<Property Id='DONATE_ON_EXIT'></Property>
-<Property Id='KEEP_WHICH_CONFIG'>NEW</Property>
-<!--<Property Id='MAIN_CONFIGURATION_FILE'>NSC.ini</Property>-->
-<!--<Property Id='ARPREADME'>path</Property>-->
-<!--<Property Id='ARPSIZE'>app size in kilobytes</Property>-->
+	<!-- CONFIGURE THE PROGRAM -->
+	<Property Id="HELP_LINK">http://nsclient.org/nscp/</Property>
+	<Property Id="SERVICE_NAME">nscp</Property>
 
 </Include>

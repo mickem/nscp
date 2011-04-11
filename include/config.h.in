@@ -20,7 +20,7 @@
 ***************************************************************************/
 #pragma once
 
-#include "../AutoBuild.h"
+#include "../version.hpp"
 /*
 #include <tchar.h> 
 */
@@ -81,9 +81,12 @@
 #else
 #define DEFAULT_CONF_LOCATION _T("ini")
 #endif
+#define BOOT_CONF_LOCATION _T("${exe-path}/boot.ini")
 #define DEFAULT_CONF_OLD_LOCATION _T("old://${exe-path}/nsc.ini")
 #define DEFAULT_CONF_INI_LOCATION _T("ini://${shared-path}/nsclient.ini")
 #define DEFAULT_CONF_REG_LOCATION _T("registry://HKEY_LOCAL_MACHINE/software/NSClient++")
+
+#define DEFAULT_CACHE_PATH _T("${shared-path}/cache")
 
 
 // Default Argument string (for consistency)

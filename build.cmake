@@ -25,7 +25,7 @@ IF(WIN32)
 
 	SET(INC_PROTOBUF_DIR "D:/source/libraries/protobuf-2.4.0a")
 
-	SET(INC_CRYPTOPP_DIR "D:/source/libraries/cryptopp-5.6.1")
+	SET(INC_CRYPTOPP_DIR "D:/source/libraries/crypto++-5.6.1")
 
 	SET(INC_LUA_DIR "D:/source/libraries/lua-5.1.4")
 

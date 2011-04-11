@@ -1,21 +1,24 @@
 #pragma once
 
-#include "settings_logger_impl.hpp"
 #include <settings/settings_core.hpp>
-#include <settings/settings_ini.hpp>
 #include <settings/client/settings_client.hpp>
-#ifdef WIN32
-#include <settings/settings_old.hpp>
-#include <settings/settings_registry.hpp>
-#endif
+#include <settings/settings_handler_impl.hpp>
 
 namespace settings_manager {
+
+	struct provider_interface {
+		virtual std::wstring expand_path(std::wstring file) = 0;
+		virtual void log_fatal_error(std::wstring error) = 0;
+		virtual settings::logger_interface* create_logger() = 0;
+	};
+
 	class NSCSettingsImpl : public settings::settings_handler_impl {
 	private:
 		boost::filesystem::wpath boot_;
 		bool old_;
+		provider_interface *provider_;
 	public:
-		NSCSettingsImpl() : old_(false) {}
+		NSCSettingsImpl(provider_interface *provider) : old_(false), provider_(provider) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string form the boot file.
 		///
@@ -36,14 +39,22 @@ namespace settings_manager {
 			return def;
 #endif
 		}
+		void set_boot_string(std::wstring section, std::wstring key, std::wstring val) {
+#ifdef WIN32
+			WritePrivateProfileString(section.c_str(), key.c_str(), val.c_str(), boot_.string().c_str());
+#else
+#endif
+		}
 
 		void boot(std::wstring file = _T("boot.ini"));
 		std::wstring find_file(std::wstring file, std::wstring fallback = _T(""));
 		std::wstring expand_path(std::wstring file);
 		settings::instance_raw_ptr create_instance(std::wstring key);
+		bool check_file(std::wstring file, std::wstring tag, std::wstring &key);
+		void change_context(std::wstring file);
 	};
 
-	typedef Singleton<NSCSettingsImpl> SettingsHandler;
+	//typedef Singleton<NSCSettingsImpl> SettingsHandler;
 
 	// Alias to make handling "compatible" with old syntax
 	settings::instance_ptr get_settings();
@@ -51,5 +62,6 @@ namespace settings_manager {
 	settings::settings_core* get_core();
 	nscapi::settings_helper::settings_impl_interface_ptr get_proxy();
 	void destroy_settings();
-	bool init_settings(std::wstring context = _T(""));
+	bool init_settings(provider_interface *provider, std::wstring context = _T(""));
+	void change_context(std::wstring context);
 }

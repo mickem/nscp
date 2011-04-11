@@ -14,9 +14,9 @@
 #
 
 if (WIN32)
-    MACRO(DBG_MSG _MSG)
-        #MESSAGE(STATUS "${CMAKE_CURRENT_LIST_FILE}(${CMAKE_CURRENT_LIST_LINE}):\r\n ${_MSG}")
-    ENDMACRO(DBG_MSG)
+	MACRO(DBG_MSG _MSG)
+#		MESSAGE(STATUS "${CMAKE_CURRENT_LIST_FILE}(${CMAKE_CURRENT_LIST_LINE}):\r\n ${_MSG}")
+	ENDMACRO(DBG_MSG)
 
 
     # typical root dirs of installations, exactly one of them is used
@@ -24,8 +24,9 @@ if (WIN32)
         "${WIX_ROOT_DIR}"
         "$ENV{WIX}"
         "$ENV{WIX_ROOT_DIR}"
-        "$ENV{ProgramFiles}/Windows Installer XML"
+        "$ENV{ProgramFiles}/Windows Installer XML v3.5"
         "$ENV{ProgramFiles}/Windows Installer XML v3"
+        "$ENV{ProgramFiles}/Windows Installer XML"
         )
 
 
@@ -40,6 +41,13 @@ if (WIN32)
         bin/heat.exe
         PATHS ${WIX_POSSIBLE_ROOT_DIRS})
     DBG_MSG("WIX_ROOT_DIR=${WIX_ROOT_DIR}")
+	
+	IF(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
+		SET(WIX_VERSION 3)
+	ELSE(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
+		SET(WIX_VERSION 2)
+	ENDIF(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
+	
 
 
     #
@@ -105,9 +113,13 @@ if (WIN32)
 				ADD_CUSTOM_COMMAND( 
 					OUTPUT    ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
 					COMMAND   ${WIX_CANDLE}
-					ARGS      ${WIX_CANDLE_FLAGS} ${SOURCE_WIX_FILE}
+					ARGS       
+								-ext WixFirewallExtension 
+								-ext WixUtilExtension
+								${WIX_CANDLE_FLAGS} 
+								${SOURCE_WIX_FILE}
 					DEPENDS   ${SOURCE_WIX_FILE} ${_extra_dep}
-					COMMENT   "Compiling ${SOURCE_WIX_FILE} -> ${OUTPUT_WIXOBJ}"
+					COMMENT   "Compiling ${SOURCE_WIX_FILE} -ext WixFirewallExtension -ext WixUtilExtension ${WIX_CANDLE_FLAGS} -> ${OUTPUT_WIXOBJ}"
 					)
 				SET (OUTPUT_WIXOBJ ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ})
 			ENDIF(${_ext} STREQUAL ".wixlib")
@@ -141,6 +153,8 @@ if (WIN32)
                 OUTPUT    ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
                 COMMAND   ${WIX_HEAT}
                 ARGS      file ${SOURCE_WIX_FILE}
+						  -ext WixFirewallExtension
+						  -ext WixUtilExtension
                           -out ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
                           ${WIX_HEAT_FLAGS}
                 DEPENDS   ${SOURCE_WIX_FILE}
@@ -161,27 +175,42 @@ if (WIN32)
     #
     MACRO(WIX_LINK _target _sources _loc_files)
         DBG_MSG("WIX command: ${WIX_LIGHT}\n WIX target: ${_target} objs: ${${_sources}}")
+        DBG_MSG("WIX version: ${WIX_VERSION}")
 
-        SET( WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS} )
+        SET(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS})
         # Add localization
-        FOREACH (_current_FILE ${_loc_files})
-            SET( WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS_A} -loc "${_current_FILE}" )
+        FOREACH(_current_FILE ${_loc_files})
+			IF(${WIX_VERSION} EQUAL 3)
+				SET(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS_A} -cultures:"${_current_FILE}")
+			ELSE(${WIX_VERSION} EQUAL 3)
+				SET(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS_A} -loc "${_current_FILE}")
+			ENDIF(${WIX_VERSION} EQUAL 3)
             DBG_MSG("WIX link localization: ${_current_FILE}")
-        ENDFOREACH (_current_FILE)
+        ENDFOREACH(_current_FILE)
         DBG_MSG("WIX link flags: ${WIX_LINK_FLAGS_A}")
-#		SET(_src_list ${_sources})
-#		FOREACH( _cpp ${_sources} )
-#			SET( _arguments ${_arguments} ${_cpp} )
-#		ENDFOREACH( _cpp )
- #       DBG_MSG("SRC ===> : ${_arguments}")
 
-        ADD_CUSTOM_COMMAND(
-			OUTPUT    ${_target}
-            COMMAND   ${WIX_LIGHT}
-            ARGS      ${WIX_LINK_FLAGS_A} -out "${_target}" ${${_sources}}
-            DEPENDS   ${${_sources}}
-            COMMENT   "Linking ${_sources} -> ${_target}"
-            )
+		IF(${WIX_VERSION} EQUAL 3)
+			ADD_CUSTOM_COMMAND(
+				OUTPUT    ${_target}
+				COMMAND   ${WIX_LIGHT}
+				ARGS      ${WIX_LINK_FLAGS_A} 
+							-ext WixUIExtension 
+							-ext WixFirewallExtension 
+							-ext WixUtilExtension 
+							-out "${_target}" 
+							${${_sources}}
+				DEPENDS   ${${_sources}}
+				COMMENT   "Linking ${${_sources}} -> ${_target} (${WIX_LIGHT} ${WIX_LINK_FLAGS_A} -ext WixUIExtension -ext WixFirewallExtension -out "${_target}" ${${_sources}})"
+				)
+		ELSE(${WIX_VERSION} EQUAL 3)
+			ADD_CUSTOM_COMMAND(
+				OUTPUT    ${_target}
+				COMMAND   ${WIX_LIGHT}
+				ARGS      ${WIX_LINK_FLAGS_A} -out "${_target}" ${${_sources}}
+				DEPENDS   ${${_sources}}
+				COMMENT   "Linking ${${_sources}} -> ${_target} (${WIX_LINK_FLAGS_A})"
+				)
+		ENDIF(${WIX_VERSION} EQUAL 3)
     ENDMACRO(WIX_LINK)
 	
     #

@@ -117,7 +117,6 @@ namespace nsca {
 			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
 			boost::posix_time::time_duration diff = now - time_t_epoch;
 			time = diff.total_seconds();
-			std::cout << "Adding time: " << time_delta << std::endl;
 		}
 		packet() : payload_length_(nsca::length::data::get_payload_length())
 		{
@@ -134,6 +133,7 @@ namespace nsca {
 		}
 
 		void get_buffer(std::string &buffer) const {
+			// FIXME: This is crap and needs rewriting. No std::string and beetter zero handling...
 			if (service.length() >= nsca::length::desc_length)
 				throw nsca::nsca_exception(_T("Description field to long"));
 			if (host.length() >= nsca::length::host_length)
@@ -150,8 +150,11 @@ namespace nsca {
 			data->return_code = swap_bytes::hton<int16_t>(code);
 			data->crc32_value= swap_bytes::hton<u_int32_t>(0);
 
+			ZeroMemory(data->get_host_ptr(), host.size()+1);
 			host.copy(data->get_host_ptr(), host.size());
+			ZeroMemory(data->get_desc_ptr(nsca::length::host_length), service.size()+1);
 			service.copy(data->get_desc_ptr(nsca::length::host_length), service.size());
+			ZeroMemory(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result.size()+1);
 			result.copy(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result.size());
 
 			unsigned int calculated_crc32=calculate_crc32(buffer.c_str(),buffer.size());

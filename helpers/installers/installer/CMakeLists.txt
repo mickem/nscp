@@ -6,15 +6,21 @@ PROJECT(${TARGET})
 
 SET(SRCS
 	Product.wxs
-	WixUI.wixlib
+
+	../ui/ConfigureDlg.wxs
+	../ui/InvalidConfigureationDlg.wxs
+	../ui/SelectConfigurationDlg.wxs
+	../ui/WixUI_MondoNSCP.wxs
 )
+#	WixUI.wixlib
 SET(DEPENDENCIES
 	nscp
+	main_dll
 )
-GET_FILENAME_COMPONENT(_tmp_FILE WixUI_en-us.wxl ABSOLUTE)
+#GET_FILENAME_COMPONENT(_tmp_FILE WixUI_en-us.wxl ABSOLUTE)
 
 SET(LOCALIZATIONS
-	${_tmp_FILE}
+	en-us
 )
 
 #MESSAGE(STATUS "Wix source: ${SRCS}")

@@ -34,7 +34,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 			(_T("size"), (type_size))
 			(_T("accessed"), (type_date))
 			(_T("written"), (type_date))
-			(_T("generated"), (type_date));
+			(_T("created"), (type_date));
 	}
 
 bool file_filter::filter_obj_handler::has_variable(std::wstring key) {
@@ -76,9 +76,9 @@ file_filter::filter_obj_handler::handler::bound_int_type file_filter::filter_obj
 		ret = &object_type::get_size;
 	else if (key == _T("line_count"))
 		ret = &object_type::get_line_count;
-	else if (key == _T("access"))
+	else if (key == _T("accessed"))
 		ret = &object_type::get_access;
-	else if (key == _T("creation"))
+	else if (key == _T("created"))
 		ret = &object_type::get_creation;
 	else if (key == _T("written"))
 		ret = &object_type::get_write;

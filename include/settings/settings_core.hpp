@@ -286,7 +286,7 @@ namespace settings {
 		/// @return the path to the settings files
 		///
 		/// @author mickem
-		virtual boost::filesystem::wpath get_base() = 0;
+		//virtual boost::filesystem::wpath get_base() = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the logging interface (will receive log messages)
@@ -304,6 +304,8 @@ namespace settings {
 		virtual logger_interface* get_logger() = 0;
 
 		virtual std::wstring to_string() = 0;
+
+		virtual std::wstring expand_path(std::wstring key) = 0;
 
 	};
 

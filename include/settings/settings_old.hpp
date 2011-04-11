@@ -1,12 +1,14 @@
 #pragma once
 
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <map>
 #include <settings/settings_core.hpp>
 #include <simpleini/SimpleIni.h>
-#include <settings/macros.h>
-#include <iostream>
-#include <fstream>
+//#include <settings/macros.h>
+
+#include <strEx.h>
 
 
 //#define MAIN_MODULES_SECTION_OLD _T("modules")
@@ -16,94 +18,144 @@
 namespace settings {
 	class OLDSettings : public settings::SettingsInterfaceImpl {
 		std::wstring filename_;
-	public:
-		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			std::wstring fname = core->find_file(_T("${exe-path}/old-settings.map"), _T("old-settings.map"));
-			read_map_file(fname);
-		}
-		void read_map_file(std::wstring file) {
-			get_logger()->debug(__FILE__, __LINE__, _T("Reading MAP file: ") + file);
+		typedef std::pair<std::wstring,std::wstring> section_key_type;
 
-			std::ifstream in(strEx::wstring_to_string(file).c_str());
-			if(!in) {
-				get_logger()->err(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
-				return;
-			}
-			in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
+		class settings_map : boost::noncopyable {
+		public:
 
-			try{
-				std::string tmp;
-				while(true) {
-					std::getline(in,tmp);
-					parse_line(to_wstring(tmp));
+			typedef std::map<std::wstring,std::wstring> path_map;
+			typedef std::map<settings_core::key_path_type,settings_core::key_path_type> key_map;
+			typedef std::pair<std::wstring,std::wstring> section_key_type;
+			typedef std::pair<settings_core::key_path_type,settings_core::key_path_type> keys_key_type;
+
+			OLDSettings *parent;
+			path_map sections_;
+			key_map keys_;
+
+			settings_map(OLDSettings *parent) : parent(parent) {}
+
+			void read_map_file(std::wstring file) {
+				parent->get_logger()->debug(__FILE__, __LINE__, _T("Reading MAP file: ") + file);
+
+				std::ifstream in(strEx::wstring_to_string(file).c_str());
+				if(!in) {
+					parent->get_logger()->err(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
+					return;
+				}
+				in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
+
+				try{
+					std::string tmp;
+					while(true) {
+						std::getline(in,tmp);
+						parse_line(utf8::cvt<std::wstring>(tmp));
+					}
+				}
+				catch(std::ifstream::failure e){
+					if(!in.eof())
+						std::cerr << e.what() <<'\n';
 				}
 			}
-			catch(std::ifstream::failure e){
-				if(!in.eof())
-					cerr << e.what() <<'\n';
+			void parse_line(std::wstring line) {
+				int pos = line.find('#');
+				if (pos != -1)
+					line = line.substr(0, pos);
+				pos = line.find_first_not_of(_T(" \t"));
+				if (pos == -1)
+					return;
+				line = line.substr(pos);
+				pos = line.find('=');
+				if (pos == -1) {
+					parent->get_logger()->err(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
+					return;
+				}
+				std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
+				std::pair<std::wstring,std::wstring> new_key = split_key(line.substr(pos+1));
+				if (old_key.second == _T("*") || old_key.second.empty()) {
+					add(line.substr(pos+1), old_key.first);
+				} else {
+					add(new_key.first, new_key.second, old_key.first, old_key.second);
+				}
+
 			}
-		}
-		void parse_line(std::wstring line) {
-			int pos = line.find('#');
-			if (pos != -1)
-				line = line.substr(0, pos);
-			pos = line.find_first_not_of(_T(" \t"));
-			if (pos == -1)
-				return;
-			line = line.substr(pos);
-			pos = line.find('=');
-			if (pos == -1) {
-				get_logger()->err(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
-				return;
-			}
-			std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
-			std::pair<std::wstring,std::wstring> new_key = split_key(line.substr(pos+1));
-			if (old_key.second == _T("*") || old_key.second.empty()) {
-				add_mapping(line.substr(pos+1), old_key.first);
-			} else {
-				add_mapping(new_key.first, new_key.second, old_key.first, old_key.second);
+			std::pair<std::wstring,std::wstring> split_key(std::wstring key) {
+				std::pair<std::wstring,std::wstring> ret;
+				int pos = key.find_last_of('/');
+				if (pos == -1)
+					return std::pair<std::wstring,std::wstring>(key, _T(""));
+				return std::pair<std::wstring,std::wstring>(key.substr(0, pos), key.substr(pos+1));
 			}
 
-		}
-		std::pair<std::wstring,std::wstring> split_key(std::wstring key) {
-			std::pair<std::wstring,std::wstring> ret;
-			int pos = key.find_last_of('/');
-			if (pos == -1)
-				return std::pair<std::wstring,std::wstring>(key, _T(""));
-			return std::pair<std::wstring,std::wstring>(key.substr(0, pos), key.substr(pos+1));
-		}
-
-		typedef std::map<std::wstring,std::wstring> path_map;
-		typedef std::map<settings_core::key_path_type,settings_core::key_path_type> key_map;
-		typedef std::pair<std::wstring,std::wstring> section_key_type;
-		typedef std::pair<settings_core::key_path_type,settings_core::key_path_type> keys_key_type;
-
-		path_map sections_;
-		key_map keys_;
-		void add_mapping(std::wstring path_new, std::wstring path_old) {
-			sections_[path_new] = path_old;
-		}
-		void add_mapping(std::wstring path_new, std::wstring key_new, std::wstring path_old, std::wstring key_old) {
-			settings_core::key_path_type new_key(path_new, key_new);
-			settings_core::key_path_type old_key(path_old, key_old);
-			keys_[new_key] = old_key;
-		}
-		std::wstring map_path(std::wstring path_new) {
-			path_map::iterator it = sections_.find(path_new);
-			if (it == sections_.end())
-				return path_new;
-			return (*it).second;
-		}
-		settings_core::key_path_type map_key(settings_core::key_path_type new_key) {
-			key_map::iterator it1 = keys_.find(new_key);
-			if (it1 != keys_.end()) {
-				get_core()->get_logger()->quick_debug(new_key.first + _T(".") + new_key.second + _T(" not found in alias list"));
-				return (*it1).second;
+			void add(std::wstring path_new, std::wstring path_old) {
+				sections_[path_new] = path_old;
 			}
-			path_map::iterator it2 = sections_.find(new_key.first);
-			if (it2 != sections_.end())
-				return settings_core::key_path_type((*it2).second, new_key.second);
-			return new_key;
+			void add(std::wstring path_new, std::wstring key_new, std::wstring path_old, std::wstring key_old) {
+				settings_core::key_path_type new_key(path_new, key_new);
+				settings_core::key_path_type old_key(path_old, key_old);
+				keys_[new_key] = old_key;
+			}
+			std::wstring path(std::wstring path_new) {
+				path_map::iterator it = sections_.find(path_new);
+				if (it == sections_.end())
+					return path_new;
+				return (*it).second;
+			}
+			settings_core::key_path_type key(settings_core::key_path_type new_key) {
+				key_map::iterator it1 = keys_.find(new_key);
+				if (it1 != keys_.end()) {
+					parent->get_logger()->quick_debug(new_key.first + _T(".") + new_key.second + _T(" not found in alias list"));
+					return (*it1).second;
+				}
+				path_map::iterator it2 = sections_.find(new_key.first);
+				if (it2 != sections_.end())
+					return settings_core::key_path_type((*it2).second, new_key.second);
+				return new_key;
+			}
+
+			void get_sections(std::wstring path, string_list &list) {
+				unsigned int path_length = path.length();
+				BOOST_FOREACH(section_key_type key, sections_) {
+					if (path_length == 0 || path == _T("/")) {
+						std::wstring::size_type pos = key.first.find(L'/', 1);
+						list.push_back(pos == std::wstring::npos?key.first:key.first.substr(0,pos));
+					} else if (key.first.length() > path_length && path == key.first.substr(0, path_length)) {
+						std::wstring::size_type pos = key.first.find(L'/', path_length+1);
+						list.push_back(pos == std::wstring::npos?key.first.substr(path_length+1):key.first.substr(path_length+1,pos-path_length-1));
+					}
+				}
+				BOOST_FOREACH(keys_key_type key, keys_) {
+					if (path.empty() || path == _T("/")) {
+						std::wstring::size_type pos = key.first.first.find(L'/', 1);
+						if (pos != std::wstring::npos)
+							key.first.first = key.first.first.substr(0,pos);
+						list.push_back(key.first.first);
+					} else if (key.first.first.length() > path_length && path == key.first.first.substr(0, path_length)) {
+						std::wstring::size_type pos = key.first.first.find(L'/', path_length+1);
+						list.push_back(pos == std::wstring::npos?key.first.first.substr(path_length+1):key.first.first.substr(path_length+1,pos-path_length-1));
+					}
+				}
+				list.unique();
+			}
+
+
+		};
+
+			settings_map map;
+			typedef std::map<std::wstring,std::set<std::wstring> > section_cache_type;
+			section_cache_type section_cache_;
+
+
+		public:
+
+
+		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context), map(this) {
+			get_logger()->debug(__FILE__, __LINE__, _T("Loading OLD: ") + context);
+			map.read_map_file(core->find_file(_T("${exe-path}/old-settings.map"), _T("old-settings.map")));
+
+			string_list list = get_keys(_T("includes"));
+			BOOST_FOREACH(std::wstring key, list) {
+				add_child(key);
+			}
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
@@ -124,7 +176,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual std::wstring get_real_string(settings_core::key_path_type key) {
-			key = map_key(key);
+			key = map.key(key);
 			return internal_get_value(key.first, key.second);
 		}
 #define UNLIKELY_STRING _T("$$$EMPTY_KEY$$$")
@@ -179,7 +231,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual bool has_real_key(settings_core::key_path_type key) {
-			settings_core::key_path_type old = map_key(key);
+			settings_core::key_path_type old = map.key(key);
 			return has_key_int(old.first, old.second);
 		}
 
@@ -208,8 +260,6 @@ namespace settings {
 			return ret;
 		}
 
-		typedef std::map<std::wstring,std::set<std::wstring> > section_cache_type;
-		section_cache_type section_cache_;
 		bool has_key_int(std::wstring path, std::wstring key) {
 			section_cache_type::const_iterator it = section_cache_.find(path);
 			if (it == section_cache_.end()) {
@@ -229,7 +279,7 @@ namespace settings {
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 			try {
-				key = map_key(key);
+				key = map.key(key);
 				WritePrivateProfileString(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), get_file_name().c_str());
 			} catch (settings_exception e) {
 				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
@@ -253,28 +303,7 @@ namespace settings {
 		/// @author mickem
 		virtual void get_real_sections(std::wstring path, string_list &list) {
 			unsigned int path_length = path.length();
-			//string_list lst = get_mapped_sections(path);
-			//list.insert(list.end(), lst.begin(), lst.end());
-			BOOST_FOREACH(section_key_type key, sections_) {
-				if (path_length == 0 || path == _T("/")) {
-					std::wstring::size_type pos = key.first.find(L'/', 1);
-					list.push_back(pos == std::wstring::npos?key.first:key.first.substr(0,pos));
-				} else if (key.first.length() > path_length && path == key.first.substr(0, path_length)) {
-					std::wstring::size_type pos = key.first.find(L'/', path_length+1);
-					list.push_back(pos == std::wstring::npos?key.first.substr(path_length+1):key.first.substr(path_length+1,pos-path_length-1));
-				}
-			}
-			BOOST_FOREACH(keys_key_type key, keys_) {
-				if (path.empty() || path == _T("/")) {
-					std::wstring::size_type pos = key.first.first.find(L'/', 1);
-					if (pos != std::wstring::npos)
-						key.first.first = key.first.first.substr(0,pos);
-					list.push_back(key.first.first);
-				} else if (key.first.first.length() > path_length && path == key.first.first.substr(0, path_length)) {
-					std::wstring::size_type pos = key.first.first.find(L'/', path_length+1);
-					list.push_back(pos == std::wstring::npos?key.first.first.substr(path_length+1):key.first.first.substr(path_length+1,pos-path_length-1));
-				}
-			}
+			map.get_sections(path, list);
 			list.unique();
 		}
 
@@ -321,14 +350,14 @@ namespace settings {
 				return;
 			}
 			// @todo: this will NOT work for "nodes in paths"
-			BOOST_FOREACH(keys_key_type key, keys_) {
+			BOOST_FOREACH(settings_map::keys_key_type key, map.keys_) {
 				if (path == key.first.first) {
 					if (has_key_int(key.second.first, key.second.second))
 						list.push_back(key.first.second);
 				}
 			}
 
-			BOOST_FOREACH(section_key_type key, sections_) {
+			BOOST_FOREACH(settings_map::section_key_type key, map.sections_) {
 				if (key.first == path) {
 					section_cache_type::const_iterator it = section_cache_.find(key.second);
 					if (it == section_cache_.end()) {

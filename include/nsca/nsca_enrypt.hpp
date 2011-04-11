@@ -104,7 +104,7 @@ namespace nsca {
 					throw encryption_exception(_T("Could not allocate memory for encryption/decryption key"));
 				}
 				ZeroMemory(key,keysize*sizeof(unsigned char));
-				strncpy(reinterpret_cast<char*>(key),password.c_str(),min(keysize,password.length()));
+				strncpy(reinterpret_cast<char*>(key),password.c_str(),std::min(keysize,static_cast<unsigned int>(password.length())));
 
 
 				/* determine size of IV buffer for this algorithm */
@@ -316,7 +316,7 @@ namespace nsca {
 			delete core_;
 			core_ = get_encryption_core(encryption_method);
 			if (core_ == NULL)
-				throw encryption_exception(_T("Failed to get encryption core!"));
+				throw encryption_exception(_T("Failed to get encryption module for: ") + to_wstring(encryption_method));
 
 			/* server generates IV used for encryption */
 			if (received_iv.empty()) {

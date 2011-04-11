@@ -31,7 +31,7 @@
 #include <boost/regex.hpp>
 #include <strEx.h>
 #include <settings/settings_core.hpp>
-
+#include <net/net.hpp>
 
 #define MUTEX_GUARD() \
 	boost::unique_lock<boost::timed_mutex> mutex(mutex_, boost::get_system_time() + boost::posix_time::seconds(5)); \
@@ -92,7 +92,7 @@ namespace settings {
 		path_cache_type path_cache_;
 		key_cache_type key_cache_;
 		std::wstring context_;
-		net::url url_;
+		net::wurl url_;
 
 		//SettingsInterfaceImpl() : core_(NULL) {}
 		SettingsInterfaceImpl(settings_core *core, std::wstring context) : core_(core), context_(context), url_(net::parse(context_)) {}

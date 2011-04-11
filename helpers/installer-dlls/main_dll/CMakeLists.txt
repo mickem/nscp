@@ -30,6 +30,7 @@ TARGET_LINK_LIBRARIES(${TARGET}
 	${Boost_SYSTEM_LIBRARY}
 	Msi.lib
 	bufferoverflowu.lib
+	settings_manager
 )
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "installer-dll")

@@ -4,9 +4,4 @@ EXPORTS
 	ImportConfig
 	ScheduleWriteConfig
 	ExecWriteConfig
-	StartAllServices
-	StopAllServices
-	ScheduleInstallService
-	ScheduleUnInstallService
-	ExecServiceInstall
 	NeedUninstall

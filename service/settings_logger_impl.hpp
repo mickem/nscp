@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core_api.h"
-#include "logger.hpp"
 #include <settings/settings_core.hpp>
 
 class settings_logger : public settings::logger_interface {

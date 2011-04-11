@@ -148,19 +148,20 @@ std::wstring NSCAAgent::getCryptos() {
 
 NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * Handling command: ") + command);
 		boost::asio::io_service io_service;
-		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * message: ") + msg);
-		NSC_DEBUG_MSG_STD(_T("* * *NSCA * * * performance: ") + perf);
 		nsca::socket socket(io_service);
 		socket.connect(nscahost_, nscaport_);
 		nsca::packet packet(hostname_, payload_length_, time_delta_);
 		packet.code = code;
-		packet.host = "hello";
-		packet.result = to_string(msg) + "|" + to_string(perf);
+		packet.service = utf8::cvt<std::string>(command);
+		packet.result = utf8::cvt<std::string>(msg) + "|" + utf8::cvt<std::string>(perf);
 		socket.recv_iv(password_, encryption_method_, boost::posix_time::seconds(timeout_));
 		socket.send_nsca(packet, boost::posix_time::seconds(timeout_));
 		return NSCAPI::isSuccess;
+	} catch (nsca::nsca_encrypt::encryption_exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to encrypt data: ") + e.getMessage());
+		return NSCAPI::hasFailed;
+		
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + to_wstring(e.what()));
 		return NSCAPI::hasFailed;

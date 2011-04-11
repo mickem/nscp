@@ -23,7 +23,6 @@ SET(service_SRCS
 	nsclient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
-	settings_manager_impl.cpp
 	settings_logger_impl.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -33,6 +32,7 @@ SET(service_SRCS
 	${NSCP_INCLUDEDIR}/b64/b64.c
 	${NSCP_INCLUDEDIR}/arrayBuffer.cpp
 
+	../resources/nsclient.ico
 )
 
 IF(WIN32)
@@ -44,8 +44,6 @@ IF(WIN32)
 		NSClient++.h
 		NSCPlugin.h
 		core_api.h
-		settings_manager_impl.h
-		settings_logger_impl.hpp
 		simple_client.hpp
 		settings_client.hpp
 		cli_parser.hpp
@@ -53,22 +51,12 @@ IF(WIN32)
 		commands.hpp
 		channels.hpp
 		logger.hpp
-		settings_logger_impl.hpp
 		service_manager.hpp
-		
-		${NSCP_INCLUDEDIR}/settings/Settings.h
+		settings_logger_impl.hpp
+
 		${NSCP_INCLUDEDIR}/charEx.h
 		${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/msvc_wrappers.h
-		${NSCP_INCLUDEDIR}/settings/macros.h
-		${NSCP_INCLUDEDIR}/settings/settings_ini.hpp
-		${NSCP_INCLUDEDIR}/settings/settings_old.hpp
-		${NSCP_INCLUDEDIR}/settings/settings_registry.hpp
-		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
-		${NSCP_INCLUDEDIR}/settings/settings_core_impl.hpp
-		${NSCP_INCLUDEDIR}/settings/settings_handler_impl.hpp
-		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
-		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 		${NSCP_INCLUDEDIR}/com_helpers.hpp
 		${NSCP_INCLUDEDIR}/dll/dll.hpp
 		${NSCP_INCLUDEDIR}/dll/impl_unix.hpp
@@ -108,10 +96,6 @@ IF(BREAKPAD_FOUND)
 	ADD_DEFINITIONS(-DUSE_BREAKPAD)
 ENDIF(BREAKPAD_FOUND)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../files/old-settings.map ${CMAKE_CURRENT_BINARY_DIR}/old-settings.map COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../files/counters.defs ${CMAKE_CURRENT_BINARY_DIR}/counters.defs COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../files/license.txt ${CMAKE_CURRENT_BINARY_DIR}/license.txt COPYONLY)
-    
 add_executable (${TARGET} ${service_SRCS})
 add_dependencies(${TARGET} ${TARGET}_VERSION)
 
@@ -121,6 +105,7 @@ target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
+	settings_manager
 )
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
 SET_TARGET_PROPERTIES(${TARGET}_VERSION PROPERTIES FOLDER "core")
