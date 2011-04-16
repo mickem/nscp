@@ -57,7 +57,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	void handleMessage(int msgType, const std::string file, int line, std::string message);
-	int handleCommand(TCHAR* command, TCHAR **argument, TCHAR *returnBuffer, int returnBufferLen);
+	int handleCommand(wchar_t* command, wchar_t **argument, wchar_t *returnBuffer, int returnBufferLen);
 	//void writeEntry(std::wstring line);
 
 

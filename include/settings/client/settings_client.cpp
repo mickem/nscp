@@ -1,4 +1,3 @@
-#pragma once
 
 #include <settings/client/settings_client.hpp>
 

@@ -273,7 +273,7 @@ NSCAPI::nagiosReturn CheckWMI::handleCommand(const std::wstring command, std::li
 	}	
 	return NSCAPI::returnIgnored;
 }
-int CheckWMI::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** char_args) {
+int CheckWMI::commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t** char_args) {
 	//WMIQuery wmiQuery;
 	std::wstring query = command;
 	std::wstring ns = _T("root\\cimv2");

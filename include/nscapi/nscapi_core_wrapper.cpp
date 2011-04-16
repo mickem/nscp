@@ -31,6 +31,7 @@
 #include <settings/macros.h>
 
 #include "../libs/protobuf/plugin.proto.h"
+#include "../libs/protobuf/log.proto.h"
 
 using namespace nscp::helpers;
 
@@ -66,9 +67,9 @@ void nscapi::core_wrapper::Message(int msgType, std::string file, int line, std:
 	if (fNSAPIMessage) {
 		if ((msgType == NSCAPI::debug) && (!logDebug()))
 			return;
-		LogMessage::Message_Level msgType = ::LogMessage::Message_Level::Message_Level_LOG_WARNING;
+		LogMessage::Message_Level msgType = ::LogMessage::Message_Level_LOG_WARNING;
 		if (msgType == NSCAPI::warning)
-			msgType = ::LogMessage::Message_Level::Message_Level_LOG_WARNING;
+			msgType = ::LogMessage::Message_Level_LOG_WARNING;
 		std::string str;
 		try {
 			LogMessage::LogMessage message;

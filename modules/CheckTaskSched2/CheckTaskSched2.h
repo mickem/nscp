@@ -51,7 +51,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-	int commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
+	int commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args);
 
 	// Check commands
 	NSCAPI::nagiosReturn TaskSchedule(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);

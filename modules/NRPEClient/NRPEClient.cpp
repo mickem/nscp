@@ -180,7 +180,7 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring command, std::
 	return r.result;
 }
 
-int NRPEClient::commandLineExec(const unsigned int argLen, TCHAR** args) {
+int NRPEClient::commandLineExec(const unsigned int argLen, wchar_t** args) {
 	try {
 
 		NRPEClient::nrpe_connection_data command_data;

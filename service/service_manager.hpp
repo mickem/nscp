@@ -94,12 +94,12 @@ namespace nsclient {
 #else
 		class service_manager {
 		public:
-			service_manager(int argc, wchar_t* argv[]) {}
+			service_manager(std::wstring service_name) {}
 			int unsupported() {
 				std::wcout << _T("Service management is not supported on non Windows operating systems...") << std::endl;
 				return -1;
 			}
-			int install() {
+			int install(std::wstring service_description) {
 				return unsupported();
 			}
 			int uninstall() {

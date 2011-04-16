@@ -15,6 +15,9 @@
 #include <dl.h>
 #endif
 
+#undef BOOST_FILESYSTEM_NO_DEPRECATED
+#include <boost/filesystem.hpp>
+
 namespace dll {
 	namespace iunix {
 		class impl : public boost::noncopyable {

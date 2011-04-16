@@ -68,7 +68,7 @@ std::wstring getFolder(std::wstring key) {
 	} else {
 #ifdef WIN32
 		if (key == _T("local-app-data")) {
-			TCHAR buf[MAX_PATH+1];
+			wchar_t buf[MAX_PATH+1];
 			_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE);
 			return buf;
 		}

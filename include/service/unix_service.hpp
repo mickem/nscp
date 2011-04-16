@@ -28,6 +28,16 @@
 #include <strEx.h>
 
 namespace service_helper_impl {
+	class service_exception {
+		std::wstring what_;
+	public:
+		service_exception(std::wstring what) : what_(what) {
+			std::wcout << _T("ERROR:") <<  what;
+		}
+		std::wstring what() {
+			return what_;
+		}
+	};
 	/**
 	* @ingroup NSClient++
 	* Helper class to implement a NT service
@@ -59,7 +69,7 @@ namespace service_helper_impl {
 		boost::condition shutdown_condition_;
 
 	public:
-		unix_service(std::wstring name) {
+		unix_service() {
 		}
 		virtual ~unix_service() {
 		}
@@ -76,7 +86,8 @@ namespace service_helper_impl {
 		static void handleSigInt(int) {
 			TBase::get_global_instance()->stop_service();
 		}
-		void start_and_wait() {
+/** start */
+		void start_and_wait(std::wstring name) {
 			is_running_ = true;
 
 			if (signal(SIGTERM, unix_service<TBase>::handleSigTerm) == SIG_ERR) 
@@ -84,7 +95,7 @@ namespace service_helper_impl {
 			if (signal(SIGINT, unix_service<TBase>::handleSigInt) == SIG_ERR) 
 				handle_error(__LINE__, __FILEW__, _T("Failed to hook SIGTERM!"));
 
-			TBase::handle_startup();
+			TBase::handle_startup(_T("TODO"));
 
 			print_debug(_T("Service started waiting for termination event..."));
 			{
@@ -94,7 +105,7 @@ namespace service_helper_impl {
 			}
 
 			print_debug(_T("Shutting down..."));
-			TBase::handle_shutdown();
+			TBase::handle_shutdown(_T("TODO"));
 			print_debug(_T("Shutting down (down)..."));
 		}
 		void stop_service() {

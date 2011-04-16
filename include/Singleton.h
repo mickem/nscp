@@ -36,10 +36,10 @@ public:
 	}
 	static void destroyInstance() {
 		delete pObject;
-		pObject = NULL;
+		pObject = 0;
 	}
 };
 
 template <class T> 
-T* Singleton<T>::pObject = NULL;
+T* Singleton<T>::pObject = 0;
 

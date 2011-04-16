@@ -18,7 +18,7 @@ int send_dump_ui(std::wstring file, std::wstring application, std::wstring versi
 int send_dump(std::wstring file, std::wstring application, std::wstring version, std::wstring date, std::wstring url);
 int restart(std::wstring service);
 
-int _tmain(int argc, _TCHAR* argv[]) {
+int _tmain(int argc, wchar_t* argv[]) {
 	if (argc > 1) {
 		if (wcsicmp(argv[1], _T("restart"))==0 && argc > 2) {
 			return restart(argv[2]);

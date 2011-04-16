@@ -183,7 +183,7 @@ bool CheckSystem::hasMessageHandler() {
 	return false;
 }
 
-int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args) {
+int CheckSystem::commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args) {
 	if (command == NULL) {
 		std::wcerr << _T("Usage: ... CheckSystem <command>") << std::endl;
 		std::wcerr << _T("Commands: debugpdh, listpdh, pdhlookup, pdhmatch, pdhobject") << std::endl;

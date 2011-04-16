@@ -65,7 +65,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, TCHAR **char_args, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
 	boost::shared_ptr<nrpe::server::server> server_;
 

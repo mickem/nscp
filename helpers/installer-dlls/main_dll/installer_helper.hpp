@@ -29,7 +29,7 @@ public:
 	}
 
 	std::wstring getTargetPath(std::wstring path) {
-		TCHAR tmpBuf[MAX_PATH];
+		wchar_t tmpBuf[MAX_PATH];
 		DWORD len = 0;
 		if (MsiGetTargetPath(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for target path '") + path + _T("': ") + error::lookup::last_error());
@@ -56,7 +56,7 @@ public:
 		return old != cur;
 	}
 	std::wstring getPropery(std::wstring path) {
-		TCHAR tmpBuf[MAX_PATH];
+		wchar_t tmpBuf[MAX_PATH];
 		DWORD len = 0;
 		if (MsiGetProperty(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + error::lookup::last_error());
@@ -69,7 +69,7 @@ public:
 		return value;
 	}
 	char_buffer getProperyRAW(std::wstring path) {
-		TCHAR emptyString[MAX_PATH];
+		wchar_t emptyString[MAX_PATH];
 		DWORD len = 0;
 		UINT er;
 		if ((er = MsiGetProperty(hInstall_ ,path.c_str(), emptyString, &len)) != ERROR_MORE_DATA)
@@ -570,7 +570,7 @@ public:
 		boolean has_data(const int size = 0) const {
 			return used_size() > size;
 		}
-		operator const TCHAR* () const {
+		operator const wchar_t* () const {
 			return buf_.c_str();
 		}
 		unsigned int used_size() const {
@@ -627,7 +627,7 @@ public:
 		WCHAR buffer[40];
 		DWORD id = 0;
 		std::list<std::wstring> ret;
-		for (int i=0; ::MsiEnumProducts(i, reinterpret_cast<TCHAR*>(&buffer)) == ERROR_SUCCESS; i++) {
+		for (int i=0; ::MsiEnumProducts(i, reinterpret_cast<wchar_t*>(&buffer)) == ERROR_SUCCESS; i++) {
 			std::wstring name = getProductName(buffer);
 			ret.push_back(buffer);
 		}
@@ -637,7 +637,7 @@ public:
 		DWORD size = 0;
 		MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, NULL, &size);
 		size++;
-		TCHAR *buffer = new TCHAR[size+4];
+		wchar_t *buffer = new wchar_t[size+4];
 		MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, buffer, &size);
 		std::wstring ret = buffer;
 		delete [] buffer;

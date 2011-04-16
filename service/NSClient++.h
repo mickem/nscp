@@ -95,7 +95,7 @@ private:
 
 	//boost::shared_mutex m_mutexRWcmdDescriptions;
 	//cmdMap cmdDescriptions_;
-	typedef enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
+	enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
 	log_status debug_;
 	std::wstring context_;
 #ifdef WIN32

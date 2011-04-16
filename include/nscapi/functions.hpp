@@ -42,6 +42,17 @@ using namespace nscp::helpers;
 
 namespace nscapi {
 
+/*
+	class nscapi_exception : public exception {
+		std::string what_;
+	public:
+		nscapi_exception() {}
+		nscapi_exception(std::string what) : what_(what) {}
+		virtual const char* what() const throw() {
+			return what_;
+		}
+	};
+*/
 	class functions {
 	public:
 		static PluginCommand::Response_Code nagios_to_gpb(int ret) {
@@ -74,7 +85,7 @@ namespace nscapi {
 			request_message.ParseFromString(request);
 
 			if (request_message.payload_size() != 1) {
-				throw exception("Whoops, invalid payload size (for now)");
+				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
 			}
 			::PluginCommand::Request payload = request_message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {

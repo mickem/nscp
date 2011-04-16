@@ -50,7 +50,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-	int CheckWMI::commandLineExec(const TCHAR* command,const unsigned int argLen,TCHAR** args);
+	int CheckWMI::commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args);
 
 	// Check commands
 	NSCAPI::nagiosReturn CheckSimpleWMI(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);

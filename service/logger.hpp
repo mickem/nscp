@@ -217,7 +217,7 @@ namespace nsclient {
 				OutputDebugString(to_wstring(message).c_str());
 #else
 				if (!console_log_)
-					std::wcout << _T("BROKEN MESSAGE: ") << message << std::endl;
+					std::cout << "BROKEN MESSAGE: " << message << std::endl;
 #endif
 			}
 
@@ -280,7 +280,6 @@ namespace nsclient {
 			}
 
 			void log(std::string data) {
-				OutputDebugString(strEx::string_to_wstring(strEx::strip_hex(data)).c_str());
 				if (!mq_) {
 					log_fatal_error("Failed to send to logging queue: " + data);
 					return;

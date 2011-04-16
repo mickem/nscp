@@ -22,7 +22,6 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/settings/Settings.h
 		${NSCP_INCLUDEDIR}/charEx.h
 		${NSCP_INCLUDEDIR}/config.h
-		${NSCP_INCLUDEDIR}/msvc_wrappers.h
 		${NSCP_INCLUDEDIR}/settings/macros.h
 		${NSCP_INCLUDEDIR}/settings/settings_ini.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_old.hpp

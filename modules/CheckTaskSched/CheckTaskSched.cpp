@@ -147,7 +147,7 @@ NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const std::wstring command, s
 		return TaskSchedule(arguments, message, perf);
 	return NSCAPI::returnIgnored;
 }
-int CheckTaskSched::commandLineExec(const TCHAR* command, const unsigned int argLen, TCHAR** char_args) {
+int CheckTaskSched::commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t** char_args) {
 // 	std::wstring query = command;
 // 	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
 // 	TaskSched::result_type rows;

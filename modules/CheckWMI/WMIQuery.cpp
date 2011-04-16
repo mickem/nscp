@@ -26,7 +26,7 @@
 #include <map>
 
 std::wstring WMIQuery::sanitize_string(LPTSTR in) {
-	TCHAR *p = in;
+	wchar_t *p = in;
 	while (*p) {
 		if (p[0] < ' ' || p[0] > '}')
 			p[0] = '.';

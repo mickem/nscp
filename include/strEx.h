@@ -235,8 +235,8 @@ namespace strEx {
 	}
 
 	
-	static const __int64 SECS_BETWEEN_EPOCHS = 11644473600;
-	static const __int64 SECS_TO_100NS = 10000000;
+	static const long long SECS_BETWEEN_EPOCHS = 11644473600;
+	static const long long SECS_TO_100NS = 10000000;
 	inline unsigned long long filetime_to_time(unsigned long long filetime) {
 		return (filetime - (SECS_BETWEEN_EPOCHS * SECS_TO_100NS)) / SECS_TO_100NS;
 	}
@@ -840,6 +840,7 @@ namespace utf8 {
 
 	template<>
 	inline std::string cvt(std::wstring const & str) {
+#ifdef WIN32
 		// figure out how many narrow characters we are going to get 
 		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
 		if (nChars == 0)
@@ -850,11 +851,13 @@ namespace utf8 {
 		std::string buf;
 		buf.resize(nChars);
 		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
-		return buf ; 
+		return buf;
+#endif
 	}
 
 	template<>
 	inline std::wstring cvt(std::string const & str) {
+#ifdef WIN32
 		// figure out how many wide characters we are going to get 
 		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0);
 		if (nChars == 0)
@@ -866,5 +869,6 @@ namespace utf8 {
 		buf.resize(nChars);
 		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<wchar_t*>(buf.c_str()), nChars);
 		return buf;
+#endif
 	}
 }

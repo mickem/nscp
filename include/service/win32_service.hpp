@@ -129,6 +129,7 @@ namespace service_helper_impl {
 			dispatchTable[1].lpServiceProc = NULL;
 		}
 
+/** start */
 		void start_and_wait(std::wstring name) {
 			name_ = name;
 			print_debug(_T("Starting: ") + name);

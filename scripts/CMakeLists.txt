@@ -2,19 +2,18 @@ cmake_minimum_required(VERSION 2.6)
 
 
 MACRO(copy_single_file src destDir)
-	GET_FILENAME_COMPONENT(filename ${src} NAME)
-	STRING(REPLACE "." "" TARGET ${filename})
-	STRING(REPLACE "/" "" TARGET ${TARGET})
-	ADD_CUSTOM_COMMAND(OUTPUT ${destDir}/${src}
+	GET_FILENAME_COMPONENT(TARGET ${src} NAME)
+	SET(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
+	ADD_CUSTOM_COMMAND(OUTPUT ${target_file}
+		DEPENDS ${src}
 		COMMAND cmake 
-		ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${src} ${CMAKE_BINARY_DIR}/${destDir}/${src}
-		COMMENT Copying ${src} to ${CMAKE_BINARY_DIR}/${destDir}/${src}
+		ARGS -E copy ${src} ${target_file}
+		COMMENT Copying ${src} to ${target_file}
 		)
-	ADD_CUSTOM_TARGET(${TARGET} ALL DEPENDS ${CMAKE_BINARY_DIR}/${destDir}/${src})
-	SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "files/scripts")
-	INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX}/${destDir} TYPE EXECUTABLE FILES ${CMAKE_CURRENT_SOURCE_DIR}/${src})")
+	#ADD_CUSTOM_TARGET(${TARGET} ALL DEPENDS ${src})
+	#SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "files/scripts")
+	INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX}/${destDir} TYPE EXECUTABLE FILES ${src})")
 ENDMACRO(copy_single_file)
-
 
 FILE (GLOB scripts_BAT "*.bat")
 FILE (GLOB scripts_VBS "*.vbs")

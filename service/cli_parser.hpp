@@ -212,15 +212,6 @@ public:
 				std::wcout << _T("Service description: ") << desc << std::endl;
 			}
 
-			std::wstringstream ss;
-			ss << _T("run: ") << vm.count("run");
-			ss << _T(", name: ") << vm.count("name");
-			ss << _T(", info: ") << vm.count("info");
-
-			std::wstring s = ss.str();
-			OutputDebugString(s.c_str());
-			std::wcout << s << std::endl;
-
 			if (vm.count("run")) {
 				try {
 					mainClient.enableDebug(true);

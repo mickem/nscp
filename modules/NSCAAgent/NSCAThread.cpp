@@ -103,7 +103,7 @@ NSCAThread::NSCAThread() : hStopEvent_(NULL) {
 		addCommand(*cit);
 	}
 	if (hostname_.empty()) {
-		TCHAR *buf = new TCHAR[MAX_COMPUTERNAME_LENGTH + 2];
+		wchar_t *buf = new wchar_t[MAX_COMPUTERNAME_LENGTH + 2];
 		DWORD size = MAX_COMPUTERNAME_LENGTH+1;
 		if (!GetComputerName(buf, &size)) {
 			NSC_LOG_ERROR(_T("Failed to get computer name: setting it to <unknown>"));
