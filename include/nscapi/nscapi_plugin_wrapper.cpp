@@ -23,8 +23,8 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
+#include <nscapi/functions.hpp>
 #include <nscapi/macros.hpp>
-#include <msvc_wrappers.h>
 #include <settings/macros.h>
 #include <arrayBuffer.h>
 //#include <config.h>
@@ -32,6 +32,11 @@
 
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
+
+#include "../libs/protobuf/plugin.proto.h"
+#include "../libs/protobuf/log.proto.h"
+
+using namespace nscp::helpers;
 
 extern nscapi::helper_singleton* nscapi::plugin_singleton;
 /**
@@ -51,7 +56,7 @@ int nscapi::plugin_wrapper::wrapReturnString(wchar_t *buffer, unsigned int bufLe
 		NSC_DEBUG_MSG_STD(_T("String (") + strEx::itos(str.length()) + _T(") to long to fit inside buffer(") + strEx::itos(bufLen) + _T(") : ") + sstr);
 		return NSCAPI::isInvalidBufferLen;
 	}
-	wcsncpy_s(buffer, bufLen, str.c_str(), bufLen);
+	wcsncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
 
@@ -186,3 +191,86 @@ void nscapi::plugin_wrapper::wrapDeleteBuffer(char**buffer) {
 
 
 nscapi::helper_singleton::helper_singleton() : core_(new nscapi::core_wrapper()), plugin_(new nscapi::plugin_wrapper()) {}
+
+
+
+NSCAPI::nagiosReturn nscapi::impl::CommandImpl::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
+
+	std::wstring command = char_command;
+	PluginCommand::RequestMessage request_message;
+	request_message.ParseFromString(request);
+
+	if (request_message.payload_size() != 1) {
+		return NSCAPI::returnIgnored;
+	}
+	::PluginCommand::Request req_payload = request_message.payload().Get(0);
+
+	PluginCommand::ResponseMessage response_message;
+	::PluginCommand::Header* hdr = response_message.mutable_header();
+
+	hdr->set_type(PluginCommand::Header_Type_RESPONSE);
+	hdr->set_version(PluginCommand::Header_Version_VERSION_1);
+
+	PluginCommand::Response *resp_payload = response_message.add_payload();
+
+	handleCommand(command, &req_payload, resp_payload);
+
+
+	resp_payload->set_version(PluginCommand::Response_Version_VERSION_1);
+	response_message.SerializeToString(&response);
+
+	return NSCAPI::returnOK;
+}
+
+void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
+	try {
+		LogMessage::LogMessage message;
+		message.ParseFromString(data);
+
+		for (int i=0;i<message.message_size();i++) {
+			LogMessage::Message msg = message.message(i);
+			handleMessage(msg.level(), msg.file(), msg.line(), msg.message());
+		}
+	} catch (std::exception &e) {
+		std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << e.what() <<  std::endl;;
+	} catch (...) {
+		std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << std::endl;;
+	}
+}
+
+NSCAPI::nagiosReturn nscapi::impl::SimpleCommand::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_request(char_command, request);
+	std::wstring msg, perf;
+	NSCAPI::nagiosReturn ret = handleCommand(data.command, data.args, msg, perf);
+	return nscapi::functions::process_simple_command_result(data.command, ret, msg, perf, response);
+}
+
+
+
+
+NSCAPI::nagiosReturn nscapi::impl::SimpleNotificationHandler::handleRAWNotification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, std::string result) {
+	try {
+		PluginCommand::ResponseMessage message;
+		message.ParseFromString(result);
+		if (message.payload_size() != 1) {
+			//NSC_LOG_ERROR_STD(_T("Unsupported payload size: ") + to_wstring(request_message.payload_size()));
+			return NSCAPI::returnIgnored;
+		}
+
+		::PluginCommand::Response payload = message.payload().Get(0);
+
+		std::list<std::wstring> args;
+		for (int i=0;i<payload.arguments_size();i++) {
+			args.push_back(to_wstring(payload.arguments(i)));
+		}
+		std::wstring msg = utf8::cvt<std::wstring>(payload.message());
+		std::wstring perf = utf8::cvt<std::wstring>(::nscapi::functions::build_performance_data(payload));
+		NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, command, code, msg, perf);
+	} catch (std::exception &e) {
+		std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << e.what() <<  std::endl;;
+	} catch (...) {
+		std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << std::endl;;
+	}
+
+	return -1;
+}

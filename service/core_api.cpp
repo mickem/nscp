@@ -17,7 +17,6 @@
 #include "core_api.h"
 #include <charEx.h>
 #include <config.h>
-#include <msvc_wrappers.h>
 #include <arrayBuffer.h>
 #include <settings/settings_core.hpp>
 #include "../helpers/settings_manager/settings_manager_impl.h"
@@ -103,7 +102,7 @@ NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buf
 NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** aBuffer, unsigned int * bufLen) {
 	try {
 		unsigned int len = 0;
-		*aBuffer = arrayBuffer::list2arrayBuffer(settings_manager::get_settings()->get_keys(section), len);
+		*aBuffer = array_buffer::list2arrayBuffer(settings_manager::get_settings()->get_keys(section), len);
 		*bufLen = len;
 		return NSCAPI::isSuccess;
 	} catch (settings::settings_exception e) {
@@ -114,7 +113,7 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** a
 	return NSCAPI::hasFailed;
 }
 NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsigned int * bufLen) {
-	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
+	array_buffer::destroyArrayBuffer(*aBuffer, *bufLen);
 	*bufLen = 0;
 	*aBuffer = NULL;
 	return NSCAPI::isSuccess;
@@ -161,7 +160,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer
 		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
 		return NSCAPI::isInvalidBufferLen;
 	}
-	wcsncpy_s(outBuf, *outBufLen, realOut, realOutLen);
+	wcsncpy(outBuf, *outBufLen, realOut);
 	delete [] realOut;
 	outBuf[realOutLen] = 0;
 	*outBufLen = static_cast<unsigned int>(realOutLen);
@@ -204,7 +203,7 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer
 		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
 		return NSCAPI::isInvalidBufferLen;
 	}
-	wcsncpy_s(outBuf, *outBufLen, realOut, realOutLen);
+	wcsncpy(outBuf, *outBufLen, realOut);
 	delete [] realOut;
 	outBuf[realOutLen] = 0;
 	*outBufLen = static_cast<unsigned int>(realOutLen);
@@ -271,14 +270,14 @@ NSCAPI::errorReturn NSAPIRehash(int flag) {
 NSCAPI::errorReturn NSAPIDescribeCommand(const wchar_t* command, wchar_t* buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.describeCommand(command), NSCAPI::isSuccess);
 }
-NSCAPI::errorReturn NSAPIGetAllCommandNames(arrayBuffer::arrayBuffer* aBuffer, unsigned int *bufLen) {
+NSCAPI::errorReturn NSAPIGetAllCommandNames(array_buffer::arrayBuffer* aBuffer, unsigned int *bufLen) {
 	unsigned int len = 0;
-	*aBuffer = arrayBuffer::list2arrayBuffer(mainClient.getAllCommandNames(), len);
+	*aBuffer = array_buffer::list2arrayBuffer(mainClient.getAllCommandNames(), len);
 	*bufLen = len;
 	return NSCAPI::isSuccess;
 }
 NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(wchar_t*** aBuffer, unsigned int * bufLen) {
-	arrayBuffer::destroyArrayBuffer(*aBuffer, *bufLen);
+	array_buffer::destroyArrayBuffer(*aBuffer, *bufLen);
 	*bufLen = 0;
 	*aBuffer = NULL;
 	return NSCAPI::isSuccess;
@@ -332,7 +331,7 @@ NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t* path, const wchar_t* tit
 wchar_t* copyString(const std::wstring &str) {
 	int sz = str.size();
 	wchar_t *tc = new wchar_t[sz+2];
-	wcsncpy_s(tc, sz+1, str.c_str(), sz);
+	wcsncpy(tc, str.c_str(), sz);
 	return tc;
 }
 NSCAPI::errorReturn NSAPIGetPluginList(int *len, NSCAPI::plugin_info *list[]) {

@@ -28,6 +28,9 @@
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
 
+#include <settings/client/settings_client.hpp>
+
+
 CheckHelpers gCheckHelpers;
 
 CheckHelpers::CheckHelpers() {

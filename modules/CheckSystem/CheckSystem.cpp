@@ -20,6 +20,10 @@
 ***************************************************************************/
 
 #include "stdafx.h"
+
+#include <boost/regex.hpp>
+#include <boost/lexical_cast.hpp>
+
 #include "CheckSystem.h"
 #include <utils.h>
 #include <tlhelp32.h>
@@ -31,7 +35,8 @@
 #include <sysinfo.h>
 #include <filter_framework.hpp>
 #include <simple_registry.hpp>
-#include <boost/regex.hpp>
+#include <settings/client/settings_client.hpp>
+#include <arrayBuffer.h>
 
 CheckSystem gCheckSystem;
 
@@ -335,7 +340,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 		}
 	} else if (_wcsicmp(command, _T("pdhlookup")) == 0) {
 		try {
-			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			std::wstring name = array_buffer::arrayBuffer2string(args, argLen, _T(" "));
 			if (name.empty()) {
 				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
 				return 0;
@@ -350,7 +355,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 		}
 	} else if (_wcsicmp(command, _T("pdhmatch")) == 0) {
 		try {
-			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			std::wstring name = array_buffer::arrayBuffer2string(args, argLen, _T(" "));
 			if (name.empty()) {
 				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
 				return 0;
@@ -367,7 +372,7 @@ int CheckSystem::commandLineExec(const TCHAR* command,const unsigned int argLen,
 		}
 	} else if (_wcsicmp(command, _T("pdhobject")) == 0) {
 		try {
-			std::wstring name = arrayBuffer::arrayBuffer2string(args, argLen, _T(" "));
+			std::wstring name = array_buffer::arrayBuffer2string(args, argLen, _T(" "));
 			if (name.empty()) {
 				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
 				return 0;
@@ -442,10 +447,10 @@ public:
 		return _T("%");
 	}
 	static std::wstring print_perf(__int64 value, std::wstring unit) {
-		return to_wstring(value);
+		return boost::lexical_cast<std::wstring>(value);
 	}
 	static std::wstring print_percent(int value) {
-		return to_wstring(value) + _T("%");
+		return boost::lexical_cast<std::wstring>(value) + _T("%");
 	}
 	static std::wstring key_prefix() {
 		return _T("average load ");

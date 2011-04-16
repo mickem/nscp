@@ -18,15 +18,12 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-
-#include "stdafx.h"
-
-
-#include <utils.h>
-#include <file_helpers.hpp>
-#include <Mutex.h>
-
 #include "CheckNSCP.h"
+
+#include <file_helpers.hpp>
+
+#include <settings/client/settings_client.hpp>
+
 CheckNSCP gCheckNSCP;
 
 namespace sh = nscapi::settings_helper;
@@ -77,8 +74,8 @@ void CheckNSCP::handleMessage(int msgType, const std::string file, int line, std
 		return;
 	std::string err = render(msgType, file, line, message);
 	{
-		MutexLock lock(mutex_);
-		if (!lock.hasMutex())
+		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!lock.owns_lock())
 			return;
 		errors_.push_back(err);
 	}
@@ -113,14 +110,12 @@ int CheckNSCP::get_crashes(std::wstring &last_crash) {
 }
 
 int CheckNSCP::get_errors(std::wstring &last_error) {
-	MutexLock lock(mutex_);
-	if (!lock.hasMutex()) {
-		last_error = _T("Failed to get mutex.");
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock())
 		return 1;
-	}
 	if (errors_.empty())
 		return 0;
-	last_error = to_wstring(errors_.front());
+	last_error = utf8::cvt<std::wstring>(errors_.front());
 	return errors_.size();
 }
 

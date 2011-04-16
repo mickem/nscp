@@ -19,11 +19,20 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include "stdafx.h"
-#include "FileLogger.h"
-#include <boost/date_time.hpp>
+#include <config.h>
+
+#include <string>
+#include <iostream>
 #include <fstream>
+
+#include <boost/date_time.hpp>
+
+#include "FileLogger.h"
+
 #include <utils.h>
+
+#include <settings/client/settings_client.hpp>
+
 
 namespace sh = nscapi::settings_helper;
 
@@ -69,11 +78,11 @@ std::wstring getFolder(std::wstring key) {
 }
 std::string FileLogger::getFileName() {
 	if (file_.empty()) {
-		file_ = to_string(cfg_file_);
+		file_ = utf8::cvt<std::string>(cfg_file_);
 		if (file_.empty())
-			file_ = to_string(setting_keys::log::FILENAME_DEFAULT);
+			file_ = utf8::cvt<std::string>(setting_keys::log::FILENAME_DEFAULT);
 		if (file_.find("\\") == std::wstring::npos) {
-			std::string root = to_string(getFolder(cfg_root_));
+			std::string root = utf8::cvt<std::string>(getFolder(cfg_root_));
 			std::string::size_type pos = root.find_last_not_of('\\');
 			if (pos != std::wstring::npos) {
 				//root = root.substr(0, pos);
@@ -124,7 +133,7 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		getFileName();
 
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
@@ -135,7 +144,7 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	}
 	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + nscapi::logging::to_string(log_mask_));
 	init_ = true;
-	std::string hello = "Starting to log for: " + to_string(GET_CORE()->getApplicationName()) + " - " + to_string(GET_CORE()->getApplicationVersionString());
+	std::string hello = "Starting to log for: " + utf8::cvt<std::string>(GET_CORE()->getApplicationName()) + " - " + utf8::cvt<std::string>(GET_CORE()->getApplicationVersionString());
 	handleMessage(NSCAPI::log, __FILE__, __LINE__, hello);
 	handleMessage(NSCAPI::log, __FILE__, __LINE__, "Log path is: " + file_);
 	return true;
@@ -174,7 +183,7 @@ HANDLE openAppendOrNew(std::wstring file) {
 
 void FileLogger::handleMessage(int msgType, const std::string file, int line, std::string message) {
 	if (!init_) {
-		std::wcout << _T("Discarding: ") << to_wstring(message) << std::endl;
+		std::wcout << _T("Discarding: ") << utf8::cvt<std::wstring>(message) << std::endl;
 		return;
 	}
 	if (!nscapi::logging::matches(log_mask_, msgType))
@@ -182,10 +191,10 @@ void FileLogger::handleMessage(int msgType, const std::string file, int line, st
 
 	std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
 	if (!stream) {
-		std::wcout << _T("File could not be opened, Discarding: ") << to_wstring(message) << std::endl;
+		std::wcout << _T("File could not be opened, Discarding: ") << utf8::cvt<std::wstring>(message) << std::endl;
 	}
-	stream << to_string(get_formated_date()) 
-		<< (": ") << to_string(nscapi::plugin_helper::translateMessageType(msgType))
+	stream << utf8::cvt<std::string>(get_formated_date()) 
+		<< (": ") << utf8::cvt<std::string>(nscapi::plugin_helper::translateMessageType(msgType))
 		<< (":") << file
 		<<(":") << line
 		<< (": ") << message << std::endl;

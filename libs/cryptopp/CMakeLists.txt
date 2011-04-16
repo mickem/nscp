@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 2.6)
+
 IF (HAVE_CRYPTOPP)
 	message(STATUS "Found CACHED Crypto++ in ${CRYPTOPP_SOURCE_DIR}")
 ELSE (HAVE_CRYPTOPP)

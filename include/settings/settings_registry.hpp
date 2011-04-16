@@ -3,7 +3,6 @@
 #include <string>
 #include <windows.h>
 #include <settings/settings_core.hpp>
-#include <msvc_wrappers.h>
 #include <error.hpp>
 #include <settings/macros.h>
 #define BUFF_LEN 4096
@@ -182,7 +181,7 @@ private:
 		tmp_reg_key hTemp(path.hKey, path.path);
 		DWORD bDataLen = value.length()+2;
 		reg_buffer buffer(bDataLen);
-		wcsncpy_s(*buffer, bDataLen, value.c_str(), value.length());
+		wcsncpy(*buffer, value.c_str(), value.length());
 		DWORD err = RegSetValueExW(*hTemp, key.c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(*buffer), buffer.str_len());
 		if (err != ERROR_SUCCESS) {
 			throw settings_exception(_T("Failed to write string: ") + path.to_string() + _T(".") + key + _T(" (") + error::format::from_system(err) + _T(")"));

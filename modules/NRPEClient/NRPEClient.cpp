@@ -23,12 +23,13 @@
 #include <strEx.h>
 #include <time.h>
 #include <config.h>
-#include <msvc_wrappers.h>
-//#include <execute_process.hpp>
 #include <strEx.h>
 #include <boost/filesystem.hpp>
 #include <strEx.h>
 #include <nrpe/client/socket.hpp>
+
+#include <settings/client/settings_client.hpp>
+
 
 namespace sh = nscapi::settings_helper;
 

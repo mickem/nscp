@@ -31,7 +31,8 @@ class Version:
 			sys.exit(1)
 		
 	def readline(self, line):
-		if len(line.strip('\n\t ')) == 0:
+		line = line.strip('\r\n\t ')
+		if len(line) == 0:
 			return
 		try:
 			m = re.search('(.*)=(.*)$', line)

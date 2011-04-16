@@ -22,11 +22,13 @@
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 
+#include <strEx.h>
+#include <arrayBuffer.h>
+
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/functions.hpp>
 #include <settings/macros.h>
-#include <arrayBuffer.h>
-#include <strEx.h>
 
 #include "../libs/protobuf/plugin.proto.h"
 
@@ -330,12 +332,12 @@ std::wstring nscapi::core_wrapper::expand_path(std::wstring value) {
 std::list<std::wstring> nscapi::core_wrapper::getSettingsSection(std::wstring section) {
 	if (!fNSAPIGetSettingsSection)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	arrayBuffer::arrayBuffer aBuffer = NULL;
+	array_buffer::arrayBuffer aBuffer = NULL;
 	unsigned int argLen = 0;
 	if (fNSAPIGetSettingsSection(section.c_str(), &aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw nscapi::nscapi_exception(_T("Settings could not be retrieved."));
 	}
-	std::list<std::wstring> ret = arrayBuffer::arrayBuffer2list(argLen, aBuffer);
+	std::list<std::wstring> ret = array_buffer::arrayBuffer2list(argLen, aBuffer);
 	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw nscapi::nscapi_exception(_T("Settings could not be destroyed."));
 	}
@@ -525,12 +527,12 @@ nscapi::core_wrapper::plugin_info_list nscapi::core_wrapper::getPluginList() {
 std::list<std::wstring> nscapi::core_wrapper::getAllCommandNames() {
 	if (!fNSAPIGetAllCommandNames || !fNSAPIReleaseAllCommandNamessBuffer )
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	arrayBuffer::arrayBuffer aBuffer = NULL;
+	array_buffer::arrayBuffer aBuffer = NULL;
 	unsigned int argLen = 0;
 	if (fNSAPIGetAllCommandNames(&aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw nscapi::nscapi_exception(_T("Commands could not be retrieved."));
 	}
-	std::list<std::wstring> ret = arrayBuffer::arrayBuffer2list(argLen, aBuffer);
+	std::list<std::wstring> ret = array_buffer::arrayBuffer2list(argLen, aBuffer);
 	if (fNSAPIReleaseAllCommandNamessBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
 		throw nscapi::nscapi_exception(_T("Commands could not be destroyed."));
 	}

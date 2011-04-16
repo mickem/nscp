@@ -26,6 +26,8 @@
 #include <error.hpp>
 #include <file_helpers.hpp>
 
+#include <settings/client/settings_client.hpp>
+
 
 LUAScript gLUAScript;
 

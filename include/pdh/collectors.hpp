@@ -20,6 +20,8 @@
 ***************************************************************************/
 #pragma once
 
+#include <boost/lexical_cast.hpp>
+
 #include <pdh/core.hpp>
 #include <pdh/counters.hpp>
 //#include <pdh.hpp>
@@ -156,7 +158,7 @@ namespace PDHCollectors {
 		}
 	public:
 		inline std::wstring get_string() {
-			return to_wstring(getValue());
+			return boost::lexical_cast<std::wstring>(getValue());
 		}
 		inline double get_double() {
 			return static_cast<double>(getValue());
@@ -252,7 +254,7 @@ namespace PDHCollectors {
 			return format_large;
 		}
 		inline std::wstring get_string() {
-			return to_wstring(getValue());
+			return boost::lexical_cast<std::wstring>(getValue());
 		}
 		inline double get_double() {
 			return static_cast<double>(getValue());
@@ -356,7 +358,7 @@ namespace PDHCollectors {
 			return (ret/backItems);
 		}
 		inline std::wstring get_string() {
-			return to_wstring(getAvrage(length-1));
+			return boost::lexical_cast<std::wstring>(getAvrage(length-1));
 		}
 		inline double get_double() {
 			return getAvrage(length-1);

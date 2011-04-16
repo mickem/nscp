@@ -121,11 +121,11 @@ namespace logging {
 			if (today) {
 				size_t len = wcsftime(buffer, 63, datemask_.c_str(), today);
 				if ((len < 1)||(len > 64))
-					wcsncpy_s(buffer, 64, _T("???"), 63);
+					wcsncpy(buffer, 64, _T("???"));
 				else
 					buffer[len] = 0;
 			} else {
-				wcsncpy_s(buffer, 64, _T("<unknown time>"), 63);
+				wcsncpy(buffer, 64, _T("<unknown time>"));
 			}
 			std::wstring logline = std::wstring(buffer) + _T(": ") + category + _T(":") + std::wstring(file) + _T(":") + strEx::itos(line) +_T(": ") + message + _T("\r\n");
 			if (!writeEntry(logline)) {

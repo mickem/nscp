@@ -18,9 +18,8 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include <types.hpp>
 #include <arrayBuffer.h>
-#include <msvc_wrappers.h>
+
 
 /**
  * Make a list out of a array of char arrays (arguments type)
@@ -28,7 +27,7 @@
  * @param *argument[] Argument array
  * @return Argument wrapped as a list
  */
-arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, wchar_t *argument[]) {
+array_buffer::arrayList array_buffer::arrayBuffer2list(const unsigned int argLen, wchar_t *argument[]) {
 	arrayList ret;
 	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
@@ -43,7 +42,7 @@ arrayBuffer::arrayList arrayBuffer::arrayBuffer2list(const unsigned int argLen, 
  * @param *argument[] Argument array
  * @return Argument wrapped as a list
  */
-arrayBuffer::arrayVector arrayBuffer::arrayBuffer2vector(const unsigned int argLen, wchar_t *argument[]) {
+array_buffer::arrayVector array_buffer::arrayBuffer2vector(const unsigned int argLen, wchar_t *argument[]) {
 	arrayVector ret;
 	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
@@ -61,18 +60,18 @@ arrayBuffer::arrayVector arrayBuffer::arrayBuffer2vector(const unsigned int argL
 * @param &argLen Write the length to this argument.
 * @return A pointer that is managed by the caller.
 */
-arrayBuffer::arrayBuffer arrayBuffer::list2arrayBuffer(const arrayList lst, unsigned int &argLen) {
+array_buffer::arrayBuffer array_buffer::list2arrayBuffer(const arrayList lst, unsigned int &argLen) {
 	argLen = static_cast<unsigned int>(lst.size());
-	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[argLen];
+	arrayBuffer arrayBuffer = new arrayBufferItem[argLen];
 	arrayList::const_iterator it = lst.begin();
 	int i;
 	for (i=0;it!=lst.end();++it,i++) {
 		std::wstring::size_type alen = (*it).size();
 		arrayBuffer[i] = new wchar_t[alen+2];
-		wcsncpy_s(arrayBuffer[i], alen+2, (*it).c_str(), alen+1);
+		wcsncpy(arrayBuffer[i], (*it).c_str(), alen+1);
 	}
 	if (i != argLen)
-		throw ArrayBufferException(_T("Invalid length!"));
+		throw ArrayBufferException("Invalid length!");
 	return arrayBuffer;
 }
 /**
@@ -80,9 +79,9 @@ arrayBuffer::arrayBuffer arrayBuffer::list2arrayBuffer(const arrayList lst, unsi
 * @param &argLen [OUT] The length (items) of the arrayBuffer
 * @return The arrayBuffer
 */
-arrayBuffer::arrayBuffer arrayBuffer::createEmptyArrayBuffer(unsigned int &argLen) {
+array_buffer::arrayBuffer array_buffer::createEmptyArrayBuffer(unsigned int &argLen) {
 	argLen = 0;
-	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[0];
+	arrayBuffer arrayBuffer = new arrayBufferItem[0];
 	return arrayBuffer;
 }
 /**
@@ -90,8 +89,8 @@ arrayBuffer::arrayBuffer arrayBuffer::createEmptyArrayBuffer(unsigned int &argLe
 * @param &argLen [IN OUT] The length (items) of the arrayBuffer
 * @return The arrayBuffer
 */
-arrayBuffer::arrayBuffer arrayBuffer::createArrayBuffer(unsigned int &argLen) {
-	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[argLen];
+array_buffer::arrayBuffer array_buffer::createArrayBuffer(unsigned int &argLen) {
+	arrayBuffer arrayBuffer = new arrayBufferItem[argLen];
 	for (unsigned int i=0;i<argLen;i++) {
 		arrayBuffer[i] = NULL;
 	}
@@ -104,7 +103,7 @@ arrayBuffer::arrayBuffer arrayBuffer::createArrayBuffer(unsigned int &argLen) {
 * @param join The char to use as separators when joining
 * @return The joined arrayBuffer
 */
-std::wstring arrayBuffer::arrayBuffer2string(arrayBuffer::arrayBuffer argument, const unsigned int argLen, std::wstring join) {
+std::wstring array_buffer::arrayBuffer2string(arrayBuffer argument, const unsigned int argLen, std::wstring join) {
 	std::wstring ret;
 	for (unsigned int i=0;i<argLen;i++) {
 		if (argument[i] != NULL) {
@@ -122,9 +121,9 @@ std::wstring arrayBuffer::arrayBuffer2string(arrayBuffer::arrayBuffer argument, 
 * @param &argLen [OUT] The length of the Array
 * @return The arrayBuffer
 */
-arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const wchar_t* buffer, wchar_t splitChar, unsigned int &argLen) {
+array_buffer::arrayBuffer array_buffer::split2arrayBuffer(const wchar_t* buffer, wchar_t splitChar, unsigned int &argLen) {
 	if (!buffer)
-		throw ArrayBufferException(_T("Invalid buffer specified!"));
+		throw ArrayBufferException("Invalid buffer specified!");
 	argLen = 0;
 	const wchar_t *p = buffer;
 	if (!p[0]) {
@@ -142,7 +141,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const wchar_t* buffer, w
 		const wchar_t *q = wcschr(p, (i<argLen-1)?splitChar:0);
 		unsigned int len = static_cast<int>(q-p);
 		arrayBuffer[i] = new wchar_t[len+1];
-		wcsncpy_s(arrayBuffer[i], len+1, p, len);
+		wcsncpy(arrayBuffer[i], p, len);
 		arrayBuffer[i][len] = 0;
 		p = ++q;
 	}
@@ -150,13 +149,13 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const wchar_t* buffer, w
 }
 
 
-void arrayBuffer::set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument) {
+void array_buffer::set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument) {
 	if (position >= argLen)
-		throw ArrayBufferException(_T("position is outside the buffer"));
+		throw ArrayBufferException("position is outside the buffer");
 	delete [] arrayBuffer[position];
 	size_t len = argument.length();
 	arrayBuffer[position] = new wchar_t[len+2];
-	wcsncpy_s(arrayBuffer[position], len+1, argument.c_str(), len);
+	wcsncpy(arrayBuffer[position], argument.c_str(), len);
 	arrayBuffer[position][len] = 0;
 }
 
@@ -168,7 +167,7 @@ void arrayBuffer::set(arrayBuffer arrayBuffer, const unsigned int argLen, const 
  * @param escape [IN] Set to true to try to escape ":s ie. //token1 "token2 with space" token3//
  * @return The arrayBuffer
  */
-arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf, wchar_t splitChar, unsigned int &argLen, bool escape) {
+array_buffer::arrayBuffer array_buffer::split2arrayBuffer(const std::wstring inBuf, wchar_t splitChar, unsigned int &argLen, bool escape) {
 	if (inBuf.empty())
 		return createEmptyArrayBuffer(argLen);
 
@@ -193,7 +192,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 		// p2 = end of "this token" (next split char)
 
 		if (p2<=p1)
-			throw ArrayBufferException(_T("Invalid position"));
+			throw ArrayBufferException("Invalid position");
 		std::wstring token = inBuf.substr(p1,p2-p1);
 		if (escape && token[0] == '\"')
 			token = token.substr(1);
@@ -208,77 +207,16 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 			p2 = std::wstring::npos;
 		p1 = p2;
 	}
-	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[token_list.size()];
+	arrayBuffer arrayBuffer = new arrayBufferItem[token_list.size()];
 	argLen=0;
 	for (std::list<std::wstring>::const_iterator cit=token_list.begin();cit!=token_list.end();++cit) {
 		size_t len = (*cit).size();
 		wchar_t* token = new wchar_t[len+1];
-		wcsncpy_s(token, len+1, (*cit).c_str(), len);
+		wcsncpy(token, (*cit).c_str(), len);
 		arrayBuffer[argLen++] = token;
 	}
 	token_list.clear();
 	return arrayBuffer;
-/*
-
-		unsigned int len = static_cast<unsigned int>(p-l);
-		arrayBuffer[i] = new TCHAR[len+1];
-		wcsncpy_s(arrayBuffer[i], len+1, inBuf.substr(l,p).c_str(), len);
-		arrayBuffer[i][len] = 0;
-		if (p == std::wstring::npos)
-			break;
-		l = ++p;
-		if (escape && l < inBuf.size() && inBuf[l] == '\"') {
-			p = inBuf.find('\"', l+1);
-			if (p != std::wstring::npos)
-				p = inBuf.find(splitChar, p);
-		} else if (p < inBuf.size()) {
-			p = inBuf.find(splitChar, p);
-		} else {
-			p = std::wstring::npos;
-		}
-		*/
-//	}
-
-/*
-
-	argLen = 1;
-	std::wstring::size_type p = inBuf.find(splitChar);
-	while (p != std::wstring::npos) {
-		argLen++;
-		p = inBuf.find(splitChar, p+1);
-	}
-	arrayBuffer::arrayBuffer arrayBuffer = new arrayBuffer::arrayBufferItem[argLen];
-	if (escape && inBuf[0] == '\"') {
-		p = inBuf.find('\"');
-		if (p != std::wstring::npos)
-			p = inBuf.find(splitChar, p);
-	} else {
-		p = inBuf.find(splitChar);
-	}
-	std::wstring::size_type l = 0;
-	for (unsigned int i=0;i<argLen;i++) {
-		if (p == std::wstring::npos)
-			p = inBuf.size();
-		//		TCHAR *q = strchr(p, (i<argLen-1)?splitChar:0);
-		unsigned int len = static_cast<unsigned int>(p-l);
-		arrayBuffer[i] = new TCHAR[len+1];
-		wcsncpy_s(arrayBuffer[i], len+1, inBuf.substr(l,p).c_str(), len);
-		arrayBuffer[i][len] = 0;
-		if (p == std::wstring::npos)
-			break;
-		l = ++p;
-		if (escape && l < inBuf.size() && inBuf[l] == '\"') {
-			p = inBuf.find('\"', l+1);
-			if (p != std::wstring::npos)
-				p = inBuf.find(splitChar, p);
-		} else if (p < inBuf.size()) {
-			p = inBuf.find(splitChar, p);
-		} else {
-			p = std::wstring::npos;
-		}
-	}
-	*/
-	//return arrayBuffer;
 }
 
 /**
@@ -288,7 +226,7 @@ arrayBuffer::arrayBuffer arrayBuffer::split2arrayBuffer(const std::wstring inBuf
 * @param **argument 
 * @param argLen 
 */
-void arrayBuffer::destroyArrayBuffer(arrayBuffer::arrayBuffer argument, const unsigned int argLen) {
+void array_buffer::destroyArrayBuffer(arrayBuffer argument, const unsigned int argLen) {
 	for (unsigned int i=0;i<argLen;i++) {
 		delete [] argument[i];
 	}
@@ -296,75 +234,3 @@ void arrayBuffer::destroyArrayBuffer(arrayBuffer::arrayBuffer argument, const un
 }
 
 
-
-#ifdef _DEBUG
-/**
- * Test function for createEmptyArrayBuffer
- */
-void arrayBuffer::test_createEmptyArrayBuffer() {
-	std::wcout << "arrayBuffer::test_createEmptyArrayBuffer() : ";
-	unsigned int argLen;
-	wchar_t ** c = createEmptyArrayBuffer(argLen);
-	if ((c) && (argLen == 0))
-		std::wcout << "Succeeded" << std::endl;
-	else
-		std::wcout << "Failed" << std::endl;
-	destroyArrayBuffer(c, argLen);
-}
-/**
- * Test function for split2arrayBuffer
- * @param buffer 
- * @param splitter 
- * @param OUT_argLen 
- */
-void arrayBuffer::test_split2arrayBuffer_str(std::wstring buffer, wchar_t splitter, int OUT_argLen) {
-	std::wcout << _T("arrayBuffer::test_split2arrayBuffer(") << buffer << _T(", ...) : ");
-	unsigned int argLen = 0;
-	wchar_t ** c = split2arrayBuffer(buffer, splitter, argLen);
-	if ((c) && (argLen == OUT_argLen))
-		std::wcout << _T("Succeeded") << std::endl;
-	else
-		std::wcout << _T("Failed |") << argLen << _T("=") << OUT_argLen << _T("]") << std::endl;
-	destroyArrayBuffer(c, argLen);
-}
-/**
- * Test function for split2arrayBuffer
- * @param buffer 
- * @param splitter 
- * @param OUT_argLen 
- */
-void arrayBuffer::test_split2arrayBuffer_char(wchar_t* buffer, wchar_t splitter, int OUT_argLen) {
-	std::wcout << _T("arrayBuffer::test_split2arrayBuffer(") << buffer << _T(", ...) : ");
-	unsigned int argLen = 0;
-	wchar_t ** c = split2arrayBuffer(buffer, splitter, argLen);
-	if ((c) && (argLen == OUT_argLen))
-		std::wcout << _T("Succeeded") << std::endl;
-	else
-		std::wcout << _T("Failed |") << argLen << _T("=") << OUT_argLen << _T("]") << std::endl;
-	destroyArrayBuffer(c, argLen);
-}
-
-/**
- * Test function for ArrayBuffer
- */
-void arrayBuffer::run_testArrayBuffer() {
-	test_createEmptyArrayBuffer();
-	test_split2arrayBuffer_str(_T(""), '&', 0);
-	test_split2arrayBuffer_str(_T("foo"), '&', 1);
-	test_split2arrayBuffer_str(_T("&"), '&', 2);
-	test_split2arrayBuffer_str(_T("foo&"), '&', 2);
-	test_split2arrayBuffer_str(_T("&foo&"), '&', 3);
-	test_split2arrayBuffer_str(_T("foo&bar"), '&', 2);
-	test_split2arrayBuffer_str(_T("foo&bar&test"), '&', 3);
-	test_split2arrayBuffer_str(_T("foo&&&"), '&', 4);
-
-	test_split2arrayBuffer_char(_T(""), '&', 0);
-	test_split2arrayBuffer_char(_T("foo"), '&', 1);
-	test_split2arrayBuffer_char(_T("&"), '&', 2);
-	test_split2arrayBuffer_char(_T("foo&"), '&', 2);
-	test_split2arrayBuffer_char(_T("&foo&"), '&', 3);
-	test_split2arrayBuffer_char(_T("foo&bar"), '&', 2);
-	test_split2arrayBuffer_char(_T("foo&bar&test"), '&', 3);
-	test_split2arrayBuffer_char(_T("foo&&&"), '&', 4);
-}
-#endif

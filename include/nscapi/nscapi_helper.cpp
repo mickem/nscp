@@ -19,40 +19,15 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
+#include <unicode_char.hpp>
+#include <strEx.h>
+
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/macros.hpp>
-#include <msvc_wrappers.h>
 #include <settings/macros.h>
-#include <arrayBuffer.h>
-//#include <config.h>
-#include <strEx.h>
 
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
-
-/**
-* Wrap a return string.
-* This function copies a string to a char buffer making sure the buffer has the correct length.
-*
-* @param *buffer Buffer to copy the string to.
-* @param bufLen Length of the buffer
-* @param str Th string to copy
-* @param defaultReturnCode The default return code
-* @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
-*/
-/*
-int NSCHelper::wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
-	// @todo deprecate this
-	if (str.length() >= bufLen) {
-		std::wstring sstr = str.substr(0, bufLen-2);
-		NSC_DEBUG_MSG_STD(_T("String (") + strEx::itos(str.length()) + _T(") to long to fit inside buffer(") + strEx::itos(bufLen) + _T(") : ") + sstr);
-		return NSCAPI::isInvalidBufferLen;
-	}
-	wcsncpy_s(buffer, bufLen, str.c_str(), bufLen);
-	return defaultReturnCode;
-}
-*/
-
 
 #define REPORT_ERROR	0x01
 #define REPORT_WARNING	0x02
@@ -190,6 +165,98 @@ int nscapi::plugin_helper::wrapReturnString(wchar_t *buffer, unsigned int bufLen
 		std::wstring sstr = str.substr(0, bufLen-2);
 		return NSCAPI::isInvalidBufferLen;
 	}
-	wcsncpy_s(buffer, bufLen, str.c_str(), bufLen);
+	wcsncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
+}
+
+bool nscapi::plugin_helper::isNagiosReturnCode(NSCAPI::nagiosReturn code) {
+	return ( (code == NSCAPI::returnOK) || (code == NSCAPI::returnWARN) || (code == NSCAPI::returnCRIT) || (code == NSCAPI::returnUNKNOWN) );
+}
+bool nscapi::plugin_helper::isMyNagiosReturn(NSCAPI::nagiosReturn code) {
+	return code == NSCAPI::returnCRIT || code == NSCAPI::returnOK || code == NSCAPI::returnWARN || code == NSCAPI::returnUNKNOWN  || code == NSCAPI::returnInvalidBufferLen || code == NSCAPI::returnIgnored;
+}
+NSCAPI::nagiosReturn nscapi::plugin_helper::int2nagios(int code) {
+	return code;
+}
+int nscapi::plugin_helper::nagios2int(NSCAPI::nagiosReturn code) {
+	return code;
+}
+void nscapi::plugin_helper::escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode) {
+	currentReturnCode = NSCAPI::returnCRIT;
+}
+void nscapi::plugin_helper::escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode) {
+	if (currentReturnCode != NSCAPI::returnCRIT)
+		currentReturnCode = NSCAPI::returnWARN;
+}
+
+/**
+ * Translate a message type into a human readable string.
+ *
+ * @param msgType The message type
+ * @return A string representing the message type
+ */
+std::wstring nscapi::plugin_helper::translateMessageType(NSCAPI::messageTypes msgType) {
+	switch (msgType) {
+		case NSCAPI::error:
+			return _T("error");
+		case NSCAPI::critical:
+			return _T("critical");
+		case NSCAPI::warning:
+			return _T("warning");
+		case NSCAPI::log:
+			return _T("message");
+		case NSCAPI::debug:
+			return _T("debug");
+	}
+	return _T("unknown");
+}
+/**
+ * Translate a return code into the corresponding string
+ * @param returnCode 
+ * @return 
+ */
+std::wstring nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCode) {
+	if (returnCode == NSCAPI::returnOK)
+		return _T("OK");
+	else if (returnCode == NSCAPI::returnCRIT)
+		return _T("CRITICAL");
+	else if (returnCode == NSCAPI::returnWARN)
+		return _T("WARNING");
+	else if (returnCode == NSCAPI::returnUNKNOWN)
+		return _T("WARNING");
+	else
+		return _T("BAD_CODE");
+}
+/**
+* Translate a string into the corresponding return code 
+* @param returnCode 
+* @return 
+*/
+NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::wstring str) {
+	if (str == _T("OK"))
+		return NSCAPI::returnOK;
+	else if (str == _T("CRITICAL"))
+		return NSCAPI::returnCRIT;
+	else if (str == _T("WARNING"))
+		return NSCAPI::returnWARN;
+	else 
+		return NSCAPI::returnUNKNOWN;
+}
+/**
+ * Returns the biggest of the two states
+ * STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
+ * @param a 
+ * @param b 
+ * @return 
+ */
+NSCAPI::nagiosReturn nscapi::plugin_helper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b) {
+	if (a == NSCAPI::returnCRIT || b == NSCAPI::returnCRIT)
+		return NSCAPI::returnCRIT;
+	else if (a == NSCAPI::returnWARN || b == NSCAPI::returnWARN)
+		return NSCAPI::returnWARN;
+	else if (a == NSCAPI::returnOK || b == NSCAPI::returnOK)
+		return NSCAPI::returnOK;
+	else if (a == NSCAPI::returnUNKNOWN || b == NSCAPI::returnUNKNOWN)
+		return NSCAPI::returnUNKNOWN;
+	return NSCAPI::returnUNKNOWN;
 }

@@ -19,7 +19,6 @@
 #include <strEx.h>
 #include <tchar.h>
 #include <iostream>
-#include <msvc_wrappers.h>
 #include <error.hpp>
 
 namespace serviceControll {
@@ -394,7 +393,7 @@ namespace serviceControll {
 		}
 
 		TCHAR* d = new TCHAR[desc.length()+2];
-		wcsncpy_s(d, desc.length()+2, desc.c_str(), desc.length());
+		wcsncpy(d, desc.c_str(), desc.length());
 		descr.lpDescription = d;
 		BOOL bResult = FChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
 		delete [] d;

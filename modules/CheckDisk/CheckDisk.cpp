@@ -31,6 +31,7 @@
 #include "file_finder.hpp"
 #include "filter.hpp"
 #include <char_buffer.hpp>
+#include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -65,7 +66,7 @@ bool CheckDisk::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			_T("SHOW ERRORS"), _T(""))
 			;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);

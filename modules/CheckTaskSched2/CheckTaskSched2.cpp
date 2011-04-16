@@ -28,6 +28,8 @@
 
 #include "filter.hpp"
 
+#include <settings/client/settings_client.hpp>
+
 
 CheckTaskSched2 gCheckTaskSched2;
 

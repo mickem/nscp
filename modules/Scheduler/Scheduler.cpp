@@ -25,6 +25,8 @@
 #include <utils.h>
 #include <settings/macros.h>
 
+#include <settings/client/settings_client.hpp>
+
 Scheduler gInstance;
 
 namespace sh = nscapi::settings_helper;
@@ -65,7 +67,7 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
@@ -75,7 +77,7 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 	try {
-		NSC_DEBUG_MSG_STD(_T("Thread count: ") + to_wstring(scheduler_.get_threads()));
+		NSC_DEBUG_MSG_STD(_T("Thread count: ") + boost::lexical_cast<std::wstring>(scheduler_.get_threads()));
 		if (mode == NSCAPI::normalStart) {
 			scheduler_.set_handler(this);
 			scheduler_.start();

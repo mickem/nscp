@@ -28,6 +28,8 @@
 #include <nsca/nsca_packet.hpp>
 #include <nsca/nsca_socket.hpp>
 
+#include <settings/client/settings_client.hpp>
+
 NSCAAgent gNSCAAgent;
 
 namespace sh = nscapi::settings_helper;
@@ -105,7 +107,7 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
@@ -163,7 +165,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring chan
 		return NSCAPI::hasFailed;
 		
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + to_wstring(e.what()));
+		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + utf8::cvt<std::wstring>(e.what()));
 		return NSCAPI::hasFailed;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to send data: UNKNOWN"));

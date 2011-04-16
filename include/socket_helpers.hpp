@@ -52,12 +52,12 @@ namespace socketHelpers {
 							tmp_record.mask = lookupMask(host.substr(pos));
 						}
 						boost::asio::ip::tcp::resolver resolver(io_service);
-						boost::asio::ip::tcp::resolver::query query(::to_string(tmp_record.host), "");
+						boost::asio::ip::tcp::resolver::query query(utf8::cvt<std::string>(tmp_record.host), "");
 						boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 						boost::asio::ip::tcp::resolver::iterator end;
 						for (;endpoint_iterator != end; ++endpoint_iterator) {
 							tmp_record.in_addr = endpoint_iterator->endpoint().address().to_v4().to_ulong();
-							tmp_record.host = to_wstring(endpoint_iterator->endpoint().address().to_string());
+							tmp_record.host = utf8::cvt<std::wstring>(endpoint_iterator->endpoint().address().to_string());
 							allowed_list_.push_back(tmp_record);
 						}
 						/*

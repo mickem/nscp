@@ -19,13 +19,9 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#include <unicode_char.hpp>
 #include <string>
 #include <list>
 #include <vector>
-#include <iostream>
-#include <types.hpp>
-#include <msvc_wrappers.h>
 
 /**
  * @ingroup NSClient++
@@ -51,10 +47,10 @@
  * @bug 
  *
  */
-namespace arrayBuffer {
+namespace array_buffer {
 	class ArrayBufferException {
 	public:
-		ArrayBufferException(std::wstring error) {}
+		ArrayBufferException(std::string error) {}
 	};
 	typedef wchar_t* arrayBufferItem;
 	typedef arrayBufferItem* arrayBuffer;
@@ -62,7 +58,7 @@ namespace arrayBuffer {
 	typedef std::vector<std::wstring> arrayVector;
 	void set(arrayBuffer arrayBuffer, const unsigned int argLen, const unsigned int position, std::wstring argument);
 	arrayList arrayBuffer2list(const unsigned int argLen, wchar_t **argument);
-	arrayVector arrayBuffer2vector(const unsigned int argLen, TCHAR **argument);
+	arrayVector arrayBuffer2vector(const unsigned int argLen, wchar_t **argument);
 	arrayBuffer list2arrayBuffer(const arrayList lst, unsigned int &argLen);
 	arrayBuffer split2arrayBuffer(const wchar_t* buffer, wchar_t splitChar, unsigned int &argLen);
 	arrayBuffer split2arrayBuffer(const std::wstring inBuf, wchar_t splitChar, unsigned int &argLen, bool escape = false);
@@ -75,7 +71,7 @@ namespace arrayBuffer {
 		for (unsigned int i=0; i<argLen; i++) {
 			size_t s = wcslen(other[i]);
 			ret[i] = new wchar_t[s+2];
-			wcsncpy_s(ret[i], s+2, other[i], s);
+			wcsncpy(ret[i], other[i], s);
 		}
 		return ret;
 	}

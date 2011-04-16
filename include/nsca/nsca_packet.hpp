@@ -1,6 +1,8 @@
 #pragma once
 
 #include <boost/date_time.hpp>
+#include <boost/lexical_cast.hpp>
+
 #include <types.hpp>
 #include <swap_bytes.hpp>
 #include <nsca/nsca_enrypt.hpp>
@@ -127,8 +129,8 @@ namespace nsca {
 
 		std::string toString() const {
 			return "service: " + service + ", " + 
-				"code: " + to_string(code) + ", " + 
-				"time: " + to_string(time) + ", " + 
+				"code: " + boost::lexical_cast<std::string>(code) + ", " + 
+				"time: " + boost::lexical_cast<std::string>(time) + ", " + 
 				"result: " + result;
 		}
 

@@ -1,12 +1,19 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
+#include <unicode_char.hpp>
 
 namespace file_helpers {
 	class checks {
 	public:
 #ifdef WIN32
-		static bool is_directory(DWORD dwAttr) {
+#ifndef INVALID_FILE_ATTRIBUTES
+#define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
+#endif
+#ifndef FILE_ATTRIBUTE_DIRECTORY
+#define FILE_ATTRIBUTE_DIRECTORY 0x00000010
+#endif
+		static bool is_directory(unsigned long dwAttr) {
 			if (dwAttr == INVALID_FILE_ATTRIBUTES) {
  				return false;
 			} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {

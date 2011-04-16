@@ -316,7 +316,7 @@ namespace nsca {
 			delete core_;
 			core_ = get_encryption_core(encryption_method);
 			if (core_ == NULL)
-				throw encryption_exception(_T("Failed to get encryption module for: ") + to_wstring(encryption_method));
+				throw encryption_exception(_T("Failed to get encryption module for: ") + boost::lexical_cast<std::wstring>(encryption_method));
 
 			/* server generates IV used for encryption */
 			if (received_iv.empty()) {

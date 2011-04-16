@@ -4,7 +4,6 @@ SET(TARGET settings_manager)
 
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
-#INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
 
 SET(service_SRCS
 	settings_manager_impl.cpp
@@ -39,6 +38,8 @@ IF(WIN32)
 	)
 ENDIF(WIN32)
 add_library (${TARGET} ${service_SRCS})
+
+target_link_libraries(${TARGET} protobuf)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
 

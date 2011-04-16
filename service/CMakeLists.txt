@@ -20,7 +20,7 @@ ADD_CUSTOM_TARGET(
 
 SET(service_SRCS
 	StdAfx.cpp
-	nsclient++.cpp
+	NSClient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
 	settings_logger_impl.cpp
@@ -123,3 +123,13 @@ SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
 
 INSTALL(TARGETS ${TARGET} RUNTIME DESTINATION .)
 
+# First, build the full name of the EXE.
+INSTALL(CODE "SET(PDB_FULL_PATH ${BUILD_TARGET_EXE_PATH}/${TARGET}.pdb)")
+INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX} TYPE EXECUTABLE FILES \${PDB_FULL_PATH})")
+#INSTALL(CODE "MESSAGE(STATUS ----->\${CMAKE_INSTALL_PREFIX})")
+#INSTALL(CODE "MESSAGE(STATUS ----->\${CMAKE_INSTALL_CONFIG_NAME})")
+#INSTALL(CODE "MESSAGE(STATUS ----->${CMAKE_CURRENT_BINARY_DIR})")
+#INSTALL(CODE "MESSAGE(STATUS ----->\${PDB_FULL_PATH})")
+# Then, replace .exe with .pdb.
+#INSTALL(CODE "STRING(REPLACE .exe .pdb PDB_FULL_PATH \${PDB_FULL_PATH})")
+# Finally, get it installed.

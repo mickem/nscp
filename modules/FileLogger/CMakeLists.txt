@@ -1,11 +1,10 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-	
+cmake_minimum_required(VERSION 2.6)
+
 SET(TARGET FileLogger)
 
 PROJECT(${TARGET})
 
 SET(SRCS
-	stdafx.cpp
 	"${TARGET}.cpp"
 
 	${NSCP_DEF_PLUGIN_CPP}
@@ -15,7 +14,6 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
 

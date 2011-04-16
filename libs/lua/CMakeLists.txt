@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 2.6)
+
 IF (HAVE_LUA)
 	message(STATUS "Found CACHED lua in ${LUA_SOURCE_DIR}")
 ELSE (HAVE_LUA)

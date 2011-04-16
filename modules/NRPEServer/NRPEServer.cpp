@@ -23,8 +23,10 @@
 #include <strEx.h>
 #include <time.h>
 #include <config.h>
-#include <msvc_wrappers.h>
 #include "handler_impl.hpp"
+
+#include <settings/client/settings_client.hpp>
+
 
 namespace sh = nscapi::settings_helper;
 

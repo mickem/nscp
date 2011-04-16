@@ -23,12 +23,14 @@
 #include <time.h>
 #include <string>
 
-#include <msvc_wrappers.h>
 #include <strEx.h>
 #include <file_helpers.hpp>
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
+
+#include <settings/client/settings_client.hpp>
+#include <nscapi/functions.hpp>
 
 namespace sh = nscapi::settings_helper;
 

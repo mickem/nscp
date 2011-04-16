@@ -22,15 +22,15 @@
 
 #include <string>
 #include <list>
-#include <iostream>
+//#include <iostream>
 
 #include <NSCAPI.h>
-#include <charEx.h>
-#include <arrayBuffer.h>
-#include <types.hpp>
+//#include <charEx.h>
+//#include <arrayBuffer.h>
+//#include <types.hpp>
 
-#include <unicode_char.hpp>
-#include <strEx.h>
+//#include <unicode_char.hpp>
+//#include <strEx.h>
 
 namespace nscapi {
 	class core_wrapper {

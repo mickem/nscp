@@ -18,7 +18,6 @@
 #include <charEx.h>
 //#include <Socket.h>
 #include <config.h>
-#include <msvc_wrappers.h>
 #ifdef WIN32
 #include <Userenv.h>
 #include <Lmcons.h>

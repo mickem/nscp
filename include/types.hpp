@@ -1,6 +1,6 @@
 #pragma once
 
-typedef wchar_t TCHAR;
+//typedef wchar_t TCHAR;
 
 
 #ifndef WIN32

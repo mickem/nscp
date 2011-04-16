@@ -20,11 +20,21 @@
 ***************************************************************************/
 #pragma once
 
+#include <config.h>
+
+#include <string>
+
+//#include <NSCAPI.h>
+#include <nscapi/plugin.hpp>
+
+#include <boost/thread/thread.hpp>
+#include <boost/thread/locks.hpp>
+
 NSC_WRAPPERS_MAIN();
 
 class CheckNSCP : public nscapi::impl::SimpleCommand, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
 private:
-	MutexHandler mutex_;
+	boost::timed_mutex mutex_;
 	std::wstring crashFolder;
 	typedef std::list<std::string> error_list;
 	error_list errors_;

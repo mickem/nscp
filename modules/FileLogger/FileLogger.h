@@ -20,6 +20,8 @@
 ***************************************************************************/
 #pragma once
 
+#include <nscapi/plugin.hpp>
+
 NSC_WRAPPERS_MAIN();
 
 class FileLogger : public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {

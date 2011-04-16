@@ -1,4 +1,20 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.6)
+
+
+MACRO(copy_single_file src destDir)
+	GET_FILENAME_COMPONENT(filename ${src} NAME)
+	STRING(REPLACE "." "" TARGET ${filename})
+	STRING(REPLACE "/" "" TARGET ${TARGET})
+	ADD_CUSTOM_COMMAND(OUTPUT ${destDir}/${src}
+		COMMAND cmake 
+		ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${src} ${CMAKE_BINARY_DIR}/${destDir}/${src}
+		COMMENT Copying ${src} to ${CMAKE_BINARY_DIR}/${destDir}/${src}
+		)
+	ADD_CUSTOM_TARGET(${TARGET} ALL DEPENDS ${CMAKE_BINARY_DIR}/${destDir}/${src})
+	SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "files/scripts")
+	INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX}/${destDir} TYPE EXECUTABLE FILES ${CMAKE_CURRENT_SOURCE_DIR}/${src})")
+ENDMACRO(copy_single_file)
+
 
 FILE (GLOB scripts_BAT "*.bat")
 FILE (GLOB scripts_VBS "*.vbs")
@@ -7,16 +23,17 @@ FILE (GLOB scripts_LIB "lib/*.vbs")
 
 SET(script_ALL ${scripts_BAT} ${scripts_VBS} ${scripts_PS1})
 
-MESSAGE(STATUS "Copying script:")
 FOREACH(file ${script_ALL})
 	get_filename_component(filename ${file} NAME)
 	MESSAGE(STATUS " + ${filename}")
-	FILE(COPY ${file} DESTINATION ${CMAKE_BINARY_DIR}/scripts)
+	copy_single_file(${file} scripts)
+	#FILE(COPY ${file} DESTINATION ${CMAKE_BINARY_DIR}/scripts)
 ENDFOREACH(file ${script_ALL})
 
 
 FOREACH(file ${scripts_LIB})
 	get_filename_component(filename ${file} NAME)
 	MESSAGE(STATUS " + lib - ${filename}")
-	FILE(COPY ${file} DESTINATION ${CMAKE_BINARY_DIR}/scripts/lib)
+	copy_single_file(${file} scripts/lib)
+	#FILE(COPY ${file} DESTINATION ${CMAKE_BINARY_DIR}/scripts/lib)
 ENDFOREACH(file ${scripts_LIB})

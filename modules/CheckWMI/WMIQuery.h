@@ -22,6 +22,9 @@
 
 #include <string>
 #include <map>
+
+#include <boost/lexical_cast.hpp>
+
 #include <strEx.h>
 #include <error.hpp>
 #include <filter_framework.hpp>
@@ -105,7 +108,7 @@ public:
 		}
 		void setNumeric(std::wstring a, long long n) {
 			numeric = n;
-			string = to_wstring(n);
+			string = boost::lexical_cast<std::wstring>(n);
 			alias = a;
 		}
 		void setBoth(std::wstring a, long long n, std::wstring s) {

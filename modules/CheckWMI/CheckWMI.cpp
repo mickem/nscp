@@ -26,6 +26,8 @@
 #include <map>
 #include <vector>
 
+#include <settings/client/settings_client.hpp>
+#include <arrayBuffer.h>
 
 CheckWMI gCheckWMI;
 
@@ -275,7 +277,7 @@ int CheckWMI::commandLineExec(const TCHAR* command, const unsigned int argLen, T
 	//WMIQuery wmiQuery;
 	std::wstring query = command;
 	std::wstring ns = _T("root\\cimv2");
-	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
+	query += _T(" ") + array_buffer::arrayBuffer2string(char_args, argLen, _T(" "));
 	WMIQuery::result_type rows;
 	try {
 		WMIQuery wmiQuery;

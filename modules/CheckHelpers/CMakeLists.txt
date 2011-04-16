@@ -1,5 +1,5 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-	
+cmake_minimum_required(VERSION 2.6)
+
 SET(TARGET CheckHelpers)
 
 PROJECT(${TARGET})
@@ -25,8 +25,6 @@ ENDIF(WIN32)
 
 ADD_LIBRARY(${TARGET} MODULE ${SRCS})
 
-
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "-fPIC -w -pipe -DNDEBUG -DLINUX -finline-functions -O3")
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

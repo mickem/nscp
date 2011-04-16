@@ -74,7 +74,7 @@ namespace process {
 
 		// CreateProcess doesn't work with a const command
 		TCHAR *cmd = new TCHAR[args.command.length()+1];
-		wcsncpy_s(cmd, args.command.length()+1, args.command.c_str(), args.command.length());
+		wcsncpy(cmd, args.command.c_str(), args.command.length());
 		cmd[args.command.length()] = 0;
 
 		// Create the child process.

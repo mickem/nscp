@@ -19,6 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
+#include <unicode_char.hpp>
 #include <types.hpp>
 
 #include <string>
@@ -33,8 +34,6 @@
 #include <iostream>
 
 #include <cctype>
-
-#include <unicode_char.hpp>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>

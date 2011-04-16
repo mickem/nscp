@@ -33,7 +33,7 @@ namespace nsca {
 
 		virtual void connect(std::wstring host, int port) {
 			tcp::resolver resolver(get_io_service());
-			tcp::resolver::query query(to_string(host), to_string(port));
+			tcp::resolver::query query(utf8::cvt<std::string>(host), boost::lexical_cast<std::string>(port));
 
 			tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 			tcp::resolver::iterator end;

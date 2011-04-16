@@ -21,114 +21,24 @@
 #pragma once
 
 #include <string>
-#include <list>
-#include <iostream>
 
 #include <NSCAPI.h>
-#include <charEx.h>
-#include <arrayBuffer.h>
-#include <types.hpp>
-
-#include <unicode_char.hpp>
-#include <strEx.h>
 
 namespace nscapi {
 
 	class plugin_helper {
 	public:
-		static bool isNagiosReturnCode(NSCAPI::nagiosReturn code) {
-			return ( (code == NSCAPI::returnOK) || (code == NSCAPI::returnWARN) || (code == NSCAPI::returnCRIT) || (code == NSCAPI::returnUNKNOWN) );
-		}
-		static bool isMyNagiosReturn(NSCAPI::nagiosReturn code) {
-			return code == NSCAPI::returnCRIT || code == NSCAPI::returnOK || code == NSCAPI::returnWARN || code == NSCAPI::returnUNKNOWN  || code == NSCAPI::returnInvalidBufferLen || code == NSCAPI::returnIgnored;
-		}
-		static NSCAPI::nagiosReturn int2nagios(int code) {
-			return code;
-		}
-		static int nagios2int(NSCAPI::nagiosReturn code) {
-			return code;
-		}
-		static void escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode) {
-			currentReturnCode = NSCAPI::returnCRIT;
-		}
-		static void escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode) {
-			if (currentReturnCode != NSCAPI::returnCRIT)
-				currentReturnCode = NSCAPI::returnWARN;
-		}
+		static bool isNagiosReturnCode(NSCAPI::nagiosReturn code);
+		static bool isMyNagiosReturn(NSCAPI::nagiosReturn code);
+		static NSCAPI::nagiosReturn int2nagios(int code);
+		static int nagios2int(NSCAPI::nagiosReturn code);
+		static void escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode);
+		static void escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode);
 		static int wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode );
-
-		/**
-		 * Translate a message type into a human readable string.
-		 *
-		 * @param msgType The message type
-		 * @return A string representing the message type
-		 */
-		static std::wstring translateMessageType(NSCAPI::messageTypes msgType) {
-			switch (msgType) {
-				case NSCAPI::error:
-					return _T("error");
-				case NSCAPI::critical:
-					return _T("critical");
-				case NSCAPI::warning:
-					return _T("warning");
-				case NSCAPI::log:
-					return _T("message");
-				case NSCAPI::debug:
-					return _T("debug");
-			}
-			return _T("unknown");
-		}
-		/**
-		 * Translate a return code into the corresponding string
-		 * @param returnCode 
-		 * @return 
-		 */
-		static std::wstring translateReturn(NSCAPI::nagiosReturn returnCode) {
-			if (returnCode == NSCAPI::returnOK)
-				return _T("OK");
-			else if (returnCode == NSCAPI::returnCRIT)
-				return _T("CRITICAL");
-			else if (returnCode == NSCAPI::returnWARN)
-				return _T("WARNING");
-			else if (returnCode == NSCAPI::returnUNKNOWN)
-				return _T("WARNING");
-			else
-				return _T("BAD_CODE");
-		}
-		/**
-		* Translate a string into the corresponding return code 
-		* @param returnCode 
-		* @return 
-		*/
-		static NSCAPI::nagiosReturn translateReturn(std::wstring str) {
-			if (str == _T("OK"))
-				return NSCAPI::returnOK;
-			else if (str == _T("CRITICAL"))
-				return NSCAPI::returnCRIT;
-			else if (str == _T("WARNING"))
-				return NSCAPI::returnWARN;
-			else 
-				return NSCAPI::returnUNKNOWN;
-		}
-		/**
-		 * Returns the biggest of the two states
-		 * STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
-		 * @param a 
-		 * @param b 
-		 * @return 
-		 */
-		static NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b) {
-			if (a == NSCAPI::returnCRIT || b == NSCAPI::returnCRIT)
-				return NSCAPI::returnCRIT;
-			else if (a == NSCAPI::returnWARN || b == NSCAPI::returnWARN)
-				return NSCAPI::returnWARN;
-			else if (a == NSCAPI::returnOK || b == NSCAPI::returnOK)
-				return NSCAPI::returnOK;
-			else if (a == NSCAPI::returnUNKNOWN || b == NSCAPI::returnUNKNOWN)
-				return NSCAPI::returnUNKNOWN;
-			return NSCAPI::returnUNKNOWN;
-		}
-
+		static std::wstring translateMessageType(NSCAPI::messageTypes msgType);
+		static std::wstring translateReturn(NSCAPI::nagiosReturn returnCode);
+		static NSCAPI::nagiosReturn translateReturn(std::wstring str);
+		static NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b);
 	};
 
 	namespace report {

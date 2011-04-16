@@ -1,11 +1,10 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-	
+cmake_minimum_required(VERSION 2.6)
+
 SET(TARGET CheckNSCP)
 
 PROJECT(${TARGET})
 
 SET(SRCS
-	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -14,7 +13,6 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
 
@@ -25,8 +23,6 @@ ENDIF(WIN32)
 
 ADD_LIBRARY(${TARGET} MODULE ${SRCS})
 
-
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "-fPIC -w -pipe -DNDEBUG -DLINUX -finline-functions -O3")
 
 target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}

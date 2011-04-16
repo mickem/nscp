@@ -1,11 +1,9 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+cmake_minimum_required(VERSION 2.6)
 
 WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
 WRAP_PROTO(PROTO_LOG_SRC log.proto)
 
 SET(TARGET protobuf)
-
-#PROJECT(${TARGET})
 
 SET(SRCS
 	plugin.proto
