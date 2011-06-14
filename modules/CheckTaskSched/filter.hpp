@@ -173,7 +173,7 @@ namespace tasksched_filter {
 		fetcher<date_fetch_traits > date_fetcher;
 
 		std::wstring title;
-		std::wstring render(std::wstring format);
+		std::wstring render(std::wstring format, std::wstring dateformat);
 
 	public:
 		void error(std::wstring err) { errors.push_back(err); }
@@ -234,7 +234,7 @@ namespace tasksched_filter {
 	struct factories {
 		static filter_engine create_engine(tasksched_filter::filter_argument arg);
 		static filter_result create_result(tasksched_filter::filter_argument arg);
-		static filter_argument create_argument(std::wstring syntax);
+		static filter_argument create_argument(std::wstring syntax, std::wstring datesyntax);
 
 	};
 }

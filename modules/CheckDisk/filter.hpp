@@ -58,6 +58,7 @@ namespace file_filter {
 		//long long get_write();
 
 		__int64 get_creation() {
+			std::cout << ullNow << " ? " << ullCreationTime << " => " << ullNow-ullCreationTime << " (" << (ullNow-ullCreationTime)/MSECS_TO_100NS << ")" << std::endl;
 			return (ullNow-ullCreationTime)/MSECS_TO_100NS;
 		}
 		__int64 get_access() {
@@ -67,7 +68,7 @@ namespace file_filter {
 			return (ullNow-ullLastWriteTime)/MSECS_TO_100NS;
 		}
 		unsigned long long get_size() { return ullSize; }
-		std::wstring render(std::wstring syntax);
+		std::wstring render(std::wstring syntax, std::wstring datesyntax);
 		std::wstring get_version();
 		unsigned long get_line_count();
 
@@ -187,7 +188,7 @@ namespace file_filter {
 
 		std::list<file_finder::filter> filter_chain;
 
-		file_finder_data_arguments(std::wstring pattern, int max_depth, parent_type::error_type error, std::wstring syntax, bool debug = false);
+		file_finder_data_arguments(std::wstring pattern, int max_depth, parent_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug = false);
 
 
 		bool is_valid_level(int current_level) {
@@ -220,7 +221,7 @@ namespace file_filter {
 		static filter_engine create_old_engine(filter_argument arg);
 		static filesize_engine_interface create_size_engine();
 		static filter_result create_result(filter_argument arg);
-		static filter_argument create_argument(std::wstring pattern, int max_depth, std::wstring syntax);
+		static filter_argument create_argument(std::wstring pattern, int max_depth, std::wstring syntax, std::wstring datesyntax);
 	};
 
 

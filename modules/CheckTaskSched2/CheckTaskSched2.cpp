@@ -76,7 +76,7 @@ NSCAPI::nagiosReturn CheckTaskSched2::TaskSchedule(const unsigned int argLen, TC
 	std::wstring query, alias;
 	bool bPerfData = true;
 	std::wstring masterSyntax = _T("%list%");
-	tasksched_filter::filter_argument args = tasksched_filter::factories::create_argument(_T("%task%"));
+	tasksched_filter::filter_argument args = tasksched_filter::factories::create_argument(_T("%task%"), DATE_FORMAT);
 
 	WMIContainerQuery1 query1;
 	WMIContainerQuery2 query2;
@@ -86,6 +86,7 @@ NSCAPI::nagiosReturn CheckTaskSched2::TaskSchedule(const unsigned int argLen, TC
 			MAP_OPTIONS_STR(_T("Alias"), alias)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_BOOL_TRUE(_T("debug"), args->debug)
+			MAP_OPTIONS_STR(_T("date-syntax"), args->date_syntax)
 			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
 			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
 			//MAP_OPTIONS_SHOWALL(result_query)

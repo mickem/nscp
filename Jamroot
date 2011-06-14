@@ -198,13 +198,6 @@ all-modules =
     [ MATCH .*modules/(.*)/.* : [ glob modules/*/Jamfile ] ]
     ;
 
-# all-modules = NRPEClient ;
-
-# all-modules = CheckEventLog CheckExternalScripts CheckHelpers CheckSystem CheckTaskSched ;
-# all-modules = CheckWMI DebugLogMetrics FileLogger LUAScript ;
-# all-modules = NRPEClient NSCAAgent NSClientListener SysTray ; 
-# all-modules = NRPEClient NRPEListener NSCAAgent NSClientListener SysTray; 
-
 all-scripts =
     [ MATCH .*scripts/(.+\\..*) : [ glob scripts/* ] ]
     ;
@@ -384,7 +377,6 @@ install dist-script-libs : all-script-libs-targets : <conditional>@generate-scri
 explicit dist-script-libs ;
 
 alias build-binaries : dist dist-modules dist-helpers dist-scripts dist-script-libs ;
-#alias build-binaries : dist ;
 explicit build-binaries ;
 
 alias build-nagios-plugins : helpers/plugins ;

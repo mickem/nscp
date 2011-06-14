@@ -433,11 +433,14 @@ namespace strEx {
 		for (int i=0;i<BKMG_SIZE;i++) {
 			if (unit[0] == postfix[i]) {
 				std::wstringstream ss;
-				ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
+				ss << std::setiosflags(std::ios::fixed) << std::setprecision(2) << cpy;
 				std::wstring s = ss.str();
 				std::wstring::size_type pos = s.find_last_not_of(_T("0"));
 				if (pos != std::string::npos) {
-					s = s.substr(0,pos);
+					if (s[pos] == L'.')
+						s = s.substr(0,pos);
+					else
+						s = s.substr(0,pos+1);
 				}
 				return s;
 			}

@@ -6,6 +6,21 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-06-14 MickeM - 0.3.9 rc2
+ * Fixed issue with performance data in memory check
+
+2011-06-13 MickeM - 0.3.9 rc2
+ * Fixed some issues with CheckFiles
+ * Added regexp matching to all string filters
+   like so: "filter=message regexp '.*MICKEM-LAPTOP.*'" 
+   CheckEventLog file=application file=system MaxWarn=1 MaxCrit=1 "filter=generated gt -2d AND message regexp '.*MICKEM-LAPTOP.*'" truncate=800 unique descriptions "syntax=%severity%: %source%: %message% (%count%)"
+ * Fixed issue with errant "dot" in the performance data (I really hate performance data)
+
+2011-05-20 MickeM
+ * Added new option to CheckprocState (ignore-state) to ignore any state checks (usefull for checking MaxCount when 0 is an option)
+ * Fixed performance data for process checks.
+ * Fixed error message for the op5 sales people
+
 2011-04-01 MickeM
  * Fixed (finally!!) the NSCA issue with multiple commands and missing "data"
 
@@ -108,7 +123,6 @@ TODO:
    [Settings]
    string_length=16000
    This value "should" be NRPE:packet_count*NRPE:string_length(1024)
-
 
 2010-10-17 MickeM
  * Added new command timeout which runs a command in a thread and timeouts after a given time.

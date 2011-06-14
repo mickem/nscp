@@ -33,9 +33,9 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 			(_T("path"), (type_string))
 			(_T("line_count"), (type_int))
 			(_T("size"), (type_size))
-			(_T("accessed"), (type_date))
-			(_T("written"), (type_date))
-			(_T("generated"), (type_date));
+			(_T("access"), (type_date))
+			(_T("creation"), (type_date))
+			(_T("written"), (type_date));
 	}
 
 bool file_filter::filter_obj_handler::has_variable(std::wstring key) {
@@ -219,12 +219,12 @@ unsigned long file_filter::filter_obj::get_line_count() {
 }
 
 
-std::wstring file_filter::filter_obj::render(std::wstring syntax) {
+std::wstring file_filter::filter_obj::render(std::wstring syntax, std::wstring datesyntax) {
 	strEx::replace(syntax, _T("%path%"), path);
 	strEx::replace(syntax, _T("%filename%"), filename);
-	strEx::replace(syntax, _T("%creation%"), strEx::format_filetime(ullCreationTime, DATE_FORMAT));
-	strEx::replace(syntax, _T("%access%"), strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
-	strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
+	strEx::replace(syntax, _T("%creation%"), strEx::format_filetime(ullCreationTime, datesyntax));
+	strEx::replace(syntax, _T("%access%"), strEx::format_filetime(ullLastAccessTime, datesyntax));
+	strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, datesyntax));
 	strEx::replace(syntax, _T("%creation-raw%"), strEx::itos(ullCreationTime));
 	strEx::replace(syntax, _T("%access-raw%"), strEx::itos(ullLastAccessTime));
 	strEx::replace(syntax, _T("%write-raw%"), strEx::itos(ullLastWriteTime));
@@ -304,13 +304,14 @@ struct where_mode_filter : public file_filter::filter_engine_type {
 
 //////////////////////////////////////////////////////////////////////////
 
-file_filter::file_finder_data_arguments::file_finder_data_arguments(std::wstring pattern, int max_depth, file_filter::filter_argument_type::error_type error, std::wstring syntax, bool debug) 
+file_filter::file_finder_data_arguments::file_finder_data_arguments(std::wstring pattern, int max_depth, file_filter::filter_argument_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug) 
 		: debugThreshold(0), bFilterIn(true), bFilterAll(false), bShowDescriptions(false), max_level(max_depth), pattern(pattern) 
-		, file_filter::file_finder_data_arguments::parent_type(error, syntax, debug)
+		, file_filter::file_finder_data_arguments::parent_type(error, syntax, datesyntax, debug)
 {
 	FILETIME ft_now;
 	GetSystemTimeAsFileTime(&ft_now);
 	now = ((ft_now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)ft_now.dwLowDateTime);
+	std::cout << "NOW: " << now << std::endl;
 	//this->set_result(parent_type::result_type(new where_filter::simple_count_result<file_info>(this)));
 }
 
@@ -346,18 +347,18 @@ struct old_file_engine : public file_filter::filter_engine_type {
 			if ((mode == filter_minus)&&(bTmpMatched)) {
 				// a -<filter> hit so thrash item and bail out!
 				if (arguments->debug)
-					arguments->error->report_debug(_T("Matched: - ") + (*cit3).second.getValue() + _T(" for: ") + record.render(arguments->syntax));
+					arguments->error->report_debug(_T("Matched: - ") + (*cit3).second.getValue() + _T(" for: ") + record.render(arguments->syntax, DATE_FORMAT));
 				bMatch = false;
 				break;
 			} else if ((mode == filter_plus)&&(!bTmpMatched)) {
 				// a +<filter> missed hit so thrash item and bail out!
 				if (arguments->debug)
-					arguments->error->report_debug(_T("Matched (missed): + ") + (*cit3).second.getValue() + _T(" for: ") + record.render(arguments->syntax));
+					arguments->error->report_debug(_T("Matched (missed): + ") + (*cit3).second.getValue() + _T(" for: ") + record.render(arguments->syntax, DATE_FORMAT));
 				bMatch = false;
 				break;
 			} else if (bTmpMatched) {
 				if (arguments->debug)
-					arguments->error->report_debug(_T("Matched: . (contiunue): ") + (*cit3).second.getValue() + _T(" for: ") + record.render(arguments->syntax));
+					arguments->error->report_debug(_T("Matched: . (contiunue): ") + (*cit3).second.getValue() + _T(" for: ") + record.render(arguments->syntax, DATE_FORMAT));
 				bMatch = true;
 			}
 		}
@@ -404,8 +405,8 @@ file_filter::filter_engine file_filter::factories::create_old_engine(file_filter
 file_filter::filesize_engine_interface file_filter::factories::create_size_engine() {
 	return filesize_engine_interface(new size_file_engine());
 }
-file_filter::filter_argument file_filter::factories::create_argument(std::wstring pattern, int max_depth, std::wstring syntax) {
-	return filter_argument(new file_filter::file_finder_data_arguments(pattern, max_depth, file_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax));
+file_filter::filter_argument file_filter::factories::create_argument(std::wstring pattern, int max_depth, std::wstring syntax, std::wstring datesyntax) {
+	return filter_argument(new file_filter::file_finder_data_arguments(pattern, max_depth, file_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax, datesyntax));
 }
 
 file_filter::filter_result file_filter::factories::create_result(file_filter::filter_argument arg) {

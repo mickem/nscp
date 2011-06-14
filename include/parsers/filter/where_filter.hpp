@@ -29,12 +29,14 @@ namespace where_filter {
 		//typedef boost::shared_ptr<result_counter_interface<record_type> > result_type;
 		bool debug;
 		std::wstring syntax;
+		std::wstring date_syntax;
 		std::wstring filter;
 
 
-		argument_interface(error_type error, std::wstring syntax, bool debug = false) 
+		argument_interface(error_type error, std::wstring syntax, std::wstring date_syntax, bool debug = false) 
 			: debug(debug)
 			, syntax(syntax) 
+			, date_syntax(date_syntax)
 			, error(error)
 		{}
 

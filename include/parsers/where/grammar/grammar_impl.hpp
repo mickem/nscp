@@ -180,6 +180,7 @@ namespace parsers {
 					| qi::lit("ge")										[_val = op_ge]
 					| qi::lit("gt")										[_val = op_gt]
 					| qi::lit("like")									[_val = op_like]
+					| qi::lit("regexp")									[_val = op_regexp]
 					| qi::lit("not like")								[_val = op_not_like]
 					;
 

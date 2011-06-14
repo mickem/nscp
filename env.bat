@@ -46,7 +46,7 @@ rem # Set the path to your Platform SDK
 rem #
 rem SET PLATTFORM_SDK=D:\Program\Microsoft Platform SDK for Windows Server 2003 R2
 rem SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
-# SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK
+rem # SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK
 SET PLATTFORM_SDK=c:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
 SET PLATTFORM_SDK_61=C:\Program Files\Microsoft SDKs\Windows\v6.1
 rem #
@@ -67,8 +67,8 @@ rem ########################
 rem #
 rem # Set the path to your WiX installation
 rem #
-rem SET WIX_PATH=d:\source\tools\wix-2.0
-SET WIX_PATH=C:\Program Files (x86)\Windows Installer XML\bin
+SET WIX_PATH=D:\source\tools\wix
+rem SET WIX_PATH=C:\Program Files (x86)\Windows Installer XML\bin
 rem #
 rem ########################
 rem #

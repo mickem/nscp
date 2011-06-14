@@ -873,6 +873,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 	bool bPerfData = true;
 	bool use16bit = false;
 	bool useCmdLine = false;
+	bool ignoreState = false;
 	typedef enum {
 		match_string, match_substring, match_regexp
 	} match_type;
@@ -889,6 +890,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_BOOL_TRUE(_T("ignore-state"), ignoreState)
 		MAP_OPTIONS_BOOL_TRUE(_T("cmdLine"), useCmdLine)
 		MAP_OPTIONS_BOOL_TRUE(_T("16bit"), use16bit)
 		MAP_OPTIONS_MODE(_T("match"), _T("string"), match,  match_string)
@@ -987,7 +989,10 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 				}
 			} else {
 				value.count = 0;
-				value.state = checkHolders::state_stopped;
+				if (ignoreState)
+					value.state = checkHolders::state_stopped | checkHolders::state_started | checkHolders::state_hung;
+				else
+					value.state = checkHolders::state_stopped;
 			}
 			if (bFound && (*it).alias.empty()) {
 				(*it).alias = (*proc).first;

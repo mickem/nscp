@@ -799,6 +799,13 @@ namespace checkHolders {
 			magic = magic_;
 		}
 
+		double evaluate_percentage_to_value(double total, double threshold_percentage) {
+			return total*threshold_percentage/100.0;
+		}
+		double evaluate_value_to_percentage(double total, double threshold_percentage) {
+			return 100-(threshold_percentage*100.0/total);
+		}
+
 		std::wstring gatherPerfData(std::wstring alias, TType &value, typename TType::TValueType warn, typename TType::TValueType crit) {
 			unsigned int value_p, warn_p, crit_p;
 			TType::TValueType warn_v, crit_v;
@@ -806,24 +813,24 @@ namespace checkHolders {
 				value_p = static_cast<unsigned int>(value.getUpperPercentage());
 				warn_p = static_cast<unsigned int>(warn);
 				crit_p = static_cast<unsigned int>(crit);
-				warn_v = static_cast<unsigned int>(static_cast<double>(value.total)*static_cast<double>(warn)/100.0);
-				crit_v = static_cast<unsigned int>(value.total*(double(crit)/100));
+				warn_v = evaluate_percentage_to_value(value.total, warn);
+				crit_v = evaluate_percentage_to_value(value.total, crit);
 			} else if (type_ == percentage_lower) {
 				value_p = static_cast<unsigned int>(value.getLowerPercentage());
 				warn_p = static_cast<unsigned int>(warn);
 				crit_p = static_cast<unsigned int>(crit);
-				warn_v = static_cast<unsigned int>(static_cast<double>(value.total)*static_cast<double>(warn)/100.0);
-				crit_v = static_cast<unsigned int>(value.total*(double(crit)/100));
+				warn_v = evaluate_percentage_to_value(value.total, warn);
+				crit_v = evaluate_percentage_to_value(value.total, crit);
 			} else if (type_ == value_upper) {
 				value_p = static_cast<unsigned int>(value.getUpperPercentage());
-				warn_p = static_cast<unsigned int>(100-(warn*100/value.total));
-				crit_p = static_cast<unsigned int>(100-(crit*100/value.total));
+				warn_p = evaluate_value_to_percentage(value.total, warn);
+				crit_p = evaluate_value_to_percentage(value.total, crit);
 				warn_v = static_cast<unsigned int>(warn);
 				crit_v = static_cast<unsigned int>(crit);
 			} else {
 				value_p = static_cast<unsigned int>(value.getLowerPercentage());
-				warn_p = static_cast<unsigned int>(100-(warn*100/value.total));
-				crit_p = static_cast<unsigned int>(100-(crit*100/value.total));
+				warn_p = evaluate_value_to_percentage(value.total, warn);
+				crit_p = evaluate_value_to_percentage(value.total, crit);
 				warn_v = static_cast<unsigned int>(warn);
 				crit_v = static_cast<unsigned int>(crit);
 			}
@@ -960,12 +967,12 @@ namespace checkHolders {
 		}
 		*/
 		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
-			if (state.hasBounds()) {
-				// @todo
-			} else if (max_.hasBounds()) {
+			if (max_.hasBounds()) {
 				return max_.gatherPerfData(alias, value.count, warn.max_.getPerfBound(value.count), crit.max_.getPerfBound(value.count));
 			} else if (min_.hasBounds()) {
 				return min_.gatherPerfData(alias, value.count, warn.min_.getPerfBound(value.count), crit.min_.getPerfBound(value.count));
+			} else if (state.hasBounds()) {
+				return min_.gatherPerfData(alias, value.count, 0, 0);
 			}
 			return _T("");
 		}

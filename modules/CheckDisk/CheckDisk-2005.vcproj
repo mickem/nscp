@@ -1830,6 +1830,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\parsers\eval.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\filter.hpp"
 				>
 			</File>
@@ -1854,11 +1858,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\where_filter.hpp"
-				>
-			</File>
-			<File
-				RelativePath=".\where_filter_impl.hpp"
+				RelativePath="..\..\include\parsers\filter\where_filter_impl.hpp"
 				>
 			</File>
 		</Filter>

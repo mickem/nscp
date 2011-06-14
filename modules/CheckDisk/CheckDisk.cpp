@@ -454,7 +454,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(const unsigned int argLen, TCHAR *
 		//file_finder::get_size sizeFinder;
 		file_helpers::patterns::pattern_type splitpath = file_helpers::patterns::split_pattern(path.data);
 
-		file_filter::filter_argument argument = file_filter::factories::create_argument(splitpath.second, -1, _T(""));
+		file_filter::filter_argument argument = file_filter::factories::create_argument(splitpath.second, -1, _T(""), DATE_FORMAT);
 		file_filter::filter_result result = file_filter::factories::create_result(argument);
 		file_finder::recursive_scan(result, argument, impl, splitpath.first);
 
@@ -593,6 +593,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(const unsigned int argLen, TCHAR
 	std::list<std::wstring> files;
 	unsigned int truncate = 0;
 	std::wstring syntax = _T("%filename%");
+	std::wstring datesyntax = DATE_FORMAT;
 	std::wstring alias;
 	bool bPerfData = true;
 
@@ -632,7 +633,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(const unsigned int argLen, TCHAR
 	//finder.syntax = syntax;
 	for (std::list<std::wstring>::const_iterator pit = files.begin(); pit != files.end(); ++pit) {
 		file_filter::filter_obj info = file_filter::filter_obj::get(nowi64, *pit);
-		checker.alias = info.render(syntax);
+		checker.alias = info.render(syntax, datesyntax);
 		checker.runCheck(info, returnCode, message, perf);
 	}
 	if ((truncate > 0) && (message.length() > (truncate-4))) {
@@ -667,7 +668,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(const unsigned int argLen, TCHAR **ch
 	bool bPerfData = true;
 	bool ignoreError = false;
 
-	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), -1, _T("%filename%"));
+	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), -1, _T("%filename%"), DATE_FORMAT);
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)
@@ -676,6 +677,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(const unsigned int argLen, TCHAR **ch
 			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 			MAP_OPTIONS_STR(_T("syntax"), args->syntax)
+			MAP_OPTIONS_STR(_T("date-syntax"), args->date_syntax)
 			MAP_OPTIONS_STR(_T("master-syntax"), masterSyntax)
 			MAP_OPTIONS_PUSH(_T("path"), paths)
 			MAP_OPTIONS_STR(_T("pattern"), args->pattern)

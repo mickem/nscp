@@ -343,7 +343,7 @@ namespace PDHCollectors {
 			if (!hasValue_)
 				throw PDHException(get_name(), _T("No value has been collected yet"));
 			if ((backItems == 0) || (backItems >= length))
-				throw PDHException(get_name(), _T("Strange error buffer pointers are f*cked up"));
+				throw PDHException(get_name(), _T("buffer to small (or pointers invalid)"));
 			double ret = 0;
 			if (current >= backItems) {
 				// Handle "whole" list.

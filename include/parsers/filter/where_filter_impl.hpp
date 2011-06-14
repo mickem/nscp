@@ -1,6 +1,6 @@
 #pragma once
 #include "where_filter.hpp"
-
+#define DATE_FORMAT _T("%#c")
 
 namespace where_filter {
 
@@ -104,17 +104,18 @@ namespace where_filter {
 		unsigned int match_;
 		std::wstring message_;
 		std::wstring syntax_;
+		std::wstring date_syntax_;
 		bool debug_;
 		boost::shared_ptr<where_filter::error_handler_interface> error_;
 
-		simple_count_result(boost::shared_ptr<argument_interface<record_type> > argument) : count_(0), match_(0), syntax_(argument->syntax), debug_(argument->debug), error_(argument->error) {}
+		simple_count_result(boost::shared_ptr<argument_interface<record_type> > argument) : count_(0), match_(0), syntax_(argument->syntax), date_syntax_(argument->date_syntax), debug_(argument->debug), error_(argument->error) {}
 		void process(record_type &record, bool result) {
 			count_++;
 			if (result) {
 				if (debug_)
-					error_->report_debug(_T("==> Matched: ") + record.render(syntax_));
+					error_->report_debug(_T("==> Matched: ") + record.render(syntax_, DATE_FORMAT));
 						
-				strEx::append_list(message_, record.render(syntax_));
+				strEx::append_list(message_, record.render(syntax_, date_syntax_));
 				/*
 				if (alias.length() < 16)
 					strEx::append_list(alias, info.filename);
@@ -124,7 +125,7 @@ namespace where_filter {
 				match_++;
 			} else {
 				if (debug_)
-					error_->report_debug(_T("==> NO Matched: ") + record.render(syntax_));
+					error_->report_debug(_T("==> NO Matched: ") + record.render(syntax_, DATE_FORMAT));
 			}
 		}
 		unsigned int get_total_count() { return count_; }

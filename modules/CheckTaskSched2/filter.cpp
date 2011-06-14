@@ -172,7 +172,7 @@ tasksched_filter::filter_obj::ast_expr_type tasksched_filter::filter_obj::fun_co
 }
 
 
-std::wstring tasksched_filter::filter_obj::render(std::wstring format) {
+std::wstring tasksched_filter::filter_obj::render(std::wstring format, std::wstring datesyntax) {
  	strEx::replace(format, _T("%title%"), get_title());
 // 	strEx::replace(format, _T("%account%"), get_account_name());
 // 	strEx::replace(format, _T("%application%"), get_application_name());
@@ -198,7 +198,7 @@ std::wstring tasksched_filter::filter_obj::render(std::wstring format) {
 			strEx::replace(format, _T("%most_recent_run_time%"), _T("never"));
 			strEx::replace(format, _T("%most_recent_run_time-raw%"),  _T("never"));
 		} else {
-			strEx::replace(format, _T("%most_recent_run_time%"), strEx::format_date(t));
+			strEx::replace(format, _T("%most_recent_run_time%"), strEx::format_date(t, datesyntax));
 			strEx::replace(format, _T("%most_recent_run_time-raw%"), strEx::itos(t));
 		}
 	}
@@ -272,8 +272,8 @@ struct where_mode_filter : public tasksched_filter::filter_engine_type {
 tasksched_filter::filter_engine tasksched_filter::factories::create_engine(tasksched_filter::filter_argument arg) {
 	return filter_engine(new where_mode_filter(arg));
 }
-tasksched_filter::filter_argument tasksched_filter::factories::create_argument(std::wstring syntax) {
-	return filter_argument(new tasksched_filter::filter_argument_type(tasksched_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax));
+tasksched_filter::filter_argument tasksched_filter::factories::create_argument(std::wstring syntax, std::wstring datesyntax) {
+	return filter_argument(new tasksched_filter::filter_argument_type(tasksched_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax, datesyntax));
 }
 
 tasksched_filter::filter_result tasksched_filter::factories::create_result(tasksched_filter::filter_argument arg) {

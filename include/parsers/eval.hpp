@@ -4,6 +4,8 @@
 
 namespace parsers {
 	namespace where {
+		static bool debug_enabled = false;
+		static int debug_level = 5;
 		namespace operator_impl {
 			template<typename THandler>
 			struct simple_bool_binary_operator_impl : public binary_operator_impl<THandler> {
@@ -94,6 +96,8 @@ namespace parsers {
 			template<typename THandler>
 			struct operator_gt : public simple_bool_binary_operator_impl<THandler> {
 				bool eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					if (debug_enabled && debug_level > 10)
+						std::cout << "(op_gt) " << left.get_int(handler) << " > " << right.get_int(handler) << std::endl;
 					return left.get_int(handler) > right.get_int(handler);
 				}
 				bool eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
@@ -103,9 +107,11 @@ namespace parsers {
 			template<typename THandler>
 			struct operator_lt : public simple_bool_binary_operator_impl<THandler> {
 				bool eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					std::wcout << left.get_int(handler) << _T(" - ") << right.get_int(handler) << std::endl;
 					return left.get_int(handler) < right.get_int(handler);
 				}
 				bool eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
+					std::wcout << left.get_int(handler) << _T(" - ") << right.get_int(handler) << std::endl;
 					return left.get_string(handler) < right.get_string(handler);
 				};
 			};
@@ -151,6 +157,7 @@ namespace parsers {
 			template<typename THandler>
 			struct operator_like : public simple_bool_binary_operator_impl<THandler> {
 				bool eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					handler.error(_T("Like not supported on numbers..."));
 					return false;
 				}
 				bool eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
@@ -166,8 +173,32 @@ namespace parsers {
 				};
 			};
 			template<typename THandler>
+			struct operator_regexp : public simple_bool_binary_operator_impl<THandler> {
+				bool eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					handler.error(_T("Regular expression not supported on numbers..."));
+					return false;
+				}
+				bool eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
+					std::wstring str = left.get_string(handler);
+					std::wstring regexp = right.get_string(handler);
+					if (debug_enabled)
+						std::wcout << _T("(op_regexp) ") << str << _T(" regexp ") << regexp << std::endl;
+					try {
+						boost::wregex re(regexp);
+						return boost::regex_match(str, re);
+					} catch (const boost::bad_expression e) {
+						handler.error(_T("Invalid syntax in regular expression:") + regexp);
+						return false;
+					} catch (...) {
+						handler.error(_T("Invalid syntax in regular expression:") + regexp);
+						return false;
+					}
+				};
+			};
+			template<typename THandler>
 			struct operator_not_like : public simple_bool_binary_operator_impl<THandler> {
 				bool eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
+					handler.error(_T("Not like not supported on numbers..."));
 					return false;
 				}
 				bool eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 
@@ -307,20 +338,19 @@ namespace parsers {
 				}
 
 				inline long long parse_size(long long value, std::wstring unit) const {
-					long long now = constants::get_now();
 					if (unit.empty())
-						return now + value;
+						return value;
 					else if ( (unit == _T("b")) || (unit == _T("B")) )
-						return now + (value);
+						return value;
 					else if ( (unit == _T("k")) || (unit == _T("k")) )
-						return now + (value * 1024);
+						return value * 1024;
 					else if ( (unit == _T("m")) || (unit == _T("M")) )
-						return now + (value * 1024 * 1024);
+						return value * 1024 * 1024;
 					else if ( (unit == _T("g")) || (unit == _T("G")) )
-						return now + (value * 1024 * 1024 * 1024);
+						return value * 1024 * 1024 * 1024;
 					else if ( (unit == _T("t")) || (unit == _T("T")) )
-						return now + (value * 1024 * 1024 * 1024 * 1024);
-					return now + value;
+						return value * 1024 * 1024 * 1024 * 1024;
+					return value;
 				}
 				
 			};
@@ -385,6 +415,10 @@ namespace parsers {
 				return bin_op_type(new operator_impl::operator_like<THandler>());
 			if (op == op_not_like)
 				return bin_op_type(new operator_impl::operator_not_like<THandler>());
+			if (op == op_regexp)
+				return bin_op_type(new operator_impl::operator_regexp<THandler>());
+
+			
 
 			if (op == op_and)
 				return bin_op_type(new operator_impl::operator_and<THandler>());

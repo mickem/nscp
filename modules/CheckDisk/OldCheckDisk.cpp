@@ -19,7 +19,7 @@ NSCAPI::nagiosReturn OldCheckDisk::CheckFile(const unsigned int argLen, TCHAR **
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
-	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), false, _T("%filename%"));
+	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), false, _T("%filename%"), DATE_FORMAT);
 
 	//file_finder::file_filter_function finder;
 	file_finder::PathContainer tmpObject;
@@ -114,7 +114,7 @@ NSCAPI::nagiosReturn OldCheckDisk::CheckFile2(const unsigned int argLen, TCHAR *
 	bool bPerfData = true;
 	bool ignoreError = false;
 
-	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), false, _T("%filename%"));
+	file_filter::filter_argument args = file_filter::factories::create_argument(_T("*.*"), false, _T("%filename%"), DATE_FORMAT);
 
 	try {
 		MAP_OPTIONS_BEGIN(stl_args)

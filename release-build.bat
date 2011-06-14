@@ -20,6 +20,9 @@ call :build_one address-model=64 variant=release debug-symbols=on debug-store=da
 IF DEFINED _ERROR goto :error
 rem call build.bat runtime-link=static variant=release architecture=ia64 --library-path=%TARGET_LIB_IA64_DIR%
 
+build\postbuild.py
+
+
 echo *************
 echo *           *
 echo *    O K    *
