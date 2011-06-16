@@ -1,21 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
-MACRO(copy_single_file src destDir)
-	GET_FILENAME_COMPONENT(TARGET ${src} NAME)
-	SET(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
-	ADD_CUSTOM_COMMAND(OUTPUT ${target_file}
-		DEPENDS ${src}
-		COMMAND cmake 
-		ARGS -E copy ${src} ${target_file}
-		COMMENT Copying ${src} to ${target_file}
-		)
-	#ADD_CUSTOM_TARGET(${TARGET} ALL DEPENDS ${src})
-	#SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "files/scripts")
-	INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX}/${destDir} TYPE EXECUTABLE FILES ${src})")
-ENDMACRO(copy_single_file)
-
-copy_single_file(license.txt .)
-copy_single_file(nrpe_dh_512.pem security)
-copy_single_file(old-settings.map .)
-copy_single_file(counters.defs .)
-#copy_single_file(../changelog .)
+copy_single_file(files license.txt .)
+copy_single_file(files nrpe_dh_512.pem security)
+copy_single_file(files old-settings.map .)
+copy_single_file(files counters.defs .)
+copy_single_file(files ../changelog .)

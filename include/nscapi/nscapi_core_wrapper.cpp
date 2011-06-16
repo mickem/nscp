@@ -67,14 +67,11 @@ void nscapi::core_wrapper::Message(int msgType, std::string file, int line, std:
 	if (fNSAPIMessage) {
 		if ((msgType == NSCAPI::debug) && (!logDebug()))
 			return;
-		LogMessage::Message_Level msgType = ::LogMessage::Message_Level_LOG_WARNING;
-		if (msgType == NSCAPI::warning)
-			msgType = ::LogMessage::Message_Level_LOG_WARNING;
 		std::string str;
 		try {
 			LogMessage::LogMessage message;
 			LogMessage::Message *msg = message.add_message();
-			msg->set_level(msgType);
+			msg->set_level(nscapi::functions::log_to_gpb(msgType));
 			msg->set_file(file);
 			msg->set_line(line);
 			msg->set_message(to_string(logMessage));
@@ -192,7 +189,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring comm
 	NSCAPI::nagiosReturn retC = InjectCommandRAW(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
-		PluginCommand::ResponseMessage rsp_msg;
+		//PluginCommand::ResponseMessage rsp_msg;
 		result = std::string(buffer, buffer_size);
 	}
 

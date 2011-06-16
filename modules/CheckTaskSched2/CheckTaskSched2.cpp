@@ -29,7 +29,7 @@
 #include "filter.hpp"
 
 #include <settings/client/settings_client.hpp>
-
+#include "../CheckTaskSched/settings.hpp"
 
 CheckTaskSched2 gCheckTaskSched2;
 

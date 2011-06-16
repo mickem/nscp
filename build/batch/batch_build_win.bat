@@ -9,8 +9,8 @@ cd %ROOT%\x64
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating x64 
-cmake -G "Visual Studio 8 2005 Win64" ../../trunk
-cmake -G "Visual Studio 8 2005 Win64" ../../trunk
+cmake -D INCREASE_BUILD=1 -G "Visual Studio 8 2005 Win64" ../../trunk
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 8 2005 Win64" ../../trunk
 if %ERRORLEVEL% == 1 goto :error
 
 title Building x64 
@@ -21,12 +21,16 @@ title Packaging x64
 cpack
 if %ERRORLEVEL% == 1 goto :error
 
+title Postbuild x64
+postbuild.py
+if %ERRORLEVEL% == 1 goto :error
+
 cd %ROOT%\w32
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating w32
-cmake -G "Visual Studio 8 2005" ../../trunk
-cmake -G "Visual Studio 8 2005" ../../trunk
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 8 2005" ../../trunk
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 8 2005" ../../trunk
 if %ERRORLEVEL% == 1 goto :error
 
 title Building w32
@@ -36,6 +40,12 @@ if %ERRORLEVEL% == 1 goto :error
 title Packaging w32
 cpack
 if %ERRORLEVEL% == 1 goto :error
+
+title Postbuild w32
+postbuild.py
+if %ERRORLEVEL% == 1 goto :error
+
+title Done!
 
 exit /b 0
 goto :eof

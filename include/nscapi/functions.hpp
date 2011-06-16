@@ -64,6 +64,32 @@ namespace nscapi {
 				return PluginCommand::Response_Code_CRITCAL;
 			return PluginCommand::Response_Code_UNKNOWN;
 		}
+		static LogMessage::Message_Level log_to_gpb(NSCAPI::messageTypes ret) {
+			if (ret == NSCAPI::critical)
+				return ::LogMessage::Message_Level_LOG_CRITICAL;
+			if (ret == NSCAPI::debug)
+				return ::LogMessage::Message_Level_LOG_DEBUG;
+			if (ret == NSCAPI::error)
+				return ::LogMessage::Message_Level_LOG_ERROR;
+			if (ret == NSCAPI::log)
+				return ::LogMessage::Message_Level_LOG_INFO;
+			if (ret == NSCAPI::warning)
+				return ::LogMessage::Message_Level_LOG_WARNING;
+			return ::LogMessage::Message_Level_LOG_ERROR;
+		}
+		static NSCAPI::messageTypes gpb_to_log(LogMessage::Message_Level ret) {
+			if (ret == ::LogMessage::Message_Level_LOG_CRITICAL)
+				return NSCAPI::critical;
+			if (ret == ::LogMessage::Message_Level_LOG_DEBUG)
+				return NSCAPI::debug;
+			if (ret == ::LogMessage::Message_Level_LOG_ERROR)
+				return NSCAPI::error;
+			if (ret == ::LogMessage::Message_Level_LOG_INFO)
+				return NSCAPI::log;
+			if (ret == ::LogMessage::Message_Level_LOG_WARNING)
+				return NSCAPI::warning;
+			return NSCAPI::error;
+		}
 
 		static double trim_to_double(std::wstring s) {
 			std::wstring::size_type pend = s.find_first_not_of(_T("0123456789,."));

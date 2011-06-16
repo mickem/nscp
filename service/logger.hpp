@@ -10,6 +10,7 @@
 #include <strEx.h>
 
 #include "NSCPlugin.h"
+#include <nscapi/functions.hpp>
 
 using namespace nscp::helpers;
 
@@ -140,8 +141,9 @@ namespace nsclient {
 				}
 			}
 
-			std::wstring render_log_level(int l) {
-				switch (l) {
+			std::wstring render_log_level(::LogMessage::Message_Level l) {
+				int code = nscapi::functions::gpb_to_log(l);
+				switch (code) {
 					case NSCAPI::critical:
 						return _T("c");
 					case NSCAPI::warning:
@@ -156,6 +158,16 @@ namespace nsclient {
 						return _T("?");
 				}
 			}
+			std::wstring rpad(std::wstring str, int len) {
+				if (str.length() > len)
+					return str.substr(str.length()-len);
+				return std::wstring(len-str.length(), L' ') + str;
+			}
+			std::wstring lpad(std::wstring str, int len) {
+				if (str.length() > len)
+					return str.substr(0, len);
+				return str + std::wstring(len-str.length(), L' ');
+			}
 
 			std::wstring render_console_message(std::string data) {
 				std::wstring str;
@@ -169,7 +181,7 @@ namespace nsclient {
 						LogMessage::Message msg = message.message(i);
 						if (!str.empty())
 							str += _T(" -- ");
-						str += render_log_level(msg.level()) + _T(" ") + to_wstring(msg.file()) + _T(":") + to_wstring(msg.line()) + _T(" ") + to_wstring(msg.message());
+						str += render_log_level(msg.level()) + _T(" ") + rpad(to_wstring(msg.file()), 40) + _T(":") + lpad(to_wstring(msg.line()),4) + _T(" ") + to_wstring(msg.message());
 					}
 					return str;
 				} catch (std::exception &e) {

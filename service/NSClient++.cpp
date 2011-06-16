@@ -42,6 +42,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include "cli_parser.hpp"
+#include "../version.hpp"
 
 #include "../libs/protobuf/plugin.proto.h"
 
@@ -52,6 +53,24 @@ static ExceptionManager *g_exception_manager = NULL;
 #endif
 
 NSClient mainClient;	// Global core instance.
+
+
+void NSClientT::log_debug(const char* file, const int line, std::wstring message) {
+	std::string s = nsclient::logger_helper::create_debug(file, line, message);
+	mainClient.reportMessage(s);
+}
+void NSClientT::log_error(const char* file, const int line, std::wstring message) {
+	std::string s = nsclient::logger_helper::create_error(file, line, message);
+	mainClient.reportMessage(s);
+}
+void NSClientT::log_error(const char* file, const int line, std::string message) {
+	std::string s = nsclient::logger_helper::create_error(file, line, utf8::cvt<std::wstring>(message));
+	mainClient.reportMessage(s);
+}
+void NSClientT::log_info(const char* file, const int line, std::wstring message) {
+	std::string s = nsclient::logger_helper::create_info(file, line, message);
+	mainClient.reportMessage(s);
+}
 
 #define LOG_CRITICAL_CORE(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::wstring(msg))
@@ -1044,6 +1063,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 		}
 
 		PluginCommand::ResponseMessage rsp_msg;
+
 		rsp_msg.ParseFromString(response);
 		if (rsp_msg.payload_size() != 1) {
 			LOG_ERROR_CORE_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
@@ -1123,7 +1143,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const w
 		return NSCAPI::hasFailed;
 	}
 	try {
-		LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
+		//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
 		bool found = false;
 		BOOST_FOREACH(nsclient::channels::plugin_type p, channels_.get(channel)) {
 			p->handleNotification(channel, command, code, result, result_len);
@@ -1163,20 +1183,20 @@ void NSClientT::listPlugins() {
 }
 
 bool NSClientT::logDebug() {
-	if (debug_ == log_unknown) {
-		debug_ = log_looking;
+	if (debug_ == log_state_unknown) {
+		debug_ = log_state_looking;
 		try {
 			if (settings_manager::get_settings_no_wait()->get_bool(_T("log"), _T("debug"), false) == 1)
-				debug_ = log_debug;
+				debug_ = log_state_debug;
 			else
-				debug_ = log_nodebug;
+				debug_ = log_state_nodebug;
 		} catch (settings::settings_exception e) {
-			debug_ = log_unknown;
+			debug_ = log_state_unknown;
 			return false;
 		}
-	} else if (debug_ == log_looking) 
+	} else if (debug_ == log_state_looking) 
 		return false;
-	return (debug_ == log_debug);
+	return (debug_ == log_state_debug);
 }
 
 /**

@@ -251,9 +251,14 @@ NSCAPI::nagiosReturn nscapi::impl::SimpleCommand::handleRAWCommand(const wchar_t
 NSCAPI::nagiosReturn nscapi::impl::SimpleNotificationHandler::handleRAWNotification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, std::string result) {
 	try {
 		PluginCommand::ResponseMessage message;
+		if (result.size() == 0) {
+			nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, _T("Return data is empty cant parse response!"));
+			return NSCAPI::returnUNKNOWN;
+		}
 		message.ParseFromString(result);
 		if (message.payload_size() != 1) {
-			//NSC_LOG_ERROR_STD(_T("Unsupported payload size: ") + to_wstring(request_message.payload_size()));
+			nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, _T("Unsupported payload size: ") + to_wstring(message.payload_size()));
+			//NSC_LOG_ERROR_STD();
 			return NSCAPI::returnIgnored;
 		}
 
@@ -265,12 +270,11 @@ NSCAPI::nagiosReturn nscapi::impl::SimpleNotificationHandler::handleRAWNotificat
 		}
 		std::wstring msg = utf8::cvt<std::wstring>(payload.message());
 		std::wstring perf = utf8::cvt<std::wstring>(::nscapi::functions::build_performance_data(payload));
-		NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, command, code, msg, perf);
+		return handleSimpleNotification(channel, command, code, msg, perf);
 	} catch (std::exception &e) {
-		std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << e.what() <<  std::endl;;
+		nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(result) + ": " + e.what()));
 	} catch (...) {
-		std::cout << "Failed to parse data from: " << strEx::strip_hex(result) << std::endl;;
+		nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(result)));
 	}
-
-	return -1;
+	return NSCAPI::returnUNKNOWN;
 }

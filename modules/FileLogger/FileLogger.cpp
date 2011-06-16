@@ -42,6 +42,28 @@ FileLogger::FileLogger() : init_(false) {
 }
 FileLogger::~FileLogger() {
 }
+namespace setting_keys {
+
+	namespace log {
+		DEFINE_PATH(SECTION, LOG_SECTION);
+		//DESCRIBE_SETTING_ADVANCED(SECTION, "LOG SECTION", "Configure loggning properties.");
+
+		DEFINE_SETTING_S(FILENAME, LOG_SECTION, "file", "nsclient.log");
+		//DESCRIBE_SETTING_ADVANCED(FILENAME, "SYNTAX", "The file to write log data to. If no directory is used this is relative to the NSClient++ binary.");
+
+		DEFINE_SETTING_S(ROOT, LOG_SECTION, "root", "auto");
+		//DESCRIBE_SETTING_ADVANCED(ROOT, "TODO", "TODO");
+
+		DEFINE_SETTING_S(DATEMASK, LOG_SECTION, "date format", "%Y-%m-%d %H:%M:%S");
+		//DESCRIBE_SETTING_ADVANCED(DATEMASK, "DATEMASK", "The date format used when logging to a file.");
+
+		DEFINE_SETTING_S(LOG_MASK, LOG_SECTION, "log mask", "normal");
+		//DESCRIBE_SETTING_ADVANCED(LOG_MASK, "LOG MASK", "The log mask information, error, warning, critical, debug");
+
+		DEFINE_SETTING_B(DEBUG_LOG, LOG_SECTION, "debug", false);
+		//DESCRIBE_SETTING_ADVANCED(DEBUG_LOG, "DEBUG LOGGING", "Enable debug logging can help track down errors and find problems but will impact overall perfoamnce negativly.");
+	}
+}
 
 #ifdef WIN32
 #ifndef CSIDL_COMMON_APPDATA 

@@ -20,7 +20,7 @@
 #include "stdafx.h"
 #include "PDHCollector.h"
 #include <sysinfo.h>
-
+#include "settings.hpp"
 
 PDHCollector::PDHCollector() : hStopEvent_(NULL)/*, data_(NULL)*/ {
 	std::wstring subsystem = SETTINGS_GET_STRING(check_system::PDH_SUBSYSTEM);

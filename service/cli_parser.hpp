@@ -68,8 +68,8 @@ public:
 			po::notify(vm);
 
 			if (vm.count("debug")) {
-				std::wcout << _T("Enabling debug mode")<<std::endl;
 				core_->enableDebug(true);
+				core_->log_debug(__FILE__, __LINE__, _T("Enabling debug mode"));
 			}
 
 
@@ -101,10 +101,10 @@ public:
 				return 1;
 			}
 		} catch(std::exception & e) {
-			std::cerr << "Unable to parse command line: " << e.what() << std::endl;
+			core_->log_error(__FILE__, __LINE__, std::string("Unable to parse command line: ") + e.what());
 			return 1;
 		} catch (...) {
-			std::cerr << "Unhanded Exception" << std::endl;
+			core_->log_error(__FILE__, __LINE__, "Unhanded Exception");
 			return 1;
 		}
 		return 0;
@@ -171,7 +171,7 @@ public:
 
 			return ret;
 		} catch(std::exception & e) {
-			std::cerr << "Unable to parse command line (settings): " << e.what() << std::endl;
+			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
 			return 1;
 		}
 	}
@@ -192,24 +192,23 @@ public:
 			}
 			bool debug = false;
 			if (vm.count("debug")) {
-				std::wcout << _T("----");
 				debug = true;
 			}
 			std::wstring name;
 			if (vm.count("name")) {
 				name = vm["name"].as<std::wstring>();
 			} else {
-				std::wcout << _T("TODO retrieve name from service here") << std::endl;
+				mainClient.log_info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
 			}
 			std::wstring desc;
 			if (vm.count("description")) {
 				desc = vm["description"].as<std::wstring>();
 			} else {
-				std::wcout << _T("TODO retrieve name from service here") << std::endl;
+				mainClient.log_info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
 			}
 			if (debug) {
-				std::wcout << _T("Service name: ") << name << std::endl;
-				std::wcout << _T("Service description: ") << desc << std::endl;
+				mainClient.log_info(__FILE__, __LINE__, _T("Service name: ") + name);
+				mainClient.log_info(__FILE__, __LINE__, _T("Service description: ") + desc);
 			}
 
 			if (vm.count("run")) {
@@ -217,7 +216,7 @@ public:
 					mainClient.enableDebug(true);
 					mainClient.start_and_wait(name);
 				} catch (...) {
-					std::wcerr << _T("Unknown exception in service") << std::endl;
+					mainClient.log_error(__FILE__, __LINE__, _T("Unknown exception in service"));
 				}
 			} else {
 				mainClient.set_console_log();
@@ -240,7 +239,7 @@ public:
 			}
 			return 0;
 		} catch(std::exception & e) {
-			std::cerr << "Unable to parse command line (settings): " << e.what() << std::endl;
+			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
 			return 1;
 		}
 	}

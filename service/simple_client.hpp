@@ -15,15 +15,15 @@ namespace nsclient {
 		void start() {
 			core_->enableDebug(true);
 			if (!core_->initCore(true)) {
-				std::wcout << _T("Service *NOT* started!") << std::endl;
+				core_->log_error(__FILE__, __LINE__, _T("Service failed to start"));
 				return;
 			}
 
 			if (core_->get_service_control().is_started())
-				std::wcerr << "Service seems to be started (Sockets and such will probably not work)..." << std::endl;
+				core_->log_info(__FILE__, __LINE__, _T("Service seems to be started (Sockets and such will probably not work)..."));
 
 			//std::wcout << _T("Using settings from: ") << settings_manager::get_core()->get_settings_type_desc() << std::endl;
-			std::wcout << _T("Enter command to inject or exit to terminate...") << std::endl;
+			core_->log_info(__FILE__, __LINE__, _T("Enter command to inject or exit to terminate..."));
 /*
 			Settings::get_settings()->clear_cache();
 			LOG_MESSAGE_STD( _T("test 001: ") + SETTINGS_GET_STRING(NSCLIENT_TEST1) );
@@ -39,25 +39,25 @@ namespace nsclient {
 				std::wstring s;
 				std::getline(std::wcin, s);
 				if (s == _T("exit")) {
-					std::wcout << _T("Exiting...") << std::endl;
+					log(_T("Exiting..."));
 					break;
 				} else if (s == _T("plugins")) {
-					std::wcout << _T("Listing plugins...") << std::endl;
+					log(_T("Listing plugins..."));
 					core_->listPlugins();
 				} else if (s == _T("list")) {
-					std::wcout << _T("Listing commands...") << std::endl;
+					log(_T("Listing commands..."));
 					std::list<std::wstring> lst = core_->list_commands();
 					for (std::list<std::wstring>::const_iterator cit = lst.begin(); cit!=lst.end();++cit)
 						std::wcout << *cit << _T(": ") << core_->describeCommand(*cit) << std::endl;
-					std::wcout << _T("Listing commands...Done") << std::endl;
+					log(_T("Listing commands...Done"));
 				} else if (s == _T("debug off")) {
-					std::wcout << _T("Setting debug log off...") << std::endl;
+					log(_T("Setting debug log off..."));
 					core_->enableDebug(false);
 				} else if (s == _T("debug on")) {
-					std::wcout << _T("Setting debug log on...") << std::endl;
+					log(_T("Setting debug log on..."));
 					core_->enableDebug(true);
 				} else if (s == _T("reattach")) {
-					std::wcout << _T("Reattaching to session 0") << std::endl;
+					log(_T("Reattaching to session 0"));
 					core_->startTrayIcon(0);
 				} else if (s == _T("assert")) {
 					int *foo = 0;

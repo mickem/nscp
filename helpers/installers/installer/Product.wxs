@@ -10,7 +10,7 @@
 		<?define Postfix.GUID = "DD5862EE637B" ?>
 		<?define ProgramFiles = "ProgramFilesFolder" ?>
 		<?define Win64 = "no" ?>
-		<?define Plattform = "Intel" ?>
+		<?define Plattform = "x86" ?>
 	<?endif?>
 
 	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
@@ -239,6 +239,6 @@
 
 		<!-- ### Icons -->
 		<Icon Id="nscp.exe" SourceFile="$(var.Source)/nscp.exe" />
-		<Icon Id="doc.ico" SourceFile="$(var.Source)/res/help.ico"/>
+		<Icon Id="doc.ico" SourceFile="../../../resources/help.ico"/>
 	</Product>
 </Wix>

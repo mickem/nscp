@@ -813,7 +813,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring command, st
 				DWORD err = GetLastError();
 				if (err == ERROR_INSUFFICIENT_BUFFER) {
 					if (!buffer_error_reported) {
-						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of ") + setting_keys::event_log::BUFFER_SIZE_PATH + _T("=") + strEx::itos(dwNeeded+1) + _T(": ") + error::lookup::last_error(err));
+						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of buffer_length=") + strEx::itos(dwNeeded+1) + _T(": ") + error::lookup::last_error(err));
 						buffer_error_reported = true;
 					}
 				} else if (err == ERROR_HANDLE_EOF) {

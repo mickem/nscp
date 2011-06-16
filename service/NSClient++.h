@@ -95,7 +95,7 @@ private:
 
 	//boost::shared_mutex m_mutexRWcmdDescriptions;
 	//cmdMap cmdDescriptions_;
-	enum log_status {log_unknown, log_looking, log_debug, log_nodebug };
+	enum log_status {log_state_unknown, log_state_looking, log_state_debug, log_state_nodebug };
 	log_status debug_;
 	std::wstring context_;
 #ifdef WIN32
@@ -116,15 +116,15 @@ private:
 public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_unknown), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
+	NSClientT(void) : debug_(log_state_unknown), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
 		logger_master_.start_slave();
 	}
 	virtual ~NSClientT(void) {}
 	void enableDebug(bool debug = true) {
 		if (debug)
-			debug_ = log_debug;
+			debug_ = log_state_debug;
 		else
-			debug_ = log_nodebug;
+			debug_ = log_state_nodebug;
 	}
 
 	// Service helper functions
@@ -144,10 +144,12 @@ public:
 
 	// Service API
 	static NSClient* get_global_instance();
+	/*
 	void handle_error(unsigned int line, const char *file, std::wstring message) {
 		std::string s = nsclient::logger_helper::create_error(file, line, message);
 		reportMessage(s.c_str());
 	}
+	*/
 	void handle_startup(std::wstring service_name);
 	void handle_shutdown(std::wstring service_name);
 #ifdef _WIN32
@@ -220,6 +222,12 @@ public:
 
 	public:
 		void load_all_plugins(int mode);
+
+		static void log_debug(const char* file, const int line, std::wstring message);
+		static void log_error(const char* file, const int line, std::wstring message);
+		static void log_error(const char* file, const int line, std::string message);
+		static void log_info(const char* file, const int line, std::wstring message);
+
 
 
 	private:

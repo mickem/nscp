@@ -15,7 +15,7 @@ IF(WIN32)
 		SET(INC_NSCP_LIBRARYDIR D:/source/lib/x86)
 	ENDIF()
 
-	SET(INC_GOOGLE_BREAKPAD_DIR "D:/source/google-breakpad-svn")
+	SET(INC_GOOGLE_BREAKPAD_DIR "D:/source/libraries/google-breakpad-svn")
 		
 	SET(INC_BOOST_INCLUDEDIR "${INC_NSCP_INCLUDEDIR}")
 	SET(INC_BOOST_LIBRARYDIR "${INC_NSCP_LIBRARYDIR}")
@@ -28,6 +28,8 @@ IF(WIN32)
 	SET(INC_CRYPTOPP_DIR "D:/source/libraries/crypto++-5.6.1")
 
 	SET(INC_LUA_DIR "D:/source/libraries/lua-5.1.4")
+	
+	SET(ARCHIVE_FOLDER "D:/archive")
 
 ELSE(WIN32)
 

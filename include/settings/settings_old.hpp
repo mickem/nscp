@@ -23,8 +23,8 @@ namespace settings {
 		class settings_map : boost::noncopyable {
 		public:
 
-			typedef std::map<std::wstring,std::wstring> path_map;
-			typedef std::map<settings_core::key_path_type,settings_core::key_path_type> key_map;
+			typedef std::multimap<std::wstring,std::wstring> path_map;
+			typedef std::multimap<settings_core::key_path_type,settings_core::key_path_type> key_map;
 			typedef std::pair<std::wstring,std::wstring> section_key_type;
 			typedef std::pair<settings_core::key_path_type,settings_core::key_path_type> keys_key_type;
 
@@ -87,12 +87,12 @@ namespace settings {
 			}
 
 			void add(std::wstring path_new, std::wstring path_old) {
-				sections_[path_new] = path_old;
+				sections_.insert(path_map::value_type(path_new, path_old));
 			}
 			void add(std::wstring path_new, std::wstring key_new, std::wstring path_old, std::wstring key_old) {
 				settings_core::key_path_type new_key(path_new, key_new);
 				settings_core::key_path_type old_key(path_old, key_old);
-				keys_[new_key] = old_key;
+				keys_.insert(key_map::value_type(new_key, old_key));
 			}
 			std::wstring path(std::wstring path_new) {
 				path_map::iterator it = sections_.find(path_new);

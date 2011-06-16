@@ -6,4 +6,4 @@ MACRO(copy_single_file src destDir)
 ENDMACRO(copy_single_file)
 
 MESSAGE(STATUS "Copying resources:")
-copy_single_file(help.ico ${CMAKE_BINARY_DIR}/res)
+copy_single_file(icons help.ico ${CMAKE_BINARY_DIR}/res)

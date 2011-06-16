@@ -193,7 +193,8 @@ if (WIN32)
 			ADD_CUSTOM_COMMAND(
 				OUTPUT    ${_target}
 				COMMAND   ${WIX_LIGHT}
-				ARGS      ${WIX_LINK_FLAGS_A} 
+				ARGS      ${WIX_LINK_FLAGS_A}
+							-b ${CMAKE_CURRENT_SOURCE_DIR}
 							-ext WixUIExtension 
 							-ext WixFirewallExtension 
 							-ext WixUtilExtension 
@@ -223,9 +224,11 @@ if (WIN32)
     MACRO(ADD_WIX_INSTALLER	_target _sources _dependencies _loc_files)
 		SET(WIX_OBJ_LIST)
 		WIX_COMPILE("${_sources}" WIX_OBJ_LIST "${_dependencies}")
-		WIX_LINK(${_target}.msi WIX_OBJ_LIST "${_loc_files}")
-		ADD_CUSTOM_TARGET(${_target} 
-			DEPENDS ${_target}.msi
+		SET(TNAME "${_target}-${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}-${VERSION_ARCH}.msi")
+		WIX_LINK(${TNAME} WIX_OBJ_LIST "${_loc_files}")
+		ADD_CUSTOM_TARGET(${_target}_installer 
+			ALL
+			DEPENDS ${TNAME}
 			SOURCES ${_sources}
 			)
     ENDMACRO(ADD_WIX_INSTALLER)

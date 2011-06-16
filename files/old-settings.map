@@ -12,6 +12,7 @@ modules/CheckWMI.dll=/modules/CheckWMI
 modules/CheckNSCP.dll=/modules/CheckNSCP
 modules/CheckExternalScripts.dll=/modules/CheckExternalScripts
 modules/NSCAAgent.dll=/modules/NSCAAgent
+modules/NSCAAgent.dll=/modules/Scheduler
 modules/LUAScript.dll=/modules/LUAScript
 modules/NRPEClient.dll=/modules/NRPEClient
 modules/CheckTaskSched.dll=/modules/CheckTaskSched

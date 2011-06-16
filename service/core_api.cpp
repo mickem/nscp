@@ -17,6 +17,7 @@
 #include "core_api.h"
 #include <charEx.h>
 #include <config.h>
+#include "../version.hpp"
 #include <arrayBuffer.h>
 #include <settings/settings_core.hpp>
 #include "../helpers/settings_manager/settings_manager_impl.h"

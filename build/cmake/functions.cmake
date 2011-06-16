@@ -17,3 +17,26 @@ MACRO(LOAD_SECTIONS _TARGET_LIST _path _title)
 		ENDIF(BUILD_MODULE)
 	ENDFOREACH(_CURRENT_MODULE ${TMP_LIST})
 ENDMACRO(LOAD_SECTIONS)
+
+
+MACRO(copy_single_file alias src destDir)
+	GET_FILENAME_COMPONENT(TARGET ${src} NAME)
+	SET(source_file ${CMAKE_CURRENT_SOURCE_DIR}/${src})
+	IF(${destDir} STREQUAL ".")
+		SET(target_file ${CMAKE_BINARY_DIR}/${TARGET})
+	ELSE(${destDir} STREQUAL ".")
+		SET(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
+	ENDIF(${destDir} STREQUAL ".")
+	#message(STATUS " - Copying ${source_file} to ${target_file}...")
+	ADD_CUSTOM_COMMAND(OUTPUT ${target_file}
+		DEPENDS ${source_file}
+		COMMAND cmake 
+		ARGS -E copy "${source_file}" "${target_file}"
+		OUTPUT ${target_file}
+		COMMENT Copying ${source_file} to ${target_file}
+		)
+	ADD_CUSTOM_TARGET(${TARGET}_${alias} ALL DEPENDS ${target_file})
+	SET_TARGET_PROPERTIES(${TARGET}_${alias} PROPERTIES FOLDER "files/${alias}")
+	INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX}/${destDir} TYPE EXECUTABLE FILES \"${source_file}\")")
+ENDMACRO(copy_single_file)
+
