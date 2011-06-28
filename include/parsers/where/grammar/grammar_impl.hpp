@@ -96,7 +96,7 @@ namespace parsers {
 		//  Our calculator grammar
 		///////////////////////////////////////////////////////////////////////////
 		template <typename THandler, typename Iterator>
-		where_grammar<THandler, Iterator>::where_grammar() : where_grammar<THandler, Iterator>::base_type(expression) {
+		where_grammar<THandler, Iterator>::where_grammar() : where_grammar<THandler, Iterator>::base_type(expression, "where") {
 			using qi::_val;
 			using qi::uint_;
 			using qi::_1;
@@ -113,29 +113,29 @@ namespace parsers {
 
 			expression	
 					= and_expr											[_val = _1]
-						>> *("OR" >> and_expr)							[_val |= _1]
+						>> *(ascii::no_case["or"] >> and_expr)			[_val |= _1]
 					;
 			and_expr
 					= not_expr 											[_val = _1]
-						>> *("AND" >> cond_expr)						[_val &= _1]
+						>> *(ascii::no_case["and"] >> not_expr)			[_val &= _1]
 					;
 			not_expr
 					= cond_expr 										[_val = _1]
-						>> *("NOT" >> cond_expr)						[_val != _1]
+						>> *(ascii::no_case["not"] >> cond_expr)		[_val != _1]
 					;
 
 			cond_expr
 					= (identifier_expr >> op >> identifier_expr)		[_val = build_e(_1, _2, _3) ]
-					| (identifier_expr >> "NOT IN" 
+					| (identifier_expr >> ascii::no_case["not in"] 
 						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_nin, _2) ]
-					| (identifier_expr >> "IN" 
+					| (identifier_expr >> ascii::no_case["in"] 
 						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_in, _2) ]
-					| ('(' >> identifier_expr >> ')')					[_val = _1 ]
+						| ('(' >> expression >> ')')					[_val = _1 ]
 					;
 
 			identifier_expr
  					= (identifier >> bitop >> identifier)				[_val = build_e(_1, _2, _3) ]
- 					| ('(' >> identifier >> bitop >> identifier >> ')')	[_val = build_e(_1, _2, _3) ]
+					| ('(' >> identifier >> bitop >> identifier >> ')')	[_val = build_e(_1, _2, _3) ]
 					| identifier										[_val = _1 ]
 					;
 
@@ -173,15 +173,15 @@ namespace parsers {
 					| qi::lit("!=")										[_val = op_ne]
 					| qi::lit(">=")										[_val = op_ge]
 					| qi::lit(">")										[_val = op_gt]
-					| qi::lit("le")										[_val = op_le]
-					| qi::lit("lt")										[_val = op_le]
-					| qi::lit("eq")										[_val = op_eq]
-					| qi::lit("ne")										[_val = op_ne]
-					| qi::lit("ge")										[_val = op_ge]
-					| qi::lit("gt")										[_val = op_gt]
-					| qi::lit("like")									[_val = op_like]
-					| qi::lit("regexp")									[_val = op_regexp]
-					| qi::lit("not like")								[_val = op_not_like]
+					| ascii::no_case[qi::lit("le")]						[_val = op_le]
+					| ascii::no_case[qi::lit("lt")]						[_val = op_le]
+					| ascii::no_case[qi::lit("eq")]						[_val = op_eq]
+					| ascii::no_case[qi::lit("ne")]						[_val = op_ne]
+					| ascii::no_case[qi::lit("ge")]						[_val = op_ge]
+					| ascii::no_case[qi::lit("gt")]						[_val = op_gt]
+					| ascii::no_case[qi::lit("like")]					[_val = op_like]
+					| ascii::no_case[qi::lit("regexp")]					[_val = op_regexp]
+					| ascii::no_case[qi::lit("not like")]				[_val = op_not_like]
 					;
 
 			bitop 	= qi::lit("&")										[_val = op_binand]
@@ -205,22 +205,17 @@ namespace parsers {
 							>> ')'] 
 					;
 
-// 					qi::on_error<qi::fail>( expression , std::wcout
-// 						<< phoenix::val(_T("Error! Expecting "))
-// 						<< _4                               // what failed?
-// 						<< phoenix::val(_T(" here: \""))
-// 						<< phoenix::construct<std::wstring>(_3, _2)   // iterators to error-pos, end
-// 						<< phoenix::val(_T("\""))
-// 						<< std::endl
-//);
-// 					qi::on_error<qi::fail>( expression , std::cout
-// 						<< phoenix::val("Error! Expecting ")
-// 						<< _4                               // what failed?
-// 						<< phoenix::val(" here: \"")
-// 						<< phoenix::construct<std::string>(_3, _2)   // iterators to error-pos, end
-// 						<< phoenix::val("\"")
-// 						<< std::endl
-// 						);
+//  					qi::on_error<qi::fail>( expression , std::wcout
+//  						<< phoenix::val(_T("Error! Expecting "))
+//  						<< _4                               // what failed?
+//  						<< phoenix::val(_T(" here: \""))
+//  						<< phoenix::construct<std::wstring>(_3, _2)   // iterators to error-pos, end
+//  						<< phoenix::val(_T("\""))
+//  						<< std::endl
+// 					);
+
+					using phoenix::val;
+					qi::on_error<qi::fail>( expression , std::cout << val("Error! Expecting ") << std::endl );
 
 			//				<< ("Error! Expecting ")
 			//				<< _4                               // what failed?

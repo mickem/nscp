@@ -81,6 +81,7 @@ public:
 	};
 
 	struct CProcessEntry {
+		CProcessEntry() : hung(false), dwPID(0) {}
 		std::wstring filename;
 		std::wstring command_line;
 		DWORD  dwPID;

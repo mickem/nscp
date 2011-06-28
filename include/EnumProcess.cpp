@@ -166,8 +166,15 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 				entry = describe_pid(dwPIDs[i], expand_command_line);
 			} catch (process_enumeration_exception &e) {
 				if (error_interface!=NULL)
-					error_interface->report_warning(e.what());
-				entry = describe_pid(dwPIDs[i], false);
+					error_interface->report_debug(e.what());
+				if (expand_command_line) {
+					try {
+						entry = describe_pid(dwPIDs[i], false);
+					} catch (process_enumeration_exception &e) {
+						if (error_interface!=NULL)
+							error_interface->report_debug(e.what());
+					}
+				}
 			}
 // 			if (error_interface!=NULL)
 // 				error_interface->report_debug_exit(_T("describe_pid"));
