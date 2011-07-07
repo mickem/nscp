@@ -6,7 +6,11 @@ TODO:
  * Fix depend onservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2011-06-27 MickeM
+2011-06-28 MickeM - 0.3.9 rc5
+ * CheckDisk: Fixed time comparissons for files
+ * where filters: Fixed le beeing interpreted as lt
+
+2011-06-27 MickeM - 0.3.9 rc4
  * Fixed issue where parsers and () which was broken
  * Made most keywords in the where parser case insensitive so NOT and not as well as AND and AnD should now all work
  * Changed so unredable processes are debug messages (as modern windows usualy always has a few)

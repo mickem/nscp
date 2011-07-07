@@ -311,8 +311,6 @@ file_filter::file_finder_data_arguments::file_finder_data_arguments(std::wstring
 	FILETIME ft_now;
 	GetSystemTimeAsFileTime(&ft_now);
 	now = ((ft_now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)ft_now.dwLowDateTime);
-	std::cout << "NOW: " << now << std::endl;
-	//this->set_result(parent_type::result_type(new where_filter::simple_count_result<file_info>(this)));
 }
 
 //////////////////////////////////////////////////////////////////////////

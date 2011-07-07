@@ -712,7 +712,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(const unsigned int argLen, TCHAR **ch
 	if (!impl->validate(message))
 		return NSCAPI::returnUNKNOWN;
 	if (args->debug)
-		NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(args->now));
+		NSC_DEBUG_MSG_STD(_T("xNOW: ") + strEx::format_filetime(args->now));
 
 	file_filter::filter_result result = file_filter::factories::create_result(args);
 	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {

@@ -5,7 +5,7 @@
 namespace parsers {
 	namespace where {
 		static bool debug_enabled = false;
-		static int debug_level = 5;
+		static int debug_level = 15;
 		namespace operator_impl {
 			template<typename THandler>
 			struct simple_bool_binary_operator_impl : public binary_operator_impl<THandler> {
@@ -107,7 +107,8 @@ namespace parsers {
 			template<typename THandler>
 			struct operator_lt : public simple_bool_binary_operator_impl<THandler> {
 				bool eval_int(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const {
-					std::wcout << left.get_int(handler) << _T(" - ") << right.get_int(handler) << std::endl;
+					if (debug_enabled && debug_level > 10)
+						std::cout << "(op_lt) " << left.get_int(handler) << " < " << right.get_int(handler) << std::endl;
 					return left.get_int(handler) < right.get_int(handler);
 				}
 				bool eval_string(value_type type, typename THandler::object_type &handler, const expression_ast<THandler> &left, const expression_ast<THandler> & right) const { 

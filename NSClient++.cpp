@@ -1222,7 +1222,7 @@ void NSClientT::enableDebug(bool debug) {
 
 void log_broken_message(std::wstring msg) {
 	OutputDebugString(msg.c_str());
-	std::wcout << msg << std::endl;
+	std::wcout << "broken: " << msg << std::endl;
 }
 /**
  * Report a message to all logging enabled modules.

@@ -7,6 +7,9 @@ if len(sys.argv) == 1:
 elif len(sys.argv) == 2:
 	rc = sys.argv[1]
 
+if rc == "--release":
+	rc = ""
+
 	
 def rename_path(path):
 	l = [(os.path.getmtime('%s/%s'%(path, x) ), x) for x in os.listdir(path)]
@@ -20,7 +23,10 @@ def rename_path(path):
 		if not key in found:
 			found.append(key)
 			src ='%s/%s'%(path, name)
-			tgt = '%s/%s-%s-%s-%s.%s'%(path, names[0], names[1], names[2], rc, ext)
+			if rc:
+				tgt = '%s/%s-%s-%s-%s.%s'%(path, names[0], names[1], names[2], rc, ext)
+			else:
+				tgt = '%s/%s-%s-%s.%s'%(path, names[0], names[1], names[2], ext)
 			if os.path.exists(tgt):
 				print 'ERR: File already exists: %s'%tgt
 			else:

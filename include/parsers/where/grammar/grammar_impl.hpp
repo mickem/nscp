@@ -174,7 +174,7 @@ namespace parsers {
 					| qi::lit(">=")										[_val = op_ge]
 					| qi::lit(">")										[_val = op_gt]
 					| ascii::no_case[qi::lit("le")]						[_val = op_le]
-					| ascii::no_case[qi::lit("lt")]						[_val = op_le]
+					| ascii::no_case[qi::lit("lt")]						[_val = op_lt]
 					| ascii::no_case[qi::lit("eq")]						[_val = op_eq]
 					| ascii::no_case[qi::lit("ne")]						[_val = op_ne]
 					| ascii::no_case[qi::lit("ge")]						[_val = op_ge]

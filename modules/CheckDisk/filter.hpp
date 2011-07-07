@@ -57,15 +57,18 @@ namespace file_filter {
 		//long long get_creation();
 		//long long get_write();
 
-		__int64 get_creation() {
-			std::cout << ullNow << " ? " << ullCreationTime << " => " << ullNow-ullCreationTime << " (" << (ullNow-ullCreationTime)/MSECS_TO_100NS << ")" << std::endl;
+		long long get_creation() {
 			return (ullNow-ullCreationTime)/MSECS_TO_100NS;
 		}
-		__int64 get_access() {
+		long long get_access() {
 			return (ullNow-ullLastAccessTime)/MSECS_TO_100NS;
 		}
-		__int64 get_write() {
-			return (ullNow-ullLastWriteTime)/MSECS_TO_100NS;
+		long long get_write() {
+			//std::wcout << _T("written: ") << (ullNow-ullLastWriteTime)/MSECS_TO_100NS;
+			//return (ullNow-ullLastWriteTime)/MSECS_TO_100NS;
+			return strEx::filetime_to_time(ullLastWriteTime);
+			//return ullLastWriteTime / windows_tick - sec_to_unix_epoch;
+			//return ullLastWriteTime/MSECS_TO_100NS;
 		}
 		unsigned long long get_size() { return ullSize; }
 		std::wstring render(std::wstring syntax, std::wstring datesyntax);
@@ -124,6 +127,8 @@ namespace file_filter {
 		DWORD attributes;
 
 		static const __int64 MSECS_TO_100NS = 10000;
+		static const long long windows_tick = 10000000;
+		static const long long sec_to_unix_epoch = 11644473600;
 
 	};
 
