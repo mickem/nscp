@@ -27,6 +27,7 @@ NSC_WRAPPERS_MAIN();
 class CheckDisk : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin  {
 private:
 	bool show_errors_;
+	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
 
 public:
 	CheckDisk();
@@ -53,11 +54,11 @@ public:
 	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 
 	// Check commands
-	NSCAPI::nagiosReturn CheckFileSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	//NSCAPI::nagiosReturn CheckFileSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn CheckDriveSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn CheckFiles(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn getFileAge(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckSingleFile(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	//NSCAPI::nagiosReturn getFileAge(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	//NSCAPI::nagiosReturn CheckSingleFile(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 
 private:
 	typedef checkHolders::MagicCheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;

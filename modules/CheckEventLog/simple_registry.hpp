@@ -92,10 +92,12 @@ namespace simple_registry {
 			return ret;
 		}
 
+		static std::wstring get_string(HKEY hKey, std::wstring path, std::wstring key) {
+			registry_key reg(hKey, path);
+			return reg.get_string(key);
+		}
+
+
 	};
-	
-	std::wstring get_string(HKEY hKey, std::wstring path, std::wstring key) {
-		registry_key reg(hKey, path);
-		return reg.get_string(key);
-	}
+
 }

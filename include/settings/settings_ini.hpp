@@ -261,6 +261,13 @@ namespace settings {
 		virtual std::wstring get_info() {
 			return _T("INI settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
 		}
+		public:
+		static bool context_exists(settings::settings_core *core, std::wstring key) {
+			net::wurl url = net::parse(key);
+			std::wstring file = url.host + url.path;
+			std::wstring tmp = core->expand_path(file);
+			return boost::filesystem::is_regular(tmp);
+		}
 
 	};
 }

@@ -8,7 +8,6 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	file_finder.cpp
-	file_info.cpp
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}
@@ -23,7 +22,6 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		file_finder.hpp
-		file_info.hpp
 		filter.hpp	
 
 		${NSCP_DEF_PLUGIN_HPP}
@@ -36,6 +34,7 @@ add_library(${TARGET} MODULE ${SRCS})
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
+	${NSCP_FILTER_LIB}
 	version.lib
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

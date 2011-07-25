@@ -173,6 +173,7 @@ namespace settings {
 			if (!from || !to)
 				throw new settings_exception(_T("Source or target is null"));
 			from->save_to(to);
+			set_primary(to->get_context());
 		}
 		void migrate_to(instance_ptr to) {
 			migrate(get(), to);
@@ -193,6 +194,7 @@ namespace settings {
 			instance_ptr ito = create_instance(to);
 			migrate(ifrom, ito);
 		}
+		virtual void set_primary(std::wstring key) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a path with the settings module.

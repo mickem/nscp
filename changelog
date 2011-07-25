@@ -6,6 +6,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-07-25
+ * merged in all 0.3.9 changes
+ * refactored where filter to be "non template" to drastically reduce compile time (as well as potentially size if I ever go dll instead of static link)
+ * streamlined checkeventlog toi be same as "the other" where filters as well as dropped support of "old" syntax.
+
 2010-02-05
  * Multiple fixes all over the place
  * Availible modules: CheckExternalScripts, CheckHelpers, FileLogger, NRPEClient, NRPEServer, Scheduler

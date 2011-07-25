@@ -100,27 +100,114 @@ namespace settings_manager {
 		}
 		return false;
 	}
+
+	std::wstring NSCSettingsImpl::expand_context(std::wstring key) {
+#ifdef WIN32
+		if (key == _T("old"))
+			return DEFAULT_CONF_OLD_LOCATION;
+		if (key == _T("registry"))
+			return DEFAULT_CONF_REG_LOCATION;
+#endif
+		if (key == _T("ini"))
+			return DEFAULT_CONF_INI_LOCATION;
+		return key;
+	}
+
+	bool NSCSettingsImpl::context_exists(std::wstring key) {
+		net::wurl url = net::parse(key);
+#ifdef WIN32
+		if (url.protocol == _T("old"))
+			return settings::OLDSettings::context_exists(this, key);
+		if (url.protocol == _T("registry"))
+			return settings::REGSettings::context_exists(this, key);
+#endif
+		if (url.protocol == _T("ini"))
+			return settings::INISettings::context_exists(this, key);
+		if (url.protocol == _T("http"))
+			return true;
+		return false;
+	}
+
+	bool NSCSettingsImpl::has_boot_conf() {
+		return file_helpers::checks::exists(boot_.string());
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	/// Boot the settings subsystem from the given file (boot.ini).
 	///
 	/// @param file the file to use when booting.
 	///
 	/// @author mickem
-	void NSCSettingsImpl::boot(std::wstring file) {
-		std::wstring key = file;
-		if (file.empty()) {
-			boot_ = provider_->expand_path(BOOT_CONF_LOCATION);
-			get_logger()->debug(__FILE__, __LINE__, _T("---> ") + boot_.string());
-			if (file_helpers::checks::exists(boot_.string())) {
-				key = get_boot_string(_T("settings"), _T("location"), DEFAULT_CONF_LOCATION);
-				get_logger()->debug(__FILE__, __LINE__, _T("---> ") + key);
-			} else {
-				if (!check_file(DEFAULT_CONF_OLD_LOCATION, _T("old"), key))
-					if (!check_file(DEFAULT_CONF_INI_LOCATION, _T("ini"), key))
-						key = DEFAULT_CONF_LOCATION;
+	void NSCSettingsImpl::boot(std::wstring key) {
+		std::list<std::wstring> order;
+		if (!key.empty()) {
+			order.push_back(key);
+		} 
+		boot_ = provider_->expand_path(BOOT_CONF_LOCATION);
+		if (file_helpers::checks::exists(boot_.string())) {
+			get_logger()->debug(__FILE__, __LINE__, _T("Boot.ini found in: ") + boot_.string());
+			for (int i=0;i<20;i++) {
+				std::wstring v = get_boot_string(_T("settings"), strEx::itos(i), _T(""));
+				if (!v.empty()) 
+					order.push_back(expand_context(v));
 			}
 		}
-		set_instance(key);
+		if (order.size() == 0) {
+			get_logger()->debug(__FILE__, __LINE__, _T("No entries found looking in (adding default): ") + boot_.string());
+			order.push_back(DEFAULT_CONF_OLD_LOCATION);
+			order.push_back(DEFAULT_CONF_INI_LOCATION);
+		}
+		int i=0;
+		std::wstring boot_order;
+		BOOST_FOREACH(std::wstring k, order) {
+			strEx::append_list(boot_order, k, _T(", "));
+		}
+		get_logger()->debug(__FILE__, __LINE__, _T("Boot order: ") + boot_order);
+		BOOST_FOREACH(std::wstring k, order) {
+			if (context_exists(k)) {
+				get_logger()->debug(__FILE__, __LINE__, _T("Activating: ") + k);
+				set_instance(k);
+				return;
+			}
+		}
+		if (!key.empty()) {
+			get_logger()->info(__FILE__, __LINE__, _T("No valid settings found but one was givben (using that): ") + key);
+			set_instance(key);
+			return;
+		} 
+
+		get_logger()->err(__FILE__, __LINE__, _T("No valid settings found (tried): ") + boot_order);
+	}
+
+	void NSCSettingsImpl::set_primary(std::wstring key) {
+		std::list<std::wstring> order;
+		for (int i=0;i<20;i++) {
+			std::wstring v = get_boot_string(_T("settings"), strEx::itos(i), _T(""));
+			if (!v.empty()) {
+				order.push_back(expand_context(v));
+				set_boot_string(_T("settings"), strEx::itos(i), _T(""));
+			}
+		}
+		order.remove(key);
+		order.push_front(key);
+		int i=1;
+		BOOST_FOREACH(std::wstring k, order) {
+			set_boot_string(_T("settings"), strEx::itos(i++), k);
+		}
+	}
+
+
+	bool NSCSettingsImpl::create_context(std::wstring key) {
+		try {
+			change_context(key);
+		} catch (settings::settings_exception e) {
+			provider_->log_fatal_error(_T("Failed to initialize settings: ") + e.getError());
+			return false;
+		} catch (...) {
+			provider_->log_fatal_error(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			return false;
+		}
+		return true;
 	}
 
 	void NSCSettingsImpl::change_context(std::wstring context) {
@@ -154,5 +241,16 @@ namespace settings_manager {
 	void change_context(std::wstring context) {
 		settings_impl->change_context(context);
 	}
+
+	bool has_boot_conf() {
+		return settings_impl->has_boot_conf();
+	}
+	bool context_exists(std::wstring key) {
+		return settings_impl->context_exists(key);
+	}
+	bool create_context(std::wstring key) {
+		return settings_impl->create_context(key);
+	}
+
 
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "simple_registry.hpp"
+
 class EventLogRecord {
 	EVENTLOGRECORD *pevlr_;
 	__int64 currentTime_;
@@ -129,7 +131,7 @@ public:
 	}
 	std::wstring get_dll() {
 		try {
-			return simple_registry::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + eventSource(), _T("EventMessageFile"));
+			return simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + eventSource(), _T("EventMessageFile"));
 		} catch (simple_registry::registry_exception &e) {
 			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + _T(": ") + e.what());
 			return _T("");

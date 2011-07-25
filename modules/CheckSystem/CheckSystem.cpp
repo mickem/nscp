@@ -124,6 +124,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 		lookups_[SERVICE_AUTO_START] = service_mappings[_T("AUTO_START")];
 		lookups_[SERVICE_DEMAND_START] = service_mappings[_T("DEMAND_START")];
 		lookups_[SERVICE_DISABLED] = service_mappings[_T("DISABLED")];
+		lookups_[NSCP_SERVICE_DELAYED] = service_mappings[_T("DELAYED")];
 
 		typedef PDHCollector::system_counter_data::counter cnt;
 		if (default_counters) {
@@ -215,15 +216,10 @@ int CheckSystem::commandLineExec(const wchar_t* command,const unsigned int argLe
 						}
 						if (bStatus) {
 							
-							//typedef boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > cnt_type;
 							typedef boost::shared_ptr<PDH::PDHCounter> counter_ptr;
-							//typedef boost::shared_ptr<PDH::PDHCounterListener> cnt_type;
 							counter_ptr pCounter;
-							//PDH::PDHCounter *pCounter = NULL;
 							PDH::PDHQuery pdh;
 							try {
-								//pCounter.reset(new PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE>);
-								//PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
 								pdh.addCounter(counter);
 								pdh.open();
 
@@ -661,12 +657,16 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> argu
 		std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
 		*/
 
-		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE); 
+		bool vista = systemInfo::isAboveVista(systemInfo::getOSVersion());
+		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE, vista); 
 		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
 			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
 				tmpObject.data = (*service).m_strServiceName;
-				tmpObject.crit.state = lookups_[(*service).m_dwStartType]; 
-				list.push_back(tmpObject); 
+				std::wstring x = lookups_[(*service).m_dwStartType];
+				if (x != _T("ignored")) {
+					tmpObject.crit.state = x;
+					list.push_back(tmpObject); 
+				}
 			}
 		} 
 		tmpObject.crit.state = _T("ignored");
@@ -948,6 +948,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 	bool bPerfData = true;
 	bool use16bit = false;
 	bool useCmdLine = false;
+	bool ignoreState = false;
 	typedef enum {
 		match_string, match_substring, match_regexp
 	} match_type;
@@ -964,6 +965,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
+		MAP_OPTIONS_BOOL_TRUE(_T("ignore-state"), ignoreState)
 		MAP_OPTIONS_BOOL_TRUE(_T("cmdLine"), useCmdLine)
 		MAP_OPTIONS_BOOL_TRUE(_T("16bit"), use16bit)
 		MAP_OPTIONS_MODE(_T("match"), _T("string"), match,  match_string)
@@ -1062,6 +1064,9 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 				}
 			} else {
 				value.count = 0;
+				if (ignoreState)
+					value.state = checkHolders::state_stopped | checkHolders::state_started | checkHolders::state_hung;
+				else
 				value.state = checkHolders::state_stopped;
 			}
 			if (bFound && (*it).alias.empty()) {

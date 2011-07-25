@@ -28,18 +28,22 @@ namespace settings {
 			typedef std::pair<std::wstring,std::wstring> section_key_type;
 			typedef std::pair<settings_core::key_path_type,settings_core::key_path_type> keys_key_type;
 
-			OLDSettings *parent;
+			logger_interface *logger;
 			path_map sections_;
 			key_map keys_;
 
-			settings_map(OLDSettings *parent) : parent(parent) {}
+			settings_map(logger_interface *logger) : logger(logger) {}
+
+			inline logger_interface* get_logger() {
+				return logger;
+			}
 
 			void read_map_file(std::wstring file) {
-				parent->get_logger()->debug(__FILE__, __LINE__, _T("Reading MAP file: ") + file);
+				get_logger()->debug(__FILE__, __LINE__, _T("Reading MAP file: ") + file);
 
 				std::ifstream in(strEx::wstring_to_string(file).c_str());
 				if(!in) {
-					parent->get_logger()->err(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
+					get_logger()->err(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
 					return;
 				}
 				in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
@@ -66,7 +70,7 @@ namespace settings {
 				line = line.substr(pos);
 				pos = line.find('=');
 				if (pos == -1) {
-					parent->get_logger()->err(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
+					get_logger()->err(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
 					return;
 				}
 				std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
@@ -103,7 +107,7 @@ namespace settings {
 			settings_core::key_path_type key(settings_core::key_path_type new_key) {
 				key_map::iterator it1 = keys_.find(new_key);
 				if (it1 != keys_.end()) {
-					parent->get_logger()->quick_debug(new_key.first + _T(".") + new_key.second + _T(" not found in alias list"));
+					get_logger()->quick_debug(new_key.first + _T(".") + new_key.second + _T(" not found in alias list"));
 					return (*it1).second;
 				}
 				path_map::iterator it2 = sections_.find(new_key.first);
@@ -148,13 +152,16 @@ namespace settings {
 		public:
 
 
-		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context), map(this) {
-			get_logger()->debug(__FILE__, __LINE__, _T("Loading OLD: ") + context);
+		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context), map(core->get_logger()) {
+			get_logger()->debug(__FILE__, __LINE__, _T("Loading OLD: ") + context + _T(" for ") + context);
 			map.read_map_file(core->find_file(_T("${exe-path}/old-settings.map"), _T("old-settings.map")));
 
-			string_list list = get_keys(_T("includes"));
+			string_list list = get_keys(_T("/includes"));
 			BOOST_FOREACH(std::wstring key, list) {
-				add_child(key);
+				if (key.length() > 5 && key.substr(key.length()-4,4) == _T(".ini") && key.find_first_of(_T(":/\\")) == std::wstring::npos)
+					add_child(_T("old://${exe-path}/") + key);
+				else
+					add_child(key);
 			}
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -245,7 +252,6 @@ namespace settings {
 				delete [] buffer;
 				return internal_read_keys_from_section(section, bufferLength*10);
 			}
-
 			std::set<std::wstring> ret;
 			unsigned int last = 0;
 			for (unsigned int i=0;i<count;i++) {
@@ -345,15 +351,17 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void get_real_keys(std::wstring path, string_list &list) {
+			std::wstring keyy = path + _T(" - ") + get_file_name();
 			if (path.empty() || path == _T("/")) {
 				get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Loose leaves not supported: TODO")));
 				return;
 			}
 			// @todo: this will NOT work for "nodes in paths"
 			BOOST_FOREACH(settings_map::keys_key_type key, map.keys_) {
-				if (path == key.first.first) {
-					if (has_key_int(key.second.first, key.second.second))
+				if (key.first.first == path) {
+					if (has_key_int(key.second.first, key.second.second)) {
 						list.push_back(key.first.second);
+					}
 				}
 			}
 
@@ -361,14 +369,13 @@ namespace settings {
 				if (key.first == path) {
 					section_cache_type::const_iterator it = section_cache_.find(key.second);
 					if (it == section_cache_.end()) {
-						std::set<std::wstring> list = internal_read_keys_from_section(key.second);
-						section_cache_[path] = list;
+						std::set<std::wstring> list2 = internal_read_keys_from_section(key.second);
+						section_cache_[path] = list2;
 						it = section_cache_.find(path);
 					}
 					list.insert(list.end(), (*it).second.begin(), (*it).second.end());
 				}
 			}
-
 		}
 	private:
 
@@ -438,5 +445,13 @@ namespace settings {
 		virtual std::wstring get_info() {
 			return _T("INI settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
 		}
+public:
+		static bool context_exists(settings::settings_core *core, std::wstring key) {
+			net::wurl url = net::parse(key);
+			std::wstring file = url.host + url.path;
+			std::wstring tmp = core->expand_path(file);
+			return file_helpers::checks::exists(tmp);
+		}
+
 	};
 }

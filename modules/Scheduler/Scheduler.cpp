@@ -50,7 +50,7 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("threads"), sh::int_fun_key<unsigned int>(boost::bind(&scheduler::simple_scheduler::set_threads, &scheduler_, _1), 1),
+			(_T("threads"), sh::int_fun_key<unsigned int>(boost::bind(&scheduler::simple_scheduler::set_threads, &scheduler_, _1), 5),
 			_T("THREAD COUNT"), _T("Number of threads to use."))
 			;
 
@@ -130,12 +130,16 @@ scheduler::target Scheduler::read_schedule(std::wstring path, std::wstring sched
 	return item;
 }
 void Scheduler::add_schedule(std::wstring path, std::wstring alias, std::wstring command, scheduler::target def) {
-	def.alias = alias;
-	def.command = command;
-	scheduler::target item = read_schedule(path + _T("/") + alias, alias, &def);
-	strEx::parse_command(item.command, item.command, item.arguments);
-	NSC_DEBUG_MSG_STD(_T("Adding scheduled task: ") + alias);
-	scheduler_.add_task(item);
+	try {
+		def.alias = alias;
+		def.command = command;
+		scheduler::target item = read_schedule(path + _T("/") + alias, alias, &def);
+		strEx::parse_command(item.command, item.command, item.arguments);
+		NSC_DEBUG_MSG_STD(_T("Adding scheduled task: ") + alias);
+		scheduler_.add_task(item);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to add schedule: ") + alias);
+	}
 }
 
 bool Scheduler::unloadModule() {

@@ -452,6 +452,7 @@ namespace settings {
 		}
 		void get_keys_from_child_unsafe(std::wstring path, string_list &list) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
+				std::wstring str = (*it)->get_context();
 				string_list itm = (*it)->get_keys(path);
 				list.insert(list.end(), itm.begin(), itm.end());
 			}

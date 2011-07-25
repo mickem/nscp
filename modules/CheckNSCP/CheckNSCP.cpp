@@ -23,10 +23,11 @@
 #include <file_helpers.hpp>
 
 #include <settings/client/settings_client.hpp>
+namespace sh = nscapi::settings_helper;
 
 CheckNSCP gCheckNSCP;
 
-namespace sh = nscapi::settings_helper;
+
 
 bool CheckNSCP::loadModule() {
 	return false;

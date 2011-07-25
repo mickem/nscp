@@ -16,7 +16,7 @@ parser.add_option("-c", "--create", action="store_true", dest="create",
 parser.add_option("-d", "--display", action="store_true", dest="display",
 				  help="Display the current version")
 parser.add_option("-u", "--update",
-				  dest="update", default='build',
+				  dest="update", 
 				  help="Update a file (major, minor, revision, build)")
 
 (options, args) = parser.parse_args()
@@ -30,12 +30,16 @@ elif options.filename and options.update:
 	version.increment(options.update)
 	version.touch()
 	version.write()
+elif options.filename:
+	version = VersionHandler(options.filename)
+	version.read()
 else:
 	parser.print_help()
 
-if options.targetHPP:
-	version.write_hpp(options.targetHPP)
-if options.display:
-	version.print_version()
+if version:
+	if options.targetHPP:
+		version.write_hpp(options.targetHPP)
+	if options.display:
+		version.print_version()
 
 		

@@ -26,8 +26,8 @@ datestr = version.datestr()
 def rename_and_move(file, target):
 	tfile = '%s/%s'%(target, os.path.basename(file))
 	tfile = tfile.replace('win64', 'x64')
-	print "Moving %s to %s"%(file, tfile)
-	shutil.move(file, tfile)
+	print "Copying %s to %s"%(file, tfile)
+	shutil.copy(file, tfile)
 
 def find_by_pattern(path, pattern):
 	matches = []
@@ -39,7 +39,7 @@ def find_by_pattern(path, pattern):
 	
 target_name = 'NSCP-%s-%s-symbols.zip'%(VERSION, VERSION_ARCH)
 
-if BREAKPAD_FOUND == "TRUE":
+if BREAKPAD_FOUND == "TRUEee":
 	print "Gathering symbols into %s"%target_name
 	matches = find_by_pattern(BUILD_TARGET_EXE_PATH, '*.pdb')
 	zip = zipfile.ZipFile(target_name, "w")

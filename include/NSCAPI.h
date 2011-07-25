@@ -25,7 +25,7 @@
 #include <string>
 
 namespace NSCAPI {
-
+/*
 #ifdef DEBUG
 	typedef enum {
 		returnCRIT = 2,
@@ -55,6 +55,7 @@ namespace NSCAPI {
 		dontStart = 1,
 	} moduleLoadMode;
 #else
+	*/
 	const int normalStart = 0;
 	const int dontStart = 1;
 	const int returnOK = 0;
@@ -77,7 +78,7 @@ namespace NSCAPI {
 	typedef int errorReturn;
 	typedef int settings_type;
 	typedef int moduleLoadMode;
-#endif
+//#endif
 
 	const int encryption_xor = 1;
 

@@ -19,10 +19,16 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include "StdAfx.h"
-#include ".\TaskSched.h"
+#include "TaskSched.h"
 
 #include <objidl.h>
 #include <map>
+
+#include <parsers/where/unary_fun.hpp>
+#include <parsers/where/list_value.hpp>
+#include <parsers/where/binary_op.hpp>
+#include <parsers/where/unary_op.hpp>
+#include <parsers/where/variable.hpp>
 
 #define TASKS_TO_RETRIEVE 5
 
@@ -47,8 +53,8 @@ void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter
 			std::wstring title = lpwszNames[--dwFetchedTasks];
 			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
 			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-			tasksched_filter::filter_obj info((ITask*)task, title);
-			result->process(info, engine->match(info));
+			boost::shared_ptr<tasksched_filter::filter_obj> arg = boost::shared_ptr<tasksched_filter::filter_obj>(new tasksched_filter::filter_obj((ITask*)task, title));
+			result->process(arg, engine->match(arg));
 
 		}
 		CoTaskMemFree(lpwszNames);

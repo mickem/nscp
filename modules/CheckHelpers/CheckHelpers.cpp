@@ -124,6 +124,8 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std
 		return checkMultiple(arguments, message, perf);
 	} else if (command == _T("Negate")) {
 		return negate(arguments, message, perf);
+	} else if (command == _T("Timeout")) {
+		return timeout(arguments, message, perf);
 	}
 	return NSCAPI::returnIgnored;
 }

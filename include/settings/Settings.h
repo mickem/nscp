@@ -766,7 +766,6 @@ namespace Settings {
 								get_logger()->err(__FILEW__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						} else {
 							std::wstring val = get()->get_string(path, key);
-							get_logger()->debug(__FILEW__, __LINE__, _T("Setting old (already exists): ") + path + _T(".") + key + _T(" = ") + val);
 							if (desc.type == key_string)
 								get()->set_string(path, key, val);
 							else if (desc.type == key_bool)

@@ -7,16 +7,20 @@
 #include <boost/assign.hpp>
 
 
-#include <parsers/where_parser.hpp>
+#include <parsers/where.hpp>
 #include <parsers/filter/where_filter.hpp>
 #include <parsers/filter/where_filter_impl.hpp>
 
-#include <parsers/where_parser.hpp>
-#include <simple_timer.hpp>
+#include <parsers/where/unary_fun.hpp>
+#include <parsers/where/list_value.hpp>
+#include <parsers/where/binary_op.hpp>
+#include <parsers/where/unary_op.hpp>
+#include <parsers/where/variable.hpp>
+
+#include <strEx.h>
 #include "filter.hpp"
 
-#include <parsers/filter/where_filter_impl.hpp>
-
+#define DATE_FORMAT _T("%#c")
 using namespace boost::assign;
 using namespace parsers::where;
 
@@ -57,8 +61,8 @@ bool tasksched_filter::filter_obj_handler::can_convert(parsers::where::value_typ
 	return false;
 }
 
-tasksched_filter::filter_obj_handler::handler::bound_string_type tasksched_filter::filter_obj_handler::bind_string(std::wstring key) {
-	handler::bound_string_type ret;
+tasksched_filter::filter_obj_handler::base_handler::bound_string_type tasksched_filter::filter_obj_handler::bind_simple_string(std::wstring key) {
+	base_handler::bound_string_type ret;
 	if (key == _T("title"))
 		ret = &object_type::get_title;
 // 	else if (key == _T("account"))
@@ -79,8 +83,8 @@ tasksched_filter::filter_obj_handler::handler::bound_string_type tasksched_filte
 }
 
 
-tasksched_filter::filter_obj_handler::handler::bound_int_type tasksched_filter::filter_obj_handler::bind_int(std::wstring key) {
-	handler::bound_int_type ret;
+tasksched_filter::filter_obj_handler::base_handler::bound_int_type tasksched_filter::filter_obj_handler::bind_simple_int(std::wstring key) {
+	base_handler::bound_int_type ret;
 // 	if (key == _T("error_retry_count"))
 // 		ret = &object_type::get_error_retry_count;
 // 	else if (key == _T("error_retry_interval"))
@@ -104,7 +108,7 @@ tasksched_filter::filter_obj_handler::handler::bound_int_type tasksched_filter::
 	return ret;
 }
 
-bool tasksched_filter::filter_obj_handler::has_function(parsers::where::value_type to, std::wstring name, ast_expr_type subject) {
+bool tasksched_filter::filter_obj_handler::has_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject) {
 	if (to == type_custom_hresult)
 		return true;
 	return false;
@@ -139,8 +143,8 @@ std::wstring tasksched_filter::filter_obj::convert_status(long status) {
 	return strEx::itos(status);
 }
 
-tasksched_filter::filter_obj_handler::handler::bound_function_type tasksched_filter::filter_obj_handler::bind_function(parsers::where::value_type to, std::wstring name, ast_expr_type subject) {
-	handler::bound_function_type ret;
+tasksched_filter::filter_obj_handler::base_handler::bound_function_type tasksched_filter::filter_obj_handler::bind_simple_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject) {
+	base_handler::bound_function_type ret;
 	if (to == type_custom_hresult)
 		ret = &object_type::fun_convert_status;
 	else
@@ -167,12 +171,12 @@ DEFINE_GET_HRESULT(exit_code, hresult_fetcher, get_LastTaskResult);
 DEFINE_GET_WORD(status, state_fetcher, get_State);
 DEFINE_GET_DATE(most_recent_run_time, date_fetcher, get_LastRunTime);
 
-tasksched_filter::filter_obj::ast_expr_type tasksched_filter::filter_obj::fun_convert_status(parsers::where::value_type target_type, ast_expr_type const& subject) {
-	return ast_expr_type(parsers::where::int_value(convert_status(subject.get_string(*this))));
+tasksched_filter::filter_obj::expression_ast_type tasksched_filter::filter_obj::fun_convert_status(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject) {
+	return expression_ast_type(parsers::where::int_value(convert_status(subject.get_string(handler))));
 }
 
 
-std::wstring tasksched_filter::filter_obj::render(std::wstring format) {
+std::wstring tasksched_filter::filter_obj::render(std::wstring format, std::wstring datesyntax) {
  	strEx::replace(format, _T("%title%"), get_title());
 // 	strEx::replace(format, _T("%account%"), get_account_name());
 // 	strEx::replace(format, _T("%application%"), get_application_name());
@@ -198,7 +202,7 @@ std::wstring tasksched_filter::filter_obj::render(std::wstring format) {
 			strEx::replace(format, _T("%most_recent_run_time%"), _T("never"));
 			strEx::replace(format, _T("%most_recent_run_time-raw%"),  _T("never"));
 		} else {
-			strEx::replace(format, _T("%most_recent_run_time%"), strEx::format_date(t));
+			strEx::replace(format, _T("%most_recent_run_time%"), strEx::format_date(t, datesyntax));
 			strEx::replace(format, _T("%most_recent_run_time-raw%"), strEx::itos(t));
 		}
 	}
@@ -209,75 +213,15 @@ std::wstring tasksched_filter::filter_obj::render(std::wstring format) {
 
 //////////////////////////////////////////////////////////////////////////
 
-
-struct where_mode_filter : public tasksched_filter::filter_engine_type {
-	tasksched_filter::filter_argument data;
-	parsers::where::parser<tasksched_filter::filter_obj_handler> ast_parser;
-	tasksched_filter::filter_obj_handler object_handler;
-
-	where_mode_filter(tasksched_filter::filter_argument data) : data(data) {}
-	bool boot() { return true; }
-
-	bool validate(std::wstring &message) {
-		if (data->debug)
-			data->error->report_debug(_T("Parsing: ") + data->filter);
-
-		if (!ast_parser.parse(data->filter)) {
-			data->error->report_error(_T("Parsing failed of '") + data->filter + _T("' at: ") + ast_parser.rest);
-			message = _T("Parsing failed: ") + ast_parser.rest;
-			return false;
-		}
-		if (data->debug)
-			data->error->report_debug(_T("Parsing succeeded: ") + ast_parser.result_as_tree());
-
-		if (!ast_parser.derive_types(object_handler) || object_handler.has_error()) {
-			message = _T("Invalid types: ") + object_handler.get_error();
-			return false;
-		}
-		if (data->debug)
-			data->error->report_debug(_T("Type resolution succeeded: ") + ast_parser.result_as_tree());
-
-		if (!ast_parser.bind(object_handler) || object_handler.has_error()) {
-			message = _T("Variable and function binding failed: ") + object_handler.get_error();
-			return false;
-		}
-		if (data->debug)
-			data->error->report_debug(_T("Binding succeeded: ") + ast_parser.result_as_tree());
-
-		if (!ast_parser.static_eval(object_handler) || object_handler.has_error()) {
-			message = _T("Static evaluation failed: ") + object_handler.get_error();
-			return false;
-		}
-		if (data->debug)
-			data->error->report_debug(_T("Static evaluation succeeded: ") + ast_parser.result_as_tree());
-
-		return true;
-	}
-
-	bool match(tasksched_filter::flyweight_type &record) {
-		tasksched_filter::filter_obj obj(record);
-		bool ret = ast_parser.evaluate(obj);
-		if (obj.has_error()) {
-			data->error->report_error(_T("Error: ") + obj.get_error());
-		}
-		return ret;
-	}
-
-	std::wstring get_name() {
-		return _T("where");
-	}
-	std::wstring get_subject() { return data->filter; }
-};
-
 tasksched_filter::filter_engine tasksched_filter::factories::create_engine(tasksched_filter::filter_argument arg) {
-	return filter_engine(new where_mode_filter(arg));
+	return filter_engine(new filter_engine_type(arg));
 }
-tasksched_filter::filter_argument tasksched_filter::factories::create_argument(std::wstring syntax) {
-	return filter_argument(new tasksched_filter::filter_argument_type(tasksched_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax));
+tasksched_filter::filter_argument tasksched_filter::factories::create_argument(std::wstring syntax, std::wstring datesyntax) {
+	return filter_argument(new tasksched_filter::filter_argument_type(tasksched_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax, datesyntax));
 }
 
 tasksched_filter::filter_result tasksched_filter::factories::create_result(tasksched_filter::filter_argument arg) {
-	return filter_result(new where_filter::simple_count_result<flyweight_type>(arg));
+	return filter_result(new where_filter::simple_count_result<filter_obj>(arg));
 }
 
 

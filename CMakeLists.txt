@@ -354,34 +354,15 @@ SET(NSCP_DEF_PLUGIN_HPP
 )
 
 SET(NSCP_FILTER_CPP
-	${NSCP_INCLUDEDIR}/parsers/helpers.cpp
 )
 
 SET(NSCP_FILTER_HPP
-	${NSCP_INCLUDEDIR}/parsers/ast.hpp
-	${NSCP_INCLUDEDIR}/parsers/eval.hpp
-	${NSCP_INCLUDEDIR}/parsers/helpers.hpp
 	${NSCP_INCLUDEDIR}/parsers/where.hpp
-	${NSCP_INCLUDEDIR}/parsers/where_parser.hpp
-	
 	${NSCP_INCLUDEDIR}/parsers/filter/where_filter.hpp
-	${NSCP_INCLUDEDIR}/parsers/filter/where_filter_impl.hpp	
-	
-	${NSCP_INCLUDEDIR}/parsers/where/ast_bind.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/ast_static_eval.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/ast_type_inference.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/ast_visitors.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/expression_ast.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/expression_ast_impl.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/list_value.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/operators.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/operators_impl.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/unary_fun.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/variable.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/varible_handler.hpp
-	
-	${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.hpp
-	${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar_impl.hpp	
+	${NSCP_INCLUDEDIR}/parsers/filter/where_filter_impl.hpp
+)
+SET(NSCP_FILTER_LIB
+	where_filter
 )
 
 SET(NSCP_DEF_PLUGIN_LIB
@@ -426,6 +407,7 @@ include_directories("${PROJECT_BINARY_DIR}")
 MESSAGE(STATUS "Build path: ${PROJECT_BINARY_DIR}")
 SET(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
 ADD_SUBDIRECTORY("helpers/settings_manager")
+ADD_SUBDIRECTORY("helpers/where_filter")
 ADD_SUBDIRECTORY("service")
 SET(MAIN_NSCP_TARGET "nscp")
 MESSAGE(STATUS "NSCP Target: ${MAIN_NSCP_TARGET}")

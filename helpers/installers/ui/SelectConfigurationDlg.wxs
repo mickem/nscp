@@ -4,7 +4,7 @@
 		<UI>
 			<ComboBox Property='CONFIGURATION_TYPE'>
 				<ListItem Value="old://${exe-path}/nsc.ini" Text="Old 0.3.x Configuration (Program Files)" />
-				<ListItem Value="ini://${shared-path}/nsclient.ini" Text="INI file (Program files)" />
+				<ListItem Value="ini://${exe-path}/nsclient.ini" Text="INI file (Program files)" />
 				<ListItem Value="registry://HKEY_LOCAL_MACHINE/software/NSClient++" Text="Registry (HKLM)" />
 			</ComboBox>
 

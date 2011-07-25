@@ -113,31 +113,40 @@ UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
 
 class installer_logger : public settings::logger_interface {
 public:
-	msi_helper &h;
+	msi_helper *h;
 	std::wstring error;
+	std::list<std::wstring> debug_log;
 
-	installer_logger(msi_helper &h) : h(h) {}
+	installer_logger(msi_helper *h) : h(h) {}
 
 	virtual void err(std::string file, int line, std::wstring message) {
 		error = message;
-		h.logMessage(_T("ERROR: ") + message);
+		h->logMessage(_T("ERROR: ") + message);
+		debug_log.push_back(_T("ERROR: ") + message);
 	}
 	virtual void warn(std::string file, int line, std::wstring message) {
-		h.logMessage(_T("WARN: ") + message);
+		h->logMessage(_T("WARN: ") + message);
+		debug_log.push_back(_T("WARN: ") + message);
 	}
 	virtual void info(std::string file, int line, std::wstring message) {
-		h.logMessage(_T("INFO: ") + message);
+		h->logMessage(_T("INFO: ") + message);
+		debug_log.push_back(_T("INFO: ") + message);
 	}
-	virtual void debug(std::string file, int line, std::wstring message) {}
+	virtual void debug(std::string file, int line, std::wstring message) {
+		debug_log.push_back(_T("DEBUG: ") + message);
+	}
+	std::list<std::wstring> get_debug() {
+		return debug_log;
+	}
 };
 
 struct installer_settings_provider : public settings_manager::provider_interface {
 
-	msi_helper &h;
+	msi_helper *h;
 	std::wstring basepath;
 	installer_logger logger;
 
-	installer_settings_provider(msi_helper &h, std::wstring basepath) : h(h), logger(h), basepath(basepath) {}
+	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), logger(h), basepath(basepath) {}
 
 	virtual std::wstring expand_path(std::wstring file) {
 		strEx::replace(file, _T("${base-path}"), basepath);
@@ -156,6 +165,9 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	}
 	std::wstring get_error() {
 		return logger.error;
+	}
+	std::list<std::wstring> get_debug() {
+		return logger.get_debug();
 	}
 };
 
@@ -198,24 +210,49 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			return ERROR_SUCCESS;
 		}
 
-		installer_settings_provider provider(h, target);
+		installer_settings_provider provider(&h, target);
 		if (!settings_manager::init_settings(&provider, _T(""))) {
+			h.logMessage(_T("Settings context had fatal errors"));
 			h.setProperty(_T("CONF_OLD_ERROR"), provider.get_error());
 			h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
 			h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
 			h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
-			return ERROR_SUCCESS;
 		}
 		if (provider.has_error()) {
-			h.setProperty(_T("CONF_OLD_ERROR"), provider.get_error());
-			h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
-			h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
-			h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
-			return ERROR_SUCCESS;
+			h.logMessage(_T("Settings context reported errors (debug log end)"));
+			BOOST_FOREACH(std::wstring l, provider.get_debug()) {
+				h.logMessage(l);
+			}
+			h.logMessage(_T("Settings context reported errors (debug log end)"));
+			if (!settings_manager::has_boot_conf()) {
+				h.logMessage(_T("boot.conf was NOT found (so no new configuration)"));
+				if (settings_manager::context_exists(DEFAULT_CONF_OLD_LOCATION)) {
+					h.logMessage(std::wstring(_T("Old configuration found: ")) + DEFAULT_CONF_OLD_LOCATION);
+					h.setProperty(_T("CONF_OLD_ERROR"), std::wstring(_T("Old configuration (")) + DEFAULT_CONF_OLD_LOCATION + _T(") was found but we got errors accessing it: ") + provider.get_error());
+					h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
+					h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
+					h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
+					return ERROR_SUCCESS;
+				} else {
+					h.logMessage(_T("Failed to read configuration but no configuration was found (so we are assuming there is no configuration)."));
+					h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
+					h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
+					h.setProperty(_T("CONF_HAS_ERRORS"), _T("0"));
+					return ERROR_SUCCESS;
+				}
+			} else {
+				h.logMessage(_T("boot.conf was found but we got errors booting it..."));
+				h.setProperty(_T("CONF_OLD_ERROR"), provider.get_error());
+				h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
+				h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
+				h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
+				return ERROR_SUCCESS;
+			}
 		}
+
+
 		h.setProperty(_T("CONFIGURATION_TYPE"), settings_manager::get_settings()->get_context());
 		h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
-		h.setProperty(_T("CONF_OLD_FOUND"), _T("1"));
 		h.setProperty(_T("CONF_HAS_ERRORS"), _T("0"));
 
 		h.setPropertyAndOld(_T("ALLOWED_HOSTS"), settings_manager::get_settings()->get_string(_T("/settings/default/"), _T("allowed hosts"), _T("")));
@@ -340,11 +377,12 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		std::wstring context = data.get_next_string();
 		int add_defaults = data.get_next_int();
 
-		installer_settings_provider provider(h, target);
-		if (!settings_manager::init_settings(&provider, _T(""))) {
+		installer_settings_provider provider(&h, target);
+		if (!settings_manager::init_settings(&provider, context)) {
 			h.errorMessage(_T("Failed to boot settings: ") + provider.get_error());
 			return ERROR_INSTALL_FAILURE;
 		}
+		h.logMessage(_T("Switching to: ") + context);
 		settings_manager::change_context(context);
 
 		while (data.has_more()) {

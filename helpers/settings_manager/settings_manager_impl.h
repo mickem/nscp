@@ -46,12 +46,17 @@ namespace settings_manager {
 #endif
 		}
 
-		void boot(std::wstring file = _T("boot.ini"));
+		std::wstring expand_context(std::wstring key);
+		void boot(std::wstring file = BOOT_CONF_LOCATION);
 		std::wstring find_file(std::wstring file, std::wstring fallback = _T(""));
 		std::wstring expand_path(std::wstring file);
 		settings::instance_raw_ptr create_instance(std::wstring key);
 		bool check_file(std::wstring file, std::wstring tag, std::wstring &key);
 		void change_context(std::wstring file);
+		bool context_exists(std::wstring key);
+		bool create_context(std::wstring key);
+		bool has_boot_conf();
+		void set_primary(std::wstring key);
 	};
 
 	//typedef Singleton<NSCSettingsImpl> SettingsHandler;
@@ -64,4 +69,7 @@ namespace settings_manager {
 	void destroy_settings();
 	bool init_settings(provider_interface *provider, std::wstring context = _T(""));
 	void change_context(std::wstring context);
+	bool has_boot_conf();
+	bool context_exists(std::wstring key);
+	bool create_context(std::wstring key);
 }

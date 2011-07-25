@@ -72,7 +72,7 @@ External Scripts/*=/settings/external scripts/scripts
 External Alias/*=/settings/external scripts/alias
 Wrapped Scripts/*=/settings/external scripts/wrapped scripts
 
-includes/*=/include/*
+includes/*=/includes
 
 NSCA Agent/interval=/settings/scheduler/default/interval
 NSCA Agent/hostname=/settings/NSCA/agent/hostname

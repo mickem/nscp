@@ -64,6 +64,9 @@ namespace systemInfo {
 			return true;
 		return false;
 	}
+	inline bool isAboveVista(const OSVERSIONINFO &osVersion) {
+		return osVersion.dwMajorVersion >= 6;
+	}
 	inline bool isBelowXP(const OSVERSIONINFO &osVersion) {
 		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion<4))
 			return true;

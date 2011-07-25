@@ -50,8 +50,7 @@
 							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
 							Description="Monitoring agent for nagios (and others) used to respond to status queries"
 							Arguments="--service --run --name [SERVICE_NAME]" />
-						<ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Wait="no" />
-						<ServiceControl Id="StopSWCNSCP" Name="[SERVICE_NAME]" Stop="both" Wait="yes" Remove="uninstall" />
+						<ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
 						<RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
 					</Component>
 					<Component Id="Shortcuts" Guid="E6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">

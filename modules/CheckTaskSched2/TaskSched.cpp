@@ -19,7 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include "StdAfx.h"
-#include ".\TaskSched.h"
+#include "TaskSched.h"
 
 #include <objidl.h>
 #include <map>
@@ -27,6 +27,12 @@
 
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "comsupp.lib")
+
+#include <parsers/where/unary_fun.hpp>
+#include <parsers/where/list_value.hpp>
+#include <parsers/where/binary_op.hpp>
+#include <parsers/where/unary_op.hpp>
+#include <parsers/where/variable.hpp>
 
 void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
 	CComPtr<ITaskService> taskSched;
@@ -66,8 +72,8 @@ void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter
 		CComPtr<IRegisteredTask> pRegisteredTask = NULL;
 		hr = pTaskCollection->get_Item(_variant_t(i+1), &pRegisteredTask);
 		if(SUCCEEDED(hr)) {
-			tasksched_filter::filter_obj info((IRegisteredTask*)pRegisteredTask);
-			result->process(info, engine->match(info));
+			boost::shared_ptr<tasksched_filter::filter_obj> arg = boost::shared_ptr<tasksched_filter::filter_obj>(new tasksched_filter::filter_obj((IRegisteredTask*)pRegisteredTask));
+			result->process(arg, engine->match(arg));
 		}
 	}
 }

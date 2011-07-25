@@ -13,10 +13,11 @@
 
 #include <error.hpp>
 
+#include <parsers/where.hpp>
 #include <parsers/where/expression_ast.hpp>
-#include <parsers/where/varible_handler.hpp>
-
+#include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/filter/where_filter.hpp>
+#include <parsers/filter/where_filter_impl.hpp>
 
 
 namespace tasksched_filter {
@@ -24,7 +25,7 @@ namespace tasksched_filter {
 	struct filter_obj_handler;
 	struct filter_obj {
 
-		typedef parsers::where::expression_ast<filter_obj_handler> ast_expr_type;
+		typedef parsers::where::expression_ast expression_ast_type;
 
 
 		struct task_sched_date {
@@ -70,7 +71,7 @@ namespace tasksched_filter {
 		filter_obj(IRegisteredTask* task) : task(task) {}
 		filter_obj() : task(NULL) {}
 
-		ast_expr_type fun_convert_status(parsers::where::value_type target_type, ast_expr_type const& subject);
+		expression_ast_type fun_convert_status(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject);
 
 		static long convert_status(std::wstring key);
 		static std::wstring convert_status(long status);
@@ -128,7 +129,7 @@ namespace tasksched_filter {
 				raw_type tmp;
 				HRESULT hr = (parent->task->*f)(&tmp);
 				if (traits::has_failed(hr)) {
-					parent->error(_T("ERROR: ") + error::format::from_system(hr));
+					throw filter_exception(_T("ERROR: ") + ::error::format::from_system(hr));
 					data = traits::get_default();
 					return false;
 				} else {
@@ -156,68 +157,56 @@ namespace tasksched_filter {
 		fetcher<word_fetch_traits<TASK_STATE, unsigned short> > state_fetcher;
 		fetcher<date_fetch_traits > date_fetcher;
 
-		std::wstring render(std::wstring format);
+		std::wstring render(std::wstring format, std::wstring dateformat);
 
-	public:
-		void error(std::wstring err) { errors.push_back(err); }
-		bool has_error() { return !errors.empty(); }
-		std::wstring get_error() { return strEx::joinEx(errors, _T(", ")); }
-	private:
-		std::list<std::wstring> errors;
 
 	};
 
-	typedef filter_obj flyweight_type;
-	struct filter_obj_handler : public parsers::where::varible_handler<filter_obj_handler, filter_obj> {
+	struct filter_obj_handler : public parsers::where::filter_handler_impl<filter_obj> {
 
 		static const parsers::where::value_type type_custom_hresult = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
 
-		typedef parsers::where::varible_handler<filter_obj_handler, filter_obj> handler;
-		typedef parsers::where::expression_ast<filter_obj_handler> ast_expr_type;
-		typedef std::map<std::wstring,parsers::where::value_type> types_type;
 		typedef filter_obj object_type;
+		typedef boost::shared_ptr<object_type> object_instance_type;
+		typedef parsers::where::filter_handler_impl<object_type> base_handler;
+
+		typedef std::map<std::wstring,parsers::where::value_type> types_type;
+		typedef parsers::where::expression_ast expression_ast_type;
+
 
 		filter_obj_handler();
-
-		handler::bound_string_type bind_string(std::wstring key);
-		handler::bound_int_type bind_int(std::wstring key);
-		bool has_function(parsers::where::value_type to, std::wstring name, ast_expr_type subject);
-		handler::bound_function_type bind_function(parsers::where::value_type to, std::wstring name, ast_expr_type subject);
-
 		bool has_variable(std::wstring key);
 		parsers::where::value_type get_type(std::wstring key);
 		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
-
-		flyweight_type static_record;
-		object_type get_static_object() {
-			return object_type(static_record);
-		}
-
-	public:
-		void error(std::wstring err) { errors.push_back(err); }
-		bool has_error() { return !errors.empty(); }
-		std::wstring get_error() { return strEx::joinEx(errors, _T(", ")); }
-	private:
-		std::list<std::wstring> errors;
+		base_handler::bound_string_type bind_simple_string(std::wstring key);
+		base_handler::bound_int_type bind_simple_int(std::wstring key);
+		bool has_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
+		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
 
 	private:
 		types_type types;
 
 	};
 
-	typedef where_filter::engine_interface<flyweight_type> filter_engine_type;
-	typedef where_filter::argument_interface<flyweight_type> filter_argument_type;
-	typedef where_filter::result_counter_interface<flyweight_type> filter_result_type;
+	struct data_arguments : public where_filter::argument_interface {
+		typedef where_filter::argument_interface parent_type;
+		data_arguments(parent_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax) {}
+
+	};
+
+	typedef data_arguments filter_argument_type;
+	typedef where_filter::engine_impl<filter_obj, filter_obj_handler, boost::shared_ptr<filter_argument_type> > filter_engine_type;
+	typedef where_filter::result_counter_interface<filter_obj> filter_result_type;
 
 	typedef boost::shared_ptr<filter_engine_type> filter_engine;
 	typedef boost::shared_ptr<filter_argument_type> filter_argument;
 	typedef boost::shared_ptr<filter_result_type> filter_result;
 
 	struct factories {
-		static filter_engine create_engine(tasksched_filter::filter_argument arg);
-		static filter_result create_result(tasksched_filter::filter_argument arg);
-		static filter_argument create_argument(std::wstring syntax);
-
+		static filter_engine create_engine(filter_argument arg);
+		static filter_result create_result(filter_argument arg);
+		static filter_argument create_argument(std::wstring syntax, std::wstring datesyntax);
 	};
+
 }
