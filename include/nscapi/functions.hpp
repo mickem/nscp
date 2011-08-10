@@ -35,8 +35,8 @@
 #include <strEx.h>
 #include <nscapi/settings_proxy.hpp>
 
-#include "../libs/protobuf/plugin.proto.h"
-#include "../libs/protobuf/log.proto.h"
+#include <protobuf/plugin.pb.h>
+#include <protobuf/log.pb.h>
 
 using namespace nscp::helpers;
 

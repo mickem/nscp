@@ -5,7 +5,7 @@
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
 
-#include "../libs/protobuf/log.proto.h"
+#include <protobuf/log.pb.h>
 
 #include <strEx.h>
 

@@ -89,7 +89,7 @@ IF (PROTOBUF_FOUND)
       LIST(APPEND INCL "${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb.h")
 	  
 	  SET(PB_TARGET_INCLUDE ${INCL})
-	  configure_file(${ABS_FIL}.h.in ${ABS_FIL}.h)
+	  #configure_file(${ABS_FIL}.h.in ${ABS_FIL}.h)
 
       ADD_CUSTOM_COMMAND(
         OUTPUT ${${VAR}} ${INCL}

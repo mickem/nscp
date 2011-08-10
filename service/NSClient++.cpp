@@ -44,7 +44,7 @@
 #include "cli_parser.hpp"
 #include "../version.hpp"
 
-#include "../libs/protobuf/plugin.proto.h"
+#include "../libs/protobuf/plugin.pb.h"
 
 #ifdef USE_BREAKPAD
 #include <breakpad/exception_handler_win32.hpp>
