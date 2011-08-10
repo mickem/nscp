@@ -96,7 +96,7 @@ IF (PROTOBUF_FOUND)
         COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
         ARGS --cpp_out  ${CMAKE_CURRENT_BINARY_DIR} --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
         DEPENDS ${ABS_FIL}
-        COMMENT "Running protocol buffer compiler on ${FIL}" VERBATIM )
+        COMMENT "Running protocol buffer compiler on ${FIL} - ${PROTOBUF_PROTOC_EXECUTABLE}" VERBATIM )
 
       SET_SOURCE_FILES_PROPERTIES(${${VAR}} ${INCL} PROPERTIES GENERATED TRUE)
     ENDFOREACH(FIL)

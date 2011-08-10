@@ -39,7 +39,7 @@ namespace file_helpers {
 			return path.branch_path();
 		}
 		static std::wstring get_filename(boost::filesystem::wpath path) {
-			return path.leaf();
+			return path.filename();
 		}
 		static std::wstring get_path(std::wstring file) {
 			boost::filesystem::wpath path = file;
@@ -47,7 +47,7 @@ namespace file_helpers {
 		}
 		static std::wstring get_filename(std::wstring file) {
 			boost::filesystem::wpath path = file;
-			return path.leaf();
+			return path.filename();
 		}
 	};
 
@@ -58,7 +58,7 @@ namespace file_helpers {
 		static pattern_type split_pattern(boost::filesystem::wpath path) {
 			if (boost::filesystem::is_directory(path))
 				return pattern_type(path, _T(""));
-			return pattern_type(path.branch_path(), path.leaf() /*filename()*/);
+			return pattern_type(path.branch_path(), path.filename());
 		}
 		static pattern_type split_path_ex(std::wstring path) {
 			std::wstring baseDir;

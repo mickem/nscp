@@ -6,6 +6,18 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-10
+ * Fixed so it builds and runs on linux (but parser had issues so disabled som grammar rules whichneeds to be enabled again)
+ * Added a lot of freatures and cleand up the PythonScript module
+ * Started to merge som features from PythonScript back to Lua script
+ 
+2011-08-07
+ * Fixed a lot of issues with PythonScript module adding suport for alias and "raw command processing"
+ * Fixed issue with loading plugins and aliases as well as duplicate plugin detection
+ 
+2011-08-01
+ * Added new module: PythonScript
+
 2011-07-25
  * merged in all 0.3.9 changes
  * refactored where filter to be "non template" to drastically reduce compile time (as well as potentially size if I ever go dll instead of static link)

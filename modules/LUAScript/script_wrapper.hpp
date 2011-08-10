@@ -9,6 +9,7 @@ extern "C" {
 }
 #include "luna.h"
 
+#include <scripts/functions.hpp>
 
 namespace script_wrapper {
 
@@ -303,23 +304,24 @@ namespace script_wrapper {
 
 	class lua_script {
 		Lua_State L;
-		std::wstring script_;
+		std::string script_;
+		std::string alias_;
 	public:
-		lua_script(const std::wstring file) : script_(file) {
+		lua_script(const script_container &script) : script_(utf8::cvt<std::string>(script.script.string())), alias_(utf8::cvt<std::string>(script.alias)) {
 			load();
 		}
 		void load() {
 			luaL_openlibs(L);
 			nsclient_wrapper::luaopen(L);
-			//Luna<Account>::Register(L);
-			//lua_register(L, "register_command", register_command);
-
-			if (luaL_loadfile(L, strEx::wstring_to_string(script_).c_str()) != 0) {
-				throw LUAException(_T("Failed to load script: ") + script_ + _T(": ") + s2w(lua_tostring(L, -1)));
+			if (luaL_loadfile(L, script_.c_str()) != 0) {
+				throw LUAException(_T("Failed to load script: ") + get_wscript() + _T(": ") + s2w(lua_tostring(L, -1)));
 			}
 
 		}
-		std::wstring get_script() const {
+		std::wstring get_wscript() const {
+			return utf8::cvt<std::wstring>(script_);
+		}
+		std::string get_script() const {
 			return script_;
 		}
 		void unload() {}
@@ -332,7 +334,7 @@ namespace script_wrapper {
 			lua_manager::set_handler(L, handler);
 			lua_manager::set_script(L, this);
 			if (lua_pcall(L, 0, 0, 0) != 0) {
-				throw LUAException(_T("Failed to parse script: ") + script_ + _T(": ") + s2w(lua_tostring(L, -1)));
+				throw LUAException(_T("Failed to parse script: ") + get_wscript() + _T(": ") + s2w(lua_tostring(L, -1)));
 			}
 		}
 
@@ -367,7 +369,7 @@ namespace script_wrapper {
 			lua_getglobal(L, w2s(function).c_str());
 			if (!lua_isfunction(L, -1)) {
 				lua_pop(L, 1); // remove function from LUA stack
-				throw LUAException(_T("Failed to run script: ") + script_ + _T(": Function not found: handle"));
+				throw LUAException(_T("Failed to run script: ") + get_wscript() + _T(": Function not found: handle"));
 			}
 			lua_pushstring(L, w2s(cmd).c_str()); 
 
@@ -381,7 +383,7 @@ namespace script_wrapper {
 
 			if (lua_pcall(L, 2, LUA_MULTRET, 0) != 0) {
 				std::wstring err = strEx::string_to_wstring(lua_tostring(L, -1));
-				NSC_LOG_ERROR_STD(_T("Failed to call main function in script: ") + script_ + _T(": ") + err);
+				NSC_LOG_ERROR_STD(_T("Failed to call main function in script: ") + get_wscript() + _T(": ") + err);
 				lua_pop(L, 1); // remove error message
 				return NSCAPI::returnUNKNOWN;
 			}

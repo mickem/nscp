@@ -125,15 +125,15 @@ namespace socketHelpers {
 		template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
 		void read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
 			boost::optional<boost::system::error_code> timer_result;
-			boost::asio::deadline_timer timer(sock.io_service());
+			boost::asio::deadline_timer timer(sock.get_io_service());
 			timer.expires_from_now(duration);
 			timer.async_wait(boost::bind(set_result, &timer_result, _1));
 
 			boost::optional<boost::system::error_code> read_result;
 			async_read(sock, buffers, boost::bind(set_result, &read_result, _1));
 
-			sock.io_service().reset();
-			while (sock.io_service().run_one()) {
+			sock.get_io_service().reset();
+			while (sock.get_io_service().run_one()) {
 				if (read_result)
 					timer.cancel();
 				else if (timer_result)
@@ -147,15 +147,15 @@ namespace socketHelpers {
 		template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
 		void write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
 			boost::optional<boost::system::error_code> timer_result;
-			boost::asio::deadline_timer timer(sock.io_service());
+			boost::asio::deadline_timer timer(sock.get_io_service());
 			timer.expires_from_now(duration);
 			timer.async_wait(boost::bind(set_result, &timer_result, _1));
 
 			boost::optional<boost::system::error_code> read_result;
 			async_write(sock, buffers, boost::bind(set_result, &read_result, _1));
 
-			sock.io_service().reset();
-			while (sock.io_service().run_one()) {
+			sock.get_io_service().reset();
+			while (sock.get_io_service().run_one()) {
 				if (read_result)
 					timer.cancel();
 				else if (timer_result)

@@ -21,6 +21,7 @@
 #include "CheckNSCP.h"
 
 #include <file_helpers.hpp>
+#include <unicode_char.hpp>
 
 #include <settings/client/settings_client.hpp>
 namespace sh = nscapi::settings_helper;
@@ -84,6 +85,7 @@ void CheckNSCP::handleMessage(int msgType, const std::string file, int line, std
 
 
 int CheckNSCP::get_crashes(std::wstring &last_crash) {
+#ifdef WIN32
 	if (!file_helpers::checks::is_directory(crashFolder)) {
 		return 0;
 	}
@@ -108,6 +110,9 @@ int CheckNSCP::get_crashes(std::wstring &last_crash) {
 	if (count > 0)
 		last_crash = last_file;
 	return count;
+#else
+	return 0;
+#endif
 }
 
 int CheckNSCP::get_errors(std::wstring &last_error) {
@@ -124,13 +129,17 @@ NSCAPI::nagiosReturn CheckNSCP::check_nscp( std::list<std::wstring> arguments, s
 {
 	std::wstring last_crash;
 	int crash_count = get_crashes(last_crash);
-	if (crash_count > 0)
-		strEx::append_list(msg, strEx::itos(crash_count) + _T(" crash(es), last crash: ") + last_crash, _T(", "));
+	if (crash_count > 0){
+		std::wstring tmp = strEx::itos(crash_count) + _T(" crash(es), last crash: ") + last_crash;
+		strEx::append_list(msg, tmp, _T(", "));
+	}
 
 	std::wstring last_error;
 	int err_count = get_errors(last_error);
-	if (err_count > 0)
-		strEx::append_list(msg, strEx::itos(err_count) + _T(" error(s), last error: ") + last_error, _T(", "));
+	if (err_count > 0) {
+		std::wstring tmp = strEx::itos(err_count) + _T(" error(s), last error: ") + last_error;
+		strEx::append_list(msg, tmp, _T(", "));
+	}
 
 	if (msg.empty())
 		msg = _T("OK: 0 crash(es), 0 error(s)");

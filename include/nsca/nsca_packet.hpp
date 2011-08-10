@@ -152,11 +152,11 @@ namespace nsca {
 			data->return_code = swap_bytes::hton<int16_t>(code);
 			data->crc32_value= swap_bytes::hton<u_int32_t>(0);
 
-			ZeroMemory(data->get_host_ptr(), host.size()+1);
+			memset(data->get_host_ptr(), 0, host.size()+1);
 			host.copy(data->get_host_ptr(), host.size());
-			ZeroMemory(data->get_desc_ptr(nsca::length::host_length), service.size()+1);
+			memset(data->get_desc_ptr(nsca::length::host_length), 0, service.size()+1);
 			service.copy(data->get_desc_ptr(nsca::length::host_length), service.size());
-			ZeroMemory(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result.size()+1);
+			memset(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), 0, result.size()+1);
 			result.copy(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result.size());
 
 			unsigned int calculated_crc32=calculate_crc32(buffer.c_str(),buffer.size());

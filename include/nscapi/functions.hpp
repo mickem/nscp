@@ -140,9 +140,18 @@ namespace nscapi {
 
 			boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring> tok(perf, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\''));
 			BOOST_FOREACH(std::wstring s, tok) {
-				strEx::splitVector items = strEx::splitV(s, _T(";"));
-				if (items.size() < 3)
+				if (s.size() == 0)
 					break;
+				strEx::splitVector items = strEx::splitV(s, _T(";"));
+				if (items.size() < 1) {
+					::PluginCommand::PerformanceData* perfData = resp->add_perf();
+					perfData->set_type(PluginCommand::PerformanceData_Type_STRING);
+					std::pair<std::wstring,std::wstring> fitem = strEx::split(_T(""), _T("="));
+					perfData->set_alias("invalid");
+					::PluginCommand::PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
+					stringPerfData->set_value("invalid performance data");
+					break;
+				}
 
 				::PluginCommand::PerformanceData* perfData = resp->add_perf();
 				perfData->set_type(PluginCommand::PerformanceData_Type_FLOAT);
@@ -157,13 +166,16 @@ namespace nscapi {
 					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend).c_str()));
 					floatPerfData->set_unit(to_string(fitem.second.substr(pend)));
 				}
-				floatPerfData->set_warning(trim_to_double(items[1]));
-				floatPerfData->set_critical(trim_to_double(items[2]));
+				if (items.size() > 2) {
+					floatPerfData->set_warning(trim_to_double(items[1]));
+					floatPerfData->set_critical(trim_to_double(items[2]));
+				}
 				if (items.size() >= 5) {
 					floatPerfData->set_minimum(trim_to_double(items[3]));
 					floatPerfData->set_maximum(trim_to_double(items[4]));
 				}
 			}
+//			std::wcout << _T("Converting performance data") << perf << _T(" -- ") << utf8::cvt<std::wstring>(build_performance_data(*resp)) << std::endl;
 		}
 		static std::string build_performance_data(::PluginCommand::Response const &payload) {
 			std::stringstream ss;

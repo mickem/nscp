@@ -2,44 +2,46 @@ cmake_minimum_required(VERSION 2.6)
 
 SET(TARGET reporter)
 
-PROJECT(reporter)
+IF(BREAKPAD_FOUND)
+	PROJECT(reporter)
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+	ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
-SET(reporter_SRCS
-	StdAfx.cpp
-	reporter.cpp
-)
-
-IF(WIN32)
-	SET(reporter_SRCS ${reporter_SRCS}
-		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
-		
-#	/breakpad//common
-#	/breakpad//crash_report_sender
-
-		reporter.h
-		StdAfx.h
+	SET(reporter_SRCS
+		StdAfx.cpp
+		reporter.cpp
 	)
-	SET(EXTRA_LIBS Wininet.lib)
-ENDIF(WIN32)
 
-add_executable (${TARGET} ${reporter_SRCS})
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_SYSTEM_LIBRARY}
-#	${NSCP_DEF_PLUGIN_LIB}
-	${BREAKPAD_COMMON_LIBRARY}
-	${BREAKPAD_CRASH_REPORT_SENDER_LIBRARY}
-	${EXTRA_LIBS}
-)
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "tools")
+	IF(WIN32)
+		SET(reporter_SRCS ${reporter_SRCS}
+			${NSCP_INCLUDEDIR}/ServiceCmd.cpp
+			
+	#	/breakpad//common
+	#	/breakpad//crash_report_sender
 
-SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
-SOURCE_GROUP("Parser" REGULAR_EXPRESSION .*include/parser/.*)
-SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
-SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
+			reporter.h
+			StdAfx.h
+		)
+		SET(EXTRA_LIBS Wininet.lib)
+	ENDIF(WIN32)
 
-INSTALL(TARGETS ${TARGET} RUNTIME DESTINATION .)
-INSTALL(CODE "SET(PDB_FULL_PATH ${BUILD_TARGET_EXE_PATH}/${TARGET}.pdb)")
-INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX} TYPE EXECUTABLE FILES \${PDB_FULL_PATH})")
+	add_executable (${TARGET} ${reporter_SRCS})
+	target_link_libraries(${TARGET}
+		${Boost_FILESYSTEM_LIBRARY}
+		${Boost_SYSTEM_LIBRARY}
+	#	${NSCP_DEF_PLUGIN_LIB}
+		${BREAKPAD_COMMON_LIBRARY}
+		${BREAKPAD_CRASH_REPORT_SENDER_LIBRARY}
+		${EXTRA_LIBS}
+	)
+	SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "tools")
+
+	SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
+	SOURCE_GROUP("Parser" REGULAR_EXPRESSION .*include/parser/.*)
+	SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
+	SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
+
+	INSTALL(TARGETS ${TARGET} RUNTIME DESTINATION .)
+	INSTALL(CODE "SET(PDB_FULL_PATH ${BUILD_TARGET_EXE_PATH}/${TARGET}.pdb)")
+	INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX} TYPE EXECUTABLE FILES \${PDB_FULL_PATH})")
+ENDIF(BREAKPAD_FOUND)

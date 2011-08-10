@@ -5,16 +5,7 @@ import fnmatch
 import shutil
 
 
-BREAKPAD_FOUND = "${BREAKPAD_FOUND}"
-BREAKPAD_FOUND = "FALSE"
-BREAKPAD_DUMPSYMS_EXE = "${BREAKPAD_DUMPSYMS_EXE}"
-BUILD_TARGET_EXE_PATH = "${BUILD_TARGET_EXE_PATH}"
-BUILD_PYTHON_FOLDER = "${BUILD_PYTHON_FOLDER}"
-VERSION = "${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}"
-CMAKE_CL_64 = "${CMAKE_CL_64}"
-ARCHIVE_FOLDER = "${ARCHIVE_FOLDER}"
-VERSION_TXT = "${VERSION_TXT}"
-VERSION_ARCH = "${VERSION_ARCH}"
+execfile("config.py")
 
 sys.path.append(BUILD_PYTHON_FOLDER)
 from VersionHandler import VersionHandler
@@ -22,6 +13,7 @@ from VersionHandler import VersionHandler
 version = VersionHandler(VERSION_TXT)
 version.read()
 datestr = version.datestr()
+vstring = version.version()
 
 def rename_and_move(file, target):
 	tfile = '%s/%s'%(target, os.path.basename(file))
@@ -65,9 +57,9 @@ if ARCHIVE_FOLDER != "":
 	if not os.path.isdir(target_archives):
 		os.mkdir(target_archives)
 
-	for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*.msi'):
+	for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.msi'%vstring):
 		rename_and_move(f, target_installer)
-	for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*.zip'):
+	for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.zip'%vstring):
 		rename_and_move(f, target_archives)
 	
 

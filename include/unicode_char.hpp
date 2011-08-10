@@ -10,7 +10,6 @@
 #ifndef _T
 #define _T(x) L ## x
 #endif
-
+#include <unicode/ustring.h>
 #endif
 
-#include <unicode/ustring.h>

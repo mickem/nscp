@@ -1,5 +1,3 @@
-#pragma once
-
 #include "settings_logger_impl.hpp"
 #include "NSClient++.h"
 

@@ -1,4 +1,4 @@
 #pragma once
 
-#include "D:/source/nscp/build/x64/libs/protobuf/log.pb.h"
+#include "/mnt/nscp/build/linux/libs/protobuf/log.pb.h"
 

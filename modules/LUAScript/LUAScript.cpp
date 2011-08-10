@@ -45,13 +45,15 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	//std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
 
+		root_ = get_core()->getBasePath();
+
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, _T("lua"));
 
 		settings.alias().add_path_to_settings()
 			(_T("LUA SCRIPT SECTION"), _T("Section for the LUAScripts module."))
 
-			(_T("scripts"), sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, _1)), 
+			(_T("scripts"), sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, _1, _2)), 
 			_T("LUA SCRIPTS SECTION"), _T("A list of scripts available to run from the LuaSCript module."))
 			;
 
@@ -61,7 +63,19 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 // 		if (!scriptDirectory_.empty()) {
 // 			addAllScriptsFrom(scriptDirectory_);
 // 		}
- 		root_ = get_core()->getBasePath();
+
+
+
+
+		BOOST_FOREACH(script_container &script, scripts_) {
+			try {
+				boost::shared_ptr<script_wrapper::lua_script> instance = boost::shared_ptr<script_wrapper::lua_script>(new script_wrapper::lua_script(script));
+				instance->pre_load(this);
+				instances_.push_back(instance);
+			} catch (script_wrapper::LUAException e) {
+				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
+			}
+		}
 
 		// 	} catch (nrpe::server::nrpe_exception &e) {
 		// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
@@ -80,28 +94,39 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 }
 
 void LUAScript::register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function) {
-	NSC_LOG_MESSAGE(_T("Script loading: ") + script->get_script() + _T(": ") + command);
+	NSC_LOG_MESSAGE(_T("Script loading: ") + script->get_wscript() + _T(": ") + command);
 	commands_[command] = lua_func(script, function);
 }
 
-bool LUAScript::loadScript(const std::wstring file) {
-	try {
-		std::wstring file_ = file;
+boost::optional<boost::filesystem::wpath> LUAScript::find_file(std::wstring file) {
+	std::list<boost::filesystem::wpath> checks;
+	checks.push_back(file);
+	checks.push_back(root_ / _T("scripts") / _T("lua") / file);
+	checks.push_back(root_ / _T("scripts") / file);
+	checks.push_back(root_ / _T("lua") / file);
+	checks.push_back(root_ / file);
+	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
+		NSC_DEBUG_MSG_STD(_T("Looking for: ") + c.string());
+		if (boost::filesystem::exists(c))
+			return boost::optional<boost::filesystem::wpath>(c);
+	}
+	NSC_LOG_ERROR(_T("Script not found: ") + file);
+	return boost::optional<boost::filesystem::wpath>();
+}
 
-		if (!file_helpers::checks::exists(file_)) {
-			file_ = root_ + file;
-			if (!file_helpers::checks::exists(file_)) {
-				NSC_LOG_ERROR(_T("Script not found: ") + file + _T(" (") + file_ + _T(")"));
-				return false;
-			}
+bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
+	try {
+		if (file.empty()) {
+			file = alias;
+			alias = _T("");
 		}
-		NSC_DEBUG_MSG_STD(_T("Loading script: ") + file + _T(" (") + file_ + _T(")"));
-		script_wrapper::lua_script *script = new script_wrapper::lua_script(file_);
-		script->pre_load(this);
-		scripts_.push_back(script);
+
+		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
+		if (!ofile)
+			return false;
+		script_container::push(scripts_, alias, *ofile);
+		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->string() + _T(" as ") + alias + _T(")"));
 		return true;
-	} catch (script_wrapper::LUAException e) {
-		NSC_LOG_ERROR_STD(_T("Could not load script: ") + file + _T(", ") + e.getMessage());
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);
 	}
@@ -110,10 +135,7 @@ bool LUAScript::loadScript(const std::wstring file) {
 
 
 bool LUAScript::unloadModule() {
-	for (script_list::const_iterator cit = scripts_.begin(); cit != scripts_.end() ; ++cit) {
-		delete (*cit);
-	}
-	scripts_.clear();
+	instances_.clear();
 	return true;
 }
 
@@ -128,17 +150,17 @@ bool LUAScript::hasMessageHandler() {
 bool LUAScript::reload(std::wstring &message) {
 	bool error = false;
 	commands_.clear();
-	for (script_list::const_iterator cit = scripts_.begin(); cit != scripts_.end() ; ++cit) {
+	for (script_list::const_iterator cit = instances_.begin(); cit != instances_.end() ; ++cit) {
 		try {
 			(*cit)->reload(this);
 		} catch (script_wrapper::LUAException e) {
 			error = true;
-			message += _T("Exception when reloading script: ") + (*cit)->get_script() + _T(": ") + e.getMessage();
-			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + (*cit)->get_script() + _T(": ") + e.getMessage());
+			message += _T("Exception when reloading script: ") + (*cit)->get_wscript() + _T(": ") + e.getMessage();
+			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + (*cit)->get_wscript() + _T(": ") + e.getMessage());
 		} catch (...) {
 			error = true;
-			message += _T("Unhandeled Exception when reloading script: ") + (*cit)->get_script();
-			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when reloading script: ") + (*cit)->get_script());
+			message += _T("Unhandeled Exception when reloading script: ") + (*cit)->get_wscript();
+			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when reloading script: ") + (*cit)->get_wscript());
 		}
 	}
 	if (!error)

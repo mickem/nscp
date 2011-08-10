@@ -34,6 +34,9 @@ SET(DEPENDENCIES
 	
 	"NagiosPlugins.vbs_script lib"
 	"wrapper.vbs_script lib"
+
+	"test.py.vbs_script lib"
+	"test_second.py.vbs_script lib"
 	
 	counters.defs_files
 	license.txt_files

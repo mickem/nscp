@@ -183,9 +183,15 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring comm
 	std::string request;
 	message.SerializeToString(&request);
 
+	return InjectCommand(command.c_str(), request, result);
+}
+
+NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring command, std::string request, std::string & result) 
+{
+	if (!fNSAPIInject)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-
 	NSCAPI::nagiosReturn retC = InjectCommandRAW(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
@@ -208,7 +214,6 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring comm
 	}
 	return retC;
 }
-
 /**
  * A wrapper around the InjetCommand that is simpler to use.
  * Parses a string by splitting and makes the array and also manages return buffers and such.

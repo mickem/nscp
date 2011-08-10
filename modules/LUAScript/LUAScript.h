@@ -25,6 +25,11 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 #include "script_wrapper.hpp"
 
+#include <boost/optional.hpp>
+
+#include <scripts/functions.hpp>
+
+
 class LUAScript : public nscapi::impl::SimpleCommand, public script_wrapper::lua_handler, public nscapi::impl::simple_plugin {
 private:
 
@@ -40,12 +45,14 @@ private:
 		}
 	};
 
+	script_container::list_type scripts_;
+
 	typedef std::map<std::wstring,lua_func> cmd_list;
-	typedef std::list<script_wrapper::lua_script*> script_list;
+	typedef std::list<boost::shared_ptr<script_wrapper::lua_script> > script_list;
 
 	cmd_list commands_;
-	script_list scripts_;
-	std::wstring root_;
+	script_list instances_;
+	boost::filesystem::wpath root_;
 
 public:
 	LUAScript();
@@ -70,7 +77,8 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	bool loadScript(const std::wstring script);
+	boost::optional<boost::filesystem::wpath> find_file(std::wstring file);
+	bool loadScript(std::wstring alias, std::wstring file);
 	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);

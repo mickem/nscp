@@ -37,6 +37,7 @@ ENDIF(WIN32)
 
 
 add_library(${TARGET} MODULE ${SRCS})
+INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

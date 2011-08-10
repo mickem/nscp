@@ -389,18 +389,28 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	plugin_alias_list_type ret;
 
 	settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
-	BOOST_FOREACH(std::wstring key, list) {
-		std::wstring val = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key);
-		if ((key.length() > 4) && (key.substr(key.length()-4) == _T(".dll")) )
-			key = key.substr(0, key.length()-4);
-		if (val.empty() || val == _T("enabled")) {
-			ret.insert(plugin_alias_list_type::value_type(_T(""), key));
-		} else if (val == _T("disabled") && !active) {
-			ret.insert(plugin_alias_list_type::value_type(_T("disabled"), key));
-		} else if (val == _T("disabled")) {
-		} else {
-			ret.insert(plugin_alias_list_type::value_type(key, val));
+	BOOST_FOREACH(std::wstring plugin, list) {
+		std::wstring alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin);
+		if (plugin == _T("enabled")) {
+			plugin = alias;
+			alias = _T("");
+		} else if ((active && plugin == _T("disabled")) || (active && alias == _T("disabled")))
+			continue;
+		else if (plugin == _T("disabled")) {
+			plugin = alias;
+			alias = _T("");
+		} else if (alias == _T("disabled")) {
+			alias = _T("");
 		}
+		if (!alias.empty()) {
+			std::wstring tmp = plugin;
+			plugin = alias;
+			alias = tmp;
+		}
+		LOG_DEBUG_CORE_STD(_T("Found: ") + plugin + _T(" as ") + alias);
+		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == _T(".dll"))
+			plugin = plugin.substr(0, plugin.length()-4);
+		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
 	}
 	if (!active) {
 		boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
@@ -458,7 +468,7 @@ void NSClientT::load_all_plugins(int mode) {
 
 		BOOST_FOREACH(v, plugins) {
 			try {
-				addPlugin(pluginPath / v.second, _T(""));
+				addPlugin(pluginPath / v.second, v.first);
 			} catch (NSPluginException &e) {
 				LOG_CRITICAL_CORE_STD(_T("Failed to register plugin: ") + e.what());
 			} catch (...) {
@@ -973,7 +983,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
  */
 NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::wpath file, std::wstring alias) {
 	{
-		LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.string() + _T(", ") + alias + _T(")"));
+		LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.string() + _T(" as ") + alias + _T(")"));
 		// Check if this is a duplicate plugin (if so return that instance)
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {

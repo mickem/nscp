@@ -35,6 +35,11 @@
 
 #include <cctype>
 
+#ifdef __GNUC__
+#include <iconv.h>
+#include <errno.h>
+#endif
+
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/algorithm/string.hpp>
@@ -816,7 +821,20 @@ namespace nscp {
 		}
 	}
 }
-
+/*
+#ifdef __GNUC__
+size_t Wcslen(const wchar_t*w)
+{
+	size_t size=0;
+	while (*w++)
+		size++;
+	return size;
+}
+#endif
+#ifdef WIN32
+#define Wcslen wcslen
+#endif
+*/
 namespace utf8 {
 	/** Converts a std::wstring into a std::string with UTF-8 encoding. */
 	template<typename StringT>
@@ -852,6 +870,32 @@ namespace utf8 {
 		buf.resize(nChars);
 		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
 		return buf;
+#else
+		size_t wideSize = sizeof(wchar_t)*str.length();
+		size_t outbytesLeft = wideSize+sizeof(char); //We cannot know how many wide character there is yet
+
+		//Copy the instring
+		char *inString = (char*)new wchar_t[str.length()+1];
+		memcpy(inString, str.c_str(), wideSize+sizeof(wchar_t));
+
+		//Create buffer for output
+		char *outString = new char[outbytesLeft];
+		memset(outString, 0, sizeof(char)*(outbytesLeft));
+
+		char *inPointer = inString;
+		char *outPointer = outString;
+
+		iconv_t convDesc = iconv_open("UTF-8", "WCHAR_T");
+		iconv(convDesc, &inPointer, &wideSize, &outPointer, &outbytesLeft);
+		iconv_close(convDesc);
+
+		std::string retval(outString);
+
+		//Cleanup
+		delete[] inString;
+		delete[] outString;
+
+		return retval;
 #endif
 	}
 
@@ -869,6 +913,32 @@ namespace utf8 {
 		buf.resize(nChars);
 		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<wchar_t*>(buf.c_str()), nChars);
 		return buf;
+#else
+		size_t utf8Length = str.length();
+		size_t outbytesLeft = utf8Length*sizeof(wchar_t);
+
+		//Copy the instring
+		char *inString = new char[str.length()+1];
+		strcpy(inString, str.c_str());
+
+		//Create buffer for output
+		char *outString = (char*)new wchar_t[utf8Length+1];
+		memset(outString, 0, sizeof(wchar_t)*(utf8Length+1));
+
+		char *inPointer = inString;
+		char *outPointer = outString;
+
+		iconv_t convDesc = iconv_open("WCHAR_T", "UTF-8");
+		iconv(convDesc, &inPointer, &utf8Length, &outPointer, &outbytesLeft);
+		iconv_close(convDesc);
+
+		std::wstring retval( (wchar_t *)outString );
+
+		//Cleanup
+		delete[] inString;
+		delete[] outString;
+
+		return retval;
 #endif
 	}
 }

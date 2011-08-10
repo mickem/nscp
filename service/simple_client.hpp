@@ -42,14 +42,13 @@ namespace nsclient {
 					log(_T("Exiting..."));
 					break;
 				} else if (s == _T("plugins")) {
-					log(_T("Listing plugins..."));
+					log(_T("Plugins: "));
 					core_->listPlugins();
-				} else if (s == _T("list")) {
-					log(_T("Listing commands..."));
+				} else if (s == _T("list") || s == _T("commands")) {
+					log(_T("Commands:"));
 					std::list<std::wstring> lst = core_->list_commands();
 					for (std::list<std::wstring>::const_iterator cit = lst.begin(); cit!=lst.end();++cit)
-						std::wcout << *cit << _T(": ") << core_->describeCommand(*cit) << std::endl;
-					log(_T("Listing commands...Done"));
+						log(_T("| ") + *cit + _T(": ") + core_->describeCommand(*cit));
 				} else if (s == _T("debug off")) {
 					log(_T("Setting debug log off..."));
 					core_->enableDebug(false);

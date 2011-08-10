@@ -36,6 +36,9 @@ IF(WIN32)
 
 	)
 ENDIF(WIN32)
+
+ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+
 add_library (${TARGET} ${service_SRCS})
 
 target_link_libraries(${TARGET} protobuf)
