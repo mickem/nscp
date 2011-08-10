@@ -225,7 +225,7 @@ std::wstring nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnC
 	else if (returnCode == NSCAPI::returnUNKNOWN)
 		return _T("WARNING");
 	else
-		return _T("BAD_CODE");
+		return _T("BAD_CODE: " + strEx::itos(returnCode));
 }
 /**
 * Translate a string into the corresponding return code 

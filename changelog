@@ -7,6 +7,9 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2011-08-10
+ * Fixed linus issues and defect
+ * Fixed some issues in the test python script regarding how prefix is handled
+ * Fixed PythonScript module to actually use the correct function map :)
  * Fixed so it builds and runs on linux (but parser had issues so disabled som grammar rules whichneeds to be enabled again)
  * Added a lot of freatures and cleand up the PythonScript module
  * Started to merge som features from PythonScript back to Lua script

@@ -52,8 +52,14 @@ NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned
 NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue, wchar_t* buffer, unsigned int bufLen) {
 	try {
 		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
+	} catch (settings::settings_exception e) {
+		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
+		return NSCAPI::hasFailed;
+	} catch (const std::exception &e) {
+		LOG_ERROR_STD(_T("Failed to get key: ") + utf8::cvt<std::wstring>(e.what()));
+		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to getString: ") + key);
+		LOG_ERROR_STD(_T("Failed to get key: <UNKNOWN EXCEPTION>"));
 		return NSCAPI::hasFailed;
 	}
 }
@@ -63,13 +69,25 @@ int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultV
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
 		return defaultValue;
+	} catch (const std::exception &e) {
+		LOG_ERROR_STD(_T("Failed to get key: ") + utf8::cvt<std::wstring>(e.what()));
+		return defaultValue;
+	} catch (...) {
+		LOG_ERROR_STD(_T("Failed to get key: <UNKNOWN EXCEPTION>"));
+		return defaultValue;
 	}
 }
 int NSAPIGetSettingsBool(const wchar_t* section, const wchar_t* key, int defaultValue) {
 	try {
 		return settings_manager::get_settings()->get_bool(section, key, defaultValue==1);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
+		LOG_ERROR_STD(_T("Failed to get key: ") + e.getMessage());
+		return defaultValue;
+	} catch (const std::exception &e) {
+		LOG_ERROR_STD(_T("Failed to get key: ") + utf8::cvt<std::wstring>(e.what()));
+		return defaultValue;
+	} catch (...) {
+		LOG_ERROR_STD(_T("Failed to get key: <UNKNOWN EXCEPTION>"));
 		return defaultValue;
 	}
 }

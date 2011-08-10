@@ -2,17 +2,18 @@ from NSCP import Settings, Functions, Core, log, status
 
 core = Core.get()
 
+prefix = 'py_'
 def test(arguments):
 	log('inside test')
 	for a in arguments:
 		log('Got argument: %s'%a)
-	(retcode, msg, perf) = core.simple_query("normal", [])
+	(retcode, msg, perf) = core.simple_query("%snormal"%prefix, [])
 	if msg != "ok got: ":
 		return (status.CRITICAL, "Test failed")
-	(retcode, msg, perf) = core.simple_query("normal", ["hello"])
+	(retcode, msg, perf) = core.simple_query("%snormal"%prefix, ["hello"])
 	if msg != "ok got: hello":
 		return (status.CRITICAL, "Test failed")
-	(retcode, msg, perf) = core.simple_query("normal", ["hello", "world"])
+	(retcode, msg, perf) = core.simple_query("%snormal"%prefix, ["hello", "world"])
 	if perf != "'args'=2":
 		return (status.CRITICAL, "Test failed: -%s-"%perf)
 	return (status.OK, 'Tests ok')
@@ -43,7 +44,6 @@ def no_ret(arguments):
 		log('Got argument: %s'%a)
 	
 def init(alias):
-	prefix = 'py_'
 	if alias:
 		prefix = '%s_'%alias
 

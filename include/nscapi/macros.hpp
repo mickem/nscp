@@ -6,7 +6,7 @@
 #define NSC_WRAPPERS_MAIN() \
 	extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f); \
 	extern "C" int NSLoadModule(); \
-	extern "C" int NSLoadModuleEx(const wchar_t alias, int mode); \
+	extern "C" int NSLoadModuleEx(wchar_t* alias, int mode); \
 	extern "C" void NSDeleteBuffer(char**buffer); \
 	extern "C" int NSGetModuleName(wchar_t* buf, int buflen); \
 	extern "C" int NSGetModuleDescription(wchar_t* buf, int buflen); \
