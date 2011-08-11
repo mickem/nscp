@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "stdafx.h"
 
 #include <strEx.h>
 #include "script_wrapper.hpp"

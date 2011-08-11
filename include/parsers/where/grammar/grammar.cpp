@@ -123,23 +123,22 @@ namespace parsers {
 
 			cond_expr
 					= (identifier_expr >> op >> identifier_expr)		[_val = build_e(_1, _2, _3) ]
-//					| (identifier_expr >> ascii::no_case["not in"] 
-//						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_nin, _2) ]
-//					| (identifier_expr >> ascii::no_case["in"] 
-//						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_in, _2) ]
-//						| ('(' >> expression >> ')')					[_val = _1 ]
+					| (identifier_expr >> ascii::no_case["not in"] 
+						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_nin, _2) ]
+					| (identifier_expr >> ascii::no_case["in"] 
+						>> '(' >> value_list >> ')')					[_val = build_e(_1, op_in, _2) ]
+						| ('(' >> expression >> ')')					[_val = _1 ]
 					;
 
 			identifier_expr
-					= identifier										[_val = _1 ]
-// 					= (identifier >> bitop >> identifier)				[_val = build_e(_1, _2, _3) ]
-// 					| ('(' >> identifier >> bitop >> identifier >> ')')	[_val = build_e(_1, _2, _3) ]
-//					| identifier										[_val = _1 ]
+ 					= (identifier >> bitop >> identifier)				[_val = build_e(_1, _2, _3) ]
+ 					| ('(' >> identifier >> bitop >> identifier >> ')')	[_val = build_e(_1, _2, _3) ]
+					| identifier										[_val = _1 ]
 					;
 
 			identifier 
 					= "str" >> string_literal_ex						[_val = build_is(_1)]
-//					| (variable_name >> '(' >> list_expr >> ')')		[_val = build_if(_1, _2)]
+					| (variable_name >> '(' >> list_expr >> ')')		[_val = build_if(_1, _2)]
 					| variable_name										[_val = build_iv(_1)]
 					| string_literal									[_val = build_is(_1)]
 					| qi::lexeme[
