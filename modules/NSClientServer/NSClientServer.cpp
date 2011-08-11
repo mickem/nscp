@@ -1,0 +1,250 @@
+/**************************************************************************
+*   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
+*                                                                         *
+*   This code is part of NSClient++ - http://trac.nakednuns.org/nscp      *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+***************************************************************************/
+#include "stdafx.h"
+#include "NSClientServer.h"
+#include <strEx.h>
+#include <time.h>
+#include <config.h>
+#include "handler_impl.hpp"
+#include "settings.hpp"
+#include <settings/client/settings_client.hpp>
+
+NSClientListener gNSClientListener;
+
+
+
+namespace sh = nscapi::settings_helper;
+
+NSClientListener::NSClientListener() : info_(boost::shared_ptr<check_nt::server::handler>(new handler_impl())) {
+}
+NSClientListener::~NSClientListener() {
+}
+std::wstring getAllowedHosts() {
+	std::wstring ret = SETTINGS_GET_STRING(nsclient::ALLOWED_HOSTS);
+	if (ret.empty())
+		ret = SETTINGS_GET_STRING(protocol_def::ALLOWED_HOSTS);
+	return ret;
+}
+bool getCacheAllowedHosts() {
+	return SETTINGS_GET_INT_FALLBACK(nsclient::CACHE_ALLOWED, protocol_def::CACHE_ALLOWED);
+}
+
+bool NSClientListener::loadModule() {
+	return false;
+}
+
+bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+
+	try {
+
+		sh::settings_registry settings(get_settings_proxy());
+		settings.set_alias(_T("NSClient"), alias, _T("server"));
+
+		settings.alias().add_path_to_settings()
+			(_T("NSCLIENT SERVER SECTION"), _T("Section for NSClient (NSClientServer.dll) (check_nt) protocol options."))
+			;
+
+		settings.alias().add_key_to_settings()
+			(_T("port"), sh::uint_key(&info_.port, 12489),
+			_T("PORT NUMBER"), _T("Port to use for check_nt."))
+
+			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
+			_T("THREAD POOL"), _T(""))
+
+			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
+			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
+
+			(_T("use ssl"), sh::bool_key(&info_.use_ssl, true),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+
+			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&check_nt::server::handler::set_allow_arguments, info_.request_handler, _1), false),
+			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
+
+			(_T("allow nasty characters"), sh::bool_fun_key<bool>(boost::bind(&check_nt::server::handler::set_allow_nasty_arguments, info_.request_handler, _1), false),
+			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
+
+			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&check_nt::server::handler::set_perf_data, info_.request_handler, _1), true),
+			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
+
+			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
+			_T("SSL CERTIFICATE"), _T(""))
+			;
+
+		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
+
+			(_T("bind to"), sh::string_key(&info_.address),
+			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
+
+			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
+			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
+
+			;
+
+
+
+		settings.register_all();
+		settings.notify();
+	} catch (...) {}
+
+// 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
+// 	unsigned short port = SETTINGS_GET_INT(nsclient::PORT);
+// 	std::wstring host = SETTINGS_GET_STRING(nsclient::BINDADDR);
+// 	unsigned int backLog = SETTINGS_GET_INT(nsclient::LISTENQUE);
+// 	socketTimeout_ = SETTINGS_GET_INT(nsclient::READ_TIMEOUT);
+
+
+	info_.request_handler->set_password(_T("TODO"));
+
+#ifndef USE_SSL
+	if (info_.use_ssl) {
+		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+	}
+#endif
+	if (!boost::filesystem::is_regular(info_.certificate))
+		NSC_LOG_ERROR_STD(_T("Certificate not found: ") + info_.certificate);
+
+	boost::asio::io_service io_service_;
+
+	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts(), io_service_);
+	NSC_DEBUG_MSG_STD(_T("Allowed hosts: ") + allowedHosts.to_string());
+
+	if (mode == NSCAPI::normalStart) {
+		try {
+
+
+
+					if (info_.use_ssl) {
+#ifdef USE_SSL
+						server_.reset(new check_nt::server::server(info_));
+#else
+						NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
+						return false;
+#endif
+					} else {
+						server_.reset(new check_nt::server::server(info_));
+					}
+					if (!server_) {
+						NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
+						return false;
+					}
+					server_->start();
+
+		} catch (check_nt::server::check_nt_exception &e) {
+			NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
+			return false;
+		} catch (std::exception &e) {
+			NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
+			return false;
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+			return false;
+		}
+	}
+	return true;
+}
+bool NSClientListener::unloadModule() {
+	try {
+		if (server_) {
+			server_->stop();
+			server_.reset();
+		}
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN>"));
+		return false;
+	}
+	return true;
+}
+
+// void NSClientListener::sendTheResponse(simpleSocket::Socket *client, std::string response) {
+// 	client->send(response.c_str(), static_cast<int>(response.length()), 0);
+// }
+// 
+// void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
+// 	simpleSocket::DataBuffer db;
+// 	unsigned int i;
+// 	unsigned int maxWait = socketTimeout_*10;
+// 	for (i=0;i<maxWait;i++) {
+// 		bool lastReadHasMore = false;
+// 		try {
+// 			lastReadHasMore = client->readAll(db);
+// 		} catch (simpleSocket::SocketException e) {
+// 			NSC_LOG_ERROR_STD(_T("Read on socket failed: ") + e.getMessage());
+// 			client->close();
+// 			return;
+// 		}
+// 		if (db.getLength() > 0) {
+// 			unsigned long long pos = db.find('\n');
+// 			if (pos==-1) {
+// 				std::string incoming(db.getBuffer(), db.getLength());
+// 				sendTheResponse(client, parseRequest(incoming));
+// 				break;
+// 			} else if (pos > 0) {
+// 				simpleSocket::DataBuffer buffer = db.unshift(static_cast<const unsigned int>(pos));
+// 				std::string bstr(buffer.getBuffer(), buffer.getLength());
+// 				db.nibble(1);
+// 				std::string rstr(db.getBuffer(), db.getLength());
+// 				std::string incoming(buffer.getBuffer(), buffer.getLength());
+// 				sendTheResponse(client, parseRequest(incoming) + "\n");
+// 			} else {
+// 				db.nibble(1);
+// 				NSC_LOG_ERROR_STD(_T("First char should (i think) not be a \\n :("));
+// 			}
+// 		} else if (!lastReadHasMore) {
+// 			client->close();
+// 			return;
+// 		} else {
+// 			Sleep(100);
+// 		}
+// 	}
+// 	if (i >= maxWait) {
+// 		NSC_LOG_ERROR_STD(_T("Timeout reading NS-client packet (increase socket_timeout)."));
+// 		client->close();
+// 		return;
+// 	}
+// }
+
+// 
+// void NSClientListener::onAccept(simpleSocket::Socket *client) {
+// 	if (!allowedHosts.inAllowedHosts(client->getAddr())) {
+// 		NSC_LOG_ERROR(_T("Unauthorized access from: ") + client->getAddrString());
+// 		client->close();
+// 		return;
+// 	}
+// 	//client->setNonBlock();
+// 	retrivePacket(client);
+// 
+// 
+// 
+// //	client->readAll(db);
+// //	if (db.getLength() > 0) {
+// //		std::wstring incoming(db.getBuffer(), db.getLength());
+// //		NSC_DEBUG_MSG_STD("Incoming data: " + incoming);
+// //		std::wstring response = parseRequest(incoming);
+// //		NSC_DEBUG_MSG("Outgoing data: " + response);
+// //		client->send(response.c_str(), static_cast<int>(response.length()), 0);
+// //	}
+// 	client->close();
+// }
+
+NSC_WRAP_DLL();
+NSC_WRAPPERS_MAIN_DEF(gNSClientListener);
+NSC_WRAPPERS_IGNORE_MSG_DEF();
+NSC_WRAPPERS_IGNORE_CMD_DEF();

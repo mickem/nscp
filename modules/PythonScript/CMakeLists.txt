@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 2.6)
+
+SET(TARGET PythonScript)
+	
+PROJECT(${TARGET})
+
+SET(SRCS
+	stdafx.cpp
+	"${TARGET}.cpp"
+	script_wrapper.cpp
+	${NSCP_DEF_PLUGIN_CPP}
+)
+
+ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES} -DBOOST_PYTHON_STATIC_LIB)
+
+
+IF(WIN32)
+	SET(SRCS ${SRCS}
+		stdafx.h
+		script_wrapper.hpp
+		"${TARGET}.h"
+		"${TARGET}.def"
+
+		${NSCP_DEF_PLUGIN_HPP}
+	)
+ENDIF(WIN32)
+INCLUDE_DIRECTORIES(${PYTHON_INCLUDE_DIRS})
+
+add_library(${TARGET} MODULE ${SRCS})
+
+target_link_libraries(${TARGET}
+	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_PYTHON_LIBRARY}
+	${NSCP_DEF_PLUGIN_LIB}
+	${PYTHON_LIBRARIES}
+)
+INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
