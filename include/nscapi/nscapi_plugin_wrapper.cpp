@@ -164,6 +164,16 @@ NSCAPI::nagiosReturn nscapi::plugin_wrapper::wrapHandleCommand(NSCAPI::nagiosRet
 	}
 	return retResult;
 }
+NSCAPI::nagiosReturn nscapi::plugin_wrapper::wrapCommandLineExec(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size) {
+	// TODO: Make this global to allow remote deletion!!!
+	unsigned int buf_len = reply.size();
+	*reply_buffer = new char[buf_len + 10];
+	memcpy(*reply_buffer, reply.c_str(), buf_len+1);
+	(*reply_buffer)[buf_len] = 0;
+	(*reply_buffer)[buf_len+1] = 0;
+	*size = buf_len;
+	return retResult;
+}
 
 /**
  * Wrap the NSLoadModule call
@@ -245,8 +255,12 @@ NSCAPI::nagiosReturn nscapi::impl::SimpleCommand::handleRAWCommand(const wchar_t
 	return nscapi::functions::process_simple_command_result(data.command, ret, msg, perf, response);
 }
 
-
-
+NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_line_exec_request(char_command, request);
+	std::wstring result;
+	NSCAPI::nagiosReturn ret = commandLineExec(data.command, data.args_vector, result);
+	return nscapi::functions::process_simple_command_line_exec_result(data.command, ret, result, response);
+}
 
 NSCAPI::nagiosReturn nscapi::impl::SimpleNotificationHandler::handleRAWNotification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, std::string result) {
 	try {

@@ -165,7 +165,7 @@ namespace nscapi {
 		typedef int (*lpHasMessageHandler)();
 		typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
 		typedef int (*lpDeleteBuffer)(char**);
-		typedef int (*lpCommandLineExec)(const unsigned int,wchar_t**);
+		typedef int (*lpCommandLineExec)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
 		typedef int (*lpHandleMessage)(const char*);
 		typedef int (*lpUnLoadModule)();
 		typedef void (*lpShowTray)();

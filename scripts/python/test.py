@@ -2,6 +2,10 @@ from NSCP import Settings, Functions, Core, log, status
 
 core = Core.get()
 
+
+def get_help(arguments):
+	return (status.OK, 'help: Get help')
+
 prefix = 'py_'
 def test(arguments):
 	log('inside test')
@@ -61,6 +65,8 @@ def init(alias):
 	fun.register_simple('%snop'%prefix, no_perf, 'No performance data')
 	fun.register_simple('%snom'%prefix, no_msg, 'No performance data')
 	fun.register_simple('%snor'%prefix, no_ret, 'No performance data')
+
+	fun.simple_cmdline('help', get_help)
 
 	log('Testing to register settings keys')
 	conf.register_path('hello', 'PYTHON SETTINGS', 'This is stuff for python')

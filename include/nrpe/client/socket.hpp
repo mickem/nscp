@@ -19,8 +19,16 @@ namespace nrpe {
 	public:
 		socket(boost::asio::io_service &io_service, std::wstring host, int port) {
 			socket_.reset(new tcp::socket(io_service));
+			connect(host, port);
 		}
-		socket() {}
+		socket() {
+		}
+
+		virtual ~socket() {
+			socket_.reset();
+			//get_socket().close();
+		}
+
 
 		virtual boost::asio::io_service& get_io_service() {
 			return socket_->get_io_service();
@@ -48,17 +56,16 @@ namespace nrpe {
 				throw boost::system::system_error(error);
 		}
 
-		~socket() {
-			get_socket().close();
-		}
-
 		virtual void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
 			std::vector<char> buf = packet.get_buffer();
 			write_with_timeout(buf, timeout);
+			get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_send);
 		}
 		virtual nrpe::packet recv(const nrpe::packet &packet, boost::posix_time::seconds timeout) {
 			std::vector<char> buf(packet.get_packet_length());
 			read_with_timeout(buf, timeout);
+			get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+			get_socket().close();
 			return nrpe::packet(&buf[0], buf.size(), packet.get_payload_length());
 		}
 		virtual void read_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
@@ -72,14 +79,19 @@ namespace nrpe {
 
 
 #ifdef USE_SSL
-	class ssl_socket : public socket {
+	class ssl_socket : public socket, public boost::noncopyable {
 	private:
 		boost::shared_ptr<boost::asio::ssl::stream<tcp::socket> > ssl_socket_;
 
 	public:
 		ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context &ctx, std::wstring host, int port) : socket() {
 			ssl_socket_.reset(new boost::asio::ssl::stream<tcp::socket>(io_service, ctx));
+			connect(host, port);
 		}
+		virtual ~ssl_socket() {
+			ssl_socket_.reset();
+		}
+
 
 		virtual void connect(std::wstring host, int port) {
 			socket::connect(host, port);

@@ -144,11 +144,16 @@ public:
 	void handleMessage(const char* data);
 	void unload(void);
 	std::wstring getCongifurationMeta();
-	int commandLineExec(const unsigned int argLen, wchar_t **arguments);
+	int commandLineExec(const wchar_t* command, std::string &request, std::string &reply);
+	int commandLineExec(const wchar_t* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
+	bool has_command_line_exec();
 	void showTray();
 	void hideTray();
 	bool is_duplicate( boost::filesystem::wpath file, std::wstring alias );
 
+	std::wstring get_alias() {
+		return alias_;
+	}
 	std::wstring getFilename() {
 		return module_.get_filename();
 	}
@@ -176,6 +181,7 @@ public:
 		return module_.is_loaded();
 	}
 	unsigned int get_id() const { return plugin_id_; }
+	static boost::filesystem::wpath get_filename(boost::filesystem::wpath folder, std::wstring module);
 
 private:
 	bool lastIsMsgPlugin_;

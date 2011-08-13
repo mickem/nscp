@@ -11,6 +11,7 @@ class cli_parser {
 	po::options_description desc;
 	po::options_description settings;
 	po::options_description service;
+	po::options_description client;
 
 public:
 	cli_parser(NSClient* core) 
@@ -18,15 +19,19 @@ public:
 		, desc("Allowed options")
 		, settings("Settings options")
 		, service("Service Options")
+		, client("Client Options")
 	{
 		desc.add_options()
 			("help", "produce help message")
-			("settings-help", "produce help message for the various settings related options")
-			("service-help", "produce help message for the various settings related options")
+			("settings-help", "Produce help message for the various settings related options")
+			("service-help", "Produce help message for the various settings related service management")
+			("client-help", "Produce help message for the various settings related client")
 			("settings", "Enter settings mode and handle settings related commands")
 			("service", "Enter service mode and handle service related commands")
+			("client", "Enter client mode and handle client related commands")
 			("test", "Start test and debug mode")
 			("debug", "Show debug information")
+			("version", "Show version information")
 			;
 
 
@@ -53,11 +58,16 @@ public:
 			("description", po::value<std::wstring>()->default_value(_T("")), "Description of service")
 			;
 
+		client.add_options()
+			("command,C", po::value<std::wstring>(), "Name of command to start")
+			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
+			("arguments,A", po::value< std::vector<std::wstring> >()->multitoken(), "List of arguments")			;
+
 	}
 	int parse(int argc, wchar_t* argv[]) {
 		try {
 			po::options_description all("Allowed options");
-			all.add(desc).add(service).add(settings);
+			all.add(desc).add(service).add(settings).add(client);
 
 			po::variables_map vm;
 			po::wparsed_options parsed = 
@@ -72,22 +82,14 @@ public:
 				core_->log_debug(__FILE__, __LINE__, _T("Enabling debug mode"));
 			}
 
-
-			if (vm.count("settings")) {
-				mainClient.set_console_log();
-				return parse_settings(argc, argv);
-			}
-			if (vm.count("service")) {
-				//mainClient.set_console_log();
-				return parse_service(argc, argv);
-			}
-			if (vm.count("test")) {
-				mainClient.set_console_log();
-				return parse_test(argc, argv);
-			}
 			if (vm.count("help")) {
 				mainClient.set_console_log();
 				std::cout << all << "\n";
+				return 1;
+			}
+			if (vm.count("version")) {
+				mainClient.set_console_log();
+				std::cout << APPLICATION_NAME << _T(", Version: ") << CURRENT_SERVICE_VERSION << _T(", Platform: ") << SZARCH << "\n";
 				return 1;
 			}
 			if (vm.count("settings-help")) {
@@ -99,6 +101,27 @@ public:
 				mainClient.set_console_log();
 				std::cout << service << "\n";
 				return 1;
+			}
+			if (vm.count("client-help")) {
+				mainClient.set_console_log();
+				std::cout << client << "\n";
+				return 1;
+			}
+
+			if (vm.count("settings")) {
+				mainClient.set_console_log();
+				return parse_settings(argc, argv);
+			}
+			if (vm.count("service")) {
+				//mainClient.set_console_log();
+				return parse_service(argc, argv);
+			}
+			if (vm.count("client")) {
+				return parse_client(argc, argv);
+			}
+			if (vm.count("test")) {
+				mainClient.set_console_log();
+				return parse_test(argc, argv);
 			}
 		} catch(std::exception & e) {
 			core_->log_error(__FILE__, __LINE__, std::string("Unable to parse command line: ") + e.what());
@@ -236,6 +259,60 @@ public:
 					std::cerr << "Missing argument" << std::endl;
 					return 1;
 				}
+			}
+			return 0;
+		} catch(std::exception & e) {
+			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
+			return 1;
+		}
+	}
+
+	int parse_client(int argc, wchar_t* argv[]) {
+		try {
+			po::options_description all("Allowed options (client)");
+			all.add(desc).add(client);
+
+
+			po::variables_map vm;
+			po::wparsed_options parsed = 
+				po::wcommand_line_parser(argc, argv).options(all).allow_unregistered().run();
+			po::store(parsed, vm);
+			po::notify(vm);
+
+			bool debug = false;
+			if (vm.count("debug")) {
+				debug = true;
+			}
+
+			std::wstring command;
+			if (vm.count("command")) {
+				command = vm["command"].as<std::wstring>();
+			}
+			std::wstring module;
+			if (vm.count("module")) {
+				module = vm["module"].as<std::wstring>();
+			}
+			std::vector<std::wstring> arguments = po::collect_unrecognized(parsed.options, po::include_positional);
+
+			if (debug) {
+				mainClient.set_console_log();
+				mainClient.enableDebug(true);
+				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
+				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
+				std::wstring args;
+				BOOST_FOREACH(std::wstring s, arguments)
+					strEx::append_list(args, s, _T(", "));
+				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
+			}
+			if (module.empty()) {
+				core_->initCore(false);
+			}
+			std::vector<std::wstring> resp;
+			mainClient.command_line_exec(module, command, arguments, resp);
+			mainClient.exitCore(false);
+
+			BOOST_FOREACH(std::wstring r, resp) {
+				std::wcout << r << std::endl;
 			}
 			return 0;
 		} catch(std::exception & e) {

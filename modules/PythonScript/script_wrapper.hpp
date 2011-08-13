@@ -21,6 +21,10 @@ namespace script_wrapper {
 		function_map_type simple_functions;
 		function_map_type normal_functions;
 
+		function_map_type simple_cmdline;
+		function_map_type normal_cmdline;
+
+
 		static boost::shared_ptr<functions> instance;
 		static boost::shared_ptr<functions> get() {
 			if (!instance)
@@ -53,6 +57,8 @@ namespace script_wrapper {
 			return boost::shared_ptr<function_wrapper>(new function_wrapper(nscapi::plugin_singleton->get_core()));
 		}
 
+		void register_simple_cmdline(std::string name, PyObject* callable);
+		void register_cmdline(std::string name, PyObject* callable);
 		void register_simple_function(std::string name, PyObject* callable, std::string desc);
 		void register_function(std::string name, PyObject* callable, std::string desc);
 		void subscribe_function() {}
@@ -61,6 +67,12 @@ namespace script_wrapper {
 		int exec(const std::string wcmd, const std::string &request, std::string &response) const;
 		bool has_function(const std::string command);
 		bool has_simple(const std::string command);
+
+		int exec_simple_cmdline(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &result) const;
+		int exec_cmdline(const std::string wcmd, const std::string &request, std::string &response) const;
+		bool has_cmdline(const std::string command);
+		bool has_simple_cmdline(const std::string command);
+
 		std::wstring get_commands();
 	};
 	struct command_wrapper {

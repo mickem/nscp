@@ -110,11 +110,11 @@
           </Directory>
           <Directory Id="INSTALLLOCATION_MODS" Name="modules">
             <Component Id="NRPEServer" Guid="5A0246F8-5167-45db-B246-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-              <File Id="NRPEListenerDLL" Name="NRPEListener.dll" DiskId="1" Source="$(var.Source)/modules/NRPEServer.dll" Vital="no" />
+              <File Id="NRPEServerDLL" Name="NRPEServer.dll" DiskId="1" Source="$(var.Source)/modules/NRPEServer.dll" Vital="no" />
               <File Id="NRPEClientDLL" Name="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
             </Component>
-            <Component Id="NSCListener" Guid="6DAF8BB9-9A56-48f5-B2C5-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-              <File Id="NSCListenerDLL" Name="NSClientListener.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
+            <Component Id="NSCServer" Guid="6DAF8BB9-9A56-48f5-B2C5-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+              <File Id="NSCServerDLL" Name="NSClientServer.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
             </Component>
             <Component Id="NSCA" Guid="8820A304-C596-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
               <File Id="NSCAAgentDLL" Name="NSCAAgent.dll" DiskId="1" Source="$(var.Source)/modules/NSCAAgent.dll" Vital="no" />
@@ -198,12 +198,12 @@
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
 					<ComponentRef Id="Plugins" />
 				</Feature>
-				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Listener Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="disallow">
+				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="disallow">
 					<ComponentRef Id="NRPEServer" />
 					<ComponentRef Id="NRPEServerCert" />
 				</Feature>
-				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Listener Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
-					<ComponentRef Id="NSCListener" />
+				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Server Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
+					<ComponentRef Id="NSCServer" />
 				</Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
           <ComponentRef Id="NSCA" />

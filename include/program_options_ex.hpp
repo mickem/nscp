@@ -2,6 +2,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/function/function1.hpp>
+#include <list>
 
 template<class charT>
 class basic_command_line_parser_ex : public boost::program_options::basic_command_line_parser<charT> {
@@ -34,6 +35,12 @@ public:
 		{}
 		basic_command_line_parser_ex(std::vector<charT> v) 
 			: boost::program_options::basic_command_line_parser<charT>(v)
+		{}
+
+		basic_command_line_parser_ex(std::list<std::basic_string<charT> > &v) 
+			: boost::program_options::basic_command_line_parser<charT>(
+			make_vector<std::list<std::basic_string<charT> >::iterator, std::list<std::basic_string<charT> >::iterator>(v.begin(), v.end())
+			)
 		{}
 
 };

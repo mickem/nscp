@@ -37,6 +37,7 @@
 
 #include <protobuf/plugin.pb.h>
 #include <protobuf/log.pb.h>
+#include <protobuf/exec.pb.h>
 
 using namespace nscp::helpers;
 
@@ -63,6 +64,15 @@ namespace nscapi {
 			if (ret == NSCAPI::returnCRIT)
 				return PluginCommand::Response_Code_CRITCAL;
 			return PluginCommand::Response_Code_UNKNOWN;
+		}
+		static ExecuteCommand::Response_Code exec_nagios_to_gpb(int ret) {
+			if (ret == NSCAPI::returnOK)
+				return ExecuteCommand::Response_Code_OK;
+			if (ret == NSCAPI::returnWARN)
+				return ExecuteCommand::Response_Code_WARNING;
+			if (ret == NSCAPI::returnCRIT)
+				return ExecuteCommand::Response_Code_CRITCAL;
+			return ExecuteCommand::Response_Code_UNKNOWN;
 		}
 		static LogMessage::Message_Level log_to_gpb(NSCAPI::messageTypes ret) {
 			if (ret == NSCAPI::critical)
@@ -102,7 +112,43 @@ namespace nscapi {
 		struct decoded_simple_command_data {
 			std::wstring command;
 			std::list<std::wstring> args;
+			std::vector<std::wstring> args_vector;
 		};
+
+		
+		static decoded_simple_command_data process_simple_command_line_exec_request(const wchar_t* char_command, const std::string &request) {
+			decoded_simple_command_data data;
+
+			data.command = char_command;
+			ExecuteCommand::RequestMessage request_message;
+			request_message.ParseFromString(request);
+
+			if (request_message.payload_size() != 1) {
+				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
+			}
+			::ExecuteCommand::Request payload = request_message.payload().Get(0);
+			for (int i=0;i<payload.arguments_size();i++) {
+				data.args_vector.push_back(to_wstring(payload.arguments(i)));
+			}
+			return data;
+		}
+		static NSCAPI::nagiosReturn process_simple_command_line_exec_result(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring result, std::string &response) {
+			ExecuteCommand::ResponseMessage response_message;
+			::ExecuteCommand::Header* hdr = response_message.mutable_header();
+
+			hdr->set_type(ExecuteCommand::Header_Type_RESPONSE);
+			hdr->set_version(ExecuteCommand::Header_Version_VERSION_1);
+
+			ExecuteCommand::Response *resp = response_message.add_payload();
+			resp->set_command(to_string(command));
+			resp->set_message(to_string(result));
+
+			resp->set_version(ExecuteCommand::Response_Version_VERSION_1);
+			resp->set_result(exec_nagios_to_gpb(ret));
+			response_message.SerializeToString(&response);
+			return ret;
+		}
+
 		static decoded_simple_command_data process_simple_command_request(const wchar_t* char_command, const std::string &request) {
 			decoded_simple_command_data data;
 

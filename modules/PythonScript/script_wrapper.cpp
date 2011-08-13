@@ -24,16 +24,28 @@ void script_wrapper::function_wrapper::register_simple_function(std::string name
 	try {
 		core->registerCommand(utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>(desc));
 		functions::get()->simple_functions[name] = callable;
-		NSC_LOG_MESSAGE_STD(_T("Added simple command: ") + utf8::cvt<std::wstring>(name) + _T(" to list of: ") + get_commands());
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(name));
+		NSC_LOG_ERROR_STD(_T("Failed to register functions: ") + utf8::cvt<std::wstring>(name));
 	}
 }
 void script_wrapper::function_wrapper::register_function(std::string name, PyObject* callable, std::string desc) {
 	try {
 	core->registerCommand(utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>(desc));
 	functions::get()->normal_functions[name] = callable;
-	NSC_LOG_MESSAGE_STD(_T("Added simple command: ") + utf8::cvt<std::wstring>(name) + _T(" to list of: ") + get_commands());
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register functions: ") + utf8::cvt<std::wstring>(name));
+	}
+}
+void script_wrapper::function_wrapper::register_simple_cmdline(std::string name, PyObject* callable) {
+	try {
+		functions::get()->simple_cmdline[name] = callable;
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(name));
+	}
+}
+void script_wrapper::function_wrapper::register_cmdline(std::string name, PyObject* callable) {
+	try {
+		functions::get()->normal_cmdline[name] = callable;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(name));
 	}
@@ -99,6 +111,68 @@ bool script_wrapper::function_wrapper::has_function(const std::string command) {
 bool script_wrapper::function_wrapper::has_simple(const std::string command) {
 	return functions::get()->simple_functions.find(command) != functions::get()->simple_functions.end();
 }
+
+int script_wrapper::function_wrapper::exec_cmdline(const std::string cmd, const std::string &request, std::string &response) const {
+	try {
+		functions::function_map_type::iterator it = functions::get()->normal_cmdline.find(cmd);
+		if (it == functions::get()->normal_cmdline.end()) {
+			NSC_LOG_ERROR_STD(_T("Failed to find python function: ") + utf8::cvt<std::wstring>(cmd));
+			return NSCAPI::returnIgnored;
+		}
+		tuple ret = boost::python::call<tuple>(it->second, cmd, request);
+		if (ret.ptr() == Py_None) {
+			return NSCAPI::returnUNKNOWN;
+		}
+		int ret_code = NSCAPI::returnUNKNOWN;
+		if (len(ret) > 0)
+			ret_code = extract<int>(ret[0]);
+		if (len(ret) > 1)
+			response = extract<std::string>(ret[1]);
+		return ret_code;
+	} catch( error_already_set e) {
+		log_exception();
+		return NSCAPI::returnUNKNOWN;
+	}
+}
+
+int script_wrapper::function_wrapper::exec_simple_cmdline(const std::string cmd, std::list<std::wstring> arguments, std::wstring &result) const {
+	try {
+		functions::function_map_type::iterator it = functions::get()->simple_cmdline.find(cmd);
+		if (it == functions::get()->simple_cmdline.end()) {
+			result = _T("Failed to find python function: ") + utf8::cvt<std::wstring>(cmd);
+			NSC_LOG_ERROR_STD(result);
+			return NSCAPI::returnIgnored;
+		}
+
+		boost::python::list l;
+		BOOST_FOREACH(std::wstring a, arguments) {
+			l.append(utf8::cvt<std::string>(a));
+		}
+		tuple ret = boost::python::call<tuple>(it->second, l);
+		if (ret.ptr() == Py_None) {
+			result = _T("None");
+			return NSCAPI::returnUNKNOWN;
+		}
+		int ret_code = NSCAPI::returnUNKNOWN;
+		if (len(ret) > 0)
+			ret_code = extract<int>(ret[0]);
+		if (len(ret) > 1)
+			result = utf8::cvt<std::wstring>(extract<std::string>(ret[1]));
+		return ret_code;
+	} catch( error_already_set e) {
+		log_exception();
+		result = _T("Exception in: ") + utf8::cvt<std::wstring>(cmd);
+		return NSCAPI::returnUNKNOWN;
+	}
+}
+
+bool script_wrapper::function_wrapper::has_cmdline(const std::string command) {
+	return functions::get()->normal_cmdline.find(command) != functions::get()->normal_cmdline.end();
+}
+bool script_wrapper::function_wrapper::has_simple_cmdline(const std::string command) {
+	return functions::get()->simple_cmdline.find(command) != functions::get()->simple_cmdline.end();
+}
+
 std::wstring script_wrapper::function_wrapper::get_commands() {
 	std::wstring str;
 	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->normal_functions) {

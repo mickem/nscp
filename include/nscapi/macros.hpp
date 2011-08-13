@@ -209,9 +209,12 @@
 
 
 #define NSC_WRAPPERS_CLI_DEF(toObject) \
-	extern int NSCommandLineExec(const unsigned int argLen,wchar_t** args) { \
+	extern int NSCommandLineExec(const wchar_t* command,const char* request_buffer,const unsigned int request_len,char** response_buffer,unsigned int* response_len) { \
 		try { \
-			return toObject.commandLineExec(argLen, args); \
+		std::string request = std::string(request_buffer, request_len); \
+		std::string response; \
+		NSCAPI::nagiosReturn retCode = (&toObject)->commandRAWLineExec(command, request, response); \
+		return GET_PLUGIN()->wrapCommandLineExec(retCode, response, response_buffer, response_len); \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: commandLineExec(...)")); \
 			std::wcerr << _T("Unknown exception in: commandLineExec(...)") << std::endl; \

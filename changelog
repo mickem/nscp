@@ -6,7 +6,19 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2011-08-10
+2011-08-13 MickeM
+ * Added support for command line execution to PythonScript module
+ * Readded support for specifying module on command line with --client mode
+ * Fixed some issues with the NRPEClient module
+ 
+2011-08-12 MickeM
+  * Finnished (rough) adding back command line exec (with modern API)
+  * Fixed so installer uses correct name for dll:s (now Server not Listsener)
+  
+2011-08-11 MickeM
+  * Started to add back command line exec (with modern API)
+  
+2011-08-10 MickeM
  * Fixed linus issues and defect
  * Fixed some issues in the test python script regarding how prefix is handled
  * Fixed PythonScript module to actually use the correct function map :)
@@ -14,14 +26,14 @@ TODO:
  * Added a lot of freatures and cleand up the PythonScript module
  * Started to merge som features from PythonScript back to Lua script
  
-2011-08-07
+2011-08-07 MickeM
  * Fixed a lot of issues with PythonScript module adding suport for alias and "raw command processing"
  * Fixed issue with loading plugins and aliases as well as duplicate plugin detection
  
-2011-08-01
+2011-08-01 MickeM
  * Added new module: PythonScript
 
-2011-07-25
+2011-07-25 MickeM
  * merged in all 0.3.9 changes
  * refactored where filter to be "non template" to drastically reduce compile time (as well as potentially size if I ever go dll instead of static link)
  * streamlined checkeventlog toi be same as "the other" where filters as well as dropped support of "old" syntax.

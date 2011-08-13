@@ -22,6 +22,7 @@
 
 #include <string>
 #include <list>
+#include <vector>
 
 #include <boost/make_shared.hpp>
 #include <unicode_char.hpp>
@@ -68,6 +69,8 @@ namespace nscapi {
 		NSCAPI::nagiosReturn wrapHandleNotification(NSCAPI::nagiosReturn retResult);
 		int wrapUnloadModule(bool success);
 		NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
+		NSCAPI::nagiosReturn wrapCommandLineExec(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
+		
 		void wrapDeleteBuffer(char**buffer);
 
 	};
@@ -112,6 +115,11 @@ namespace nscapi {
 		public:
 			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 			virtual NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) = 0;
+		};
+		class simple_command_line_exec {
+		public:
+			NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+			virtual NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::vector<std::wstring> &arguments, std::wstring &result) = 0;
 		};
 
 

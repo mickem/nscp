@@ -1,0 +1,83 @@
+package ExecuteCommand;
+
+message Header {
+	enum Type {
+		REQUEST = 1;
+		RESPONSE = 2;
+	};
+	enum Version {
+		VERSION_1 = 1;
+	};
+	required Type type = 1;
+	required Version version = 2;
+	optional Version max_supported_version = 3;
+	
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 id = 19;
+};
+
+message Request {
+	enum Version {
+		VERSION_1 = 1;
+	};
+
+	required Version version = 1;
+	optional int32 id = 2;
+	required string command = 3;
+	repeated string arguments = 4;
+};
+
+message ResponseData {
+	enum Type {
+		INT = 1;
+		STRING = 1;
+		FLOAT = 1;
+	};
+	message ResponseDataCell {
+		required Type type = 1;
+		optional string string_data = 2;
+		optional int64 int_data = 3;
+		optional double dloat_data = 4;
+	}
+	message ResponseDataRow {
+		repeated ResponseDataCell cells = 1;
+	}
+	required string alias = 1;
+	optional ResponseDataRow headers = 2;
+	repeated ResponseDataRow rows = 3;
+
+}
+
+message Response {
+	enum Code {
+		OK		= 0;
+		WARNING	= 1;
+		CRITCAL	= 2;
+		UNKNOWN	= 3;
+	};
+	enum Version {
+		VERSION_1 = 1;
+	};
+
+	required Version version = 1;
+	optional int32 id = 2;
+	required string command = 5;
+	repeated string arguments = 16;
+	
+	required Code result = 9;
+	required string message = 10;
+	repeated ResponseData perf = 12;
+	
+}
+
+message RequestMessage {
+	required Header header = 1;
+	repeated Request payload = 2;
+}
+message ResponseMessage {
+	required Header header = 1;
+	repeated Response payload = 2;
+}
+
+

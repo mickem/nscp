@@ -434,17 +434,35 @@ void NSCPlugin::loadRemoteProcs_(void) {
 }
 
 
-int NSCPlugin::commandLineExec(const unsigned int argLen, wchar_t **arguments) {
-	if (fCommandLineExec== NULL)
-		throw NSPluginException(module_, _T("Module does not support CommandLineExec"));
-	try {
-		return fCommandLineExec(argLen, arguments);
-	} catch (...) {
-		throw NSPluginException(module_, _T("Unhandled exception in commandLineExec."));
+int NSCPlugin::commandLineExec(const wchar_t* command, std::string &request, std::string &reply) {
+	char *buffer = NULL;
+	unsigned int len = 0;
+	NSCAPI::nagiosReturn ret = commandLineExec(command, request.c_str(), request.size(), &buffer, &len);
+	if (buffer != NULL) {
+		reply = std::string(buffer, len);
+		deleteBuffer(&buffer);
 	}
+	return ret;
 }
 
-bool NSCPlugin::is_duplicate( boost::filesystem::wpath file, std::wstring alias ) {
+bool NSCPlugin::has_command_line_exec() {
+	return isLoaded() && fCommandLineExec != NULL;
+}
+
+int NSCPlugin::commandLineExec(const wchar_t* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len) {
+	if (!has_command_line_exec())
+		throw NSPluginException(module_, _T("Library is not loaded or modules does not support command line"));
+	try {
+		return fCommandLineExec(command, request, request_len, reply, reply_len);
+	} catch (...) {
+		throw NSPluginException(module_, _T("Unhandled exception in handleCommand."));
+	}
+
+}
+boost::filesystem::wpath NSCPlugin::get_filename(boost::filesystem::wpath folder, std::wstring module) {
+	return dll::dll::fix_module_name(folder / module);
+}
+bool NSCPlugin::is_duplicate(boost::filesystem::wpath file, std::wstring alias) {
 	if (alias.empty() && alias_.empty())
 		return module_.get_file() == dll::dll::fix_module_name(file);
 	if (alias.empty() || alias_.empty())

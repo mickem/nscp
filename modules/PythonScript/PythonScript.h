@@ -29,7 +29,7 @@ NSC_WRAPPERS_MAIN();
 
 #include <scripts/functions.hpp>
 
-struct python_script {
+struct python_script : public boost::noncopyable {
 	boost::python::dict localDict;
 	python_script(const script_container& script);
 	~python_script();
@@ -74,6 +74,7 @@ public:
 	//NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 
 	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);

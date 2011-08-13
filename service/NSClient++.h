@@ -165,7 +165,7 @@ public:
 //	std::wstring inject(const std::wstring buffer);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	void reportMessage(std::string data);
-	int commandLineExec(const wchar_t* module, const unsigned int argLen, wchar_t** args);
+	int command_line_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::vector<std::wstring> &resp);
 
 	struct service_controller {
 		std::wstring service;

@@ -23,6 +23,9 @@ namespace dll {
 				boost::filesystem::wpath mod = module / std::wstring(_T(".dll"));
 				if (boost::filesystem::is_regular(mod))
 					return mod;
+				mod = boost::filesystem::wpath(module.string() + std::wstring(_T(".dll")));
+				if (boost::filesystem::is_regular(mod))
+					return mod;
 				return module;
 			}
 

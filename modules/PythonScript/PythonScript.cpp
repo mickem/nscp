@@ -73,6 +73,8 @@ BOOST_PYTHON_MODULE(NSCP)
 		.staticmethod("create")
 		.def("register", &script_wrapper::function_wrapper::register_function)
 		.def("register_simple", &script_wrapper::function_wrapper::register_simple_function)
+		.def("cmdline", &script_wrapper::function_wrapper::register_cmdline)
+		.def("simple_cmdline", &script_wrapper::function_wrapper::register_simple_cmdline)
 		.def("subscribe", &script_wrapper::function_wrapper::subscribe_function)
 		.def("subscribe_simple", &script_wrapper::function_wrapper::subscribe_simple_function)
 		;
@@ -128,6 +130,11 @@ void python_script::_exec(const std::string &scriptfile){
 		object main_module = import("__main__");
 		dict globalDict = extract<dict>(main_module.attr("__dict__"));
 		localDict = globalDict.copy();
+
+		PyRun_SimpleString("import cStringIO");
+		PyRun_SimpleString("import sys");
+		PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
+
 		object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
 	} catch( error_already_set e) {
 		script_wrapper::log_exception();
@@ -135,6 +142,7 @@ void python_script::_exec(const std::string &scriptfile){
 }
 
 bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	NSC_DEBUG_MSG_STD(_T("LoadEx in PythonScript as ") + alias);
 	try {
 		root_ = get_core()->getBasePath();
 
@@ -213,7 +221,7 @@ bool PythonScript::loadScript(std::wstring alias, std::wstring file) {
 
 bool PythonScript::unloadModule() {
 	instances_.clear();
-	Py_Finalize();
+	//Py_Finalize();
 	return true;
 }
 
@@ -249,6 +257,21 @@ bool PythonScript::reload(std::wstring &message) {
 	return false;
 }
 
+NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create();
+	std::string cmd = utf8::cvt<std::string>(char_command);
+	if (inst->has_cmdline(cmd)) {
+		return inst->exec_cmdline(cmd, request, response);
+	}
+	if (inst->has_simple_cmdline(cmd)) {
+		nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_line_exec_request(char_command, request);
+		std::wstring result;
+		NSCAPI::nagiosReturn ret = inst->exec_simple_cmdline(cmd, data.args, result);
+		return nscapi::functions::process_simple_command_line_exec_result(data.command, ret, result, response);
+	}
+	return NSCAPI::returnIgnored;
+}
+
 
 NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, const std::string &request, std::string &response) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create();
@@ -275,3 +298,4 @@ NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gPythonScript);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gPythonScript);
+NSC_WRAPPERS_CLI_DEF(gPythonScript);
