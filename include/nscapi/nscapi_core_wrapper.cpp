@@ -105,11 +105,18 @@ void nscapi::core_wrapper::Message(int msgType, std::string file, int line, std:
  * @param returnPerfBufferLen returnPerfBuffer
  * @return The returned status of the command
  */
-NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommandRAW(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::query(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
 {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 	return fNSAPIInject(command, request, request_len, response, response_len);
+}
+
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
+{
+	if (!fNSAPIExecCommand)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	return fNSAPIExecCommand(command, request, request_len, response, response_len);
 }
 
 void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
@@ -117,6 +124,14 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 	return fNSAPIDestroyBuffer(buffer);
 }
+
+
+void nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf) {
+	std::string request;
+	nscapi::functions::create_simple_message_request(command, code, message, perf, request);
+	NSCAPI::nagiosReturn ret = NotifyChannel(channel, command, code, request);
+}
+
 
 NSCAPI::errorReturn nscapi::core_wrapper::NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::string result) {
 	if (!fNSAPINotify)
@@ -133,13 +148,12 @@ NSCAPI::errorReturn nscapi::core_wrapper::NotifyChannel(std::wstring channel, st
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSimpleCommand(const std::wstring command, const std::list<std::wstring> argument, std::wstring & msg, std::wstring & perf) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & msg, std::wstring & perf) 
 {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-
 	std::string response;
-	NSCAPI::nagiosReturn ret = InjectCommand(command, argument, response);
+	NSCAPI::nagiosReturn ret = simple_query(command, argument, response);
 	if (!response.empty()) {
 		PluginCommand::ResponseMessage rsp_msg;
 		rsp_msg.ParseFromString(response);
@@ -162,11 +176,10 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSimpleCommand(const std::wstrin
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring command, const std::list<std::wstring> argument, std::string & result) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::string & result) 
 {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-
 
 	PluginCommand::RequestMessage message;
 	PluginCommand::Header *hdr = message.mutable_header();
@@ -183,16 +196,16 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring comm
 	std::string request;
 	message.SerializeToString(&request);
 
-	return InjectCommand(command.c_str(), request, result);
+	return query(command.c_str(), request, result);
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring command, std::string request, std::string & result) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::wstring & command, const std::string & request, std::string & result) 
 {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = InjectCommandRAW(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::nagiosReturn retC = query(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
 		//PluginCommand::ResponseMessage rsp_msg;
@@ -214,64 +227,50 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::InjectCommand(const std::wstring comm
 	}
 	return retC;
 }
-/**
- * A wrapper around the InjetCommand that is simpler to use.
- * Parses a string by splitting and makes the array and also manages return buffers and such.
- * @param command The command to execute
- * @param buffer The buffer to split
- * @param spliwchar_t The char to use as splitter
- * @param message The return message buffer
- * @param perf The return performance data buffer
- * @return The result of the command
- */
-NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf)
-{
-	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 
-	std::wstring args = std::wstring(buffer);
-	boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(args, boost::escaped_list_separator<wchar_t>(L'\\', splitChar, L'\"'));
-	std::list<std::wstring> arglist;
-	BOOST_FOREACH(std::wstring s, tok)
-		arglist.push_back(s);
-	return InjectSimpleCommand(command, arglist, message, perf);
-}
-/**
- * A wrapper around the InjetCommand that is simpler to use.
- * @param command The command to execute
- * @param buffer The buffer to split
- * @param spliwchar_t The char to use as splitter
- * @param message The return message buffer
- * @param perf The return performance data buffer
- * @return The result of the command
- */
-NSCAPI::nagiosReturn nscapi::core_wrapper::InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t spliwchar_t, std::wstring & message, std::wstring & perf, bool escape) {
-	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	std::list<std::wstring> arglist;
-	if (escape) {
-		boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::escaped_list_separator<wchar_t>(L'\\', spliwchar_t, L'\"'));
-		BOOST_FOREACH(std::wstring s, tok)
-			arglist.push_back(s);
-	} else {
-		std::wstring split;
-		split.push_back(spliwchar_t);
-		boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::escaped_list_separator<wchar_t>(_T(""), split, _T("\"")));
-		BOOST_FOREACH(std::wstring s, tok)
-			arglist.push_back(s);
-	}
-	return InjectSimpleCommand(command.c_str(), arglist, message, perf);
-}
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::InjectNRPECommand(const std::wstring command, const std::wstring buffer, std::wstring & message, std::wstring & perf) {
+NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf) {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 	boost::tokenizer<boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::char_separator<wchar_t>(_T("!")));
 	std::list<std::wstring> arglist;
 	BOOST_FOREACH(std::wstring s, tok)
 		arglist.push_back(s);
-	return InjectSimpleCommand(command.c_str(), arglist, message, perf);
+	return simple_query(command, arglist, message, perf);
 }
+
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::wstring command, std::string request, std::string & result) {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::nagiosReturn retC = exec_command(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+
+	if (buffer_size > 0 && buffer != NULL) {
+		result = std::string(buffer, buffer_size);
+	}
+
+	DestroyBuffer(&buffer);
+	switch (retC) {
+		case NSCAPI::returnIgnored:
+			CORE_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
+			break;
+		case NSCAPI::returnOK:
+		case NSCAPI::returnCRIT:
+		case NSCAPI::returnWARN:
+		case NSCAPI::returnUNKNOWN:
+			break;
+		default:
+			throw nscapi::nscapi_exception(_T("Unknown return code when injecting: ") + std::wstring(command));
+	}
+	return retC;
+}
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_simple_command(const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result) {
+	std::string request, response;
+	nscapi::functions::create_simple_exec_request(command, argument, request);
+	NSCAPI::nagiosReturn ret = exec_command(command, request, response);
+	nscapi::functions::parse_simple_exec_result(response, result);
+	return ret;
+}
+
 
 
 /**
@@ -608,6 +607,7 @@ bool nscapi::core_wrapper::load_endpoints(unsigned int id, nscapi::core_api::lpN
 	fNSAPIStopServer = (nscapi::core_api::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
 	//fNSAPIExit = (nscapi::core_api::lpNSAPIExit)f(_T("NSAPIExit"));
 	fNSAPIInject = (nscapi::core_api::lpNSAPIInject)f(_T("NSAPIInject"));
+	fNSAPIExecCommand = (nscapi::core_api::lpNSAPIExecCommand)f(_T("NSAPIExecCommand"));
 	fNSAPIDestroyBuffer = (nscapi::core_api::lpNSAPIDestroyBuffer)f(_T("NSAPIDestroyBuffer"));
 	fNSAPINotify = (nscapi::core_api::lpNSAPINotify)f(_T("NSAPINotify"));
 	fNSAPIGetBasePath = (nscapi::core_api::lpNSAPIGetBasePath)f(_T("NSAPIGetBasePath"));

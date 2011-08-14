@@ -308,7 +308,7 @@ public:
 				core_->initCore(false);
 			}
 			std::vector<std::wstring> resp;
-			mainClient.command_line_exec(module, command, arguments, resp);
+			mainClient.simple_exec(module, command, arguments, resp);
 			mainClient.exitCore(false);
 
 			BOOST_FOREACH(std::wstring r, resp) {

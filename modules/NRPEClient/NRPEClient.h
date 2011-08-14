@@ -125,7 +125,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-	int commandLineExec(const std::wstring &command, std::vector<std::wstring> &arguments, std::wstring &result);
+	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 	std::wstring getConfigurationMeta();
 
 private:

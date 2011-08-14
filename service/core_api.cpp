@@ -118,6 +118,22 @@ NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buf
 	}
 	return ret;
 }
+
+NSCAPI::nagiosReturn NSAPIExecCommand(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+	std::string request (request_buffer, request_buffer_len), response;
+	NSCAPI::nagiosReturn ret = mainClient.exec_command(command, request, response);
+	*response_buffer_len = response.size();
+	if (response.empty())
+		*response_buffer = NULL;
+	else {
+		*response_buffer = new char[*response_buffer_len + 10];
+		memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+	}
+	return ret;
+}
+
+
+
 NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** aBuffer, unsigned int * bufLen) {
 	try {
 		unsigned int len = 0;
@@ -417,6 +433,8 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIStopServer);
 	if (wcscasecmp(buffer, _T("NSAPIInject")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIInject);
+	if (wcscasecmp(buffer, _T("NSAPIExecCommand")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIExecCommand);
 	if (wcscasecmp(buffer, _T("NSAPIGetBasePath")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetBasePath);
 	if (wcscasecmp(buffer, _T("NSAPICheckLogMessages")) == 0)

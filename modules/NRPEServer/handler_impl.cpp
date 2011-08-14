@@ -32,7 +32,7 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	NSCAPI::nagiosReturn ret = -3;
 	try {
 		NSC_DEBUG_MSG_STD(_T("Running command: ") + cmd.first);
-		ret = nscapi::plugin_singleton->get_core()->InjectNRPECommand(cmd.first, cmd.second, msg, perf);
+		ret = nscapi::plugin_singleton->get_core()->simple_query_from_nrpe(cmd.first, cmd.second, msg, perf);
 		NSC_DEBUG_MSG_STD(_T("Running command: ") + cmd.first + _T(" = ") + msg);
 	} catch (...) {
 		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal exception"), p.get_payload_length());

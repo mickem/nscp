@@ -2,14 +2,20 @@
 
 #include <strEx.h>
 #include "script_wrapper.hpp"
+#include "PythonScript.h"
 
 using namespace boost::python;
 
 boost::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance;
 
+extern PythonScript gPythonScript;
+
 
 void script_wrapper::log_msg(std::wstring x) {
 	NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(x));
+}
+std::string script_wrapper::get_alias() {
+	return utf8::cvt<std::string>(gPythonScript.get_alias());
 }
 
 void script_wrapper::log_exception() {
@@ -20,6 +26,15 @@ void script_wrapper::log_exception() {
 	NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(err_text));
 	PyErr_Clear();
 }
+
+void script_wrapper::function_wrapper::subscribe_simple_function(std::string channel, PyObject* callable) {
+	functions::get()->simple_handler[channel] = callable;
+}
+void script_wrapper::function_wrapper::subscribe_function(std::string channel, PyObject* callable) {
+	functions::get()->normal_handler[channel] = callable;
+}
+
+
 void script_wrapper::function_wrapper::register_simple_function(std::string name, PyObject* callable, std::string desc) {
 	try {
 		core->registerCommand(utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>(desc));
@@ -112,7 +127,7 @@ bool script_wrapper::function_wrapper::has_simple(const std::string command) {
 	return functions::get()->simple_functions.find(command) != functions::get()->simple_functions.end();
 }
 
-int script_wrapper::function_wrapper::exec_cmdline(const std::string cmd, const std::string &request, std::string &response) const {
+int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const std::string &request, std::string &response) const {
 	try {
 		functions::function_map_type::iterator it = functions::get()->normal_cmdline.find(cmd);
 		if (it == functions::get()->normal_cmdline.end()) {
@@ -135,7 +150,7 @@ int script_wrapper::function_wrapper::exec_cmdline(const std::string cmd, const 
 	}
 }
 
-int script_wrapper::function_wrapper::exec_simple_cmdline(const std::string cmd, std::list<std::wstring> arguments, std::wstring &result) const {
+int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, std::list<std::wstring> arguments, std::wstring &result) const {
 	try {
 		functions::function_map_type::iterator it = functions::get()->simple_cmdline.find(cmd);
 		if (it == functions::get()->simple_cmdline.end()) {
@@ -144,11 +159,7 @@ int script_wrapper::function_wrapper::exec_simple_cmdline(const std::string cmd,
 			return NSCAPI::returnIgnored;
 		}
 
-		boost::python::list l;
-		BOOST_FOREACH(std::wstring a, arguments) {
-			l.append(utf8::cvt<std::string>(a));
-		}
-		tuple ret = boost::python::call<tuple>(it->second, l);
+		tuple ret = boost::python::call<tuple>(it->second, convert(arguments));
 		if (ret.ptr() == Py_None) {
 			result = _T("None");
 			return NSCAPI::returnUNKNOWN;
@@ -165,6 +176,56 @@ int script_wrapper::function_wrapper::exec_simple_cmdline(const std::string cmd,
 		return NSCAPI::returnUNKNOWN;
 	}
 }
+
+
+bool script_wrapper::function_wrapper::has_message_handler(const std::string channel) {
+	return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
+}
+bool script_wrapper::function_wrapper::has_simple_message_handler(const std::string channel) {
+	return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
+}
+
+int script_wrapper::function_wrapper::handle_message(const std::string channel, const std::string command, std::string &message) const {
+	try {
+		functions::function_map_type::iterator it = functions::get()->normal_handler.find(channel);
+		if (it == functions::get()->normal_handler.end()) {
+			NSC_LOG_ERROR_STD(_T("Failed to find python handler: ") + utf8::cvt<std::wstring>(channel));
+			return NSCAPI::returnIgnored;
+		}
+		object ret = boost::python::call<object>(it->second, channel, command, message);
+		if (ret.ptr() == Py_None) {
+			return NSCAPI::returnUNKNOWN;
+		}
+		return extract<int>(ret);
+	} catch( error_already_set e) {
+		log_exception();
+		return NSCAPI::returnUNKNOWN;
+	}
+}
+
+int script_wrapper::function_wrapper::handle_simple_message(const std::string channel, const std::string command, int code, std::wstring &msg, std::wstring &perf) const {
+	try {
+		functions::function_map_type::iterator it = functions::get()->simple_handler.find(channel);
+		if (it == functions::get()->simple_handler.end()) {
+			NSC_LOG_ERROR_STD(_T("Failed to find python handler: ") + utf8::cvt<std::wstring>(channel));
+			return NSCAPI::returnIgnored;
+		}
+
+		object ret = boost::python::call<object>(it->second, channel, command, code, msg, perf);
+		if (ret.ptr() == Py_None) {
+			return NSCAPI::returnUNKNOWN;
+		}
+		return extract<int>(ret);
+	} catch( error_already_set e) {
+		log_exception();
+		return NSCAPI::returnUNKNOWN;
+	}
+}
+
+
+
+
+
 
 bool script_wrapper::function_wrapper::has_cmdline(const std::string command) {
 	return functions::get()->normal_cmdline.find(command) != functions::get()->normal_cmdline.end();
@@ -188,21 +249,53 @@ std::wstring script_wrapper::function_wrapper::get_commands() {
 
 
 
-std::list<std::wstring> script_wrapper::command_wrapper::convert(list lst) {
+std::list<std::wstring> script_wrapper::convert(list lst) {
 	std::list<std::wstring> ret;
 	for (int i = 0;i<len(lst);i++)
 		ret.push_back(utf8::cvt<std::wstring>(extract<std::string>(lst[i])));
 	return ret;
 }
+list script_wrapper::convert(std::list<std::wstring> lst) {
+	 list ret;
+	 BOOST_FOREACH(std::wstring s, lst) {
+		 ret.append(utf8::cvt<std::string>(s));
+	 }
+	return ret;
+}
+
+void script_wrapper::command_wrapper::simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf) {
+	core->submit_simple_message(utf8::cvt<std::wstring>(channel), utf8::cvt<std::wstring>(command), code, utf8::cvt<std::wstring>(message), utf8::cvt<std::wstring>(perf));
+}
+
+
 tuple script_wrapper::command_wrapper::simple_query(std::string command, list args) {
 	std::wstring msg, perf;
-	int ret = core->InjectSimpleCommand(utf8::cvt<std::wstring>(command), convert(args), msg, perf);
+	int ret = core->simple_query(utf8::cvt<std::wstring>(command), convert(args), msg, perf);
 	return make_tuple(ret,utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
 }
 tuple script_wrapper::command_wrapper::query(std::string command, std::string request) {
 	std::string response;
-	int ret = core->InjectCommand(utf8::cvt<std::wstring>(command), request, response);
+	int ret = core->query(utf8::cvt<std::wstring>(command), request, response);
 	return make_tuple(ret,response);
+}
+
+object script_wrapper::command_wrapper::simple_exec(std::string command, list args) {
+	try {
+		std::list<std::wstring> result;
+		int ret = core->exec_simple_command(utf8::cvt<std::wstring>(command), convert(args), result);
+		return make_tuple(ret, convert(result));
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command) + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+		return object();
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command));
+		return object();
+	}
+}
+tuple script_wrapper::command_wrapper::exec(std::string command, std::string request) {
+	std::string response;
+	int ret = core->exec_command(utf8::cvt<std::wstring>(command), request, response);
+	return make_tuple(ret, response);
 }
 
 

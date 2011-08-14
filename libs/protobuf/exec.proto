@@ -67,8 +67,6 @@ message Response {
 	
 	required Code result = 9;
 	required string message = 10;
-	repeated ResponseData perf = 12;
-	
 }
 
 message RequestMessage {

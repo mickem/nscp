@@ -15,6 +15,11 @@ namespace script_wrapper {
 
 	void log_exception();
 	void log_msg(std::wstring x);
+	std::string get_alias();
+
+	std::list<std::wstring> convert(boost::python::list lst);
+	boost::python::list convert(std::list<std::wstring> lst);
+
 
 	struct functions {
 		typedef std::map<std::string,PyObject*> function_map_type;
@@ -24,6 +29,8 @@ namespace script_wrapper {
 		function_map_type simple_cmdline;
 		function_map_type normal_cmdline;
 
+		function_map_type simple_handler;
+		function_map_type normal_handler;
 
 		static boost::shared_ptr<functions> instance;
 		static boost::shared_ptr<functions> get() {
@@ -48,9 +55,7 @@ namespace script_wrapper {
 		}
 		function_wrapper(nscapi::core_wrapper* core) : core(core) {}
 		typedef std::map<std::string,PyObject*> function_map_type;
-		//function_map_type simple_functions;
-		//function_map_type functions;
-		typedef boost::python::tuple simple_return;
+		//typedef boost::python::tuple simple_return;
 
 
 		static boost::shared_ptr<function_wrapper> create() {
@@ -61,17 +66,23 @@ namespace script_wrapper {
 		void register_cmdline(std::string name, PyObject* callable);
 		void register_simple_function(std::string name, PyObject* callable, std::string desc);
 		void register_function(std::string name, PyObject* callable, std::string desc);
-		void subscribe_function() {}
-		void subscribe_simple_function() {}
+		void subscribe_function(std::string channel, PyObject* callable);
+		void subscribe_simple_function(std::string channel, PyObject* callable);
 		int exec_simple(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) const;
 		int exec(const std::string wcmd, const std::string &request, std::string &response) const;
 		bool has_function(const std::string command);
 		bool has_simple(const std::string command);
 
-		int exec_simple_cmdline(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &result) const;
-		int exec_cmdline(const std::string wcmd, const std::string &request, std::string &response) const;
+		int handle_simple_exec(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &result) const;
+		int handle_exec(const std::string wcmd, const std::string &request, std::string &response) const;
 		bool has_cmdline(const std::string command);
 		bool has_simple_cmdline(const std::string command);
+
+
+		int handle_simple_message(const std::string channel, const std::string wcmd, int code, std::wstring &msg, std::wstring &perf) const;
+		int handle_message(const std::string channel, const std::string wcmd, std::string &message) const;
+		bool has_message_handler(const std::string command);
+		bool has_simple_message_handler(const std::string command);
 
 		std::wstring get_commands();
 	};
@@ -92,12 +103,11 @@ namespace script_wrapper {
 			return boost::shared_ptr<command_wrapper>(new command_wrapper(nscapi::plugin_singleton->get_core()));
 		}
 
-		std::list<std::wstring> convert(boost::python::list lst);
 		tuple simple_query(std::string command, boost::python::list args);
 		tuple query(std::string command, std::string request);
-		void simple_exec() {}
-		void exec() {}
-		void simple_submit() {}
+		object simple_exec(std::string command, boost::python::list args);
+		tuple exec(std::string command, std::string request);
+		void simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
 		void submit() {}
 	};
 

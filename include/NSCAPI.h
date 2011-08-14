@@ -23,6 +23,7 @@
 
 #include <unicode_char.hpp>
 #include <string>
+#include <strEx.h>
 
 namespace NSCAPI {
 /*
@@ -110,10 +111,13 @@ namespace NSCAPI {
 namespace nscapi {
 
 
-	class nscapi_exception {
+	class nscapi_exception : public std::exception {
 	public:
 		std::wstring msg_;
 		nscapi_exception(std::wstring msg) : msg_(msg) {}
+		std::string what() {
+			return utf8::cvt<std::string>(msg_);
+		}
 	};
 
 	namespace core_api {
@@ -132,6 +136,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 		typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
 		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
+		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
 		typedef void (*lpNSAPIDestroyBuffer)(char**);
 
 		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);

@@ -165,7 +165,8 @@ public:
 //	std::wstring inject(const std::wstring buffer);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	void reportMessage(std::string data);
-	int command_line_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::vector<std::wstring> &resp);
+	int simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::vector<std::wstring> &resp);
+	NSCAPI::nagiosReturn exec_command(const wchar_t* raw_command, std::string &request, std::string &response);
 
 	struct service_controller {
 		std::wstring service;

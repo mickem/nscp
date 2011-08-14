@@ -66,17 +66,17 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("register_path", &script_wrapper::settings_wrapper::settings_register_path)
 		.def("register_key", &script_wrapper::settings_wrapper::settings_register_key)
 		;
-	class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Functions", no_init)
+	class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Registry", no_init)
 		.def("get",&script_wrapper::function_wrapper::create)
 		.staticmethod("get")
 		.def("create",&script_wrapper::function_wrapper::create)
 		.staticmethod("create")
-		.def("register", &script_wrapper::function_wrapper::register_function)
-		.def("register_simple", &script_wrapper::function_wrapper::register_simple_function)
+		.def("function", &script_wrapper::function_wrapper::register_function)
+		.def("simple_function", &script_wrapper::function_wrapper::register_simple_function)
 		.def("cmdline", &script_wrapper::function_wrapper::register_cmdline)
 		.def("simple_cmdline", &script_wrapper::function_wrapper::register_simple_cmdline)
-		.def("subscribe", &script_wrapper::function_wrapper::subscribe_function)
-		.def("subscribe_simple", &script_wrapper::function_wrapper::subscribe_simple_function)
+		.def("subscription", &script_wrapper::function_wrapper::subscribe_function)
+		.def("simple_subscription", &script_wrapper::function_wrapper::subscribe_simple_function)
 		;
 	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", no_init)
 		.def("get",&script_wrapper::command_wrapper::create)
@@ -98,6 +98,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.value("OK", script_wrapper::OK)
 		;
 	def("log", script_wrapper::log_msg);
+	def("get_alias", script_wrapper::get_alias);
 }
 
 python_script::python_script(const script_container& script)  {
@@ -142,6 +143,7 @@ void python_script::_exec(const std::string &scriptfile){
 }
 
 bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	alias_ = alias;
 	NSC_DEBUG_MSG_STD(_T("LoadEx in PythonScript as ") + alias);
 	try {
 		root_ = get_core()->getBasePath();
@@ -229,8 +231,12 @@ bool PythonScript::hasCommandHandler() {
 	return true;
 }
 bool PythonScript::hasMessageHandler() {
-	return false;
+	return true;
 }
+bool PythonScript::hasNotificationHandler() {
+	return true;
+}
+
 
 
 bool PythonScript::reload(std::wstring &message) {
@@ -261,13 +267,13 @@ NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_comman
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create();
 	std::string cmd = utf8::cvt<std::string>(char_command);
 	if (inst->has_cmdline(cmd)) {
-		return inst->exec_cmdline(cmd, request, response);
+		return inst->handle_exec(cmd, request, response);
 	}
 	if (inst->has_simple_cmdline(cmd)) {
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_line_exec_request(char_command, request);
+		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 		std::wstring result;
-		NSCAPI::nagiosReturn ret = inst->exec_simple_cmdline(cmd, data.args, result);
-		return nscapi::functions::process_simple_command_line_exec_result(data.command, ret, result, response);
+		NSCAPI::nagiosReturn ret = inst->handle_simple_exec(cmd, data.args, result);
+		return nscapi::functions::create_simple_exec_result(data.command, ret, result, response);
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -294,8 +300,25 @@ NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, cons
 	return NSCAPI::returnIgnored;
 }
 
+
+NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &channel, const std::wstring &command, NSCAPI::nagiosReturn code, std::string &request) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create();
+	std::string cmd = utf8::cvt<std::string>(command);
+	std::string chnl = utf8::cvt<std::string>(channel);
+	if (inst->has_message_handler(chnl)) {
+		return inst->handle_message(chnl, cmd, request);
+	}
+	if (inst->has_simple_message_handler(chnl)) {
+		std::wstring msg, perf;
+		nscapi::functions::parse_simple_message(request, msg, perf);
+		return inst->handle_simple_message(chnl, cmd, code, msg, perf);
+	}
+	return NSCAPI::returnIgnored;
+}
+
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(gPythonScript);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(gPythonScript);
 NSC_WRAPPERS_CLI_DEF(gPythonScript);
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF(gPythonScript);

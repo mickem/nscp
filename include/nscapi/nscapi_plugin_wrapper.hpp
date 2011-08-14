@@ -119,7 +119,7 @@ namespace nscapi {
 		class simple_command_line_exec {
 		public:
 			NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
-			virtual NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::vector<std::wstring> &arguments, std::wstring &result) = 0;
+			virtual NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) = 0;
 		};
 
 

@@ -206,7 +206,7 @@ namespace script_wrapper {
 				lua_pop(L, 1);
 				std::wstring message;
 				std::wstring perf;
-				NSCAPI::nagiosReturn ret = GET_CORE()->InjectSimpleCommand(command, arguments, message, perf);
+				NSCAPI::nagiosReturn ret = GET_CORE()->simple_query(command, arguments, message, perf);
 				push_code(L, ret);
 				lua_pushstring(L, strEx::wstring_to_string(message).c_str());
 				lua_pushstring(L, strEx::wstring_to_string(perf).c_str());

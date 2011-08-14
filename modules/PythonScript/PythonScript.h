@@ -20,6 +20,7 @@
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
+NSC_WRAPPERS_CHANNELS();
 
 #include <config.h>
 #include <strEx.h>
@@ -48,6 +49,7 @@ private:
 	script_type scripts_;
 	typedef std::list<boost::shared_ptr<python_script> > instance_list_type;
 	instance_list_type instances_;
+	std::wstring alias_;
 
 public:
 	PythonScript();
@@ -58,6 +60,9 @@ public:
 
 	bool unloadModule();
 	bool reload(std::wstring &msg);
+	std::wstring get_alias() {
+		return alias_;
+	}
 
 	std::wstring getModuleName() {
 		return _T("PythonScript");
@@ -72,11 +77,13 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
+	bool hasNotificationHandler();
 	bool loadScript(std::wstring alias, std::wstring script);
 	//NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 
 	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWNotification(const std::wstring &channel, const std::wstring &command, NSCAPI::nagiosReturn code, std::string &request);
 
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);

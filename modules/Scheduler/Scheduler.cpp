@@ -155,7 +155,7 @@ void Scheduler::on_error(std::wstring error) {
 void Scheduler::handle_schedule(scheduler::target item) {
 	try {
 		std::string response;
-		NSCAPI::nagiosReturn code = GET_CORE()->InjectCommand(item.command.c_str(), item.arguments, response);
+		NSCAPI::nagiosReturn code = GET_CORE()->simple_query(item.command.c_str(), item.arguments, response);
 		if (nscapi::report::matches(item.report, code)) {
 			GET_CORE()->NotifyChannel(item.channel, item.alias, code, response);
 		}

@@ -237,10 +237,9 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring command, std::
 	return r.result;
 }
 
-int NRPEClient::commandLineExec(const std::wstring &command, std::vector<std::wstring> &arguments, std::wstring &result) {
-	NSC_DEBUG_MSG_STD(_T("===> ") + command);
+int NRPEClient::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
 	if (command != _T("query") && command != _T("help"))
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::returnIgnored;
 	try {
 		NRPEClient::nrpe_connection_data command_data;
 		boost::program_options::variables_map vm;
@@ -249,9 +248,10 @@ int NRPEClient::commandLineExec(const std::wstring &command, std::vector<std::ws
 		buffer_length_ = SETTINGS_GET_INT(nrpe::PAYLOAD_LENGTH);
 		add_options(desc, command_data);
 
+		std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
 		po::positional_options_description p;
 		p.add("arguments", -1);
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(arguments).options(desc).positional(p).run();
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
 		po::store(parsed, vm);
 		po::notify(vm);
 		command_data.parse_arguments();

@@ -179,11 +179,11 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 	if (isAlias) {
 		std::wstring message;
 		try {
-			return GET_CORE()->InjectCommand(cd.command, args, response);
+			return GET_CORE()->simple_query(cd.command, args, response);
 		} catch (boost::escaped_list_error &e) {
 			NSC_LOG_MESSAGE(_T("Failed to parse alias expression: ") + strEx::string_to_wstring(e.what()));
 			NSC_LOG_MESSAGE(_T("We will now try parsing the old syntax instead..."));
-			return GET_CORE()->InjectCommand(cd.command, args, response);
+			return GET_CORE()->simple_query(cd.command, args, response);
 		}
 	} else {
 		std::wstring message, perf;

@@ -48,6 +48,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIStopServer fNSAPIStopServer;
 		nscapi::core_api::lpNSAPIExit fNSAPIExit;
 		nscapi::core_api::lpNSAPIInject fNSAPIInject;
+		nscapi::core_api::lpNSAPIExecCommand fNSAPIExecCommand;
 		nscapi::core_api::lpNSAPIDestroyBuffer fNSAPIDestroyBuffer;
 		nscapi::core_api::lpNSAPINotify fNSAPINotify;
 		nscapi::core_api::lpNSAPICheckLogMessages fNSAPICheckLogMessages;
@@ -131,15 +132,22 @@ namespace nscapi {
 		void settings_save();
 
 		void Message(int msgType, std::string file, int line, std::wstring message);
-		NSCAPI::nagiosReturn InjectCommandRAW(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		void DestroyBuffer(char**buffer);
-		NSCAPI::nagiosReturn InjectCommand(const std::wstring command, std::string request, std::string & result);
-		NSCAPI::nagiosReturn InjectCommand(const std::wstring command, const std::list<std::wstring> argument, std::string & result);
-		NSCAPI::nagiosReturn InjectSimpleCommand(const std::wstring command, const std::list<std::wstring> argument, std::wstring & message, std::wstring & perf);
+		NSCAPI::nagiosReturn query(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+		NSCAPI::nagiosReturn query(const std::wstring & command, const std::string & request, std::string & result);
+		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & message, std::wstring & perf);
+		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::string & result);
+		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf);
+
+		NSCAPI::nagiosReturn exec_command(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+		NSCAPI::nagiosReturn exec_command(const std::wstring command, std::string request, std::string & result);
+		NSCAPI::nagiosReturn exec_simple_command(const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
+
+		void submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf);
 		NSCAPI::errorReturn NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::string result);
-		NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
-		NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
-		NSCAPI::nagiosReturn InjectNRPECommand(const std::wstring command, const std::wstring buffer, std::wstring & message, std::wstring & perf);
+		//NSCAPI::nagiosReturn InjectCommand(const std::wstring command, const std::list<std::wstring> argument, std::string & result);
+		//NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
+		//NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
 		void StopService(void);
 		void Exit(void);
 		std::wstring getBasePath();

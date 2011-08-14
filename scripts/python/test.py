@@ -1,13 +1,23 @@
-from NSCP import Settings, Functions, Core, log, status
+from NSCP import Settings, Registry, Core, log, status, get_alias
 
 core = Core.get()
-
 
 def get_help(arguments):
 	return (status.OK, 'help: Get help')
 
+	
+def test_cmd(arguments):
+	global prefix
+	log('inside test_cmd')
+	return (status.OK, 'The command works: %s (%d)'%(prefix, len(arguments)))
+
+def test_channel(channel, command, code, message, perf):
+	log('inside test_channel: %s'%channel)
+	log('Data: %d %s %s'%(code, message, perf))
+
 prefix = 'py_'
 def test(arguments):
+	global prefix
 	log('inside test')
 	for a in arguments:
 		log('Got argument: %s'%a)
@@ -48,10 +58,11 @@ def no_ret(arguments):
 		log('Got argument: %s'%a)
 	
 def init(alias):
+	global prefix
 	if alias:
 		prefix = '%s_'%alias
 
-	log('Hello World')
+	log('Script: test.py with alias: %s from %s'%(alias, get_alias()))
 
 	conf = Settings.get()
 	val = conf.get_string('/modules', 'PythonScript', 'foo')
@@ -59,14 +70,23 @@ def init(alias):
 	log('Got it: %s'%val)
 	
 	log('Testing to register a function')
-	fun = Functions.get()
-	fun.register_simple('%stest'%prefix, test, 'This is a sample command')
-	fun.register_simple('%snormal'%prefix, normal, 'This is a sample command')
-	fun.register_simple('%snop'%prefix, no_perf, 'No performance data')
-	fun.register_simple('%snom'%prefix, no_msg, 'No performance data')
-	fun.register_simple('%snor'%prefix, no_ret, 'No performance data')
+	reg = Registry.get()
+	reg.simple_function('%stest'%prefix, test, 'This is a sample command')
+	reg.simple_function('%snormal'%prefix, normal, 'This is a sample command')
+	reg.simple_function('%snop'%prefix, no_perf, 'No performance data')
+	reg.simple_function('%snom'%prefix, no_msg, 'No performance data')
+	reg.simple_function('%snor'%prefix, no_ret, 'No performance data')
 
-	fun.simple_cmdline('help', get_help)
+	reg.simple_cmdline('help', get_help)
+	reg.simple_cmdline('%stest'%prefix, test_cmd)
+
+	reg.simple_subscription('%stest'%prefix, test_channel)
+
+	(ret, list) = core.simple_submit('%stest'%prefix, 'test.py', status.WARNING, 'hello', '')
+	
+	(ret, list) = core.simple_exec('%stest'%prefix, ['a', 'b', 'c'])
+	for l in list:
+		log('-- %s --'%l)
 
 	log('Testing to register settings keys')
 	conf.register_path('hello', 'PYTHON SETTINGS', 'This is stuff for python')

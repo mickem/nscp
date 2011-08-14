@@ -256,10 +256,12 @@ NSCAPI::nagiosReturn nscapi::impl::SimpleCommand::handleRAWCommand(const wchar_t
 }
 
 NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_line_exec_request(char_command, request);
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 	std::wstring result;
-	NSCAPI::nagiosReturn ret = commandLineExec(data.command, data.args_vector, result);
-	return nscapi::functions::process_simple_command_line_exec_result(data.command, ret, result, response);
+	NSCAPI::nagiosReturn ret = commandLineExec(data.command, data.args, result);
+	if (ret == NSCAPI::returnIgnored)
+		return NSCAPI::returnIgnored;
+	return nscapi::functions::create_simple_exec_result(data.command, ret, result, response);
 }
 
 NSCAPI::nagiosReturn nscapi::impl::SimpleNotificationHandler::handleRAWNotification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, std::string result) {

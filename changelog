@@ -9,6 +9,13 @@ TODO:
 2011-08-14 MickeM
  * NRPEClient now works on linux
  * Added "portable" settings map file to installer (so it will work with old installed versions)
+ * Rename Function to Registry in PythonScript API as well as some other function renames
+ * Started to clean up the helpers around the API
+ * Added support for execute to PythonScripts to execute commands
+ * BUG: just realised that static plugin instances prevent multiple instances :)
+   Will fix but not now as it is not important (for me)...
+ * Added initial support for channels to PythonScript
+   Core still lacks support for subscribing to arbitrary channels
 
 2011-08-13 MickeM
  * Added support for command line execution to PythonScript module
