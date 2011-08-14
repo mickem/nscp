@@ -15,101 +15,18 @@ const UINT COST_SERVICE_INSTALL = 2000;
 bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description, std::wstring service_deps);
 bool uninstall(msi_helper &h, std::wstring service_name);
 
-UINT SchedServiceMgmt(__in MSIHANDLE hInstall, msi_helper::WCA_TODO todoSched)
-{
-// 	msi_helper h(hInstall, _T("SchedServiceInstall"));
-// 	try {
-// 		int cFirewallExceptions = 0;
-// 		h.logMessage(_T("SchedServiceInstall: ") + strEx::itos(todoSched));
-// 		// anything to do?
-// 		if (!h.table_exists(L"Services")) {
-// 			h.logMessage(_T("Services table doesn't exist, so there are no services to configure."));
-// 			return ERROR_SUCCESS;
-// 		}
-// 
-// 		// query and loop through all the firewall exceptions
-// 		PMSIHANDLE hView = h.open_execute_view(vcsServiceQuery);
-// 		if (h.isNull(hView)) {
-// 			h.logMessage(_T("Failed to query service view!"));
-// 			return ERROR_INSTALL_FAILURE;
-// 		}
-// 
-// 		msi_helper::custom_action_data_w custom_data;
-// 		PMSIHANDLE hRec = h.fetch_record(hView);
-// 		while (hRec != NULL)
-// 		{
-// 			std::wstring shortname = h.get_record_formatted_string(hRec, feqShortName);
-// 			std::wstring longname = h.get_record_formatted_string(hRec, feqLongName);
-// 			std::wstring desc = h.get_record_formatted_string(hRec, feqDesc);
-// 			std::wstring deps = h.get_record_formatted_string(hRec, feqDeps);
-// 			std::wstring program = h.get_record_formatted_string(hRec, feqProgram);
-// 			int attributes = h.get_record_integer(hRec, feqAttributes);
-// 			std::wstring component = h.get_record_string(hRec, feqComponent);
-// 
-// 			// figure out what we're doing for this exception, treating reinstall the same as install
-// 			msi_helper::WCA_TODO todoComponent = h.get_component_todo(component);
-// 			if ((msi_helper::WCA_TODO_REINSTALL == todoComponent ? msi_helper::WCA_TODO_INSTALL : todoComponent) != todoSched) {
-// 				h.logMessage(_T("Component '") + component + _T("' action state (") + strEx::itos(todoComponent) + _T(") doesn't match request (") + strEx::itos(todoSched) + _T(")"));
-// 				hRec = h.fetch_record(hView);
-// 				continue;
-// 			}
-// 			h.logMessage(_T("Adding data to CA chunk... "));
-// 			// action :: name :: remoteaddresses :: attributes :: target :: {port::protocol | path}
-// 			++cFirewallExceptions;
-// 			custom_data.write_int(todoComponent);
-// 			custom_data.write_string(shortname);
-// 			custom_data.write_string(longname);
-// 			custom_data.write_string(desc);
-// 			custom_data.write_string(deps);
-// 			custom_data.write_int(attributes);
-// 			//custom_data.write_int(fetApplication);
-// 			custom_data.write_string(program);
-// 			h.logMessage(_T("Adding data to CA chunk... DONE"));
-// 			h.logMessage(_T("CA chunk: ") + custom_data.to_string());
-// 			hRec = h.fetch_record(hView);
-// 		}
-// 		// schedule ExecFirewallExceptions if there's anything to do
-// 		if (custom_data.has_data()) {
-// 			h.logMessage(_T("Scheduling (WixExecServiceInstall) firewall exception: ") + custom_data.to_string());
-// 			if (msi_helper::WCA_TODO_INSTALL == todoSched) {
-// 				HRESULT hr = h.do_deferred_action(L"WixRollbackServiceInstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
-// 				if (FAILED(hr)) {
-// 					h.errorMessage(_T("failed to schedule service install exceptions rollback"));
-// 					return hr;
-// 				}
-// 				hr = h.do_deferred_action(L"WixExecServiceInstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
-// 				if (FAILED(hr)) {
-// 					h.errorMessage(_T("failed to schedule service install exceptions execution"));
-// 					return hr;
-// 				}
-// 			}
-// 			else
-// 			{
-// 				h.logMessage(_T("Scheduling (WixExecServiceUninstall) firewall exception: ") + custom_data.to_string());
-// 				HRESULT hr = h.do_deferred_action(L"WixRollbackServiceUninstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
-// 				if (FAILED(hr)) {
-// 					h.errorMessage(_T("failed to schedule service install exceptions rollback"));
-// 					return hr;
-// 				}
-// 				hr = h.do_deferred_action(L"WixExecServiceUninstall", custom_data, cFirewallExceptions * COST_SERVICE_INSTALL);
-// 				if (FAILED(hr)) {
-// 					h.errorMessage(_T("failed to schedule service install exceptions execution"));
-// 					return hr;
-// 				}
-// 			}
-// 		} else
-// 			h.logMessage(_T("No services scheduled"));
-// 	} catch (installer_exception e) {
-// 		h.errorMessage(_T("Failed to install service: ") + e.what());
-// 		return ERROR_INSTALL_FAILURE;
-// 	} catch (...) {
-// 		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
-// 		return ERROR_INSTALL_FAILURE;
-// 	}
-	return ERROR_SUCCESS;
+
+void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
+	if (file_helpers::checks::exists(source)) {
+		h.logMessage(_T("Copying: ") + source + _T(" to ") + target);
+		if (!CopyFile(source.c_str(), target.c_str(), FALSE)) {
+			h.errorMessage(_T("Failed to copy file: ") + error::lookup::last_error());
+		}
+	} else {
+		h.logMessage(_T("Copying failed: ") + source + _T(" to ") + target + _T(" source was not found."));
+	}
 
 }
-
 
 class installer_logger : public settings::logger_interface {
 public:
@@ -145,8 +62,9 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	msi_helper *h;
 	std::wstring basepath;
 	installer_logger logger;
+	std::wstring old_settings_map;
 
-	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), logger(h), basepath(basepath) {}
+	installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map) : h(h), logger(h), basepath(basepath), old_settings_map(old_settings_map) {}
 
 	virtual std::wstring expand_path(std::wstring file) {
 		strEx::replace(file, _T("${base-path}"), basepath);
@@ -169,6 +87,12 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	std::list<std::wstring> get_debug() {
 		return logger.get_debug();
 	}
+	std::wstring get_data(std::wstring key) {
+		if (key == _T("old_settings_map_data")) {
+			return old_settings_map;
+		}
+		return _T("");
+	}
 };
 
 std::wstring has_key(std::wstring path, std::wstring key) {
@@ -187,6 +111,24 @@ std::wstring has_key(std::wstring path, std::wstring key) {
 // CONF_CAN_CHANGE=1	=> Allow change
 // CONF_OLD_FOUND=0		=> Allow setting boot.ini
 
+
+std::wstring read_map_data(msi_helper &h) {
+	std::wstring ret;
+	PMSIHANDLE hView = h.open_execute_view(_T("SELECT Data FROM Binary WHERE Name='OldSettingsMap'"));
+	if (h.isNull(hView)) {
+		h.logMessage(_T("Failed to query service view!"));
+		return _T("");
+	}
+
+	PMSIHANDLE hRec = h.fetch_record(hView);
+	if (hRec != NULL) {
+		ret = h.get_record_blob(hRec, 1);
+		::MsiCloseHandle(hRec);
+	}
+	::MsiCloseHandle(hView);
+	return ret;
+}
+
 extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ImportConfig"));
 	try {
@@ -194,6 +136,11 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		std::wstring main = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
 		std::wstring custom = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
 		std::wstring allow = h.getPropery(_T("ALLOW_CONFIGURATION"));
+
+		std::wstring tmpPath = h.getTempPath();
+
+		std::wstring map_data = read_map_data(h);
+
 		if (allow == _T("0")) {
 			h.logMessage(_T("Configuration not allowed: ") + allow);
 			h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
@@ -210,7 +157,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			return ERROR_SUCCESS;
 		}
 
-		installer_settings_provider provider(&h, target);
+		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_settings(&provider, _T(""))) {
 			h.logMessage(_T("Settings context had fatal errors"));
 			h.setProperty(_T("CONF_OLD_ERROR"), provider.get_error());
@@ -250,13 +197,14 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			}
 		}
 
-
 		h.setProperty(_T("CONFIGURATION_TYPE"), settings_manager::get_settings()->get_context());
+		h.logMessage(_T("CONFIGURATION_TYPE=") + settings_manager::get_settings()->get_context());
+		h.logMessage(_T("CONFIGURATION_TYPE=") + settings_manager::get_settings()->get_info());
 		h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
 		h.setProperty(_T("CONF_HAS_ERRORS"), _T("0"));
 
-		h.setPropertyAndOld(_T("ALLOWED_HOSTS"), settings_manager::get_settings()->get_string(_T("/settings/default/"), _T("allowed hosts"), _T("")));
-		h.setPropertyAndOld(_T("NSCLIENT_PWD"), settings_manager::get_settings()->get_string(_T("/settings/default/"), _T("password"), _T("")));
+		h.setPropertyAndOld(_T("ALLOWED_HOSTS"), settings_manager::get_settings()->get_string(_T("/settings/default"), _T("allowed hosts"), _T("")));
+		h.setPropertyAndOld(_T("NSCLIENT_PWD"), settings_manager::get_settings()->get_string(_T("/settings/default"), _T("password"), _T("")));
 
 		std::wstring modpath = _T("/modules");
 		h.setPropertyAndOld(_T("CONF_NRPE"), has_key(modpath, _T("NRPEServer")));
@@ -377,7 +325,9 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		std::wstring context = data.get_next_string();
 		int add_defaults = data.get_next_int();
 
-		installer_settings_provider provider(&h, target);
+		std::wstring map_data = read_map_data(h);
+
+		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_settings(&provider, context)) {
 			h.errorMessage(_T("Failed to boot settings: ") + provider.get_error());
 			return ERROR_INSTALL_FAILURE;

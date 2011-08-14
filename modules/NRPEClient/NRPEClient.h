@@ -20,6 +20,9 @@
 ***************************************************************************/
 
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
+
+
 #include <map>
 #include <nrpe/packet.hpp>
 

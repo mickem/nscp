@@ -60,11 +60,19 @@ namespace settings {
 						std::cerr << e.what() <<'\n';
 				}
 			}
+			void read_map_data(std::wstring data) {
+				strEx::splitList list = strEx::splitEx(data, _T("\n"));
+				BOOST_FOREACH(std::wstring l, list) {
+					parse_line(l);
+				}
+			}
 			void parse_line(std::wstring line) {
+				strEx::replace(line, _T("\n"), _T(""));
+				strEx::replace(line, _T("\r"), _T(""));
 				int pos = line.find('#');
 				if (pos != -1)
 					line = line.substr(0, pos);
-				pos = line.find_first_not_of(_T(" \t"));
+				pos = line.find_first_not_of(_T(" \t\n\r"));
 				if (pos == -1)
 					return;
 				line = line.substr(pos);
@@ -107,13 +115,19 @@ namespace settings {
 			settings_core::key_path_type key(settings_core::key_path_type new_key) {
 				key_map::iterator it1 = keys_.find(new_key);
 				if (it1 != keys_.end()) {
-					get_logger()->quick_debug(new_key.first + _T(".") + new_key.second + _T(" not found in alias list"));
+					get_logger()->quick_debug(new_key.first + _T(".") + new_key.second + _T(" found in alias list"));
 					return (*it1).second;
 				}
 				path_map::iterator it2 = sections_.find(new_key.first);
-				if (it2 != sections_.end())
+				if (it2 != sections_.end()) {
 					return settings_core::key_path_type((*it2).second, new_key.second);
+				}
 				return new_key;
+			}
+			std::wstring status() {
+				return _T("Sections: ") + strEx::itos(sections_.size()) + _T(", ")
+					+ _T("Keys: ") + strEx::itos(keys_.size())
+					;
 			}
 
 			void get_sections(std::wstring path, string_list &list) {
@@ -154,7 +168,21 @@ namespace settings {
 
 		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context), map(core->get_logger()) {
 			get_logger()->debug(__FILE__, __LINE__, _T("Loading OLD: ") + context + _T(" for ") + context);
-			map.read_map_file(core->find_file(_T("${exe-path}/old-settings.map"), _T("old-settings.map")));
+			std::wstring mapfile = core->get_boot_string(_T("settings"), _T("old_settings_map_file"), _T("old-settings.map"));
+			std::wstring file = core->find_file(_T("${exe-path}/") + mapfile, mapfile);
+			bool readmap = false;
+			if (file_helpers::checks::exists(file)) {
+				readmap = true;
+				map.read_map_file(file);
+			}
+			std::wstring mapdata = core->get_boot_string(_T("settings"), _T("old_settings_map_data"), _T(""));
+			if (!mapdata.empty()) {
+				readmap = true;
+				map.read_map_data(mapdata);
+			}
+			if (!readmap) {
+				core->get_logger()->err(__FILE__, __LINE__,_T("Failed to read map file: ") + mapfile);
+			}
 
 			string_list list = get_keys(_T("/includes"));
 			BOOST_FOREACH(std::wstring key, list) {

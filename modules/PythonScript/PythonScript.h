@@ -19,6 +19,8 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
+
 #include <config.h>
 #include <strEx.h>
 #include <utils.h>

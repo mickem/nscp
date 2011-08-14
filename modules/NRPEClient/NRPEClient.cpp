@@ -238,6 +238,7 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring command, std::
 }
 
 int NRPEClient::commandLineExec(const std::wstring &command, std::vector<std::wstring> &arguments, std::wstring &result) {
+	NSC_DEBUG_MSG_STD(_T("===> ") + command);
 	if (command != _T("query") && command != _T("help"))
 		return NSCAPI::returnUNKNOWN;
 	try {

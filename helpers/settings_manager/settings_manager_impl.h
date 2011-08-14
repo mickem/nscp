@@ -10,6 +10,7 @@ namespace settings_manager {
 		virtual std::wstring expand_path(std::wstring file) = 0;
 		virtual void log_fatal_error(std::wstring error) = 0;
 		virtual settings::logger_interface* create_logger() = 0;
+		virtual std::wstring get_data(std::wstring key) = 0;
 	};
 
 	class NSCSettingsImpl : public settings::settings_handler_impl {
@@ -34,6 +35,12 @@ namespace settings_manager {
 			GetPrivateProfileString(section.c_str(), key.c_str(), def.c_str(), buffer, 1023, boot_.string().c_str());
 			std::wstring ret = buffer;
 			delete [] buffer;
+			if (ret == def) {
+				std::wstring tmp = provider_->get_data(key);
+				if (!tmp.empty())
+					return tmp;
+				return def;
+			}
 			return ret;
 #else
 			return def;

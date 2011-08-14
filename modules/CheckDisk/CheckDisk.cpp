@@ -130,7 +130,7 @@ public:
 	HANDLE FindFirstVolume(std::wstring &volume) {
 		if (ptrFindFirstVolumeW == NULL)
 			return INVALID_HANDLE_VALUE;
-		char_buffer  buffer(1024);
+		tchar_buffer  buffer(1024);
 		HANDLE h = ptrFindFirstVolumeW(buffer.unsafe_get_buffer(), buffer.length());
 		if (h != INVALID_HANDLE_VALUE)
 			volume = buffer.unsafe_get_buffer();
@@ -139,7 +139,7 @@ public:
 	BOOL FindNextVolume(HANDLE hVolume, std::wstring &volume) {
 		if (ptrFindFirstVolumeW == NULL || hVolume == INVALID_HANDLE_VALUE)
 			return FALSE;
-		char_buffer  buffer(1024);
+		tchar_buffer  buffer(1024);
 		BOOL r = ptrFindNextVolumeW(hVolume, buffer.unsafe_get_buffer(), buffer.length());
 		if (r)
 			volume = buffer.unsafe_get_buffer();
@@ -147,8 +147,8 @@ public:
 	}
 
 	void getVolumeInformation(std::wstring volume, std::wstring &name) {
-		char_buffer volumeName(1024);
-		char_buffer fileSysName(1024);
+		tchar_buffer volumeName(1024);
+		tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
 
 		if (!GetVolumeInformation(volume.c_str(), volumeName.unsafe_get_buffer(), volumeName.length(), 
@@ -161,7 +161,7 @@ public:
 
 
 	bool GetVolumeNameForVolumeMountPoint(std::wstring volumeMountPoint, std::wstring &volumeName) {
-		char_buffer buffer(1024);
+		tchar_buffer buffer(1024);
 		if (ptrGetVolumeNameForVolumeMountPointW(volumeMountPoint.c_str(), buffer.unsafe_get_buffer(), buffer.length())) {
 			volumeName = buffer;
 			return true;

@@ -515,6 +515,10 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 	virtual settings::logger_interface* create_logger() {
 		return new settings_logger();
 	}
+	std::wstring get_data(std::wstring key) {
+		// TODO
+		return _T("");
+	}
 };
 
 
@@ -864,7 +868,6 @@ int NSClientT::command_line_exec(std::wstring module, std::wstring command, std:
 	}
 	if (!found && !module.empty()) {
 		try {
-			//boost::filesystem::wpath root = ;
 			boost::filesystem::wpath file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::wpath(_T("modules")), module);
 			if (boost::filesystem::is_regular(file)) {
 				plugin_type plugin = addPlugin(file, _T(""));
@@ -1357,7 +1360,6 @@ bool NSClientT::service_controller::is_started() {
 #endif
 	return false;
 }
-
 
 std::wstring NSClientT::expand_path(std::wstring file) {
 	strEx::replace(file, _T("${certificate-path}"), _T("${shared-path}/security"));

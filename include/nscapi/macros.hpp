@@ -19,7 +19,7 @@
 
 
 #define NSC_WRAPPERS_CLI() \
-	extern "C" int NSCommandLineExec(const unsigned int,wchar_t**);
+	extern "C" int NSCommandLineExec(wchar_t *command, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len);
 
 #define NSC_WRAPPERS_CHANNELS() \
 	extern "C" int NSHasNotificationHandler(); \
@@ -209,7 +209,7 @@
 
 
 #define NSC_WRAPPERS_CLI_DEF(toObject) \
-	extern int NSCommandLineExec(const wchar_t* command,const char* request_buffer,const unsigned int request_len,char** response_buffer,unsigned int* response_len) { \
+	extern int NSCommandLineExec(wchar_t *command, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) { \
 		try { \
 		std::string request = std::string(request_buffer, request_len); \
 		std::string response; \

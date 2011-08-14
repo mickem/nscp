@@ -59,7 +59,6 @@ namespace nrpe {
 		virtual void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
 			std::vector<char> buf = packet.get_buffer();
 			write_with_timeout(buf, timeout);
-			get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_send);
 		}
 		virtual nrpe::packet recv(const nrpe::packet &packet, boost::posix_time::seconds timeout) {
 			std::vector<char> buf(packet.get_packet_length());
@@ -79,7 +78,7 @@ namespace nrpe {
 
 
 #ifdef USE_SSL
-	class ssl_socket : public socket, public boost::noncopyable {
+	class ssl_socket : public socket {
 	private:
 		boost::shared_ptr<boost::asio::ssl::stream<tcp::socket> > ssl_socket_;
 

@@ -34,7 +34,7 @@ public:
 		if (MsiGetTargetPath(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for target path '") + path + _T("': ") + error::lookup::last_error());
 		len++;
-		char_buffer buffer(len);
+		tchar_buffer buffer(len);
 		if (MsiGetTargetPath(hInstall_ ,path.c_str(), buffer, &len) != ERROR_SUCCESS) {
 			throw installer_exception(_T("Failed to get target path '") + path + _T("': ") + error::lookup::last_error());
 		}
@@ -61,21 +61,21 @@ public:
 		if (MsiGetProperty(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + error::lookup::last_error());
 		len++;
-		char_buffer buffer(len);
+		tchar_buffer buffer(len);
 		if (MsiGetProperty(hInstall_ ,path.c_str(), buffer, &len) != ERROR_SUCCESS) {
 			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + error::lookup::last_error());
 		}
 		std::wstring value = buffer;
 		return value;
 	}
-	char_buffer getProperyRAW(std::wstring path) {
+	tchar_buffer getProperyRAW(std::wstring path) {
 		wchar_t emptyString[MAX_PATH];
 		DWORD len = 0;
 		UINT er;
 		if ((er = MsiGetProperty(hInstall_ ,path.c_str(), emptyString, &len)) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + error::format::from_system(er));
 		len+=2;
-		char_buffer buffer(len);
+		tchar_buffer buffer(len);
 		if ((er = MsiGetProperty(hInstall_ ,path.c_str(), buffer, &len)) != ERROR_SUCCESS) {
 			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + error::format::from_system(er));
 		}
@@ -88,6 +88,7 @@ public:
 			setProperty(key, val);
 	}
 	void setPropertyAndOld(std::wstring key, std::wstring value) {
+		logMessage(_T("Reading old value for ") + key + _T("=") + value);
 		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
 		MsiSetProperty(hInstall_, (key+_T("_OLD")).c_str(), value.c_str());
 	}
@@ -246,7 +247,7 @@ public:
 	{
 		if (!hRec)
 			throw installer_exception(_T("Invalid arguments!"));
-		char_buffer buffer;
+		tchar_buffer buffer;
 
 		HRESULT hr = S_OK;
 		UINT er;
@@ -268,10 +269,34 @@ public:
 		return string;
 	}
 
+		/********************************************************************
+	WcaGetRecordString() - gets a string field out of a record
+	********************************************************************/
+	std::wstring get_record_blob(__in MSIHANDLE hRec, __in UINT uiField)
+	{
+		if (!hRec)
+			throw installer_exception(_T("Invalid arguments!"));
+		char_buffer buffer;
+
+		HRESULT hr = S_OK;
+		UINT er;
+
+		unsigned int size = MsiRecordDataSize(hRec, uiField);
+		buffer.realloc(size+5);
+
+		er = ::MsiRecordReadStream(hRec, uiField, buffer, (DWORD*)&size);
+		if (er != ERROR_SUCCESS)
+		if (ERROR_MORE_DATA == er){
+			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + error::format::from_system(er));
+		}
+		std::string string = buffer;
+		return utf8::cvt<std::wstring>(string);
+	}
+
 	/********************************************************************
 	HideNulls() - internal helper function to escape [~] in formatted strings
 	********************************************************************/
-	void _hide_nulls(char_buffer wzData) {
+	void _hide_nulls(tchar_buffer wzData) {
 		LPWSTR pwz = wzData;
 		while(*pwz) {
 			if (pwz[0] == L'[' && pwz[1] == L'~' && pwz[2] == L']') // found a null [~] 
@@ -288,7 +313,7 @@ public:
 	/********************************************************************
 	RevealNulls() - internal helper function to unescape !$! in formatted strings
 	********************************************************************/
-	void _reveal_nulls(char_buffer wzData) {
+	void _reveal_nulls(tchar_buffer wzData) {
 		LPWSTR pwz = wzData;
 		while(*pwz)	{
 			if (pwz[0] == L'!' && pwz[1] == L'$' && pwz[2] == L'!') // found the fake null !$!
@@ -339,7 +364,7 @@ public:
 		UINT er;
 
 		// get the format string
-		char_buffer tmp = get_record_string(hRec, uiField);
+		tchar_buffer tmp = get_record_string(hRec, uiField);
 		std::wstring t = tmp;
 		if (t.length() == 0)
 			return _T("");
@@ -359,7 +384,7 @@ public:
 		if (ERROR_MORE_DATA != er && ERROR_SUCCESS != er) {
 			throw installer_exception(_T("get_record_formatted_string:: Failed to get length of string: ") + error::format::from_system(er));
 		}
-		char_buffer buffer(++cch);
+		tchar_buffer buffer(++cch);
 
 		er = ::MsiFormatRecordW(hInstall_, hRecFormat, buffer, (DWORD*)&cch);
 		if (er != ERROR_SUCCESS) {

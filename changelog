@@ -6,6 +6,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-14 MickeM
+ * NRPEClient now works on linux
+ * Added "portable" settings map file to installer (so it will work with old installed versions)
+
 2011-08-13 MickeM
  * Added support for command line execution to PythonScript module
  * Readded support for specifying module on command line with --client mode
