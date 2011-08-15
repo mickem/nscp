@@ -7,6 +7,7 @@ PROJECT(${TARGET})
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
+	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -30,6 +31,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/nsca/nsca_socket.hpp
 		${NSCP_INCLUDEDIR}/nsca/nsca_enrypt.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
+		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

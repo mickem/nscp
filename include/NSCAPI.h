@@ -115,6 +115,9 @@ namespace nscapi {
 	public:
 		std::wstring msg_;
 		nscapi_exception(std::wstring msg) : msg_(msg) {}
+
+
+		virtual ~nscapi_exception() throw() {}
 		std::string what() {
 			return utf8::cvt<std::string>(msg_);
 		}

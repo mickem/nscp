@@ -2,9 +2,13 @@ TODO:
  * Process times and similar ?
  * Fix configuration GUI (low priority)
  * Add API for rehashing the daemon (or implement it the API is there but does nothing)
- * Improved socket performance (would be nice if we could be used as a "hub")
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
+
+2011-08-15 MickeM
+ * Readded allowed hosts function
+ * Moved default socket options to /settings/default/socket
+ * Added more default socket options
 
 2011-08-14 MickeM
  * NRPEClient now works on linux

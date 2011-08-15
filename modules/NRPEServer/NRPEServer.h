@@ -36,7 +36,6 @@ private:
 		std::wstring arguments;
 	};
 
-	socketHelpers::allowedHosts allowedHosts;
 	nrpe::server::server::connection_info info_;
 
 public:

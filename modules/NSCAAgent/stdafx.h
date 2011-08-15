@@ -25,7 +25,6 @@
 
 #include <iostream>
 #include <string>
-#include <hash_map>
 #include <list>
 
 

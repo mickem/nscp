@@ -2,7 +2,7 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <socket_helpers.hpp>
+#include <socket/socket_helpers.hpp>
 #include <nsca/nsca_packet.hpp>
 
 using boost::asio::ip::tcp;
@@ -68,10 +68,10 @@ namespace nrpe {
 			return nrpe::packet(&buf[0], buf.size(), packet.get_payload_length());
 		}
 		virtual void read_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::read_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::read_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 		virtual void write_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::write_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::write_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 	};
 
@@ -105,11 +105,11 @@ namespace nrpe {
 		}
 
 		virtual void write_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::write_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::write_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 
 		virtual void read_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::read_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::read_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 	};
 #endif

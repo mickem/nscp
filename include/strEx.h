@@ -333,6 +333,9 @@ namespace strEx {
 	inline int stoi(std::wstring s) {
 		return boost::lexical_cast<int>(s.c_str());
 	}
+	inline int stoi(std::string s) {
+		return boost::lexical_cast<int>(s.c_str());
+	}
 	inline double stod(std::wstring s) {
 		return boost::lexical_cast<double>(s.c_str());
 	}

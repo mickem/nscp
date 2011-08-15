@@ -264,7 +264,16 @@ list script_wrapper::convert(std::list<std::wstring> lst) {
 }
 
 void script_wrapper::command_wrapper::simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf) {
-	core->submit_simple_message(utf8::cvt<std::wstring>(channel), utf8::cvt<std::wstring>(command), code, utf8::cvt<std::wstring>(message), utf8::cvt<std::wstring>(perf));
+	NSCAPI::nagiosReturn c = NSCAPI::returnUNKNOWN;
+	if (code == OK)
+		c = NSCAPI::returnOK;
+	if (code == WARN)
+		c = NSCAPI::returnWARN;
+	if (code == CRIT)
+		c = NSCAPI::returnCRIT;
+	std::wstring wmessage = utf8::cvt<std::wstring>(message);
+	std::wstring wperf = utf8::cvt<std::wstring>(perf);
+	core->submit_simple_message(utf8::cvt<std::wstring>(channel), utf8::cvt<std::wstring>(command), c, wmessage, wperf);
 }
 
 

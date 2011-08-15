@@ -13,56 +13,53 @@ namespace check_nt {
 		namespace ip = boost::asio::ip;
 
 
-		const int server::connection_info::backlog_default = 0;
-
-		server::server(connection_info info)
-			: thread_pool_size_(info.thread_pool_size)
+		server::server(connection_info infoo)
+			: info_(infoo)
 			, acceptor_(io_service_)
 			, accept_strand_(io_service_)
-			, request_handler_(info.request_handler) // nrpe::length::get_payload_length())
+			, request_handler_(infoo.request_handler) // nrpe::length::get_payload_length())
 			, context_(io_service_, boost::asio::ssl::context::sslv23)
-			, use_ssl_(info.use_ssl)
 		{
 			if (!request_handler_)
 				throw check_nt_exception(_T("Invalid handler"));
 			// Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
 			ip::tcp::resolver resolver(io_service_);
 			ip::tcp::resolver::iterator endpoint_iterator;
-			if (info.address.empty()) {
-				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.get_port()));
+			if (info_.address.empty()) {
+				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info_.get_port()));
 			} else {
-				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info.get_address(), info.get_port()));
+				endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info_.get_address(), info_.get_port()));
 			}
 			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {
-				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info.get_endpoint_str());
+				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info_.get_endpoint_str());
 				return;
 			}
-			if (info.use_ssl) {
+			if (info_.use_ssl) {
 				SSL_CTX_set_cipher_list(context_.impl(), "ADH");
-				request_handler_->log_debug(__FILE__, __LINE__, _T("Using cert: ") + to_wstring(info.certificate));
-				context_.use_tmp_dh_file(to_string(info.certificate));
+				request_handler_->log_debug(__FILE__, __LINE__, _T("Using cert: ") + to_wstring(info_.certificate));
+				context_.use_tmp_dh_file(to_string(info_.certificate));
 				context_.set_verify_mode(boost::asio::ssl::context::verify_none);
 			}
 
-			new_connection_.reset(check_nt::server::factories::create(io_service_, context_, request_handler_, use_ssl_));
+			new_connection_.reset(check_nt::server::factories::create(io_service_, context_, request_handler_, info_.use_ssl));
 
 			ip::tcp::endpoint endpoint = *endpoint_iterator;
 			acceptor_.open(endpoint.protocol());
 			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info_.get_endpoint_str());
 			acceptor_.bind(endpoint);
-			if (info.back_log == connection_info::backlog_default)
+			if (info_.back_log == connection_info::backlog_default)
 				acceptor_.listen();
 			else
-				acceptor_.listen(info.back_log);
+				acceptor_.listen(info_.back_log);
 
 			acceptor_.async_accept(new_connection_->socket(),
 				accept_strand_.wrap(
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					)
 				);
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info_.get_endpoint_str());
 
 			//io_service_.post(boost::bind(&Server::startAccept, this));
 
@@ -72,12 +69,12 @@ namespace check_nt {
 
 		void server::start() {
 			// Create a pool of threads to run all of the io_services.
-			for (std::size_t i = 0; i < thread_pool_size_; ++i) {
+			for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
 				boost::shared_ptr<boost::thread> thread(
 					new boost::thread( boost::bind(&boost::asio::io_service::run, &io_service_) ));
 				threads_.push_back(thread);
 			}
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Thredpool containes: ") + to_wstring(thread_pool_size_));
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Thredpool containes: ") + to_wstring(info_.thread_pool_size));
 
 			// Wait for all threads in the pool to exit.
 			//for (std::size_t i = 0; i < threads.size(); ++i)
@@ -92,11 +89,20 @@ namespace check_nt {
 
 		void server::handle_accept(const boost::system::error_code& e) {
 			if (!e) {
+				std::list<std::string> errors;
 				std::string s = new_connection_->socket().remote_endpoint().address().to_string();
-				request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
+				if (info_.allowed_hosts.is_allowed(new_connection_->socket().remote_endpoint().address().to_v4().to_ulong(), errors)) {
+					request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
+					new_connection_->start();
+				} else {
+					BOOST_FOREACH(const std::string &e, errors) {
+						request_handler_->log_error(__FILE__, __LINE__, utf8::cvt<std::wstring>(e));
+					}
+					request_handler_->log_error(__FILE__, __LINE__, _T("Rejcted connection from: ") + to_wstring(s));
+					new_connection_->stop();
+				}
 
-				new_connection_->start();
-				new_connection_.reset(check_nt::server::factories::create(io_service_, context_, request_handler_, use_ssl_));
+				new_connection_.reset(check_nt::server::factories::create(io_service_, context_, request_handler_, info_.use_ssl));
 
 				acceptor_.async_accept(new_connection_->socket(),
 					accept_strand_.wrap(

@@ -2,7 +2,7 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <socket_helpers.hpp>
+#include <socket/socket_helpers.hpp>
 
 #include <nsca/nsca_packet.hpp>
 #include <nsca/nsca_enrypt.hpp>
@@ -66,10 +66,10 @@ namespace nsca {
 			crypt_inst.encrypt_init(password, encryption_method, str_buf);
 		}
 		virtual void read_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::read_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::read_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 		virtual void write_with_timeout(std::string &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::write_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::write_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 		/*
 		virtual void read_with_timeout(std::string &buf, boost::posix_time::seconds timeout) {
@@ -106,11 +106,11 @@ namespace nsca {
 		}
 
 		virtual void write_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::write_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::write_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 
 		virtual void read_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::read_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::read_with_timeout(*ssl_socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
 	};
 #endif

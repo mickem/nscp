@@ -8,6 +8,7 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
+	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -19,10 +20,10 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
-		${NSCP_INCLUDEDIR}/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
 		${NSCP_INCLUDEDIR}/nrpe/client/socket.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
+		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

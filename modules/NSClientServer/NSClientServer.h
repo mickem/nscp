@@ -27,7 +27,6 @@ NSC_WRAPPERS_MAIN();
 class NSClientListener : public nscapi::impl::simple_plugin {
 private:
 
-	socketHelpers::allowedHosts allowedHosts;
 	check_nt::server::server::connection_info info_;
 	boost::shared_ptr<check_nt::server::server> server_;
 

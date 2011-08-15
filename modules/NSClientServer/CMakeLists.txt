@@ -16,6 +16,7 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/check_nt/server/tcp_connection.cpp
 	${NSCP_INCLUDEDIR}/check_nt/server/ssl_connection.cpp
 	${NSCP_INCLUDEDIR}/check_nt/packet.cpp
+	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -34,9 +35,9 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/check_nt/server/ssl_connection.hpp
 		${NSCP_INCLUDEDIR}/check_nt/server/handler.hpp
 		${NSCP_INCLUDEDIR}/check_nt/server/parser.hpp
-		${NSCP_INCLUDEDIR}/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/check_nt/packet.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
+		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

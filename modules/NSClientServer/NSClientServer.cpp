@@ -66,29 +66,15 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			(_T("port"), sh::uint_key(&info_.port, 12489),
 			_T("PORT NUMBER"), _T("Port to use for check_nt."))
 
-			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
-			_T("THREAD POOL"), _T(""))
-
-			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
-			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
-
-			(_T("use ssl"), sh::bool_key(&info_.use_ssl, true),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
-
-			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&check_nt::server::handler::set_allow_arguments, info_.request_handler, _1), false),
-			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
-
-			(_T("allow nasty characters"), sh::bool_fun_key<bool>(boost::bind(&check_nt::server::handler::set_allow_nasty_arguments, info_.request_handler, _1), false),
-			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
-
 			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&check_nt::server::handler::set_perf_data, info_.request_handler, _1), true),
 			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
 
-			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
-			_T("SSL CERTIFICATE"), _T(""))
 			;
 
-		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
+		settings.alias().add_parent(_T("/settings/default/socket")).add_key_to_settings()
+
+			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
+			_T("THREAD POOL"), _T(""))
 
 			(_T("bind to"), sh::string_key(&info_.address),
 			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
@@ -96,22 +82,32 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
 			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
 
+			(_T("allowed hosts"), sh::string_fun_key<std::wstring>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), _T("127.0.0.1")),
+			_T("ALLOWED HOSTS"), _T("A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges."))
+
+			(_T("cache allowed hosts"), sh::bool_key(&info_.allowed_hosts.cached, true),
+			_T("CACHE ALLOWED HOSTS"), _T("If hostnames should be cached, improves speed and security somewhat but wont allow you to have dynamic IPs for your nagios server."))
+
+			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
+			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
+
+			(_T("use ssl"), sh::bool_key(&info_.use_ssl, true),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+
+			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
+			_T("SSL CERTIFICATE"), _T(""))
+
 			;
 
+		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
+			(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&check_nt::server::handler::set_password, info_.request_handler, _1), _T("")),
+			_T("PASSWORD"), _T("Password used to authenticate againast server"))
+			;
 
 		settings.register_all();
 		settings.notify();
 	} catch (...) {}
-
-// 	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts());
-// 	unsigned short port = SETTINGS_GET_INT(nsclient::PORT);
-// 	std::wstring host = SETTINGS_GET_STRING(nsclient::BINDADDR);
-// 	unsigned int backLog = SETTINGS_GET_INT(nsclient::LISTENQUE);
-// 	socketTimeout_ = SETTINGS_GET_INT(nsclient::READ_TIMEOUT);
-
-
-	info_.request_handler->set_password(_T("TODO"));
 
 #ifndef USE_SSL
 	if (info_.use_ssl) {
@@ -121,16 +117,18 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 	if (!boost::filesystem::is_regular(info_.certificate))
 		NSC_LOG_ERROR_STD(_T("Certificate not found: ") + info_.certificate);
 
-	boost::asio::io_service io_service_;
 
-	allowedHosts.setAllowedHosts(strEx::splitEx(getAllowedHosts(), _T(",")), getCacheAllowedHosts(), io_service_);
-	NSC_DEBUG_MSG_STD(_T("Allowed hosts: ") + allowedHosts.to_string());
+	std::list<std::string> errors;
+	info_.allowed_hosts.refresh(errors);
+	BOOST_FOREACH(const std::string &e, errors) {
+		NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(e));
+	}
+	NSC_DEBUG_MSG_STD(_T("Allowed hosts definition: ") + info_.allowed_hosts.to_wstring());
+
+	boost::asio::io_service io_service_;
 
 	if (mode == NSCAPI::normalStart) {
 		try {
-
-
-
 					if (info_.use_ssl) {
 #ifdef USE_SSL
 						server_.reset(new check_nt::server::server(info_));
