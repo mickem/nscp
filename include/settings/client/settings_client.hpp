@@ -545,6 +545,9 @@ namespace nscapi {
 			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
 				alias_ = alias_extension::get_alias(prefix, cur, def);
 			}
+			void set_alias(std::wstring alias) {
+				alias_ = alias;
+			}
 			alias_extension alias() {
 				return alias_extension(this, alias_);
 			}

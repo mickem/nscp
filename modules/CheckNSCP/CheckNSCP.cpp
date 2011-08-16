@@ -149,7 +149,7 @@ NSCAPI::nagiosReturn CheckNSCP::check_nscp( std::list<std::wstring> arguments, s
 	return (err_count > 0 || crash_count > 0) ? NSCAPI::returnCRIT:NSCAPI::returnOK;
 }
 
-NSCAPI::nagiosReturn CheckNSCP::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckNSCP::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("check_nscp")) {
 		return check_nscp(arguments, message, perf);
 	}

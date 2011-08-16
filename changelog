@@ -5,10 +5,20 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-16 MickeM
+ * Added support for remote WMI checking using target/username/password options like so:
+    CheckWMI target=192.168.0.123 user=\\foobar password=foobar namespace=root\\cimv2 MaxCrit=3 MinWarn=1 "Query:load=Select * from win32_Processor"
+ * Added support for looking up targets to CheckWMI
+   CheckWMI target=my_test_xp MaxCrit=3 MinWarn=1 "Query:load=Select * from win32_Processor"
+   Where <target> is defined under /settings/targets as well as /settings/targets/my_test_xp
+
 2011-08-15 MickeM
  * Readded allowed hosts function
  * Moved default socket options to /settings/default/socket
  * Added more default socket options
+ * Added support for target in default plugin helpers
+ * Added remote WMI commands
+ * Added target section under /settings/targets
 
 2011-08-14 MickeM
  * NRPEClient now works on linux

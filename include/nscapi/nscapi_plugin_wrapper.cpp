@@ -248,10 +248,10 @@ void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
 	}
 }
 
-NSCAPI::nagiosReturn nscapi::impl::SimpleCommand::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
+NSCAPI::nagiosReturn nscapi::impl::simple_command::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_request(char_command, request);
 	std::wstring msg, perf;
-	NSCAPI::nagiosReturn ret = handleCommand(data.command, data.args, msg, perf);
+	NSCAPI::nagiosReturn ret = handleCommand(data.target, data.command, data.args, msg, perf);
 	return nscapi::functions::process_simple_command_result(data.command, ret, msg, perf, response);
 }
 

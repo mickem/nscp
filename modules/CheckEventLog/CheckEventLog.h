@@ -26,7 +26,7 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 
 
-class CheckEventLog  : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin {
+class CheckEventLog  : public nscapi::impl::simple_command, nscapi::impl::simple_plugin {
 private:
 	bool debug_;
 	std::wstring syntax_;
@@ -56,5 +56,5 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 };

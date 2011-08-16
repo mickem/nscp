@@ -111,6 +111,7 @@ namespace nscapi {
 
 		struct decoded_simple_command_data {
 			std::wstring command;
+			std::wstring target;
 			std::list<std::wstring> args;
 			//std::vector<std::wstring> args_vector;
 		};
@@ -122,6 +123,8 @@ namespace nscapi {
 			data.command = char_command;
 			ExecuteCommand::RequestMessage request_message;
 			request_message.ParseFromString(request);
+			if (request_message.has_header())
+				data.target = utf8::cvt<std::wstring>(request_message.header().recipient());
 
 			if (request_message.payload_size() != 1) {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));

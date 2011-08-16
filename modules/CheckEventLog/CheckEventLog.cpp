@@ -182,7 +182,7 @@ struct event_log_buffer {
 	}
 };
 
-NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	if (command != _T("checkeventlog"))
 		return NSCAPI::returnIgnored;
 	simple_timer time;

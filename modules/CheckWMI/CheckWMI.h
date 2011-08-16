@@ -24,10 +24,70 @@ NSC_WRAPPERS_CLI();
 #include <config.h>
 #include <strEx.h>
 #include <utils.h>
+#include <settings/client/settings_client.hpp>
+
 //#include <checkHelpers.hpp>
 #include "WMIQuery.h"
 
-class CheckWMI : public nscapi::impl::SimpleCommand, public nscapi::impl::simple_plugin {
+
+
+struct target_helper {
+	struct target_info {
+		std::wstring hostname;
+		std::wstring username;
+		std::wstring password;
+		std::wstring protocol;
+
+		target_info() {}
+		target_info(const target_info &other) 
+			: hostname(other.hostname)
+			, username(other.username)
+			, password(other.password)
+			, protocol(other.protocol)
+		{}
+		const target_info& operator=(const target_info &other) 
+		{
+			hostname = other.hostname;
+			username = other.username;
+			password = other.password;
+			protocol = other.protocol;
+			return *this;
+		}
+
+		std::wstring to_wstring() const {
+			return _T("hostname: ") + hostname + 
+				_T(", username: ") + username +
+				_T(", password: ") + password +
+				_T(", protocol: ") + protocol;
+		}
+		void update_from(const target_helper::target_info& other) {
+			if (hostname.empty())
+				hostname = other.hostname;
+			if (username.empty())
+				username = other.username;
+			if (password.empty())
+				password = other.password;
+			if (protocol.empty())
+				protocol = other.protocol;
+		}
+	};
+	typedef std::map<std::wstring, target_info> target_map_type;
+	target_map_type targets;
+	void add_target(nscapi::settings_helper::settings_impl_interface_ptr core, std::wstring key, std::wstring val);
+	boost::optional<target_info> find(std::wstring alias) {
+		if (alias.empty())
+			return boost::optional<target_info>();
+		target_map_type::const_iterator it = targets.find(alias);
+		if (it == targets.end())
+			return boost::optional<target_info>();
+		NSC_DEBUG_MSG_STD(_T("FOund target: ") + it->second.to_wstring());
+		return boost::optional<target_info>(it->second);
+	}
+
+};
+
+
+class CheckWMI : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin {
 public:
 	CheckWMI();
 	virtual ~CheckWMI();
@@ -49,16 +109,17 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	int CheckWMI::commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args);
 
 	// Check commands
-	NSCAPI::nagiosReturn CheckSimpleWMI(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckSimpleWMIValue(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn CheckSimpleWMI(const std::wstring &target, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn CheckSimpleWMIValue(const std::wstring &target, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 
 
 
 private:
+	target_helper targets;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 };

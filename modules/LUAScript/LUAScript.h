@@ -30,7 +30,7 @@ NSC_WRAPPERS_MAIN();
 #include <scripts/functions.hpp>
 
 
-class LUAScript : public nscapi::impl::SimpleCommand, public script_wrapper::lua_handler, public nscapi::impl::simple_plugin {
+class LUAScript : public nscapi::impl::simple_command, public script_wrapper::lua_handler, public nscapi::impl::simple_plugin {
 private:
 
 	class lua_func {
@@ -79,7 +79,7 @@ public:
 	bool hasMessageHandler();
 	boost::optional<boost::filesystem::wpath> find_file(std::wstring file);
 	bool loadScript(std::wstring alias, std::wstring file);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);
 

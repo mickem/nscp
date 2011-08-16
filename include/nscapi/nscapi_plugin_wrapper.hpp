@@ -111,10 +111,10 @@ namespace nscapi {
 
 		};
 
-		class SimpleCommand {
+		class simple_command {
 		public:
 			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
-			virtual NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) = 0;
+			virtual NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) = 0;
 		};
 		class simple_command_line_exec {
 		public:

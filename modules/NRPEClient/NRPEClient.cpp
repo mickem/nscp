@@ -210,8 +210,7 @@ bool NRPEClient::hasCommandHandler() {
 bool NRPEClient::hasMessageHandler() {
 	return false;
 }
-NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf)
-{
+NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	command_list::const_iterator cit = commands.find(strEx::blindstr(command.c_str()));
 	if (cit == commands.end())
 		return NSCAPI::returnIgnored;

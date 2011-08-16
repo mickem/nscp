@@ -170,7 +170,7 @@ bool LUAScript::reload(std::wstring &message) {
 
 
 
-NSCAPI::nagiosReturn LUAScript::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn LUAScript::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("luareload")) {
 		return reload(message)?NSCAPI::returnOK:NSCAPI::returnCRIT;
 	}

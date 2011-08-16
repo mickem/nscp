@@ -190,6 +190,6 @@ public:
 	WMIQuery(void) {};
 	~WMIQuery(void) {};
 
-	result_type  execute(std::wstring ns, std::wstring query);
+	result_type  execute(std::wstring ns, std::wstring query, std::wstring user = _T(""), std::wstring password = _T(""));
 	std::wstring sanitize_string(LPTSTR in);
 };

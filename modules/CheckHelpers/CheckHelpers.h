@@ -22,7 +22,7 @@ NSC_WRAPPERS_MAIN();
 #include <config.h>
 #include <strEx.h>
 
-class CheckHelpers : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin {
+class CheckHelpers : public nscapi::impl::simple_command, nscapi::impl::simple_plugin {
 private:
 
 public:
@@ -47,7 +47,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 
 	// Check commands
 	NSCAPI::nagiosReturn checkMultiple(const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);

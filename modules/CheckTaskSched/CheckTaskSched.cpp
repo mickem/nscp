@@ -150,7 +150,7 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> argume
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("checktasksched"))
 		return TaskSchedule(arguments, message, perf);
 	return NSCAPI::returnIgnored;

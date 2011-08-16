@@ -32,7 +32,7 @@
 
 NSC_WRAPPERS_MAIN();
 
-class CheckNSCP : public nscapi::impl::SimpleCommand, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
+class CheckNSCP : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
 private:
 	boost::timed_mutex mutex_;
 	std::wstring crashFolder;
@@ -60,7 +60,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	void handleMessage(int msgType, const std::string file, int line, std::string message);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	std::string render(int msgType, const std::string file, int line, std::string message);
 	NSCAPI::nagiosReturn check_nscp( std::list<std::wstring> arguments, std::wstring & msg, std::wstring & perf );
 	int get_crashes(std::wstring &last_crash);

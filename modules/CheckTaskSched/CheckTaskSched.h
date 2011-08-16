@@ -27,7 +27,7 @@ NSC_WRAPPERS_CLI();
 #include <checkHelpers.hpp>
 #include "TaskSched.h"
 
-class CheckTaskSched : public nscapi::impl::SimpleCommand, public nscapi::impl::simple_plugin {
+class CheckTaskSched : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin {
 private:
 	std::wstring syntax;
 
@@ -50,7 +50,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	int CheckTaskSched::commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args);
 
 	// Check commands

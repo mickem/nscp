@@ -27,7 +27,7 @@ NSC_WRAPPERS_CLI();
 #include <nrpe/packet.hpp>
 
 
-class NRPEClient : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
+class NRPEClient : public nscapi::impl::simple_command, nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:
 	typedef enum {
 		inject, script, script_dir,
@@ -124,7 +124,7 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 	std::wstring getConfigurationMeta();
 

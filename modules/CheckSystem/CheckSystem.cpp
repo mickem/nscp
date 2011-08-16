@@ -401,24 +401,24 @@ int CheckSystem::commandLineExec(const wchar_t* command,const unsigned int argLe
  * @param **args 
  * @return 
  */
-NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	CheckSystem::returnBundle rb;
 	if (command == _T("checkcpu")) {
-		return checkCPU(arguments, msg, perf);
+		return checkCPU(arguments, message, perf);
 	} else if (command == _T("checkuptime")) {
-		return checkUpTime(arguments, msg, perf);
+		return checkUpTime(arguments, message, perf);
 	} else if (command == _T("checkservicestate")) {
-		return checkServiceState(arguments, msg, perf);
+		return checkServiceState(arguments, message, perf);
 	} else if (command == _T("checkprocstate")) {
-		return checkProcState(arguments, msg, perf);
+		return checkProcState(arguments, message, perf);
 	} else if (command == _T("checkmem")) {
-		return checkMem(arguments, msg, perf);
+		return checkMem(arguments, message, perf);
 	} else if (command == _T("checkcounter")) {
-		return checkCounter(arguments, msg, perf);
+		return checkCounter(arguments, message, perf);
 	} else if (command == _T("listcounterinstances")) {
-		return listCounterInstances(arguments, msg, perf);
+		return listCounterInstances(arguments, message, perf);
 	} else if (command == _T("checksingleregentry")) {
-		return checkSingleRegEntry(arguments, msg, perf);
+		return checkSingleRegEntry(arguments, message, perf);
 	}
 	return NSCAPI::returnIgnored;
 }

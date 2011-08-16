@@ -84,7 +84,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status
 	return status;
 }
 
-NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("checkversion")) {
 		message = GET_CORE()->getApplicationVersionString();
 		return NSCAPI::returnOK;

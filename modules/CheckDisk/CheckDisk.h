@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <utils.h>
 #include <checkHelpers.hpp>
 
-class CheckDisk : public nscapi::impl::SimpleCommand, nscapi::impl::simple_plugin  {
+class CheckDisk : public nscapi::impl::simple_command, nscapi::impl::simple_plugin  {
 private:
 	bool show_errors_;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
@@ -51,7 +51,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	std::wstring get_filter(unsigned int drvType);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 
 	// Check commands
 	//NSCAPI::nagiosReturn CheckFileSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);

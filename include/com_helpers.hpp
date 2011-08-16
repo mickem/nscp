@@ -38,7 +38,8 @@ namespace com_helper {
 			if (FAILED(hRes))
 				throw com_exception(_T("CoInitialize failed: "), hRes);
 			isInitialized_ = true;
-			hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
+			//hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
+			hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_DEFAULT,RPC_C_IMP_LEVEL_IDENTIFY,NULL,EOAC_NONE,NULL);
 			if (FAILED(hRes)) 
 				throw com_exception(_T("CoInitializeSecurity failed: "), hRes);
 		}

@@ -770,7 +770,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(std::list<std::wstring> args, std::ws
 
 
 
-NSCAPI::nagiosReturn CheckDisk::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckDisk::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("checkfiles"))
 		return CheckFiles(arguments, message, perf);
 // 	else if (command == _T("checkfilesize"))
