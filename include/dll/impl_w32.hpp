@@ -20,17 +20,23 @@ namespace dll {
 			static boost::filesystem::wpath fix_module_name( boost::filesystem::wpath module ) {
 				if (boost::filesystem::is_regular(module))
 					return module;
-				boost::filesystem::wpath mod = module / std::wstring(_T(".dll"));
+				/* this one (below) is wrong I think */
+				boost::filesystem::wpath mod = module / get_extension();
 				if (boost::filesystem::is_regular(mod))
 					return mod;
-				mod = boost::filesystem::wpath(module.string() + std::wstring(_T(".dll")));
+				mod = boost::filesystem::wpath(module.string() + get_extension());
 				if (boost::filesystem::is_regular(mod))
 					return mod;
 				return module;
 			}
 
+			static std::wstring get_extension() {
+				return _T(".dll");
+			}
+
+
 			static bool is_module(std::wstring file) {
-				return boost::ends_with(file, _T(".dll"));
+				return boost::ends_with(file, get_extension());
 			}
 
 			void load_library() {

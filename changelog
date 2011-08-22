@@ -5,6 +5,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-22 MickeM
+ * Added initial NSCP protocol implenmentation (very vrude and not really usefull yet)
+ * Fixed so it builds on linux
+ * Fixed so automagic plugin renaming add lib<LIB name> on *nix.
+
 2011-08-16 MickeM
  * Added support for remote WMI checking using target/username/password options like so:
     CheckWMI target=192.168.0.123 user=\\foobar password=foobar namespace=root\\cimv2 MaxCrit=3 MinWarn=1 "Query:load=Select * from win32_Processor"

@@ -205,12 +205,12 @@ namespace socket_helpers {
 			}
 
 			template <typename AsyncWriteStream, typename MutableBufferSequence>
-			void read(AsyncWriteStream& socket, MutableBufferSequence &buffers) {
+			void read(AsyncWriteStream& socket, const MutableBufferSequence &buffers) {
 				async_read(socket, buffers, boost::bind(set_result, &write_result, _1));
 			}
 
 			template <typename AsyncWriteStream, typename MutableBufferSequence>
-			bool read_and_wait(AsyncWriteStream& sock, MutableBufferSequence& buffers) {
+			bool read_and_wait(AsyncWriteStream& sock, const MutableBufferSequence& buffers) {
 				read(sock, buffers);
 				return wait();
 			}

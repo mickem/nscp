@@ -32,9 +32,17 @@ namespace dll {
 				}
 			}
 			static boost::filesystem::wpath fix_module_name( boost::filesystem::wpath module ) {
+
 				if (boost::filesystem::is_regular(module))
 					return module;
+				/* this one (below) is wrong I think */
 				boost::filesystem::wpath mod = module / get_extension();
+				if (boost::filesystem::is_regular(mod))
+					return mod;
+				mod = boost::filesystem::wpath(module.string() + get_extension());
+				if (boost::filesystem::is_regular(mod))
+					return mod;
+				mod = mod.branch_path() / boost::filesystem::wpath(std::wstring(_T("lib") + mod.leaf()));
 				if (boost::filesystem::is_regular(mod))
 					return mod;
 				return module;
