@@ -152,6 +152,40 @@ namespace nscapi {
 			return ret;
 		}
 
+		static void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer) {
+			PluginCommand::RequestMessage message;
+			::PluginCommand::Header* header = message.mutable_header();
+
+			header->set_type(PluginCommand::Header_Type_REQUEST);
+			header->set_version(PluginCommand::Header_Version_VERSION_1);
+
+			PluginCommand::Request *payload = message.add_payload();
+			payload->set_command(to_string(command));
+
+			BOOST_FOREACH(std::wstring s, arguments)
+				payload->add_arguments(to_string(s));
+
+			payload->set_version(PluginCommand::Request_Version_VERSION_1);
+			message.SerializeToString(&buffer);
+		}
+
+		static void create_simple_query_result(NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
+			PluginCommand::ResponseMessage message;
+			::PluginCommand::Header* header = message.mutable_header();
+
+			header->set_type(PluginCommand::Header_Type_RESPONSE);
+			header->set_version(PluginCommand::Header_Version_VERSION_1);
+
+			PluginCommand::Response *payload = message.add_payload();
+			payload->set_message(to_string(msg));
+			if (!perf.empty())
+				parse_performance_data(payload, perf);
+
+			payload->set_version(PluginCommand::Response_Version_VERSION_1);
+			message.SerializeToString(&buffer);
+		}
+
+
 		static decoded_simple_command_data process_simple_command_request(const wchar_t* char_command, const std::string &request) {
 			decoded_simple_command_data data;
 

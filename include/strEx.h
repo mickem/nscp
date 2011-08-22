@@ -135,6 +135,18 @@ namespace strEx {
 		return ret;
 	}
 
+	inline std::string strip_hex(std::vector<char> str) {
+		std::string ret; ret.reserve(str.size());
+		BOOST_FOREACH(char c, str)
+		{
+			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
+				ret.push_back('?');
+			else
+				ret.push_back(c);
+		}
+		return ret;
+	}
+
 	inline void append_list(std::wstring &lst, std::wstring &append, std::wstring sep = _T(", ")) {
 		if (append.empty())
 			return;
@@ -178,6 +190,28 @@ namespace strEx {
 		std::stringstream ss;
 		std::string chars;
 		for (unsigned int i=0;i<len;i++) {
+			if (i%32==0) {
+				if (i > 0) {
+					ss << chars;
+					ss << "\n";
+				}
+				chars = "";
+				ss << std::hex << std::setw(8) << std::setfill('0') << i;
+				ss << ": ";
+			}
+			ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(buf[i]));
+			ss << ", ";
+			if (buf[i] < 30 || buf[i] == 127)
+				chars += '?';
+			else
+				chars += buf[i];
+		}
+		return ss.str();
+	}
+	inline std::string format_buffer(const std::vector<char> &buf) {
+		std::stringstream ss;
+		std::string chars;
+		for (unsigned int i=0;i<buf.size();i++) {
 			if (i%32==0) {
 				if (i > 0) {
 					ss << chars;

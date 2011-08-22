@@ -1,0 +1,86 @@
+package NSCPEnvelope;
+
+enum Type {
+	PLUGIN_REQUEST = 1;
+	LOG_MESSAGE = 2;
+	EXECUTE_REQUEST = 3;
+	SETTINGS_REQUEST = 4;
+	
+	PLUGIN_RESPONSE = 5;
+	EXECUTE_RESPONSE = 6;
+	SETTINGS_RESPONSE = 7;
+	
+	ERROR_LIST = 10;
+};
+enum Version {
+	VERSION_1 = 1;
+};
+enum TransportStatus {
+	LAST_MESSAGE = 1;
+	MORE_MESSAGES = 1;
+};
+
+message Request {
+	required Version version = 1;
+	optional Version max_supported_version = 2;
+	
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 id = 19;
+};
+
+message Response {
+	enum Status {
+		IS_OK = 1;
+
+		HAS_WARNINGS = 5;
+		IS_WARNING = 6;
+		HAS_ERRRORS = 7;
+		IS_ERRRORS = 8;
+
+		IS_FATAL = 10;
+		
+		UNSUPPORTED_VERSION = 20;
+	};
+
+	required Version version = 1;
+	required Version max_supported_version = 2;
+	
+	required Status request_status = 3;
+
+	required Type response_type = 4;
+	required int64 response_length = 5;
+	required TransportStatus transport_status = 6;
+	
+	optional string message = 7;
+
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 id = 19;
+};
+
+message ErrorMessage {
+	enum Severity {
+		IS_OK = 1;
+		HAS_WARNINGS = 5;
+		IS_WARNING = 6;
+		HAS_ERRRORS = 7;
+		IS_ERRRORS = 8;
+		IS_FATAL = 10;
+	};
+
+
+	optional int32 line = 1;
+	optional int64 date = 2;
+	required Severity severity = 3;
+	repeated string messages = 4;
+}	
+
+
+message ErrorList {
+	repeated ErrorMessage errors = 1;
+
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 request_id = 19;
+}

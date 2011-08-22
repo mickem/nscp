@@ -10,7 +10,7 @@
 #include "handler.hpp"
 #include "parser.hpp"
 
-namespace nrpe {
+namespace nscp {
 	using boost::asio::ip::tcp;
 
 	namespace server {
@@ -18,7 +18,7 @@ namespace nrpe {
 		class tcp_connection : public connection {
 		public:
 			/// Construct a connection with the given io_service.
-			explicit tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<nrpe::server::handler> handler);
+			explicit tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::handler> handler);
 
 			/// Get the socket associated with the connection.
 			virtual boost::asio::ip::tcp::socket& socket();
@@ -27,7 +27,7 @@ namespace nrpe {
 
 		protected:
 
-			virtual void start_read_request(connection::buffer_type &buffer, int timeout);
+			virtual void start_read_request(connection::buffer_type &buffer, int timeout, connection::process_helper helper);
 			virtual void start_write_request(const std::vector<boost::asio::const_buffer>& response);
 
 			/// Handle completion of a read operation.
@@ -41,4 +41,4 @@ namespace nrpe {
 			boost::asio::ip::tcp::socket socket_;
 		};
 	} // namespace server
-} // namespace nrpe
+} // namespace nscp

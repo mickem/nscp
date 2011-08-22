@@ -116,27 +116,51 @@ namespace socket_helpers {
 	namespace io {
 		void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b);
 
-		template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
-		void read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+		struct timed_writer : boost::noncopyable {
+			boost::asio::io_service &io_service;
+			boost::posix_time::time_duration duration;
+			boost::asio::deadline_timer timer;
+
 			boost::optional<boost::system::error_code> timer_result;
-			boost::asio::deadline_timer timer(sock.get_io_service());
-			timer.expires_from_now(duration);
-			timer.async_wait(boost::bind(set_result, &timer_result, _1));
-
 			boost::optional<boost::system::error_code> read_result;
-			async_read(sock, buffers, boost::bind(set_result, &read_result, _1));
 
-			sock.get_io_service().reset();
-			while (sock.get_io_service().run_one()) {
-				if (read_result)
-					timer.cancel();
-				else if (timer_result)
-					rawSocket.close();
+			timed_writer(boost::asio::io_service &io_service, boost::posix_time::time_duration duration)
+				: io_service(io_service) 
+				, timer(io_service)
+			{
+				timer.expires_from_now(duration);
+				timer.async_wait(boost::bind(set_result, &timer_result, _1));
+			}
+			~timed_writer() {
+				timer.cancel();
 			}
 
-			if (*read_result)
-				throw boost::system::system_error(*read_result);
-		} 
+			template <typename AsyncWriteStream, typename MutableBufferSequence>
+			void write(AsyncWriteStream& socket, MutableBufferSequence &buffer) {
+				async_write(socket, buffer, boost::bind(set_result, &read_result, _1));
+			}
+
+			template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
+			bool write_and_wait(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffer) {
+				write(sock, buffer);
+				return wait(rawSocket);
+			}
+
+			template <typename RawSocket>
+			bool wait(RawSocket& socket) {
+				io_service.reset();
+				while (io_service.run_one()) {
+					if (read_result) {
+						return true;
+					}
+					else if (timer_result) {
+						socket.close();
+						return false;
+					}
+				}
+			}
+		};
+
 
 		template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
 		void write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
@@ -160,5 +184,74 @@ namespace socket_helpers {
 				throw boost::system::system_error(*read_result);
 		}
 
+
+		struct timed_reader : boost::noncopyable {
+			boost::asio::io_service &io_service;
+			boost::posix_time::time_duration duration;
+			boost::asio::deadline_timer timer;
+
+			boost::optional<boost::system::error_code> timer_result;
+			boost::optional<boost::system::error_code> write_result;
+
+			timed_reader(boost::asio::io_service &io_service, boost::posix_time::time_duration duration)
+				: io_service(io_service) 
+				, timer(io_service)
+			{
+				timer.expires_from_now(duration);
+				timer.async_wait(boost::bind(set_result, &timer_result, _1));
+			}
+			~timed_reader() {
+				timer.cancel();
+			}
+
+			template <typename AsyncWriteStream, typename MutableBufferSequence>
+			void read(AsyncWriteStream& socket, MutableBufferSequence &buffers) {
+				async_read(socket, buffers, boost::bind(set_result, &write_result, _1));
+			}
+
+			template <typename AsyncWriteStream, typename MutableBufferSequence>
+			bool read_and_wait(AsyncWriteStream& sock, MutableBufferSequence& buffers) {
+				read(sock, buffers);
+				return wait();
+			}
+			bool wait() {
+				io_service.reset();
+				while (io_service.run_one()) {
+					if (write_result) {
+						std::cout << "---read---" << std::endl;
+						//timer.cancel();
+						return true;
+					}
+					else if (timer_result) {
+						std::cout << "---timer (read)---" << std::endl;
+						//socket.close();
+						return false;
+					}
+				}
+			}
+		};
+
+
+		template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
+		void read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+			boost::optional<boost::system::error_code> timer_result;
+			boost::asio::deadline_timer timer(sock.get_io_service());
+			timer.expires_from_now(duration);
+			timer.async_wait(boost::bind(set_result, &timer_result, _1));
+
+			boost::optional<boost::system::error_code> read_result;
+			async_read(sock, buffers, boost::bind(set_result, &read_result, _1));
+
+			sock.get_io_service().reset();
+			while (sock.get_io_service().run_one()) {
+				if (read_result)
+					timer.cancel();
+				else if (timer_result)
+					rawSocket.close();
+			}
+
+			if (*read_result)
+				throw boost::system::system_error(*read_result);
+		}
 	}
 }

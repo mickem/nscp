@@ -1,0 +1,8 @@
+package NSCPIPC;
+
+message RegisterSlave {
+	
+	required string sender = 1;
+	repeated string slaves = 2;
+	
+};

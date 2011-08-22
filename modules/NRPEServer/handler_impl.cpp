@@ -55,7 +55,7 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 		data += _T("|") + perf;
 	}
 	if (data.length() >= p.get_payload_length()-1) {
-		NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
+		//NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
 		data = data.substr(0,p.get_payload_length()-2);
 	}
 	return nrpe::packet::create_response(ret, data, p.get_payload_length());

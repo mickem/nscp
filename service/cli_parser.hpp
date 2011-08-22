@@ -307,14 +307,18 @@ public:
 			if (module.empty()) {
 				core_->initCore(false);
 			}
+			int ret = 0;
 			std::vector<std::wstring> resp;
-			mainClient.simple_exec(module, command, arguments, resp);
+			if (mainClient.simple_exec(module, command, arguments, resp) == NSCAPI::returnIgnored) {
+				ret = 1;
+				std::wcout << _T("No handler for that command: ") << command << std::endl;
+			}
 			mainClient.exitCore(false);
 
 			BOOST_FOREACH(std::wstring r, resp) {
 				std::wcout << r << std::endl;
 			}
-			return 0;
+			return ret;
 		} catch(std::exception & e) {
 			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
 			return 1;

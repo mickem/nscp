@@ -1,4 +1,4 @@
-package PluginCommand;
+package SettingsCommand;
 
 message Header {
 	enum Type {

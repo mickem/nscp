@@ -109,7 +109,6 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.set_alias(_T("NRPE"), alias, _T("client"));
 
 		settings.alias().add_path_to_settings()
-//			(_T("EXTERNAL SCRIPT SECTION"), _T("Section for external scripts configuration options (CheckExternalScripts)."))
 
 			(_T("handlers"), sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, _1, _2)), 
 			_T("CLIENT HANDLER SECTION"), _T(""))
@@ -237,7 +236,7 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring &target, const
 }
 
 int NRPEClient::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
-	if (command != _T("query") && command != _T("help"))
+	if (command != _T("query_nrpe") && command != _T("help"))
 		return NSCAPI::returnIgnored;
 	try {
 		NRPEClient::nrpe_connection_data command_data;

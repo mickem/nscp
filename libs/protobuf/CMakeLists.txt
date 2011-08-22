@@ -4,6 +4,7 @@ WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
 WRAP_PROTO(PROTO_LOG_SRC log.proto)
 WRAP_PROTO(PROTO_EXEC_SRC exec.proto)
 WRAP_PROTO(PROTO_SETTINGS_SRC settings.proto)
+WRAP_PROTO(PROTO_ENVELOPE_SRC envelope.proto)
 
 SET(TARGET protobuf)
 
@@ -12,11 +13,13 @@ SET(SRCS
 	log.proto
 	exec.proto
 	settings.proto
+	envelope.proto
 	
 	${PROTO_PLUGIN_SRC}
 	${PROTO_LOG_SRC}
 	${PROTO_EXEC_SRC}
 	${PROTO_SETTINGS_SRC}
+	${PROTO_ENVELOPE_SRC}
 )
 
 add_library(${TARGET} ${SRCS})

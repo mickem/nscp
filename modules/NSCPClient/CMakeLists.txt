@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 2.6)
 
-SET(TARGET NRPEClient)
+SET(TARGET NSCPClient)
 	
 PROJECT(${TARGET})
 
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
+	${NSCP_INCLUDEDIR}/nscp/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
@@ -20,8 +20,8 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
-		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
-		${NSCP_INCLUDEDIR}/nrpe/client/socket.hpp
+		${NSCP_INCLUDEDIR}/nscp/packet.hpp
+		${NSCP_INCLUDEDIR}/nscp/client/socket.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 
@@ -38,4 +38,4 @@ target_link_libraries(${TARGET}
 	${OPENSSL_LIBRARIES}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
-SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nrpe/.*)
+SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nscp/.*)
