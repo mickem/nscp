@@ -249,19 +249,24 @@ NSCPClient::nscp_result_data NSCPClient::execute_nscp_command(nscp_connection_da
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (not compiled with USE_SSL)"));
 			return nscp_result_data(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)!"));
 #endif
-		} else
+		} else {
 			chunks = send_nossl(con.host, con.port, con.timeout, chunks);
+		}
 		BOOST_FOREACH(nscp::packet::nscp_chunk &chunk, chunks) {
-			std::cout << "Found chunk: " << strEx::format_buffer(chunk.payload.c_str(), chunk.payload.size()) << std::endl;
-
+			NSC_DEBUG_MSG_STD(_T("Found chunk: ") + utf8::cvt<std::wstring>(strEx::format_buffer(chunk.payload.c_str(), chunk.payload.size())));
 		}
 		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("Hello"));
 	} catch (nscp::nscp_exception &e) {
+		NSC_LOG_ERROR_STD(_T("Socket error: ") + e.getMessage());
 		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("NSCP Packet error: ") + e.getMessage());
 	} catch (std::runtime_error &e) {
 		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::cvt<std::wstring>(e.what()));
 		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::cvt<std::wstring>(e.what()));
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Unknown exception..."));
 		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }

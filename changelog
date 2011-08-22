@@ -9,6 +9,7 @@ TODO:
  * Added initial NSCP protocol implenmentation (very vrude and not really usefull yet)
  * Fixed so it builds on linux
  * Fixed so automagic plugin renaming add lib<LIB name> on *nix.
+ * Fixed so it works on linux (fixed issues with timeout)
 
 2011-08-16 MickeM
  * Added support for remote WMI checking using target/username/password options like so:

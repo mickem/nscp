@@ -4,6 +4,8 @@
 #include <boost/foreach.hpp>
 #include <boost/bind.hpp>
 #include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
 
 #include <unicode_char.hpp>
 #include <strEx.h>
@@ -116,7 +118,7 @@ namespace socket_helpers {
 	namespace io {
 		void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b);
 
-		struct timed_writer : boost::noncopyable {
+		struct timed_writer : public boost::enable_shared_from_this<timed_writer> {
 			boost::asio::io_service &io_service;
 			boost::posix_time::time_duration duration;
 			boost::asio::deadline_timer timer;
@@ -124,33 +126,35 @@ namespace socket_helpers {
 			boost::optional<boost::system::error_code> timer_result;
 			boost::optional<boost::system::error_code> read_result;
 
-			timed_writer(boost::asio::io_service &io_service, boost::posix_time::time_duration duration)
-				: io_service(io_service) 
-				, timer(io_service)
-			{
-				timer.expires_from_now(duration);
-				timer.async_wait(boost::bind(set_result, &timer_result, _1));
-			}
+			timed_writer(boost::asio::io_service& io_service) : io_service(io_service), timer(io_service) {}
 			~timed_writer() {
+				timer.cancel();
+			}
+			void start_timer(boost::posix_time::time_duration duration) {
+				timer.expires_from_now(duration);
+				timer.async_wait(boost::bind(&timed_writer::set_result, shared_from_this(), &timer_result, _1));
+			}
+			void stop_timer() {
 				timer.cancel();
 			}
 
 			template <typename AsyncWriteStream, typename MutableBufferSequence>
-			void write(AsyncWriteStream& socket, MutableBufferSequence &buffer) {
-				async_write(socket, buffer, boost::bind(set_result, &read_result, _1));
+			void write(AsyncWriteStream& stream, MutableBufferSequence &buffer) {
+				async_write(stream, buffer, boost::bind(&timed_writer::set_result, shared_from_this(), &read_result, _1));
 			}
 
-			template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
-			bool write_and_wait(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffer) {
-				write(sock, buffer);
-				return wait(rawSocket);
+			template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
+			bool write_and_wait(AsyncWriteStream& stream, Socket& socket, const MutableBufferSequence& buffer) {
+				write(stream, buffer);
+				return wait(socket);
 			}
 
-			template <typename RawSocket>
-			bool wait(RawSocket& socket) {
+			template<typename Socket>
+			bool wait(Socket& socket) {
 				io_service.reset();
 				while (io_service.run_one()) {
 					if (read_result) {
+						read_result.reset();
 						return true;
 					}
 					else if (timer_result) {
@@ -159,6 +163,12 @@ namespace socket_helpers {
 					}
 				}
 			}
+
+			void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code ec) {
+				if (!ec)
+					a->reset(ec);
+			}
+
 		};
 
 
@@ -185,7 +195,7 @@ namespace socket_helpers {
 		}
 
 
-		struct timed_reader : boost::noncopyable {
+		struct timed_reader : public boost::enable_shared_from_this<timed_reader> {
 			boost::asio::io_service &io_service;
 			boost::posix_time::time_duration duration;
 			boost::asio::deadline_timer timer;
@@ -193,42 +203,48 @@ namespace socket_helpers {
 			boost::optional<boost::system::error_code> timer_result;
 			boost::optional<boost::system::error_code> write_result;
 
-			timed_reader(boost::asio::io_service &io_service, boost::posix_time::time_duration duration)
-				: io_service(io_service) 
-				, timer(io_service)
-			{
-				timer.expires_from_now(duration);
-				timer.async_wait(boost::bind(set_result, &timer_result, _1));
-			}
+			timed_reader(boost::asio::io_service &io_service) : io_service(io_service), timer(io_service) {}
 			~timed_reader() {
 				timer.cancel();
 			}
 
-			template <typename AsyncWriteStream, typename MutableBufferSequence>
-			void read(AsyncWriteStream& socket, const MutableBufferSequence &buffers) {
-				async_read(socket, buffers, boost::bind(set_result, &write_result, _1));
+			void start_timer(boost::posix_time::time_duration duration) {
+				timer.expires_from_now(duration);
+				timer.async_wait(boost::bind(&timed_reader::set_result, shared_from_this(), &timer_result, _1));
+			}
+			void stop_timer() {
+				timer.cancel();
 			}
 
 			template <typename AsyncWriteStream, typename MutableBufferSequence>
-			bool read_and_wait(AsyncWriteStream& sock, const MutableBufferSequence& buffers) {
-				read(sock, buffers);
-				return wait();
+			void read(AsyncWriteStream& stream, const MutableBufferSequence &buffers) {
+				async_read(stream, buffers, boost::bind(&timed_reader::set_result, shared_from_this(), &write_result, _1));
 			}
-			bool wait() {
+
+			template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
+			bool read_and_wait(AsyncWriteStream& stream, Socket& socket, const MutableBufferSequence& buffers) {
+				read(stream, buffers);
+				return wait(socket);
+			}
+			template <typename Socket>
+			bool wait(Socket& socket) {
 				io_service.reset();
 				while (io_service.run_one()) {
 					if (write_result) {
-						std::cout << "---read---" << std::endl;
-						//timer.cancel();
+						write_result.reset();
 						return true;
 					}
 					else if (timer_result) {
-						std::cout << "---timer (read)---" << std::endl;
-						//socket.close();
+						socket.close();
 						return false;
 					}
 				}
 			}
+			void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code ec) {
+				if (!ec)
+					a->reset(ec);
+			}
+
 		};
 
 
