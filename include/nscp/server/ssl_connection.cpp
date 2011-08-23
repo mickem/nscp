@@ -44,7 +44,7 @@ namespace nscp {
 			socket_.async_read_some(
 				boost::asio::buffer(buffer),
 				strand_.wrap(
-				boost::bind(&connection::handle_read_request, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, helper)
+				boost::bind(&connection::handle_read_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, helper)
 					)
 				);
 		}

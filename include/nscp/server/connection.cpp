@@ -151,6 +151,7 @@ namespace nscp {
 		void connection::handle_write_response(const boost::system::error_code& e) {
 			if (!e) {
 				handler_->log_debug(__FILE__, __LINE__, _T("Done sending data"));
+				cancel_timer();
 				// Initiate graceful connection closure.
 				boost::system::error_code ignored_ec;
 				socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);

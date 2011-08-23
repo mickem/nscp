@@ -6,6 +6,9 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2011-08-22 MickeM
+ * Fixed issue in the NSCP server
+
+2011-08-22 MickeM
  * Added initial NSCP protocol implenmentation (very vrude and not really usefull yet)
  * Fixed so it builds on linux
  * Fixed so automagic plugin renaming add lib<LIB name> on *nix.
