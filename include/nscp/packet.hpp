@@ -29,22 +29,23 @@
 #include <strEx.h>
 #include <utils.h>
 
-#include <protobuf/envelope.pb.h>
+#include <protobuf/ipc.pb.h>
+#include <protobuf/plugin.pb.h>
 
 using namespace nscp::helpers;
 
 namespace nscp {
-
-
-
 	class data {
 	public:
 		static const short unknown_packet = 0;
+
 		static const short envelope_request = 1;
 		static const short envelope_response = 2;
 
 		static const short command_request = 10;
 		static const short command_response = 11;
+
+		static const short error = 100;
 
 		static const short version_1 = 1;
 
@@ -90,10 +91,6 @@ namespace nscp {
 				return ss.str();
 			}
 		};
-		struct raw_header_packet {
-			char buffer[];
-		};
-
 	};
 	struct length {
 		static unsigned long get_signature_size() {
@@ -108,184 +105,133 @@ namespace nscp {
 
 	};
 
-	class nscp_exception {
-		std::wstring error_;
+	class nscp_exception : public std::exception {
+		std::string error_;
 	public:
-		nscp_exception(std::wstring error) : error_(error) {}
-		std::wstring getMessage() {
-			return error_;
+		nscp_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
+		nscp_exception(std::string error) : error_(error) {}
+		const char* what() const {
+			return error_.c_str();
 		}
 	};
 
-	class packet /*: public boost::noncopyable*/ {
-	private:
-		std::wstring payload_;
-		short type_;
-		short version_;
-		int result_;
-		unsigned int crc32_;
-		unsigned int calculatedCRC32_;
-		char *tmpBuffer;
-		unsigned int payload_length_;
-	public:
+	struct packet {
+		nscp::data::signature_packet signature;
+		std::string header;
+		std::string payload;
 
-		struct nscp_chunk {
-			nscp::data::signature_packet signature;
-			std::string header;
-			std::string payload;
-			std::string to_buffer() const {
-				std::string ret = write_signature();
-				if (!header.empty())
-					ret.insert(ret.end(), header.begin(), header.end());
-				if (!payload.empty())
-					ret.insert(ret.end(), payload.begin(), payload.end());
-				return ret;
-			}
-			void read_signature(std::vector<char> &buf) {
-				assert(buf.size() >= sizeof(nscp::data::signature_packet));
-				nscp::data::signature_packet *tmp = reinterpret_cast<nscp::data::signature_packet*>(&(*buf.begin()));
-				signature = *tmp;
-				signature.payload_type = tmp->payload_type;
-				signature.payload_length = tmp->payload_length;
-			}
-			void read_payload(std::vector<char> &buf) {
-				payload = std::string(buf.begin(), buf.end());
-			}
-			std::string write_signature() const {
-				char * buffer = new char[sizeof(nscp::data::signature_packet)+1];
-				nscp::data::signature_packet *tmp = reinterpret_cast<nscp::data::signature_packet*>(buffer);
-				*tmp = signature;
-				std::string str_buf(buffer, sizeof(nscp::data::signature_packet));
-				delete [] buffer;
-				return str_buf;
-			}
-
-		};
-
-		static nscp_chunk build_envelope_request(unsigned long additionl_packets) {
-			nscp_chunk chunk;
-			chunk.signature.header_length = 0;
-			chunk.signature.header_type = 0;
-
-			chunk.signature.additional_packet_count = additionl_packets;
-			chunk.signature.version = nscp::data::version_1;
-
-			NSCPEnvelope::Request request_envelope;
-			request_envelope.set_version(NSCPEnvelope::VERSION_1);
-			request_envelope.set_max_supported_version(NSCPEnvelope::VERSION_1);
-			request_envelope.SerializeToString(&chunk.payload);
-
-			chunk.signature.payload_length = chunk.payload.size();
-			chunk.signature.payload_type = nscp::data::envelope_request;
-
-			return chunk;
-		}
-
-		static nscp_chunk build_payload(unsigned long payload_type, std::string buffer, unsigned long additionl_packets) {
-			nscp_chunk chunk;
-			chunk.signature.header_length = 0;
-			chunk.signature.header_type = 0;
-
-			chunk.signature.additional_packet_count = additionl_packets;
-			chunk.signature.version = nscp::data::version_1;
-
-			chunk.payload = std::string(buffer.begin(), buffer.end());
-			chunk.signature.payload_length = chunk.payload.size();
-			chunk.signature.payload_type = payload_type;
-
-			return chunk;
-		}
-
-		packet(unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {};
-		packet(std::vector<char> buffer, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
-			char *tmp = new char[buffer.size()+1];
-			copy( buffer.begin(), buffer.end(), tmp);
-			readFrom(tmp, buffer.size());
-			delete [] tmp;
-		};
-		packet(const char *buffer, unsigned int buffer_length, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
-			readFrom(buffer, buffer_length);
-		};
-		packet(short type, short version, int result, std::wstring payLoad, unsigned int payload_length) 
-			: tmpBuffer(NULL) 
-			,type_(type)
-			,version_(version)
-			,result_(result)
-			,payload_(payLoad)
-			,payload_length_(payload_length)
-		{
-		}
-		packet() 
-			: tmpBuffer(NULL) 
-			,type_(nscp::data::unknown_packet)
-			,version_(nscp::data::version_1)
-			,result_(0)
-			,payload_length_(0)
-		{
-		}
-		packet(const packet &other) : tmpBuffer(NULL) {
-			payload_ = other.payload_;
-			type_ = other.type_;
-			version_ = other.version_;
-			result_ = other.result_;
-			crc32_ = other.crc32_;
-			calculatedCRC32_ = other.calculatedCRC32_;
-			payload_length_ = other.payload_length_;
-		}
-		packet& operator=(packet const& other) {
-			tmpBuffer=NULL;
-			payload_ = other.payload_;
-			type_ = other.type_;
-			version_ = other.version_;
-			result_ = other.result_;
-			crc32_ = other.crc32_;
-			calculatedCRC32_ = other.calculatedCRC32_;
-			payload_length_ = other.payload_length_;
+		packet() {}
+		packet(const nscp::data::signature_packet &sig) : signature(sig) {}
+		packet(const nscp::data::signature_packet &sig, std::string header, std::string payload) : signature(sig), header(header), payload(payload) {}
+		packet(const packet & other) : signature(other.signature), header(other.header), payload(other.payload) {}
+		const packet& operator=(const packet & other) {
+			signature = other.signature;
+			header = other.header;
+			payload = other.payload;
 			return *this;
 		}
 
-		~packet() {
-			delete [] tmpBuffer;
+		std::string to_buffer() const {
+			std::string ret = write_signature();
+			if (!header.empty())
+				ret.insert(ret.end(), header.begin(), header.end());
+			if (!payload.empty())
+				ret.insert(ret.end(), payload.begin(), payload.end());
+			return ret;
 		}
-		static packet make_request(std::wstring payload, unsigned int buffer_length) {
-			return packet(nscp::data::envelope_request, nscp::data::version_1, -1, payload, buffer_length);
+		void read_signature(std::vector<char> &buf) {
+			assert(buf.size() >= sizeof(nscp::data::signature_packet));
+			nscp::data::signature_packet *tmp = reinterpret_cast<nscp::data::signature_packet*>(&(*buf.begin()));
+			signature = *tmp;
+			signature.payload_type = tmp->payload_type;
+			signature.payload_length = tmp->payload_length;
+		}
+		void read_payload(std::vector<char> &buf) {
+			payload = std::string(buf.begin(), buf.end());
+		}
+		std::string write_signature() const {
+			char * buffer = new char[sizeof(nscp::data::signature_packet)+1];
+			nscp::data::signature_packet *tmp = reinterpret_cast<nscp::data::signature_packet*>(buffer);
+			*tmp = signature;
+			std::string str_buf(buffer, sizeof(nscp::data::signature_packet));
+			delete [] buffer;
+			return str_buf;
 		}
 
-		const char* create_buffer() {
-			return NULL;
+		static packet build_envelope_request(unsigned long additionl_packets) {
+			nscp::data::signature_packet signature;
+			signature.header_length = 0;
+			signature.header_type = 0;
+
+			signature.additional_packet_count = additionl_packets;
+			signature.version = nscp::data::version_1;
+
+			std::string buffer;
+			NSCPIPC::RequestEnvelope request_envelope;
+			request_envelope.set_version(NSCPIPC::Common_Version_VERSION_1);
+			request_envelope.set_max_supported_version(NSCPIPC::Common_Version_VERSION_1);
+			request_envelope.SerializeToString(&buffer);
+
+			signature.payload_length = buffer.size();
+			signature.payload_type = nscp::data::envelope_request;
+
+			return packet(signature, "", buffer);
 		}
 
-		std::vector<char> get_buffer() {
-			const char *c = create_buffer();
-			std::vector<char> buf(c, c+get_packet_length());
-			return buf;
-		}
+		static nscp::data::signature_packet create_simple_sig(int payload_type, std::string::size_type size) {
+			nscp::data::signature_packet signature;
+			signature.header_length = 0;
+			signature.header_type = 0;
 
-		void readFrom(const char *buffer, unsigned int length) {
-		}
+			signature.additional_packet_count = 0;
+			signature.version = nscp::data::version_1;
 
-		unsigned short getVersion() const { return version_; }
-		unsigned short getType() const { return type_; }
-		unsigned short getResult() const { return result_; }
-		std::wstring getPayload() const { return payload_; }
-		bool verifyCRC() { return calculatedCRC32_ == crc32_; }
-		unsigned int get_packet_length() const { return 0; }
-		unsigned int get_payload_length() const { return payload_length_; }
+			signature.payload_length = size;
+			signature.payload_type = payload_type;
+			return signature;
 
-		boost::asio::const_buffer to_buffers() {
-			return boost::asio::buffer(create_buffer(), get_packet_length());
 		}
-		std::wstring to_string() {
-			std::wstringstream ss;
-			ss << _T("type: ") << type_;
-			ss << _T(", version: ") << version_;
-			ss << _T(", result: ") << result_;
-			ss << _T(", crc32: ") << crc32_;
-			ss << _T(", payload: ") << payload_;
-			return ss.str();
+		static packet create_payload(unsigned long payload_type, std::string buffer, unsigned long additional_packets = 0) {
+			nscp::data::signature_packet signature;
+			signature.header_length = 0;
+			signature.header_type = 0;
+
+			signature.additional_packet_count = additional_packets;
+			signature.version = nscp::data::version_1;
+
+			signature.payload_length = buffer.size();
+			signature.payload_type = payload_type;
+
+			return packet(signature, "", buffer);
 		}
-		static nscp::packet create_response(int ret, std::wstring string, int buffer_length) {
-			return packet(nscp::data::unknown_packet, nscp::data::version_1, ret, string, buffer_length);
+		std::wstring to_wstring() {
+			return signature.to_wstring();
+		}
+		static nscp::packet create_error(std::wstring msg) {
+			nscp::data::signature_packet signature;
+			signature.header_length = 0;
+			signature.header_type = 0;
+
+			signature.additional_packet_count = 0;
+			signature.version = nscp::data::version_1;
+
+			std::string buffer;
+			NSCPIPC::ErrorMessage message;
+			NSCPIPC::ErrorMessage::Message *error = message.add_error();
+			error->set_severity(NSCPIPC::ErrorMessage_Message_Severity_IS_ERRROR);
+			error->set_message(utf8::cvt<std::string>(msg));
+			message.SerializeToString(&buffer);
+
+			signature.payload_length = buffer.size();
+			signature.payload_type = nscp::data::error;
+
+			return packet(signature, "", buffer);
+		}
+		bool is_command_request() {
+			return signature.payload_type == nscp::data::command_request;
+		}
+		static nscp::packet create_query_response(std::string buffer) {
+			return create_payload(nscp::data::command_response, buffer);
 		}
 	};
 }

@@ -129,11 +129,12 @@ namespace nscapi {
 			virtual void handleMessage(int msgType, const std::string file, int line, std::string message) = 0;
 		};
 
-
+/*
 		class CommandImpl {
 		public:
 			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 			virtual void handleCommand(std::wstring command, PluginCommand::Request *request, PluginCommand::Response *response) = 0;
 		};
+		*/
 	}
 };

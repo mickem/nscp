@@ -57,10 +57,10 @@ namespace nscp {
 				throw boost::system::system_error(error);
 		}
 
-		virtual void send(std::list<nscp::packet::nscp_chunk> &chunks, boost::posix_time::seconds timeout) {
+		virtual void send(std::list<nscp::packet> &chunks, boost::posix_time::seconds timeout) {
 			boost::shared_ptr<socket_helpers::io::timed_writer> writer(new socket_helpers::io::timed_writer(get_io_service()));
 			writer->start_timer(timeout);
-			BOOST_FOREACH(nscp::packet::nscp_chunk &chunk, chunks) {
+			BOOST_FOREACH(nscp::packet &chunk, chunks) {
 				if (!writer->write_and_wait(*socket_, get_socket(), boost::asio::buffer(chunk.to_buffer()))) {
 					std::cout << "FaILED TO SEND DATA..." << std::endl;
 					return;
@@ -69,13 +69,13 @@ namespace nscp {
 			writer->stop_timer();
 			writer.reset();
 		}
-		virtual std::list<nscp::packet::nscp_chunk> recv(boost::posix_time::seconds timeout) {
+		virtual std::list<nscp::packet> recv(boost::posix_time::seconds timeout) {
 			int left = 1;
-			std::list<nscp::packet::nscp_chunk> chunks;
+			std::list<nscp::packet> chunks;
 			boost::shared_ptr<socket_helpers::io::timed_reader> reader(new socket_helpers::io::timed_reader(get_io_service()));
 			reader->start_timer(timeout);
 			while (left > 0) {
-				nscp::packet::nscp_chunk chunk;
+				nscp::packet chunk;
 				std::vector<char> buf(sizeof(nscp::data::signature_packet));
 				if (!reader->read_and_wait(*socket_, get_socket(), boost::asio::buffer(buf))) {
 					get_socket().close();
@@ -133,10 +133,10 @@ namespace nscp {
 			return ssl_socket_->lowest_layer();
 		}
 
-		virtual void send(std::list<nscp::packet::nscp_chunk> &chunks, boost::posix_time::seconds timeout) {
+		virtual void send(std::list<nscp::packet> &chunks, boost::posix_time::seconds timeout) {
 			boost::shared_ptr<socket_helpers::io::timed_writer> writer(new socket_helpers::io::timed_writer(get_io_service()));
 			writer->start_timer(timeout);
-			BOOST_FOREACH(nscp::packet::nscp_chunk &chunk, chunks) {
+			BOOST_FOREACH(nscp::packet &chunk, chunks) {
 				if (!writer->write_and_wait(*ssl_socket_, get_socket(), boost::asio::buffer(chunk.to_buffer()))) {
 					std::cout << "FaILED TO SEND DATA..." << std::endl;
 					return;
@@ -146,13 +146,13 @@ namespace nscp {
 			writer.reset();
 		}
 
-		virtual std::list<nscp::packet::nscp_chunk> recv(boost::posix_time::seconds timeout) {
+		virtual std::list<nscp::packet> recv(boost::posix_time::seconds timeout) {
 			int left = 1;
-			std::list<nscp::packet::nscp_chunk> chunks;
+			std::list<nscp::packet> chunks;
 			boost::shared_ptr<socket_helpers::io::timed_reader> reader(new socket_helpers::io::timed_reader(get_io_service()));
 			reader->start_timer(timeout);
 			while (left > 0) {
-				nscp::packet::nscp_chunk chunk;
+				nscp::packet chunk;
 				std::vector<char> buf(sizeof(nscp::data::signature_packet));
 				if (!reader->read_and_wait(*ssl_socket_, get_socket(), boost::asio::buffer(buf))) {
 					get_socket().close();

@@ -1,98 +1,261 @@
-package PluginCommand;
+package Plugin;
 
-message Header {
-	enum Type {
-		REQUEST = 1;
-		RESPONSE = 2;
-	};
-	enum Version {
-		VERSION_1 = 1;
-	};
-	required Type type = 1;
-	required Version version = 2;
-	optional Version max_supported_version = 3;
-	
-	optional string sender = 17;
-	optional string recipient = 18;
-	optional int32 id = 19;
-};
+message Common {
 
-message Request {
-	enum Version {
-		VERSION_1 = 1;
-	};
-
-	required Version version = 1;
-	optional int32 id = 2;
-	required string command = 3;
-	repeated string arguments = 4;
-};
-
-message PerformanceData {
-	enum Type {
-		INT = 1;
-		STRING = 1;
-		FLOAT = 1;
-	};
-	message IntValue {
-		required int64 value = 1;
-		optional string unit = 2;
-		optional int64 warning = 3;
-		optional int64 critical = 4;
-		optional int64 minimum = 6;
-		optional int64 maximum = 7;
-	}
-	message StringValue {
-		required string value = 1;
-	}
-	message FloatValue {
-		required double value = 1;
-		optional string unit = 2;
-		optional double warning = 3;
-		optional double critical = 4;
-		optional double minimum = 6;
-		optional double maximum = 7;
-	}
-	required string alias = 1;
-	required Type type = 2;
-	optional IntValue int_value = 3;
-	optional StringValue string_value = 4;
-	optional FloatValue float_value = 5;
-	
-	// TODO add thresholds here!
-
-}
-
-message Response {
-	enum Code {
+	enum ResultCode {
 		OK		= 0;
 		WARNING	= 1;
 		CRITCAL	= 2;
 		UNKNOWN	= 3;
 	};
+	enum DataType {
+		INT = 1;
+		STRING = 1;
+		FLOAT = 1;
+		BOOL = 1;
+	};
+	
+	message AnyDataType {
+		required Common.DataType type = 1;
+		optional string string_data = 2;
+		optional int64 int_data = 3;
+		optional double float_data = 4;
+		optional bool bool_data = 5;
+	}
+	
+
 	enum Version {
 		VERSION_1 = 1;
 	};
 
-	required Version version = 1;
-	optional int32 id = 2;
-	required string command = 5;
-	repeated string arguments = 16;
-	
-	required Code result = 9;
-	required string message = 10;
-	optional string legacyPerf = 11;
-	repeated PerformanceData perf = 12;
-	
-}
+	message Header {
+		enum Type {
+			QUERY_REQUEST = 1;
+			QUERY_RESPONSE = 2;
+			
+			EXEC_REQUEST = 3;
+			EXEC_RESPONSE = 4;
+			
+			LOG_MESSAGE = 5;
+		};
+		required Type type = 1;
+		required Common.Version version = 2;
+		optional Common.Version max_supported_version = 3;
+		
+		optional string sender = 17;
+		optional string recipient = 18;
+		optional int64 id = 19;
+	};
 
-message RequestMessage {
-	required Header header = 1;
+	message PerformanceData {
+		message IntValue {
+			required int64 value = 1;
+			optional string unit = 2;
+			optional int64 warning = 3;
+			optional int64 critical = 4;
+			optional int64 minimum = 6;
+			optional int64 maximum = 7;
+		}
+		message StringValue {
+			required string value = 1;
+		}
+		message FloatValue {
+			required double value = 1;
+			optional string unit = 2;
+			optional double warning = 3;
+			optional double critical = 4;
+			optional double minimum = 6;
+			optional double maximum = 7;
+		}
+		message BoolValue {
+			required bool value = 1;
+			optional string unit = 2;
+			optional bool warning = 3;
+			optional bool critical = 4;
+		}
+		required string alias = 1;
+		required Common.DataType type = 2;
+		optional IntValue int_value = 3;
+		optional StringValue string_value = 4;
+		optional FloatValue float_value = 5;
+		optional BoolValue bool_value = 6;
+		
+		// TODO add thresholds here!
+	}
+};
+
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// Query request/response
+// Used for querying the client this is the "normal" check_nrpe thingy
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+
+message QueryRequestMessage {
+	message Request {
+		optional int32 id = 1;
+		required string command = 2;
+		repeated string arguments = 3;
+	};
+
+	required Common.Header header = 1;
 	repeated Request payload = 2;
 }
-message ResponseMessage {
-	required Header header = 1;
+message QueryResponseMessage {
+
+	message Response {
+
+		optional int32 id = 1;
+		required string command = 2;
+		repeated string arguments = 16;
+		
+		required Common.ResultCode result = 3;
+		required string message = 4;
+		optional string legacyPerf = 17;
+		repeated Common.PerformanceData perf = 5;
+		
+	}
+
+	required Common.Header header = 1;
 	repeated Response payload = 2;
 }
 
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// Log Entry
+// Used for sending errors and log entries to a logging module 
+// (this is internal errors, not syslog or eventlog)
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+
+message LogEntry {
+	message Entry {
+		enum Level {
+			LOG_DEBUG	=  0;
+			LOG_INFO 	= 10;
+			LOG_WARNING	= 20;
+			LOG_ERROR	= 30;
+			LOG_CRITICAL	= 40;
+		};
+		required Level	level	= 1;
+		optional string	sender	= 2;
+		optional string	file	= 3;
+		optional int32	line	= 4;
+		optional string	message = 5;
+		optional int32	date	= 6;
+	};
+
+	repeated Entry entry = 1;
+}
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// Execute command request and response
+// Used for executing commands on clients 
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+
+message ExecuteRequestMessage {
+	message Request {
+		optional int32 id = 1;
+		required string command = 2;
+		repeated string arguments = 3;
+	};
+
+	required Common.Header header = 1;
+	repeated Request payload = 2;
+}
+message ExecuteResponseMessage {
+	message Response {
+	
+		message ResponseData {
+			message ResponseDataCell {
+				required Common.AnyDataType data = 1;
+				optional string tag = 2;
+			}
+			message ResponseDataRow {
+				repeated ResponseDataCell cells = 1;
+			}
+			required string alias = 1;
+			optional ResponseDataRow headers = 2;
+			repeated ResponseDataRow rows = 3;
+
+		}
+
+		optional int32 id = 2;
+		required string command = 5;
+		repeated string arguments = 16;
+		
+		required Common.ResultCode result = 9;
+		required string message = 10;
+		
+		optional ResponseData data = 11;
+		
+	}
+	required Common.Header header = 1;
+	repeated Response payload = 2;
+}
+
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// Submit result
+// Used for submitting a passive result
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+
+message SubmitResponseMessage {
+	required Common.Header header = 1;
+	repeated QueryResponseMessage.Response payload = 2;
+}
+
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// Settings commands
+// Used for accessing the settings store
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+message Settings {
+	message Node {
+		message Path {
+			required string path = 1;
+			optional string key = 2;
+		}
+		optional Path path = 1;
+		optional string expression = 2;
+	};
+};
+
+message QuerySettingsRequestMessage {
+	message Request {
+		optional int64 id = 1;
+		required Settings node = 2;
+		
+		optional string default = 3;
+		optional bool fetch_descriptions = 4;
+		
+		optional Common.DataType return_type = 17;
+		
+	};
+	required Common.Header header = 1;
+	repeated Request payload = 2;
+}
+message QuerySettingsResponseMessage {
+	message Response {
+		message SectionKeys {
+			repeated string key = 1;
+		}
+		optional int64 id = 1;
+		required Settings node = 2;
+
+		optional Common.AnyDataType value = 4;
+		optional SectionKeys keys = 5;
+		
+		optional string title = 6;
+		optional string description = 7;
+		
+		optional Common.DataType required_type = 17;
+		
+	};
+	required Common.Header header = 1;
+	repeated Response payload = 2;
+}
 

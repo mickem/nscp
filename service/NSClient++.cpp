@@ -45,7 +45,6 @@
 #include "../version.hpp"
 
 #include <protobuf/plugin.pb.h>
-#include <protobuf/exec.pb.h>
 
 #ifdef USE_BREAKPAD
 #include <breakpad/exception_handler_win32.hpp>
@@ -984,44 +983,17 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 			return NSCAPI::returnCRIT;
 		}
 	} else */{
-		PluginCommand::RequestMessage message;
-		PluginCommand::Header *hdr = message.mutable_header();
-		hdr->set_type(PluginCommand::Header_Type_REQUEST);
-		hdr->set_version(PluginCommand::Header_Version_VERSION_1);
 
-		PluginCommand::Request *req = message.add_payload();
-		req->set_command(to_string(command));
-		req->set_version(PluginCommand::Request_Version_VERSION_1);
-
-		std::string args = to_string(arguments);
-
-		boost::tokenizer<boost::escaped_list_separator<char> > tok(args, boost::escaped_list_separator<char>('\\', ' ', '\"'));
-		BOOST_FOREACH(std::string s, tok)
-			req->add_arguments(s);
-
+		std::list<std::wstring> args;
+		strEx::parse_command(arguments, args);
 		std::string request, response;
-		message.SerializeToString(&request);
-
-
-
+		nscapi::functions::create_simple_query_request(command, args, request);
 		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), request, response);
 		if (response.empty()) {
 			LOG_ERROR_CORE(_T("No data retutned from command"));
 			return NSCAPI::returnUNKNOWN;
 		}
-
-		PluginCommand::ResponseMessage rsp_msg;
-
-		rsp_msg.ParseFromString(response);
-		if (rsp_msg.payload_size() != 1) {
-			LOG_ERROR_CORE_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
-			return NSCAPI::returnUNKNOWN;
-		}
-		msg = utf8::cvt<std::wstring>(rsp_msg.payload(0).message());
-		perf = utf8::cvt<std::wstring>(nscapi::functions::build_performance_data(rsp_msg.payload(0)));
-		if ( (ret == NSCAPI::returnInvalidBufferLen) || (ret == NSCAPI::returnIgnored) ) {
-			return ret;
-		}
+		nscapi::functions::parse_simple_query_response(response, msg, perf);
 		return ret;
 	}
 }
@@ -1084,23 +1056,11 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 }
 
 
-int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::vector<std::wstring> &resp) {
+int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
 	bool found = false;
-	std::vector<std::string> responses;
-	ExecuteCommand::RequestMessage message;
-	ExecuteCommand::Header *hdr = message.mutable_header();
-	hdr->set_type(ExecuteCommand::Header_Type_REQUEST);
-	hdr->set_version(ExecuteCommand::Header_Version_VERSION_1);
-
-	ExecuteCommand::Request *req = message.add_payload();
-	req->set_command(to_string(command));
-	req->set_version(ExecuteCommand::Request_Version_VERSION_1);
-
-	BOOST_FOREACH(std::wstring s, arguments)
-		req->add_arguments(utf8::cvt<std::string>(s));
-
 	std::string request;
-	message.SerializeToString(&request);
+	std::list<std::string> responses;
+	nscapi::functions::create_simple_exec_request(command, arguments, request);
 	int ret = 0;
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -1160,15 +1120,13 @@ int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vecto
 		}
 	}
 	BOOST_FOREACH(std::string &r, responses) {
-		ExecuteCommand::ResponseMessage rsp_msg;
-
-		rsp_msg.ParseFromString(r);
-		if (rsp_msg.payload_size() != 1) {
-			resp.push_back(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
-			LOG_ERROR_CORE_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
+		try {
+			nscapi::functions::parse_simple_exec_result(r, resp);
+		} catch (std::exception &e) {
+			resp.push_back(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+			LOG_ERROR_CORE_STD(resp.back());
 			return NSCAPI::returnUNKNOWN;
 		}
-		resp.push_back(utf8::cvt<std::wstring>(rsp_msg.payload(0).message()));
 	}
 	return ret;
 }
@@ -1200,17 +1158,14 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_command, std::st
 		}
 	}
 
-	ExecuteCommand::ResponseMessage response_message;
-	::ExecuteCommand::Header* hdr = response_message.mutable_header();
-
-	hdr->set_type(ExecuteCommand::Header_Type_RESPONSE);
-	hdr->set_version(ExecuteCommand::Header_Version_VERSION_1);
+	Plugin::ExecuteResponseMessage response_message;
+	nscapi::functions::create_simple_header(response_message.mutable_header(), Plugin::Common_Header_Type_EXEC_RESPONSE);
 
 	BOOST_FOREACH(std::string r, responses) {
-		ExecuteCommand::ResponseMessage tmp;
+		Plugin::ExecuteResponseMessage tmp;
 		tmp.ParseFromString(r);
 		for (int i=0;i<tmp.payload_size();i++) {
-			ExecuteCommand::Response *r = response_message.add_payload();
+			Plugin::ExecuteResponseMessage::Response *r = response_message.add_payload();
 			r->CopyFrom(tmp.payload(i));
 		}
 	}

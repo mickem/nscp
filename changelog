@@ -5,7 +5,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2011-08-22 MickeM
+2011-08-24 MickeM
+ * Sever refactoring of the new API (there is now two pb files ipc for NSCP protocol and plugin for plugin communication)
+ * Cleaned up API helper functions
+
+2011-08-23 MickeM
  * Fixed issue in the NSCP server
 
 2011-08-22 MickeM

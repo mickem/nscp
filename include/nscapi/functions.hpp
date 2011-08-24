@@ -36,67 +36,53 @@
 #include <nscapi/settings_proxy.hpp>
 
 #include <protobuf/plugin.pb.h>
-#include <protobuf/log.pb.h>
-#include <protobuf/exec.pb.h>
 
 using namespace nscp::helpers;
 
 namespace nscapi {
-
-/*
-	class nscapi_exception : public exception {
-		std::string what_;
-	public:
-		nscapi_exception() {}
-		nscapi_exception(std::string what) : what_(what) {}
-		virtual const char* what() const throw() {
-			return what_;
-		}
-	};
-*/
 	class functions {
 	public:
-		static PluginCommand::Response_Code nagios_to_gpb(int ret) {
+		static Plugin::Common::ResultCode nagios_status_to_gpb(int ret) {
 			if (ret == NSCAPI::returnOK)
-				return PluginCommand::Response_Code_OK;
+				return Plugin::Common_ResultCode_OK;
 			if (ret == NSCAPI::returnWARN)
-				return PluginCommand::Response_Code_WARNING;
+				return Plugin::Common_ResultCode_WARNING;
 			if (ret == NSCAPI::returnCRIT)
-				return PluginCommand::Response_Code_CRITCAL;
-			return PluginCommand::Response_Code_UNKNOWN;
+				return Plugin::Common_ResultCode_CRITCAL;
+			return Plugin::Common_ResultCode_UNKNOWN;
 		}
-		static ExecuteCommand::Response_Code exec_nagios_to_gpb(int ret) {
-			if (ret == NSCAPI::returnOK)
-				return ExecuteCommand::Response_Code_OK;
-			if (ret == NSCAPI::returnWARN)
-				return ExecuteCommand::Response_Code_WARNING;
-			if (ret == NSCAPI::returnCRIT)
-				return ExecuteCommand::Response_Code_CRITCAL;
-			return ExecuteCommand::Response_Code_UNKNOWN;
+		static int gbp_to_nagios_status(Plugin::Common::ResultCode ret) {
+			if (ret == Plugin::Common_ResultCode_OK)
+				return NSCAPI::returnOK;
+			if (ret == Plugin::Common_ResultCode_WARNING)
+				return NSCAPI::returnWARN;
+			if (ret == Plugin::Common_ResultCode_CRITCAL)
+				return NSCAPI::returnCRIT;
+			return NSCAPI::returnUNKNOWN;
 		}
-		static LogMessage::Message_Level log_to_gpb(NSCAPI::messageTypes ret) {
+		static Plugin::LogEntry::Entry::Level log_to_gpb(NSCAPI::messageTypes ret) {
 			if (ret == NSCAPI::critical)
-				return ::LogMessage::Message_Level_LOG_CRITICAL;
+				return Plugin::LogEntry_Entry_Level_LOG_CRITICAL;
 			if (ret == NSCAPI::debug)
-				return ::LogMessage::Message_Level_LOG_DEBUG;
+				return Plugin::LogEntry_Entry_Level_LOG_DEBUG;
 			if (ret == NSCAPI::error)
-				return ::LogMessage::Message_Level_LOG_ERROR;
+				return Plugin::LogEntry_Entry_Level_LOG_ERROR;
 			if (ret == NSCAPI::log)
-				return ::LogMessage::Message_Level_LOG_INFO;
+				return Plugin::LogEntry_Entry_Level_LOG_INFO;
 			if (ret == NSCAPI::warning)
-				return ::LogMessage::Message_Level_LOG_WARNING;
-			return ::LogMessage::Message_Level_LOG_ERROR;
+				return Plugin::LogEntry_Entry_Level_LOG_WARNING;
+			return Plugin::LogEntry_Entry_Level_LOG_ERROR;
 		}
-		static NSCAPI::messageTypes gpb_to_log(LogMessage::Message_Level ret) {
-			if (ret == ::LogMessage::Message_Level_LOG_CRITICAL)
+		static NSCAPI::messageTypes gpb_to_log(Plugin::LogEntry::Entry::Level ret) {
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_CRITICAL)
 				return NSCAPI::critical;
-			if (ret == ::LogMessage::Message_Level_LOG_DEBUG)
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_DEBUG)
 				return NSCAPI::debug;
-			if (ret == ::LogMessage::Message_Level_LOG_ERROR)
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_ERROR)
 				return NSCAPI::error;
-			if (ret == ::LogMessage::Message_Level_LOG_INFO)
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_INFO)
 				return NSCAPI::log;
-			if (ret == ::LogMessage::Message_Level_LOG_WARNING)
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_WARNING)
 				return NSCAPI::warning;
 			return NSCAPI::error;
 		}
@@ -116,188 +102,185 @@ namespace nscapi {
 			//std::vector<std::wstring> args_vector;
 		};
 
-		
-		static decoded_simple_command_data parse_simple_exec_request(const wchar_t* char_command, const std::string &request) {
-			decoded_simple_command_data data;
 
-			data.command = char_command;
-			ExecuteCommand::RequestMessage request_message;
-			request_message.ParseFromString(request);
-			if (request_message.has_header())
-				data.target = utf8::cvt<std::wstring>(request_message.header().recipient());
 
-			if (request_message.payload_size() != 1) {
-				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
-			}
-			::ExecuteCommand::Request payload = request_message.payload().Get(0);
-			for (int i=0;i<payload.arguments_size();i++) {
-				data.args.push_back(to_wstring(payload.arguments(i)));
-			}
-			return data;
+		static void create_simple_header(Plugin::Common::Header* hdr, Plugin::Common_Header_Type type)  {
+			hdr->set_type(type);
+			hdr->set_version(Plugin::Common_Version_VERSION_1);
+			hdr->set_max_supported_version(Plugin::Common_Version_VERSION_1);
+			// @todo add additional fields here!
 		}
-		static NSCAPI::nagiosReturn create_simple_exec_result(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring result, std::string &response) {
-			ExecuteCommand::ResponseMessage response_message;
-			::ExecuteCommand::Header* hdr = response_message.mutable_header();
 
-			hdr->set_type(ExecuteCommand::Header_Type_RESPONSE);
-			hdr->set_version(ExecuteCommand::Header_Version_VERSION_1);
 
-			ExecuteCommand::Response *resp = response_message.add_payload();
-			resp->set_command(to_string(command));
-			resp->set_message(to_string(result));
-
-			resp->set_version(ExecuteCommand::Response_Version_VERSION_1);
-			resp->set_result(exec_nagios_to_gpb(ret));
-			response_message.SerializeToString(&response);
-			return ret;
-		}
+		//////////////////////////////////////////////////////////////////////////
 
 		static void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer) {
-			PluginCommand::RequestMessage message;
-			::PluginCommand::Header* header = message.mutable_header();
+			Plugin::QueryRequestMessage message;
+			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_QUERY_REQUEST);
 
-			header->set_type(PluginCommand::Header_Type_REQUEST);
-			header->set_version(PluginCommand::Header_Version_VERSION_1);
-
-			PluginCommand::Request *payload = message.add_payload();
+			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(to_string(command));
 
 			BOOST_FOREACH(std::wstring s, arguments)
 				payload->add_arguments(to_string(s));
 
-			payload->set_version(PluginCommand::Request_Version_VERSION_1);
 			message.SerializeToString(&buffer);
 		}
+		static void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer) {
+			Plugin::QueryRequestMessage message;
+			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_QUERY_REQUEST);
 
-		static void create_simple_query_result(NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
-			PluginCommand::ResponseMessage message;
-			::PluginCommand::Header* header = message.mutable_header();
+			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
+			payload->set_command(to_string(command));
 
-			header->set_type(PluginCommand::Header_Type_RESPONSE);
-			header->set_version(PluginCommand::Header_Version_VERSION_1);
+			BOOST_FOREACH(std::wstring s, arguments)
+				payload->add_arguments(to_string(s));
 
-			PluginCommand::Response *payload = message.add_payload();
+			message.SerializeToString(&buffer);
+		}
+		static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring msg, std::wstring perf, std::string &buffer, std::wstring command = _T("")) {
+			create_simple_query_response(NSCAPI::returnUNKNOWN, msg, perf, buffer, command);
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		static void create_simple_query_response(NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer, std::wstring command = _T("")) {
+			Plugin::QueryResponseMessage message;
+			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_QUERY_RESPONSE);
+
+			Plugin::QueryResponseMessage::Response *payload = message.add_payload();
+			if (!command.empty())
+				payload->set_command(to_string(command));
 			payload->set_message(to_string(msg));
+			payload->set_result(nagios_status_to_gpb(ret));
 			if (!perf.empty())
 				parse_performance_data(payload, perf);
 
-			payload->set_version(PluginCommand::Response_Version_VERSION_1);
 			message.SerializeToString(&buffer);
 		}
 
-
-		static decoded_simple_command_data process_simple_command_request(const wchar_t* char_command, const std::string &request) {
+		static decoded_simple_command_data parse_simple_query_request(const wchar_t* char_command, const std::string &request) {
 			decoded_simple_command_data data;
 
 			data.command = char_command;
-			PluginCommand::RequestMessage request_message;
-			request_message.ParseFromString(request);
+			Plugin::QueryRequestMessage message;
+			message.ParseFromString(request);
 
-			if (request_message.payload_size() != 1) {
+			if (message.payload_size() != 1) {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
 			}
-			::PluginCommand::Request payload = request_message.payload().Get(0);
+			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
 				data.args.push_back(to_wstring(payload.arguments(i)));
 			}
 			return data;
 		}
 
-		static NSCAPI::nagiosReturn process_simple_command_result(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &response) {
-			PluginCommand::ResponseMessage response_message;
-			::PluginCommand::Header* hdr = response_message.mutable_header();
-
-			hdr->set_type(PluginCommand::Header_Type_RESPONSE);
-			hdr->set_version(PluginCommand::Header_Version_VERSION_1);
-
-			PluginCommand::Response *resp = response_message.add_payload();
-			resp->set_command(to_string(command));
-			resp->set_message(to_string(msg));
-			parse_performance_data(resp, perf);
-
-			resp->set_version(PluginCommand::Response_Version_VERSION_1);
-			resp->set_result(nagios_to_gpb(ret));
-			response_message.SerializeToString(&response);
-			return ret;
-		}
-
-		static void create_simple_exec_request(const std::wstring &command, const std::list<std::wstring> & args, std::string &request) {
-			
-			ExecuteCommand::RequestMessage message;
-			ExecuteCommand::Header *hdr = message.mutable_header();
-			hdr->set_type(ExecuteCommand::Header_Type_REQUEST);
-			hdr->set_version(ExecuteCommand::Header_Version_VERSION_1);
-
-			ExecuteCommand::Request *req = message.add_payload();
-			req->set_command(to_string(command));
-			req->set_version(ExecuteCommand::Request_Version_VERSION_1);
-
-			BOOST_FOREACH(std::wstring s, args)
-				req->add_arguments(to_string(s));
-
-			message.SerializeToString(&request);
-		}
-		static void parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result) {
-			ExecuteCommand::ResponseMessage response_message;
-			response_message.ParseFromString(response);
-
-			for (int i=0;i<response_message.payload_size(); i++) {
-				result.push_back(utf8::cvt<std::wstring>(response_message.payload(i).message()));
-			}
-		}
+		static void parse_simple_query_response(std::string &response, std::wstring &msg, std::wstring &perf) {
+			Plugin::QueryResponseMessage message;
+			message.ParseFromString(response);
 
 
-		static void create_simple_message_request(std::wstring command, NSCAPI::nagiosReturn code, std::wstring &msg, std::wstring &perf, std::string &request) {
-			PluginCommand::ResponseMessage message;
-			PluginCommand::Header *hdr = message.mutable_header();
-			hdr->set_type(PluginCommand::Header_Type_RESPONSE);
-			hdr->set_version(PluginCommand::Header_Version_VERSION_1);
-
-			PluginCommand::Response *resp = message.add_payload();
-			resp->set_command(to_string(command));
-			resp->set_result(nagios_to_gpb(code));
-			resp->set_version(PluginCommand::Response_Version_VERSION_1);
-			resp->set_message(to_string(msg));
-			parse_performance_data(resp, perf);
-
-			message.SerializeToString(&request);
-		}
-		
-
-		static void parse_simple_message(std::string &response, std::wstring &msg, std::wstring &perf) {
-			PluginCommand::ResponseMessage response_message;
-			response_message.ParseFromString(response);
-
-
-			if (response_message.payload_size() != 1) {
+			if (message.payload_size() != 1) {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
 			}
-			PluginCommand::Response payload = response_message.payload().Get(0);
+
+			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
 			msg = utf8::cvt<std::wstring>(payload.message());
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
 		}
 
-		static void parse_performance_data(PluginCommand::Response *resp, std::wstring &perf) {
+
+		//////////////////////////////////////////////////////////////////////////
+
+		static void create_simple_exec_request(const std::wstring &command, const std::list<std::wstring> & args, std::string &request) {
+			
+			Plugin::ExecuteRequestMessage message;
+			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_EXEC_REQUEST);
+
+			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
+			payload->set_command(to_string(command));
+
+			BOOST_FOREACH(std::wstring s, args)
+				payload->add_arguments(to_string(s));
+
+			message.SerializeToString(&request);
+		}
+		static void create_simple_exec_request(const std::wstring &command, const std::vector<std::wstring> & args, std::string &request) {
+
+			Plugin::ExecuteRequestMessage message;
+			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_EXEC_REQUEST);
+
+			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
+			payload->set_command(to_string(command));
+
+			BOOST_FOREACH(std::wstring s, args)
+				payload->add_arguments(to_string(s));
+
+			message.SerializeToString(&request);
+		}
+		static void parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result) {
+			Plugin::ExecuteResponseMessage message;
+			message.ParseFromString(response);
+
+			for (int i=0;i<message.payload_size(); i++) {
+				result.push_back(utf8::cvt<std::wstring>(message.payload(i).message()));
+			}
+		}
+
+		static void create_simple_exec_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring result, std::string &response) {
+			Plugin::ExecuteResponseMessage message;
+			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_EXEC_RESPONSE);
+
+			Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(to_string(command));
+			payload->set_message(to_string(result));
+
+			payload->set_result(nagios_status_to_gpb(ret));
+			message.SerializeToString(&response);
+		}
+		static decoded_simple_command_data parse_simple_exec_request(const wchar_t* char_command, const std::string &request) {
+			decoded_simple_command_data data;
+
+			data.command = char_command;
+			Plugin::ExecuteRequestMessage message;
+			message.ParseFromString(request);
+			if (message.has_header())
+				data.target = utf8::cvt<std::wstring>(message.header().recipient());
+
+			if (message.payload_size() != 1) {
+				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
+			}
+			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
+			for (int i=0;i<payload.arguments_size();i++) {
+				data.args.push_back(to_wstring(payload.arguments(i)));
+			}
+			return data;
+		}
+
+
+		//////////////////////////////////////////////////////////////////////////
+
+		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf) {
 			boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring> tok(perf, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\''));
 			BOOST_FOREACH(std::wstring s, tok) {
 				if (s.size() == 0)
 					break;
 				strEx::splitVector items = strEx::splitV(s, _T(";"));
 				if (items.size() < 1) {
-					::PluginCommand::PerformanceData* perfData = resp->add_perf();
-					perfData->set_type(PluginCommand::PerformanceData_Type_STRING);
+					Plugin::Common::PerformanceData* perfData = payload->add_perf();
+					perfData->set_type(Plugin::Common_DataType_STRING);
 					std::pair<std::wstring,std::wstring> fitem = strEx::split(_T(""), _T("="));
 					perfData->set_alias("invalid");
-					::PluginCommand::PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
+					Plugin::Common_PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
 					stringPerfData->set_value("invalid performance data");
 					break;
 				}
 
-				::PluginCommand::PerformanceData* perfData = resp->add_perf();
-				perfData->set_type(PluginCommand::PerformanceData_Type_FLOAT);
+				Plugin::Common::PerformanceData* perfData = payload->add_perf();
+				perfData->set_type(Plugin::Common_DataType_FLOAT);
 				std::pair<std::wstring,std::wstring> fitem = strEx::split(items[0], _T("="));
 				perfData->set_alias(to_string(fitem.first));
-				::PluginCommand::PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
+				Plugin::Common_PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
 
 				std::wstring::size_type pend = fitem.second.find_first_not_of(_T("0123456789,."));
 				if (pend == std::wstring::npos) {
@@ -317,19 +300,19 @@ namespace nscapi {
 			}
 //			std::wcout << _T("Converting performance data") << perf << _T(" -- ") << utf8::cvt<std::wstring>(build_performance_data(*resp)) << std::endl;
 		}
-		static std::string build_performance_data(::PluginCommand::Response const &payload) {
+		static std::string build_performance_data(Plugin::QueryResponseMessage::Response const &payload) {
 			std::stringstream ss;
 			ss.precision(5);
 
 			bool first = true;
 			for (int i=0;i<payload.perf_size();i++) {
-				::PluginCommand::PerformanceData perfData = payload.perf(i);
+				Plugin::Common::PerformanceData perfData = payload.perf(i);
 				if (!first)
 					ss << " ";
 				first = false;
 				ss << '\'' << perfData.alias() << "'=";
 				if (perfData.has_float_value()) {
-					::PluginCommand::PerformanceData_FloatValue fval = perfData.float_value();
+					Plugin::Common_PerformanceData_FloatValue fval = perfData.float_value();
 
 					ss << fval.value();
 					if (fval.has_unit())

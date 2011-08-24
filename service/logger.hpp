@@ -5,7 +5,7 @@
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
 
-#include <protobuf/log.pb.h>
+#include <protobuf/plugin.pb.h>
 
 #include <strEx.h>
 
@@ -26,26 +26,26 @@ namespace nsclient {
 	class logger_helper {
 	public:
 		static inline std::string create_debug(const char* file, const int line, std::wstring message) {
-			return create_message(::LogMessage::Message_Level_LOG_DEBUG, file, line, message);
+			return create_message(Plugin::LogEntry_Entry_Level_LOG_DEBUG, file, line, message);
 		}
 		static inline std::string create_info(const char* file, const int line, std::wstring message) {
-			return create_message(::LogMessage::Message_Level_LOG_INFO, file, line, message);
+			return create_message(Plugin::LogEntry_Entry_Level_LOG_INFO, file, line, message);
 		}
 		static inline std::string create_error(const char* file, const int line, std::wstring message) {
-			return create_message(::LogMessage::Message_Level_LOG_ERROR, file, line, message);
+			return create_message(Plugin::LogEntry_Entry_Level_LOG_ERROR, file, line, message);
 		}
 		static inline std::string create_error(const std::string file, const int line, std::wstring message) {
-			return create_message(::LogMessage::Message_Level_LOG_ERROR, file.c_str(), line, message);
+			return create_message(Plugin::LogEntry_Entry_Level_LOG_ERROR, file.c_str(), line, message);
 		}
 		static inline std::string create_warning(const char* file, const int line, std::wstring message) {
-			return create_message(::LogMessage::Message_Level_LOG_WARNING, file, line, message);
+			return create_message(Plugin::LogEntry_Entry_Level_LOG_WARNING, file, line, message);
 		}
 
-		static std::string create_message(LogMessage::Message_Level msgType, const char* file, const int line, std::wstring logMessage) {
+		static std::string create_message(Plugin::LogEntry::Entry::Level msgType, const char* file, const int line, std::wstring logMessage) {
 			std::string str;
 			try {
-				LogMessage::LogMessage message;
-				LogMessage::Message *msg = message.add_message();
+				Plugin::LogEntry message;
+				Plugin::LogEntry::Entry *msg = message.add_entry();
 				msg->set_level(msgType);
 				msg->set_file(file);
 				msg->set_line(line);
@@ -141,7 +141,7 @@ namespace nsclient {
 				}
 			}
 
-			std::wstring render_log_level(::LogMessage::Message_Level l) {
+			std::wstring render_log_level(Plugin::LogEntry::Entry::Level l) {
 				int code = nscapi::functions::gpb_to_log(l);
 				switch (code) {
 					case NSCAPI::critical:
@@ -172,13 +172,13 @@ namespace nsclient {
 			std::wstring render_console_message(std::string data) {
 				std::wstring str;
 				try {
-					LogMessage::LogMessage message;
+					Plugin::LogEntry message;
 					if (!message.ParseFromString(data)) {
 						return _T("Failed to parse message: ") + to_wstring(strEx::strip_hex(data));
 					}
 
-					for (int i=0;i<message.message_size();i++) {
-						LogMessage::Message msg = message.message(i);
+					for (int i=0;i<message.entry_size();i++) {
+						Plugin::LogEntry::Entry msg = message.entry(i);
 						if (!str.empty())
 							str += _T(" -- ");
 						str += render_log_level(msg.level()) + _T(" ") + rpad(to_wstring(msg.file()), 40) + _T(":") + lpad(to_wstring(msg.line()),4) + _T(" ") + to_wstring(msg.message());

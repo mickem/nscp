@@ -31,7 +31,6 @@
 #include <settings/macros.h>
 
 #include <protobuf/plugin.pb.h>
-#include <protobuf/log.pb.h>
 
 using namespace nscp::helpers;
 
@@ -69,8 +68,8 @@ void nscapi::core_wrapper::Message(int msgType, std::string file, int line, std:
 			return;
 		std::string str;
 		try {
-			LogMessage::LogMessage message;
-			LogMessage::Message *msg = message.add_message();
+			Plugin::LogEntry message;
+			Plugin::LogEntry::Entry *msg = message.add_entry();
 			msg->set_level(nscapi::functions::log_to_gpb(msgType));
 			msg->set_file(file);
 			msg->set_line(line);
@@ -128,7 +127,7 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 
 void nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf) {
 	std::string request;
-	nscapi::functions::create_simple_message_request(command, code, message, perf, request);
+	nscapi::functions::create_simple_query_response(code, message, perf, request, command);
 	NSCAPI::nagiosReturn ret = NotifyChannel(channel, command, code, request);
 }
 
@@ -155,15 +154,12 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring comma
 	std::string response;
 	NSCAPI::nagiosReturn ret = simple_query(command, argument, response);
 	if (!response.empty()) {
-		PluginCommand::ResponseMessage rsp_msg;
-		rsp_msg.ParseFromString(response);
-		if (rsp_msg.payload_size() != 1) {
-			CORE_LOG_ERROR_STD(_T("Failed to extract return message not 1 payload: ") + strEx::itos(rsp_msg.payload_size()));
+		try {
+			nscapi::functions::parse_simple_query_response(response, msg, perf);
+		} catch (std::exception &e) {
+			CORE_LOG_ERROR_STD(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
 			return NSCAPI::returnUNKNOWN;
 		}
-		::PluginCommand::Response payload = rsp_msg.payload(0);
-		msg = utf8::cvt<std::wstring>(payload.message());
-		perf = utf8::cvt<std::wstring>(::nscapi::functions::build_performance_data(payload));
 	}
 	return ret;
 }
@@ -176,26 +172,18 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring comma
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::string & result) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & arguments, std::string & result) 
 {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
 
-	PluginCommand::RequestMessage message;
-	PluginCommand::Header *hdr = message.mutable_header();
-	hdr->set_type(PluginCommand::Header_Type_REQUEST);
-	hdr->set_version(PluginCommand::Header_Version_VERSION_1);
-
-	PluginCommand::Request *req = message.add_payload();
-	req->set_command(to_string(command));
-	req->set_version(PluginCommand::Request_Version_VERSION_1);
-
-	BOOST_FOREACH(std::wstring s, argument)
-		req->add_arguments(to_string(s));
-
 	std::string request;
-	message.SerializeToString(&request);
-
+	try {
+		nscapi::functions::create_simple_query_request(command, arguments, request);
+	} catch (std::exception &e) {
+		CORE_LOG_ERROR_STD(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+		return NSCAPI::returnUNKNOWN;
+	}
 	return query(command.c_str(), request, result);
 }
 

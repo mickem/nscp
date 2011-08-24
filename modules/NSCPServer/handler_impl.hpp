@@ -19,10 +19,10 @@ public:
 		payload_length_ = payload;
 	}
 
-	std::string process(std::string &buffer);
+	std::list<nscp::packet> process(nscp::packet &buffer);
 
 	nscp::packet create_error(std::wstring msg) {
-		return nscp::packet::create_response(4, msg, payload_length_);
+		return nscp::packet::create_error(msg);
 	}
 
 	virtual void set_allow_arguments(bool v)  {

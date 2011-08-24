@@ -239,9 +239,9 @@ int NSCPClient::commandLineExec(const std::wstring &command, std::list<std::wstr
 }
 NSCPClient::nscp_result_data NSCPClient::execute_nscp_command(nscp_connection_data con, std::string buffer) {
 	try {
-		std::list<nscp::packet::nscp_chunk> chunks;
+		std::list<nscp::packet> chunks;
 		chunks.push_back(nscp::packet::build_envelope_request(1));
-		chunks.push_back(nscp::packet::build_payload(nscp::data::command_request, buffer, 0));
+		chunks.push_back(nscp::packet::create_payload(nscp::data::command_request, buffer, 0));
 		if (!con.no_ssl) {
 #ifdef USE_SSL
 			chunks = send_ssl(con.host, con.port, con.timeout, chunks);
@@ -252,13 +252,13 @@ NSCPClient::nscp_result_data NSCPClient::execute_nscp_command(nscp_connection_da
 		} else {
 			chunks = send_nossl(con.host, con.port, con.timeout, chunks);
 		}
-		BOOST_FOREACH(nscp::packet::nscp_chunk &chunk, chunks) {
+		BOOST_FOREACH(nscp::packet &chunk, chunks) {
 			NSC_DEBUG_MSG_STD(_T("Found chunk: ") + utf8::cvt<std::wstring>(strEx::format_buffer(chunk.payload.c_str(), chunk.payload.size())));
 		}
 		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("Hello"));
 	} catch (nscp::nscp_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Socket error: ") + e.getMessage());
-		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("NSCP Packet error: ") + e.getMessage());
+		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::cvt<std::wstring>(e.what()));
+		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::cvt<std::wstring>(e.what()));
 	} catch (std::runtime_error &e) {
 		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::cvt<std::wstring>(e.what()));
 		return nscp_result_data(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::cvt<std::wstring>(e.what()));
@@ -273,7 +273,7 @@ NSCPClient::nscp_result_data NSCPClient::execute_nscp_command(nscp_connection_da
 
 
 #ifdef USE_SSL
-std::list<nscp::packet::nscp_chunk> NSCPClient::send_ssl(std::wstring host, int port, int timeout, std::list<nscp::packet::nscp_chunk> &chunks) {
+std::list<nscp::packet> NSCPClient::send_ssl(std::wstring host, int port, int timeout, std::list<nscp::packet> &chunks) {
 	boost::asio::io_service io_service;
 	boost::asio::ssl::context ctx(io_service, boost::asio::ssl::context::sslv23);
 	SSL_CTX_set_cipher_list(ctx.impl(), "ADH");
@@ -285,7 +285,7 @@ std::list<nscp::packet::nscp_chunk> NSCPClient::send_ssl(std::wstring host, int 
 }
 #endif
 
-std::list<nscp::packet::nscp_chunk> NSCPClient::send_nossl(std::wstring host, int port, int timeout, std::list<nscp::packet::nscp_chunk> &chunks) {
+std::list<nscp::packet> NSCPClient::send_nossl(std::wstring host, int port, int timeout, std::list<nscp::packet> &chunks) {
 	boost::asio::io_service io_service;
 	nscp::client::socket socket(io_service, host, port);
 	socket.send(chunks, boost::posix_time::seconds(timeout));

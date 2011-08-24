@@ -8,7 +8,7 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/asio/ssl.hpp>
 
-#include <protobuf/envelope.pb.h>
+#include <protobuf/ipc.pb.h>
 #include <protobuf/plugin.pb.h>
 
 namespace nscp {
@@ -91,7 +91,7 @@ namespace nscp {
 
 					unsigned int count = outbound_queue_.size();
 					handler_->log_debug(__FILE__, __LINE__, _T("Sending responses: ") + strEx::itos(count));
-					BOOST_FOREACH(nscp::packet::nscp_chunk &chunk, outbound_queue_) {
+					BOOST_FOREACH(nscp::packet &chunk, outbound_queue_) {
 						chunk.signature.additional_packet_count = --count;
 						std::string s = chunk.to_buffer();
 						handler_->log_debug(__FILE__, __LINE__, _T("Sending: ") + chunk.signature.to_wstring());
@@ -124,9 +124,12 @@ namespace nscp {
 		}
 
 		boost::tuple<bool, connection::process_helper> connection::process_payload() {
-			std::string result;
-			handler_->log_debug(__FILE__, __LINE__, _T("Got payload for: ") + strEx::itos(sig.payload_type));
-			parser_.parse_payload(result, sig);
+			nscp::packet chunk(sig);
+			parser_.parse_payload(chunk);
+			handler_->log_debug(__FILE__, __LINE__, _T("Processing: ") + chunk.to_wstring());
+			std::list<nscp::packet> result = handler_->process(chunk);
+			outbound_queue_.insert(outbound_queue_.end(), result.begin(), result.end());
+			/*
 			if (sig.payload_type == nscp::data::envelope_request) {
 				NSCPEnvelope::Request envelope;
 				envelope.ParseFromString(result);
@@ -139,6 +142,7 @@ namespace nscp {
 			} else {
 				handler_->log_error(__FILE__, __LINE__, _T("Unhandled packet: ") + strEx::itos(sig.payload_type));
 			}
+			*/
 			return boost::make_tuple(sig.additional_packet_count > 0, process_helper(&nscp::server::parser::digest_signature, &connection::process_signature));
 		}
 

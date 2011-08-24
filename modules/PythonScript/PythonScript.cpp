@@ -273,7 +273,8 @@ NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_comman
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 		std::wstring result;
 		NSCAPI::nagiosReturn ret = inst->handle_simple_exec(cmd, data.args, result);
-		return nscapi::functions::create_simple_exec_result(data.command, ret, result, response);
+		nscapi::functions::create_simple_exec_response(data.command, ret, result, response);
+		return ret;
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -286,10 +287,11 @@ NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, cons
 		return inst->exec(cmd, request, response);
 	}
 	if (inst->has_simple(cmd)) {
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_request(command, request);
+		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(command, request);
 		std::wstring msg, perf;
 		NSCAPI::nagiosReturn ret = inst->exec_simple(cmd, data.args, msg, perf);
-		return nscapi::functions::process_simple_command_result(data.command, ret, msg, perf, response);
+		nscapi::functions::create_simple_query_response(ret, msg, perf, response, data.command);
+		return ret;
 	}
 	NSC_LOG_ERROR_STD(_T("Could not find python commands for: ") + command + _T(" (avalible python commands are: ") + inst->get_commands() + _T(")"));
 	/*
@@ -310,7 +312,7 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	}
 	if (inst->has_simple_message_handler(chnl)) {
 		std::wstring msg, perf;
-		nscapi::functions::parse_simple_message(request, msg, perf);
+		nscapi::functions::parse_simple_query_response(request, msg, perf);
 		return inst->handle_simple_message(chnl, cmd, code, msg, perf);
 	}
 	return NSCAPI::returnIgnored;

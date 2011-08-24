@@ -22,5 +22,3 @@
 #include <utils.h>
 #include <nscp/packet.hpp>
 
-
-

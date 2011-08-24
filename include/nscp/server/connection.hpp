@@ -85,7 +85,7 @@ namespace nscp {
 
 			std::list<std::string> buffers_;
 			std::vector<boost::asio::const_buffer> response_buffers_;
-			std::list<nscp::packet::nscp_chunk> outbound_queue_;
+			std::list<nscp::packet> outbound_queue_;
 
 		};
 

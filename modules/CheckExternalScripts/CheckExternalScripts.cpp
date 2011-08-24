@@ -137,7 +137,7 @@ bool CheckExternalScripts::hasMessageHandler() {
 }
 
 NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::process_simple_command_request(char_command, request);
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 
 	command_list::const_iterator cit = commands.find(data.command);
 	bool isAlias = false;
@@ -157,7 +157,8 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 			BOOST_FOREACH(std::wstring str, data.args) {
 				if (first && !isAlias && !allowNasty_) {
 					if (str.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-						return nscapi::functions::process_simple_command_result(data.command, NSCAPI::returnUNKNOWN, _T("Request contained illegal characters!"), _T(""), response);
+						return nscapi::functions::create_simple_query_response_unknown(_T("Request contained illegal characters!"), _T(""), response, data.command);
+
 					}
 				}
 				strEx::replace(arg, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
@@ -189,9 +190,11 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 		std::wstring message, perf;
 		int result = process::executeProcess(process::exec_arguments(root_, cd.command + _T(" ") + xargs, timeout), message, perf);
 		if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-			return nscapi::functions::process_simple_command_result(data.command, NSCAPI::returnUNKNOWN, _T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
+			nscapi::functions::create_simple_query_response(NSCAPI::returnUNKNOWN, _T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response, data.command);
+			return NSCAPI::returnUNKNOWN;
 		}
-		return nscapi::functions::process_simple_command_result(data.command, nscapi::plugin_helper::int2nagios(result), message, perf, response);
+		nscapi::functions::create_simple_query_response(nscapi::plugin_helper::int2nagios(result), message, perf, response, data.command);
+		return result;
 	}
 }
 // 

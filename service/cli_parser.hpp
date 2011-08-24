@@ -308,7 +308,7 @@ public:
 				core_->initCore(false);
 			}
 			int ret = 0;
-			std::vector<std::wstring> resp;
+			std::list<std::wstring> resp;
 			if (mainClient.simple_exec(module, command, arguments, resp) == NSCAPI::returnIgnored) {
 				ret = 1;
 				std::wcout << _T("No handler for that command: ") << command << std::endl;

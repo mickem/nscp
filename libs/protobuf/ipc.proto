@@ -1,8 +1,77 @@
 package NSCPIPC;
 
+message Common {
+
+	enum Version {
+		VERSION_1 = 1;
+	};
+};
+
 message RegisterSlave {
 	
 	required string sender = 1;
 	repeated string slaves = 2;
 	
 };
+
+message RequestEnvelope {
+	required Common.Version version = 1;
+	optional Common.Version max_supported_version = 2;
+	
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 id = 19;
+};
+
+message ResponseEnvelope {
+	enum Status {
+		IS_OK = 1;
+
+		HAS_WARNINGS = 5;
+		IS_WARNING = 6;
+		HAS_ERRRORS = 7;
+		IS_ERRRORS = 8;
+
+		IS_FATAL = 10;
+		
+		UNSUPPORTED_VERSION = 20;
+	};
+
+	required Common.Version version = 1;
+	required Common.Version max_supported_version = 2;
+	
+	required Status request_status = 3;
+
+	optional string message = 7;
+
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 id = 19;
+};
+
+message ErrorMessage {
+
+	message Message {
+		enum Severity {
+			IS_OK = 1;
+			HAS_WARNINGS = 5;
+			IS_WARNING = 6;
+			HAS_ERRRORS = 7;
+			IS_ERRROR = 8;
+			IS_FATAL = 10;
+		};
+
+
+		optional int32 line = 1;
+		optional int64 date = 2;
+		required Severity severity = 3;
+		required string message = 4;
+		repeated string details = 5;
+	}
+
+	repeated Message error = 1;
+
+	optional string sender = 17;
+	optional string recipient = 18;
+	optional int32 request_id = 19;
+}

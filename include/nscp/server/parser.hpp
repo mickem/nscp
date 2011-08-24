@@ -4,7 +4,7 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/noncopyable.hpp>
 
-#include <protobuf/envelope.pb.h>
+#include <protobuf/ipc.pb.h>
 #include "handler.hpp"
 
 namespace nscp {
@@ -52,11 +52,10 @@ namespace nscp {
 				// @todo parse header and such here
 				buffer_.clear();
 			}
-			void parse_payload(std::string &result, const nscp::data::signature_packet &signature) {
-				unsigned long wanted = nscp::length::get_payload_size(signature);
+			void parse_payload(nscp::packet &packet) {
+				unsigned long wanted = nscp::length::get_payload_size(packet.signature);
 				assert(buffer_.size() >= wanted);
-
-				result.insert(result.begin(), buffer_.begin(), buffer_.begin()+wanted);
+				packet.payload.insert(packet.payload.begin(), buffer_.begin(), buffer_.begin()+wanted);
 				buffer_.clear();
 			}
 			unsigned int get_size() {
