@@ -138,18 +138,17 @@ namespace nscapi {
 
 			message.SerializeToString(&buffer);
 		}
-		static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring msg, std::wstring perf, std::string &buffer, std::wstring command = _T("")) {
-			create_simple_query_response(NSCAPI::returnUNKNOWN, msg, perf, buffer, command);
+		static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::wstring perf, std::string &buffer) {
+			create_simple_query_response(command, NSCAPI::returnUNKNOWN, msg, perf, buffer);
 			return NSCAPI::returnUNKNOWN;
 		}
 
-		static void create_simple_query_response(NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer, std::wstring command = _T("")) {
+		static void create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
 			Plugin::QueryResponseMessage message;
 			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_QUERY_RESPONSE);
 
 			Plugin::QueryResponseMessage::Response *payload = message.add_payload();
-			if (!command.empty())
-				payload->set_command(to_string(command));
+			payload->set_command(to_string(command));
 			payload->set_message(to_string(msg));
 			payload->set_result(nagios_status_to_gpb(ret));
 			if (!perf.empty())

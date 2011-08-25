@@ -57,12 +57,6 @@ private:
 			return ss.str();
 		}
 	};
-	struct nscp_result_data {
-		nscp_result_data() {}
-		nscp_result_data(int result_, std::wstring text_) : result(result_), text(text_) {}
-		std::wstring text;
-		int result;
-	};
 	typedef std::map<std::wstring, nscp_connection_data> command_list;
 	command_list commands;
 	unsigned int buffer_length_;
@@ -103,9 +97,10 @@ public:
 	std::wstring getConfigurationMeta();
 
 private:
-	nscp_result_data  execute_nscp_command(nscp_connection_data con, std::string buffer);
-	std::list<nscp::packet> send_nossl(std::wstring host, int port, int timeout, std::list<nscp::packet> &chunks);
-	std::list<nscp::packet> send_ssl(std::wstring host, int port, int timeout, std::list<nscp::packet> &chunks);
+	std::list<std::string> execute_nscp_command(nscp_connection_data con, std::string buffer);
+	std::list<nscp::packet> send(nscp_connection_data &con, const std::list<nscp::packet> &chunks);
+	std::list<nscp::packet> send_nossl(std::wstring host, int port, int timeout, const std::list<nscp::packet> &chunks);
+	std::list<nscp::packet> send_ssl(std::wstring host, int port, int timeout, const std::list<nscp::packet> &chunks);
 	void add_options(po::options_description &desc, nscp_connection_data &command_data);
 
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);

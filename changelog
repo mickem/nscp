@@ -8,6 +8,9 @@ TODO:
 2011-08-24 MickeM
  * Sever refactoring of the new API (there is now two pb files ipc for NSCP protocol and plugin for plugin communication)
  * Cleaned up API helper functions
+ * Fixed client argument for "client mode" to allow arbitrary arguments
+ * Cleaned up the argument processor code now requires "mode" to be first argument
+ * Fixed some issues in the NSCPClient
 
 2011-08-23 MickeM
  * Fixed issue in the NSCP server

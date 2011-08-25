@@ -156,8 +156,8 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 			int i=1;
 			BOOST_FOREACH(std::wstring str, data.args) {
 				if (first && !isAlias && !allowNasty_) {
-					if (str.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-						return nscapi::functions::create_simple_query_response_unknown(_T("Request contained illegal characters!"), _T(""), response, data.command);
+					if (str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
+						return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters!"), _T(""), response);
 
 					}
 				}
@@ -190,10 +190,10 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 		std::wstring message, perf;
 		int result = process::executeProcess(process::exec_arguments(root_, cd.command + _T(" ") + xargs, timeout), message, perf);
 		if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-			nscapi::functions::create_simple_query_response(NSCAPI::returnUNKNOWN, _T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response, data.command);
+			nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
 			return NSCAPI::returnUNKNOWN;
 		}
-		nscapi::functions::create_simple_query_response(nscapi::plugin_helper::int2nagios(result), message, perf, response, data.command);
+		nscapi::functions::create_simple_query_response(data.command, nscapi::plugin_helper::int2nagios(result), message, perf, response);
 		return result;
 	}
 }

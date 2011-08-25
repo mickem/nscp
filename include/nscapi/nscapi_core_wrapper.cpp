@@ -127,7 +127,7 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 
 void nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf) {
 	std::string request;
-	nscapi::functions::create_simple_query_response(code, message, perf, request, command);
+	nscapi::functions::create_simple_query_response(command, code, message, perf, request);
 	NSCAPI::nagiosReturn ret = NotifyChannel(channel, command, code, request);
 }
 

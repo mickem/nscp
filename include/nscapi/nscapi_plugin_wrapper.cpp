@@ -252,7 +252,7 @@ NSCAPI::nagiosReturn nscapi::impl::simple_command::handleRAWCommand(const wchar_
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 	std::wstring msg, perf;
 	NSCAPI::nagiosReturn ret = handleCommand(data.target, data.command, data.args, msg, perf);
-	nscapi::functions::create_simple_query_response(ret, msg, perf, response, data.command);
+	nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
 	return ret;
 }
 

@@ -220,7 +220,7 @@ NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring &target, const
 		BOOST_FOREACH(std::wstring arg, arguments)
 		{
 			if (SETTINGS_GET_INT(nrpe::ALLOW_NASTY) == 0) {
-				if (arg.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+				if (arg.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
 					return NSCAPI::returnIgnored;
 				}

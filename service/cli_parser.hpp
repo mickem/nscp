@@ -8,32 +8,46 @@ class cli_parser {
 	
 
 	NSClient* core_;
-	po::options_description desc;
+	po::options_description root;
 	po::options_description settings;
 	po::options_description service;
 	po::options_description client;
+	po::options_description common;
+
+	bool debug;
+	bool help;
+	bool version;
 
 public:
 	cli_parser(NSClient* core) 
 		: core_(core)
-		, desc("Allowed options")
+		, root("Allowed first option (Mode of operation)")
+		, common("Common options")
 		, settings("Settings options")
 		, service("Service Options")
 		, client("Client Options")
+		, debug(false)
+		, help(false)
+		, version(false)
 	{
-		desc.add_options()
-			("help", "produce help message")
+		root.add_options()
+			("help", po::bool_switch(&help), "produce help message")
 			("settings-help", "Produce help message for the various settings related options")
 			("service-help", "Produce help message for the various settings related service management")
 			("client-help", "Produce help message for the various settings related client")
+			("test-help", "Produce help message for the various settings related client")
+
 			("settings", "Enter settings mode and handle settings related commands")
 			("service", "Enter service mode and handle service related commands")
 			("client", "Enter client mode and handle client related commands")
 			("test", "Start test and debug mode")
-			("debug", "Show debug information")
-			("version", "Show version information")
+			("version", po::bool_switch(&version), "Show version information")
 			;
-
+		common.add_options()
+			("help", po::bool_switch(&help), "produce help message")
+			("debug", po::bool_switch(&debug), "Show debug information")
+			("version", po::bool_switch(&version), "Show version information")
+			;
 
 		settings.add_options()
 			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
@@ -61,73 +75,80 @@ public:
 		client.add_options()
 			("command,C", po::value<std::wstring>(), "Name of command to start")
 			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
-			("arguments,A", po::value< std::vector<std::wstring> >()->multitoken(), "List of arguments")			;
+			("arguments,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments")
+			;
 
+	}
+
+	bool process_common_options() {
+		if (debug) {
+			core_->enableDebug(true);
+			core_->log_debug(__FILE__, __LINE__, _T("Enabling debug mode"));
+		}
+
+		if (help) {
+			po::options_description all("Allowed options");
+			all.add(root).add(common).add(service).add(settings).add(client);
+			std::cout << all << std::endl;
+			return true;
+		}
+		if (version) {
+			std::cout << APPLICATION_NAME << _T(", Version: ") << CURRENT_SERVICE_VERSION << _T(", Platform: ") << SZARCH << std::endl;
+			return true;
+		}
+		return false;
 	}
 	int parse(int argc, wchar_t* argv[]) {
 		try {
 			po::options_description all("Allowed options");
-			all.add(desc).add(service).add(settings).add(client);
+			all.add(root).add(common).add(service).add(settings).add(client);
 
 			po::variables_map vm;
 			po::wparsed_options parsed = 
-				po::wcommand_line_parser(argc, argv).options(all).allow_unregistered().run();
+				po::wcommand_line_parser((argc>2)?2:argc, argv).options(root).run();
 
-			//po::store(po::parse_command_line(argc, argv, desc), vm);
 			po::store(parsed, vm);
 			po::notify(vm);
 
-			if (vm.count("debug")) {
-				core_->enableDebug(true);
-				core_->log_debug(__FILE__, __LINE__, _T("Enabling debug mode"));
-			}
+			if (process_common_options())
+				return 1;
 
-			if (vm.count("help")) {
-				mainClient.set_console_log();
-				std::cout << all << "\n";
-				return 1;
-			}
-			if (vm.count("version")) {
-				mainClient.set_console_log();
-				std::cout << APPLICATION_NAME << _T(", Version: ") << CURRENT_SERVICE_VERSION << _T(", Platform: ") << SZARCH << "\n";
-				return 1;
-			}
 			if (vm.count("settings-help")) {
-				mainClient.set_console_log();
-				std::cout << settings << "\n";
+				std::cout << settings << std::endl;
 				return 1;
 			}
 			if (vm.count("service-help")) {
-				mainClient.set_console_log();
-				std::cout << service << "\n";
+				std::cout << service << std::endl;
 				return 1;
 			}
 			if (vm.count("client-help")) {
-				mainClient.set_console_log();
-				std::cout << client << "\n";
+				std::cout << client << std::endl;
 				return 1;
 			}
 
 			if (vm.count("settings")) {
 				mainClient.set_console_log();
-				return parse_settings(argc, argv);
+				return parse_settings(argc-1, &argv[1]);
 			}
 			if (vm.count("service")) {
 				//mainClient.set_console_log();
-				return parse_service(argc, argv);
+				return parse_service(argc-1, &argv[1]);
 			}
 			if (vm.count("client")) {
-				return parse_client(argc, argv);
+				return parse_client(argc-1, &argv[1]);
 			}
 			if (vm.count("test")) {
 				mainClient.set_console_log();
-				return parse_test(argc, argv);
+				return parse_test(argc-1, &argv[1]);
 			}
+			std::cerr << "First argument has to be one of the following: " << std::endl;
+			std::cout << root << std::endl;
+			return 1;
 		} catch(std::exception & e) {
-			core_->log_error(__FILE__, __LINE__, std::string("Unable to parse command line: ") + e.what());
+			std::cerr << "Unable to parse root option: " << e.what() << std::endl;
 			return 1;
 		} catch (...) {
-			core_->log_error(__FILE__, __LINE__, "Unhanded Exception");
+			std::cerr << "Unable to parse root option" << std::endl;
 			return 1;
 		}
 		return 0;
@@ -148,16 +169,15 @@ public:
 	int parse_settings(int argc, wchar_t* argv[]) {
 		try {
 			po::options_description all("Allowed options (settings)");
-			all.add(desc).add(settings);
+			all.add(common).add(settings);
 
 			po::variables_map vm;
 			po::store(po::parse_command_line(argc, argv, all), vm);
 			po::notify(vm);
 
-			if (vm.count("help")) {
-				std::cout << all << "\n";
+			if (process_common_options())
 				return 1;
-			}
+
 			bool def = vm.count("add-defaults")==1;
 
 			nsclient::settings_client client(core_);
@@ -202,21 +222,16 @@ public:
 
 	int parse_service(int argc, wchar_t* argv[]) {
 		try {
-			po::options_description all("Allowed options (settings)");
-			all.add(desc).add(service);
+			po::options_description all("Allowed options (service)");
+			all.add(common).add(service);
 
 			po::variables_map vm;
 			po::store(po::parse_command_line(argc, argv, all), vm);
 			po::notify(vm);
 
-			if (vm.count("help")) {
-				std::cout << all << "\n";
+			if (process_common_options())
 				return 1;
-			}
-			bool debug = false;
-			if (vm.count("debug")) {
-				debug = true;
-			}
+
 			std::wstring name;
 			if (vm.count("name")) {
 				name = vm["name"].as<std::wstring>();
@@ -270,8 +285,10 @@ public:
 	int parse_client(int argc, wchar_t* argv[]) {
 		try {
 			po::options_description all("Allowed options (client)");
-			all.add(desc).add(client);
+			all.add(common).add(client);
 
+			po::positional_options_description p;
+			p.add("arguments", -1);
 
 			po::variables_map vm;
 			po::wparsed_options parsed = 
@@ -279,24 +296,37 @@ public:
 			po::store(parsed, vm);
 			po::notify(vm);
 
-			bool debug = false;
-			if (vm.count("debug")) {
-				debug = true;
-			}
+			if (process_common_options())
+				return 1;
 
 			std::wstring command;
-			if (vm.count("command")) {
+			if (vm.count("command"))
 				command = vm["command"].as<std::wstring>();
-			}
+
 			std::wstring module;
-			if (vm.count("module")) {
+			if (vm.count("module"))
 				module = vm["module"].as<std::wstring>();
-			}
+
+			std::vector<std::wstring> kvp_args;
+			if (vm.count("arguments"))
+				kvp_args = vm["arguments"].as<std::vector<std::wstring> >();
+
 			std::vector<std::wstring> arguments = po::collect_unrecognized(parsed.options, po::include_positional);
 
+			BOOST_FOREACH(std::wstring s, kvp_args) {
+				std::wstring::size_type pos = s.find(L'=');
+				if (pos == std::wstring::npos)
+					arguments.push_back(_T("--") + s);
+				else {
+					arguments.push_back(_T("--") + s.substr(0,pos));
+					arguments.push_back(s.substr(pos+1));
+				}
+			}
+
+
+			mainClient.set_console_log();
+			mainClient.enableDebug(debug);
 			if (debug) {
-				mainClient.set_console_log();
-				mainClient.enableDebug(true);
 				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
 				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
 				std::wstring args;
@@ -320,7 +350,11 @@ public:
 			}
 			return ret;
 		} catch(std::exception & e) {
-			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
+			std::cout << "Client: Unable to parse command line: "  << e.what() << std::endl;
+			return 1;
+		} catch(...) {
+			mainClient.log_error(__FILE__, __LINE__, "Unknown exception parsing command line");
+			std::cout << "Client: Unknown exception parsing command line" << std::endl;
 			return 1;
 		}
 	}

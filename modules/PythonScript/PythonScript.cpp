@@ -290,7 +290,7 @@ NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, cons
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(command, request);
 		std::wstring msg, perf;
 		NSCAPI::nagiosReturn ret = inst->exec_simple(cmd, data.args, msg, perf);
-		nscapi::functions::create_simple_query_response(ret, msg, perf, response, data.command);
+		nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
 		return ret;
 	}
 	NSC_LOG_ERROR_STD(_T("Could not find python commands for: ") + command + _T(" (avalible python commands are: ") + inst->get_commands() + _T(")"));

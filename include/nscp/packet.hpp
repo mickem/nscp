@@ -230,6 +230,12 @@ namespace nscp {
 		bool is_command_request() {
 			return signature.payload_type == nscp::data::command_request;
 		}
+		bool is_command_response() {
+			return signature.payload_type == nscp::data::command_response;
+		}
+		bool is_error() {
+			return signature.payload_type == nscp::data::error;
+		}
 		static nscp::packet create_query_response(std::string buffer) {
 			return create_payload(nscp::data::command_response, buffer);
 		}
