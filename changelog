@@ -5,12 +5,16 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-25 MickeM
+ * Fixed some issues in the NSCPClient
+ * Fixed debug log issue in core
+ * Added support for "pushing" passive checks via NSCP
+
 2011-08-24 MickeM
  * Sever refactoring of the new API (there is now two pb files ipc for NSCP protocol and plugin for plugin communication)
  * Cleaned up API helper functions
  * Fixed client argument for "client mode" to allow arbitrary arguments
  * Cleaned up the argument processor code now requires "mode" to be first argument
- * Fixed some issues in the NSCPClient
 
 2011-08-23 MickeM
  * Fixed issue in the NSCP server

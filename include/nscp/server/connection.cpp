@@ -86,22 +86,12 @@ namespace nscp {
 					handler_->log_debug(__FILE__, __LINE__, _T("WAIT FOR MORE DATA"));
 					start_read_request(buffer_, 30, helper);
 				} else {
-					if (outbound_queue_.size() > 0)
-						outbound_queue_.push_front(nscp::packet::build_envelope_request(1));
-
 					unsigned int count = outbound_queue_.size();
-					handler_->log_debug(__FILE__, __LINE__, _T("Sending responses: ") + strEx::itos(count));
+					outbound_queue_.push_front(nscp::packet::build_envelope_response(count));
 					BOOST_FOREACH(nscp::packet &chunk, outbound_queue_) {
-						chunk.signature.additional_packet_count = --count;
+						chunk.signature.additional_packet_count = count--;
 						std::string s = chunk.to_buffer();
-						handler_->log_debug(__FILE__, __LINE__, _T("Sending: ") + chunk.signature.to_wstring());
-						handler_->log_debug(__FILE__, __LINE__, _T("Sending: ") + utf8::cvt<std::wstring>(strEx::format_buffer(s.c_str(), s.size())));
-/*
-						std::vector<boost::asio::const_buffer> buffers;
-						response_buffers_.push_back(buf(s));
-						start_write_request(buffers);
-
-*/
+						handler_->log_debug(__FILE__, __LINE__, _T(">>>") + chunk.signature.to_wstring());
 						response_buffers_.push_back(buf(s));
 					}
 					outbound_queue_.clear();
@@ -115,7 +105,7 @@ namespace nscp {
 		boost::tuple<bool, connection::process_helper> connection::process_signature() {
 			sig = parser_.parse_signature();
 
-			handler_->log_debug(__FILE__, __LINE__, _T("Got signature with: ") + strEx::itos(sig.payload_length));
+			handler_->log_debug(__FILE__, __LINE__, _T("<<<") + sig.to_wstring());
 			if (sig.header_length > 0) {
 				// @todo read header
 				handler_->log_error(__FILE__, __LINE__, _T("Headers is currently not supported..."));
@@ -124,25 +114,15 @@ namespace nscp {
 		}
 
 		boost::tuple<bool, connection::process_helper> connection::process_payload() {
-			nscp::packet chunk(sig);
-			parser_.parse_payload(chunk);
-			handler_->log_debug(__FILE__, __LINE__, _T("Processing: ") + chunk.to_wstring());
-			std::list<nscp::packet> result = handler_->process(chunk);
-			outbound_queue_.insert(outbound_queue_.end(), result.begin(), result.end());
-			/*
+			nscp::packet packet(sig);
+			parser_.parse_payload(packet);
 			if (sig.payload_type == nscp::data::envelope_request) {
-				NSCPEnvelope::Request envelope;
-				envelope.ParseFromString(result);
-				handler_->log_debug(__FILE__, __LINE__, _T("Got envelope: ") + strEx::itos(envelope.version()));
-			} else if (sig.payload_type == nscp::data::command_request) {
-				PluginCommand::RequestMessage msg;
-				msg.ParseFromString(result);
-				handler_->log_debug(__FILE__, __LINE__, _T("Proessing command: ") + utf8::cvt<std::wstring>(msg.payload(0).command()));
-				outbound_queue_.push_back(nscp::packet::build_payload(nscp::data::command_response, handler_->process(result), 0));
+				NSCPIPC::RequestEnvelope envelope;
+				envelope.ParseFromString(packet.payload);
 			} else {
-				handler_->log_error(__FILE__, __LINE__, _T("Unhandled packet: ") + strEx::itos(sig.payload_type));
+				std::list<nscp::packet> result = handler_->process(packet);
+				outbound_queue_.insert(outbound_queue_.end(), result.begin(), result.end());
 			}
-			*/
 			return boost::make_tuple(sig.additional_packet_count > 0, process_helper(&nscp::server::parser::digest_signature, &connection::process_signature));
 		}
 

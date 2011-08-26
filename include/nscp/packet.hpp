@@ -80,7 +80,7 @@ namespace nscp {
 				return *this;
 			}
 
-			std::wstring to_wstring() {
+			std::wstring to_wstring() const {
 				std::wstringstream ss;
 				ss << _T("version: ") << version 
 					<< _T(", header: ") << header_type
@@ -178,6 +178,26 @@ namespace nscp {
 			return packet(signature, "", buffer);
 		}
 
+		static packet build_envelope_response(unsigned long additionl_packets) {
+			nscp::data::signature_packet signature;
+			signature.header_length = 0;
+			signature.header_type = 0;
+
+			signature.additional_packet_count = additionl_packets;
+			signature.version = nscp::data::version_1;
+
+			std::string buffer;
+			NSCPIPC::RequestEnvelope request_envelope;
+			request_envelope.set_version(NSCPIPC::Common_Version_VERSION_1);
+			request_envelope.set_max_supported_version(NSCPIPC::Common_Version_VERSION_1);
+			request_envelope.SerializeToString(&buffer);
+
+			signature.payload_length = buffer.size();
+			signature.payload_type = nscp::data::envelope_response;
+
+			return packet(signature, "", buffer);
+		}
+
 		static nscp::data::signature_packet create_simple_sig(int payload_type, std::string::size_type size) {
 			nscp::data::signature_packet signature;
 			signature.header_length = 0;
@@ -227,10 +247,19 @@ namespace nscp {
 
 			return packet(signature, "", buffer);
 		}
-		bool is_command_request() {
+		bool is_envelope_request() {
+			return signature.payload_type == nscp::data::envelope_request;
+		}
+		bool is_envelope_response() {
+			return signature.payload_type == nscp::data::envelope_response;
+		}
+		bool is_query_request() {
 			return signature.payload_type == nscp::data::command_request;
 		}
-		bool is_command_response() {
+		bool is_query_response() {
+			return signature.payload_type == nscp::data::command_response;
+		}
+		bool is_submit_message() {
 			return signature.payload_type == nscp::data::command_response;
 		}
 		bool is_error() {

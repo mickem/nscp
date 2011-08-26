@@ -33,6 +33,10 @@ private:
 		std::wstring host;
 		std::wstring command;
 		std::wstring command_line;
+		std::wstring message;
+		unsigned int result;
+		bool submit;
+		bool query;
 		std::vector<std::wstring> arguments;
 		int port;
 		int timeout;
@@ -41,7 +45,9 @@ private:
 			: host(_T("127.0.0.1")), 
 			port(5668), 
 			timeout(10), 
-			no_ssl(false)
+			no_ssl(false),
+			submit(false),
+			query(false)
 		{}
 		std::wstring toString() {
 			std::wstringstream ss;
@@ -50,6 +56,8 @@ private:
 			ss << _T(", timeout: ") << timeout;
 			ss << _T(", no_ssl: ") << no_ssl;
 			ss << _T(", command: ") << command;
+			ss << _T(", message: ") << message;
+			ss << _T(", result: ") << result;
 			int i=0;
 			BOOST_FOREACH(std::wstring a, arguments) {
 				ss << _T(", argument[") << i++ << _T("]: ") << a;
@@ -97,13 +105,17 @@ public:
 	std::wstring getConfigurationMeta();
 
 private:
+	std::list<std::string> submit_nscp_command(nscp_connection_data con, std::string buffer);
 	std::list<std::string> execute_nscp_command(nscp_connection_data con, std::string buffer);
-	std::list<nscp::packet> send(nscp_connection_data &con, const std::list<nscp::packet> &chunks);
+	std::list<nscp::packet> send(nscp_connection_data &con, std::list<nscp::packet> &chunks);
 	std::list<nscp::packet> send_nossl(std::wstring host, int port, int timeout, const std::list<nscp::packet> &chunks);
 	std::list<nscp::packet> send_ssl(std::wstring host, int port, int timeout, const std::list<nscp::packet> &chunks);
-	void add_options(po::options_description &desc, nscp_connection_data &command_data);
+	void add_common_options(po::options_description &desc, nscp_connection_data &command_data);
+	void add_query_options(po::options_description &desc, nscp_connection_data &command_data);
+	void add_submit_options(po::options_description &desc, nscp_connection_data &command_data);
 
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);
+	bool submit_nscp(std::list<std::wstring> &arguments, std::wstring &result);
 
 private:
 	void add_command(std::wstring key, std::wstring args);

@@ -78,7 +78,7 @@ void NSClientT::log_info(const char* file, const int line, std::wstring message)
 #define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::wstring(msg))
 #define LOG_INFO_CORE(msg) { std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::wstring(msg))
-#define LOG_DEBUG_CORE(msg) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_DEBUG_CORE(msg) { if (mainClient.logDebug()) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); } }
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::wstring(msg))
 
 /**

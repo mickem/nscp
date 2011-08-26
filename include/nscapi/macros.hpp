@@ -215,6 +215,10 @@
 		std::string response; \
 		NSCAPI::nagiosReturn retCode = (&toObject)->commandRAWLineExec(command, request, response); \
 		return GET_PLUGIN()->wrapCommandLineExec(retCode, response, response_buffer, response_len); \
+		} catch (const std::exception &e) { \
+		NSC_LOG_CRITICAL(_T("Exception in: commandLineExec(...)") + utf8::cvt<std::wstring>(e.what())); \
+			std::wcerr << _T("Exception in: commandLineExec(...)") << utf8::cvt<std::wstring>(e.what()) << std::endl; \
+			return NSCAPI::hasFailed; \
 		} catch (...) { \
 			NSC_LOG_CRITICAL(_T("Unknown exception in: commandLineExec(...)")); \
 			std::wcerr << _T("Unknown exception in: commandLineExec(...)") << std::endl; \

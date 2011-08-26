@@ -61,6 +61,7 @@ namespace nscp {
 			boost::shared_ptr<socket_helpers::io::timed_writer> writer(new socket_helpers::io::timed_writer(get_io_service()));
 			writer->start_timer(timeout);
 			BOOST_FOREACH(const nscp::packet &chunk, chunks) {
+				std::wcout << _T(">>>") << chunk.signature.to_wstring() << std::endl;
 				if (!writer->write_and_wait(*socket_, get_socket(), boost::asio::buffer(chunk.to_buffer()))) {
 					std::cout << "FaILED TO SEND DATA..." << std::endl;
 					return;
@@ -83,7 +84,7 @@ namespace nscp {
 					return chunks;
 				}
 				chunk.read_signature(buf);
-				std::wcout << chunk.signature.to_wstring() << std::endl;
+				std::wcout << _T("<<<") << chunk.signature.to_wstring() << std::endl;
 				buf.resize(chunk.signature.payload_length);
 
 				if (!reader->read_and_wait(*socket_, get_socket(), boost::asio::buffer(buf))) {
@@ -137,6 +138,7 @@ namespace nscp {
 			boost::shared_ptr<socket_helpers::io::timed_writer> writer(new socket_helpers::io::timed_writer(get_io_service()));
 			writer->start_timer(timeout);
 			BOOST_FOREACH(const nscp::packet &chunk, chunks) {
+				std::wcout << _T(">>>") << chunk.signature.to_wstring() << std::endl;
 				if (!writer->write_and_wait(*ssl_socket_, get_socket(), boost::asio::buffer(chunk.to_buffer()))) {
 					std::cout << "FaILED TO SEND DATA..." << std::endl;
 					return;
@@ -160,7 +162,7 @@ namespace nscp {
 					return chunks;
 				}
 				chunk.read_signature(buf);
-				std::wcout << chunk.signature.to_wstring() << std::endl;
+				std::wcout << _T("<<<") <<  chunk.signature.to_wstring() << std::endl;
 				buf.resize(chunk.signature.payload_length);
 
 				if (!reader->read_and_wait(*ssl_socket_, get_socket(), boost::asio::buffer(buf))) {

@@ -11,7 +11,7 @@ std::list<nscp::packet> handler_impl::process(nscp::packet &packet) {
 
 	Plugin::Common::Header hdr;
 
-	if (packet.is_command_request()) {
+	if (packet.is_query_request()) {
 		Plugin::QueryRequestMessage msg;
 		msg.ParseFromString(packet.payload);
 		hdr.CopyFrom(msg.header());
@@ -54,6 +54,10 @@ std::list<nscp::packet> handler_impl::process(nscp::packet &packet) {
 			}
 			result.push_back(nscp::packet::create_query_response(outBuffer));
 		}
+	} else if (packet.is_query_response()) {
+
+		// @todo handle submission here
+
 	} else {
 		NSC_LOG_ERROR(_T("Unknown packet: ") + packet.to_wstring());
 		result.push_back(create_error(_T("Unknown packet: ") + packet.to_wstring()));
