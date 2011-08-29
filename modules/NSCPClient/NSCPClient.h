@@ -107,12 +107,14 @@ public:
 private:
 	std::list<std::string> submit_nscp_command(nscp_connection_data con, std::string buffer);
 	std::list<std::string> execute_nscp_command(nscp_connection_data con, std::string buffer);
+	std::list<std::string> execute_nscp_query(nscp_connection_data con, std::string buffer);
 	std::list<nscp::packet> send(nscp_connection_data &con, std::list<nscp::packet> &chunks);
 	std::list<nscp::packet> send_nossl(std::wstring host, int port, int timeout, const std::list<nscp::packet> &chunks);
 	std::list<nscp::packet> send_ssl(std::wstring host, int port, int timeout, const std::list<nscp::packet> &chunks);
 	void add_common_options(po::options_description &desc, nscp_connection_data &command_data);
 	void add_query_options(po::options_description &desc, nscp_connection_data &command_data);
 	void add_submit_options(po::options_description &desc, nscp_connection_data &command_data);
+	void add_exec_options(po::options_description &desc, nscp_connection_data &command_data);
 
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);
 	bool submit_nscp(std::list<std::wstring> &arguments, std::wstring &result);

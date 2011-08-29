@@ -5,6 +5,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-29 MickeM
+ * Fixed some *nix build issues...
+
 2011-08-25 MickeM
  * Fixed some issues in the NSCPClient
  * Fixed debug log issue in core
@@ -1159,3 +1162,5 @@ TODO:
 
 2005-02-14 MickeM
  * Initial SourceForge release
+
+ 

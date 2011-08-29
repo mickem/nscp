@@ -45,6 +45,9 @@ namespace nscp {
 		static const short command_request = 10;
 		static const short command_response = 11;
 
+		static const short exec_request = 20;
+		static const short exec_response = 21;
+
 		static const short error = 100;
 
 		static const short version_1 = 1;
@@ -110,10 +113,12 @@ namespace nscp {
 	public:
 		nscp_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
 		nscp_exception(std::string error) : error_(error) {}
-		const char* what() const {
+		virtual ~nscp_exception() throw() {}
+		virtual const char* what() const throw() {
 			return error_.c_str();
 		}
 	};
+
 
 	struct packet {
 		nscp::data::signature_packet signature;
@@ -258,6 +263,12 @@ namespace nscp {
 		}
 		bool is_query_response() {
 			return signature.payload_type == nscp::data::command_response;
+		}
+		bool is_exec_request() {
+			return signature.payload_type == nscp::data::exec_request;
+		}
+		bool is_exec_response() {
+			return signature.payload_type == nscp::data::exec_response;
 		}
 		bool is_submit_message() {
 			return signature.payload_type == nscp::data::command_response;

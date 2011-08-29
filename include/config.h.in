@@ -68,7 +68,8 @@
 // Buffer size of incoming data (notice this is the maximum request length!)
 #define RECV_BUFFER_LEN		1024
 
-#define NASTY_METACHARS         _T("|`&><'\"\\[]{}")        /* This may need to be modified for windows directory seperator */
+#define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
+#define NASTY_METACHARS_W       _T("|`&><'\"\\[]{}")
 
 #define DATE_FORMAT _T("%#c")
 

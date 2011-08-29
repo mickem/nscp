@@ -107,7 +107,7 @@ void NSCPClient::add_common_options(po::options_description &desc, nscp_connecti
 }
 void NSCPClient::add_query_options(po::options_description &desc, nscp_connection_data &command_data) {
 	desc.add_options()
-		("command,c", po::wvalue<std::wstring>(&command_data.command), "The name of the command that the remote daemon should run")
+		("command,c", po::wvalue<std::wstring>(&command_data.command), "The name of the query that the remote daemon should run")
 		("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data.arguments), "list of arguments")
 		;
 }
@@ -116,6 +116,12 @@ void NSCPClient::add_submit_options(po::options_description &desc, nscp_connecti
 		("command,c", po::wvalue<std::wstring>(&command_data.command), "The name of the command that the remote daemon should run")
 		("message,m", po::wvalue<std::wstring>(&command_data.message), "Message")
 		("result,r", po::value<unsigned int>(&command_data.result), "Result code")
+		;
+}
+void NSCPClient::add_exec_options(po::options_description &desc, nscp_connection_data &command_data) {
+	desc.add_options()
+		("command,c", po::wvalue<std::wstring>(&command_data.command), "The name of the command that the remote daemon should run")
+		("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data.arguments), "list of arguments")
 		;
 }
 
@@ -310,6 +316,8 @@ int NSCPClient::commandLineExec(const std::wstring &command, std::list<std::wstr
 		add_query_options(query, command_data);
 		po::options_description submit("Submit NSCP options");
 		add_submit_options(submit, command_data);
+		po::options_description exec("Execute NSCP options");
+		add_exec_options(exec, command_data);
 		po::options_description desc("Allowed options");
 		desc.add(common).add(query).add(submit);
 
@@ -337,6 +345,32 @@ int NSCPClient::commandLineExec(const std::wstring &command, std::list<std::wstr
 
 		std::string buffer;
 		nscapi::functions::create_simple_query_request(command_data.command, command_data.arguments, buffer);
+		std::list<std::string> payloads = execute_nscp_query(command_data, buffer);
+		int ret = NSCAPI::returnUNKNOWN;
+		std::list<std::string> strings = collect_result(payloads, ret);
+		BOOST_FOREACH(std::string p, strings) {
+			result += utf8::cvt<std::wstring>(p) + _T("\n");
+		}
+		return ret;
+	} else if (command == _T("exec_nscp")) {
+		boost::program_options::variables_map vm;
+
+		po::options_description common("Common options");
+		add_common_options(common, command_data);
+		po::options_description query("Query NSCP options");
+		add_exec_options(query, command_data);
+		po::options_description desc("Allowed options");
+		desc.add(common).add(query);
+
+		std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
+		po::positional_options_description p;
+		p.add("arguments", -1);
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		std::string buffer;
+		nscapi::functions::create_simple_exec_request(command_data.command, command_data.arguments, buffer);
 		std::list<std::string> payloads = execute_nscp_command(command_data, buffer);
 		int ret = NSCAPI::returnUNKNOWN;
 		std::list<std::string> strings = collect_result(payloads, ret);
@@ -380,6 +414,33 @@ std::list<std::string> NSCPClient::execute_nscp_command(nscp_connection_data con
 		chunks = send(con, chunks);
 		BOOST_FOREACH(nscp::packet &chunk, chunks) {
 			if (chunk.is_query_response()) {
+				result.push_back(chunk.payload);
+			} else if (chunk.is_error()) {
+				NSCPIPC::ErrorMessage message;
+				message.ParseFromString(chunk.payload);
+				for (int i=0;i<message.error_size();i++) {
+					NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
+				}
+			} else {
+				NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			}
+			//NSC_DEBUG_MSG_STD(_T("Found chunk: ") + utf8::cvt<std::wstring>(strEx::format_buffer(chunk.payload.c_str(), chunk.payload.size())));
+		}
+		return result;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+		return result;
+	}
+}
+std::list<std::string> NSCPClient::execute_nscp_query(nscp_connection_data con, std::string buffer) {
+	std::list<std::string> result;
+	try {
+		std::list<nscp::packet> chunks;
+		chunks.push_back(nscp::packet::build_envelope_request(1));
+		chunks.push_back(nscp::packet::create_payload(nscp::data::exec_request, buffer, 0));
+		chunks = send(con, chunks);
+		BOOST_FOREACH(nscp::packet &chunk, chunks) {
+			if (chunk.is_exec_response()) {
 				result.push_back(chunk.payload);
 			} else if (chunk.is_error()) {
 				NSCPIPC::ErrorMessage message;
