@@ -135,7 +135,11 @@ void python_script::_exec(const std::string &scriptfile){
 		PyRun_SimpleString("import cStringIO");
 		PyRun_SimpleString("import sys");
 		PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
-
+		boost::filesystem::wpath path = GET_CORE()->getBasePath();
+		path /= _T("scripts");
+		path /= _T("python");
+		path /= _T("lib");
+		PyRun_SimpleString(("sys.path.append('" + utf8::cvt<std::string>(path.string()) + "')").c_str());
 		object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
 	} catch( error_already_set e) {
 		script_wrapper::log_exception();

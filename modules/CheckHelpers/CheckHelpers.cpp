@@ -55,9 +55,14 @@ bool CheckHelpers::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		get_core()->registerCommand(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
 		get_core()->registerCommand(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
+		return false;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
 	}
 	return true;
 }

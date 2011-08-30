@@ -113,13 +113,16 @@ namespace nscapi {
 
 	class nscapi_exception : public std::exception {
 	public:
-		std::wstring msg_;
-		nscapi_exception(std::wstring msg) : msg_(msg) {}
+		std::string msg_;
+		nscapi_exception(std::wstring msg) : msg_(utf8::cvt<std::string>(msg)) {}
 
 
-		virtual ~nscapi_exception() throw() {}
-		std::string what() {
-			return utf8::cvt<std::string>(msg_);
+		~nscapi_exception() throw() {}
+		const char* what() const throw() {
+			return msg_.c_str();
+		}
+		const std::wstring wwhat() const throw() {
+			return utf8::cvt<std::wstring>(msg_);
 		}
 	};
 

@@ -63,15 +63,23 @@ namespace nsclient {
 					*foo = 0;
 					throw "test";
 				} else {
-					strEx::token t = strEx::getToken(s, ' ');
-					std::wstring msg, perf;
-					NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, msg, perf);
-					if (ret == NSCAPI::returnIgnored) {
-						log(_T("No handler for command: ") + t.first);
-					} else {
-						log(nscapi::plugin_helper::translateReturn(ret) + _T(":") + msg);
-						if (!perf.empty())
-							log(_T(" Perfoamcen data: ") + perf);
+					try {
+						strEx::token t = strEx::getToken(s, ' ');
+						std::wstring msg, perf;
+						NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, msg, perf);
+						if (ret == NSCAPI::returnIgnored) {
+							log(_T("No handler for command: ") + t.first);
+						} else {
+							log(nscapi::plugin_helper::translateReturn(ret) + _T(":") + msg);
+							if (!perf.empty())
+								log(_T(" Performance data: ") + perf);
+						}
+					} catch (const nscapi::nscapi_exception &e) {
+						log(_T("NSCAPI Exception: ") + utf8::cvt<std::wstring>(e.what()));
+					} catch (const std::exception &e) {
+						log(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+					} catch (...) {
+						log(_T("Unknown exception"));
 					}
 				}
 			}

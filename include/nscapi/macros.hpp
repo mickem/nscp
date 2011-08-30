@@ -81,9 +81,6 @@
 	extern int NSLoadModuleEx(wchar_t* alias, int mode) { \
 	try { \
 	return GET_PLUGIN()->wrapLoadModule(toObject.loadModuleEx(alias, mode)); \
-		} catch (nscapi::nscapi_exception e) { \
-		NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
-		return NSCAPI::hasFailed; \
 		} catch (...) { \
 		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
 		return NSCAPI::hasFailed; \
@@ -92,9 +89,6 @@
 	extern int NSLoadModule() { \
 	try { \
 	return GET_PLUGIN()->wrapLoadModule(toObject.loadModule()); \
-		} catch (nscapi::nscapi_exception e) { \
-		NSC_LOG_CRITICAL(_T("NSCMHE in: wrapLoadModule: " + e.msg_)); \
-		return NSCAPI::hasFailed; \
 		} catch (...) { \
 		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
 		return NSCAPI::hasFailed; \

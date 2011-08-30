@@ -90,11 +90,12 @@ IF (PROTOBUF_FOUND)
 	  
 	  SET(PB_TARGET_INCLUDE ${INCL})
 	  #configure_file(${ABS_FIL}.h.in ${ABS_FIL}.h)
+	  file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/scripts/python/lib)
 
       ADD_CUSTOM_COMMAND(
-        OUTPUT ${${VAR}} ${INCL}
+        OUTPUT ${${VAR}} ${INCL}  ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
         COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
-        ARGS --cpp_out  ${CMAKE_CURRENT_BINARY_DIR} --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
+        ARGS --cpp_out  ${CMAKE_CURRENT_BINARY_DIR} --python_out ${PROJECT_BINARY_DIR}/scripts/python/lib --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
         DEPENDS ${ABS_FIL}
         COMMENT "Running protocol buffer compiler on ${FIL} - ${PROTOBUF_PROTOC_EXECUTABLE}" VERBATIM )
 

@@ -179,7 +179,9 @@ namespace nscapi {
 			message.ParseFromString(response);
 
 
-			if (message.payload_size() != 1) {
+			if (message.payload_size() == 0) {
+				return;
+			} else if (message.payload_size() > 1) {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
 			}
 

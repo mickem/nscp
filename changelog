@@ -5,6 +5,12 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-30 MickeM
+ * Fixed uncaught exception in test client
+ * Added protocol buffers to source (needs to be added to installer as well)
+ * Added example python protocol buffer handler
+ * Added lib folder to python scripting (and automagicall load)
+
 2011-08-29 MickeM
  * Fixed some *nix build issues...
 

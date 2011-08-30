@@ -67,10 +67,10 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::cvt<std::wstring>(e.what()));
+		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
@@ -83,7 +83,10 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			scheduler_.start();
 		}
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception in module Scheduler: ") + e.msg_);
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
+		return false;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Unknown Exception in module Scheduler!"));
@@ -160,7 +163,10 @@ void Scheduler::handle_schedule(scheduler::target item) {
 			GET_CORE()->NotifyChannel(item.channel, item.alias, code, response);
 		}
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception handling: ") + item.alias + _T(": ") + e.msg_);
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
+		scheduler_.remove_task(item.id);
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
 		scheduler_.remove_task(item.id);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Unknown Exception handling: ") + item.alias);

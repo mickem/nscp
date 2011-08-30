@@ -50,9 +50,14 @@ bool CheckTaskSched2::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mo
 		SETTINGS_REG_PATH(task_scheduler::SECTION);
 		SETTINGS_REG_KEY_S(task_scheduler::SYNTAX);
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
+		return false;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		return false;
 	}
 	syntax = SETTINGS_GET_STRING(task_scheduler::SYNTAX);
 	return true;

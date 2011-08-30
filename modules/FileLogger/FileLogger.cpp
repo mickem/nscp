@@ -154,11 +154,11 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		getFileName();
 
+	} catch (nscapi::nscapi_exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
+		return false;
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + e.msg_);
 		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));

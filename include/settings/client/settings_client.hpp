@@ -592,8 +592,6 @@ namespace nscapi {
 							else
 								v->key->notify(core_, v->path, v->key_name);
 						}
-					} catch (const nscapi::nscapi_exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to notify ") + v->key_name + _T(": ") + e.msg_);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, _T("Failed to notify ") + v->key_name + _T(": ") + utf8::cvt<std::wstring>(e.what()));
 					} catch (...) {
@@ -604,8 +602,6 @@ namespace nscapi {
 					try {
 						if (v->path)
 							v->path->notify(core_, v->path_name);
-					} catch (const nscapi::nscapi_exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to notify ") + v->path_name + _T(": ") + e.msg_);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, _T("Failed to notify ") + v->path_name + _T(": ") + utf8::cvt<std::wstring>(e.what()));
 					} catch (...) {
