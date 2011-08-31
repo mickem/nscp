@@ -8,8 +8,8 @@ Const PROGNAME = "check_battery"
 Const VERSION = "0.0.1"
 
 ' Default settings for your script.
-threshold_warning = 50
-threshold_critical = 20
+threshold_warning = "50:"
+threshold_critical = "20:"
 strComputer = "."
 
 ' Create the NagiosPlugin object
@@ -35,9 +35,11 @@ Set colInstances = np.simple_WMI_CIMV2(strComputer, "SELECT * FROM Win32_Battery
 return_code = OK
 
 For Each objInstance In colInstances
-	WScript.Echo "Battery " & objInstance.Status & " - Charge Remaining = " & objInstance.EstimatedChargeRemaining & "% | charge=" & objInstance.EstimatedChargeRemaining
+	if message <> "" then : message = message & ", "
+	if perf <> "" then : perf = perf & ", "
+	message = message & "Battery " & objInstance.Status & " - Charge Remaining = " & objInstance.EstimatedChargeRemaining & "%"
+	perf = perf & "charge=" & objInstance.EstimatedChargeRemaining
 	return_code = np.escalate_check_threshold(return_code, objInstance.EstimatedChargeRemaining)
 Next
-
 ' Nice Exit with msg and exitcode
-np.nagios_exit "", return_code
+np.nagios_exit message & "|" & perf, return_code
