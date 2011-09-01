@@ -39,14 +39,14 @@ public:
 	bool unloadModule();
 
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("NSClient server");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("A simple server that listens for incoming NSClient (check_nt) connection and handles them.\nAlthough NRPE is the preferred method NSClient is fully supported and can be used for simplicity or for compatibility.");
 	}
 };

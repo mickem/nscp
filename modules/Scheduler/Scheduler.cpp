@@ -27,8 +27,6 @@
 
 #include <settings/client/settings_client.hpp>
 
-Scheduler gInstance;
-
 namespace sh = nscapi::settings_helper;
 
 bool Scheduler::loadModule() {
@@ -178,6 +176,6 @@ void Scheduler::handle_schedule(scheduler::target item) {
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gInstance);
+NSC_WRAPPERS_MAIN_DEF(Scheduler);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();

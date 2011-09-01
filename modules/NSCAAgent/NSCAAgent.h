@@ -49,7 +49,7 @@ public:
 	* Return the module name.
 	* @return The module name
 	*/
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 #ifdef HAVE_LIBCRYPTOPP
 		return _T("NSCAAgent (w/ encryption)");
 #else
@@ -60,16 +60,16 @@ public:
 	* Module version
 	* @return module version
 	*/
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
 	}
 	bool hasNotificationHandler() { return true; }
 
-	std::wstring getCryptos();
+	static std::wstring getCryptos();
 
 	NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
 

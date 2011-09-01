@@ -22,6 +22,12 @@ message Common {
 		optional double float_data = 4;
 		optional bool bool_data = 5;
 	}
+
+	message KeyValue {
+		required string key = 1;
+		required string value = 2;
+		repeated string data = 3;
+	}
 	
 
 	enum Version {
@@ -29,24 +35,28 @@ message Common {
 	};
 
 	message Header {
-		enum Type {
-			QUERY_REQUEST = 1;
-			QUERY_RESPONSE = 2;
-			
-			EXEC_REQUEST = 3;
-			EXEC_RESPONSE = 4;
-			
-			LOG_MESSAGE = 5;
-		};
-		required Type type = 1;
-		required Common.Version version = 2;
-		optional Common.Version max_supported_version = 3;
 		
-		optional string sender = 17;
-		optional string recipient = 18;
-		optional int64 id = 19;
+		required Common.Version version = 1;
+		optional Common.Version max_supported_version = 2;
+		
+		optional string sender = 3;
+		optional string recipient = 4;
+		
+		optional int64 id = 16;
+		
+		repeated Common.KeyValue metadata = 5;
+		repeated string tags = 6;
 	};
 
+	message Attachment {
+		
+		optional int64 id = 1;
+		required string type = 2;
+		repeated Common.KeyValue metadata = 3;
+		repeated string tags = 4;
+		required string data = 5;
+	};
+	
 	message PerformanceData {
 		message IntValue {
 			required int64 value = 1;
@@ -96,10 +106,12 @@ message QueryRequestMessage {
 		optional int32 id = 1;
 		required string command = 2;
 		repeated string arguments = 3;
+		repeated Common.Attachment attachments = 17;
 	};
 
 	required Common.Header header = 1;
 	repeated Request payload = 2;
+	repeated Common.Attachment attachments = 3;
 }
 message QueryResponseMessage {
 
@@ -111,13 +123,14 @@ message QueryResponseMessage {
 		
 		required Common.ResultCode result = 3;
 		required string message = 4;
-		optional string legacyPerf = 17;
 		repeated Common.PerformanceData perf = 5;
+		repeated Common.Attachment attachments = 17;
 		
 	}
 
 	required Common.Header header = 1;
 	repeated Response payload = 2;
+	repeated Common.Attachment attachments = 3;
 }
 
 // // // // // // // // // // // // // // // // // // // // // // // // 
@@ -159,10 +172,12 @@ message ExecuteRequestMessage {
 		optional int32 id = 1;
 		required string command = 2;
 		repeated string arguments = 3;
+		repeated Common.Attachment attachments = 17;
 	};
 
 	required Common.Header header = 1;
 	repeated Request payload = 2;
+	repeated Common.Attachment attachments = 3;
 }
 message ExecuteResponseMessage {
 	message Response {
@@ -189,10 +204,12 @@ message ExecuteResponseMessage {
 		required string message = 10;
 		
 		optional ResponseData data = 11;
+		repeated Common.Attachment attachments = 17;
 		
 	}
 	required Common.Header header = 1;
 	repeated Response payload = 2;
+	repeated Common.Attachment attachments = 3;
 }
 
 // // // // // // // // // // // // // // // // // // // // // // // // 
@@ -205,6 +222,7 @@ message ExecuteResponseMessage {
 message SubmitResponseMessage {
 	required Common.Header header = 1;
 	repeated QueryResponseMessage.Response payload = 2;
+	repeated Common.Attachment attachments = 3;
 }
 
 // // // // // // // // // // // // // // // // // // // // // // // // 

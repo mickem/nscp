@@ -31,8 +31,6 @@
 
 namespace sh = nscapi::settings_helper;
 
-NSCPListener gNSCPListener;
-
 NSCPListener::NSCPListener() : info_(boost::shared_ptr<nscp::server::handler>(new handler_impl(1024))) {
 }
 NSCPListener::~NSCPListener() {}
@@ -159,6 +157,6 @@ bool NSCPListener::hasMessageHandler() {
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gNSCPListener);
+NSC_WRAPPERS_MAIN_DEF(NSCPListener);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();

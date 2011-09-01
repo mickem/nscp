@@ -74,6 +74,12 @@ namespace NSCAPI {
 	const int key_integer = 200;
 	const int key_bool = 300;
 
+	const int message_processed	= 0x01;
+	const int message_routed	= 0x02;
+	const int message_ignored	= 0x04;
+	const int message_digested	= 0x08;
+	const int message_modified	= 0x10;
+
 	typedef int nagiosReturn;
 	typedef int boolReturn;
 	typedef int errorReturn;
@@ -167,21 +173,27 @@ namespace nscapi {
 	}
 
 	namespace plugin_api {
-		typedef int (*lpModuleHelperInit)(unsigned int, ::nscapi::core_api::lpNSAPILoader f);
-		typedef int (*lpLoadModule)(const wchar_t*,int);
-		typedef int (*lpGetName)(wchar_t*,unsigned int);
-		typedef int (*lpGetDescription)(wchar_t*,unsigned int);
-		typedef int (*lpGetVersion)(int*,int*,int*);
-		typedef int (*lpHasCommandHandler)();
-		typedef int (*lpHasMessageHandler)();
-		typedef NSCAPI::nagiosReturn (*lpHandleCommand)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
-		typedef int (*lpDeleteBuffer)(char**);
-		typedef int (*lpCommandLineExec)(const wchar_t*,const char*,const unsigned int,char**,unsigned int*);
-		typedef int (*lpHandleMessage)(const char*);
-		typedef int (*lpUnLoadModule)();
-		typedef void (*lpShowTray)();
-		typedef void (*lpHideTray)();
-		typedef int (*lpHasNotificationHandler)();
-		typedef int (*lpHandleNotification)(const wchar_t *channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
+		typedef NSCAPI::errorReturn (*lpGetName)(wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpGetDescription)(wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpModuleHelperInit)(unsigned int, ::nscapi::core_api::lpNSAPILoader f);
+		typedef NSCAPI::errorReturn (*lpGetVersion)(int* major, int* minor, int* revision);
+		typedef NSCAPI::errorReturn (*lpDeleteBuffer)(char** buffer);
+
+		typedef NSCAPI::errorReturn (*lpLoadModule)(unsigned int plugin_id, const wchar_t* alias, int mode);
+		typedef NSCAPI::errorReturn (*lpUnLoadModule)(unsigned int plugin_id);
+
+		typedef NSCAPI::errorReturn (*lpHasCommandHandler)(unsigned int plugin_id);
+		typedef NSCAPI::errorReturn (*lpHandleCommand)(unsigned int plugin_id, const wchar_t* command, const char* in_buffer, const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
+
+		typedef NSCAPI::errorReturn (*lpHasMessageHandler)(unsigned int plugin_id);
+		typedef NSCAPI::errorReturn (*lpHandleMessage)(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
+
+		typedef NSCAPI::errorReturn (*lpHasNotificationHandler)(unsigned int plugin_id);
+		typedef NSCAPI::errorReturn (*lpHandleNotification)(unsigned int plugin_id, const wchar_t *channel, const wchar_t* command, const char* buffer, unsigned int buffer_len);
+
+		typedef NSCAPI::errorReturn (*lpHasRoutingHandler)(unsigned int plugin_id);
+		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const wchar_t *channel, const wchar_t* command, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+
+		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const wchar_t* command, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
 	}
 }

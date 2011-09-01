@@ -37,8 +37,10 @@ IF(WIN32)
 		settings_client.hpp
 		cli_parser.hpp
 		
+		plugin_list.hpp
 		commands.hpp
 		channels.hpp
+		routers.hpp
 		logger.hpp
 		service_manager.hpp
 		settings_logger_impl.hpp

@@ -47,18 +47,18 @@ public:
 	bool unloadModule();
 
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 #ifdef USE_SSL
 		return _T("NSCP server");
 #else
 		return _T("NSCP server (no SSL)");
 #endif
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("A simple server that listens for incoming NSCP connection and handles them.");
 	}
 

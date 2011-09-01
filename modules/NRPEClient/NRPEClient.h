@@ -100,18 +100,18 @@ public:
 	bool unloadModule();
 
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 #ifdef USE_SSL
 		return _T("NRPE client (w/ SSL)");
 #else
 		return _T("NRPE client");
 #endif
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("A simple client for checking remote NRPE servers (think proxy).\n")
 #ifndef USE_BOOST
 		_T("BOOST support is missing (this is probably very bad)!\n")

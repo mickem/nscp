@@ -37,13 +37,13 @@ public:
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("CheckTaskSched");
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("CheckTaskSched can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}

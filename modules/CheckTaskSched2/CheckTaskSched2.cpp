@@ -37,8 +37,6 @@
 #include <settings/client/settings_client.hpp>
 #include "../CheckTaskSched/settings.hpp"
 
-CheckTaskSched2 gCheckTaskSched2;
-
 bool CheckTaskSched2::loadModule() {
 	return false;
 }
@@ -182,7 +180,7 @@ int CheckTaskSched2::commandLineExec(const wchar_t* command, const unsigned int 
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckTaskSched2);
+NSC_WRAPPERS_MAIN_DEF(CheckTaskSched2);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckTaskSched2);
+NSC_WRAPPERS_HANDLE_CMD_DEF(CheckTaskSched2);
 //NSC_WRAPPERS_CLI_DEF(gCheckTaskSched);

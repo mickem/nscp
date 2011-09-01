@@ -30,8 +30,6 @@
 
 #include <settings/client/settings_client.hpp>
 
-NSCAAgent gNSCAAgent;
-
 namespace sh = nscapi::settings_helper;
 
 /**
@@ -175,7 +173,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleSimpleNotification(const std::wstring chan
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gNSCAAgent);
+NSC_WRAPPERS_MAIN_DEF(NSCAAgent);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF(gNSCAAgent);
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();

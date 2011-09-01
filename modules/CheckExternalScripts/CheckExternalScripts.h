@@ -79,14 +79,14 @@ public:
 	bool unloadModule();
 
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("Check External Scripts");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("A simple wrapper to run external scripts and batch files.");
 	}
 

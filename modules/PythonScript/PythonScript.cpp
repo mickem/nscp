@@ -32,8 +32,6 @@
 
 #include "script_wrapper.hpp"
 
-PythonScript gPythonScript;
-
 PythonScript::PythonScript() {
 }
 PythonScript::~PythonScript() {
@@ -98,7 +96,8 @@ BOOST_PYTHON_MODULE(NSCP)
 		.value("OK", script_wrapper::OK)
 		;
 	def("log", script_wrapper::log_msg);
-	def("get_alias", script_wrapper::get_alias);
+//	def("get_module_alias", script_wrapper::get_module_alias);
+//	def("get_script_alias", script_wrapper::get_script_alias);
 }
 
 python_script::python_script(const script_container& script)  {
@@ -241,8 +240,6 @@ bool PythonScript::hasNotificationHandler() {
 	return true;
 }
 
-
-
 bool PythonScript::reload(std::wstring &message) {
 	/*
 	bool error = false;
@@ -323,8 +320,8 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gPythonScript);
+NSC_WRAPPERS_MAIN_DEF(PythonScript);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gPythonScript);
-NSC_WRAPPERS_CLI_DEF(gPythonScript);
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF(gPythonScript);
+NSC_WRAPPERS_HANDLE_CMD_DEF();
+NSC_WRAPPERS_CLI_DEF();
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();

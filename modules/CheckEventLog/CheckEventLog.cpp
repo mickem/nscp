@@ -51,8 +51,6 @@ namespace sh = nscapi::settings_helper;
 #include "simple_registry.hpp"
 #include "eventlog_record.hpp"
 
-CheckEventLog gCheckEventLog;
-
 CheckEventLog::CheckEventLog() {
 }
 CheckEventLog::~CheckEventLog() {
@@ -374,6 +372,6 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckEventLog);
+NSC_WRAPPERS_MAIN_DEF(CheckEventLog);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckEventLog);
+NSC_WRAPPERS_HANDLE_CMD_DEF();

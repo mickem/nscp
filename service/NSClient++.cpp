@@ -954,6 +954,8 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::wpath file, std::
 		}
 		if (plugin->hasMessageHandler())
 			logger_master_.add_plugin(plugin);
+		if (plugin->has_routing_handler())
+			routers_.add_plugin(plugin);
 		//settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
 		// TODO add comments elsewhere to the settings store for all loaded modules...
 	}
@@ -1159,7 +1161,7 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_command, std::st
 	}
 
 	Plugin::ExecuteResponseMessage response_message;
-	nscapi::functions::create_simple_header(response_message.mutable_header(), Plugin::Common_Header_Type_EXEC_RESPONSE);
+	nscapi::functions::create_simple_header(response_message.mutable_header());
 
 	BOOST_FOREACH(std::string r, responses) {
 		Plugin::ExecuteResponseMessage tmp;
@@ -1176,25 +1178,68 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_command, std::st
 }
 
 
+NSCAPI::errorReturn NSClientT::reroute(std::wstring &channel, const wchar_t* command, std::string &buffer) {
+	BOOST_FOREACH(nsclient::plugin_type p, routers_.get(channel)) {
+		wchar_t *new_channel_buffer;
+		char *new_buffer;
+		unsigned int new_buffer_len;
+		int status = p->route_message(channel.c_str(), command, buffer.c_str(), buffer.size(), &new_channel_buffer, &new_buffer, &new_buffer_len);
+		if (status&NSCAPI::message_modified == NSCAPI::message_modified) {
+			buffer = std::string(new_buffer, new_buffer_len);
+			p->deleteBuffer(&new_buffer);
+		}
+		if (status&NSCAPI::message_routed == NSCAPI::message_routed) {
+			channel = new_channel_buffer;
+			//p->deleteBuffer(new_channel_buffer);
+			return NSCAPI::message_routed;
+		}
+		if (status&NSCAPI::message_ignored == NSCAPI::message_ignored)
+			return NSCAPI::message_ignored;
+		if (status&NSCAPI::message_digested == NSCAPI::message_digested)
+			return NSCAPI::message_ignored;
+	}
+	return NSCAPI::isfalse;
+}
 
-NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code,  char* result, unsigned int result_len) {
+NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const wchar_t* command, char* buffer, unsigned int buffer_len) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (009)."));
 		return NSCAPI::hasFailed;
 	}
+
+	std::wstring schannel = channel;
+	std::string sbuffer = std::string(buffer, buffer_len);
+	try {
+		int count = 0;
+		while (reroute(schannel, command, sbuffer)==NSCAPI::message_routed && count++ <= 10) {
+			LOG_DEBUG_CORE_STD(_T("Re-routing message to: ") + schannel);
+		}
+		if (count >= 10) {
+			LOG_ERROR_CORE(_T("More then 10 routes, discarding message..."));
+			return NSCAPI::hasFailed;
+		}
+	} catch (nsclient::plugins_list_exception &e) {
+		LOG_ERROR_CORE(_T("Erroro routing channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()));
+		return NSCAPI::hasFailed;
+	} catch (...) {
+		LOG_ERROR_CORE(_T("Error routing channel: ") + std::wstring(channel));
+		return NSCAPI::hasFailed;
+	}
+
 	try {
 		//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
 		bool found = false;
-		BOOST_FOREACH(nsclient::channels::plugin_type p, channels_.get(channel)) {
-			p->handleNotification(channel, command, code, result, result_len);
+		BOOST_FOREACH(nsclient::plugin_type p, channels_.get(schannel)) {
+			p->handleNotification(schannel.c_str(), command, sbuffer.c_str(), sbuffer.length());
 			found = true;
 		}
 		if (!found) {
-			LOG_ERROR_CORE_STD(_T("Noone listens for events from: ") + std::wstring(channel));
+			LOG_ERROR_CORE_STD(_T("No one listens for events from: ") + schannel + _T(" (") + std::wstring(channel) + _T(")"));
+			return NSCAPI::hasFailed;
 		}
 		return NSCAPI::isSuccess;
-	} catch (nsclient::channels::channel_exception &e) {
+	} catch (nsclient::plugins_list_exception &e) {
 		LOG_ERROR_CORE(_T("No handler for channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()));
 		return NSCAPI::hasFailed;
 	} catch (...) {

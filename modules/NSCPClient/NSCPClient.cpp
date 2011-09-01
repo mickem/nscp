@@ -35,8 +35,6 @@
 
 namespace sh = nscapi::settings_helper;
 
-NSCPClient gNSCPClient;
-
 NSCPClient::NSCPClient() : buffer_length_(0) {
 }
 
@@ -532,8 +530,8 @@ std::list<nscp::packet> NSCPClient::send_nossl(std::wstring host, int port, int 
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gNSCPClient);
+NSC_WRAPPERS_MAIN_DEF(NSCPClient);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gNSCPClient);
-NSC_WRAPPERS_CLI_DEF(gNSCPClient);
+NSC_WRAPPERS_HANDLE_CMD_DEF();
+NSC_WRAPPERS_CLI_DEF();
 

@@ -1,4 +1,4 @@
-from NSCP import Settings, Registry, Core, log, status, get_alias
+from NSCP import Settings, Registry, Core, log, status
 #import sys
 #sys.path.append('D:/source/nscp/build/x64/scripts/python/include')
 
@@ -38,7 +38,6 @@ def test(arguments):
 		
 	message = plugin_pb2.QueryRequestMessage()
 	
-	message.header.type = plugin_pb2.Common.Header.QUERY_REQUEST
 	message.header.version = plugin_pb2.Common.VERSION_1
 
 	payload = message.payload.add()
@@ -104,7 +103,7 @@ def init(alias):
 	if alias:
 		prefix = '%s_'%alias
 
-	log('Script: test.py with alias: %s from %s'%(alias, get_alias()))
+	log('Script: test.py with alias: %s'%alias)
 
 	conf = Settings.get()
 	val = conf.get_string('/modules', 'PythonScript', 'foo')

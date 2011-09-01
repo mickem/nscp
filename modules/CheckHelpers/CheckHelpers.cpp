@@ -30,9 +30,6 @@
 
 #include <settings/client/settings_client.hpp>
 
-
-CheckHelpers gCheckHelpers;
-
 CheckHelpers::CheckHelpers() {
 }
 CheckHelpers::~CheckHelpers() {
@@ -331,6 +328,6 @@ NSCAPI::nagiosReturn CheckHelpers::timeout(std::list<std::wstring> arguments, st
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckHelpers);
+NSC_WRAPPERS_MAIN_DEF(CheckHelpers);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckHelpers);
+NSC_WRAPPERS_HANDLE_CMD_DEF();

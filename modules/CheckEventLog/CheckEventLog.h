@@ -26,7 +26,7 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 
 
-class CheckEventLog  : public nscapi::impl::simple_command, nscapi::impl::simple_plugin {
+class CheckEventLog : public nscapi::impl::simple_command, nscapi::impl::simple_plugin {
 private:
 	bool debug_;
 	std::wstring syntax_;
@@ -41,14 +41,14 @@ public:
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("Event log Checker.");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("Check for errors and warnings in the event log.\nThis is only supported through NRPE so if you plan to use only NSClient this wont help you at all.");
 	}
 

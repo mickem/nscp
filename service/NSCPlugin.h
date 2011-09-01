@@ -117,14 +117,13 @@ private:
 	nscapi::plugin_api::lpHandleMessage fHandleMessage;
 	nscapi::plugin_api::lpUnLoadModule fUnLoadModule;
 	nscapi::plugin_api::lpCommandLineExec fCommandLineExec;
-	nscapi::plugin_api::lpShowTray fShowTray;
-	nscapi::plugin_api::lpHideTray fHideTray;
 	nscapi::plugin_api::lpHasNotificationHandler fHasNotificationHandler;
 	nscapi::plugin_api::lpHandleNotification fHandleNotification;
+	nscapi::plugin_api::lpHasRoutingHandler fHasRoutingHandler;
+	nscapi::plugin_api::lpRouteMessage fRouteMessage;
 
 public:
 	NSCPlugin(const unsigned int id, const boost::filesystem::wpath file, std::wstring alias);
-	//NSCPlugin(NSCPlugin &other);
 	virtual ~NSCPlugin(void);
 
 	std::wstring getName(void);
@@ -139,17 +138,21 @@ public:
 	bool hasMessageHandler(void);
 	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
 	NSCAPI::nagiosReturn handleCommand(const wchar_t* command, std::string &request, std::string &reply);
-	bool handleNotification(const wchar_t *channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
+	bool handleNotification(const wchar_t *channel, const wchar_t* command, const char* result, unsigned int result_len);
 	void deleteBuffer(char**buffer);
-	void handleMessage(const char* data);
+	void handleMessage(const char* data, unsigned int len);
 	void unload(void);
 	std::wstring getCongifurationMeta();
 	int commandLineExec(const wchar_t* command, std::string &request, std::string &reply);
 	int commandLineExec(const wchar_t* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
 	bool has_command_line_exec();
-	void showTray();
-	void hideTray();
 	bool is_duplicate( boost::filesystem::wpath file, std::wstring alias );
+
+
+	bool has_routing_handler();
+
+	
+	bool route_message(const wchar_t *channel, const wchar_t *command, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
 	std::wstring get_alias() {
 		return alias_;

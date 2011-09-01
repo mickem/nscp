@@ -15,7 +15,7 @@ namespace script_wrapper {
 
 	void log_exception();
 	void log_msg(std::wstring x);
-	std::string get_alias();
+	//std::string get_alias();
 
 	std::list<std::wstring> convert(boost::python::list lst);
 	boost::python::list convert(std::list<std::wstring> lst);

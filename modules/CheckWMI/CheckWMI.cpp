@@ -32,8 +32,6 @@
 
 #include <arrayBuffer.h>
 
-CheckWMI gCheckWMI;
-
 CheckWMI::CheckWMI() {
 }
 CheckWMI::~CheckWMI() {
@@ -442,7 +440,7 @@ int CheckWMI::commandLineExec(const wchar_t* command, const unsigned int argLen,
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckWMI);
+NSC_WRAPPERS_MAIN_DEF(CheckWMI);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckWMI);
+NSC_WRAPPERS_HANDLE_CMD_DEF();
 //NSC_WRAPPERS_CLI_DEF(gCheckWMI);

@@ -5,6 +5,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-08-31 MickeM
+ * Added support for loading same plugin twice (in different sessions)
+ * Added preliminary support for routing passive checks
+
 2011-08-30 MickeM
  * Fixed uncaught exception in test client
  * Added protocol buffers to source (needs to be added to installer as well)

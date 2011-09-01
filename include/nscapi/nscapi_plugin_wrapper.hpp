@@ -65,11 +65,13 @@ namespace nscapi {
 		NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
 		NSCAPI::boolReturn wrapHasCommandHandler(bool has);
 		NSCAPI::boolReturn wrapHasMessageHandler(bool has);
+		NSCAPI::boolReturn wrapHasRoutingHandler(bool has);
 		NSCAPI::boolReturn wrapHasNotificationHandler(bool has);
 		NSCAPI::nagiosReturn wrapHandleNotification(NSCAPI::nagiosReturn retResult);
 		int wrapUnloadModule(bool success);
 		NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
 		NSCAPI::nagiosReturn wrapCommandLineExec(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
+		NSCAPI::nagiosReturn wrapRouteMessage(NSCAPI::nagiosReturn retResult);
 		
 		void wrapDeleteBuffer(char**buffer);
 

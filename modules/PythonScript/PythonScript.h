@@ -64,13 +64,13 @@ public:
 		return alias_;
 	}
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("PythonScript");
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("PythonScript...");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}

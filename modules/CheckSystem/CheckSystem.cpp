@@ -38,8 +38,6 @@
 #include <settings/client/settings_client.hpp>
 #include <arrayBuffer.h>
 
-CheckSystem gCheckSystem;
-
 /**
  * Default c-tor
  * @return 
@@ -1624,8 +1622,8 @@ NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(std::list<std::wstring> ar
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckSystem);
+NSC_WRAPPERS_MAIN_DEF(CheckSystem);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckSystem);
+NSC_WRAPPERS_HANDLE_CMD_DEF();
 //NSC_WRAPPERS_CLI_DEF(gCheckSystem);
 

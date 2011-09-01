@@ -64,13 +64,13 @@ public:
 	bool unloadModule();
 	bool reload(std::wstring &msg);
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("LUAScript");
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("LUAScript...");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}

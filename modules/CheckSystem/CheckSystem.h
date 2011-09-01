@@ -58,18 +58,18 @@ public:
 	* Return the module name.
 	* @return The module name
 	*/
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("CheckSystem");
 	}
 	/**
 	* Module version
 	* @return module version
 	*/
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.");
 	}
 

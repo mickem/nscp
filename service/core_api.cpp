@@ -482,8 +482,8 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 	return NULL;
 }
 
-NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code,  char* result, unsigned int result_len) {
-	return mainClient.send_notification(channel, command, code, result, result_len);
+NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const wchar_t* command, char* result, unsigned int result_len) {
+	return mainClient.send_notification(channel, command, result, result_len);
 }
 
 void NSAPIDestroyBuffer(char**buffer) {

@@ -27,10 +27,6 @@
 #include "settings.hpp"
 #include <settings/client/settings_client.hpp>
 
-NSClientListener gNSClientListener;
-
-
-
 namespace sh = nscapi::settings_helper;
 
 NSClientListener::NSClientListener() : info_(boost::shared_ptr<check_nt::server::handler>(new handler_impl())) {
@@ -171,78 +167,7 @@ bool NSClientListener::unloadModule() {
 	return true;
 }
 
-// void NSClientListener::sendTheResponse(simpleSocket::Socket *client, std::string response) {
-// 	client->send(response.c_str(), static_cast<int>(response.length()), 0);
-// }
-// 
-// void NSClientListener::retrivePacket(simpleSocket::Socket *client) {
-// 	simpleSocket::DataBuffer db;
-// 	unsigned int i;
-// 	unsigned int maxWait = socketTimeout_*10;
-// 	for (i=0;i<maxWait;i++) {
-// 		bool lastReadHasMore = false;
-// 		try {
-// 			lastReadHasMore = client->readAll(db);
-// 		} catch (simpleSocket::SocketException e) {
-// 			NSC_LOG_ERROR_STD(_T("Read on socket failed: ") + e.getMessage());
-// 			client->close();
-// 			return;
-// 		}
-// 		if (db.getLength() > 0) {
-// 			unsigned long long pos = db.find('\n');
-// 			if (pos==-1) {
-// 				std::string incoming(db.getBuffer(), db.getLength());
-// 				sendTheResponse(client, parseRequest(incoming));
-// 				break;
-// 			} else if (pos > 0) {
-// 				simpleSocket::DataBuffer buffer = db.unshift(static_cast<const unsigned int>(pos));
-// 				std::string bstr(buffer.getBuffer(), buffer.getLength());
-// 				db.nibble(1);
-// 				std::string rstr(db.getBuffer(), db.getLength());
-// 				std::string incoming(buffer.getBuffer(), buffer.getLength());
-// 				sendTheResponse(client, parseRequest(incoming) + "\n");
-// 			} else {
-// 				db.nibble(1);
-// 				NSC_LOG_ERROR_STD(_T("First char should (i think) not be a \\n :("));
-// 			}
-// 		} else if (!lastReadHasMore) {
-// 			client->close();
-// 			return;
-// 		} else {
-// 			Sleep(100);
-// 		}
-// 	}
-// 	if (i >= maxWait) {
-// 		NSC_LOG_ERROR_STD(_T("Timeout reading NS-client packet (increase socket_timeout)."));
-// 		client->close();
-// 		return;
-// 	}
-// }
-
-// 
-// void NSClientListener::onAccept(simpleSocket::Socket *client) {
-// 	if (!allowedHosts.inAllowedHosts(client->getAddr())) {
-// 		NSC_LOG_ERROR(_T("Unauthorized access from: ") + client->getAddrString());
-// 		client->close();
-// 		return;
-// 	}
-// 	//client->setNonBlock();
-// 	retrivePacket(client);
-// 
-// 
-// 
-// //	client->readAll(db);
-// //	if (db.getLength() > 0) {
-// //		std::wstring incoming(db.getBuffer(), db.getLength());
-// //		NSC_DEBUG_MSG_STD("Incoming data: " + incoming);
-// //		std::wstring response = parseRequest(incoming);
-// //		NSC_DEBUG_MSG("Outgoing data: " + response);
-// //		client->send(response.c_str(), static_cast<int>(response.length()), 0);
-// //	}
-// 	client->close();
-// }
-
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gNSClientListener);
+NSC_WRAPPERS_MAIN_DEF(NSClientListener);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();

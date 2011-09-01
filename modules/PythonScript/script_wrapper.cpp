@@ -8,15 +8,17 @@ using namespace boost::python;
 
 boost::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance;
 
-extern PythonScript gPythonScript;
+//extern PythonScript gPythonScript;
 
 
 void script_wrapper::log_msg(std::wstring x) {
 	NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(x));
 }
+/*
 std::string script_wrapper::get_alias() {
 	return utf8::cvt<std::string>(gPythonScript.get_alias());
 }
+*/
 
 void script_wrapper::log_exception() {
 	PyErr_Print();

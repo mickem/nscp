@@ -31,6 +31,7 @@
 #include "NSCPlugin.h"
 #include "commands.hpp"
 #include "channels.hpp"
+#include "routers.hpp"
 #include "logger.hpp"
 
 //#include <nsclient_session.hpp>
@@ -109,6 +110,7 @@ private:
 	bool enable_shared_session_;
 	nsclient::commands commands_;
 	nsclient::channels channels_;
+	nsclient::routers routers_;
 	unsigned int next_plugin_id_;
 	std::wstring service_name_;
 
@@ -116,7 +118,7 @@ private:
 public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_state_unknown), enable_shared_session_(false), commands_(this), channels_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
+	NSClientT(void) : debug_(log_state_unknown), enable_shared_session_(false), commands_(this), channels_(this), routers_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
 		logger_master_.start_slave();
 	}
 	virtual ~NSClientT(void) {}
@@ -159,7 +161,9 @@ public:
 
 	// Member functions
 	boost::filesystem::wpath getBasePath(void);
-	NSCAPI::errorReturn send_notification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, char* result, unsigned int result_len);
+
+	NSCAPI::errorReturn reroute(std::wstring &channel, const wchar_t* command, std::string &buffer);
+	NSCAPI::errorReturn send_notification(const wchar_t* channel, const wchar_t* command, char* buffer, unsigned int buffer_len);
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);

@@ -104,8 +104,7 @@ namespace nscapi {
 
 
 
-		static void create_simple_header(Plugin::Common::Header* hdr, Plugin::Common_Header_Type type)  {
-			hdr->set_type(type);
+		static void create_simple_header(Plugin::Common::Header* hdr)  {
 			hdr->set_version(Plugin::Common_Version_VERSION_1);
 			hdr->set_max_supported_version(Plugin::Common_Version_VERSION_1);
 			// @todo add additional fields here!
@@ -116,7 +115,7 @@ namespace nscapi {
 
 		static void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
-			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_QUERY_REQUEST);
+			create_simple_header(message.mutable_header());
 
 			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(to_string(command));
@@ -128,7 +127,7 @@ namespace nscapi {
 		}
 		static void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
-			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_QUERY_REQUEST);
+			create_simple_header(message.mutable_header());
 
 			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(to_string(command));
@@ -145,7 +144,7 @@ namespace nscapi {
 
 		static void create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
 			Plugin::QueryResponseMessage message;
-			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_QUERY_RESPONSE);
+			create_simple_header(message.mutable_header());
 
 			Plugin::QueryResponseMessage::Response *payload = message.add_payload();
 			payload->set_command(to_string(command));
@@ -196,7 +195,7 @@ namespace nscapi {
 		static void create_simple_exec_request(const std::wstring &command, const std::list<std::wstring> & args, std::string &request) {
 			
 			Plugin::ExecuteRequestMessage message;
-			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_EXEC_REQUEST);
+			create_simple_header(message.mutable_header());
 
 			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(to_string(command));
@@ -209,7 +208,7 @@ namespace nscapi {
 		static void create_simple_exec_request(const std::wstring &command, const std::vector<std::wstring> & args, std::string &request) {
 
 			Plugin::ExecuteRequestMessage message;
-			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_EXEC_REQUEST);
+			create_simple_header(message.mutable_header());
 
 			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(to_string(command));
@@ -230,7 +229,7 @@ namespace nscapi {
 
 		static void create_simple_exec_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring result, std::string &response) {
 			Plugin::ExecuteResponseMessage message;
-			create_simple_header(message.mutable_header(), Plugin::Common_Header_Type_EXEC_RESPONSE);
+			create_simple_header(message.mutable_header());
 
 			Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
 			payload->set_command(to_string(command));

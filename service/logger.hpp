@@ -213,14 +213,15 @@ namespace nsclient {
 					BOOST_FOREACH(std::string s, cache_) {
 						const char* cache_buf = s.c_str();
 						BOOST_FOREACH(plugin_type p, plugins_) {
-							p->handleMessage(cache_buf);
+							p->handleMessage(cache_buf, s.length());
 						}
 					}
 					cache_.clear();
 				}
 				const char* buf = buffer.c_str();
+				unsigned int len = buffer.length();
 				BOOST_FOREACH(plugin_type p, plugins_) {
-					p->handleMessage(buf);
+					p->handleMessage(buf, len);
 				}
 			}
 

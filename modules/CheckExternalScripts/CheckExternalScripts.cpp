@@ -34,9 +34,6 @@
 
 namespace sh = nscapi::settings_helper;
 
-
-CheckExternalScripts gCheckExternalScripts;
-
 CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
@@ -197,60 +194,8 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 		return result;
 	}
 }
-// 
-// 
-// 
-// 	std::wstring msg, perf;
-// 	NSCAPI::nagiosReturn ret = handleCommand(data.command, data.args, msg, perf);
-// 	return nscapi::functions::process_simple_command_result(data.command, ret, msg, perf);
-// }
-// 
-// NSCAPI::nagiosReturn CheckExternalScripts::handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
-// 	command_list::const_iterator cit = commands.find(command);
-// 	bool isAlias = false;
-// 	if (cit == commands.end()) {
-// 		cit = alias.find(command);
-// 		if (cit == alias.end())
-// 			return NSCAPI::returnIgnored;
-// 		isAlias = true;
-// 	}
-// 
-// 	const command_data cd = (*cit).second;
-// 	std::wstring args = cd.arguments;
-// 	if (isAlias || allowArgs_) {
-// 		int i=1;
-// 		BOOST_FOREACH(std::wstring str, arguments) {
-// 			if (!isAlias && !allowNasty_) {
-// 				if (str.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-// 					NSC_LOG_ERROR(_T("Request string contained illegal metachars!"));
-// 					return NSCAPI::returnIgnored;
-// 				}
-// 			}
-// 			strEx::replace(args, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
-// 		}
-// 	}
-// 	if (isAlias) {
-// 		try {
-// 			return GET_CORE()->InjectSplitAndCommand(cd.command, args, ' ', message, perf, true);
-// 		} catch (boost::escaped_list_error &e) {
-// 			NSC_LOG_MESSAGE(_T("Failed to parse alias expression: ") + strEx::string_to_wstring(e.what()));
-// 			NSC_LOG_MESSAGE(_T("We will now try parsing the old syntax instead..."));
-// 			return GET_CORE()->InjectSplitAndCommand(cd.command, args, ' ', message, perf, false);
-// 		}
-// 	} else {
-// 		int result = process::executeProcess(process::exec_arguments(root_, cd.command + _T(" ") + args, timeout), message, perf);
-// 		if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-// 			NSC_LOG_ERROR_STD(_T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result));
-// 			return NSCAPI::returnUNKNOWN;
-// 		}
-// 		return nscapi::plugin_helper::int2nagios(result);
-// 	}
-// 
-// }
-
-
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckExternalScripts);
+NSC_WRAPPERS_MAIN_DEF(CheckExternalScripts);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckExternalScripts);
+NSC_WRAPPERS_HANDLE_CMD_DEF();
 

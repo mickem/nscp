@@ -87,8 +87,6 @@ namespace setting_keys {
 }
 namespace sh = nscapi::settings_helper;
 
-NRPEClient gNRPEClient;
-
 NRPEClient::NRPEClient() : buffer_length_(0) {
 }
 
@@ -319,8 +317,8 @@ nrpe::packet NRPEClient::send_nossl(std::wstring host, int port, int timeout, nr
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gNRPEClient);
+NSC_WRAPPERS_MAIN_DEF(NRPEClient);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gNRPEClient);
-NSC_WRAPPERS_CLI_DEF(gNRPEClient);
+NSC_WRAPPERS_HANDLE_CMD_DEF();
+NSC_WRAPPERS_CLI_DEF();
 

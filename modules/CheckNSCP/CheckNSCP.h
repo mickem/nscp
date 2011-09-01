@@ -46,14 +46,14 @@ public:
 	std::wstring getConfigurationMeta();
 
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("Check NSCP");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("Checkes the state of the agent");
 	}
 

@@ -36,8 +36,6 @@
 
 namespace sh = nscapi::settings_helper;
 
-FileLogger gFileLogger;
-
 FileLogger::FileLogger() : init_(false) {
 }
 FileLogger::~FileLogger() {
@@ -231,6 +229,6 @@ std::wstring FileLogger::get_formated_date() {
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gFileLogger);
-NSC_WRAPPERS_HANDLE_MSG_DEF(gFileLogger);
+NSC_WRAPPERS_MAIN_DEF(FileLogger);
+NSC_WRAPPERS_HANDLE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();

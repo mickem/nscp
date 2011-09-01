@@ -29,8 +29,6 @@
 #include <settings/client/settings_client.hpp>
 
 
-LUAScript gLUAScript;
-
 LUAScript::LUAScript() {
 }
 LUAScript::~LUAScript() {
@@ -182,6 +180,6 @@ NSCAPI::nagiosReturn LUAScript::handleCommand(const std::wstring &target, const 
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gLUAScript);
+NSC_WRAPPERS_MAIN_DEF(LUAScript);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gLUAScript);
+NSC_WRAPPERS_HANDLE_CMD_DEF();

@@ -134,8 +134,14 @@ NSCAPI::boolReturn nscapi::plugin_wrapper::wrapHasMessageHandler(bool has) {
 NSCAPI::boolReturn nscapi::plugin_wrapper::wrapHasNotificationHandler(bool has) {
 	return has?NSCAPI::istrue:NSCAPI::isfalse;
 }
+NSCAPI::boolReturn nscapi::plugin_wrapper::wrapHasRoutingHandler(bool has) {
+	return has?NSCAPI::istrue:NSCAPI::isfalse;
+}
 
 NSCAPI::nagiosReturn nscapi::plugin_wrapper::wrapHandleNotification(NSCAPI::nagiosReturn retResult) {
+	return retResult;
+}
+NSCAPI::nagiosReturn nscapi::plugin_wrapper::wrapRouteMessage(NSCAPI::nagiosReturn retResult) {
 	return retResult;
 }
 

@@ -26,10 +26,6 @@
 #include <settings/client/settings_client.hpp>
 namespace sh = nscapi::settings_helper;
 
-CheckNSCP gCheckNSCP;
-
-
-
 bool CheckNSCP::loadModule() {
 	return false;
 }
@@ -162,6 +158,6 @@ NSCAPI::nagiosReturn CheckNSCP::handleCommand(const std::wstring &target, const 
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckNSCP);
-NSC_WRAPPERS_HANDLE_MSG_DEF(gCheckNSCP);
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckNSCP);
+NSC_WRAPPERS_MAIN_DEF(CheckNSCP);
+NSC_WRAPPERS_HANDLE_MSG_DEF();
+NSC_WRAPPERS_HANDLE_CMD_DEF();

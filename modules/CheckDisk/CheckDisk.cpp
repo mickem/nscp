@@ -41,8 +41,6 @@
 
 namespace sh = nscapi::settings_helper;
 
-CheckDisk gCheckDisk;
-
 CheckDisk::CheckDisk() : show_errors_(false) {
 }
 CheckDisk::~CheckDisk() {
@@ -786,6 +784,6 @@ NSCAPI::nagiosReturn CheckDisk::handleCommand(const std::wstring &target, const 
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(gCheckDisk);
+NSC_WRAPPERS_MAIN_DEF(CheckDisk);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF(gCheckDisk);
+NSC_WRAPPERS_HANDLE_CMD_DEF();

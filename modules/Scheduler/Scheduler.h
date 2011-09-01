@@ -44,14 +44,14 @@ public:
 	void handle_schedule(scheduler::target item);
 	void on_error(std::wstring error);
 
-	std::wstring getModuleName() {
+	static std::wstring getModuleName() {
 		return _T("Scheduler");
 	}
-	nscapi::plugin_wrapper::module_version getModuleVersion() {
+	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
-	std::wstring getModuleDescription() {
+	static std::wstring getModuleDescription() {
 		return _T("A scheduler which schedules checks at regular intervals");
 	}
 
