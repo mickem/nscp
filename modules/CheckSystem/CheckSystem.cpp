@@ -135,14 +135,14 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			data->counters.push_back(cnt(c.first, c.second, cnt::type_int64, cnt::format_large, cnt::value));
 		}
 
-		get_core()->registerCommand(_T("checkCPU"), _T("Check the CPU load of the computer."));
-		get_core()->registerCommand(_T("checkUpTime"), _T("Check the up-time of the computer."));
-		get_core()->registerCommand(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
-		get_core()->registerCommand(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
-		get_core()->registerCommand(_T("checkMem"), _T("Check free/used memory on the system."));
-		get_core()->registerCommand(_T("checkCounter"), _T("Check a PDH counter."));
-		get_core()->registerCommand(_T("listCounterInstances"), _T("List all instances for a counter."));
-		get_core()->registerCommand(_T("checkSingleRegEntry"), _T("Check registry key"));
+		register_command(_T("checkCPU"), _T("Check the CPU load of the computer."));
+		register_command(_T("checkUpTime"), _T("Check the up-time of the computer."));
+		register_command(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
+		register_command(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
+		register_command(_T("checkMem"), _T("Check free/used memory on the system."));
+		register_command(_T("checkCounter"), _T("Check a PDH counter."));
+		register_command(_T("listCounterInstances"), _T("List all instances for a counter."));
+		register_command(_T("checkSingleRegEntry"), _T("Check registry key"));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;

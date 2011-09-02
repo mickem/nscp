@@ -158,7 +158,7 @@ void Scheduler::handle_schedule(scheduler::target item) {
 		std::string response;
 		NSCAPI::nagiosReturn code = GET_CORE()->simple_query(item.command.c_str(), item.arguments, response);
 		if (nscapi::report::matches(item.report, code)) {
-			GET_CORE()->NotifyChannel(item.channel, item.alias, code, response);
+			GET_CORE()->submit_message(item.channel, item.alias, response);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));

@@ -104,7 +104,15 @@ namespace nsclient {
 				if (!ret.empty()) ret += _T(", ");
 				ret += str;
 			}
-			return ret;
+			return ret + parent::to_wstring();
+		}
+		std::string to_string() {
+			std::string ret;
+			BOOST_FOREACH(std::wstring str, list()) {
+				if (!ret.empty()) ret += ", ";
+				ret += utf8::cvt<std::string>(str);
+			}
+			return ret + parent::to_string();
 		}
 
 		inline std::wstring make_key(std::wstring key) {
@@ -148,6 +156,23 @@ namespace nsclient {
 				lst.push_back(i.first);
 			}
 		}
+		std::wstring to_wstring() {
+			std::wstring ret;
+			BOOST_FOREACH(listener_list_type::value_type i, listeners_) {
+				ret += _T(", ");
+				ret += i.first;
+			}
+			return ret;
+		}
+		std::string to_string() {
+			std::string ret;
+			BOOST_FOREACH(listener_list_type::value_type i, listeners_) {
+				ret += ", ";
+				ret += utf8::cvt<std::string>(i.first);
+			}
+			return ret;
+		}
+
 	};
 
 	struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
@@ -162,8 +187,10 @@ namespace nsclient {
 				return;
 			}
 			std::wstring lc = make_key(channel);
-			if (!have_plugin(plugin_id))
-				throw plugins_list_exception("Failed to find plugin: " + ::to_string(plugin_id));
+			if (!have_plugin(plugin_id)) {
+				writeLock.release();
+				throw plugins_list_exception("Failed to find plugin: " + ::to_string(plugin_id) + ", Plugins: " + to_string());
+			}
 			listeners_[lc].insert(plugin_id);
 		}
 
@@ -173,7 +200,7 @@ namespace nsclient {
 			std::wstring lc = make_key(channel);
 			plugins_list_listeners_impl::listener_list_type::iterator cit = listeners_.find(lc);
 			if (cit == listeners_.end()) {
-				throw plugins_list_exception("Channel not found: " + to_string(channel));
+				return std::list<plugin_type>(); // throw plugins_list_exception("Channel not found: '" + ::to_string(channel) + "'" + to_string());
 			}
 			std::list<plugin_type> ret;
 			BOOST_FOREACH(unsigned long id, cit->second) {

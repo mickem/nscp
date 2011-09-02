@@ -69,7 +69,7 @@ bool CheckEventLog::loadModule() {
 
 bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		get_core()->registerCommand(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+		register_command(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("CheckEventlog"), alias);

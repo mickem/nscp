@@ -43,8 +43,8 @@ bool CheckTaskSched::loadModule() {
 }
 bool CheckTaskSched::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		get_core()->registerCommand(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
-		get_core()->registerCommand(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+		register_command(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
+		register_command(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
 
 		SETTINGS_REG_PATH(task_scheduler::SECTION);
 		SETTINGS_REG_KEY_S(task_scheduler::SYNTAX);

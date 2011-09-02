@@ -128,14 +128,13 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 void nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf) {
 	std::string request;
 	nscapi::functions::create_simple_query_response(command, code, message, perf, request);
-	NSCAPI::nagiosReturn ret = NotifyChannel(channel, command, code, request);
+	NSCAPI::nagiosReturn ret = submit_message(channel, command, request);
 }
 
-
-NSCAPI::errorReturn nscapi::core_wrapper::NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::string result) {
+NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::wstring channel, std::wstring command, std::string buffer) {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	return fNSAPINotify(channel.c_str(), command.c_str(), code, result.c_str(), result.size());
+	return fNSAPINotify(channel.c_str(), command.c_str(), buffer.c_str(), buffer.size());
 }
 
 /**
@@ -543,11 +542,26 @@ std::wstring nscapi::core_wrapper::describeCommand(std::wstring command) {
 	delete [] buffer;
 	return ret;
 }
-void nscapi::core_wrapper::registerCommand(std::wstring command, std::wstring description) {
+void nscapi::core_wrapper::registerCommand(unsigned int id, std::wstring command, std::wstring description) {
 	if (!fNSAPIRegisterCommand)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	if (fNSAPIRegisterCommand(id_, command.c_str(), description.c_str()) != NSCAPI::isSuccess) {
-		CORE_LOG_ERROR_STD(_T("Failed to register command: ") + command + _T(" in plugin: ") + to_wstring(id_));
+	if (fNSAPIRegisterCommand(id, command.c_str(), description.c_str()) != NSCAPI::isSuccess) {
+		CORE_LOG_ERROR_STD(_T("Failed to register command: ") + command + _T(" in plugin: ") + to_wstring(id));
+	}
+}
+
+void nscapi::core_wrapper::registerSubmissionListener(unsigned int id, std::wstring channel) {
+	if (!fNSAPIRegisterSubmissionListener)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	if (fNSAPIRegisterSubmissionListener(id, channel.c_str()) != NSCAPI::isSuccess) {
+		CORE_LOG_ERROR_STD(_T("Failed to register channel: ") + channel + _T(" in plugin: ") + to_wstring(id));
+	}
+}
+void nscapi::core_wrapper::registerRoutingListener(unsigned int id, std::wstring channel) {
+	if (!fNSAPIRegisterRoutingListener)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	if (fNSAPIRegisterRoutingListener(id, channel.c_str()) != NSCAPI::isSuccess) {
+		CORE_LOG_ERROR_STD(_T("Failed to register channel: ") + channel + _T(" in plugin: ") + to_wstring(id));
 	}
 }
 
@@ -582,8 +596,7 @@ std::wstring nscapi::core_wrapper::getApplicationVersionString() {
  * @param f A function pointer to a function that can be used to load function from the core.
  * @return NSCAPI::success or NSCAPI::failure
  */
-bool nscapi::core_wrapper::load_endpoints(unsigned int id, nscapi::core_api::lpNSAPILoader f) {
-	id_ = id;
+bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIGetApplicationName = (nscapi::core_api::lpNSAPIGetApplicationName)f(_T("NSAPIGetApplicationName"));
 	fNSAPIGetApplicationVersionStr = (nscapi::core_api::lpNSAPIGetApplicationVersionStr)f(_T("NSAPIGetApplicationVersionStr"));
 	fNSAPIGetSettingsInt = (nscapi::core_api::lpNSAPIGetSettingsInt)f(_T("NSAPIGetSettingsInt"));
@@ -623,5 +636,8 @@ bool nscapi::core_wrapper::load_endpoints(unsigned int id, nscapi::core_api::lpN
 
 	fNSAPIExpandPath = (nscapi::core_api::lpNSAPIExpandPath)f(_T("NSAPIExpandPath"));
 	
+	fNSAPIRegisterSubmissionListener = (nscapi::core_api::lpNSAPIRegisterSubmissionListener)f(_T("NSAPIRegisterSubmissionListener"));
+	fNSAPIRegisterRoutingListener = (nscapi::core_api::lpNSAPIRegisterRoutingListener)f(_T("NSAPIRegisterRoutingListener"));
+
 	return true;
 }

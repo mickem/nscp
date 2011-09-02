@@ -68,9 +68,8 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIGetPluginList fNSAPIGetPluginList;
 		nscapi::core_api::lpNSAPIReleasePluginList fNSAPIReleasePluginList;
 		nscapi::core_api::lpNSAPISettingsSave fNSAPISettingsSave;
-
-		unsigned int buffer_length_;
-		unsigned int id_;
+		nscapi::core_api::lpNSAPIRegisterSubmissionListener fNSAPIRegisterSubmissionListener;
+		nscapi::core_api::lpNSAPIRegisterRoutingListener fNSAPIRegisterRoutingListener;
 
 	public:
 
@@ -115,8 +114,6 @@ namespace nscapi {
 			, fNSAPIReleasePluginList(NULL)
 			, fNSAPISettingsSave(NULL)
 			, fNSAPIExpandPath(NULL)
-			, buffer_length_(-1)
-			, id_(-1)
 		{}
 
 		// Helper functions for calling into the core
@@ -144,10 +141,8 @@ namespace nscapi {
 		NSCAPI::nagiosReturn exec_simple_command(const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
 
 		void submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf);
-		NSCAPI::errorReturn NotifyChannel(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::string result);
-		//NSCAPI::nagiosReturn InjectCommand(const std::wstring command, const std::list<std::wstring> argument, std::string & result);
-		//NSCAPI::nagiosReturn InjectSplitAndCommand(const wchar_t* command, wchar_t* buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf);
-		//NSCAPI::nagiosReturn InjectSplitAndCommand(const std::wstring command, const std::wstring buffer, wchar_t splitChar, std::wstring & message, std::wstring & perf, bool escape = false);
+		NSCAPI::errorReturn submit_message(std::wstring channel, std::wstring command, std::string buffer);
+
 		void StopService(void);
 		void Exit(void);
 		std::wstring getBasePath();
@@ -164,11 +159,12 @@ namespace nscapi {
 
 		std::list<std::wstring> getAllCommandNames();
 		std::wstring describeCommand(std::wstring command);
-		void registerCommand(std::wstring command, std::wstring description);
+		void registerCommand(unsigned int id, std::wstring command, std::wstring description);
+		void registerSubmissionListener(unsigned int id, std::wstring channel);
+		void registerRoutingListener(unsigned int id, std::wstring channel);
+
 		unsigned int getBufferLength();
-
-
-		bool load_endpoints(unsigned int id, nscapi::core_api::lpNSAPILoader f);
+		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 
 	};
 };

@@ -151,7 +151,7 @@ namespace nscapi {
 		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
 		typedef void (*lpNSAPIDestroyBuffer)(char**);
 
-		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t* channel, const wchar_t* command, const char* buffer, unsigned int buffer_len);
 
 		typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
 		typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
@@ -170,6 +170,9 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSCAPI::plugin_info *list[]);
 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
+		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
+		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
+
 	}
 
 	namespace plugin_api {

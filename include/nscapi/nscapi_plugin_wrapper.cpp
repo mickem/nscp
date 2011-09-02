@@ -37,7 +37,7 @@
 
 using namespace nscp::helpers;
 
-extern nscapi::helper_singleton* nscapi::plugin_singleton;
+//extern nscapi::helper_singleton* nscapi::plugin_singleton;
 /**
 * Wrap a return string.
 * This function copies a string to a char buffer making sure the buffer has the correct length.
@@ -88,7 +88,7 @@ int nscapi::plugin_wrapper::wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call
  * @return NSCAPI::success or NSCAPI::failure
  */
 int nscapi::plugin_wrapper::wrapModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) {
-	return nscapi::plugin_singleton->get_core()->load_endpoints(id, f)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+	return GET_CORE()->load_endpoints(f)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 }
 /**
 * Wrap the GetModuleName function call
@@ -272,10 +272,10 @@ NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(
 	return ret;
 }
 
-NSCAPI::nagiosReturn nscapi::impl::SimpleNotificationHandler::handleRAWNotification(const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, std::string result) {
+NSCAPI::nagiosReturn nscapi::impl::SimpleNotificationHandler::handleRAWNotification(const wchar_t* channel, const wchar_t* command, std::string result) {
 	try {
 		std::wstring msg, perf;
-		nscapi::functions::parse_simple_query_response(result, msg, perf);
+		int code = nscapi::functions::parse_simple_query_response(result, msg, perf);
 		return handleSimpleNotification(channel, command, code, msg, perf);
 	} catch (std::exception &e) {
 		nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(result) + ": " + e.what()));

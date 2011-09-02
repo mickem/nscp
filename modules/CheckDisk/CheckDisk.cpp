@@ -53,10 +53,10 @@ bool CheckDisk::loadModule() {
 
 bool CheckDisk::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		get_core()->registerCommand(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
-		get_core()->registerCommand(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
-		get_core()->registerCommand(_T("CheckFile2"), _T("(deprecated) Check various aspects of a file and/or folder."));
-		get_core()->registerCommand(_T("CheckFiles"), _T("Check various aspects of a file and/or folder."));
+		register_command(_T("CheckFileSize"), _T("Check or directory a file and verify its size."));
+		register_command(_T("CheckDriveSize"), _T("Check the size (free-space) of a drive or volume."));
+		register_command(_T("CheckFile2"), _T("(deprecated) Check various aspects of a file and/or folder."));
+		register_command(_T("CheckFiles"), _T("Check various aspects of a file and/or folder."));
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));

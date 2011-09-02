@@ -173,13 +173,13 @@ namespace nscapi {
 			return data;
 		}
 
-		static void parse_simple_query_response(std::string &response, std::wstring &msg, std::wstring &perf) {
+		static int parse_simple_query_response(std::string &response, std::wstring &msg, std::wstring &perf) {
 			Plugin::QueryResponseMessage message;
 			message.ParseFromString(response);
 
 
 			if (message.payload_size() == 0) {
-				return;
+				return NSCAPI::returnUNKNOWN;
 			} else if (message.payload_size() > 1) {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
 			}
@@ -187,6 +187,7 @@ namespace nscapi {
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
 			msg = utf8::cvt<std::wstring>(payload.message());
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
+			return gbp_to_nagios_status(payload.result());
 		}
 
 

@@ -100,9 +100,9 @@ BOOST_PYTHON_MODULE(NSCP)
 //	def("get_script_alias", script_wrapper::get_script_alias);
 }
 
-python_script::python_script(const script_container& script)  {
+python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) : alias(alias), plugin_id(plugin_id) {
 	_exec(utf8::cvt<std::string>(script.script.string()));
-	callFunction("init", utf8::cvt<std::string>(script.alias));
+	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
 python_script::~python_script(){
 	callFunction("shutdown");
@@ -116,11 +116,11 @@ void python_script::callFunction(const std::string& functionName) {
 		script_wrapper::log_exception();
 	}
 }
-void python_script::callFunction(const std::string& functionName, const std::string &str){
+void python_script::callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2){
 	try	{
 		object scriptFunction = extract<object>(localDict[functionName]);
 		if(scriptFunction)
-			scriptFunction(str);
+			scriptFunction(i1, s1, s2);
 	} catch(error_already_set e) {
 		script_wrapper::log_exception();
 	}
@@ -130,6 +130,8 @@ void python_script::_exec(const std::string &scriptfile){
 		object main_module = import("__main__");
 		dict globalDict = extract<dict>(main_module.attr("__dict__"));
 		localDict = globalDict.copy();
+		//localDict.attr("plugin_id") = plugin_id;
+		//localDict.attr("plugin_alias") = alias;
 
 		PyRun_SimpleString("import cStringIO");
 		PyRun_SimpleString("import sys");
@@ -174,7 +176,7 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			initNSCP();
 
 			BOOST_FOREACH(script_container &script, scripts_) {
-				instances_.push_back(boost::shared_ptr<python_script>(new python_script(script)));
+				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
 			}
 
 		} catch( error_already_set e) {
@@ -265,7 +267,7 @@ bool PythonScript::reload(std::wstring &message) {
 }
 
 NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create();
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	std::string cmd = utf8::cvt<std::string>(char_command);
 	if (inst->has_cmdline(cmd)) {
 		return inst->handle_exec(cmd, request, response);
@@ -282,7 +284,7 @@ NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_comman
 
 
 NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, const std::string &request, std::string &response) {
-	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create();
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	std::string cmd = utf8::cvt<std::string>(command);
 	if (inst->has_function(cmd)) {
 		return inst->exec(cmd, request, response);
@@ -304,8 +306,8 @@ NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, cons
 }
 
 
-NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &channel, const std::wstring &command, NSCAPI::nagiosReturn code, std::string &request) {
-	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create();
+NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &channel, const std::wstring &command, std::string &request) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	std::string cmd = utf8::cvt<std::string>(command);
 	std::string chnl = utf8::cvt<std::string>(channel);
 	if (inst->has_message_handler(chnl)) {
@@ -313,7 +315,7 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	}
 	if (inst->has_simple_message_handler(chnl)) {
 		std::wstring msg, perf;
-		nscapi::functions::parse_simple_query_response(request, msg, perf);
+		int code = nscapi::functions::parse_simple_query_response(request, msg, perf);
 		return inst->handle_simple_message(chnl, cmd, code, msg, perf);
 	}
 	return NSCAPI::returnIgnored;

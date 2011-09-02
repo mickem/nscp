@@ -35,6 +35,7 @@ private:
 	int encryption_method_;
 	unsigned int timeout_;
 	int time_delta_;
+	std::wstring channel_;
 
 public:
 	NSCAAgent();

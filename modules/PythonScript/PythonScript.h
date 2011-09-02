@@ -33,11 +33,13 @@ NSC_WRAPPERS_CHANNELS();
 #include <scripts/functions.hpp>
 
 struct python_script : public boost::noncopyable {
+	unsigned int plugin_id;
+	std::string alias;
 	boost::python::dict localDict;
-	python_script(const script_container& script);
+	python_script(unsigned int plugin_id, const std::string alias, const script_container& script);
 	~python_script();
 	void callFunction(const std::string& functionName);
-	void callFunction(const std::string& functionName, const std::string &str);
+	void callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2);
 	void _exec(const std::string &scriptfile);
 };
 
@@ -83,7 +85,7 @@ public:
 
 	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
-	NSCAPI::nagiosReturn handleRAWNotification(const std::wstring &channel, const std::wstring &command, NSCAPI::nagiosReturn code, std::string &request);
+	NSCAPI::nagiosReturn handleRAWNotification(const std::wstring &channel, const std::wstring &command, std::string &request);
 
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);

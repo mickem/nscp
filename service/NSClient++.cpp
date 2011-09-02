@@ -947,11 +947,10 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::wpath file, std::
 		}
 
 		plugins_.insert(plugins_.end(), plugin);
-		commands_.add_plugin(plugin);
-		channels_.add_plugin(plugin);
-		if (plugin->hasNotificationHandler()) {
-			channels_.register_listener(plugin->get_id(), _T("NSCA"));
-		}
+		if (plugin->hasCommandHandler())
+			commands_.add_plugin(plugin);
+		if (plugin->hasNotificationHandler())
+			channels_.add_plugin(plugin);
 		if (plugin->hasMessageHandler())
 			logger_master_.add_plugin(plugin);
 		if (plugin->has_routing_handler())
@@ -1201,6 +1200,15 @@ NSCAPI::errorReturn NSClientT::reroute(std::wstring &channel, const wchar_t* com
 	return NSCAPI::isfalse;
 }
 
+NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_id, const wchar_t* channel) {
+	channels_.register_listener(plugin_id, channel);
+	return NSCAPI::isSuccess;
+}
+NSCAPI::errorReturn NSClientT::register_routing_listener(unsigned int plugin_id, const wchar_t* channel) {
+	routers_.register_listener(plugin_id, channel);
+	return NSCAPI::isSuccess;
+}
+
 NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const wchar_t* command, char* buffer, unsigned int buffer_len) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
@@ -1220,7 +1228,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const w
 			return NSCAPI::hasFailed;
 		}
 	} catch (nsclient::plugins_list_exception &e) {
-		LOG_ERROR_CORE(_T("Erroro routing channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()));
+		LOG_ERROR_CORE(_T("Error routing channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()) + _T("Current channels: ") + channels_.to_wstring());
 		return NSCAPI::hasFailed;
 	} catch (...) {
 		LOG_ERROR_CORE(_T("Error routing channel: ") + std::wstring(channel));

@@ -477,10 +477,23 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIDestroyBuffer);
 	if (wcscasecmp(buffer, _T("NSAPIExpandPath")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIExpandPath);
+	if (wcscasecmp(buffer, _T("NSAPIRegisterSubmissionListener")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIRegisterSubmissionListener);
+	if (wcscasecmp(buffer, _T("NSAPIRegisterRoutingListener")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIRegisterRoutingListener);
 
 	LOG_ERROR_STD(_T("Function not found: ") + buffer);
 	return NULL;
 }
+
+NSCAPI::errorReturn NSAPIRegisterSubmissionListener(unsigned int plugin_id, const wchar_t* channel) {
+	return mainClient.register_submission_listener(plugin_id, channel);
+}
+NSCAPI::errorReturn NSAPIRegisterRoutingListener(unsigned int plugin_id, const wchar_t* channel) {
+	return mainClient.register_routing_listener(plugin_id, channel);
+}
+
+//	channels_.register_listener(plugin->get_id(), _T("NSCA"));
 
 NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const wchar_t* command, char* result, unsigned int result_len) {
 	return mainClient.send_notification(channel, command, result, result_len);

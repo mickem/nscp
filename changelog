@@ -5,6 +5,19 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-09-01 MickeM
+ * Implemented registration of channels (so no longer faked)
+ * Added settings key to change the NSCAAgent channel name
+ * Addded proper channel handling to PythonScript module
+ * Improved error handling in channels API
+ * Rewrote wrapper API to use templates and classes instead of macros (ish)
+ * Improved the internal plugin wrapping API to support multiple plugin load
+ * Fixed so PythonScript module supports multiple plugin load (with new argument for plugin_id)
+ * Added API for registrying routers and handling routing (almost there now)
+
+2011-09-01 MickeM
+ * Fixed issue with messages due to new API
+
 2011-08-31 MickeM
  * Added support for loading same plugin twice (in different sessions)
  * Added preliminary support for routing passive checks

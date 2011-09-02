@@ -116,14 +116,14 @@ private:
 		boost::to_lower(key);
 		command_data cd = command_data(tok.first, tok.second);
 		commands[key.c_str()] = cd;
-		get_core()->registerCommand(key.c_str(), _T("Script: ") + cd.to_string());
+		register_command(key.c_str(), _T("Script: ") + cd.to_string());
 	}
 	void add_alias(std::wstring key, std::wstring command) {
 		strEx::token tok = strEx::getToken(command, ' ', true);
 		boost::to_lower(key);
 		command_data cd = command_data(tok.first, tok.second);
 		alias[key.c_str()] = cd;
-		get_core()->registerCommand(key.c_str(), _T("Alias for: ") + cd.to_string());
+		register_command(key.c_str(), _T("Alias for: ") + cd.to_string());
 	}
 	void add_wrapping(std::wstring key, std::wstring command) {
 		strEx::token tok = strEx::getToken(command, ' ', true);

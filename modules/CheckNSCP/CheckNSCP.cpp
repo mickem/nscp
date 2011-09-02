@@ -47,7 +47,7 @@ bool CheckNSCP::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
-		get_core()->registerCommand(_T("check_nscp"), _T("Check the internal healt of NSClient++."));
+		register_command(_T("check_nscp"), _T("Check the internal healt of NSClient++."));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;

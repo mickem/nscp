@@ -78,6 +78,9 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("payload length"), sh::uint_key(&payload_length_, 512),
 			_T("PAYLOAD LENGTH"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
 
+			(_T("channel"), sh::wstring_key(&channel_, _T("NSCA")),
+			_T("CHANNEL"), _T("The channel to listen to."))
+
 			;
 
 		settings.alias().add_path_to_settings(_T("server"))
@@ -103,6 +106,8 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		settings.register_all();
 		settings.notify();
+
+		get_core()->registerSubmissionListener(get_id(), channel_);
 
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));

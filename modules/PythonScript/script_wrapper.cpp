@@ -30,16 +30,30 @@ void script_wrapper::log_exception() {
 }
 
 void script_wrapper::function_wrapper::subscribe_simple_function(std::string channel, PyObject* callable) {
-	functions::get()->simple_handler[channel] = callable;
+	try {
+		core->registerSubmissionListener(plugin_id, utf8::cvt<std::wstring>(channel));
+		functions::get()->simple_handler[channel] = callable;
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to subscribe to channel ") + utf8::cvt<std::wstring>(channel) + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to subscribe to channel ") + utf8::cvt<std::wstring>(channel));
+	}
 }
 void script_wrapper::function_wrapper::subscribe_function(std::string channel, PyObject* callable) {
-	functions::get()->normal_handler[channel] = callable;
+	try {
+		core->registerSubmissionListener(plugin_id, utf8::cvt<std::wstring>(channel));
+		functions::get()->normal_handler[channel] = callable;
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to subscribe to channel ") + utf8::cvt<std::wstring>(channel) + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to subscribe to channel ") + utf8::cvt<std::wstring>(channel));
+	}
 }
 
 
 void script_wrapper::function_wrapper::register_simple_function(std::string name, PyObject* callable, std::string desc) {
 	try {
-		core->registerCommand(utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>(desc));
+		core->registerCommand(plugin_id, utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>(desc));
 		functions::get()->simple_functions[name] = callable;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register functions: ") + utf8::cvt<std::wstring>(name));
@@ -47,7 +61,7 @@ void script_wrapper::function_wrapper::register_simple_function(std::string name
 }
 void script_wrapper::function_wrapper::register_function(std::string name, PyObject* callable, std::string desc) {
 	try {
-	core->registerCommand(utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>(desc));
+	core->registerCommand(plugin_id, utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>(desc));
 	functions::get()->normal_functions[name] = callable;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to register functions: ") + utf8::cvt<std::wstring>(name));

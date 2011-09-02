@@ -18,7 +18,8 @@ def test_cmd(arguments):
 	return (status.OK, 'The command works: %s (%d)'%(prefix, len(arguments)))
 
 def test_channel(channel, command, code, message, perf):
-	log('inside test_channel: %s'%channel)
+	global prefix
+	log('inside test_channel: %s with prefix %s'%(channel, prefix))
 	log('Data: %d %s %s'%(code, message, perf))
 
 def test(arguments):
@@ -88,7 +89,6 @@ def simple_pb(command, buffer):
 			log('Arg: %s'%a)
 	
 	response = plugin_pb2.QueryResponseMessage()
-	response.header.type = plugin_pb2.Common.Header.QUERY_RESPONSE
 	response.header.version = plugin_pb2.Common.VERSION_1
 
 	payload = response.payload.add()
@@ -98,12 +98,12 @@ def simple_pb(command, buffer):
 
 	return (status.OK, response.SerializeToString())
 
-def init(alias):
+def init(plugin_id, plugin_alias, script_alias):
 	global prefix
-	if alias:
-		prefix = '%s_'%alias
+	if script_alias:
+		prefix = '%s_'%script_alias
 
-	log('Script: test.py with alias: %s'%alias)
+	log('Script: test.py with alias: %s (%s:%d)'%(script_alias, plugin_alias, plugin_id))
 
 	conf = Settings.get()
 	val = conf.get_string('/modules', 'PythonScript', 'foo')
@@ -111,7 +111,7 @@ def init(alias):
 	log('Got it: %s'%val)
 	
 	log('Testing to register a function')
-	reg = Registry.get()
+	reg = Registry.get(plugin_id)
 	reg.simple_function('%stest'%prefix, test, 'This is a sample command')
 	reg.simple_function('%snormal'%prefix, normal, 'This is a sample command')
 	reg.simple_function('%snop'%prefix, no_perf, 'No performance data')

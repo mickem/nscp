@@ -188,7 +188,7 @@ void NRPEClient::add_command(std::wstring key, std::wstring args) {
 		NSC_DEBUG_MSG_STD(_T("Added NRPE Client: ") + key.c_str() + _T(" = ") + command_data.toString());
 		commands[key.c_str()] = command_data;
 
-		GET_CORE()->registerCommand(key.c_str(), command_data.toString());
+		register_command(key.c_str(), command_data.toString());
 
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + strEx::string_to_wstring(e.what()));

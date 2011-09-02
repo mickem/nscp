@@ -1,7 +1,7 @@
 #pragma once
 #include <unicode_char.hpp>
 #include <boost/shared_ptr.hpp>
-#include <map>
+#include <NSCAPI.h>
 
 //////////////////////////////////////////////////////////////////////////
 // Module wrappers (definitions)
@@ -25,7 +25,7 @@
 
 #define NSC_WRAPPERS_CHANNELS() \
 	extern "C" int NSHasNotificationHandler(unsigned int plugin_id); \
-	extern "C" int NSHandleNotification(unsigned int plugin_id, const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);
+	extern "C" int NSHandleNotification(unsigned int plugin_id, const wchar_t*, const wchar_t*, const char*, unsigned int);
 
 #define NSC_WRAPPERS_ROUTING() \
 	extern "C" int NSHasRoutingHandler(unsigned int plugin_id); \
@@ -75,192 +75,71 @@
 	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 #endif
 
-template<class impl_type>
-struct plugin_instance_data {
-	typedef std::map<unsigned int, boost::shared_ptr<impl_type> > plugin_list_type;
-	plugin_list_type plugins;
-	boost::shared_ptr<impl_type> get(unsigned int id) {
-		typename plugin_list_type::iterator it = plugins.find(id);
-		if (it != plugins.end())
-			return it->second;
-		boost::shared_ptr<impl_type> impl = boost::shared_ptr<impl_type>(new impl_type());
-		plugins[id] = impl;
-		return impl; 
-	}
-	void erase(unsigned int id) {
-		plugins.erase(id);
-	}
-};
-
 
 #define NSC_WRAPPERS_MAIN_DEF(impl_class) \
-	static plugin_instance_data<impl_class> plugin_instance; \
-	extern int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) { \
-		try { \
-			return GET_PLUGIN()->wrapModuleHelperInit(id, f); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
+	typedef impl_class plugin_impl_class; \
+	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance; \
+	extern int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSModuleHelperInit(f); } \
 	extern int NSLoadModuleEx(unsigned int id, wchar_t* alias, int mode) { \
-	try { \
-	return GET_PLUGIN()->wrapLoadModule(plugin_instance.get(id)->loadModuleEx(alias, mode)); \
-		} catch (...) { \
-		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapLoadModule(...)")); \
-		return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSLoadModule() { \
-		return NSCAPI::hasFailed; \
-	} \
-	extern int NSGetModuleName(wchar_t* buf, int buflen) { \
-		try { \
-			return GET_PLUGIN()->wrapGetModuleName(buf, buflen, impl_class::getModuleName()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSGetModuleDescription(wchar_t* buf, int buflen) { \
-		try { \
-			return GET_PLUGIN()->wrapGetModuleName(buf, buflen, impl_class::getModuleDescription()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleName(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { \
-		try { \
-			return GET_PLUGIN()->wrapGetModuleVersion(major, minor, revision, impl_class::getModuleVersion()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
+		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSLoadModuleEx(id, alias, mode); } \
+	extern int NSLoadModule() { return nscapi::basic_wrapper_static<plugin_impl_class>::NSLoadModule(); } \
+	extern int NSGetModuleName(wchar_t* buf, int buflen) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleName(buf, buflen); } \
+	extern int NSGetModuleDescription(wchar_t* buf, int buflen) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleDescription(buf, buflen); } \
+	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleVersion(major, minor, revision); } \
 	extern int NSUnloadModule(unsigned int id) { \
-		try { \
-			int ret = GET_PLUGIN()->wrapUnloadModule(plugin_instance.get(id)->unloadModule()); \
-			plugin_instance.erase(id); \
-			return ret; \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapGetModuleVersion(...)")); \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
-	extern void NSDeleteBuffer(char**buffer) { \
-		try { \
-			GET_PLUGIN()->wrapDeleteBuffer(buffer); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit(...)")); \
-		} \
-	}
+		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSUnloadModule(); } \
+	extern void NSDeleteBuffer(char**buffer) { nscapi::basic_wrapper_static<plugin_impl_class>::NSDeleteBuffer(buffer); }
+
 #define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
 	extern void NSHandleMessage(unsigned int id, const char* request_buffer, unsigned int request_buffer_len) { \
-		try { \
-			std::string request(request_buffer, request_buffer_len); \
-			plugin_instance.get(id)->handleMessageRAW(request); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: handleMessage(...)")); \
-		} \
-	} \
+		nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSHandleMessage(request_buffer, request_buffer_len); } \
 	extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) { \
-		try { \
-			return GET_PLUGIN()->wrapHasMessageHandler(plugin_instance.get(id)->hasMessageHandler()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasMessageHandler(...)")); \
-			return NSCAPI::isfalse; \
-		} \
-	}
-#define NSC_WRAPPERS_IGNORE_MSG_DEF() \
-	extern void NSHandleMessage(unsigned int id, const char* data, unsigned int len) {} \
-	extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) { return NSCAPI::isfalse; }
-#define NSC_WRAPPERS_HANDLE_CMD_DEF() \
-	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) \
-	{ \
-	try { \
-	std::string request(request_buffer, request_buffer_len), reply; \
-	NSCAPI::nagiosReturn retCode = plugin_instance.get(id)->handleRAWCommand(command, request, reply); \
-	return GET_PLUGIN()->wrapHandleCommand(retCode, reply, reply_buffer, reply_buffer_len); \
-		} catch (...) { \
-		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
-		return NSCAPI::returnIgnored; \
-		} \
-	} \
-	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) { \
-	try { \
-	return GET_PLUGIN()->wrapHasCommandHandler(plugin_instance.get(id)->hasCommandHandler()); \
-		} catch (...) { \
-		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasCommandHandler(...)")); \
-		return NSCAPI::isfalse; \
-		} \
-	}
-#define NSC_WRAPPERS_ROUTING_DEF() \
-	extern NSCAPI::nagiosReturn NSRouteMessage(unsigned int id, const wchar_t* channel, const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len) \
-	{ \
-	try { \
-	std::string request(request_buffer, request_buffer_len), reply; \
-	return GET_PLUGIN()->wrapRouteMessage(plugin_instance.get(id)->RAWRouteMessage(channel, command, request)); \
-		} catch (...) { \
-		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHandleCommand(...)")); \
-		return NSCAPI::returnIgnored; \
-		} \
-	} \
-	extern NSCAPI::boolReturn NSHasRoutingHandler(unsigned int id) { \
-	try { \
-	return GET_PLUGIN()->wrapHasRoutingHandler(plugin_instance.get(id)->hasRoutingHandler()); \
-		} catch (...) { \
-		NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasCommandHandler(...)")); \
-		return NSCAPI::isfalse; \
-		} \
-	}
-#define NSC_WRAPPERS_IGNORE_CMD_DEF() \
-	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const wchar_t* IN_cmd, const unsigned int IN_argsLen, wchar_t **IN_args, \
-	wchar_t *OUT_retBufMessage, unsigned int IN_retBufMessageLen, wchar_t *OUT_retBufPerf, unsigned int IN_retBufPerfLen) { \
-	return NSCAPI::returnIgnored; \
-	} \
-	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) { return NSCAPI::isfalse; }
-#define NSC_WRAPPERS_IGNORE_NOTIFICATION_DEF() \
-	extern void NSHandleNotification(const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int) {} \
-	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { return NSCAPI::isfalse; }
-#define NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF() \
-	extern NSCAPI::nagiosReturn NSHandleNotification(unsigned int id, const wchar_t* channel, const wchar_t* command, NSCAPI::nagiosReturn code, const char* result_buffer, unsigned int result_buffer_len) \
-	{ \
-		try { \
-			std::string result(result_buffer, result_buffer_len); \
-			return GET_PLUGIN()->wrapHandleNotification(plugin_instance.get(id)->handleRAWNotification(channel, command, code, result)); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasNotificationHandler(...)")); \
-			return NSCAPI::returnIgnored; \
-		} \
-	} \
-	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { \
-		try { \
-			return GET_PLUGIN()->wrapHasNotificationHandler(plugin_instance.get(id)->hasNotificationHandler()); \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: wrapHasNotificationHandler(...)")); \
-			return NSCAPI::isfalse; \
-		} \
-	}
+		nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSHasMessageHandler(); }
 
+#define NSC_WRAPPERS_HANDLE_CMD_DEF() \
+	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) { \
+		nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSHandleCommand(command, request_buffer, request_buffer_len, reply_buffer, reply_buffer_len); } \
+	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) { \
+		nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSHasCommandHandler(); }
+
+#define NSC_WRAPPERS_ROUTING_DEF() \
+	extern NSCAPI::nagiosReturn NSRouteMessage(unsigned int id, const wchar_t* channel, const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len) { \
+		nscapi::routing_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSRouteMessage(channel, command, request_buffer, request_buffer_len); } \
+	extern NSCAPI::boolReturn NSHasRoutingHandler(unsigned int id) { \
+		nscapi::routing_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSHasRoutingHandler(); }
+
+#define NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF() \
+	extern int NSHandleNotification(unsigned int id, const wchar_t* channel, const wchar_t* command, const char* result_buffer, unsigned int result_buffer_len) { \
+		nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSHandleNotification(channel, command, result_buffer, result_buffer_len); } \
+	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { \
+		nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSHasNotificationHandler(); }
 
 #define NSC_WRAPPERS_CLI_DEF() \
 	extern int NSCommandLineExec(unsigned int id, wchar_t *command, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) { \
-		try { \
-		std::string request = std::string(request_buffer, request_len); \
-		std::string response; \
-		NSCAPI::nagiosReturn retCode = plugin_instance.get(id)->commandRAWLineExec(command, request, response); \
-		return GET_PLUGIN()->wrapCommandLineExec(retCode, response, response_buffer, response_len); \
-		} catch (const std::exception &e) { \
-		NSC_LOG_CRITICAL(_T("Exception in: commandLineExec(...)") + utf8::cvt<std::wstring>(e.what())); \
-			std::wcerr << _T("Exception in: commandLineExec(...)") << utf8::cvt<std::wstring>(e.what()) << std::endl; \
-			return NSCAPI::hasFailed; \
-		} catch (...) { \
-			NSC_LOG_CRITICAL(_T("Unknown exception in: commandLineExec(...)")); \
-			std::wcerr << _T("Unknown exception in: commandLineExec(...)") << std::endl; \
-			return NSCAPI::hasFailed; \
-		} \
-	} \
+		nscapi::cliexec_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		return wrapper.NSCommandLineExec(command, request_buffer, request_len, response_buffer, response_len); }
+
+#define NSC_WRAPPERS_IGNORE_MSG_DEF() \
+	extern void NSHandleMessage(unsigned int id, const char* data, unsigned int len) {} \
+	extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) { return NSCAPI::isfalse; }
+
+#define NSC_WRAPPERS_IGNORE_CMD_DEF() \
+	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const wchar_t* IN_cmd, const unsigned int IN_argsLen, wchar_t **IN_args, wchar_t *OUT_retBufMessage, unsigned int IN_retBufMessageLen, wchar_t *OUT_retBufPerf, unsigned int IN_retBufPerfLen) {  return NSCAPI::returnIgnored; } \
+	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) { return NSCAPI::isfalse; }
+
+#define NSC_WRAPPERS_IGNORE_NOTIFICATION_DEF() \
+	extern int NSHandleNotification(unsigned int id, const wchar_t* channel, const wchar_t* command, const char* result_buffer, unsigned int result_buffer_len) {} \
+	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { return NSCAPI::isfalse; }
 
 
 #define SETTINGS_MAKE_NAME(key) \

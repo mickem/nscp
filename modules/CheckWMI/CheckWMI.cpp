@@ -88,8 +88,8 @@ bool CheckWMI::loadModule() {
 }
 bool CheckWMI::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		get_core()->registerCommand(_T("CheckWMIValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
-		get_core()->registerCommand(_T("CheckWMI"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+		register_command(_T("CheckWMIValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
+		register_command(_T("CheckWMI"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
 
 		sh::settings_registry settings(get_settings_proxy());
 		//settings.set_alias(_T("targets"));

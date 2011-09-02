@@ -46,6 +46,7 @@ namespace script_wrapper {
 	struct function_wrapper {
 	private:
 		nscapi::core_wrapper* core;
+		unsigned int plugin_id;
 		function_wrapper() {}
 	public:
 		function_wrapper(const function_wrapper &other) : core(other.core) {}
@@ -53,13 +54,13 @@ namespace script_wrapper {
 			core = other.core;
 			return *this;
 		}
-		function_wrapper(nscapi::core_wrapper* core) : core(core) {}
+		function_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
 		typedef std::map<std::string,PyObject*> function_map_type;
 		//typedef boost::python::tuple simple_return;
 
 
-		static boost::shared_ptr<function_wrapper> create() {
-			return boost::shared_ptr<function_wrapper>(new function_wrapper(nscapi::plugin_singleton->get_core()));
+		static boost::shared_ptr<function_wrapper> create(unsigned int plugin_id) {
+			return boost::shared_ptr<function_wrapper>(new function_wrapper(nscapi::plugin_singleton->get_core(), plugin_id));
 		}
 
 		void register_simple_cmdline(std::string name, PyObject* callable);

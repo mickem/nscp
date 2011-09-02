@@ -50,8 +50,8 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 	try {
 
-		get_core()->registerCommand(_T("query_nscp"), _T("Submit a query to a remote host via NSCP"));
-		get_core()->registerCommand(_T("submit_nscp"), _T("Submit a query to a remote host via NSCP"));
+		register_command(_T("query_nscp"), _T("Submit a query to a remote host via NSCP"));
+		register_command(_T("submit_nscp"), _T("Submit a query to a remote host via NSCP"));
 		//"/settings/NSCP/client/handlers"
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NSCP"), alias, _T("client"));
@@ -160,7 +160,7 @@ void NSCPClient::add_command(std::wstring key, std::wstring args) {
 		NSC_DEBUG_MSG_STD(_T("Added NSCP Client: ") + key.c_str() + _T(" = ") + command_data.toString());
 		commands[key.c_str()] = command_data;
 
-		GET_CORE()->registerCommand(key.c_str(), command_data.toString());
+		register_command(key.c_str(), command_data.toString());
 
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not parse: ") + key.c_str() + strEx::string_to_wstring(e.what()));
