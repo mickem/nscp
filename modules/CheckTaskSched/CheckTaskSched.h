@@ -27,7 +27,7 @@ NSC_WRAPPERS_CLI();
 #include <checkHelpers.hpp>
 #include "TaskSched.h"
 
-class CheckTaskSched : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin {
+class CheckTaskSched : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
 private:
 	std::wstring syntax;
 

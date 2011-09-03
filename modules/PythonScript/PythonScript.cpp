@@ -76,7 +76,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("subscription", &script_wrapper::function_wrapper::subscribe_function)
 		.def("simple_subscription", &script_wrapper::function_wrapper::subscribe_simple_function)
 		;
-	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", no_init)
+	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", init<>())
 		.def("get",&script_wrapper::command_wrapper::create)
 		.staticmethod("get")
 		.def("create",&script_wrapper::command_wrapper::create)
@@ -146,7 +146,7 @@ void python_script::_exec(const std::string &scriptfile){
 		script_wrapper::log_exception();
 	}
 }
-
+static bool has_init = false;
 bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	alias_ = alias;
 	NSC_DEBUG_MSG_STD(_T("LoadEx in PythonScript as ") + alias);
@@ -166,14 +166,21 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		settings.register_all();
 		settings.notify();
 
-		Py_Initialize();
+		bool do_init = false;
+		if (!has_init) {
+			has_init = true;
+			Py_Initialize();
+			do_init = true;
+		}
+
 		try {
 
 			PyRun_SimpleString("import cStringIO");
 			PyRun_SimpleString("import sys");
 			PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
 
-			initNSCP();
+			if (do_init)
+				initNSCP();
 
 			BOOST_FOREACH(script_container &script, scripts_) {
 				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
@@ -287,12 +294,12 @@ NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, cons
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	std::string cmd = utf8::cvt<std::string>(command);
 	if (inst->has_function(cmd)) {
-		return inst->exec(cmd, request, response);
+		return inst->handle_query(cmd, request, response);
 	}
 	if (inst->has_simple(cmd)) {
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(command, request);
 		std::wstring msg, perf;
-		NSCAPI::nagiosReturn ret = inst->exec_simple(cmd, data.args, msg, perf);
+		NSCAPI::nagiosReturn ret = inst->handle_simple_query(cmd, data.args, msg, perf);
 		nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
 		return ret;
 	}

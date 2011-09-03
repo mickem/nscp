@@ -22,7 +22,7 @@ NSC_WRAPPERS_MAIN();
 #include <config.h>
 #include <strEx.h>
 
-class CheckHelpers : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin {
+class CheckHelpers : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
 private:
 
 public:

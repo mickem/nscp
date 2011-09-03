@@ -119,14 +119,14 @@ namespace nscapi {
 
 		};
 
-		class SimpleNotificationHandler {
+		class simple_submission_handler {
 		public:
 			NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, const wchar_t* command, std::string result);
 			virtual NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) = 0;
 
 		};
 
-		class simple_command {
+		class simple_command_handler {
 		public:
 			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 			virtual NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) = 0;
@@ -144,13 +144,6 @@ namespace nscapi {
 			virtual void handleMessage(int msgType, const std::string file, int line, std::string message) = 0;
 		};
 
-/*
-		class CommandImpl {
-		public:
-			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
-			virtual void handleCommand(std::wstring command, PluginCommand::Request *request, PluginCommand::Response *response) = 0;
-		};
-		*/
 	};
 
 

@@ -65,7 +65,7 @@ namespace nsclient {
 	namespace logging_queue {
 
 		namespace ip = boost::interprocess;
-		const int max_message_size = 1024;
+		const int max_message_size = 4096;
 		const std::string queue_name = "logging_queue";
 
 
@@ -298,7 +298,7 @@ namespace nsclient {
 					return;
 				}
 				if (data.size() >= max_message_size) {
-					log_fatal_error("Message to large to fit buffer: " + data);
+					log_fatal_error("Message to large to fit buffer: " + to_string(data.size()) + " > " + to_string(max_message_size));
 					return;
 				}
 				try {

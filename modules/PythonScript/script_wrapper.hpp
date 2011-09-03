@@ -5,13 +5,15 @@
 namespace script_wrapper {
 	using namespace boost::python;
 	
-
 	enum status {
 		OK = NSCAPI::returnOK, 
 		WARN = NSCAPI::returnWARN, 
 		CRIT = NSCAPI::returnCRIT, 
 		UNKNOWN = NSCAPI::returnUNKNOWN, 
 	};
+
+	status nagios_return_to_py(int code);
+	int py_to_nagios_return(status code);
 
 	void log_exception();
 	void log_msg(std::wstring x);
@@ -22,7 +24,7 @@ namespace script_wrapper {
 
 
 	struct functions {
-		typedef std::map<std::string,PyObject*> function_map_type;
+		typedef std::map<std::string,boost::python::handle<> > function_map_type;
 		function_map_type simple_functions;
 		function_map_type normal_functions;
 
@@ -69,8 +71,8 @@ namespace script_wrapper {
 		void register_function(std::string name, PyObject* callable, std::string desc);
 		void subscribe_function(std::string channel, PyObject* callable);
 		void subscribe_simple_function(std::string channel, PyObject* callable);
-		int exec_simple(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) const;
-		int exec(const std::string wcmd, const std::string &request, std::string &response) const;
+		int handle_simple_query(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) const;
+		int handle_query(const std::string wcmd, const std::string &request, std::string &response) const;
 		bool has_function(const std::string command);
 		bool has_simple(const std::string command);
 
@@ -101,6 +103,7 @@ namespace script_wrapper {
 
 	public:
 		static boost::shared_ptr<command_wrapper> create() {
+			NSC_DEBUG_MSG_STD(_T("<<<CREATING NEW>>>"));
 			return boost::shared_ptr<command_wrapper>(new command_wrapper(nscapi::plugin_singleton->get_core()));
 		}
 
@@ -109,7 +112,7 @@ namespace script_wrapper {
 		object simple_exec(std::string command, boost::python::list args);
 		tuple exec(std::string command, std::string request);
 		void simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
-		void submit() {}
+		void submit(std::string channel, std::string command, std::string request);
 	};
 
 	struct settings_wrapper {

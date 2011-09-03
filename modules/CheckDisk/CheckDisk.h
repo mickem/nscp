@@ -24,7 +24,7 @@ NSC_WRAPPERS_MAIN();
 #include <utils.h>
 #include <checkHelpers.hpp>
 
-class CheckDisk : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin  {
+class CheckDisk : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin  {
 private:
 	bool show_errors_;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;

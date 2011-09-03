@@ -23,7 +23,7 @@
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CHANNELS();
 
-class NSCAAgent : public nscapi::impl::SimpleNotificationHandler, public nscapi::impl::simple_plugin {
+class NSCAAgent : public nscapi::impl::simple_submission_handler, public nscapi::impl::simple_plugin {
 private:
 
 	std::string hostname_;

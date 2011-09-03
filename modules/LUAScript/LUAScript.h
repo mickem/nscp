@@ -30,7 +30,7 @@ NSC_WRAPPERS_MAIN();
 #include <scripts/functions.hpp>
 
 
-class LUAScript : public nscapi::impl::simple_command, public script_wrapper::lua_handler, public nscapi::impl::simple_plugin {
+class LUAScript : public nscapi::impl::simple_command_handler, public script_wrapper::lua_handler, public nscapi::impl::simple_plugin {
 private:
 
 	class lua_func {

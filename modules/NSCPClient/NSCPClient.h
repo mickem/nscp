@@ -27,7 +27,7 @@ NSC_WRAPPERS_CLI();
 #include <nscp/packet.hpp>
 
 
-class NSCPClient : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
+class NSCPClient : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:
 	struct nscp_connection_data {
 		std::wstring host;

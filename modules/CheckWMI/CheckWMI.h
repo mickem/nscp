@@ -87,7 +87,7 @@ struct target_helper {
 };
 
 
-class CheckWMI : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin {
+class CheckWMI : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
 public:
 	CheckWMI();
 	virtual ~CheckWMI();

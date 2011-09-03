@@ -1,4 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status
+from types import *
 #import sys
 #sys.path.append('D:/source/nscp/build/x64/scripts/python/include')
 
@@ -7,10 +8,100 @@ import plugin_pb2
 core = Core.get()
 
 prefix = 'py_'
+plugin_id = 0
 
 def get_help(arguments):
 	return (status.OK, 'help: Get help')
 
+class Callable:
+	def __init__(self, anycallable):
+		self.__call__ = anycallable
+
+class ChannelTest:
+	instance = None
+	channel = ''
+	reg = None
+	
+	last_channel = ''
+	last_command = ''
+	last_status = status.UNKNOWN
+	last_message = ''
+	last_perf = ''
+
+	instance = None
+	class SingletonHelper:
+		def __call__( self, *args, **kw ) :
+			if ChannelTest.instance is None :
+				object = ChannelTest()
+				ChannelTest.instance = object
+			return ChannelTest.instance
+
+	getInstance = SingletonHelper()
+
+	def desc(self):
+		return 'Testing that channels work'
+
+	def test_submission_handler_001(channel, command, code, message, perf):
+		instance = ChannelTest.getInstance()
+		instance.last_channel = channel
+		instance.last_command = command
+		instance.last_status = code
+		instance.last_message = message
+		instance.last_perf = perf
+	test_submission_handler_001 = Callable(test_submission_handler_001)
+		
+	def test_command_handler_001(arguments):
+		instance = ChannelTest.getInstance()
+		return (instance.last_status, '%s'%instance.last_message, '%s'%instance.last_perf)
+	test_command_handler_001 = Callable(test_command_handler_001)
+
+	def setup(self, plugin_id, prefix):
+		self.channel = '_%stest_channel'%prefix
+		self.reg = Registry.get(plugin_id)
+		self.reg.simple_subscription('%s_001'%self.channel, ChannelTest.test_submission_handler_001)
+		self.reg.simple_function('%s_001'%self.channel, ChannelTest.test_command_handler_001, 'This is a sample command')
+		
+	def teardown(self):
+		None
+		#self.reg.unregister_simple_subscription('%s_001'%self.channel)
+		#self.reg.unregister_simple_function('%s_001'%self.channel)
+
+	def test_simple(self, channel, command, code, message, perf, tag):
+		core.simple_submit('%s'%channel, '%s'%command, code, '%s'%message, '%s'%perf)
+		(retcode, retmessage, retperf) = core.simple_query(channel, [])
+		isok = True
+		if retcode != code:
+			log('FAILED - Test did not get the correct retuirn code: %s = %s (%s)'%(retcode, code, retmessage))
+			isok = False
+		if retmessage != message:
+			log('FAILED - Test did not get the correct retuirn code: %s = %s'%(retmessage, message))
+			isok = False
+		if retperf != perf:
+			log('FAILED - Test did not get the correct retuirn code: %s = %s'%(retperf, perf))
+			isok = False
+		if isok:
+			log('OK - Test successfull: %s'%tag)
+			return 0
+		return 1
+		
+
+	def run_test(self):
+		count = 0
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.OK, 'qwerty', '', 'simple ok')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.WARNING, 'foobar', '', 'simple warning')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.CRITICAL, 'test', '', 'simple critical')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.UNKNOWN, '1234567890', '', 'simple unknown')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.OK, 'qwerty', "'foo'=5%", 'simple performance data 001')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.OK, 'qwerty', "'foo'=5%;10", 'simple performance data 002')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.OK, 'qwerty', "'foo'=5%;10;23", 'simple performance data 003')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.OK, 'qwerty', "'foo'=5%;10;23;10;78", 'simple performance data 004')
+		count += self.test_simple('%s_001'%self.channel, 'foobar', status.OK, 'qwerty', "'foo'=5%;10;23;10;78 'bar'=1k;2;3", 'simple performance data 005')
+		if count > 0:
+			log("ERROR: %d tests failed"%count)
+		else:
+			log("OK: all tests successfull")
+		return (count, 9)
+		
 	
 def test_cmd(arguments):
 	global prefix
@@ -22,9 +113,29 @@ def test_channel(channel, command, code, message, perf):
 	log('inside test_channel: %s with prefix %s'%(channel, prefix))
 	log('Data: %d %s %s'%(code, message, perf))
 
+def run_test(cls):
+	instance = cls.getInstance()
+	instance.setup(plugin_id, prefix)
+	ret = instance.run_test()
+	instance.teardown()
+	log('Tested %s (%s of %s)'%(instance.desc(), ret[0], ret[1]))
+	return ret
+
+def run_tests(list):
+	all_failed = 0
+	all_count = 0
+	for c in list:
+		(failed, count) = run_test(c)
+		all_failed += failed
+		all_count += count
+	return (all_failed, all_count)
+
 def test(arguments):
 	global prefix
-	log('inside test')
+	global plugin_id
+
+	run_tests([ChannelTest])
+
 	for a in arguments:
 		log('Got argument: %s'%a)
 	(retcode, msg, perf) = core.simple_query("%snormal"%prefix, [])
@@ -98,8 +209,10 @@ def simple_pb(command, buffer):
 
 	return (status.OK, response.SerializeToString())
 
-def init(plugin_id, plugin_alias, script_alias):
+def init(pid, plugin_alias, script_alias):
 	global prefix
+	global plugin_id
+	plugin_id = pid
 	if script_alias:
 		prefix = '%s_'%script_alias
 
@@ -127,6 +240,7 @@ def init(plugin_id, plugin_alias, script_alias):
 	reg.simple_subscription('%stest'%prefix, test_channel)
 
 	core.simple_submit('%stest'%prefix, 'test.py', status.WARNING, 'hello', '')
+	core.simple_submit('test', 'test.py', status.WARNING, 'hello', '')
 	
 	(ret, list) = core.simple_exec('%stest'%prefix, ['a', 'b', 'c'])
 	for l in list:

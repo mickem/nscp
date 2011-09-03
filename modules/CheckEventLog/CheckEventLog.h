@@ -26,7 +26,7 @@ NSC_WRAPPERS_MAIN();
 #include <checkHelpers.hpp>
 
 
-class CheckEventLog : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin {
+class CheckEventLog : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
 private:
 	bool debug_;
 	std::wstring syntax_;

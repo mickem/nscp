@@ -27,7 +27,7 @@
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 
-class CheckSystem : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin {
+class CheckSystem : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
 private:
 	CheckMemory memoryChecker;
 	PDHCollectorThread pdhThread;

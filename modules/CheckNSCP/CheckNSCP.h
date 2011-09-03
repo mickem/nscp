@@ -32,7 +32,7 @@
 
 NSC_WRAPPERS_MAIN();
 
-class CheckNSCP : public nscapi::impl::simple_command, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
+class CheckNSCP : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
 private:
 	boost::timed_mutex mutex_;
 	std::wstring crashFolder;

@@ -5,6 +5,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-09-02 MickeM
+ * Fixed several issues in PythonScript
+ * PythonScript supports loading multiple instances as well as scripts
+ * Added some basic channel test to test.py script (the idea is that this will become "unit tests" eventually)
+
 2011-09-01 MickeM
  * Implemented registration of channels (so no longer faked)
  * Added settings key to change the NSCAAgent channel name
