@@ -20,8 +20,12 @@ namespace nsclient {
 		void boot() {
 			if (!current_.empty())
 				core_->set_settings_context(current_);
-			if (!core_->initCore(false)) {
-				std::wcout << _T("Service *NOT* started!") << std::endl;
+			if (!core_->boot_init()) {
+				std::wcout << _T("boot::init failed") << std::endl;
+				return;
+			}
+			if (!core_->boot_load_plugins(false)) {
+				std::wcout << _T("boot::load_plugins failed!") << std::endl;
 				return;
 			}
 			if (default_)
@@ -124,6 +128,10 @@ namespace nsclient {
 			return -1;
 		}
 
+
+		void switch_context(std::wstring contect) {
+			settings_manager::get_core()->set_primary(contect);
+		}
 
 		int set(std::wstring path, std::wstring key, std::wstring val) {
 			core_->load_all_plugins(NSCAPI::dontStart);

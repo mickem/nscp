@@ -174,8 +174,16 @@ namespace settings_manager {
 			get_logger()->info(__FILE__, __LINE__, _T("No valid settings found but one was givben (using that): ") + key);
 			set_instance(key);
 			return;
-		} 
+		}
 
+		get_logger()->debug(__FILE__, __LINE__, _T("No valid settings found (tried): ") + boot_order);
+
+		std::wstring tgt = get_boot_string(_T("main"), _T("write"), _T(""));
+		if (!tgt.empty()) {
+			get_logger()->debug(__FILE__, __LINE__, _T("Creating new settings file: ") + tgt);
+			set_instance(tgt);
+			return;
+		}
 		get_logger()->err(__FILE__, __LINE__, _T("No valid settings found (tried): ") + boot_order);
 	}
 
@@ -194,6 +202,7 @@ namespace settings_manager {
 		BOOST_FOREACH(std::wstring k, order) {
 			set_boot_string(_T("settings"), strEx::itos(i++), k);
 		}
+		set_boot_string(_T("main"), _T("write"), key);
 	}
 
 

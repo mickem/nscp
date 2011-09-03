@@ -201,7 +201,25 @@ def test(arguments):
 	else:
 		return (status.CRITICAL, 'Tests failed %d of %d'%(all_failed, all_count))
 
+def install_test(arguments):
+	log('-+---==(TEST INSTALLER)==---------------------------------------------------+-')
+	log(' | Setup nessecary configuration for running test                           |')
+	log(' | This includes: Loading the PythonScript module at startup                |')
+	log(' | To use this please run nsclient++ in "test mode" like so:                |')
+	log(' | nscp --test                                                              |')
+	log(' | Then start the pytest_test command by typing it and press enter like so: |')
+	log(' | pytest_test                                                              |')
+	log(' | Lastly exit by typing exit like so:                                      |')
+	log(' | exit                                                                     |')
+	log('-+--------------------------------------------------------==(DAS ENDE!)==---+-')
+	conf = Settings.get()
+	conf.set_string('/modules', 'pytest', 'PythonScript')
+	conf.set_string('/settings/pytest/scripts', 'pytest', 'test.py')
+	conf.save()
 
+def __main__():
+	install_test([])
+	
 def init(pid, plugin_alias, script_alias):
 	global prefix
 	global plugin_id
@@ -209,37 +227,35 @@ def init(pid, plugin_alias, script_alias):
 	if script_alias:
 		prefix = '%s_'%script_alias
 
-	log('Script: test.py with alias: %s (%s:%d)'%(script_alias, plugin_alias, plugin_id))
-
 	conf = Settings.get()
-	val = conf.get_string('/modules', 'PythonScript', 'foo')
+	#val = conf.get_string('/modules', 'PythonScript', 'foo')
 
-	log('Got it: %s'%val)
+	#log('Got it: %s'%val)
 	
 	log('Testing to register a function')
 	reg = Registry.get(plugin_id)
 	
-	#reg.simple_cmdline('help', get_help)
-	#reg.simple_cmdline('%stest'%prefix, test_cmd)
+	reg.simple_cmdline('help', get_help)
+	reg.simple_cmdline('install_python_test', install_test)
 
 	reg.simple_function('%stest'%prefix, test, 'Run python unittest')
 
 	#core.simple_submit('%stest'%prefix, 'test.py', status.WARNING, 'hello', '')
 	#core.simple_submit('test', 'test.py', status.WARNING, 'hello', '')
 	
-	(ret, list) = core.simple_exec('%stest'%prefix, ['a', 'b', 'c'])
-	for l in list:
-		log('-- %s --'%l)
+	#(ret, list) = core.simple_exec('%stest'%prefix, ['a', 'b', 'c'])
+	#for l in list:
+	#	log('-- %s --'%l)
 
-	log('Testing to register settings keys')
-	conf.register_path('hello', 'PYTHON SETTINGS', 'This is stuff for python')
-	conf.register_key('hello', 'python', 'int', 'KEY', 'This is a key', '42')
+	#log('Testing to register settings keys')
+	#conf.register_path('hello', 'PYTHON SETTINGS', 'This is stuff for python')
+	#conf.register_key('hello', 'python', 'int', 'KEY', 'This is a key', '42')
 
-	log('Testing to get key (nonexistant): %d' % conf.get_int('hello', 'python', -1))
-	conf.set_int('hello', 'python', 4)
-	log('Testing to get it (after setting it): %d' % conf.get_int('hello', 'python', -1))
+	#log('Testing to get key (nonexistant): %d' % conf.get_int('hello', 'python', -1))
+	#conf.set_int('hello', 'python', 4)
+	#log('Testing to get it (after setting it): %d' % conf.get_int('hello', 'python', -1))
 
-	log('Saving configuration...')
+	#log('Saving configuration...')
 	#conf.save()
 
 def shutdown():

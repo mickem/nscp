@@ -1332,7 +1332,7 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::LoadFile(
     fclose(fp);
     return rc;
 #else // !_WIN32 (therefore SI_CONVERT_ICU)
-#if SI_CONVERT_ICU
+#ifdef SI_CONVERT_ICU
     char szFile[256];
     u_austrncpy(szFile, a_pwszFile, sizeof(szFile));
     return LoadFile(szFile);
@@ -1688,7 +1688,7 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::IsNewLineChar(
     SI_CHAR a_c
     ) const
 {
-    return (a_c == '\n' || a_c == '\r');
+    return (a_c == '\n' || a_c == '\r' || a_c == 0);
 }
 
 template<class SI_CHAR, class SI_STRLESS, class SI_CONVERTER>

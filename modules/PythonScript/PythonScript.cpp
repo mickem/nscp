@@ -20,13 +20,14 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "PythonScript.h"
-#include <strEx.h>
 #include <time.h>
 #include <error.hpp>
-#include <file_helpers.hpp>
 
 #include <boost/python.hpp>
+#include <boost/program_options.hpp>
 
+#include <strEx.h>
+#include <file_helpers.hpp>
 #include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
 
@@ -38,6 +39,7 @@ PythonScript::~PythonScript() {
 }
 
 namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
 bool PythonScript::loadModule() {
 	return false;
@@ -101,6 +103,8 @@ BOOST_PYTHON_MODULE(NSCP)
 }
 
 python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) : alias(alias), plugin_id(plugin_id) {
+	NSC_DEBUG_MSG_STD(_T("Loading python script: ") + script.script.string());
+	std::wcout << script.script.string() << std::endl;;
 	_exec(utf8::cvt<std::string>(script.script.string()));
 	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
@@ -214,6 +218,34 @@ boost::optional<boost::filesystem::wpath> PythonScript::find_file(std::wstring f
 	return boost::optional<boost::filesystem::wpath>();
 }
 
+NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstring> args) {
+	try {
+		po::options_description desc;
+		boost::program_options::variables_map vm;
+		std::wstring file;
+		desc.add_options()
+			("script", po::wvalue<std::wstring>(&file), "The script to run")
+			("file", po::wvalue<std::wstring>(&file), "The script to run")
+			;
+
+		std::vector<std::wstring> vargs(args.begin(), args.end());
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
+		if (!ofile)
+			return false;
+		script_container sc(*ofile);
+		python_script script(get_id(), "", sc);
+		script.callFunction("__main__");
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to execute script ") + utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to execute script..."));
+	}
+}
+
 bool PythonScript::loadScript(std::wstring alias, std::wstring file) {
 	try {
 		if (file.empty()) {
@@ -274,6 +306,11 @@ bool PythonScript::reload(std::wstring &message) {
 }
 
 NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
+	std::wstring command = char_command;
+	if (command == _T("execute-and-load-python")) {
+		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+		return execute_and_load_python(data.args);
+	}
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	std::string cmd = utf8::cvt<std::string>(char_command);
 	if (inst->has_cmdline(cmd)) {

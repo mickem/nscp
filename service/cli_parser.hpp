@@ -57,6 +57,7 @@ public:
 			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
 			("key", po::value<std::wstring>()->default_value(_T("")), "Key to work with.")
 			("set", po::value<std::wstring>(), "Set a key and path to a given value.")
+			("switch", po::value<std::wstring>(), "Set default context to use (similar to migrate but does NOT copy values)")
 			("show", "Set a value given a key and path.")
 			("list", "Set all keys below the path (or root).")
 			;
@@ -210,6 +211,10 @@ public:
 			if (vm.count("show")) {
 				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
 			}
+			if (vm.count("switch")) {
+				client.switch_context(vm["switch"].as<std::wstring>());
+				ret = 0;
+			}
 			client.exit();
 
 			return ret;
@@ -334,8 +339,9 @@ public:
 					strEx::append_list(args, s, _T(", "));
 				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
 			}
+			core_->boot_init();
 			if (module.empty()) {
-				core_->initCore(false);
+				core_->boot_load_plugins(false);
 			}
 			int ret = 0;
 			std::list<std::wstring> resp;

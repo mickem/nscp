@@ -8,6 +8,7 @@
 
 #include <settings/settings_core.hpp>
 #include <settings/settings_core_impl.hpp>
+//#define SI_CONVERT_ICU
 #include <simpleini/simpleini.h>
 #include <error.hpp>
 
@@ -225,6 +226,7 @@ namespace settings {
 				return;
 			}
 			std::wstring f = get_file_name();
+			ini.SetUnicode();
 			get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)

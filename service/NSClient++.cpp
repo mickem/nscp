@@ -532,8 +532,8 @@ namespace sh = nscapi::settings_helper;
  * @return success
  * @author mickem
  */
-bool NSClientT::initCore(bool boot) {
-	LOG_INFO_CORE(_T("Attempting to start"));
+bool NSClientT::boot_init() {
+	LOG_INFO_CORE(SERVICE_NAME _T(" booting..."));
 
 	if (!settings_manager::init_settings(&provider, context_)) {
 		return false;
@@ -626,9 +626,9 @@ bool NSClientT::initCore(bool boot) {
 
 
 	if (enable_shared_session_) {
-		LOG_DEBUG_CORE(_T("Enabling shared session..."));
-		if (boot) {
-			LOG_INFO_CORE(_T("shared session not ported yet!..."));
+		LOG_INFO_CORE(_T("shared session not ported yet!..."));
+// 		if (boot) {
+// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
 // 			try {
 // 				shared_server_.reset(new nsclient_session::shared_server_session(this));
 // 				if (!shared_server_->session_exists()) {
@@ -644,8 +644,8 @@ bool NSClientT::initCore(bool boot) {
 // 				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
 // 				shared_server_.reset(NULL);
 // 			}
-		} else {
-			LOG_INFO_CORE(_T("shared session not ported yet!..."));
+// 		} else {
+// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
 // 			try {
 // 				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
 // 				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
@@ -662,7 +662,7 @@ bool NSClientT::initCore(bool boot) {
 // 				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
 // 				shared_client_.reset(NULL);
 // 			}
-		}
+// 		}
 	}
 #ifdef WIN32
 	try {
@@ -675,6 +675,10 @@ bool NSClientT::initCore(bool boot) {
 		return false;
 	}
 #endif
+	return true;
+}
+bool NSClientT::boot_load_plugins(bool boot) {
+	LOG_DEBUG_CORE(_T("booting::loading plugins"));
 	try {
 		boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
 		plugin_alias_list_type plugins = find_all_plugins(true);
@@ -1378,7 +1382,8 @@ NSClient* NSClientT::get_global_instance() {
 }
 void NSClientT::handle_startup(std::wstring service_name) {
 	service_name_ = service_name;
-	initCore(true);
+	boot_init();
+	boot_load_plugins(true);
 /*
 	DWORD dwSessionId = remote_processes::getActiveSessionId();
 	if (dwSessionId != 0xFFFFFFFF)

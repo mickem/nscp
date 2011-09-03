@@ -130,7 +130,8 @@ public:
 	}
 
 	// Service helper functions
-	bool initCore(bool boot);
+	bool boot_init();
+	bool boot_load_plugins(bool boot);
 	bool exitCore(bool boot);
 	void set_settings_context(std::wstring context) { context_ = context; }
 #ifdef WIN32x

@@ -194,7 +194,6 @@ namespace settings {
 			instance_ptr ito = create_instance(to);
 			migrate(ifrom, ito);
 		}
-		virtual void set_primary(std::wstring key) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a path with the settings module.

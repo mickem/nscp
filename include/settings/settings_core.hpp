@@ -229,6 +229,8 @@ namespace settings {
 		virtual void migrate_to(std::wstring to) = 0;
 		virtual void migrate_from(std::wstring from) = 0;
 
+		virtual void set_primary(std::wstring context) = 0;
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Overwrite the (current) settings store with default values.
 		///

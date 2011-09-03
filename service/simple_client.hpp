@@ -14,8 +14,12 @@ namespace nsclient {
 		}
 		void start() {
 			core_->enableDebug(true);
-			if (!core_->initCore(true)) {
-				core_->log_error(__FILE__, __LINE__, _T("Service failed to start"));
+			if (!core_->boot_init()) {
+				core_->log_error(__FILE__, __LINE__, _T("Service failed to init"));
+				return;
+			}
+			if (!core_->boot_load_plugins(true)) {
+				core_->log_error(__FILE__, __LINE__, _T("Service failed to load plugin"));
 				return;
 			}
 

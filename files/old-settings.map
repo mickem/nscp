@@ -18,6 +18,8 @@ modules/NRPEClient.dll=/modules/NRPEClient
 modules/CheckTaskSched.dll=/modules/CheckTaskSched
 modules/Scheduler.dll=/modules/Scheduler
 
+modules=/modules
+
 # Crash section
 
 crash/archive=/settings/crash/archive

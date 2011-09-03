@@ -173,15 +173,15 @@
             </Directory>
 
             <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB1" Name="lib">
-              <Component Id="PythonScriptsPBLib1" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+              <Component Id="PythonScriptsPBLib1" Guid="555165B3-5CBF-4204-A349-6AD7CCEF14EB" Win64="$(var.Win64)">
                 <File Id="p_script_lib_001" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/__init__.py" Vital="no" />
               </Component>
               <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB2" Name="google">
-                <Component Id="PythonScriptsPBLib2" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                <Component Id="PythonScriptsPBLib2" Guid="555165B3-5CBF-4204-A349-6AD7CCEF14E1" Win64="$(var.Win64)">
                   <File Id="p_script_lib_002" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/__init__.py" Vital="no" />
                 </Component>
                 <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB3" Name="protobuf">
-                  <Component Id="PythonScriptsPBLib3" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                  <Component Id="PythonScriptsPBLib3" Guid="555165B3-5CBF-4204-A349-6AD7CCEF14E2" Win64="$(var.Win64)">
                     <File Id="p_script_lib_003" Name="descriptor.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/descriptor.py" Vital="no" />
                     <File Id="p_script_lib_004" Name="descriptor_pb2.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/descriptor_pb2.py" Vital="no" />
                     <File Id="p_script_lib_005" Name="message.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/message.py" Vital="no" />
@@ -192,12 +192,12 @@
                     <File Id="p_script_lib_010" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/__init__.py" Vital="no" />
                   </Component>
                   <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB4" Name="compiler">
-                    <Component Id="PythonScriptsPBLib4" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                    <Component Id="PythonScriptsPBLib4" Guid="555165B3-5CBF-4204-A349-6AD7CCEF14E3" Win64="$(var.Win64)">
                       <File Id="p_script_lib_011" Name="plugin_pb2.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/compiler/plugin_pb2.py" Vital="no" />
                     </Component>
                   </Directory>
                   <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB5" Name="internal">
-                    <Component Id="PythonScriptsPBLib5" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                    <Component Id="PythonScriptsPBLib5" Guid="555165B3-5CBF-4204-A349-6AD7CCEF14E4" Win64="$(var.Win64)">
                       <File Id="p_script_lib_012" Name="api_implementation.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/api_implementation.py" Vital="no" />
                       <File Id="p_script_lib_013" Name="containers.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/containers.py" Vital="no" />
                       <File Id="p_script_lib_014" Name="cpp_message.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/cpp_message.py" Vital="no" />
@@ -213,8 +213,6 @@
                 </Directory>
               </Directory>
             </Directory>
-
-
           </Directory>
         </Directory>
       </Directory>

@@ -9,6 +9,13 @@ TODO:
  * Created a protcol buffer free version of the python test script
  * Upgraded to new version of simpleinin class
  * Added new component for python protocol buffer library to installer
+ * Added installer for unittests to test.py run like so:
+   nscp --client --module PythonScript --command execute-and-load-python --script test.py
+ * Fixed so settings are created if not existing
+ * Fixed so plugins are not loaded in client mode
+ * Fixed so core is booting correctly in client mode
+ * Added new option --settings --switch <context> to allow switching context without migrating data
+ * Fixed unicode error on linux (settings file)
 
 2011-09-02 MickeM
  * Fixed several issues in PythonScript
