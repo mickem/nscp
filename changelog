@@ -5,6 +5,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-09-03 MickeM
+ * Created a protcol buffer free version of the python test script
+ * Upgraded to new version of simpleinin class
+ * Added new component for python protocol buffer library to installer
+
 2011-09-02 MickeM
  * Fixed several issues in PythonScript
  * PythonScript supports loading multiple instances as well as scripts

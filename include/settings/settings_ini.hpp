@@ -245,7 +245,7 @@ namespace settings {
 				error_str = _T("General failure");
 			if (err == SI_FILE)
 				error_str = _T("I/O error: ") + error::lookup::last_error();
-			throw settings_exception(msg + _T(": ") + get_context() + _T(" - ") + error_str);
+			throw settings_exception(msg + _T(" '") + get_context() + _T("': ") + error_str);
 		}
 		std::wstring get_file_name() {
 			if (filename_.empty()) {

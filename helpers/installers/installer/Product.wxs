@@ -168,9 +168,53 @@
             <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON" Name="python">
               <Component Id="PythonScripts" Guid="8820A304-C697-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
                 <File Id="P_script_001" Name="test.py" DiskId="1" Source="$(var.Source)/scripts/python/test.py" Vital="no" />
-                <File Id="P_script_002" Name="test_second.py" DiskId="1" Source="$(var.Source)/scripts/python/test_second.py" Vital="no" />
+                <File Id="P_script_002" Name="test_second.py" DiskId="1" Source="$(var.Source)/scripts/python/test_pb.py" Vital="no" />
               </Component>
             </Directory>
+
+            <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB1" Name="lib">
+              <Component Id="PythonScriptsPBLib1" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                <File Id="p_script_lib_001" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/__init__.py" Vital="no" />
+              </Component>
+              <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB2" Name="google">
+                <Component Id="PythonScriptsPBLib2" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                  <File Id="p_script_lib_002" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/__init__.py" Vital="no" />
+                </Component>
+                <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB3" Name="protobuf">
+                  <Component Id="PythonScriptsPBLib3" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                    <File Id="p_script_lib_003" Name="descriptor.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/descriptor.py" Vital="no" />
+                    <File Id="p_script_lib_004" Name="descriptor_pb2.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/descriptor_pb2.py" Vital="no" />
+                    <File Id="p_script_lib_005" Name="message.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/message.py" Vital="no" />
+                    <File Id="p_script_lib_006" Name="reflection.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/reflection.py" Vital="no" />
+                    <File Id="p_script_lib_007" Name="service.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/service.py" Vital="no" />
+                    <File Id="p_script_lib_008" Name="service_reflection.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/service_reflection.py" Vital="no" />
+                    <File Id="p_script_lib_009" Name="text_format.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/text_format.py" Vital="no" />
+                    <File Id="p_script_lib_010" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/__init__.py" Vital="no" />
+                  </Component>
+                  <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB4" Name="compiler">
+                    <Component Id="PythonScriptsPBLib4" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                      <File Id="p_script_lib_011" Name="plugin_pb2.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/compiler/plugin_pb2.py" Vital="no" />
+                    </Component>
+                  </Directory>
+                  <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB5" Name="internal">
+                    <Component Id="PythonScriptsPBLib5" Guid="8820A304-C697-4393-B72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+                      <File Id="p_script_lib_012" Name="api_implementation.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/api_implementation.py" Vital="no" />
+                      <File Id="p_script_lib_013" Name="containers.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/containers.py" Vital="no" />
+                      <File Id="p_script_lib_014" Name="cpp_message.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/cpp_message.py" Vital="no" />
+                      <File Id="p_script_lib_015" Name="decoder.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/decoder.py" Vital="no" />
+                      <File Id="p_script_lib_016" Name="encoder.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/encoder.py" Vital="no" />
+                      <File Id="p_script_lib_017" Name="message_listener.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/message_listener.py" Vital="no" />
+                      <File Id="p_script_lib_018" Name="python_message.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/python_message.py" Vital="no" />
+                      <File Id="p_script_lib_019" Name="type_checkers.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/type_checkers.py" Vital="no" />
+                      <File Id="p_script_lib_020" Name="wire_format.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/wire_format.py" Vital="no" />
+                      <File Id="p_script_lib_021" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/google/protobuf/internal/__init__.py" Vital="no" />
+                    </Component>
+                  </Directory>
+                </Directory>
+              </Directory>
+            </Directory>
+
+
           </Directory>
         </Directory>
       </Directory>
@@ -211,6 +255,13 @@
         <Feature Id="PythonScript" Title="Python Scripting" Description="Python scripting requires python to be installed)" Level="1" Absent="disallow">
           <ComponentRef Id="PythonScript" />
           <ComponentRef Id="PythonScripts" />
+          <Feature Id="PythonScriptPBLib" Title="Protocl buffer lib" Description="Python library for protocol buffers" Level="1" Absent="disallow">
+            <ComponentRef Id="PythonScriptsPBLib1" />
+            <ComponentRef Id="PythonScriptsPBLib2" />
+            <ComponentRef Id="PythonScriptsPBLib3" />
+            <ComponentRef Id="PythonScriptsPBLib4" />
+            <ComponentRef Id="PythonScriptsPBLib5" />
+          </Feature>
         </Feature>
         <Feature Id="SampleScripts" Title="Sample Scripts" Description="Some sample client-side scripts to use with NRPE" Level="1" Absent="disallow">
 					<ComponentRef Id="Scripts" />

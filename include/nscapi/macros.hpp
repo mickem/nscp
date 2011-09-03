@@ -88,8 +88,10 @@
 	extern int NSGetModuleDescription(wchar_t* buf, int buflen) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleDescription(buf, buflen); } \
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleVersion(major, minor, revision); } \
 	extern int NSUnloadModule(unsigned int id) { \
-		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
-		return wrapper.NSUnloadModule(); } \
+		int ret; {nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
+		ret = wrapper.NSUnloadModule();} \
+		plugin_instance.erase(id); \
+		return ret; } \
 	extern void NSDeleteBuffer(char**buffer) { nscapi::basic_wrapper_static<plugin_impl_class>::NSDeleteBuffer(buffer); }
 
 #define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
