@@ -20,31 +20,10 @@
 ***************************************************************************/
 #pragma once
 
-#include <string>
-#include <functional>
-
-#include <boost/array.hpp>
-#include <boost/optional.hpp>
-#include <boost/bind.hpp>
-#include <boost/filesystem.hpp>
-
-//#define _WIN32_WINNT 0x0403
-//#include <Windows.h>
-
-#include <boost/asio.hpp>
-#ifdef USE_SSL
-#include <boost/asio/ssl.hpp>
-#endif
-
-
-//#include <config.h>
-#include <utils.h>
-#include <types.hpp>
-
-#include <config.h>
-#include <settings/macros.h>
-#include <NSCAPI.h>
-#include <nscapi/plugin.hpp>
-#include <program_options_ex.hpp>
-
-
+// Default Argument string (for consistency)
+#define SHOW_ALL _T("ShowAll")
+#define SHOW_FAIL _T("ShowFail")
+#define NSCLIENT _T("nsclient")
+#define IGNORE_PERFDATA _T("ignore-perf-data")
+#define CHECK_ALL _T("CheckAll")
+#define CHECK_ALL_OTHERS _T("CheckAllOthers")

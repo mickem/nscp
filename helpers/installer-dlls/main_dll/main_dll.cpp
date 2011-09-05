@@ -3,6 +3,7 @@
 #include <msiquery.h>
 #include <error.hpp>
 //#include <Settings.h>
+//#include <config.h>
 #include <config.h>
 #include <ServiceCmd.h>
 #include <char_buffer.hpp>
@@ -65,6 +66,7 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	std::wstring old_settings_map;
 
 	installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map) : h(h), logger(h), basepath(basepath), old_settings_map(old_settings_map) {}
+	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), logger(h), basepath(basepath) {}
 
 	virtual std::wstring expand_path(std::wstring file) {
 		strEx::replace(file, _T("${base-path}"), basepath);
@@ -88,7 +90,7 @@ struct installer_settings_provider : public settings_manager::provider_interface
 		return logger.get_debug();
 	}
 	std::wstring get_data(std::wstring key) {
-		if (key == _T("old_settings_map_data")) {
+		if (!old_settings_map.empty() && key == _T("old_settings_map_data")) {
 			return old_settings_map;
 		}
 		return _T("");
@@ -325,9 +327,9 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		std::wstring context = data.get_next_string();
 		int add_defaults = data.get_next_int();
 
-		std::wstring map_data = read_map_data(h);
+		//std::wstring map_data = read_map_data(h);
 
-		installer_settings_provider provider(&h, target, map_data);
+		installer_settings_provider provider(&h, target);
 		if (!settings_manager::init_settings(&provider, context)) {
 			h.errorMessage(_T("Failed to boot settings: ") + provider.get_error());
 			return ERROR_INSTALL_FAILURE;

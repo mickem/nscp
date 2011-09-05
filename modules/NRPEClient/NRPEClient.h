@@ -26,6 +26,7 @@ NSC_WRAPPERS_CLI();
 #include <map>
 #include <nrpe/packet.hpp>
 
+namespace po = boost::program_options;
 
 class NRPEClient : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:

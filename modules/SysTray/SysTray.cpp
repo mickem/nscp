@@ -22,7 +22,7 @@
 #include "SysTray.h"
 #include "TrayIcon.h"
 #include <ServiceCmd.h>
-#include <config.h>
+//#include <config.h>
 #include <Winwlx.h>
 #include <sysinfo.h>
 

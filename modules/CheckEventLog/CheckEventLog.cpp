@@ -24,13 +24,12 @@
 #include <filter_framework.hpp>
 #include <boost/foreach.hpp>
 
-#include <strEx.h>
 #include <time.h>
 #include <utils.h>
 #include <error.hpp>
 #include <map>
 #include <vector>
-#include <config.h>
+//#include <config.h>
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>

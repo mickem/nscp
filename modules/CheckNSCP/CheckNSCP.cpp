@@ -23,6 +23,8 @@
 #include <file_helpers.hpp>
 #include <unicode_char.hpp>
 
+#include <config.h>
+
 #include <settings/client/settings_client.hpp>
 namespace sh = nscapi::settings_helper;
 

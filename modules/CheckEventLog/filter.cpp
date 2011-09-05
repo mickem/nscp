@@ -20,7 +20,7 @@
 #include <strEx.h>
 #include "filter.hpp"
 
-#include <config.h>
+//#include <config.h>
 
 using namespace boost::assign;
 using namespace parsers::where;

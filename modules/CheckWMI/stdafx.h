@@ -41,6 +41,7 @@
 #define _WIN32_DCOM
 #include <objbase.h>
 
+#include <common.hpp>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -51,6 +52,7 @@
 //#include <atlcom.h>
 //#include <atlstr.h>
 #include <atlsafe.h>
+
 
 #ifdef MEMCHECK
 #include <vld.h>

@@ -103,7 +103,6 @@ namespace script_wrapper {
 
 	public:
 		static boost::shared_ptr<command_wrapper> create() {
-			NSC_DEBUG_MSG_STD(_T("<<<CREATING NEW>>>"));
 			return boost::shared_ptr<command_wrapper>(new command_wrapper(nscapi::plugin_singleton->get_core()));
 		}
 

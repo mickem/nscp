@@ -5,7 +5,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2011-09-03 MickeM
+2011-09-05 MickeM
+ * Cleaned up some dependencies (on config.h)
+ * Fixed invalid data in config.h.in
+
+2011-09-03 MickeM (0.4.0.93)
  * Created a protcol buffer free version of the python test script
  * Upgraded to new version of simpleinin class
  * Added new component for python protocol buffer library to installer
@@ -68,7 +72,7 @@ TODO:
  * Fixed so automagic plugin renaming add lib<LIB name> on *nix.
  * Fixed so it works on linux (fixed issues with timeout)
 
-2011-08-16 MickeM
+2011-08-16 MickeM (0.4.0.85)
  * Added support for remote WMI checking using target/username/password options like so:
     CheckWMI target=192.168.0.123 user=\\foobar password=foobar namespace=root\\cimv2 MaxCrit=3 MinWarn=1 "Query:load=Select * from win32_Processor"
  * Added support for looking up targets to CheckWMI

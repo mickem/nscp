@@ -23,7 +23,7 @@
 #include "file_info.hpp"
 #include "file_finder.hpp"
 
-#include <config.h>
+//#include <config.h>
 
 using namespace boost::assign;
 using namespace parsers::where;

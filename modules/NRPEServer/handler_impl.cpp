@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include "handler_impl.hpp"
+#include <config.h>
 
 nrpe::packet handler_impl::handle(nrpe::packet p) {
 	strEx::token cmd = strEx::getToken(p.getPayload(), '!');

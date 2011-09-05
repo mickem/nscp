@@ -22,7 +22,7 @@
 #include "DebugLogMetrics.h"
 #include <strEx.h>
 #include <time.h>
-#include <config.h>
+//#include <config.h>
 #include <Psapi.h>
 
 DebugLogMetrics gDebugLogMetrics;

@@ -22,9 +22,7 @@
 #include "NRPEClient.h"
 #include <strEx.h>
 #include <time.h>
-#include <config.h>
-#include <strEx.h>
-#include <boost/filesystem.hpp>
+//#include <config.h>
 #include <strEx.h>
 #include <nrpe/client/socket.hpp>
 

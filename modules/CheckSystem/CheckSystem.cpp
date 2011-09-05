@@ -38,6 +38,8 @@
 #include <settings/client/settings_client.hpp>
 #include <arrayBuffer.h>
 
+#include <config.h>
+
 /**
  * Default c-tor
  * @return 

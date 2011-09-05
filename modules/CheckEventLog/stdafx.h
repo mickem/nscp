@@ -34,7 +34,8 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include <config.h>
+#include <common.hpp>
+#include <strEx.h>
 #include <unicode_char.hpp>
 #include <types.hpp>
 #include <NSCAPI.h>

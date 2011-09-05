@@ -22,7 +22,7 @@
 #include "NRPEServer.h"
 #include <strEx.h>
 #include <time.h>
-#include <config.h>
+//#include <config.h>
 #include "handler_impl.hpp"
 
 #include <settings/client/settings_client.hpp>

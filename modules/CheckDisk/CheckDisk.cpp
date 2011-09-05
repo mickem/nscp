@@ -20,7 +20,6 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "CheckDisk.h"
-#include <strEx.h>
 #include <time.h>
 #include <filter_framework.hpp>
 #include <error.hpp>
@@ -38,6 +37,8 @@
 #include <parsers/where/binary_op.hpp>
 #include <parsers/where/unary_op.hpp>
 #include <parsers/where/variable.hpp>
+
+#include <config.h>
 
 namespace sh = nscapi::settings_helper;
 

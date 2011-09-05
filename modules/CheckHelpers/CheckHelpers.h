@@ -19,7 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
-#include <config.h>
+//#include <config.h>
 #include <strEx.h>
 
 class CheckHelpers : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {

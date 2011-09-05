@@ -32,6 +32,8 @@
 #define _WIN32_DCOM
 #include <objbase.h>
 
+#include <common.hpp>
+#include <strEx.h>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>

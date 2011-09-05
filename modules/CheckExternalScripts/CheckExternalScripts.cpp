@@ -32,6 +32,8 @@
 #include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
 
+#include <config.h>
+
 namespace sh = nscapi::settings_helper;
 
 CheckExternalScripts::CheckExternalScripts() {}

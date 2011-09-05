@@ -21,7 +21,7 @@
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 
-#include <config.h>
+//#include <config.h>
 #include <strEx.h>
 #include <utils.h>
 #include <settings/client/settings_client.hpp>

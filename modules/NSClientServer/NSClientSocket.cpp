@@ -12,8 +12,6 @@ NSClientSocket::~NSClientSocket() {
 }
 
 
-#define RECV_BUFFER_LEN 1024
-
 std::string NSClientSocket::parseRequest(std::string buffer)  {
 	strEx::token pwd = strEx::getToken(buffer, '&');
 	NSC_DEBUG_MSG("Password: " + pwd.first);

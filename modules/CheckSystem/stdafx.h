@@ -29,14 +29,16 @@
 //#include <NewAPIs.h>
 
 #include <iostream>
-#include <tchar.h>
 #include <string>
 #include <hash_map>
 #include <list>
+
+#include <common.hpp>
+#include <tchar.h>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <config.h>
+//#include <config.h>
 #include <utils.h>
 #include <error.hpp>
 

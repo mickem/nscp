@@ -168,13 +168,15 @@
             <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON" Name="python">
               <Component Id="PythonScripts" Guid="8820A304-C697-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
                 <File Id="P_script_001" Name="test.py" DiskId="1" Source="$(var.Source)/scripts/python/test.py" Vital="no" />
-                <File Id="P_script_002" Name="test_second.py" DiskId="1" Source="$(var.Source)/scripts/python/test_pb.py" Vital="no" />
+                <File Id="P_script_002" Name="test_pb.py" DiskId="1" Source="$(var.Source)/scripts/python/test_pb.py" Vital="no" />
               </Component>
             </Directory>
 
             <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB1" Name="lib">
               <Component Id="PythonScriptsPBLib1" Guid="555165B3-5CBF-4204-A349-6AD7CCEF14EB" Win64="$(var.Win64)">
                 <File Id="p_script_lib_001" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/__init__.py" Vital="no" />
+                <File Id="p_script_pb_001" Name="ipc_pb2.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/ipc_pb2.py" Vital="no" />
+                <File Id="p_script_pb_002" Name="plugin_pb2.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/plugin_pb2.py" Vital="no" />
               </Component>
               <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB2" Name="google">
                 <Component Id="PythonScriptsPBLib2" Guid="555165B3-5CBF-4204-A349-6AD7CCEF14E1" Win64="$(var.Win64)">
