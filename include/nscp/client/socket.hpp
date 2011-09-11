@@ -62,7 +62,7 @@ namespace nscp {
 			writer->start_timer(timeout);
 			BOOST_FOREACH(const nscp::packet &chunk, chunks) {
 				std::wcout << _T(">>>") << chunk.signature.to_wstring() << std::endl;
-				if (!writer->write_and_wait(*socket_, get_socket(), boost::asio::buffer(chunk.to_buffer()))) {
+				if (!writer->write_and_wait(*socket_, get_socket(), boost::asio::buffer(chunk.write_string()))) {
 					std::cout << "FaILED TO SEND DATA..." << std::endl;
 					return;
 				}
@@ -139,7 +139,7 @@ namespace nscp {
 			writer->start_timer(timeout);
 			BOOST_FOREACH(const nscp::packet &chunk, chunks) {
 				std::wcout << _T(">>>") << chunk.signature.to_wstring() << std::endl;
-				if (!writer->write_and_wait(*ssl_socket_, get_socket(), boost::asio::buffer(chunk.to_buffer()))) {
+				if (!writer->write_and_wait(*ssl_socket_, get_socket(), boost::asio::buffer(chunk.write_string()))) {
 					std::cout << "FaILED TO SEND DATA..." << std::endl;
 					return;
 				}

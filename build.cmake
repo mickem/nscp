@@ -24,6 +24,8 @@ IF(WIN32)
 	SET(INC_PROTOBUF_LIBRARYDIR "${INC_NSCP_LIBRARYDIR}")
 
 	SET(INC_OPENSSL_INCLUDEDIR "${INC_NSCP_INCLUDEDIR}")
+	
+	SET(ZEROMQ_INCLUDE_DIR "D:/source/libraries/zeromq-2.1.9/include")
 
 	SET(INC_PROTOBUF_DIR "D:/source/libraries/protobuf-2.4.0a")
 

@@ -39,7 +39,7 @@ namespace nscp {
 		class server : boost::noncopyable {
 		public:
 			struct connection_info : public socket_helpers::connection_info {
-				connection_info(boost::shared_ptr<nscp::server::handler> request_handler) : request_handler(request_handler) {}
+				connection_info(boost::shared_ptr<nscp::server::server_handler> request_handler) : request_handler(request_handler) {}
 				connection_info(const connection_info &other) 
 					: socket_helpers::connection_info(other)
 					, allow_args(other.allow_args)
@@ -55,7 +55,7 @@ namespace nscp {
 				}
 				bool allow_args;
 				bool allow_nasty;
-				boost::shared_ptr<nscp::server::handler> request_handler;
+				boost::shared_ptr<nscp::server::server_handler> request_handler;
 			};
 
 
@@ -92,7 +92,7 @@ namespace nscp {
 			std::vector<boost::shared_ptr<boost::thread> > threads_;
 
 			/// The handler for all incoming requests.
-			boost::shared_ptr<nscp::server::handler> request_handler_;
+			boost::shared_ptr<nscp::server::server_handler> request_handler_;
 
 			boost::asio::ssl::context context_;
 

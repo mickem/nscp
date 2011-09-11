@@ -14,7 +14,7 @@
 namespace nscp {
 	namespace server {
 
-		connection::connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::handler> handler)
+		connection::connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::server_handler> handler)
 			: strand_(io_service)
 			, handler_(handler)
 			, parser_(handler)
@@ -23,15 +23,15 @@ namespace nscp {
 
 		connection::~connection() {}
 
-		connection* factories::create(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::handler> handler, bool use_ssl) {
+		connection* factories::create(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::server_handler> handler, bool use_ssl) {
 			if (use_ssl)
 				return create_ssl(io_service, context, handler);
 			return create_tcp(io_service, handler);
 		}
-		connection* factories::create_tcp(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::handler> handler) {
+		connection* factories::create_tcp(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::server_handler> handler) {
 			return new tcp_connection(io_service, handler);
 		}
-		connection* factories::create_ssl(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::handler> handler) {
+		connection* factories::create_ssl(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::server_handler> handler) {
 			return new ssl_connection(io_service, context, handler);
 		}
 
@@ -87,10 +87,10 @@ namespace nscp {
 					start_read_request(buffer_, 30, helper);
 				} else {
 					unsigned int count = outbound_queue_.size();
-					outbound_queue_.push_front(nscp::packet::build_envelope_response(count));
+					outbound_queue_.push_front(nscp::factory::create_envelope_response(count));
 					BOOST_FOREACH(nscp::packet &chunk, outbound_queue_) {
 						chunk.signature.additional_packet_count = count--;
-						std::string s = chunk.to_buffer();
+						std::string s = chunk.write_string();
 						handler_->log_debug(__FILE__, __LINE__, _T(">>>") + chunk.signature.to_wstring());
 						response_buffers_.push_back(buf(s));
 					}

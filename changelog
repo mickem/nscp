@@ -5,6 +5,15 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+
+2011-09-11 MickeM
+ * Massive overhaul here and there
+ * Added new helper for handling "targets" (so they are the same)
+ * Extracted "command line handling" so all clients will work the same
+ * Extracted command processor to a common class to make all clients work the same
+ * Added initial zeromq stuff (nothing usable)
+ * Added an implementation layer for NSCP protocol parsing (so zeromq stuff can reuse it)
+ 
 2011-09-05 MickeM
  * Cleaned up some dependencies (on config.h)
  * Fixed invalid data in config.h.in

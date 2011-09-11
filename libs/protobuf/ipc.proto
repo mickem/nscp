@@ -14,6 +14,13 @@ message RegisterSlave {
 	
 };
 
+message Signature {
+	required int32 version = 1;
+	required int32 header_type = 2;
+	required int32 payload_type = 3;
+	required int32 additional_packet_count = 4;
+};
+
 message RequestEnvelope {
 	required Common.Version version = 1;
 	optional Common.Version max_supported_version = 2;

@@ -31,7 +31,7 @@ namespace nscp {
 			};
 
 			/// Construct a connection with the given io_service.
-			explicit connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::handler> handler);
+			explicit connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::server_handler> handler);
 
 			/// Get the socket associated with the connection.
 			virtual boost::asio::ip::tcp::socket& socket() = 0;
@@ -70,7 +70,7 @@ namespace nscp {
 			boost::asio::io_service::strand strand_;
 
 			/// The handler used to process the incoming request.
-			boost::shared_ptr<nscp::server::handler> handler_;
+			boost::shared_ptr<nscp::server::server_handler> handler_;
 
 			nscp::data::signature_packet sig;
 
@@ -94,9 +94,9 @@ namespace nscp {
 
 		class factories {
 		public:
-			static connection* create(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::handler> handler, bool use_ssl);
-			static connection* create_tcp(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::handler> handler);
-			static connection* create_ssl(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::handler> handler);
+			static connection* create(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::server_handler> handler, bool use_ssl);
+			static connection* create_tcp(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::server_handler> handler);
+			static connection* create_ssl(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::server_handler> handler);
 		};
 
 	} // namespace server

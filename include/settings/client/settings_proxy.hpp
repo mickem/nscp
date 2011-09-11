@@ -1,5 +1,6 @@
 #pragma once
-
+#include <settings/settings_core.hpp>
+#include <settings/settings_handler_impl.hpp>
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 

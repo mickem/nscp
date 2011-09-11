@@ -59,28 +59,125 @@
 #include <string>
 #include <locale>
 
-namespace boost
-{
+
+namespace utf8 {
+	/** Converts a std::wstring into a std::string with UTF-8 encoding. */
+	template<typename StringT>
+	StringT cvt(std::wstring const & string);
+
+	/** Converts a std::String with UTF-8 encoding into a std::wstring.	*/
+	template<typename StringT>
+	StringT cvt(std::string const & string );
+
+	/** Nop specialization for std::string. */
+	template <>
+	inline std::string cvt(std::string const & string) {
+		return string;
+	}
+
+	/** Nop specialization for std::wstring. */
 	template<>
-	inline std::wstring lexical_cast<std::wstring, std::string>(const std::string& arg)
-	{
-		std::wstring result;
-		std::locale loc;
-		for(unsigned int i= 0; i < arg.size(); ++i)
-		{
-			result += std::use_facet<std::ctype<wchar_t> >(loc).widen(arg[i]);
-		}
-		return result;
+	inline std::wstring cvt(std::wstring const & rc_string) {
+		return rc_string;
 	}
 
 	template<>
-	inline std::string lexical_cast<std::string, std::wstring>(const std::wstring& arg)
-	{
-		std::string result;
-		std::locale loc;
-		for(unsigned int i= 0; i < arg.size(); ++i)
-			result += std::use_facet<std::ctype<wchar_t> >(loc).narrow(arg[i], 0);
-		return result;
+	inline std::string cvt(std::wstring const & str) {
+#ifdef WIN32
+		// figure out how many narrow characters we are going to get 
+		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
+		if (nChars == 0)
+			return "";
+
+		// convert the wide string to a narrow string
+		// nb: slightly naughty to write directly into the string like this
+		std::string buf;
+		buf.resize(nChars);
+		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
+		return buf;
+#else
+		size_t wideSize = sizeof(wchar_t)*str.length();
+		size_t outbytesLeft = wideSize+sizeof(char); //We cannot know how many wide character there is yet
+
+		//Copy the instring
+		char *inString = (char*)new wchar_t[str.length()+1];
+		memcpy(inString, str.c_str(), wideSize+sizeof(wchar_t));
+
+		//Create buffer for output
+		char *outString = new char[outbytesLeft];
+		memset(outString, 0, sizeof(char)*(outbytesLeft));
+
+		char *inPointer = inString;
+		char *outPointer = outString;
+
+		iconv_t convDesc = iconv_open("UTF-8", "WCHAR_T");
+		iconv(convDesc, &inPointer, &wideSize, &outPointer, &outbytesLeft);
+		iconv_close(convDesc);
+
+		std::string retval(outString);
+
+		//Cleanup
+		delete[] inString;
+		delete[] outString;
+
+		return retval;
+#endif
+	}
+
+	template<>
+	inline std::wstring cvt(std::string const & str) {
+#ifdef WIN32
+		// figure out how many wide characters we are going to get 
+		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0);
+		if (nChars == 0)
+			return L"";
+
+		// convert the narrow string to a wide string 
+		// nb: slightly naughty to write directly into the string like this
+		std::wstring buf;
+		buf.resize(nChars);
+		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<wchar_t*>(buf.c_str()), nChars);
+		return buf;
+#else
+		size_t utf8Length = str.length();
+		size_t outbytesLeft = utf8Length*sizeof(wchar_t);
+
+		//Copy the instring
+		char *inString = new char[str.length()+1];
+		strcpy(inString, str.c_str());
+
+		//Create buffer for output
+		char *outString = (char*)new wchar_t[utf8Length+1];
+		memset(outString, 0, sizeof(wchar_t)*(utf8Length+1));
+
+		char *inPointer = inString;
+		char *outPointer = outString;
+
+		iconv_t convDesc = iconv_open("WCHAR_T", "UTF-8");
+		iconv(convDesc, &inPointer, &utf8Length, &outPointer, &outbytesLeft);
+		iconv_close(convDesc);
+
+		std::wstring retval( (wchar_t *)outString );
+
+		//Cleanup
+		delete[] inString;
+		delete[] outString;
+
+		return retval;
+#endif
+	}
+}
+
+namespace boost
+{
+	template<>
+	inline std::wstring lexical_cast<std::wstring, std::string>(const std::string& arg) {
+		return utf8::cvt<std::wstring>(arg);
+	}
+
+	template<>
+	inline std::string lexical_cast<std::string, std::wstring>(const std::wstring& arg) {
+		return utf8::cvt<std::string>(arg);
 	}
 }
 
@@ -162,10 +259,10 @@ namespace strEx {
 		lst += append;
 	}
 	inline std::string wstring_to_string( const std::wstring& str ) {
-		return boost::lexical_cast<std::string>(str) ;
+		return utf8::cvt<std::string>(str);
 	}
 	inline std::wstring string_to_wstring( const std::string& str ) {
-		return boost::lexical_cast<std::wstring>(str) ;
+		return utf8::cvt<std::wstring>(str);
 	}
 
 	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
@@ -848,6 +945,12 @@ namespace nscp {
 				return "";
 			}
 		}
+		template <typename T> std::string to_string(const std::string& arg) {
+			return arg;
+		}
+		template <typename T> std::string to_string(const std::wstring& arg) {
+			return utf8::cvt<std::string>(arg);
+		}
 		template <typename T> std::wstring to_wstring(const T& arg) {
 			try {
 				return boost::lexical_cast<std::wstring>(arg) ;
@@ -856,126 +959,12 @@ namespace nscp {
 				return _T("");
 			}
 		}
+		template <typename T> std::wstring to_wstring(const std::wstring& arg) {
+			return arg;
+		}
+		template <typename T> std::wstring to_wstring(const std::string& arg) {
+			return utf8::cvt<std::wstring>(arg);
+		}
 	}
 }
-/*
-#ifdef __GNUC__
-size_t Wcslen(const wchar_t*w)
-{
-	size_t size=0;
-	while (*w++)
-		size++;
-	return size;
-}
-#endif
-#ifdef WIN32
-#define Wcslen wcslen
-#endif
-*/
-namespace utf8 {
-	/** Converts a std::wstring into a std::string with UTF-8 encoding. */
-	template<typename StringT>
-	StringT cvt(std::wstring const & string);
 
-	/** Converts a std::String with UTF-8 encoding into a std::wstring.	*/
-	template<typename StringT>
-	StringT cvt(std::string const & string );
-
-	/** Nop specialization for std::string. */
-	template <>
-	inline std::string cvt(std::string const & string) {
-		return string;
-	}
-
-	/** Nop specialization for std::wstring. */
-	template<>
-	inline std::wstring cvt(std::wstring const & rc_string) {
-		return rc_string;
-	}
-
-	template<>
-	inline std::string cvt(std::wstring const & str) {
-#ifdef WIN32
-		// figure out how many narrow characters we are going to get 
-		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
-		if (nChars == 0)
-			return "";
-
-		// convert the wide string to a narrow string
-		// nb: slightly naughty to write directly into the string like this
-		std::string buf;
-		buf.resize(nChars);
-		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
-		return buf;
-#else
-		size_t wideSize = sizeof(wchar_t)*str.length();
-		size_t outbytesLeft = wideSize+sizeof(char); //We cannot know how many wide character there is yet
-
-		//Copy the instring
-		char *inString = (char*)new wchar_t[str.length()+1];
-		memcpy(inString, str.c_str(), wideSize+sizeof(wchar_t));
-
-		//Create buffer for output
-		char *outString = new char[outbytesLeft];
-		memset(outString, 0, sizeof(char)*(outbytesLeft));
-
-		char *inPointer = inString;
-		char *outPointer = outString;
-
-		iconv_t convDesc = iconv_open("UTF-8", "WCHAR_T");
-		iconv(convDesc, &inPointer, &wideSize, &outPointer, &outbytesLeft);
-		iconv_close(convDesc);
-
-		std::string retval(outString);
-
-		//Cleanup
-		delete[] inString;
-		delete[] outString;
-
-		return retval;
-#endif
-	}
-
-	template<>
-	inline std::wstring cvt(std::string const & str) {
-#ifdef WIN32
-		// figure out how many wide characters we are going to get 
-		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0);
-		if (nChars == 0)
-			return L"";
-
-		// convert the narrow string to a wide string 
-		// nb: slightly naughty to write directly into the string like this
-		std::wstring buf;
-		buf.resize(nChars);
-		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<wchar_t*>(buf.c_str()), nChars);
-		return buf;
-#else
-		size_t utf8Length = str.length();
-		size_t outbytesLeft = utf8Length*sizeof(wchar_t);
-
-		//Copy the instring
-		char *inString = new char[str.length()+1];
-		strcpy(inString, str.c_str());
-
-		//Create buffer for output
-		char *outString = (char*)new wchar_t[utf8Length+1];
-		memset(outString, 0, sizeof(wchar_t)*(utf8Length+1));
-
-		char *inPointer = inString;
-		char *outPointer = outString;
-
-		iconv_t convDesc = iconv_open("WCHAR_T", "UTF-8");
-		iconv(convDesc, &inPointer, &utf8Length, &outPointer, &outbytesLeft);
-		iconv_close(convDesc);
-
-		std::wstring retval( (wchar_t *)outString );
-
-		//Cleanup
-		delete[] inString;
-		delete[] outString;
-
-		return retval;
-#endif
-	}
-}

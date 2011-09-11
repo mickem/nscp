@@ -11,9 +11,9 @@ namespace nscp {
 	namespace server {
 		class parser : public boost::noncopyable {
 			std::vector<char> buffer_;
-			boost::shared_ptr<nscp::server::handler> handler_;
+			boost::shared_ptr<nscp::server::server_handler> handler_;
 		public:
-			parser(boost::shared_ptr<nscp::server::handler> handler) : handler_(handler) {}
+			parser(boost::shared_ptr<nscp::server::server_handler> handler) : handler_(handler) {}
 
 			typedef boost::function<boost::tuple<bool, char*>(parser*, char*, char*)> digest_function;
 

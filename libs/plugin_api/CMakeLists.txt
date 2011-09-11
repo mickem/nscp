@@ -15,6 +15,7 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
+	${NSCP_INCLUDEDIR}/nscapi/targets.cpp
 )
 	
 IF(WIN32)
@@ -30,6 +31,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 		${NSCP_INCLUDEDIR}/nscapi/settings_proxy.hpp
 		${NSCP_INCLUDEDIR}/nscapi/macros.hpp
+		${NSCP_INCLUDEDIR}/nscapi/targets.hpp
 
 	)
 ENDIF(WIN32)

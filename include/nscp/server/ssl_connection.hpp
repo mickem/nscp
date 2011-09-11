@@ -19,7 +19,7 @@ namespace nscp {
 		class ssl_connection : public connection {
 		public:
 
-			ssl_connection(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::handler> handler);
+			ssl_connection(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<nscp::server::server_handler> handler);
 
 			/// Get the socket associated with the connection.
 			virtual boost::asio::ip::tcp::socket& socket();

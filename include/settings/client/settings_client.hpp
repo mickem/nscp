@@ -452,7 +452,7 @@ namespace nscapi {
 			settings_paths_easy_init add_path(std::wstring path) {
 				return settings_paths_easy_init(get_path(path), owner_);
 			}
-			inline std::wstring get_path(std::wstring path) {
+			inline std::wstring get_path(std::wstring path = _T("")) {
 				if (path.empty())
 					return _T("/") + alias_;
 				return path + _T("/") + alias_;

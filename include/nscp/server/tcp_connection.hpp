@@ -18,7 +18,7 @@ namespace nscp {
 		class tcp_connection : public connection {
 		public:
 			/// Construct a connection with the given io_service.
-			explicit tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::handler> handler);
+			explicit tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::server_handler> handler);
 
 			/// Get the socket associated with the connection.
 			virtual boost::asio::ip::tcp::socket& socket();

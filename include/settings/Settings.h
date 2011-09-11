@@ -30,6 +30,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
 #include <strEx.h>
+#include <net/net.hpp>
 #define BUFF_LEN 4096
 
 namespace Settings {
@@ -1301,7 +1302,7 @@ namespace Settings {
 		cache_type settings_cache_;
 		path_cache_type path_cache_;
 		std::wstring context_;
-		net::url url_;
+		net::wurl url_;
 
 		//SettingsInterfaceImpl() : core_(NULL) {}
 		SettingsInterfaceImpl(SettingsCore *core, std::wstring context) : core_(core), context_(context), url_(net::parse(context_)) {}

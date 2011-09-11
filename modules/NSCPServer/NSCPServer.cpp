@@ -31,7 +31,7 @@
 
 namespace sh = nscapi::settings_helper;
 
-NSCPListener::NSCPListener() : info_(boost::shared_ptr<nscp::server::handler>(new handler_impl(1024))) {
+NSCPListener::NSCPListener() : info_(boost::shared_ptr<nscp::server::server_handler>(new handler_impl(1024))) {
 }
 NSCPListener::~NSCPListener() {}
 

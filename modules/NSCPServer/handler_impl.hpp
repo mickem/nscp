@@ -1,10 +1,10 @@
 #pragma once
 
 #include <nscp/packet.hpp>
-#include <nscp/server/handler.hpp>
+#include <nscp/handler.hpp>
 #include <boost/tuple/tuple.hpp>
 
-class handler_impl : public nscp::server::handler, private boost::noncopyable {
+class handler_impl : private boost::noncopyable, public nscp::handler {
 	unsigned int payload_length_;
 	bool allowArgs_;
 	bool allowNasty_;
@@ -12,17 +12,10 @@ class handler_impl : public nscp::server::handler, private boost::noncopyable {
 public:
 	handler_impl(unsigned int payload_length) : payload_length_(payload_length), noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
 
-	unsigned int get_payload_length() {
-		return payload_length_;
-	}
-	void set_payload_length(unsigned int payload) {
-		payload_length_ = payload;
-	}
-
-	std::list<nscp::packet> process(nscp::packet &buffer);
+	NSCAPI::nagiosReturn handle_query_request(const std::string &request, Plugin::QueryRequestMessage &msg, std::string &reply);
 
 	nscp::packet create_error(std::wstring msg) {
-		return nscp::packet::create_error(msg);
+		return nscp::factory::create_error(msg);
 	}
 
 	virtual void set_allow_arguments(bool v)  {

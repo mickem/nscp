@@ -10,7 +10,7 @@
 namespace nscp {
 	namespace server {
 
-		tcp_connection::tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::handler> handler)
+		tcp_connection::tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<nscp::server::server_handler> handler)
 			: connection(io_service, handler)
 			, socket_(io_service)
 		{}
