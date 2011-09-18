@@ -161,7 +161,7 @@ int client::command_line_parser::query(configuration &config, const std::wstring
 
 	std::string buffer, reply;
 	nscapi::functions::create_simple_query_request(config.data->command, config.data->arguments, buffer);
-	int ret = config.handler->exec(config.data, buffer, reply);
+	int ret = config.handler->query(config.data, buffer, reply);
 	nscapi::functions::parse_simple_query_response(reply, msg, perf);
 	return ret;
 }

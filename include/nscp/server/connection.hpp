@@ -72,7 +72,7 @@ namespace nscp {
 			/// The handler used to process the incoming request.
 			boost::shared_ptr<nscp::server::server_handler> handler_;
 
-			nscp::data::signature_packet sig;
+			nscp::data::tcp_signature_data sig;
 
 			/// Buffer for incoming data.
 			buffer_type buffer_;

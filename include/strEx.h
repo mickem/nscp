@@ -281,6 +281,7 @@ namespace strEx {
 				chars = _T("");
 			}
 		}
+		ss << chars;
 		return ss.str();
 	}
 	inline std::string format_buffer(const char* buf, unsigned int len) {
@@ -303,7 +304,11 @@ namespace strEx {
 			else
 				chars += buf[i];
 		}
+		ss << chars;
 		return ss.str();
+	}
+	inline std::string format_buffer(std::string buf) {
+		return format_buffer(buf.c_str(), buf.size());
 	}
 	inline std::string format_buffer(const std::vector<char> &buf) {
 		std::stringstream ss;
@@ -325,6 +330,7 @@ namespace strEx {
 			else
 				chars += buf[i];
 		}
+		ss << chars;
 		return ss.str();
 	}
 	inline std::wstring format_date(boost::posix_time::ptime date, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {

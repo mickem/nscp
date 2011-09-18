@@ -114,7 +114,7 @@ namespace nscapi {
 				return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(get_core()));
 			}
 			void register_command(std::wstring command, std::wstring description) {
-				get_core()->registerCommand(get_id(), _T("submit_nscp"), _T("Submit a query to a remote host via NSCP"));
+				get_core()->registerCommand(get_id(), command, description);
 			}
 
 		};

@@ -21,12 +21,14 @@
 
 NSC_WRAPPERS_MAIN();
 
-class NSCPListener : public nscapi::impl::simple_plugin {
+#include <zmq.hpp>
+
+class DistributedServer : public nscapi::impl::simple_plugin {
 public:
 	zmq::context_t  *context;
 	boost::thread_group threads;
-	NSCPListener();
-	virtual ~NSCPListener();
+	DistributedServer();
+	virtual ~DistributedServer();
 	// Module calls
 	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
@@ -34,14 +36,14 @@ public:
 
 
 	static std::wstring getModuleName() {
-		return _T("ZeroMQ ServerNSCP server");
+		return _T("Distributed server");
 	}
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NSCP connection and handles them.");
+		return _T("A simple server that listens for incoming distributed requests.");
 	}
 
 	bool hasCommandHandler();

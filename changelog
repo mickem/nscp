@@ -5,6 +5,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-09-18 MickeM
+ * Implementd first version of DistributedClient and DistributedSServer which work so now we have a propper messager based transport.
+   Still a lot of rough edges such as cookie and authentication support is hardcoded.
+   We also need a proper two way distributed server as well as implement "all" payload types.
 
 2011-09-11 MickeM
  * Massive overhaul here and there

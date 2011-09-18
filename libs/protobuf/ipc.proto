@@ -1,5 +1,7 @@
 package NSCPIPC;
 
+option optimize_for = LITE_RUNTIME;
+
 message Common {
 
 	enum Version {
@@ -18,7 +20,12 @@ message Signature {
 	required int32 version = 1;
 	required int32 header_type = 2;
 	required int32 payload_type = 3;
-	required int32 additional_packet_count = 4;
+	required string cookie = 4;
+};
+message MessageSignature {
+	required Signature signature = 1;
+	required string cookie = 2;
+	optional int64 sequence = 3;
 };
 
 message RequestEnvelope {
@@ -55,6 +62,21 @@ message ResponseEnvelope {
 	optional string recipient = 18;
 	optional int32 id = 19;
 };
+
+message MessageRequestEnvelope {
+	required RequestEnvelope envelope = 1;
+	optional string username = 2;
+	optional string password = 3;
+	optional int64 sequence = 4;
+};
+
+message MessageResponseEnvelope {
+	required RequestEnvelope envelope = 1;
+	required string cookie = 2;
+	optional int64 sequence = 3;
+}
+
+
 
 message ErrorMessage {
 

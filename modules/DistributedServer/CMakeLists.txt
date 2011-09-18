@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 
-SET(TARGET ZeroMQServer)
+SET(TARGET DistributedServer)
 	
 PROJECT(${TARGET})
 
@@ -21,9 +21,11 @@ SET(SRCS
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
-		"${TARGET}.h"
-		"${TARGET}.def"
-		"handler_impl.hpp"
+		${TARGET}.h
+		${TARGET}.def
+		handler_impl.hpp
+		queue_manager.hpp
+		worker_manager.hpp
 		${NSCP_INCLUDEDIR}/nscp/packet.hpp
 		${NSCP_INCLUDEDIR}/nscp/handler.hpp
 
@@ -35,13 +37,11 @@ ENDIF(WIN32)
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 ADD_LIBRARY(${TARGET} MODULE ${SRCS})
-INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 INCLUDE_DIRECTORIES(${ZEROMQ_INCLUDE_DIR})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
-	${OPENSSL_LIBRARIES}
 	${ZEROMQ_LIBRARY}
 	${EXTRA_LIB}
 )

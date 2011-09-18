@@ -77,7 +77,7 @@ namespace nscp {
 			reader->start_timer(timeout);
 			while (left > 0) {
 				nscp::packet chunk;
-				std::vector<char> buf(sizeof(nscp::data::signature_packet));
+				std::vector<char> buf(nscp::length::get_signature_size());
 				if (!reader->read_and_wait(*socket_, get_socket(), boost::asio::buffer(buf))) {
 					get_socket().close();
 					std::cout << "Timeout (sig)..." << std::endl;
@@ -85,7 +85,7 @@ namespace nscp {
 				}
 				chunk.read_signature(buf);
 				std::wcout << _T("<<<") << chunk.signature.to_wstring() << std::endl;
-				buf.resize(chunk.signature.payload_length);
+				buf.resize(nscp::length::get_payload_size(chunk.signature));
 
 				if (!reader->read_and_wait(*socket_, get_socket(), boost::asio::buffer(buf))) {
 					get_socket().close();

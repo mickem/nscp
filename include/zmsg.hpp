@@ -87,9 +87,12 @@ public:
    }
 
    void set_part(size_t part_nbr, std::string data) {
-       if (part_nbr < m_part_data.size() && part_nbr >= 0) {
-           m_part_data[part_nbr] = data;
-       }
+	   if (part_nbr < m_part_data.size() && part_nbr >= 0) {
+		   m_part_data[part_nbr] = data;
+	   }
+   }
+   std::string get_part(size_t part_nbr) {
+	   return m_part_data[part_nbr];
    }
 
    inline std::string msg_to_string(zmq::message_t &message) {
@@ -108,7 +111,6 @@ public:
             return false;
          }
          char *data = reinterpret_cast<char*>(message.data());
-         //std::cerr << "recv: \"" << (unsigned char*) message.data() << "\", size " << message.size() << std::endl;
          if (message.size() == 17 && data[0] == 0) {
             push_back(encode_uuid(msg_to_string(message)));
          } else {
@@ -124,7 +126,7 @@ public:
       return true;
    }
 
-   void send(zmq::socket_t & socket) {
+   bool send(zmq::socket_t & socket) {
        for (size_t part_nbr = 0; part_nbr < m_part_data.size(); part_nbr++) {
           zmq::message_t message;
 		  std::string data = m_part_data[part_nbr];
@@ -132,19 +134,21 @@ public:
              unsigned char * uuidbin = decode_uuid ((char *) data.c_str());
              message.rebuild(17);
              memcpy(message.data(), uuidbin, 17);
-             delete uuidbin;
+			 delete uuidbin;
           } else {
              message.rebuild(data.size());
              memcpy(message.data(), data.c_str(), data.size());
           }
           try {
-			  //dump();
+			 //dump();
              socket.send(message, part_nbr < m_part_data.size() - 1 ? ZMQ_SNDMORE : 0);
           } catch (zmq::error_t error) {
-             //assert(error.num()!=0);
+			  assert(false);
+			  return false;
           }
        }
        clear();
+	   return true;
    }
 
    size_t parts() {
@@ -186,12 +190,12 @@ public:
            hex_char [] = "0123456789ABCDEF";
 
        assert(data[0] == 0);
-	   std::string uuidstr = std::string(34, ' ');
+	   std::string uuidstr = std::string(33, ' ');
        uuidstr[0] = '@';
        int byte_nbr;
        for (byte_nbr = 0; byte_nbr < 16; byte_nbr++) {
-           uuidstr[byte_nbr * 2 + 1] = hex_char[data[byte_nbr + 1] >> 4];
-           uuidstr[byte_nbr * 2 + 2] = hex_char[data[byte_nbr + 1] & 15];
+           uuidstr[byte_nbr * 2 + 1] = hex_char[(unsigned char)data[byte_nbr + 1] >> 4];
+           uuidstr[byte_nbr * 2 + 2] = hex_char[(unsigned char)data[byte_nbr + 1] & 15];
        }
        uuidstr[33] = 0;
        return uuidstr;
@@ -225,7 +229,6 @@ public:
            data [byte_nbr + 1]
                = (hex_to_bin [uuidstr [byte_nbr * 2 + 1] & 127] << 4)
                + (hex_to_bin [uuidstr [byte_nbr * 2 + 2] & 127]);
-
        return (data);
    }
 
@@ -280,17 +283,13 @@ public:
 		  std::string data = m_part_data [part_nbr];
 
           // Dump the message as text or binary
-          int is_text = 1;
-          for (unsigned int char_nbr = 0; char_nbr < data.size(); char_nbr++)
-              if (data [char_nbr] < 32 || data [char_nbr] > 127)
-                  is_text = 0;
-
           std::cerr << "[" << std::setw(3) << std::setfill('0') << (int) data.size() << "] ";
           for (unsigned int char_nbr = 0; char_nbr < data.size(); char_nbr++) {
-              if (is_text) {
-                  std::cerr << (char) data [char_nbr];
+			  if (data [char_nbr] < 32 || data [char_nbr] == 127) {
+				  std::cerr << "0x" << std::hex << std::setw(2) << std::setfill('0') << (short int) data [char_nbr];
+				  //std::cerr.unsetf(std::hex);
               } else {
-                  std::cerr << std::hex << std::setw(2) << std::setfill('0') << (short int) data [char_nbr];
+				  std::cerr << (char) data [char_nbr];
               }
           }
           std::cerr << std::endl;
@@ -383,6 +382,17 @@ public:
 
 private:
 	std::vector<std::string> m_part_data;
+};
+
+struct zxmsg : public zmq::message_t {
+
+	zxmsg(std::string string) : zmq::message_t(string.size()) {
+		memcpy(data(), string.data(), string.size());
+	}
+	static std::string read(zmq::message_t &msg) {
+		return std::string(reinterpret_cast<char*>(msg.data()), msg.size());
+	}
+
 };
 
 #endif /* ZMSG_H_ */

@@ -30,22 +30,22 @@ namespace nscp {
 			}
 
 			template <typename InputIterator>
-			InputIterator digest_header(InputIterator begin, InputIterator end, const nscp::data::signature_packet &signature) {
+			InputIterator digest_header(InputIterator begin, InputIterator end, const nscp::data::tcp_signature_data &signature) {
 				return digest_anything(begin, end, nscp::length::get_header_size(signature));
 			}
 
-			boost::tuple<bool, char*> digest_payload(char* begin, char* end, const nscp::data::signature_packet &signature) {
+			boost::tuple<bool, char*> digest_payload(char* begin, char* end, const nscp::data::tcp_signature_data &signature) {
 				return digest_anything(begin, end, nscp::length::get_payload_size(signature));
 			}
 
-			nscp::data::signature_packet parse_signature() {
-				assert(buffer_.size() >= sizeof(nscp::data::signature_packet));
-				nscp::data::signature_packet *tmp = reinterpret_cast<nscp::data::signature_packet*>(&(*buffer_.begin()));
-				nscp::data::signature_packet signature = *tmp;
+			nscp::data::tcp_signature_data parse_signature() {
+				assert(buffer_.size() >= nscp::length::get_signature_size());
+				nscp::data::tcp_signature_data *tmp = reinterpret_cast<nscp::data::tcp_signature_data*>(&(*buffer_.begin()));
+				nscp::data::tcp_signature_data signature = *tmp;
 				buffer_.clear();
 				return signature;
 			}
-			void parse_header(const nscp::data::signature_packet &signature) {
+			void parse_header(const nscp::data::tcp_signature_data &signature) {
 				unsigned long wanted = nscp::length::get_header_size(signature);
 				if (wanted == 0)
 					return;

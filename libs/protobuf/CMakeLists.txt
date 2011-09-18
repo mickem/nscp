@@ -13,7 +13,7 @@ SET(SRCS
 	${PROTO_IPC_SRC}
 )
 
-add_library(${TARGET} ${SRCS})
+ADD_LIBRARY(${TARGET} ${SRCS})
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
 
 target_link_libraries(${TARGET}

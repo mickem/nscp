@@ -1,4 +1,4 @@
-LIBRARY	NRPEListener
+LIBRARY	DistributedServer
 
 EXPORTS
 	NSModuleHelperInit

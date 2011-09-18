@@ -13,7 +13,7 @@ namespace nscp {
 			}
 		public:
 			server_handler() {}
-			virtual std::list<nscp::packet> process(const nscp::packet &packet) = 0;
+			virtual nscp::packet process(const nscp::packet &packet) = 0;
 			virtual std::list<nscp::packet> process_all(const std::list<nscp::packet> &packet) = 0;
 
 			virtual void log_debug(std::string file, int line, std::wstring msg) = 0;

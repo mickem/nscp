@@ -107,7 +107,7 @@ private:
 	client::command_manager commands;
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
-	std::wstring setup(client::configuration config, const std::wstring &command);
+	std::wstring setup(client::configuration &config, const std::wstring &command);
 
 };
 

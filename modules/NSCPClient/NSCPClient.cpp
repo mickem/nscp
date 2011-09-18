@@ -138,7 +138,7 @@ void NSCPClient::add_local_options(po::options_description &desc, nscp_connectio
 		;
 }
 
-std::wstring NSCPClient::setup(client::configuration config, const std::wstring &command) {
+std::wstring NSCPClient::setup(client::configuration &config, const std::wstring &command) {
 	clp_handler_impl *handler = new clp_handler_impl(this);
 	add_local_options(config.local, handler->local_data);
 	std::wstring cmd = command;

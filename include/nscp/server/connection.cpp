@@ -120,8 +120,7 @@ namespace nscp {
 				NSCPIPC::RequestEnvelope envelope;
 				envelope.ParseFromString(packet.payload);
 			} else {
-				std::list<nscp::packet> result = handler_->process(packet);
-				outbound_queue_.insert(outbound_queue_.end(), result.begin(), result.end());
+				outbound_queue_.push_back(handler_->process(packet));
 			}
 			return boost::make_tuple(sig.additional_packet_count > 0, process_helper(&nscp::server::parser::digest_signature, &connection::process_signature));
 		}
