@@ -48,8 +48,11 @@ namespace nscp {
 		static const short exec_request = 20;
 		static const short exec_response = 21;
 
-		static const short message_envelope_request = 30;
-		static const short message_envelope_response = 31;
+		static const short submit_request = 30;
+		static const short submit_response = 31;
+
+		static const short message_envelope_request = 40;
+		static const short message_envelope_response = 41;
 
 		static const int nscp_magic_number = 12345;
 		static const short error = 100;
@@ -385,6 +388,9 @@ namespace nscp {
 		static packet create_query_response(std::string buffer) {
 			return create_payload(nscp::data::command_response, buffer);
 		}
+		static packet create_submission_response(std::string buffer) {
+			return create_payload(nscp::data::submit_response, buffer);
+		}
 
 		static packet create_message_envelope_request(unsigned long additional_packets) {
 			std::string buffer;
@@ -461,8 +467,11 @@ namespace nscp {
 		static bool is_exec_response(const nscp::packet &packet) {
 			return packet.signature.payload_type == nscp::data::exec_response;
 		}
-		static bool is_submit_message(const nscp::packet &packet) {
-			return packet.signature.payload_type == nscp::data::command_response;
+		static bool is_submit_request(const nscp::packet &packet) {
+			return packet.signature.payload_type == nscp::data::submit_request;
+		}
+		static bool is_submit_response(const nscp::packet &packet) {
+			return packet.signature.payload_type == nscp::data::submit_response;
 		}
 		static bool is_error(const nscp::packet &packet) {
 			return packet.signature.payload_type == nscp::data::error;

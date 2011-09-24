@@ -18,65 +18,42 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
+
+#include <socket_helpers.hpp>
+#include <nsca/server/server.hpp>
 
 NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CHANNELS();
 
-class NSCAAgent : public nscapi::impl::simple_submission_handler, public nscapi::impl::simple_plugin {
+class NSCAServer : public nscapi::impl::simple_plugin {
 private:
-
-	std::string hostname_;
-	std::wstring nscahost_;
-	unsigned int nscaport_;
-	unsigned int payload_length_;
-	bool cacheNscaHost_;
-	std::string password_;
-	int encryption_method_;
-	unsigned int timeout_;
-	int time_delta_;
-	std::wstring channel_;
+	nsca::server::nsca_connection_info info_;
 
 public:
-	NSCAAgent();
-	virtual ~NSCAAgent();
+	NSCAServer();
+	virtual ~NSCAServer() {}
 	// Module calls
 	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	std::wstring getConfigurationMeta();
 
-	/**
-	* Return the module name.
-	* @return The module name
-	*/
+
 	static std::wstring getModuleName() {
 #ifdef HAVE_LIBCRYPTOPP
-		return _T("NSCAAgent (w/ encryption)");
+		return _T("NSCA server (w/ encryption)");
 #else
-		return _T("NSCAAgent");
+		return _T("NSCA server (no encryption)");
 #endif
 	}
-	/**
-	* Module version
-	* @return module version
-	*/
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
+		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
+		return _T("A simple server that listens for incoming NSCA connection and handles them.\nAvalible crypto are: ") + getCryptos();
 	}
-	bool hasNotificationHandler() { return true; }
 
 	static std::wstring getCryptos();
 
-	NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
-
-
-	void set_delay(std::wstring key) {
-		time_delta_ = strEx::stol_as_time_sec(key, 1);
-	}
-
+	boost::shared_ptr<nsca::server::nsca_server> server_;
 };
+

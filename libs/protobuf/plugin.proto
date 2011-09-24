@@ -34,18 +34,34 @@ message Common {
 		VERSION_1 = 1;
 	};
 
-	message Header {
+	message Host {
 		
+		optional string id = 1;
+		optional string host = 2;
+		optional string address = 3;
+		optional string protocol = 4;
+		optional string comment = 5;
+		
+		repeated Common.KeyValue metadata = 6;
+		repeated string tags = 7;
+	};
+	
+	message Header {
+
 		required Common.Version version = 1;
 		optional Common.Version max_supported_version = 2;
-		
-		optional string sender = 3;
-		optional string recipient = 4;
-		
-		optional int64 id = 16;
-		
-		repeated Common.KeyValue metadata = 5;
-		repeated string tags = 6;
+
+		optional string source_id = 3;
+		optional string sender_id = 4;
+		optional string recipient_id = 5;
+		optional string destination_id = 6;
+
+		optional int64 message_id = 16;
+
+		repeated Common.KeyValue metadata = 8;
+		repeated string tags = 9;
+
+		repeated Host hosts = 10;
 	};
 
 	message Attachment {
@@ -92,6 +108,22 @@ message Common {
 		
 		// TODO add thresholds here!
 	}
+	
+	message Status {
+	
+		enum StatusType {
+			OK = 0;
+			WARNING = 1;
+			PROBLEM = 2;
+			CRITICAL = 3;
+			UNKNOWN = 10;
+		};
+	
+		required StatusType status = 1;
+		optional string message = 2;
+		optional string data = 3;
+	}
+	
 };
 
 // // // // // // // // // // // // // // // // // // // // // // // // 
@@ -105,7 +137,8 @@ message QueryRequestMessage {
 	message Request {
 		optional int32 id = 1;
 		required string command = 2;
-		repeated string arguments = 3;
+		optional string alias = 3;
+		repeated string arguments = 4;
 		repeated Common.Attachment attachments = 17;
 	};
 
@@ -119,11 +152,12 @@ message QueryResponseMessage {
 
 		optional int32 id = 1;
 		required string command = 2;
+		optional string alias = 3;
 		repeated string arguments = 16;
 		
-		required Common.ResultCode result = 3;
-		required string message = 4;
-		repeated Common.PerformanceData perf = 5;
+		required Common.ResultCode result = 4;
+		required string message = 5;
+		repeated Common.PerformanceData perf = 6;
 		repeated Common.Attachment attachments = 17;
 		
 	}
@@ -133,33 +167,6 @@ message QueryResponseMessage {
 	repeated Common.Attachment attachments = 3;
 }
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
-//
-// Log Entry
-// Used for sending errors and log entries to a logging module 
-// (this is internal errors, not syslog or eventlog)
-//
-// // // // // // // // // // // // // // // // // // // // // // // // 
-
-message LogEntry {
-	message Entry {
-		enum Level {
-			LOG_DEBUG	=  0;
-			LOG_INFO 	= 10;
-			LOG_WARNING	= 20;
-			LOG_ERROR	= 30;
-			LOG_CRITICAL	= 40;
-		};
-		required Level	level	= 1;
-		optional string	sender	= 2;
-		optional string	file	= 3;
-		optional int32	line	= 4;
-		optional string	message = 5;
-		optional int32	date	= 6;
-	};
-
-	repeated Entry entry = 1;
-}
 // // // // // // // // // // // // // // // // // // // // // // // // 
 //
 // Execute command request and response
@@ -219,9 +226,23 @@ message ExecuteResponseMessage {
 //
 // // // // // // // // // // // // // // // // // // // // // // // // 
 
-message SubmitResponseMessage {
+message SubmitRequestMessage {
 	required Common.Header header = 1;
-	repeated QueryResponseMessage.Response payload = 2;
+	required string channel = 2;
+	repeated QueryResponseMessage.Response payload = 3;
+	repeated Common.Attachment attachments = 4;
+}
+
+message SubmitResponseMessage {
+	message Response {
+		optional int32 id = 1;
+		required string command = 2;
+		required Common.Status status = 3;
+		optional string message = 4;
+		repeated Common.Attachment attachments = 17;
+	};
+	required Common.Header header = 1;
+	repeated Response payload = 2;
 	repeated Common.Attachment attachments = 3;
 }
 
@@ -277,3 +298,31 @@ message QuerySettingsResponseMessage {
 	repeated Response payload = 2;
 }
 
+
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// Log Entry
+// Used for sending errors and log entries to a logging module 
+// (this is internal errors, not syslog or eventlog)
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+
+message LogEntry {
+	message Entry {
+		enum Level {
+			LOG_DEBUG	=  0;
+			LOG_INFO 	= 10;
+			LOG_WARNING	= 20;
+			LOG_ERROR	= 30;
+			LOG_CRITICAL	= 40;
+		};
+		required Level	level	= 1;
+		optional string	sender	= 2;
+		optional string	file	= 3;
+		optional int32	line	= 4;
+		optional string	message = 5;
+		optional int32	date	= 6;
+	};
+
+	repeated Entry entry = 1;
+}

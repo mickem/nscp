@@ -339,7 +339,7 @@ list script_wrapper::convert(std::list<std::wstring> lst) {
 	 }
 	return ret;
 }
-void script_wrapper::command_wrapper::simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf) {
+tuple script_wrapper::command_wrapper::simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf) {
 	NSCAPI::nagiosReturn c = NSCAPI::returnUNKNOWN;
 	if (code == OK)
 		c = NSCAPI::returnOK;
@@ -351,12 +351,15 @@ void script_wrapper::command_wrapper::simple_submit(std::string channel, std::st
 	std::wstring wperf = utf8::cvt<std::wstring>(perf);
 	std::wstring wchannel = utf8::cvt<std::wstring>(channel);
 	std::wstring wcommand = utf8::cvt<std::wstring>(command);
-	core->submit_simple_message(wchannel, wcommand, c, wmessage, wperf);
+	std::wstring wresp;
+	bool ret = core->submit_simple_message(wchannel, wcommand, c, wmessage, wperf, wresp);
+	return make_tuple(ret,utf8::cvt<std::string>(wresp));
 }
-void script_wrapper::command_wrapper::submit(std::string channel, std::string command, std::string request) {
+tuple script_wrapper::command_wrapper::submit(std::string channel, std::string request) {
 	std::wstring wchannel = utf8::cvt<std::wstring>(channel);
-	std::wstring wcommand = utf8::cvt<std::wstring>(command);
-	core->submit_message(wchannel, wcommand, request);
+	std::string response;
+	int ret = core->submit_message(wchannel, request, response);
+	return make_tuple(ret,response);
 }
 
 

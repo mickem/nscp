@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #ifdef HAVE_LIBCRYPTOPP
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/modes.h>
@@ -57,12 +59,44 @@
 namespace nsca {
 	class nsca_encrypt {
 	public:
-		class encryption_exception {
-			std::wstring msg_;
+		class encryption_exception : public std::exception {
+			std::string msg_;
 		public:
 			encryption_exception() {}
-			encryption_exception(std::wstring msg) : msg_(msg) {}
-			std::wstring getMessage() const { return msg_; }
+			~encryption_exception() throw () {}
+			encryption_exception(std::string msg) : msg_(msg) {}
+			const char* what() const throw () { return msg_.c_str(); }
+		};
+		struct helpers {
+			static int encryption_to_int(std::string encryption) {
+				if (encryption == "xor")
+					return ENCRYPT_XOR;
+#ifdef HAVE_LIBCRYPTOPP
+				if (encryption == "des")
+					return ENCRYPT_DES;
+				if (encryption == "3des")
+					return ENCRYPT_3DES;
+				if (encryption == "cast128")
+					return ENCRYPT_CAST128;
+				if (encryption == "xtea")
+					return ENCRYPT_XTEA;
+				if (encryption == "3way")
+					return ENCRYPT_3WAY;
+				if (encryption == "blowfish")
+					return ENCRYPT_BLOWFISH;
+				if (encryption == "twofish")
+					return ENCRYPT_TWOFISH;
+				if (encryption == "rc2")
+					return ENCRYPT_RC2;
+				if (encryption == "rijndael128" || encryption == "aes")
+					return ENCRYPT_RIJNDAEL128;
+				if (encryption == "serpent")
+					return ENCRYPT_SERPENT;
+				if (encryption == "gost")
+					return ENCRYPT_GOST;
+#endif
+				return ENCRYPT_NONE;
+			}
 
 		};
 		class any_encryption {
@@ -70,7 +104,7 @@ namespace nsca {
 			virtual void init(std::string password, std::string iv) = 0;
 			virtual void encrypt(std::string &buffer) = 0;
 			virtual void decrypt(std::string &buffer) = 0;
-			virtual std::wstring getName() = 0;
+			virtual std::string getName() = 0;
 		};
 #ifdef HAVE_LIBCRYPTOPP
 		template <class TMethod>
@@ -101,22 +135,23 @@ namespace nsca {
 
 				unsigned char *key = new unsigned char[keysize+1];
 				if (key == NULL){
-					throw encryption_exception(_T("Could not allocate memory for encryption/decryption key"));
+					throw encryption_exception("Could not allocate memory for encryption/decryption key");
 				}
-				ZeroMemory(key,keysize*sizeof(unsigned char));
-				strncpy(reinterpret_cast<char*>(key),password.c_str(),std::min(keysize,static_cast<unsigned int>(password.length())));
+				memset(key,keysize*sizeof(unsigned char), 0);
+				using namespace std;
+				strncpy(reinterpret_cast<char*>(key),password.c_str(),min(keysize,static_cast<unsigned int>(password.length())));
 
 
 				/* determine size of IV buffer for this algorithm */
 				int blocksize = get_blockSize();
 				if(blocksize>iv_size){
-					throw encryption_exception(_T("IV size for crypto algorithm exceeds limits"));
+					throw encryption_exception("IV size for crypto algorithm exceeds limits");
 				}
 
 				/* allocate memory for IV buffer */
 				unsigned char *iv = new unsigned char[blocksize+1];
 				if (iv == NULL){
-					throw encryption_exception(_T("Could not allocate memory for IV buffer"));
+					throw encryption_exception("Could not allocate memory for IV buffer");
 				}
 
 				/* fill IV buffer with first bytes of IV that is going to be used to crypt (determined by server) */
@@ -126,7 +161,7 @@ namespace nsca {
 					cipher_.SetKey(key, keysize);
 					crypto_.SetCipherWithIV(cipher_, iv, 1);
 				} catch (...) {
-					throw encryption_exception(_T("Unknown exception when trying to setup crypto"));
+					throw encryption_exception("Unknown exception when trying to setup crypto");
 				}
 				delete [] iv;
 				delete [] key;
@@ -140,17 +175,17 @@ namespace nsca {
 					for(int x=0;x<buffer_size;x++)
 						crypto_.ProcessData(&buffer[x], &buffer[x], 1);
 				} catch (...) {
-					throw encryption_exception(_T("Unknown exception when trying to setup crypto"));
+					throw encryption_exception("Unknown exception when trying to setup crypto");
 				}
 			}
 			void decrypt(std::string &buffer) {
 				decrypt((unsigned char*)&*buffer.begin(), buffer.size());
 			}
 			void decrypt(unsigned char *buffer, int buffer_size) {
-				throw encryption_exception(_T("Decryption not supported"));
+				throw encryption_exception("Decryption not supported");
 			}
-			std::wstring getName() {
-				return strEx::string_to_wstring(TMethod::StaticAlgorithmName());
+			std::string getName() {
+				return TMethod::StaticAlgorithmName();
 			}
 
 		};
@@ -166,8 +201,8 @@ namespace nsca {
 			void init(std::string password, std::string iv) {}
 			void encrypt(std::string &buffer) { std::cout << "USING NO ENCRYPTION * * * " << std::endl;}
 			void decrypt(std::string &buffer) {}
-			std::wstring getName() {
-				return _T("No Encryption (not safe)");
+			std::string getName() {
+				return "No Encryption (not safe)";
 			}
 		};
 		class xor_encryption : public any_encryption {
@@ -204,10 +239,10 @@ namespace nsca {
 				}
 			}
 			void decrypt(std::string &buffer) {
-				throw encryption_exception(_T("Decryption not supported"));
+				throw encryption_exception("Decryption not supported");
 			}
-			std::wstring getName() {
-				return _T("XOR (not safe)");
+			std::string getName() {
+				return "XOR (not safe)";
 			}
 		};
 
@@ -316,7 +351,7 @@ namespace nsca {
 			delete core_;
 			core_ = get_encryption_core(encryption_method);
 			if (core_ == NULL)
-				throw encryption_exception(_T("Failed to get encryption module for: ") + boost::lexical_cast<std::wstring>(encryption_method));
+				throw encryption_exception("Failed to get encryption module for: " + boost::lexical_cast<std::string>(encryption_method));
 
 			/* server generates IV used for encryption */
 			if (received_iv.empty()) {
@@ -329,7 +364,7 @@ namespace nsca {
 		/* encrypt a buffer */
 		void encrypt_buffer(std::string &buffer) {
 			if (core_ == NULL)
-				throw encryption_exception(_T("No encryption core!"));
+				throw encryption_exception("No encryption core!");
 			core_->encrypt(buffer);
 		}
 		std::string get_rand_buffer(int length) {

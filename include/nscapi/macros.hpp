@@ -25,11 +25,11 @@
 
 #define NSC_WRAPPERS_CHANNELS() \
 	extern "C" int NSHasNotificationHandler(unsigned int plugin_id); \
-	extern "C" int NSHandleNotification(unsigned int plugin_id, const wchar_t*, const wchar_t*, const char*, unsigned int);
+	extern "C" int NSHandleNotification(unsigned int plugin_id, const wchar_t* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 
 #define NSC_WRAPPERS_ROUTING() \
 	extern "C" int NSHasRoutingHandler(unsigned int plugin_id); \
-	extern "C" int NSRouteMessage(unsigned int plugin_id, const wchar_t*, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);
+	extern "C" int NSRouteMessage(unsigned int plugin_id, const wchar_t*, NSCAPI::nagiosReturn, const char*, unsigned int);
 
 //////////////////////////////////////////////////////////////////////////
 // Logging calls for the core wrapper 
@@ -119,9 +119,9 @@
 		return wrapper.NSHasRoutingHandler(); }
 
 #define NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF() \
-	extern int NSHandleNotification(unsigned int id, const wchar_t* channel, const wchar_t* command, const char* result_buffer, unsigned int result_buffer_len) { \
+	extern int NSHandleNotification(unsigned int id, const wchar_t* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len) { \
 		nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
-		return wrapper.NSHandleNotification(channel, command, result_buffer, result_buffer_len); } \
+		return wrapper.NSHandleNotification(channel, buffer, buffer_len, response_buffer, response_buffer_len); } \
 	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { \
 		nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
 		return wrapper.NSHasNotificationHandler(); }

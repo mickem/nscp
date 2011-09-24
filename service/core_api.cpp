@@ -493,10 +493,17 @@ NSCAPI::errorReturn NSAPIRegisterRoutingListener(unsigned int plugin_id, const w
 	return mainClient.register_routing_listener(plugin_id, channel);
 }
 
-//	channels_.register_listener(plugin->get_id(), _T("NSCA"));
-
-NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const wchar_t* command, char* result, unsigned int result_len) {
-	return mainClient.send_notification(channel, command, result, result_len);
+NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
+	std::string request (request_buffer, request_buffer_len), response;
+	NSCAPI::nagiosReturn ret = mainClient.send_notification(channel, request, response);
+	*response_buffer_len = response.size();
+	if (response.empty())
+		*response_buffer = NULL;
+	else {
+		*response_buffer = new char[*response_buffer_len + 10];
+		memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+	}
+	return ret;
 }
 
 void NSAPIDestroyBuffer(char**buffer) {

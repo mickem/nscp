@@ -125,16 +125,35 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 }
 
 
-void nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf) {
-	std::string request;
-	nscapi::functions::create_simple_query_response(command, code, message, perf, request);
-	NSCAPI::nagiosReturn ret = submit_message(channel, command, request);
-}
+NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::wstring channel, std::string request, std::string &response) {
 
-NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::wstring channel, std::wstring command, std::string buffer) {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	return fNSAPINotify(channel.c_str(), command.c_str(), buffer.c_str(), buffer.size());
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::nagiosReturn ret = submit_message(channel.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+
+	DestroyBuffer(&buffer);
+	return ret;
+}
+
+bool nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response) {
+	std::string request, buffer;
+	nscapi::functions::create_simple_submit_request(channel, command, code, message, perf, request);
+	NSCAPI::nagiosReturn ret = submit_message(channel, request, buffer);
+	nscapi::functions::parse_simple_submit_response(buffer, response);
+	return ret == NSCAPI::isSuccess;
+}
+
+NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const wchar_t* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
+{
+	if (!fNSAPINotify)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	return fNSAPINotify(channel, request, request_len, response, response_len);
 }
 
 /**

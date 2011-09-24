@@ -235,22 +235,43 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const char
 		throw NSPluginException(module_, _T("Unhandled exception in handleCommand."));
 	}
 }
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t *command, std::string &request, std::string &reply) {
+	char *buffer = NULL;
+	unsigned int len = 0;
+	NSCAPI::nagiosReturn ret = handleCommand(command, request.c_str(), request.size(), &buffer, &len);
+	if (buffer != NULL) {
+		reply = std::string(buffer, len);
+		deleteBuffer(&buffer);
+	}
+	return ret;
+}
 
-bool NSCPlugin::handleNotification(const wchar_t *channel, const wchar_t* command, const char* result, unsigned int result_len) {
+NSCAPI::nagiosReturn NSCPlugin::handleNotification(const wchar_t *channel, std::string &request, std::string &reply) {
+	char *buffer = NULL;
+	unsigned int len = 0;
+	NSCAPI::nagiosReturn ret = handleNotification(channel, request.c_str(), request.size(), &buffer, &len);
+	if (buffer != NULL) {
+		reply = std::string(buffer, len);
+		deleteBuffer(&buffer);
+	}
+	return ret;
+}
+
+NSCAPI::nagiosReturn NSCPlugin::handleNotification(const wchar_t *channel, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len) {
 	if (!isLoaded() || fHandleNotification == NULL)
 		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {
-		return fHandleNotification(plugin_id_, channel, command, result, result_len);
+		return fHandleNotification(plugin_id_, channel, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in handleNotification."));
 	}
 }
 
-bool NSCPlugin::route_message(const wchar_t *channel, const wchar_t *command, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len) {
+bool NSCPlugin::route_message(const wchar_t *channel, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len) {
 	if (!isLoaded() || fRouteMessage == NULL)
 		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {
-		return fRouteMessage(plugin_id_, channel, command, buffer, buffer_len, new_channel_buffer, new_buffer, new_buffer_len);
+		return fRouteMessage(plugin_id_, channel, buffer, buffer_len, new_channel_buffer, new_buffer, new_buffer_len);
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in route_message."));
 	}
@@ -265,16 +286,6 @@ void NSCPlugin::deleteBuffer(char** buffer) {
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in deleteBuffer."));
 	}
-}
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t *command, std::string &request, std::string &reply) {
-	char *buffer = NULL;
-	unsigned int len = 0;
-	NSCAPI::nagiosReturn ret = handleCommand(command, request.c_str(), request.size(), &buffer, &len);
-	if (buffer != NULL) {
-		reply = std::string(buffer, len);
-		deleteBuffer(&buffer);
-	}
-	return ret;
 }
 
 /**

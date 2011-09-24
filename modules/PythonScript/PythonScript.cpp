@@ -350,17 +350,18 @@ NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, cons
 }
 
 
-NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &channel, const std::wstring &command, std::string &request) {
+NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &channel, std::string &request, std::string &response) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
-	std::string cmd = utf8::cvt<std::string>(command);
 	std::string chnl = utf8::cvt<std::string>(channel);
 	if (inst->has_message_handler(chnl)) {
-		return inst->handle_message(chnl, cmd, request);
+		return inst->handle_message(chnl, request, response);
 	}
 	if (inst->has_simple_message_handler(chnl)) {
-		std::wstring msg, perf;
-		int code = nscapi::functions::parse_simple_query_response(request, msg, perf);
-		return inst->handle_simple_message(chnl, cmd, code, msg, perf);
+		std::wstring cmd, msg, perf;
+		int code = nscapi::functions::parse_simple_submit_request(request, cmd, msg, perf);
+		int ret = inst->handle_simple_message(chnl, to_string(cmd), code, msg, perf);
+		nscapi::functions::parse_simple_submit_response(response, _T(""));
+		return ret;
 	}
 	return NSCAPI::returnIgnored;
 }

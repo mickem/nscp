@@ -151,7 +151,7 @@ namespace nscapi {
 		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
 		typedef void (*lpNSAPIDestroyBuffer)(char**);
 
-		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t* channel, const wchar_t* command, const char* buffer, unsigned int buffer_len);
+		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t* channel, const char* buffer, unsigned int buffer_len, char ** result_buffer, unsigned int *result_buffer_len);
 
 		typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
 		typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
@@ -192,10 +192,10 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpHandleMessage)(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpHasNotificationHandler)(unsigned int plugin_id);
-		typedef NSCAPI::errorReturn (*lpHandleNotification)(unsigned int plugin_id, const wchar_t *channel, const wchar_t* command, const char* buffer, unsigned int buffer_len);
+		typedef NSCAPI::errorReturn (*lpHandleNotification)(unsigned int plugin_id, const wchar_t *channel, const char* buffer, unsigned int buffer_len, char **result_buffer, unsigned int *result_buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpHasRoutingHandler)(unsigned int plugin_id);
-		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const wchar_t *channel, const wchar_t* command, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const wchar_t *channel, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const wchar_t* command, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
 	}

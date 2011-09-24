@@ -284,10 +284,10 @@ namespace strEx {
 		ss << chars;
 		return ss.str();
 	}
-	inline std::string format_buffer(const char* buf, unsigned int len) {
+	inline std::string format_buffer(const char* buf, std::string::size_type len) {
 		std::stringstream ss;
 		std::string chars;
-		for (unsigned int i=0;i<len;i++) {
+		for (std::string::size_type i=0;i<len;i++) {
 			if (i%32==0) {
 				if (i > 0) {
 					ss << chars;
@@ -307,7 +307,7 @@ namespace strEx {
 		ss << chars;
 		return ss.str();
 	}
-	inline std::string format_buffer(std::string buf) {
+	inline std::string format_buffer(const std::string &buf) {
 		return format_buffer(buf.c_str(), buf.size());
 	}
 	inline std::string format_buffer(const std::vector<char> &buf) {

@@ -1,11 +1,13 @@
 #include <client/command_line_parser.hpp>
 #include <nscapi/functions.hpp>
 
+namespace po = boost::program_options;
+
 void client::command_line_parser::add_common_options(po::options_description &desc, data_type command_data) {
 	desc.add_options()
-		("host,H", po::wvalue<std::wstring>(&command_data->host), "The address of the host running the server")
+		("host,H", po::value<std::string>(&command_data->recipient.address), "The address of the host running the server")
 		("timeout,T", po::value<int>(&command_data->timeout), "Number of seconds before connection times out (default=10)")
-		("target,t", po::wvalue<std::wstring>(&command_data->target), "Target to use (lookup connection info from config)")
+		("target,t", po::wvalue<std::wstring>(&command_data->target_id), "Target to use (lookup connection info from config)")
 		("query,q", po::bool_switch(&command_data->query), "Force query mode (only useful when this is not obvious)")
 		("submit,s", po::bool_switch(&command_data->submit), "Force submit mode (only useful when this is not obvious)")
 		("exec,e", po::bool_switch(&command_data->exec), "Force exec mode (only useful when this is not obvious)")
@@ -30,7 +32,6 @@ void client::command_line_parser::add_exec_options(po::options_description &desc
 		("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data->arguments), "list of arguments")
 		;
 }
-
 
 std::wstring client::command_line_parser::build_help(configuration &config) {
 	po::options_description common("Common options");
@@ -63,7 +64,7 @@ int client::command_line_parser::commandLineExec(configuration &config, const st
 	} else if (command == _T("exec")) {
 		return exec(config, command, arguments, result);
 	} else if (command == _T("submit")) {
-		std::list<std::string> errors = submit(config, command, arguments);
+		std::list<std::string> errors = simple_submit(config, command, arguments);
 		bool has_errors = false;
 		BOOST_FOREACH(std::string p, errors) {
 			has_errors = true;
@@ -117,8 +118,12 @@ int client::command_manager::exec_simple(const std::wstring &target, const std::
 	// @todo: add support for extending with arguments here!
 	if (ci.data->submit) {
 		std::string buffer;
-		nscapi::functions::create_simple_query_response(ci.data->command, ci.data->result, ci.data->message, _T(""), buffer);
-		std::list<std::string> errors = ci.handler->submit(ci.data, buffer);
+		configuration config;
+		config.handler = ci.handler;
+		config.data = ci.data;
+		std::list<std::string> errors = command_line_parser::simple_submit(config, command, arguments);
+		//nscapi::functions::create_simple_query_response(ci.data->command, ci.data->result, ci.data->message, _T(""), buffer);
+		//std::list<std::string> errors = ci.handler->submit(ci.data, buffer);
 		BOOST_FOREACH(std::string l, errors) {
 			message += to_wstring(l) + _T("\n");
 		}
@@ -194,25 +199,60 @@ int client::command_line_parser::exec(configuration &config, const std::wstring 
 	return ret;
 }
 
-std::list<std::string> client::command_line_parser::submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments) {
+std::list<std::string> client::command_line_parser::simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments) {
 	boost::program_options::variables_map vm;
+
+	config.data->recipient = config.host_default_recipient;
+	if (!config.data->target_id.empty()) {
+		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+	}
 
 	po::options_description common("Common options");
 	add_common_options(common, config.data);
-	po::options_description submit("Submit  NSCP options");
+	po::options_description submit("Submit options");
 	add_submit_options(submit, config.data);
 	po::options_description desc("Allowed options");
 	desc.add(common).add(submit).add(config.local);
 
 	std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
-	po::positional_options_description p;
-	p.add("arguments", -1);
-	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
+	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
 	po::store(parsed, vm);
 	po::notify(vm);
+	// lookup targets here
+	if (!config.data->target_id.empty()) {
+		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+		po::notify(vm);
+	}
 
-	std::string buffer;
-	nscapi::functions::create_simple_query_response(config.data->command, config.data->result, config.data->message, _T(""), buffer);
-	return config.handler->submit(config.data, buffer);
+	Plugin::QueryResponseMessage message;
+	nscapi::functions::create_simple_header(message.mutable_header());
+	modify_header(config, message.mutable_header(), config.data->recipient);
+	nscapi::functions::append_simple_query_response_payload(message.add_payload(), config.data->command, config.data->result, config.data->message, _T(""));
+
+	std::string response;
+	return config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
+}
+void client::command_line_parser::modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient) {
+	nscapi::functions::destination_container myself = config.data->host_self;
+	if (!header->has_recipient_id()) {
+		nscapi::functions::add_host(header, recipient);
+		header->set_recipient_id(recipient.id);
+	}
+	nscapi::functions::add_host(header, myself);
+	if (!header->has_source_id())
+		header->set_source_id(myself.id);
+	header->set_sender_id(myself.id);
+}
+
+bool client::command_line_parser::relay_submit(configuration &config, const std::string &request, std::string &response) {
+	Plugin::SubmitRequestMessage message;
+	message.ParseFromString(request);
+	modify_header(config, message.mutable_header(), config.data->recipient);
+	std::list<std::string> errors = config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
+	BOOST_FOREACH(std::string &e, errors) {
+		//config.handler->error(e);
+		//@todo: immplement this
+	}
+	return errors.empty();
 }
 

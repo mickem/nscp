@@ -11,6 +11,12 @@ public:
 	handler_impl() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
 
 	NSCAPI::nagiosReturn handle_query_request(const std::string &request, Plugin::QueryRequestMessage &msg, std::string &reply);
+	NSCAPI::nagiosReturn handle_submission_request(const std::string &request, Plugin::SubmitRequestMessage &msg, std::string &reply);
+	NSCAPI::nagiosReturn handle_exec_request(const std::string &request, Plugin::ExecuteRequestMessage &msg, std::string &reply);
+
+	NSCAPI::nagiosReturn process_single_query_request_payload(std::wstring &command, const Plugin::Common::Header &hdr, const Plugin::QueryRequestMessage_Request &payload, Plugin::QueryResponseMessage &response);
+	NSCAPI::nagiosReturn process_single_submit_request_payload(std::wstring &channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage_Response &payload, Plugin::SubmitResponseMessage &response);
+	NSCAPI::nagiosReturn process_single_exec_request_payload(std::wstring &command, const Plugin::Common::Header &hdr, const Plugin::ExecuteRequestMessage_Request &payload, Plugin::ExecuteResponseMessage &response);
 
 	nscp::packet create_error(std::wstring msg) {
 		return nscp::factory::create_error(msg);

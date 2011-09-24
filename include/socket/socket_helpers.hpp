@@ -54,7 +54,13 @@ namespace socket_helpers {
 		inline bool match_host(const host_record &allowed, const unsigned long &remote) const {
 			return ((allowed.in_addr&allowed.mask)==(remote&allowed.mask));
 		}
-		bool is_allowed(const unsigned long &remote, std::list<std::string> &errors) {
+		bool is_allowed(const boost::asio::ip::address &address, std::list<std::string> &errors) {
+			return (address.is_v4() && is_allowed_v4(address.to_v4().to_ulong(), errors))
+				|| (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_ulong(), errors))
+				|| (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_ulong(), errors));
+		}
+		bool is_allowed_v4(const unsigned long &remote, std::list<std::string> &errors) {
+			errors.push_back(strEx::wstring_to_string(strEx::itos(remote)));
 			if (entries.empty())
 				return true;
 			if (!cached)
@@ -108,8 +114,11 @@ namespace socket_helpers {
 
 		std::string get_port() { return utf8::cvt<std::string>(strEx::itos(port)); }
 		std::string get_address() { return address; }
-		std::wstring get_endpoint_str() {
-			return utf8::cvt<std::wstring>(address) + _T(":") + utf8::cvt<std::wstring>(get_port());
+		std::string get_endpoint_string() {
+			return address + ":" + get_port();
+		}
+		std::wstring get_endpoint_wstring() {
+			return utf8::cvt<std::wstring>(get_endpoint_string());
 		}
 	};
 
@@ -249,7 +258,7 @@ namespace socket_helpers {
 
 
 		template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
-		void read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+		bool read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
 			boost::optional<boost::system::error_code> timer_result;
 			boost::asio::deadline_timer timer(sock.get_io_service());
 			timer.expires_from_now(duration);
@@ -262,12 +271,21 @@ namespace socket_helpers {
 			while (sock.get_io_service().run_one()) {
 				if (read_result)
 					timer.cancel();
-				else if (timer_result)
+				else if (timer_result) {
 					rawSocket.close();
+					return false;
+				} else {
+					if (!rawSocket.is_open()) {
+						timer.cancel();
+						rawSocket.close();
+						return false;
+					}
+				}
 			}
 
 			if (*read_result)
 				throw boost::system::system_error(*read_result);
+			return true;
 		}
 	}
 }

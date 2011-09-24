@@ -138,7 +138,8 @@ public:
 	bool hasMessageHandler(void);
 	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
 	NSCAPI::nagiosReturn handleCommand(const wchar_t* command, std::string &request, std::string &reply);
-	bool handleNotification(const wchar_t *channel, const wchar_t* command, const char* result, unsigned int result_len);
+	NSCAPI::nagiosReturn handleNotification(const wchar_t *channel, std::string &request, std::string &reply);
+	NSCAPI::nagiosReturn handleNotification(const wchar_t *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 	void deleteBuffer(char**buffer);
 	void handleMessage(const char* data, unsigned int len);
 	void unload(void);
@@ -152,7 +153,7 @@ public:
 	bool has_routing_handler();
 
 	
-	bool route_message(const wchar_t *channel, const wchar_t *command, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+	bool route_message(const wchar_t *channel, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
 	std::wstring get_alias() {
 		return alias_;

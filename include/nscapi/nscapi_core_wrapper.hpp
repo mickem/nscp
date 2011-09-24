@@ -140,9 +140,9 @@ namespace nscapi {
 		NSCAPI::nagiosReturn exec_command(const std::wstring command, std::string request, std::string & result);
 		NSCAPI::nagiosReturn exec_simple_command(const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
 
-		void submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf);
-		NSCAPI::errorReturn submit_message(std::wstring channel, std::wstring command, std::string buffer);
-
+		bool submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response);
+		NSCAPI::errorReturn submit_message(const wchar_t* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+		NSCAPI::errorReturn submit_message(std::wstring channel, std::string request, std::string &response);
 		void StopService(void);
 		void Exit(void);
 		std::wstring getBasePath();

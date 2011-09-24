@@ -110,8 +110,8 @@ namespace script_wrapper {
 		tuple query(std::string command, std::string request);
 		object simple_exec(std::string command, boost::python::list args);
 		tuple exec(std::string command, std::string request);
-		void simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
-		void submit(std::string channel, std::string command, std::string request);
+		tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
+		tuple submit(std::string channel, std::string request);
 	};
 
 	struct settings_wrapper {

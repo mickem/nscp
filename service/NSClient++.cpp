@@ -1181,12 +1181,12 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_command, std::st
 }
 
 
-NSCAPI::errorReturn NSClientT::reroute(std::wstring &channel, const wchar_t* command, std::string &buffer) {
+NSCAPI::errorReturn NSClientT::reroute(std::wstring &channel, std::string &buffer) {
 	BOOST_FOREACH(nsclient::plugin_type p, routers_.get(channel)) {
 		wchar_t *new_channel_buffer;
 		char *new_buffer;
 		unsigned int new_buffer_len;
-		int status = p->route_message(channel.c_str(), command, buffer.c_str(), buffer.size(), &new_channel_buffer, &new_buffer, &new_buffer_len);
+		int status = p->route_message(channel.c_str(), buffer.c_str(), buffer.size(), &new_channel_buffer, &new_buffer, &new_buffer_len);
 		if (status&NSCAPI::message_modified == NSCAPI::message_modified) {
 			buffer = std::string(new_buffer, new_buffer_len);
 			p->deleteBuffer(&new_buffer);
@@ -1213,7 +1213,7 @@ NSCAPI::errorReturn NSClientT::register_routing_listener(unsigned int plugin_id,
 	return NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const wchar_t* command, char* buffer, unsigned int buffer_len) {
+NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, std::string &request, std::string &response) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (009)."));
@@ -1221,10 +1221,9 @@ NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const w
 	}
 
 	std::wstring schannel = channel;
-	std::string sbuffer = std::string(buffer, buffer_len);
 	try {
 		int count = 0;
-		while (reroute(schannel, command, sbuffer)==NSCAPI::message_routed && count++ <= 10) {
+		while (reroute(schannel, request)==NSCAPI::message_routed && count++ <= 10) {
 			LOG_DEBUG_CORE_STD(_T("Re-routing message to: ") + schannel);
 		}
 		if (count >= 10) {
@@ -1243,7 +1242,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, const w
 		//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
 		bool found = false;
 		BOOST_FOREACH(nsclient::plugin_type p, channels_.get(schannel)) {
-			p->handleNotification(schannel.c_str(), command, sbuffer.c_str(), sbuffer.length());
+			p->handleNotification(schannel.c_str(), request, response);
 			found = true;
 		}
 		if (!found) {

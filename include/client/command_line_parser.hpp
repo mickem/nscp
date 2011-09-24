@@ -5,18 +5,22 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_map.hpp>
 
+#include <nscapi/functions.hpp>
+
 namespace client {
 
 	namespace po = boost::program_options;
 
 	struct nscp_cli_data {
-		std::wstring target;
+		std::wstring target_id;
 		std::wstring command;
 		std::wstring command_line;
 		std::wstring message;
-		std::wstring host;
 		unsigned int result;
 		std::vector<std::wstring> arguments;
+
+		nscapi::functions::destination_container host_self;
+		nscapi::functions::destination_container recipient;
 
 		bool submit;
 		bool query;
@@ -28,8 +32,9 @@ namespace client {
 			std::wstringstream ss;
 			ss << _T("Timeout: ") << timeout;
 			ss << _T(", command: ") << command;
-			ss << _T(", target: ") << target;
-			ss << _T(", host: ") << host;
+			ss << _T(", target: ") << target_id;
+			ss << _T(", self: {") << utf8::cvt<std::wstring>(host_self.to_string()) << _T("}");
+			ss << _T(", recipient: {") << utf8::cvt<std::wstring>(recipient.to_string()) << _T("}");
 			ss << _T(", message: ") << message;
 			ss << _T(", result: ") << result;
 			int i=0;
@@ -42,14 +47,20 @@ namespace client {
 
 	struct clp_handler;
 
+	struct target_lookup_interface {
+		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) = 0;
+	};
 	struct configuration /*: boost::noncopyable*/ {
 		typedef boost::shared_ptr<nscp_cli_data> data_type;
 		typedef boost::shared_ptr<clp_handler> handler_type;
+		typedef boost::shared_ptr<target_lookup_interface> target_lookup_type;
 
 		std::string title;
 		po::options_description local;
 		data_type data;
 		handler_type handler;
+		target_lookup_type target_lookup;
+		nscapi::functions::destination_container host_default_recipient;
 
 		configuration() : data(data_type(new nscp_cli_data())) {}
 
@@ -72,7 +83,7 @@ namespace client {
 
 	struct clp_handler {
 		virtual int query(configuration::data_type data, std::string request, std::string &reply) = 0;
-		virtual std::list<std::string> submit(configuration::data_type data, std::string request) = 0;
+		virtual std::list<std::string> submit(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) = 0;
 		virtual int exec(configuration::data_type data, std::string request, std::string &reply) = 0;
 	};
 	struct command_manager {
@@ -98,10 +109,15 @@ namespace client {
 		static std::wstring build_help(configuration &config);
 
 		static int commandLineExec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+		static bool relay_submit(configuration &config, const std::string &request, std::string &response);
 
+		static std::list<std::string> simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
 
 		static int query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-		static std::list<std::string> submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
+		//static std::list<std::string> submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
 		static int exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+
+	private:
+		static void modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient);
 	};
 }

@@ -121,7 +121,7 @@ namespace nscapi {
 
 		class simple_submission_handler {
 		public:
-			NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, const wchar_t* command, std::string result);
+			NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
 			virtual NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) = 0;
 
 		};
@@ -345,10 +345,13 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		submission_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 
-		NSCAPI::nagiosReturn NSHandleNotification(const wchar_t* channel, const wchar_t* command, const char* result_buffer, unsigned int result_buffer_len) {
+		NSCAPI::nagiosReturn NSHandleNotification(const wchar_t* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
 			try { 
-				std::string request(result_buffer, result_buffer_len);
-				NSCAPI::nagiosReturn retCode = instance->handleRAWNotification(channel, command, request); 
+				std::string request(buffer, buffer_len), reply;
+				NSCAPI::nagiosReturn retCode = instance->handleRAWNotification(channel, request, reply); 
+				helpers::wrap_string(reply, response_buffer, response_buffer_len);
+				//return helpers::wrap_string(reply, response_buffer, response_buffer_len, retCode);
+				return retCode;
 			} catch (...) { 
 				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHandleNotification")); 
 			} 

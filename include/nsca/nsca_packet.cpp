@@ -18,28 +18,9 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
-
-#define WANT_GETLONGPATHNAME_WRAPPER
-//#include <NewAPIs.h>
-
-#include <iostream>
-#include <string>
-#include <list>
-
-
-#include <boost/asio.hpp>
-#ifdef USE_SSL
-#include <boost/asio/ssl.hpp>
-#endif
-
-#include <NSCAPI.h>
-#include <nscapi/plugin.hpp>
-#include <config.h>
+#include <strEx.h>
 #include <utils.h>
-#include <error.hpp>
+#include "nsca_packet.hpp"
 
+unsigned int nsca::length::payload_length_ = 512;
 
-#ifdef MEMCHECK
-#include <vld.h>
-#endif

@@ -7,6 +7,8 @@
 #include <swap_bytes.hpp>
 #include <nsca/nsca_enrypt.hpp>
 
+#include <unicode_char.hpp>
+#include <utils.h>
 
 namespace nsca {
 //#define NSCA_MAX_PLUGINOUTPUT_LENGTH	512
@@ -29,6 +31,15 @@ namespace nsca {
 			*/
 			//data_packet_struct() : packet_version(NSCA_PACKET_VERSION_3) {}
 
+			const char* get_host_ptr() const {
+				return &data[0];
+			}
+			const char* get_desc_ptr(unsigned int host_len) const {
+				return &data[host_len];
+			}
+			const char* get_result_ptr(unsigned int host_len, unsigned int desc_len) const {
+				return &data[host_len+desc_len];
+			}
 			char* get_host_ptr() {
 				return &data[0];
 			}
@@ -62,25 +73,22 @@ namespace nsca {
 		static const short host_length = 64;
 		static const short desc_length = 128;
 	public:
-		class data {
-		public:
-			static size_type payload_length_;
-			static void set_payload_length(size_type length) {
-				payload_length_ = length;
-			}
-			static size_type get_packet_length() {
-				return get_packet_length(payload_length_);
-			}
-			static size_type get_packet_length(size_type output_length) {
-				return sizeof(nsca::data::data_packet)+output_length*sizeof(char)+host_length*sizeof(char)+desc_length*sizeof(char);
-			}
-			static size_type get_payload_length() {
-				return payload_length_;
-			}
-			static size_type get_payload_length(size_type packet_length) {
-				return (packet_length- (host_length*sizeof(char)+desc_length*sizeof(char)+sizeof(nsca::data::data_packet)) )/sizeof(char);
-			}
-		};
+		static size_type payload_length_;
+		static void set_payload_length(size_type length) {
+			payload_length_ = length;
+		}
+		static size_type get_packet_length() {
+			return get_packet_length(payload_length_);
+		}
+		static size_type get_packet_length(size_type output_length) {
+			return sizeof(nsca::data::data_packet)+output_length*sizeof(char)+host_length*sizeof(char)+desc_length*sizeof(char);
+		}
+		static size_type get_payload_length() {
+			return payload_length_;
+		}
+		static size_type get_payload_length(size_type packet_length) {
+			return (packet_length- (host_length*sizeof(char)+desc_length*sizeof(char)+sizeof(nsca::data::data_packet)) )/sizeof(char);
+		}
 		class iv {
 		public:
 			static const unsigned int payload_length_ = nsca::data::transmitted_iuv_size;
@@ -120,18 +128,27 @@ namespace nsca {
 			boost::posix_time::time_duration diff = now - time_t_epoch;
 			time = diff.total_seconds();
 		}
-		packet() : payload_length_(nsca::length::data::get_payload_length())
-		{
-		}
-		packet(unsigned char* buffer, unsigned int buffer_len, unsigned int payload_length) : payload_length_(payload_length) {
-			// TODO: Parse here
-		}
+		packet(unsigned int payload_length) : payload_length_(payload_length) {}
+		packet() : payload_length_(nsca::length::get_payload_length()) {}
 
-		std::string toString() const {
+		std::string to_string() const {
 			return "service: " + service + ", " + 
 				"code: " + boost::lexical_cast<std::string>(code) + ", " + 
 				"time: " + boost::lexical_cast<std::string>(time) + ", " + 
 				"result: " + result;
+		}
+
+		void parse_data(const char* buffer, unsigned int buffer_len) {
+			const nsca::data::data_packet *data = reinterpret_cast<const nsca::data::data_packet*>(buffer);
+			//packet_version=swap_bytes::ntoh<int16_t>(data->packet_version);
+			time=swap_bytes::ntoh<u_int32_t>(data->timestamp);
+			code = swap_bytes::ntoh<int16_t>(data->return_code);
+			//data->crc32_value= swap_bytes::hton<u_int32_t>(0);
+
+			host = data->get_host_ptr();
+			service= data->get_desc_ptr(nsca::length::host_length);
+			result= data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length);
+
 		}
 
 		void get_buffer(std::string &buffer) const {
@@ -167,17 +184,25 @@ namespace nsca {
 			get_buffer(buffer);
 			return buffer;
 		}
-		unsigned int get_packet_length() const { return nsca::length::data::get_packet_length(payload_length_); }
+		unsigned int get_packet_length() const { return nsca::length::get_packet_length(payload_length_); }
 		unsigned int get_payload_length() const { return payload_length_; }
 	};
 
 	class iv_packet {
+		std::string iv;
 	public:
-		iv_packet() {
+		iv_packet(std::string iv) : iv(iv) {
 		}
-		iv_packet(char* buf, unsigned int len) {
-
+		std::string get_buffer() const {
+			nsca::data::iv_packet data;
+			strncpy(data.iv, iv.c_str(), iv.size());
+			char *src = reinterpret_cast<char*>(&data);
+			std::string buffer(src, nsca::length::iv::get_packet_length());
+			return buffer;
 		}
+// 		iv_packet(char* buf, unsigned int len) {
+// 
+// 		}
 
 	};
 }

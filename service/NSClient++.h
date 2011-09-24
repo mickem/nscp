@@ -163,8 +163,8 @@ public:
 	// Member functions
 	boost::filesystem::wpath getBasePath(void);
 
-	NSCAPI::errorReturn reroute(std::wstring &channel, const wchar_t* command, std::string &buffer);
-	NSCAPI::errorReturn send_notification(const wchar_t* channel, const wchar_t* command, char* buffer, unsigned int buffer_len);
+	NSCAPI::errorReturn reroute(std::wstring &channel, std::string &buffer);
+	NSCAPI::errorReturn send_notification(const wchar_t* channel, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
 //	std::wstring inject(const std::wstring buffer);

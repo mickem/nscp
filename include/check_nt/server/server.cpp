@@ -11,6 +11,7 @@ namespace check_nt {
 
 
 		namespace ip = boost::asio::ip;
+		namespace str = nscp::helpers;
 
 
 		server::server(connection_info infoo)
@@ -32,12 +33,12 @@ namespace check_nt {
 			}
 			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {
-				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info_.get_endpoint_str());
+				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info_.get_endpoint_wstring());
 				return;
 			}
 			if (info_.use_ssl) {
 				SSL_CTX_set_cipher_list(context_.impl(), "ADH");
-				request_handler_->log_debug(__FILE__, __LINE__, _T("Using cert: ") + to_wstring(info_.certificate));
+				request_handler_->log_debug(__FILE__, __LINE__, _T("Using cert: ") + str::to_wstring(info_.certificate));
 				context_.use_tmp_dh_file(to_string(info_.certificate));
 				context_.set_verify_mode(boost::asio::ssl::context::verify_none);
 			}
@@ -47,7 +48,7 @@ namespace check_nt {
 			ip::tcp::endpoint endpoint = *endpoint_iterator;
 			acceptor_.open(endpoint.protocol());
 			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info_.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info_.get_endpoint_wstring());
 			acceptor_.bind(endpoint);
 			if (info_.back_log == connection_info::backlog_default)
 				acceptor_.listen();
@@ -59,7 +60,7 @@ namespace check_nt {
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					)
 				);
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info_.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info_.get_endpoint_wstring());
 
 			//io_service_.post(boost::bind(&Server::startAccept, this));
 
@@ -74,7 +75,7 @@ namespace check_nt {
 					new boost::thread( boost::bind(&boost::asio::io_service::run, &io_service_) ));
 				threads_.push_back(thread);
 			}
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Thredpool containes: ") + to_wstring(info_.thread_pool_size));
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Thredpool containes: ") + str::to_wstring(info_.thread_pool_size));
 
 			// Wait for all threads in the pool to exit.
 			//for (std::size_t i = 0; i < threads.size(); ++i)
@@ -91,14 +92,14 @@ namespace check_nt {
 			if (!e) {
 				std::list<std::string> errors;
 				std::string s = new_connection_->socket().remote_endpoint().address().to_string();
-				if (info_.allowed_hosts.is_allowed(new_connection_->socket().remote_endpoint().address().to_v4().to_ulong(), errors)) {
-					request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
+				if (info_.allowed_hosts.is_allowed(new_connection_->socket().remote_endpoint().address(), errors)) {
+					request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + str::to_wstring(s));
 					new_connection_->start();
 				} else {
 					BOOST_FOREACH(const std::string &e, errors) {
 						request_handler_->log_error(__FILE__, __LINE__, utf8::cvt<std::wstring>(e));
 					}
-					request_handler_->log_error(__FILE__, __LINE__, _T("Rejcted connection from: ") + to_wstring(s));
+					request_handler_->log_error(__FILE__, __LINE__, _T("Rejcted connection from: ") + str::to_wstring(s));
 					new_connection_->stop();
 				}
 
@@ -110,7 +111,7 @@ namespace check_nt {
 						)
 					);
 			} else {
-				request_handler_->log_error(__FILE__, __LINE__, _T("Socket ERROR: ") + to_wstring(e.message()));
+				request_handler_->log_error(__FILE__, __LINE__, _T("Socket ERROR: ") + str::to_wstring(e.message()));
 			}
 		}
 

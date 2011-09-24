@@ -14,6 +14,10 @@ public:
 
 	NSCAPI::nagiosReturn handle_query_request(const std::string &request, Plugin::QueryRequestMessage &msg, std::string &reply);
 
+
+	NSCAPI::nagiosReturn handle_submission_request(const std::string &,Plugin::SubmitRequestMessage &,std::string &) {return 0;}
+	NSCAPI::nagiosReturn handle_exec_request(const std::string &,Plugin::ExecuteRequestMessage &,std::string &) {return 0;}
+
 	nscp::packet create_error(std::wstring msg) {
 		return nscp::factory::create_error(msg);
 	}

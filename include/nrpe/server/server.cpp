@@ -32,7 +32,7 @@ namespace nrpe {
 			}
 			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {
-				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info_.get_endpoint_str());
+				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info_.get_endpoint_wstring());
 				return;
 			}
 			if (info_.use_ssl) {
@@ -47,7 +47,7 @@ namespace nrpe {
 			ip::tcp::endpoint endpoint = *endpoint_iterator;
 			acceptor_.open(endpoint.protocol());
 			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info_.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info_.get_endpoint_wstring());
 			acceptor_.bind(endpoint);
 			if (info_.back_log == connection_info::backlog_default)
 				acceptor_.listen();
@@ -59,7 +59,7 @@ namespace nrpe {
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					)
 				);
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info_.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info_.get_endpoint_wstring());
 
 			//io_service_.post(boost::bind(&Server::startAccept, this));
 
@@ -91,7 +91,7 @@ namespace nrpe {
 			if (!e) {
 				std::list<std::string> errors;
 				std::string s = new_connection_->socket().remote_endpoint().address().to_string();
-				if (info_.allowed_hosts.is_allowed(new_connection_->socket().remote_endpoint().address().to_v4().to_ulong(), errors)) {
+				if (info_.allowed_hosts.is_allowed(new_connection_->socket().remote_endpoint().address(), errors)) {
 					request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
 					new_connection_->start();
 				} else {

@@ -32,7 +32,7 @@ namespace nscp {
 			}
 			ip::tcp::resolver::iterator end;
 			if (endpoint_iterator == end) {
-				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info_.get_endpoint_str());
+				request_handler_->log_error(__FILE__, __LINE__, std::wstring(_T("Failed to lookup: ")) + info_.get_endpoint_wstring());
 				return;
 			}
 			if (info_.use_ssl) {
@@ -47,7 +47,7 @@ namespace nscp {
 			ip::tcp::endpoint endpoint = *endpoint_iterator;
 			acceptor_.open(endpoint.protocol());
 			acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info_.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Attempting to bind to: ") + info_.get_endpoint_wstring());
 			acceptor_.bind(endpoint);
 			if (info_.back_log == connection_info::backlog_default)
 				acceptor_.listen();
@@ -59,7 +59,7 @@ namespace nscp {
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					)
 				);
-			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info_.get_endpoint_str());
+			request_handler_->log_debug(__FILE__, __LINE__, _T("Bound to: ") + info_.get_endpoint_wstring());
 
 			//io_service_.post(boost::bind(&Server::startAccept, this));
 
@@ -91,21 +91,34 @@ namespace nscp {
 			if (!e) {
 				std::list<std::string> errors;
 				boost::asio::ip::address a = new_connection_->socket().remote_endpoint().address();
-				std::string s = a.to_string();
-				if (a.is_v4()) {
-					if (info_.allowed_hosts.is_allowed(a.to_v4().to_ulong(), errors)) {
-						request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
-						new_connection_->start();
-					} else {
-						BOOST_FOREACH(const std::string &e, errors) {
-							request_handler_->log_error(__FILE__, __LINE__, utf8::cvt<std::wstring>(e));
-						}
-						request_handler_->log_error(__FILE__, __LINE__, _T("Rejcted connection from: ") + to_wstring(s));
-						new_connection_->stop();
+				std::stringstream ss;
+				ss << "address: " << a.to_string() << " - ";
+				ss << "v4: " << a.is_v4() << " - ";
+				ss << "v6: " << a.is_v6() << " - ";
+				request_handler_->log_error(__FILE__, __LINE__, _T(" -- ") + to_wstring(ss.str()));
+				if (a.is_v6()) {
+					ss << "v4: " << a.to_v6().is_v4_compatible() << " - ";
+					ss << "v4: " << a.to_v6().is_v4_mapped() << " - ";
+					try {
+						ss << "v4: " << a.to_v6().to_v4().to_string() << " - ";
+					} catch (...) {
+						ss << "failed" << " - ";
 					}
-				} else {
-					//request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting IPv6 connection from: ") + to_wstring(s));
+				}
+				request_handler_->log_error(__FILE__, __LINE__, _T(" -- ?? --"));
+				request_handler_->log_error(__FILE__, __LINE__, _T(" -- ") + to_wstring(ss.str()));
+				request_handler_->log_error(__FILE__, __LINE__, _T(" -- ?? --"));
+
+				std::string s = a.to_string();
+				if (info_.allowed_hosts.is_allowed(a, errors)) {
+					request_handler_->log_debug(__FILE__, __LINE__, _T("Accepting connection from: ") + to_wstring(s));
 					new_connection_->start();
+				} else {
+					BOOST_FOREACH(const std::string &e, errors) {
+						request_handler_->log_error(__FILE__, __LINE__, utf8::cvt<std::wstring>(e));
+					}
+					request_handler_->log_error(__FILE__, __LINE__, _T("Rejcted connection from: ") + to_wstring(s));
+					new_connection_->stop();
 				}
 
 				new_connection_.reset(nscp::server::factories::create(io_service_, context_, request_handler_, info_.use_ssl));

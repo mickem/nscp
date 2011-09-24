@@ -159,7 +159,7 @@ NSCAPI::nagiosReturn NSCPClient::handleCommand(const std::wstring &target, const
 	if (command == _T("submit_nscp")) {
 		client::configuration config;
 		std::wstring cmd = setup(config, command);
-		std::list<std::string> errors = client::command_line_parser::submit(config, cmd, arguments);
+		std::list<std::string> errors = client::command_line_parser::simple_submit(config, cmd, arguments);
 		BOOST_FOREACH(std::string p, errors) {
 			NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(p));
 		}
@@ -211,7 +211,7 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, s
 		return NSCAPI::returnUNKNOWN;
 	}
 }
-std::list<std::string> NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, std::string request) {
+std::list<std::string> NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
 	std::list<std::string> result;
 	try {
 		std::list<nscp::packet> chunks;
@@ -272,13 +272,16 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, st
 std::list<nscp::packet> NSCPClient::send(client::configuration::data_type generic_data, nscp_connection_data &data, std::list<nscp::packet> &chunks) {
 	chunks.push_front(nscp::factory::create_envelope_request(1));
 	std::list<nscp::packet> tmp, result;
+	// @ move this to use headers instead
+	/*
 	std::wstring host = generic_data->host;
 	if (host.empty() && !generic_data->target.empty()) {
 		nscapi::target_handler::optarget t = targets.find_target(generic_data->target);
 		if (t)
 			host = (*t).host;
 	}
-	net::wurl url = net::parse(host, 5666);
+	*/
+	net::wurl url = net::parse(_T("..."), 5666);
 	if (!data.no_ssl) {
 #ifdef USE_SSL
 		tmp = send_ssl(url.host, url.port, data.cert, generic_data->timeout, chunks);

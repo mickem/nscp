@@ -1,4 +1,6 @@
 from NSCP import Settings, Registry, Core, log, status
+from test_helper import Callable, run_tests
+import plugin_pb2
 
 core = Core.get()
 
@@ -7,10 +9,6 @@ plugin_id = 0
 
 def get_help(arguments):
 	return (status.OK, 'help: Get help')
-
-class Callable:
-	def __init__(self, anycallable):
-		self.__call__ = anycallable
 
 class ChannelTest:
 	instance = None
@@ -173,23 +171,6 @@ class CommandTest:
 		else:
 			log("OK: all tests successfull")
 		return (count, 9)
-
-def run_test(cls):
-	instance = cls.getInstance()
-	instance.setup(plugin_id, prefix)
-	ret = instance.run_test()
-	instance.teardown()
-	log('Tested %s (%s of %s)'%(instance.desc(), ret[0], ret[1]))
-	return ret
-
-def run_tests(list):
-	all_failed = 0
-	all_count = 0
-	for c in list:
-		(failed, count) = run_test(c)
-		all_failed += failed
-		all_count += count
-	return (all_failed, all_count)
 
 def test(arguments):
 	global prefix

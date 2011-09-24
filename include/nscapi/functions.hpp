@@ -28,9 +28,9 @@
 
 #include <NSCAPI.h>
 #include <charEx.h>
-#include <arrayBuffer.h>
+//#include <arrayBuffer.h>
 #include <types.hpp>
-
+#include <net/net.hpp>
 #include <unicode_char.hpp>
 #include <strEx.h>
 #include <nscapi/settings_proxy.hpp>
@@ -110,6 +110,101 @@ namespace nscapi {
 			// @todo add additional fields here!
 		}
 
+		//////////////////////////////////////////////////////////////////////////
+
+		struct destination_container {
+			std::string id;
+			std::string host;
+			std::string address;
+			std::string protocol;
+			std::string comment;
+			std::list<std::string> tags;
+			typedef std::map<std::string,std::string> data_map;
+			data_map data;
+
+			net::url get_url(unsigned int port = 80) {
+				return net::parse(address, port);
+			}
+
+			std::string to_string() {
+				std::stringstream ss;
+				ss << "id: " << id;
+				ss << ", host: " << host;
+				ss << ", address: " << address;
+				ss << ", protocol: " << protocol;
+				ss << ", comment: " << comment;
+				int i=0;
+				BOOST_FOREACH(std::string a, tags) {
+					ss << ", tags[" << i++ << "]: " << a;
+				}
+				BOOST_FOREACH(const data_map::value_type &kvp, data) {
+					ss << ", data[" << kvp.first << "]: " << kvp.second;
+				}
+				return ss.str();
+			}
+
+			void import(const destination_container &other) {
+				if (!other.id.empty())
+					id = other.id;
+				if (!other.host.empty())
+					host = other.host;
+				if (!other.address.empty())
+					address = other.address;
+				if (!other.protocol.empty())
+					protocol = other.protocol;
+				if (!other.comment.empty())
+					comment = other.comment;
+				BOOST_FOREACH(const std::string &t, other.tags) {
+					tags.push_back(t);
+				}
+				BOOST_FOREACH(const data_map::value_type &kvp, other.data) {
+					data[kvp.first] = kvp.second;
+				}
+			}
+		};
+
+		static void add_host(Plugin::Common::Header* hdr, const destination_container &dst)  {
+			::Plugin::Common::Host *host = hdr->add_hosts();
+			if (!dst.id.empty())
+				host->set_id(dst.id);
+			if (!dst.host.empty())
+				host->set_host(dst.host);
+			if (!dst.protocol.empty())
+				host->set_protocol(dst.protocol);
+			if (!dst.comment.empty())
+				host->set_comment(dst.comment);
+			BOOST_FOREACH(const std::string &t, dst.tags) {
+				host->add_tags(t);
+			}
+			BOOST_FOREACH(const destination_container::data_map::value_type &kvp, dst.data) {
+				::Plugin::Common_KeyValue* x = host->add_metadata();
+				x->set_key(kvp.first);
+				x->set_value(kvp.second);
+			}
+		}
+
+		static bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false) {
+			for (int i=0;i<header.hosts_size();++i) {
+				const ::Plugin::Common::Host &host = header.hosts(i);
+				if (host.id() == tag) {
+					data.id = tag;
+					data.host = host.host();
+					data.address = host.address();
+					data.protocol = host.protocol();
+					data.comment = host.comment();
+					if (expand_meta) {
+						for(int j=0;j<host.tags_size(); ++j) {
+							data.tags.push_back(host.tags(j));
+						}
+						for(int j=0;j<host.metadata_size(); ++j) {
+							data.data[host.metadata(j).key()] = host.metadata(j).value();
+						}
+					}
+					return true;
+				}
+			}
+			return false;
+		}
 
 		//////////////////////////////////////////////////////////////////////////
 
@@ -125,6 +220,62 @@ namespace nscapi {
 
 			message.SerializeToString(&buffer);
 		}
+
+		static void create_simple_submit_request(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
+			Plugin::SubmitRequestMessage message;
+			create_simple_header(message.mutable_header());
+			message.set_channel(to_string(channel));
+
+			Plugin::QueryResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(to_string(command));
+			payload->set_message(to_string(msg));
+			payload->set_result(nagios_status_to_gpb(ret));
+			if (!perf.empty())
+				parse_performance_data(payload, perf);
+
+			message.SerializeToString(&buffer);
+		}
+		static void create_simple_submit_response(std::wstring channel, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer) {
+			Plugin::SubmitResponseMessage message;
+			create_simple_header(message.mutable_header());
+			//message.set_channel(to_string(channel));
+
+			Plugin::SubmitResponseMessage::Response *payload = message.add_payload();
+			payload->set_message(to_string(msg));
+			//payload->set_result(nagios_status_to_gpb(ret));
+			message.SerializeToString(&buffer);
+		}
+		static NSCAPI::errorReturn parse_simple_submit_request(const std::string &request, std::wstring &command, std::wstring &msg, std::wstring &perf) {
+			Plugin::SubmitRequestMessage message;
+			message.ParseFromString(request);
+
+			if (message.payload_size() != 1) {
+				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
+			}
+			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
+			command = utf8::cvt<std::wstring>(payload.command());
+			msg = utf8::cvt<std::wstring>(payload.message());
+			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
+			return -1;
+		}
+		static NSCAPI::errorReturn parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &command, std::wstring &msg, std::wstring &perf) {
+			command = utf8::cvt<std::wstring>(payload.command());
+			msg = utf8::cvt<std::wstring>(payload.message());
+			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
+			return gbp_to_nagios_status(payload.result());
+		}
+		static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::wstring response) {
+			Plugin::SubmitResponseMessage message;
+			message.ParseFromString(request);
+
+			if (message.payload_size() != 1) {
+				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
+			}
+			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
+			response = to_wstring(payload.message());
+			return -1;
+		}
+
 		static void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
 			create_simple_header(message.mutable_header());
@@ -146,14 +297,16 @@ namespace nscapi {
 			Plugin::QueryResponseMessage message;
 			create_simple_header(message.mutable_header());
 
-			Plugin::QueryResponseMessage::Response *payload = message.add_payload();
+			append_simple_query_response_payload(message.add_payload(), command, ret, msg, perf);
+
+			message.SerializeToString(&buffer);
+		}
+		static void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf) {
 			payload->set_command(to_string(command));
 			payload->set_message(to_string(msg));
 			payload->set_result(nagios_status_to_gpb(ret));
 			if (!perf.empty())
 				parse_performance_data(payload, perf);
-
-			message.SerializeToString(&buffer);
 		}
 
 		static decoded_simple_command_data parse_simple_query_request(const wchar_t* char_command, const std::string &request) {
@@ -246,7 +399,7 @@ namespace nscapi {
 			Plugin::ExecuteRequestMessage message;
 			message.ParseFromString(request);
 			if (message.has_header())
-				data.target = utf8::cvt<std::wstring>(message.header().recipient());
+				data.target = utf8::cvt<std::wstring>(message.header().recipient_id());
 
 			if (message.payload_size() != 1) {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
