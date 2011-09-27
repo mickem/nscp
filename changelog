@@ -5,6 +5,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-09-27 MickeM
+ * Fixed many many issues all over the place as I tried to make things working for my pressention at nwc.
+ 
 2011-09-24 MickeM
  * Started on NSCA unit-tests in python
  * Refactored channel API a bit to better suite NSCA (and how it actually works)

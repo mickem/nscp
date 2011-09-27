@@ -82,14 +82,12 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 			(_T("scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)), 
 			_T("EXTERNAL SCRIPT SCRIPT SECTION"), _T("A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>"))
 
+			(_T("wrappings"), sh::wstring_map_path(&wrappings_)
+			, _T("EXTERNAL SCRIPT WRAPPINGS SECTION"), _T("A list of templates for wrapped scripts"))
+
 			(_T("alias"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)), 
 			_T("EXTERNAL SCRIPT ALIAS SECTION"), _T("A list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)"))
 
-			(_T("wrappings"), sh::wstring_map_path(&wrappings_)
-			, _T("EXTERNAL SCRIPT WRAPPINGS SECTION"), _T(""))
-
-			(_T("wrapped scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
-			_T("EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION"), _T(""))
 			;
 
 		settings.alias().add_key_to_settings()
@@ -106,6 +104,16 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 			_T("SCRIPT DIRECTORY"), _T("Load all scripts in a directory and use them as commands. Probably dangerous but useful if you have loads of scripts :)"))
 			;
 
+		settings.register_all();
+		settings.notify();
+		settings.clear();
+
+		settings.alias().add_path_to_settings()
+
+			(_T("wrapped scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
+			_T("EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION"), _T("A list of wrappped scripts (ie. using the template mechanism)"))
+
+			;
 		settings.register_all();
 		settings.notify();
 

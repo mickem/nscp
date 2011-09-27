@@ -142,7 +142,8 @@ public:
 	NSCAPI::nagiosReturn handleNotification(const wchar_t *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 	void deleteBuffer(char**buffer);
 	void handleMessage(const char* data, unsigned int len);
-	void unload(void);
+	void unload_dll(void);
+	void unload_plugin(void);
 	std::wstring getCongifurationMeta();
 	int commandLineExec(const wchar_t* command, std::string &request, std::string &reply);
 	int commandLineExec(const wchar_t* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);

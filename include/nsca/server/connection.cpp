@@ -29,9 +29,13 @@ namespace nsca {
 		void connection::start() {
 			handler_->log_debug(__FILE__, __LINE__, _T("starting data connection..."));
 			std::vector<boost::asio::const_buffer> buffers;
-			nsca::iv_packet packet(nsca_encrypt::generate_transmitted_iv());
+
+			std::string iv = nsca::nsca_encrypt::generate_transmitted_iv();
+			handler_->log_debug(__FILE__, __LINE__, _T("Encrypting using when receieving: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(handler_->get_encryption())) + _T(" and ") + utf8::cvt<std::wstring>(handler_->get_password()));
+			encryption_instance_.encrypt_init(handler_->get_password(), handler_->get_encryption(), iv);
+
+			nsca::iv_packet packet(iv);
 			buffers.push_back(buf(packet.get_buffer()));
-			handler_->log_debug(__FILE__, __LINE__, _T("About to write: ") + strEx::itos(packet.get_buffer().size()));
 			start_write_request(buffers, 30);
 		}
 
@@ -67,7 +71,6 @@ namespace nsca {
 
 		void connection::handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
 			if (!e) {
-				handler_->log_error(__FILE__, __LINE__, _T("Got data (server): ") + strEx::itos(bytes_transferred));
 				bool result;
 				buffer_type::iterator begin = buffer_.begin();
 				buffer_type::iterator end = buffer_.begin() + bytes_transferred;
@@ -81,17 +84,16 @@ namespace nsca {
 					if (result) {
 						nsca::packet response;
 						try {
-							// TODO decrypt data here...
-							//NSC_DEBUG_MSG(_T("Encrypting using: ") + strEx::itos(encryption_method));
-							nsca::packet request = parser_.parse();
+							nsca::packet request = parser_.parse(encryption_instance_);
 							handler_->handle(request);
 						} catch (nsca::nsca_exception &e) {
+							handler_->log_error(__FILE__, __LINE__, str::to_wstring(e.what()));
+						} catch (const std::exception &e) {
 							handler_->log_error(__FILE__, __LINE__, str::to_wstring(e.what()));
 						} catch (...) {
 							handler_->log_error(__FILE__, __LINE__, _T("Unknown error handling packet"));
 						}
 						cancel_timer();
-						handler_->log_error(__FILE__, __LINE__, _T("Done reading packet (server), shutting down..."));
 						// Initiate graceful connection closure.
 						boost::system::error_code ignored_ec;
 						socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);

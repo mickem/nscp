@@ -17,6 +17,8 @@ namespace script_wrapper {
 
 	void log_exception();
 	void log_msg(std::wstring x);
+	void log_debug(std::wstring x);
+	void log_error(std::wstring x);
 	//std::string get_alias();
 
 	std::list<std::wstring> convert(boost::python::list lst);
@@ -82,8 +84,8 @@ namespace script_wrapper {
 		bool has_simple_cmdline(const std::string command);
 
 
-		int handle_simple_message(const std::string channel, const std::string wcmd, int code, std::wstring &msg, std::wstring &perf) const;
-		int handle_message(const std::string channel, const std::string wcmd, std::string &message) const;
+		int handle_simple_message(const std::string channel, const std::string wsrc, const std::string wcmd, int code, std::wstring &msg, std::wstring &perf) const;
+		int handle_message(const std::string channel, const std::string &request, std::string &response) const;
 		bool has_message_handler(const std::string command);
 		bool has_simple_message_handler(const std::string command);
 
@@ -112,6 +114,7 @@ namespace script_wrapper {
 		tuple exec(std::string command, std::string request);
 		tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
 		tuple submit(std::string channel, std::string request);
+		bool reload(std::string module);
 	};
 
 	struct settings_wrapper {

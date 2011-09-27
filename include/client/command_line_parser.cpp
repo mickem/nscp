@@ -249,6 +249,13 @@ bool client::command_line_parser::relay_submit(configuration &config, const std:
 	message.ParseFromString(request);
 	modify_header(config, message.mutable_header(), config.data->recipient);
 	std::list<std::string> errors = config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
+	if (response.empty()) {
+		std::wstring msg;
+		BOOST_FOREACH(std::string &e, errors) {
+			msg += utf8::cvt<std::wstring>(e);
+		}
+		nscapi::functions::create_simple_submit_response(_T(""), _T(""), errors.empty()?NSCAPI::hasFailed:NSCAPI::isSuccess, msg, response);
+	}
 	BOOST_FOREACH(std::string &e, errors) {
 		//config.handler->error(e);
 		//@todo: immplement this

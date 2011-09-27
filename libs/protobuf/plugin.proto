@@ -136,6 +136,7 @@ message Common {
 message QueryRequestMessage {
 	message Request {
 		optional int32 id = 1;
+		optional string target = 7;
 		required string command = 2;
 		optional string alias = 3;
 		repeated string arguments = 4;
@@ -151,6 +152,7 @@ message QueryResponseMessage {
 	message Response {
 
 		optional int32 id = 1;
+		optional string source = 7;
 		required string command = 2;
 		optional string alias = 3;
 		repeated string arguments = 16;
@@ -238,7 +240,6 @@ message SubmitResponseMessage {
 		optional int32 id = 1;
 		required string command = 2;
 		required Common.Status status = 3;
-		optional string message = 4;
 		repeated Common.Attachment attachments = 17;
 	};
 	required Common.Header header = 1;

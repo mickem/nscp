@@ -109,12 +109,12 @@ NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(
 
 NSCAPI::nagiosReturn nscapi::impl::simple_submission_handler::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
 	try {
-		std::wstring command, msg, perf;
-		int code = nscapi::functions::parse_simple_submit_request(request, command, msg, perf);
-		NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, command, code, msg, perf);
+		std::wstring source, command, msg, perf;
+		int code = nscapi::functions::parse_simple_submit_request(request, source, command, msg, perf);
+		NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, source, command, code, msg, perf);
 		if (ret == NSCAPI::returnIgnored)
 			return NSCAPI::returnIgnored;
-		nscapi::functions::create_simple_submit_response(channel, ret, _T(""), response);
+		nscapi::functions::create_simple_submit_response(channel, command, ret, _T(""), response);
 	} catch (std::exception &e) {
 		nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(request) + ": " + e.what()));
 	} catch (...) {

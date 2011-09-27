@@ -141,6 +141,13 @@ NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::wstring channel, s
 	return ret;
 }
 
+NSCAPI::errorReturn nscapi::core_wrapper::reload(std::wstring module) {
+
+	if (!fNSAPIReload)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	return fNSAPIReload(module.c_str());
+}
+
 bool nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response) {
 	std::string request, buffer;
 	nscapi::functions::create_simple_submit_request(channel, command, code, message, perf, request);
@@ -639,6 +646,7 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIWriteSettings = (nscapi::core_api::lpNSAPIWriteSettings)f(_T("NSAPIWriteSettings"));
 	fNSAPIReadSettings = (nscapi::core_api::lpNSAPIReadSettings)f(_T("NSAPIReadSettings"));
 	fNSAPIRehash = (nscapi::core_api::lpNSAPIRehash)f(_T("NSAPIRehash"));
+	fNSAPIReload = (nscapi::core_api::lpNSAPIReload)f(_T("NSAPIReload"));
 
 	fNSAPIDescribeCommand = (nscapi::core_api::lpNSAPIDescribeCommand)f(_T("NSAPIDescribeCommand"));
 	fNSAPIGetAllCommandNames = (nscapi::core_api::lpNSAPIGetAllCommandNames)f(_T("NSAPIGetAllCommandNames"));

@@ -60,6 +60,16 @@ namespace nscapi {
 				return NSCAPI::returnCRIT;
 			return NSCAPI::returnUNKNOWN;
 		}
+		static Plugin::Common::Status::StatusType status_to_gpb(int ret) {
+			if (ret == NSCAPI::isSuccess)
+				return Plugin::Common_Status_StatusType_OK;
+			return Plugin::Common_Status_StatusType_PROBLEM;
+		}
+		static int gbp_to_status(Plugin::Common::Status::StatusType ret) {
+			if (ret == Plugin::Common_Status_StatusType_OK)
+				return NSCAPI::isSuccess;
+			return NSCAPI::hasFailed;
+		}
 		static Plugin::LogEntry::Entry::Level log_to_gpb(NSCAPI::messageTypes ret) {
 			if (ret == NSCAPI::critical)
 				return Plugin::LogEntry_Entry_Level_LOG_CRITICAL;
@@ -235,17 +245,18 @@ namespace nscapi {
 
 			message.SerializeToString(&buffer);
 		}
-		static void create_simple_submit_response(std::wstring channel, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer) {
+		static void create_simple_submit_response(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer) {
 			Plugin::SubmitResponseMessage message;
 			create_simple_header(message.mutable_header());
 			//message.set_channel(to_string(channel));
 
 			Plugin::SubmitResponseMessage::Response *payload = message.add_payload();
-			payload->set_message(to_string(msg));
-			//payload->set_result(nagios_status_to_gpb(ret));
+			payload->set_command(utf8::cvt<std::string>(command));
+			payload->mutable_status()->set_message(to_string(msg));
+			payload->mutable_status()->set_status(status_to_gpb(ret));
 			message.SerializeToString(&buffer);
 		}
-		static NSCAPI::errorReturn parse_simple_submit_request(const std::string &request, std::wstring &command, std::wstring &msg, std::wstring &perf) {
+		static NSCAPI::errorReturn parse_simple_submit_request(const std::string &request, std::wstring &source, std::wstring &command, std::wstring &msg, std::wstring &perf) {
 			Plugin::SubmitRequestMessage message;
 			message.ParseFromString(request);
 
@@ -253,10 +264,11 @@ namespace nscapi {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
 			}
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
+			source = utf8::cvt<std::wstring>(payload.source());
 			command = utf8::cvt<std::wstring>(payload.command());
 			msg = utf8::cvt<std::wstring>(payload.message());
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
-			return -1;
+			return gbp_to_nagios_status(payload.result());
 		}
 		static NSCAPI::errorReturn parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &command, std::wstring &msg, std::wstring &perf) {
 			command = utf8::cvt<std::wstring>(payload.command());
@@ -272,9 +284,20 @@ namespace nscapi {
 				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
 			}
 			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
-			response = to_wstring(payload.message());
-			return -1;
+			response = to_wstring(payload.mutable_status()->message());
+			return gbp_to_status(payload.mutable_status()->status());
 		}
+		/*
+		static void create_simple_submit_response(std::wstring msg, int status, std::string &buffer) {
+			Plugin::SubmitResponseMessage message;
+			create_simple_header(message.mutable_header());
+
+			Plugin::SubmitResponseMessage::Response *payload = message.add_payload();
+			payload->mutable_status()->set_message(to_string(msg));
+			payload->mutable_status()->set_status(status_to_gpb(status));
+
+			message.SerializeToString(&buffer);
+		}*/
 
 		static void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;

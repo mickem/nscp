@@ -56,7 +56,6 @@ namespace nsca {
 		}
 
 		virtual void send_nsca(const nsca::packet &packet, const boost::posix_time::seconds timeout) {
-			NSC_DEBUG_MSG(_T("About to send: ") + utf8::cvt<std::wstring>(packet.to_string()));
 			if (!get_socket().is_open()) {
 				NSC_DEBUG_MSG(_T("is closed..."));
 				return;
@@ -64,24 +63,21 @@ namespace nsca {
 			std::string buffer = crypt_inst.get_rand_buffer(packet.get_packet_length());
 			packet.get_buffer(buffer);
 			crypt_inst.encrypt_buffer(buffer);
-			NSC_LOG_ERROR_STD(_T("About to write: ") + strEx::itos(buffer.size()));
 			write_with_timeout(buffer, timeout);
 		}
 		virtual bool recv_iv(std::string password, int encryption_method, boost::posix_time::seconds timeout) {
-			NSC_DEBUG_MSG(_T("Socket..."));
 			if (!get_socket().is_open()) {
 				NSC_DEBUG_MSG(_T("is closed..."));
 				return false;
 			}
 			unsigned int len = nsca::length::iv::get_packet_length();
 			std::vector<char> buf(len);
-			NSC_DEBUG_MSG(_T("About t read IV: ") + strEx::itos(len));
 			if (!read_with_timeout(buf, timeout)) {
 				NSC_LOG_ERROR_STD(_T("Failed to read IV from server."));
 				return false;
 			}
 			std::string str_buf(buf.begin(), buf.end());
-			NSC_DEBUG_MSG(_T("Encrypting using: ") + strEx::itos(encryption_method));
+			NSC_DEBUG_MSG(_T("Encrypting using when sending: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(encryption_method)) + _T(" and ") + utf8::cvt<std::wstring>(password));
 			crypt_inst.encrypt_init(password, encryption_method, str_buf);
 			return true;
 		}
@@ -91,13 +87,5 @@ namespace nsca {
 		virtual void write_with_timeout(std::string &buf, boost::posix_time::seconds timeout) {
 			socket_helpers::io::write_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
 		}
-		/*
-		virtual void read_with_timeout(std::string &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::read_with_timeout(*socket_, get_socket(), boost::asio::mutable_buffer(buf), timeout);
-		}
-		virtual void write_with_timeout(std::string &buf, boost::posix_time::seconds timeout) {
-			socketHelpers::io::write_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
-		}
-		*/
 	};
 }

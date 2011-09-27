@@ -19,7 +19,10 @@ namespace nsca {
 			virtual void set_perf_data(bool) = 0;
 			virtual void set_channel(std::wstring channel) = 0;
 			virtual std::wstring get_channel() = 0;
-
+			virtual void set_encryption(std::string encryption) = 0;
+			virtual int get_encryption() = 0;
+			virtual std::string get_password() = 0;
+			virtual void set_password(std::string pwd) = 0;
 		};
 	}// namespace server
 } // namespace nsca

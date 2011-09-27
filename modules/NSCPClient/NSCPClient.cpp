@@ -80,8 +80,6 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
-		NSC_LOG_ERROR_STD(_T("Targets: ") + targets.to_wstring());
-
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
 		return false;

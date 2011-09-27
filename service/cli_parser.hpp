@@ -56,7 +56,7 @@ public:
 			("add-defaults", "Add all default (if missing) values.")
 			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
 			("key", po::value<std::wstring>()->default_value(_T("")), "Key to work with.")
-			("set", po::value<std::wstring>(), "Set a key and path to a given value.")
+			("set", po::value<std::wstring>()->implicit_value(_T("")), "Set a key and path to a given value.")
 			("switch", po::value<std::wstring>(), "Set default context to use (similar to migrate but does NOT copy values)")
 			("show", "Set a value given a key and path.")
 			("list", "Set all keys below the path (or root).")
@@ -128,7 +128,6 @@ public:
 			}
 
 			if (vm.count("settings")) {
-				mainClient.set_console_log();
 				return parse_settings(argc-1, &argv[1]);
 			}
 			if (vm.count("service")) {
@@ -175,6 +174,9 @@ public:
 			po::variables_map vm;
 			po::store(po::parse_command_line(argc, argv, all), vm);
 			po::notify(vm);
+
+			if (debug)
+				mainClient.set_console_log();
 
 			if (process_common_options())
 				return 1;

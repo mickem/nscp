@@ -51,6 +51,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIExecCommand fNSAPIExecCommand;
 		nscapi::core_api::lpNSAPIDestroyBuffer fNSAPIDestroyBuffer;
 		nscapi::core_api::lpNSAPINotify fNSAPINotify;
+		nscapi::core_api::lpNSAPIReload fNSAPIReload;
 		nscapi::core_api::lpNSAPICheckLogMessages fNSAPICheckLogMessages;
 		nscapi::core_api::lpNSAPIEncrypt fNSAPIEncrypt;
 		nscapi::core_api::lpNSAPIDecrypt fNSAPIDecrypt;
@@ -143,6 +144,7 @@ namespace nscapi {
 		bool submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response);
 		NSCAPI::errorReturn submit_message(const wchar_t* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::errorReturn submit_message(std::wstring channel, std::string request, std::string &response);
+		NSCAPI::errorReturn reload(std::wstring module);
 		void StopService(void);
 		void Exit(void);
 		std::wstring getBasePath();

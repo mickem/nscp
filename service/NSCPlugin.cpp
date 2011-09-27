@@ -59,7 +59,8 @@ NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file,
 NSCPlugin::~NSCPlugin() {
 	if (isLoaded()) {
 		try {
-			unload();
+			unload_plugin();
+			unload_dll();
 		} catch (NSPluginException &e) {
 			// ...
 		}
@@ -310,7 +311,7 @@ void NSCPlugin::handleMessage(const char* data, unsigned int len) {
  * Unload the plug in
  * @throws NSPluginException if the module is not loaded and/or cannot be unloaded (plug in remains loaded if so).
  */
-void NSCPlugin::unload() {
+void NSCPlugin::unload_plugin() {
 	if (!isLoaded())
 		return;
 	loaded_ = false;
@@ -321,6 +322,10 @@ void NSCPlugin::unload() {
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in fUnLoadModule."));
 	}
+}
+void NSCPlugin::unload_dll() {
+	if (isLoaded())
+		return;
 	module_.unload_library();
 }
 bool NSCPlugin::getName_(wchar_t* buf, unsigned int buflen) {

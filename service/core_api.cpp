@@ -249,6 +249,9 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer
 NSCAPI::errorReturn NSAPISetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* value) {
 	try {
 		settings_manager::get_settings()->set_string(section, key, value);
+	} catch (const std::exception &e) {
+		LOG_ERROR_STD(_T("Failed to setString: ") + key + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+		return NSCAPI::hasFailed;
 	} catch (...) {
 		LOG_ERROR_STD(_T("Failed to setString: ") + key);
 		return NSCAPI::hasFailed;
@@ -397,6 +400,16 @@ NSCAPI::errorReturn NSAPIReleasePluginList(int len, NSCAPI::plugin_info *list[])
 }
 
 
+NSCAPI::errorReturn NSAPIReload(const wchar_t *module) {
+	try {
+		return mainClient.reload(module);
+	} catch (...) {
+		LOG_ERROR_STD(_T("Failed to reload: ") + module);
+		return NSCAPI::hasFailed;
+	}
+	return NSCAPI::isSuccess;
+}
+
 NSCAPI::errorReturn NSAPISettingsSave(void) {
 	try {
 		settings_manager::get_settings()->save();
@@ -409,6 +422,7 @@ NSCAPI::errorReturn NSAPISettingsSave(void) {
 	}
 	return NSCAPI::isSuccess;
 }
+
 
 
 
@@ -481,6 +495,8 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIRegisterSubmissionListener);
 	if (wcscasecmp(buffer, _T("NSAPIRegisterRoutingListener")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIRegisterRoutingListener);
+	if (wcscasecmp(buffer, _T("NSAPIReload")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIReload);
 
 	LOG_ERROR_STD(_T("Function not found: ") + buffer);
 	return NULL;

@@ -582,6 +582,10 @@ namespace nscapi {
 					core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced);
 				}
 			}
+			void clear() {
+				keys_.clear();
+				paths_.clear();
+			}
 
 			void notify() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {

@@ -854,7 +854,7 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			try {
 				if (unloadLoggers || !p->hasMessageHandler()) {
 					LOG_DEBUG_CORE_STD(_T("Unloading plugin: ") + p->getModule() + _T("..."));
-					p->unload();
+					p->unload_plugin();
 				} else {
 					LOG_DEBUG_CORE_STD(_T("Skipping log plugin: ") + p->getModule() + _T("..."));
 				}
@@ -888,6 +888,27 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 			it++;
 		}
 	}
+}
+
+NSCAPI::errorReturn NSClientT::reload(const wchar_t *module) {
+	{
+		std::wstring m = module;
+		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+		if (!writeLock.owns_lock()) {
+			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (007a)."));
+			return NSCAPI::hasFailed;
+		}
+
+		BOOST_FOREACH(plugin_type &p, plugins_) {
+			if (p->get_alias() == m) {
+				LOG_DEBUG_CORE_STD(_T("Found module: ") + m + _T(", reloading..."));
+				p->unload_plugin();
+				p->load_plugin(NSCAPI::normalStart);
+				return NSCAPI::isSuccess;
+			}
+		}
+	}
+	return NSCAPI::hasFailed;
 }
 
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
@@ -959,7 +980,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::wpath file, std::
 			logger_master_.add_plugin(plugin);
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
-		//settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
+		settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), _T(""), false);
 		// TODO add comments elsewhere to the settings store for all loaded modules...
 	}
 	return plugin;
@@ -1036,11 +1057,6 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
 		}
 	} else */{
-		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-		if (!readLock.owns_lock()) {
-			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (008)."));
-			return NSCAPI::returnUNKNOWN;
-		}
 		try {
 			nsclient::commands::plugin_type plugin = commands_.get(cmd);
 			if (!plugin) {

@@ -46,10 +46,17 @@ bool PythonScript::loadModule() {
 }
 using namespace boost::python;
 
+template<class T>
+void caller(auto_ptr<T> obj)
+{
+	new_owner_function(obj.get());
+	obj.release();
+}
 
 
 BOOST_PYTHON_MODULE(NSCP)
 {
+	PyEval_InitThreads();
 	class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", no_init)
 		.def("get",&script_wrapper::settings_wrapper::create)
 		.staticmethod("get")
@@ -89,6 +96,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("exec", &script_wrapper::command_wrapper::exec)
 		.def("simple_submit", &script_wrapper::command_wrapper::simple_submit)
 		.def("submit", &script_wrapper::command_wrapper::submit)
+		.def("reload", &script_wrapper::command_wrapper::reload)
 		;
 
 	enum_<script_wrapper::status>("status")
@@ -98,6 +106,10 @@ BOOST_PYTHON_MODULE(NSCP)
 		.value("OK", script_wrapper::OK)
 		;
 	def("log", script_wrapper::log_msg);
+	def("log_err", script_wrapper::log_error);
+	def("log_deb", script_wrapper::log_debug);
+	def("log_error", script_wrapper::log_error);
+	def("log_debug", script_wrapper::log_debug);
 //	def("get_module_alias", script_wrapper::get_module_alias);
 //	def("get_script_alias", script_wrapper::get_script_alias);
 }
@@ -205,9 +217,11 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 boost::optional<boost::filesystem::wpath> PythonScript::find_file(std::wstring file) {
 	std::list<boost::filesystem::wpath> checks;
 	checks.push_back(file);
+	checks.push_back((file + _T(".py")));
 	checks.push_back(root_ / _T("scripts") / _T("python") / file);
+	checks.push_back(root_ / _T("scripts") / _T("python") / (file + _T(".py")));
 	checks.push_back(root_ / _T("scripts") / file);
-	checks.push_back(root_ / _T("python") / file);
+	checks.push_back(root_ / _T("scripts") / (file + _T(".py")));
 	checks.push_back(root_ / file);
 	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
 		NSC_DEBUG_MSG_STD(_T("Looking for: ") + c.string());
@@ -307,7 +321,7 @@ bool PythonScript::reload(std::wstring &message) {
 
 NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	std::wstring command = char_command;
-	if (command == _T("execute-and-load-python")) {
+	if (command == _T("execute-and-load-python") || command == _T("execute-python") || command == _T("run")) {
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 		return execute_and_load_python(data.args);
 	}
@@ -354,13 +368,15 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	std::string chnl = utf8::cvt<std::string>(channel);
 	if (inst->has_message_handler(chnl)) {
-		return inst->handle_message(chnl, request, response);
+		NSCAPI::nagiosReturn ret = inst->handle_message(chnl, request, response);
+		if (ret != NSCAPI::returnIgnored)
+			return ret;
 	}
 	if (inst->has_simple_message_handler(chnl)) {
-		std::wstring cmd, msg, perf;
-		int code = nscapi::functions::parse_simple_submit_request(request, cmd, msg, perf);
-		int ret = inst->handle_simple_message(chnl, to_string(cmd), code, msg, perf);
-		nscapi::functions::parse_simple_submit_response(response, _T(""));
+		std::wstring src, cmd, msg, perf;
+		int code = nscapi::functions::parse_simple_submit_request(request, src, cmd, msg, perf);
+		int ret = inst->handle_simple_message(chnl, to_string(src), to_string(cmd), code, msg, perf);
+		nscapi::functions::create_simple_submit_response(channel, cmd, ret, _T(""), response);
 		return ret;
 	}
 	return NSCAPI::returnIgnored;

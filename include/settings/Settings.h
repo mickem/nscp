@@ -34,7 +34,7 @@
 #define BUFF_LEN 4096
 
 namespace Settings {
-	class SettingsException {
+	class SettingsException : public std::exception {
 		std::wstring error_;
 	public:
 		//////////////////////////////////////////////////////////////////////////
@@ -42,15 +42,17 @@ namespace Settings {
 		/// @param error the error message
 		///
 		/// @author mickem
-		SettingsException(std::wstring error) : error_(error) {}
+		SettingsException(std::wstring error) : error_(utf8::cvt<std::wstring>(error)) {}
+		SettingsException(std::string error) : error_(error) {}
+
+		~SettingsException() throw() {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Retrieve the error message from the exception.
 		/// @return the error message
 		///
 		/// @author mickem
-		std::wstring getError() const { return error_; }
-		std::wstring getMessage() const { return error_; }
+		const char* what() const throw() { return error_.c_str(); }
 	};
 	class KeyNotFoundException : public SettingsException {
 	public:

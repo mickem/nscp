@@ -172,6 +172,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
+		typedef NSCAPI::errorReturn (*lpNSAPIReload)(const wchar_t* module);
 
 	}
 

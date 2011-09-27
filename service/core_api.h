@@ -64,3 +64,4 @@ void NSAPIDestroyBuffer(char**);
 NSCAPI::errorReturn NSAPIExpandPath(const wchar_t*,wchar_t*,unsigned int);
 NSCAPI::errorReturn NSAPIRegisterSubmissionListener(unsigned int plugin_id, const wchar_t* channel);
 NSCAPI::errorReturn NSAPIRegisterRoutingListener(unsigned int plugin_id, const wchar_t* channel);
+NSCAPI::errorReturn NSAPIReload(const wchar_t*);

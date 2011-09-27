@@ -6,6 +6,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
+#include <nsca/nsca_enrypt.hpp>
+
 #include "handler.hpp"
 #include "parser.hpp"
 
@@ -70,6 +72,8 @@ namespace nsca {
 			std::list<std::string> buffers_;
 
 			boost::asio::ip::tcp::socket socket_;
+
+			nsca::nsca_encrypt encryption_instance_;
 
 		};
 

@@ -20,6 +20,8 @@
 #include <cryptopp/osrng.h>
 #endif
 
+#include <strEx.h>
+
 #define TRANSMITTED_IV_SIZE     128     /* size of IV to transmit - must be as big as largest IV needed for any crypto algorithm */
 
 /********************* ENCRYPTION TYPES ****************/
@@ -69,6 +71,16 @@ namespace nsca {
 		};
 		struct helpers {
 			static int encryption_to_int(std::string encryption) {
+				if (encryption.size() > 0 && std::isdigit(encryption[0])) {
+					int enc = strEx::stoi(encryption);
+					if (enc == ENCRYPT_XOR 
+#ifdef HAVE_LIBCRYPTOPP
+						|| enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH || enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128 || enc == ENCRYPT_SERPENT || enc == ENCRYPT_GOST
+#endif
+						)
+						return enc;
+					return ENCRYPT_NONE;
+				}
 				if (encryption == "xor")
 					return ENCRYPT_XOR;
 #ifdef HAVE_LIBCRYPTOPP
@@ -97,6 +109,38 @@ namespace nsca {
 #endif
 				return ENCRYPT_NONE;
 			}
+			static std::string encryption_to_string(int encryption) {
+				if (encryption == ENCRYPT_XOR)
+					return "xor";
+#ifdef HAVE_LIBCRYPTOPP
+				if (encryption == ENCRYPT_DES)
+					return "des";
+				if (encryption == ENCRYPT_3DES)
+					return "3des";
+				if (encryption == ENCRYPT_CAST128)
+					return "cast128";
+				if (encryption == ENCRYPT_XTEA)
+					return "xtea";
+				if (encryption == ENCRYPT_3WAY)
+					return "3way";
+				if (encryption == ENCRYPT_BLOWFISH)
+					return "blowfish";
+				if (encryption == ENCRYPT_TWOFISH)
+					return "twofish";
+				if (encryption == ENCRYPT_RC2)
+					return "rc2";
+				if (encryption == ENCRYPT_RIJNDAEL128)
+					return "aes";
+				if (encryption == ENCRYPT_SERPENT)
+					return "serpent";
+				if (encryption == ENCRYPT_GOST)
+					return "gost";
+#endif
+				if (encryption == ENCRYPT_NONE)
+					return "none";
+				return "unknown";
+			}
+
 
 		};
 		class any_encryption {
@@ -111,8 +155,10 @@ namespace nsca {
 		class cryptopp_encryption : public any_encryption {
 		private:
 			typedef CryptoPP::CFB_Mode_ExternalCipher::Encryption TEncryption;
+			typedef CryptoPP::CFB_Mode_ExternalCipher::Decryption TDecryption;
 			typedef typename TMethod::Encryption TCipher;
 			TEncryption crypto_;
+			TDecryption decrypto_;
 			TCipher cipher_;
 			int keysize_;
 		public:
@@ -160,6 +206,7 @@ namespace nsca {
 				try {
 					cipher_.SetKey(key, keysize);
 					crypto_.SetCipherWithIV(cipher_, iv, 1);
+					decrypto_.SetCipherWithIV(cipher_, iv, 1);
 				} catch (...) {
 					throw encryption_exception("Unknown exception when trying to setup crypto");
 				}
@@ -182,7 +229,12 @@ namespace nsca {
 				decrypt((unsigned char*)&*buffer.begin(), buffer.size());
 			}
 			void decrypt(unsigned char *buffer, int buffer_size) {
-				throw encryption_exception("Decryption not supported");
+				try {
+					for(int x=0;x<buffer_size;x++)
+						decrypto_.ProcessData(&buffer[x], &buffer[x], 1);
+				} catch (...) {
+					throw encryption_exception("Unknown exception when trying to setup crypto");
+				}
 			}
 			std::string getName() {
 				return TMethod::StaticAlgorithmName();
@@ -239,10 +291,23 @@ namespace nsca {
 				}
 			}
 			void decrypt(std::string &buffer) {
-				throw encryption_exception("Decryption not supported");
+				/* rotate over IV we received from the server... */
+				unsigned int buf_len =  buffer.size();
+				unsigned int iv_len = iv_.size();
+				unsigned int pwd_len = password_.size();
+				for (int y=0,x=0,z=0;y<buf_len;y++,x++,z++) {
+					/* keep rotating over Password */
+					if (z >= pwd_len)
+						z = 0;
+					buffer[y] ^= password_[z];
+					/* keep rotating over IV */
+					if (x >= iv_len)
+						x = 0;
+					buffer[y] ^= iv_[x];
+				}
 			}
 			std::string getName() {
-				return "XOR (not safe)";
+				return "XOR";
 			}
 		};
 
@@ -366,6 +431,12 @@ namespace nsca {
 			if (core_ == NULL)
 				throw encryption_exception("No encryption core!");
 			core_->encrypt(buffer);
+		}
+		/* encrypt a buffer */
+		void decrypt_buffer(std::string &buffer) {
+			if (core_ == NULL)
+				throw encryption_exception("No encryption core!");
+			core_->decrypt(buffer);
 		}
 		std::string get_rand_buffer(int length) {
 			std::string buffer; buffer.resize(length);

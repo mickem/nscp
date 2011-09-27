@@ -11,7 +11,7 @@ namespace nsclient {
 
 
 	public:
-		settings_client(NSClient* core) : core_(core) {}
+		settings_client(NSClient* core) : core_(core), default_(false) {}
 
 		std::wstring get_source() {
 			settings_manager::get_core()->get()->get_context();
@@ -28,8 +28,10 @@ namespace nsclient {
 				std::wcout << _T("boot::load_plugins failed!") << std::endl;
 				return;
 			}
-			if (default_)
+			if (default_) {
+				std::wcout << _T("Adding default values") << std::endl;
 				settings_manager::get_core()->update_defaults();
+			}
 		}
 
 		void exit() {

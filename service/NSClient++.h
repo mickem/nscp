@@ -175,6 +175,8 @@ public:
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const wchar_t* channel);
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const wchar_t* channel);
 
+	NSCAPI::errorReturn reload(const wchar_t *module);
+
 	struct service_controller {
 		std::wstring service;
 		service_controller(std::wstring service) : service(service) {}

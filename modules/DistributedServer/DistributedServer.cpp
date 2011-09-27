@@ -70,15 +70,17 @@ bool DistributedServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode 
 		settings.register_all();
 		settings.notify();
 
-		context = new zmq::context_t(2);
+		if (mode == NSCAPI::normalStart) {
+			context = new zmq::context_t(2);
 
-		zeromq_queue::connection_info queue_info(to_string(host), to_string(suffix));
-		zeromq_queue::queue_manager queue;
-		queue.start(context, threads, queue_info);
+			zeromq_queue::connection_info queue_info(to_string(host), to_string(suffix));
+			zeromq_queue::queue_manager queue;
+			queue.start(context, threads, queue_info);
 
-		zeromq_worker::connection_info worker_info(queue_info.get_backend(), to_string(suffix), thread_count);
-		zeromq_worker::worker_manager workers;
-		workers.start(context, threads, worker_info);
+			zeromq_worker::connection_info worker_info(queue_info.get_backend(), to_string(suffix), thread_count);
+			zeromq_worker::worker_manager workers;
+			workers.start(context, threads, worker_info);
+		}
 
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));

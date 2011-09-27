@@ -58,10 +58,7 @@ private:
 		unsigned int timeout;
 		int port;
 		unsigned int get_encryption() {
-			if (encryption.size() > 1 && std::isalnum(encryption[0]))
-				return strEx::stoi(encryption);
 			return nsca::nsca_encrypt::helpers::encryption_to_int(encryption);
-
 		}
 	};
 

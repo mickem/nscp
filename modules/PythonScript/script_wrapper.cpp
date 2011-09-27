@@ -3,8 +3,10 @@
 #include <strEx.h>
 #include "script_wrapper.hpp"
 #include "PythonScript.h"
+#include <nscapi/functions.hpp>
 
 using namespace boost::python;
+namespace py = boost::python;
 
 boost::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance;
 
@@ -12,7 +14,13 @@ boost::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance
 
 
 void script_wrapper::log_msg(std::wstring x) {
+	NSC_LOG_MESSAGE(utf8::cvt<std::wstring>(x));
+}
+void script_wrapper::log_error(std::wstring x) {
 	NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(x));
+}
+void script_wrapper::log_debug(std::wstring x) {
+	NSC_DEBUG_MSG(utf8::cvt<std::wstring>(x));
 }
 /*
 std::string script_wrapper::get_alias() {
@@ -30,6 +38,9 @@ void script_wrapper::log_exception() {
 		PyErr_Clear();
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to parse error: ") + utf8::cvt<std::wstring>(e.what()));
+		PyErr_Clear();
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to parse python error"));
 		PyErr_Clear();
 	}
 }
@@ -124,7 +135,7 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 			return NSCAPI::returnIgnored;
 		}
 
-		boost::python::list l;
+		py::list l;
 		BOOST_FOREACH(std::wstring a, arguments) {
 			l.append(utf8::cvt<std::string>(a));
 		}
@@ -238,18 +249,25 @@ bool script_wrapper::function_wrapper::has_simple_message_handler(const std::str
 	return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
 }
 
-int script_wrapper::function_wrapper::handle_message(const std::string channel, const std::string command, std::string &message) const {
+int script_wrapper::function_wrapper::handle_message(const std::string channel, const std::string &request, std::string &response) const {
 	try {
 		functions::function_map_type::iterator it = functions::get()->normal_handler.find(channel);
 		if (it == functions::get()->normal_handler.end()) {
 			NSC_LOG_ERROR_STD(_T("Failed to find python handler: ") + utf8::cvt<std::wstring>(channel));
 			return NSCAPI::returnIgnored;
 		}
-		object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, command, message);
+		PyGILState_STATE gstate = PyGILState_Ensure();
+		tuple ret = boost::python::call<tuple>(boost::python::object(it->second).ptr(), channel, request);
 		if (ret.ptr() == Py_None) {
-			return NSCAPI::returnUNKNOWN;
+			return NSCAPI::returnIgnored;
 		}
-		return extract<int>(ret);
+		int ret_code = NSCAPI::returnIgnored;
+		if (len(ret) > 0)
+			ret_code = extract<bool>(ret[0])?NSCAPI::isSuccess:NSCAPI::returnIgnored;
+		if (len(ret) > 1)
+			response = extract<std::string>(ret[1]);
+		PyGILState_Release( gstate );
+		return ret_code;
 	} catch( error_already_set e) {
 		log_exception();
 		return NSCAPI::returnUNKNOWN;
@@ -281,21 +299,26 @@ int script_wrapper::py_to_nagios_return(status code) {
 	return NSCAPI::returnUNKNOWN;
 }
 
-int script_wrapper::function_wrapper::handle_simple_message(const std::string channel, const std::string command, int code, std::wstring &msg, std::wstring &perf) const {
+int script_wrapper::function_wrapper::handle_simple_message(const std::string channel, const std::string source, const std::string command, int code, std::wstring &msg, std::wstring &perf) const {
 	try {
 		functions::function_map_type::iterator it = functions::get()->simple_handler.find(channel);
 		if (it == functions::get()->simple_handler.end()) {
 			NSC_LOG_ERROR_STD(_T("Failed to find python handler: ") + utf8::cvt<std::wstring>(channel));
 			return NSCAPI::returnIgnored;
 		}
-		object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, command, nagios_return_to_py(code), utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
+		PyGILState_STATE gstate = PyGILState_Ensure();
+		object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, source, command, nagios_return_to_py(code), utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
+		int ret_code = NSCAPI::returnIgnored;
 		if (ret.ptr() == Py_None) {
-			return NSCAPI::returnUNKNOWN;
+			ret_code = NSCAPI::isSuccess;
+		} else {
+			ret_code = extract<bool>(ret)?NSCAPI::isSuccess:NSCAPI::returnIgnored;
 		}
-		return extract<int>(ret);
+		PyGILState_Release( gstate );
+		return ret_code;
 	} catch( error_already_set e) {
 		log_exception();
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::hasFailed;
 	}
 }
 
@@ -326,14 +349,14 @@ std::wstring script_wrapper::function_wrapper::get_commands() {
 
 
 
-std::list<std::wstring> script_wrapper::convert(list lst) {
+std::list<std::wstring> script_wrapper::convert(py::list lst) {
 	std::list<std::wstring> ret;
 	for (int i = 0;i<len(lst);i++)
 		ret.push_back(utf8::cvt<std::wstring>(extract<std::string>(lst[i])));
 	return ret;
 }
-list script_wrapper::convert(std::list<std::wstring> lst) {
-	 list ret;
+py::list script_wrapper::convert(std::list<std::wstring> lst) {
+	py::list ret;
 	 BOOST_FOREACH(std::wstring s, lst) {
 		 ret.append(utf8::cvt<std::string>(s));
 	 }
@@ -358,12 +381,23 @@ tuple script_wrapper::command_wrapper::simple_submit(std::string channel, std::s
 tuple script_wrapper::command_wrapper::submit(std::string channel, std::string request) {
 	std::wstring wchannel = utf8::cvt<std::wstring>(channel);
 	std::string response;
-	int ret = core->submit_message(wchannel, request, response);
-	return make_tuple(ret,response);
+	int ret;
+	Py_BEGIN_ALLOW_THREADS
+	ret = core->submit_message(wchannel, request, response);
+	Py_END_ALLOW_THREADS 
+	std::wstring err;
+	nscapi::functions::parse_simple_submit_response(response, err);
+	return make_tuple(ret==NSCAPI::isSuccess,err);
+}
+
+bool script_wrapper::command_wrapper::reload(std::string module) {
+	std::wstring wmodule = utf8::cvt<std::wstring>(module);
+	int ret = core->reload(wmodule);
+	return ret==NSCAPI::isSuccess;
 }
 
 
-tuple script_wrapper::command_wrapper::simple_query(std::string command, list args) {
+tuple script_wrapper::command_wrapper::simple_query(std::string command, py::list args) {
 	std::wstring msg, perf;
 	int ret = core->simple_query(utf8::cvt<std::wstring>(command), convert(args), msg, perf);
 	return make_tuple(nagios_return_to_py(ret),utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
@@ -374,7 +408,7 @@ tuple script_wrapper::command_wrapper::query(std::string command, std::string re
 	return make_tuple(ret,response);
 }
 
-object script_wrapper::command_wrapper::simple_exec(std::string command, list args) {
+object script_wrapper::command_wrapper::simple_exec(std::string command, py::list args) {
 	try {
 		std::list<std::wstring> result;
 		int ret = core->exec_simple_command(utf8::cvt<std::wstring>(command), convert(args), result);

@@ -55,6 +55,13 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nsca::server::handler::set_perf_data, info_.request_handler, _1), true),
 			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
 
+			(_T("encryption"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_encryption, info_.request_handler, _1), "aes"),
+			_T("ENCRYPTION"), _T("Encryption to use"))
+
+			(_T("password"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_password, info_.request_handler, _1), ""),
+			_T("PASSWORD"), _T("Password to use"))
+
+
 			;
 
 		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
@@ -84,7 +91,6 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		settings.register_all();
 		settings.notify();
-
 
 		if (info_.request_handler->get_payload_length() != 512)
 			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(info_.request_handler->get_payload_length()));

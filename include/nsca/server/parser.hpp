@@ -4,6 +4,7 @@
 #include <boost/noncopyable.hpp>
 
 #include <nsca/nsca_packet.hpp>
+#include <nsca/nsca_enrypt.hpp>
 
 #include "handler.hpp"
 
@@ -27,8 +28,11 @@ namespace nsca {
 				return boost::make_tuple(buffer_.size() >= packet_length_, begin);
 			}
 
-			nsca::packet parse() {
+			nsca::packet parse(nsca::nsca_encrypt &encryption) {
 				nsca::packet packet(payload_length_);
+				//std::string buffer = encryption.get_rand_buffer(packet.get_packet_length());
+				//packet.get_buffer(buffer);
+				encryption.decrypt_buffer(buffer_);
 				packet.parse_data(buffer_.c_str(), buffer_.size());
 				buffer_.clear();
 				return packet;

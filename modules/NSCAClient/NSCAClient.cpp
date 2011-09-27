@@ -113,7 +113,6 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
-		NSC_DEBUG_MSG(_T("==> Registring listsner for: ") + channel_ + _T(" for ") + to_wstring(get_id()));
 		get_core()->registerSubmissionListener(get_id(), channel_);
 
 	} catch (nscapi::nscapi_exception &e) {
@@ -210,18 +209,6 @@ NSCAPI::nagiosReturn NSCAAgent::handleRAWNotification(const wchar_t* channel, st
 			return NSCAPI::hasFailed;
 		}
 		return NSCAPI::isSuccess;
-		/*
-		boost::asio::io_service io_service;
-		nsca::socket socket(io_service);
-		socket.connect(nscahost_, nscaport_);
-		nsca::packet packet(hostname_, payload_length_, time_delta_);
-		packet.code = code;
-		packet.service = utf8::cvt<std::string>(command);
-		packet.result = utf8::cvt<std::string>(msg) + "|" + utf8::cvt<std::string>(perf);
-		socket.recv_iv(password_, encryption_method_, boost::posix_time::seconds(timeout_));
-		socket.send_nsca(packet, boost::posix_time::seconds(timeout_));
-		return NSCAPI::isSuccess;
-		*/
 	} catch (nsca::nsca_encrypt::encryption_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to encrypt data: ") + str::to_wstring(e.what()));
 		return NSCAPI::hasFailed;
@@ -269,29 +256,14 @@ int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, st
 std::list<std::string> NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
 	std::list<std::string> result;
 	try {
-		NSC_DEBUG_MSG(_T(">>>") + str::to_wstring(strEx::format_buffer(request)));
 		Plugin::SubmitRequestMessage message;
 		message.ParseFromString(request);
-		NSC_DEBUG_MSG(_T("<<<") + str::to_wstring(strEx::format_buffer(message.SerializeAsString())));
 		std::list<nsca::packet> list;
 
 		std::wstring command, msg, perf;
 		nscapi::functions::destination_container recipient; // = data->host_default_recipient;
-		//recipient.address = data->host; // "default host"
-		// this should be set before calling...
-		/*
-		if (recipient.data.find("password") == recipient.data.end())
-			recipient.data["password"] = "default password";
-		if (recipient.data.find("encryption") == recipient.data.end())
-			recipient.data["encryption"] = "default encryption";
-		if (recipient.data.find("payload length") != recipient.data.end())
-			local_data.payload_length = strEx::stoi(recipient.data["payload length"]);
-		if (recipient.data.find("time offset") != recipient.data.end())
-			local_data.time_delta = strEx::stol_as_time_sec(to_wstring(recipient.data["time offset"]), 1);
-		*/
 		nscapi::functions::parse_destination(*header, header->recipient_id(), recipient, true);
 		nscapi::functions::destination_container source;
-		//source.host = hostname_;
 		nscapi::functions::parse_destination(*header, header->source_id(), source);
 
 		for (int i=0;i < message.payload_size(); ++i) {

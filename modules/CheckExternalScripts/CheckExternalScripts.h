@@ -137,6 +137,8 @@ private:
 		strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
 		strEx::replace(tpl, _T("%ARGS%"), tok.second);
 
+		NSC_DEBUG_MSG(_T("Adding wrapped script: ") + key);
+		NSC_DEBUG_MSG(_T("Adding wrapped script: ") + tpl);
 		add_command(key,tpl);
 	}
 };
