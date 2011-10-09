@@ -1153,7 +1153,15 @@ int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vecto
 }
 
 
-NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_command, std::string &request, std::string &response) {
+NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_target, const wchar_t* raw_command, std::string &request, std::string &response) {
+	std::wstring target = raw_target;
+	bool match_any = false;
+	bool match_all = false;
+	bool has_match = false;
+	if (target == _T("any"))
+		match_any = true;
+	else if (target == _T("all") || target == _T("*"))
+		match_all = true;
 	std::list<std::string> responses;
 	bool found = false;
 	{
@@ -1165,12 +1173,18 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_command, std::st
 		BOOST_FOREACH(plugin_type p, plugins_) {
 			if (p && p->has_command_line_exec()) {
 				try {
-					std::string response;
-					NSCAPI::nagiosReturn r = p->commandLineExec(raw_command, request, response);
-					if (r != NSCAPI::returnIgnored && !response.empty()) {
-						LOG_DEBUG_CORE_STD(_T("Got response from: ") + p->getName());
-						found = true;
-						responses.push_back(response);
+					if (match_all || match_any || p->get_alias() == target) {
+						std::string respbuffer;
+						NSCAPI::nagiosReturn r = p->commandLineExec(raw_command, request, respbuffer);
+						if (r != NSCAPI::returnIgnored && !respbuffer.empty()) {
+							LOG_DEBUG_CORE_STD(_T("Got response from: ") + p->getName());
+							found = true;
+							if (match_any) {
+								response = respbuffer;
+								return NSCAPI::returnOK;
+							}
+							responses.push_back(respbuffer);
+						}
 					}
 				} catch (NSPluginException e) {
 					LOG_ERROR_CORE_STD(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);

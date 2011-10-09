@@ -33,9 +33,11 @@
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
+#include <boost/program_options.hpp>
 
 #include "filter.hpp"
 
+#include <nscapi/functions.hpp>
 
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/list_value.hpp>
@@ -59,40 +61,305 @@ struct parse_exception {
 };
 
 
-
-
 bool CheckEventLog::loadModule() {
 	return false;
+}
+
+WORD get_language(std::string lang) {
+	if (lang == "neutral") return LANG_NEUTRAL;
+	if (lang == "arabic") return LANG_ARABIC;
+	if (lang == "bulgarian") return LANG_BULGARIAN;
+	if (lang == "catalan") return LANG_CATALAN;
+	if (lang == "chinese") return LANG_CHINESE;
+	if (lang == "czech") return LANG_CZECH;
+	if (lang == "danish") return LANG_DANISH;
+	if (lang == "german") return LANG_GERMAN;
+	if (lang == "greek") return LANG_GREEK;
+	if (lang == "english") return LANG_ENGLISH;
+	if (lang == "spanish") return LANG_SPANISH;
+	if (lang == "finnish") return LANG_FINNISH;
+	if (lang == "french") return LANG_FRENCH;
+	if (lang == "hebrew") return LANG_HEBREW;
+	if (lang == "hungarian") return LANG_HUNGARIAN;
+	if (lang == "icelandic") return LANG_ICELANDIC;
+	if (lang == "italian") return LANG_ITALIAN;
+	if (lang == "japanese") return LANG_JAPANESE;
+	if (lang == "korean") return LANG_KOREAN;
+	if (lang == "dutch") return LANG_DUTCH;
+	if (lang == "norwegian") return LANG_NORWEGIAN;
+	if (lang == "polish") return LANG_POLISH;
+	if (lang == "portuguese") return LANG_PORTUGUESE;
+	if (lang == "romanian") return LANG_ROMANIAN;
+	if (lang == "russian") return LANG_RUSSIAN;
+	if (lang == "croatian") return LANG_CROATIAN;
+	if (lang == "serbian") return LANG_SERBIAN;
+	if (lang == "slovak") return LANG_SLOVAK;
+	if (lang == "albanian") return LANG_ALBANIAN;
+	if (lang == "swedish") return LANG_SWEDISH;
+	if (lang == "thai") return LANG_THAI;
+	if (lang == "turkish") return LANG_TURKISH;
+	if (lang == "urdu") return LANG_URDU;
+	if (lang == "indonesian") return LANG_INDONESIAN;
+	if (lang == "ukrainian") return LANG_UKRAINIAN;
+	if (lang == "belarusian") return LANG_BELARUSIAN;
+	if (lang == "slovenian") return LANG_SLOVENIAN;
+	if (lang == "estonian") return LANG_ESTONIAN;
+	if (lang == "latvian") return LANG_LATVIAN;
+	if (lang == "lithuanian") return LANG_LITHUANIAN;
+	if (lang == "farsi") return LANG_FARSI;
+	if (lang == "vietnamese") return LANG_VIETNAMESE;
+	if (lang == "armenian") return LANG_ARMENIAN;
+	if (lang == "azeri") return LANG_AZERI;
+	if (lang == "basque") return LANG_BASQUE;
+	if (lang == "macedonian") return LANG_MACEDONIAN;
+	if (lang == "afrikaans") return LANG_AFRIKAANS;
+	if (lang == "georgian") return LANG_GEORGIAN;
+	if (lang == "faeroese") return LANG_FAEROESE;
+	if (lang == "hindi") return LANG_HINDI;
+	if (lang == "malay") return LANG_MALAY;
+	if (lang == "kazak") return LANG_KAZAK;
+	if (lang == "kyrgyz") return LANG_KYRGYZ;
+	if (lang == "swahili") return LANG_SWAHILI;
+	if (lang == "uzbek") return LANG_UZBEK;
+	if (lang == "tatar") return LANG_TATAR;
+	if (lang == "punjabi") return LANG_PUNJABI;
+	if (lang == "gujarati") return LANG_GUJARATI;
+	if (lang == "tamil") return LANG_TAMIL;
+	if (lang == "telugu") return LANG_TELUGU;
+	if (lang == "kannada") return LANG_KANNADA;
+	if (lang == "marathi") return LANG_MARATHI;
+	if (lang == "sanskrit") return LANG_SANSKRIT;
+	if (lang == "mongolian") return LANG_MONGOLIAN;
+	if (lang == "galician") return LANG_GALICIAN;
+	if (lang == "konkani") return LANG_KONKANI;
+	if (lang == "syriac") return LANG_SYRIAC;
+	if (lang == "divehi") return LANG_DIVEHI;
+	return LANG_NEUTRAL;
+}
+
+void real_time_thread::set_language(std::string lang) {
+	WORD wLang = get_language(lang);
+	if (wLang == LANG_NEUTRAL)
+		info.dwLang = MAKELANGID(wLang, SUBLANG_DEFAULT);
+	else
+		info.dwLang = MAKELANGID(wLang, SUBLANG_NEUTRAL);
+}
+
+
+/*
+void process_event(eventlog_filter::filter_engine engine, eventlog_filter::filter_argument fargs, const EVENTLOGRECORD* record) {
+
+	__time64_t ltime;
+	_time64(&ltime);
+
+	EventLogRecord elr(_T("application"), record, ltime);
+	;
+	//boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(record));
+	boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(elr));
+
+	if (engine->match(arg)) {
+		NSC_DEBUG_MSG(_T("Found record: ") + elr.render(true, fargs->syntax));
+
+	} else {
+		NSC_DEBUG_MSG(_T("Ignored record: ") + elr.render(true, fargs->syntax));
+	}
+}
+*/
+void real_time_thread::process_no_events() {
+	std::wstring response;
+	if (!GET_CORE()->submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, info.ok_msg, info.perf_msg, response)) {
+		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
+	}
+}
+
+void real_time_thread::process_record(const EventLogRecord &record) {
+	std::wstring response;
+	std::wstring message = record.render(true, info.syntax, DATE_FORMAT, info.dwLang);
+	NSC_LOG_ERROR(_T("XXX: ") + message);
+	if (!GET_CORE()->submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, message, info.perf_msg, response)) {
+		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
+	}
+}
+
+void real_time_thread::thread_proc() {
+	if (filters_.size() != 1) {
+		NSC_LOG_ERROR_STD(_T("Invalid filter size (for now)..."));
+		return;
+	}
+
+	eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(info.syntax, DATE_FORMAT);
+	fargs->filter = *filters_.begin();
+	fargs->debug = true;
+	eventlog_filter::filter_engine engine = eventlog_filter::factories::create_engine(fargs);
+
+
+
+	if (!engine) {
+		NSC_LOG_ERROR_STD(_T("No filter subsystem available"));
+		return;
+	}
+
+	if (!engine->boot()) {
+		NSC_LOG_ERROR_STD(_T("Error booting filters"));
+		return;
+	}
+
+	std::wstring message;
+	if (!engine->validate(message)) {
+		NSC_LOG_ERROR_STD(_T("Error validating session: ") + message);
+		return;
+	}
+
+	eventlog_wrapper eventlog(_T("application"));
+	// TODO: add support for "multiple" eventlogs and configurable event logs
+
+	// TODO: add support for scanning "missed messages" at startup
+
+	if (!eventlog.seek_end()) {
+		NSC_LOG_ERROR_STD(_T("Failed to find the end of the eventlog"));
+		return;
+	}
+
+	HANDLE handles[2];
+	handles[1] = stop_event_;
+
+	eventlog.notify(handles[0]);
+
+	DWORD dwWaitTime = max_age_;
+	if (dwWaitTime > 0 && dwWaitTime < 5000)
+		dwWaitTime = 5000;
+	unsigned int errors = 0;
+	while (true) {
+		DWORD dwWaitReason = WaitForMultipleObjects(sizeof(handles)/sizeof(HANDLE), handles, FALSE, dwWaitTime==0?INFINITE:dwWaitTime);
+		
+		if (dwWaitReason == WAIT_TIMEOUT) {
+			process_no_events();
+		} else if (dwWaitReason == WAIT_OBJECT_0) {
+
+			DWORD status = eventlog.read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
+			if (ERROR_SUCCESS != status && ERROR_HANDLE_EOF != status)
+				return;
+
+			__time64_t ltime;
+			_time64(&ltime);
+
+			EVENTLOGRECORD *pevlr = eventlog.read_record_with_buffer();
+			while (pevlr != NULL) {
+				EventLogRecord elr(eventlog.get_name(), pevlr, ltime);
+				boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(elr));
+
+				if (engine->match(arg)) {
+					process_record(elr);
+				} else if (fargs->debug) {
+					NSC_DEBUG_MSG(_T("Ignored record: ") + elr.render(true, fargs->syntax));
+				}
+				pevlr = eventlog.read_record_with_buffer();
+			}
+		} else if (dwWaitReason == WAIT_OBJECT_0 + 1) {
+			return;
+		} else {
+			NSC_LOG_ERROR(_T("Error failed to wait for eventlog message: ") + error::lookup::last_error());
+			if (errors > 10) {
+				NSC_LOG_ERROR(_T("To many errors giving up"));
+				return;
+			}
+		}
+	}
+}
+
+
+bool real_time_thread::start() {
+	if (!enabled_)
+		return true;
+	if (!has_filters()) {
+		add_realtime_filter(_T("default"), _T("type NOT IN ('success', 'info', 'auditSuccess')"));
+	}
+
+	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EVentLogShutdown"));
+
+	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
+	return true;
+}
+bool real_time_thread::stop() {
+	SetEvent(stop_event_);
+	if (thread_)
+		thread_->join();
+	return true;
+}
+
+void real_time_thread::add_realtime_filter(std::wstring key, std::wstring query) {
+	if (!key.empty() && query.empty())
+		filters_.push_back(key);
+	else
+		filters_.push_back(query);
 }
 
 
 bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		register_command(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
+		register_command(_T("check_event_log"), _T("Check for errors in the event logger!"));
+		register_command(_T("check_eventlog"), _T("Check for errors in the event logger!"));
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("CheckEventlog"), alias);
+		settings.set_alias(alias, _T("eventlog"));
 
 		settings.alias().add_path_to_settings()
-			(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CHeckEventLog.dll)."))
+			(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CheckEventLog.dll)."))
+
+			(_T("real-time"), _T("CONFIGURE REALTIME CHECKING"), _T("A set of options to configure the real time checks"))
+
+			(_T("real-time/filters"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, _1, _2)),  
+			_T("REALTIME FILTERS"), _T("A set of filters to use in real-time mode"))
 			;
 
 		settings.alias().add_key_to_settings()
 			(_T("debug"), sh::bool_key(&debug_, false),
-			_T("DEBUG"), _T("Log all \"hits\" and \"misses\" on the eventlog filter chain, useful for debugging eventlog checks but very very very noisy so you don't want to accidentally set this on a real machine."))
+			_T("DEBUG"), _T("Log more information when filtering (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
 
-			(_T("lookup names"), sh::bool_key(&lookup_names_, false),
-			_T("LOOKUP NAMES"), _T(""))
+			(_T("lookup names"), sh::bool_key(&lookup_names_, true),
+			_T("LOOKUP NAMES"), _T("Lookup the names of eventlog files"))
 
 			(_T("syntax"), sh::wstring_key(&syntax_),
 			_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
 
 			(_T("buffer size"), sh::int_key(&buffer_length_, 128*1024),
 			_T("BUFFER_SIZE"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+
+			;
+
+		settings.alias().add_key_to_settings(_T("real-time"))
+
+			(_T("enabled"), sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, &thread_, _1), false),
+			_T("REAL TIME CHECKING"), _T("Spawns a backgrounnd thread which detects issues and reports them back instantly."))
+
+			(_T("destination"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_destination, &thread_, _1), _T("NSCA")),
+			_T("DESTINATION"), _T("The destination for intercepted messages"))
+
+			(_T("startup age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_start_age, &thread_, _1), _T("30m")),
+			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
+
+			(_T("maximum age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_max_age, &thread_, _1), _T("5m")),
+			_T("MAGIMUM AGE"), _T("How long befor reporting \"ok\" (if this is set to off no ok will be reported only errors)"))
+
+			(_T("filter"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_filter, &thread_, _1), _T("")),
+			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
+
+			(_T("syntax"), sh::wstring_key(&thread_.info.syntax, _T("%type% %source%: %message%")),
+			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
+
+			(_T("language"), sh::string_fun_key<std::string>(boost::bind(&real_time_thread::set_language, &thread_, _1), ""),
+			_T("MESSAGE LANGUAGE"), _T("The language to use for rendering message (mainly used fror testing)"))
+
 			;
 
 		settings.register_all();
 		settings.notify();
+
+		if (mode == NSCAPI::normalStart) {
+			if (!thread_.start())
+				NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
+		}
 
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
@@ -107,6 +374,8 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 	return true;
 }
 bool CheckEventLog::unloadModule() {
+	if (!thread_.stop())
+		NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
 	return true;
 }
 
@@ -116,35 +385,6 @@ bool CheckEventLog::hasCommandHandler() {
 bool CheckEventLog::hasMessageHandler() {
 	return false;
 }
-
-std::wstring find_eventlog_name(std::wstring name) {
-	try {
-		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
-		std::list<std::wstring> list = key.get_keys();
-		for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-			try {
-				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + *cit);
-				std::wstring file = sub_key.get_string(_T("DisplayNameFile"));
-				int id = sub_key.get_int(_T("DisplayNameID"));
-				std::wstring real_name = error::format::message::from_module(file, id);
-				strEx::replace(real_name, _T("\n"), _T(""));
-				strEx::replace(real_name, _T("\r"), _T(""));
-				NSC_DEBUG_MSG(_T("Attempting to match: ") + real_name + _T(" with ") + name);
-				if (real_name == name)
-					return *cit;
-			} catch (simple_registry::registry_exception &e) { e;}
-		}
-		return name;
-	} catch (simple_registry::registry_exception &e) {
-		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand): ") + e.what());
-		return name;
-	} catch (...) {
-		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand)"));
-		return name;
-	}
-}
-
-
 
 class uniq_eventlog_record {
 	DWORD ID;
@@ -261,7 +501,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
 		std::wstring name = *cit2;
 		if (lookup_names_) {
-			name = find_eventlog_name(*cit2);
+			name = eventlog_wrapper::find_eventlog_name(*cit2);
 			if ((*cit2) != name) {
 				NSC_DEBUG_MSG_STD(_T("Opening alternative log: ") + name);
 			}
@@ -368,9 +608,87 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 		message = _T("Eventlog check ok");
 	return returnCode;
 }
+NSCAPI::nagiosReturn CheckEventLog::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
+	std::wstring command = char_command;
+	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message")) {
+		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+		std::wstring message;
+		std::vector<std::wstring> args(data.args.begin(), data.args.end());
+		bool ok = insert_eventlog(args, message);
+		nscapi::functions::create_simple_exec_response(command, ok?NSCAPI::isSuccess:NSCAPI::hasFailed, message, response);
+		return ok?NSCAPI::isSuccess:NSCAPI::hasFailed;
+	}
+	return NSCAPI::returnIgnored;
+}
 
+
+
+NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> arguments, std::wstring &message) {
+	try {
+		namespace po = boost::program_options;
+
+		bool help = false;
+		std::wstring type, category, severity, source_name;
+		std::vector<std::wstring> strings;
+		WORD wEventID;
+		po::options_description desc("Allowed options");
+		desc.add_options()
+			("help,h", po::bool_switch(&help), "Show help screen")
+			("source,s", po::wvalue<std::wstring>(&source_name)->default_value(_T("Application Error")), "source to use")
+			("type,t", po::wvalue<std::wstring>(&type), "Event type")
+			("severity", po::wvalue<std::wstring>(&severity), "Event severity")
+			("category,c", po::wvalue<std::wstring>(&category), "Event category")
+			("arguments,a", po::wvalue<std::vector<std::wstring> >(&strings), "Message arguments (strings)")
+			("id,i", po::value<WORD>(&wEventID), "Event ID")
+			;
+
+		boost::program_options::variables_map vm;
+
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(arguments).options(desc).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (help) {
+			std::stringstream ss;
+			ss << "CheckEventLog Command line syntax:" << std::endl;
+			ss << desc;
+			message = utf8::cvt<std::wstring>(ss.str());
+			return NSCAPI::isSuccess;
+		} else {
+			event_source source(source_name);
+			WORD dwType = EventLogRecord::translateType(type);
+			WORD wSeverity = EventLogRecord::translateSeverity(severity);
+			WORD dwCategory = EventLogRecord::translateType(category);
+			DWORD tID = (wEventID&0xffff) | (wSeverity<<30);
+
+			int size = 0;
+			BOOST_FOREACH(const std::wstring &s, strings) {
+				size += s.size()+1;
+			}
+			LPCWSTR *string_data = new LPCWSTR[strings.size()];
+			int i=0;
+			BOOST_FOREACH(const std::wstring &s, strings) {
+				string_data[i++] = s.c_str();
+			}
+
+			if (!ReportEvent(source, dwType, dwCategory, tID, NULL, strings.size(), 0, string_data, NULL)) {
+				message = _T("Could not report the event"); 
+				return NSCAPI::hasFailed;
+			} else {
+				message = _T("Message reported successfully"); 
+			}
+			delete [] string_data;
+		}
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to parse command line: ") + utf8::cvt<std::wstring>(e.what()));
+	}
+
+
+	return NSCAPI::returnIgnored;
+}
 
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(CheckEventLog);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
+NSC_WRAPPERS_CLI_DEF();

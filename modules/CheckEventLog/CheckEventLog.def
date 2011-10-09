@@ -13,3 +13,4 @@ EXPORTS
 	NSUnloadModule
 	NSGetModuleDescription
 	NSDeleteBuffer
+	NSCommandLineExec

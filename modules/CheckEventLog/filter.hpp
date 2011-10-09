@@ -53,8 +53,8 @@ namespace eventlog_filter {
 			return record.generated(); 
 		}
 
-		expression_ast_type fun_convert_severity(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject);
-		expression_ast_type fun_convert_type(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject);
+		expression_ast_type fun_convert_severity(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject);
+		expression_ast_type fun_convert_type(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject);
 
 		int convert_severity(std::wstring str) {
 			if (str == _T("success") || str == _T("ok"))
@@ -74,6 +74,8 @@ namespace eventlog_filter {
 				return EVENTLOG_WARNING_TYPE;
 			if (str == _T("info"))
 				return EVENTLOG_INFORMATION_TYPE;
+			if (str == _T("success"))
+				return EVENTLOG_SUCCESS;
 			if (str == _T("auditSuccess"))
 				return EVENTLOG_AUDIT_SUCCESS;
 			if (str == _T("auditFailure"))

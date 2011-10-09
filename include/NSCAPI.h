@@ -148,7 +148,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 		typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
 		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
-		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
+		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const wchar_t* target, const wchar_t* command, const char *request, const unsigned int request_len, char ** response, unsigned int * response_len);
 		typedef void (*lpNSAPIDestroyBuffer)(char**);
 
 		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t* channel, const char* buffer, unsigned int buffer_len, char ** result_buffer, unsigned int *result_buffer_len);

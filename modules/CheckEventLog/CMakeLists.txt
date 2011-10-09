@@ -10,6 +10,7 @@ SET(SRCS
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}
+	eventlog_wrapper.cpp
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -22,6 +23,7 @@ IF(WIN32)
 
 		eventlog_filter.hpp
 		eventlog_record.hpp
+		eventlog_wrapper.hpp
 		simple_registry.hpp
 		filter.hpp
 

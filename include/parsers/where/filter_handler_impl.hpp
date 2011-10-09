@@ -7,7 +7,7 @@ namespace parsers {
 		struct filter_handler_impl : public filter_handler_interface {
 			typedef boost::function<std::wstring(T*)> bound_string_type;
 			typedef boost::function<long long(T*)> bound_int_type;
-			typedef boost::function<expression_ast(T*,value_type,filter_handler handler, expression_ast const *)> bound_function_type;
+			typedef boost::function<expression_ast(T*,value_type,filter_handler handler, const expression_ast *)> bound_function_type;
 			typedef boost::shared_ptr<T> object_type;
 
 			virtual bool has_variable(std::wstring) = 0;

@@ -253,8 +253,7 @@ int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, st
 	NSC_LOG_ERROR_STD(_T("NSCA does not support query patterns"));
 	return NSCAPI::hasFailed;
 }
-std::list<std::string> NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
-	std::list<std::string> result;
+int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
 	try {
 		Plugin::SubmitRequestMessage message;
 		message.ParseFromString(request);
@@ -274,16 +273,20 @@ std::list<std::string> NSCAAgent::clp_handler_impl::submit(client::configuration
 			list.push_back(packet);
 		}
 
+		std::wstring errmsg;
 		sender_information si(recipient);
 		if (instance->send(si, list) != NSCAPI::isSuccess) {
 			NSC_LOG_ERROR_STD(_T("Failed to send NSCA message"));
-			result.push_back("Invalid payload");
+			if (!errmsg.empty())
+				errmsg = _T("Invalid payload");
 		}
-		return result;
+
+		nscapi::functions::create_simple_submit_response(_T(""), _T(""), errmsg.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed, errmsg, response);
+		return errmsg.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed;
 	} catch (std::exception &e) {
-		result.push_back(e.what());
 		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return result;
+		nscapi::functions::create_simple_submit_response(_T(""), _T(""), NSCAPI::hasFailed, utf8::cvt<std::wstring>(e.what()), response);
+		return NSCAPI::hasFailed;
 	}
 }
 int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, std::string request, std::string &reply) {

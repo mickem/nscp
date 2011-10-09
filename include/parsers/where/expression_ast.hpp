@@ -191,8 +191,28 @@ struct variable;
 
 			expression_ast() : expr(nil()), type(type_tbd) {}
 
-			template <typename Expr>
-			expression_ast(Expr const& expr_) : expr(expr_), type(type_tbd) {}
+			//template <typename Expr>
+			//expression_ast(expression_ast expr_) : expr(expr_), type(type_tbd) {}
+			expression_ast(const expression_ast &other) : expr(other.expr), type(other.type) {}
+			expression_ast(const expression_ast *other) : expr(other->expr), type(other->type) {}
+			expression_ast(const payload_type &other) : expr(other), type(type_tbd) {}
+			expression_ast(list_value &other) : expr(other), type(type_tbd) {}
+			expression_ast(unary_fun &other) : expr(other), type(type_tbd) {}
+			expression_ast(binary_op &other) : expr(other), type(type_tbd) {}
+			expression_ast(unary_op &other) : expr(other), type(type_tbd) {}
+			expression_ast(string_value &other) : expr(other), type(type_tbd) {}
+			expression_ast(int_value &other) : expr(other), type(type_tbd) {}
+			expression_ast(variable &other) : expr(other), type(type_tbd) {}
+			expression_ast(std::wstring &other) : expr(string_value(other)), type(type_tbd) {}
+			/*
+			expression_ast(Expr expr_) : expr(expr_), type(type_tbd) {}
+			expression_ast(Expr expr_) : expr(expr_), type(type_tbd) {}
+			expression_ast(Expr expr_) : expr(expr_), type(type_tbd) {}
+			expression_ast(Expr expr_) : expr(expr_), type(type_tbd) {}
+			expression_ast(Expr expr_) : expr(expr_), type(type_tbd) {}
+			expression_ast(Expr expr_) : expr(expr_), type(type_tbd) {}
+			expression_ast(Expr expr_) : expr(expr_), type(type_tbd) {}
+			*/
 
 			expression_ast& operator&=(expression_ast const& rhs);
 			expression_ast& operator|=(expression_ast const& rhs);

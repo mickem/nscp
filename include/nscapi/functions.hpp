@@ -287,6 +287,17 @@ namespace nscapi {
 			response = to_wstring(payload.mutable_status()->message());
 			return gbp_to_status(payload.mutable_status()->status());
 		}
+		static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string response) {
+			Plugin::SubmitResponseMessage message;
+			message.ParseFromString(request);
+
+			if (message.payload_size() != 1) {
+				throw nscapi_exception(_T("Whoops, invalid payload size (for now)"));
+			}
+			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
+			response = payload.mutable_status()->message();
+			return gbp_to_status(payload.mutable_status()->status());
+		}
 		/*
 		static void create_simple_submit_response(std::wstring msg, int status, std::string &buffer) {
 			Plugin::SubmitResponseMessage message;

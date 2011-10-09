@@ -388,7 +388,7 @@ namespace strEx {
 		return format_date(static_cast<time_t>(filetime_to_time(filetime)), format);
 	}
 
-	inline void replace(std::wstring &string, std::wstring replace, std::wstring with) {
+	inline void replace(std::wstring &string, const std::wstring replace, const std::wstring with) {
 		std::wstring::size_type pos = string.find(replace);
 		std::wstring::size_type len = replace.length();
 		while (pos != std::wstring::npos) {

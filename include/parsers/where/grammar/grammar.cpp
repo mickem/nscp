@@ -79,7 +79,7 @@ namespace parsers {
 			struct result { typedef expression_ast type; };
 			expression_ast operator()(wchar_t const unit, expression_ast const & vars) const {
 				list_value args = list_value(vars);
-				args += string_value(std::wstring(1, unit));
+				args += expression_ast(string_value(std::wstring(1, unit)));
 				return expression_ast(unary_fun(_T("convert"), args));
 			}
 		};

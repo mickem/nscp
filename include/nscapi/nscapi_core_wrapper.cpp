@@ -111,12 +111,6 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const wchar_t* command, const c
 	return fNSAPIInject(command, request, request_len, response, response_len);
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
-{
-	if (!fNSAPIExecCommand)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	return fNSAPIExecCommand(command, request, request_len, response, response_len);
-}
 
 void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 	if (!fNSAPIDestroyBuffer)
@@ -152,6 +146,14 @@ bool nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstr
 	std::string request, buffer;
 	nscapi::functions::create_simple_submit_request(channel, command, code, message, perf, request);
 	NSCAPI::nagiosReturn ret = submit_message(channel, request, buffer);
+	if (ret == NSCAPI::returnIgnored) {
+		response = _T("No handler for this message");
+		return false;
+	}
+	if (buffer.size() == 0) {
+		response = _T("Missing response from submission");
+		return false;
+	}
 	nscapi::functions::parse_simple_submit_response(buffer, response);
 	return ret == NSCAPI::isSuccess;
 }
@@ -252,10 +254,10 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query_from_nrpe(const std::wst
 	return simple_query(command, arglist, message, perf);
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::wstring command, std::string request, std::string & result) {
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::wstring target, const std::wstring command, std::string request, std::string & result) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = exec_command(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::nagiosReturn retC = exec_command(target.c_str(), command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
 		result = std::string(buffer, buffer_size);
@@ -276,10 +278,17 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::wstring comma
 	}
 	return retC;
 }
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_simple_command(const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result) {
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const wchar_t* target, const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
+{
+	if (!fNSAPIExecCommand)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	return fNSAPIExecCommand(target, command, request, request_len, response, response_len);
+}
+
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result) {
 	std::string request, response;
 	nscapi::functions::create_simple_exec_request(command, argument, request);
-	NSCAPI::nagiosReturn ret = exec_command(command, request, response);
+	NSCAPI::nagiosReturn ret = exec_command(target, command, request, response);
 	nscapi::functions::parse_simple_exec_result(response, result);
 	return ret;
 }

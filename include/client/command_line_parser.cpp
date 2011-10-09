@@ -230,7 +230,17 @@ std::list<std::string> client::command_line_parser::simple_submit(configuration 
 	nscapi::functions::append_simple_query_response_payload(message.add_payload(), config.data->command, config.data->result, config.data->message, _T(""));
 
 	std::string response;
-	return config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
+	std::list<std::string> errors;
+	int ret = config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
+	if (ret != NSCAPI::isSuccess)
+		errors.push_back("Failed to submit message...");
+
+	std::string error;
+	nscapi::functions::parse_simple_submit_response(response, error);
+	if (!error.empty())
+		errors.push_back(error);
+	return errors;
+
 }
 void client::command_line_parser::modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient) {
 	nscapi::functions::destination_container myself = config.data->host_self;
@@ -244,22 +254,10 @@ void client::command_line_parser::modify_header(configuration &config, ::Plugin:
 	header->set_sender_id(myself.id);
 }
 
-bool client::command_line_parser::relay_submit(configuration &config, const std::string &request, std::string &response) {
+int client::command_line_parser::relay_submit(configuration &config, const std::string &request, std::string &response) {
 	Plugin::SubmitRequestMessage message;
 	message.ParseFromString(request);
 	modify_header(config, message.mutable_header(), config.data->recipient);
-	std::list<std::string> errors = config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
-	if (response.empty()) {
-		std::wstring msg;
-		BOOST_FOREACH(std::string &e, errors) {
-			msg += utf8::cvt<std::wstring>(e);
-		}
-		nscapi::functions::create_simple_submit_response(_T(""), _T(""), errors.empty()?NSCAPI::hasFailed:NSCAPI::isSuccess, msg, response);
-	}
-	BOOST_FOREACH(std::string &e, errors) {
-		//config.handler->error(e);
-		//@todo: immplement this
-	}
-	return errors.empty();
+	return config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
 }
 

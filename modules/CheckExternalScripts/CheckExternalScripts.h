@@ -113,10 +113,14 @@ private:
 	void addAllScriptsFrom(std::wstring path);
 	void add_command(std::wstring key, std::wstring command) {
 		strEx::token tok = strEx::getToken(command, ' ', true);
+		add_command(key.c_str(), command, _T("Script: ") + tok.first);
+	}
+	void add_command(std::wstring key, std::wstring command, std::wstring alias) {
+		strEx::token tok = strEx::getToken(command, ' ', true);
 		boost::to_lower(key);
 		command_data cd = command_data(tok.first, tok.second);
 		commands[key.c_str()] = cd;
-		register_command(key.c_str(), _T("Script: ") + cd.to_string());
+		register_command(key.c_str(), alias);
 	}
 	void add_alias(std::wstring key, std::wstring command) {
 		strEx::token tok = strEx::getToken(command, ' ', true);
@@ -137,9 +141,7 @@ private:
 		strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
 		strEx::replace(tpl, _T("%ARGS%"), tok.second);
 
-		NSC_DEBUG_MSG(_T("Adding wrapped script: ") + key);
-		NSC_DEBUG_MSG(_T("Adding wrapped script: ") + tpl);
-		add_command(key,tpl);
+		add_command(key,tpl,command);
 	}
 };
 

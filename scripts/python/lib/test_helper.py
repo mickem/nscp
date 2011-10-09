@@ -80,7 +80,7 @@ class TestResult:
 		self.add_entry(e)
 		
 	def assert_equals(self, s1, s2, msg):
-		self.add_message(s1 == s2, msg, '%s != %s'%(s1, s2))
+		self.add_message(s1 == s2, msg, '"%s" != "%s"'%(s1, s2))
 
 	def add_entry(self, e):
 		self.results.append(e)
@@ -112,6 +112,9 @@ class TestResult:
 	def return_nagios(self):
 		okcount = 0
 		count = len(self.results)
+		for e in self.results:
+			if e.is_ok():
+				okcount = okcount + 1
 		self.log()
 		if okcount == count:
 			return (status.OK, "OK: %d test(s) successfull"%count)

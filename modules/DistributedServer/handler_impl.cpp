@@ -163,7 +163,7 @@ NSCAPI::nagiosReturn handler_impl::process_single_exec_request_payload(std::wstr
 			tmp.mutable_header()->CopyFrom(hdr);
 			tmp.add_payload()->CopyFrom(payload);
 			tmp.SerializeToString(&tmpBuffer);
-			NSCAPI::nagiosReturn returncode = nscapi::plugin_singleton->get_core()->exec_command(command, tmpBuffer, outBuffer);
+			NSCAPI::nagiosReturn returncode = nscapi::plugin_singleton->get_core()->exec_command(_T("*"), command, tmpBuffer, outBuffer);
 			if (returncode == NSCAPI::returnIgnored) {
 				nscapi::functions::create_simple_exec_response(command, returncode, _T("Command was not found: ") + command, outBuffer);
 			}

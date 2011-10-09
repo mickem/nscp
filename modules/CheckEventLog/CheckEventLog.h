@@ -19,12 +19,74 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
 
 #include <settings/macros.h>
 #include <strEx.h>
 #include <utils.h>
 #include <checkHelpers.hpp>
 
+#include "eventlog_wrapper.hpp"
+#include "eventlog_record.hpp"
+
+struct real_time_thread {
+
+	struct target_information {
+		std::wstring target;
+		std::wstring alias;
+		std::wstring syntax;
+		std::wstring ok_msg;
+		std::wstring perf_msg;
+		bool perf;
+		DWORD dwLang;
+
+	};
+
+	target_information info;
+	bool enabled_;
+	//std::wstring destination_;
+	unsigned long long start_age_;
+	unsigned long long max_age_;
+	//std::wstring syntax_;
+	std::list<std::wstring> filters_;
+	boost::shared_ptr<boost::thread> thread_;
+	HANDLE stop_event_;
+
+	real_time_thread() : enabled_(false), start_age_(0), max_age_(0) {
+		set_start_age(_T("30m"));
+		set_max_age(_T("5m"));
+	}
+
+	void add_realtime_filter(std::wstring key, std::wstring query);
+	void set_enabled(bool flag) { enabled_ = flag; } 
+	void set_destination(std::wstring dst) { info.target = dst; } 
+	void set_start_age(std::wstring age) {
+		start_age_ = strEx::stoi64_as_time(age);
+	} 
+	void set_max_age(std::wstring age) {
+		if (age == _T("none") || age == _T("infinite") || age == _T("false"))
+			max_age_ = 0;
+		else
+			max_age_ = strEx::stoi64_as_time(age);
+	} 
+
+	void set_language(std::string lang);
+	void set_filter(std::wstring flt) {
+		if (!flt.empty())
+			add_realtime_filter(_T("filter"), flt);
+	}
+	bool has_filters() {
+		return !filters_.empty();
+	}
+	bool start();
+	bool stop();
+
+	void thread_proc();
+//	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
+	void process_no_events();
+	void process_record(const EventLogRecord &record);
+//	void process_event(eventlog_filter::filter_engine engine, const EVENTLOGRECORD* record);
+};
 
 class CheckEventLog : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
 private:
@@ -32,6 +94,7 @@ private:
 	std::wstring syntax_;
 	int buffer_length_;
 	bool lookup_names_;
+	real_time_thread thread_;
 
 public:
 	CheckEventLog();
@@ -57,4 +120,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn insert_eventlog(std::vector<std::wstring> arguments, std::wstring &message);
+
 };

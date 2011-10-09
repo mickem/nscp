@@ -16,9 +16,10 @@ namespace script_wrapper {
 	int py_to_nagios_return(status code);
 
 	void log_exception();
-	void log_msg(std::wstring x);
-	void log_debug(std::wstring x);
-	void log_error(std::wstring x);
+	void log_msg(object x);
+	void log_debug(object x);
+	void log_error(object x);
+	void sleep(unsigned int seconds);
 	//std::string get_alias();
 
 	std::list<std::wstring> convert(boost::python::list lst);
@@ -110,8 +111,8 @@ namespace script_wrapper {
 
 		tuple simple_query(std::string command, boost::python::list args);
 		tuple query(std::string command, std::string request);
-		object simple_exec(std::string command, boost::python::list args);
-		tuple exec(std::string command, std::string request);
+		tuple simple_exec(std::string target, std::string command, boost::python::list args);
+		tuple exec(std::string target, std::string command, std::string request);
 		tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
 		tuple submit(std::string channel, std::string request);
 		bool reload(std::string module);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <error.hpp>
+
 namespace simple_registry {
 	class registry_exception {
 		std::wstring what_;

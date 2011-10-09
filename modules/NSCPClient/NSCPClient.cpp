@@ -209,7 +209,7 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, s
 		return NSCAPI::returnUNKNOWN;
 	}
 }
-std::list<std::string> NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
+int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
 	std::list<std::string> result;
 	try {
 		std::list<nscp::packet> chunks;
@@ -229,11 +229,19 @@ std::list<std::string> NSCPClient::clp_handler_impl::submit(client::configuratio
 				result.push_back("Invalid payload");
 			}
 		}
-		return result;
+
+		if (result.empty()) {
+			std::wstring msg;
+			BOOST_FOREACH(std::string &e, result) {
+				msg += utf8::cvt<std::wstring>(e);
+			}
+			nscapi::functions::create_simple_submit_response(_T(""), _T(""), result.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed, msg, response);
+		}
+		return result.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed;
 	} catch (std::exception &e) {
-		result.push_back(e.what());
 		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return result;
+		nscapi::functions::create_simple_submit_response(_T(""), _T(""), NSCAPI::hasFailed, utf8::cvt<std::wstring>(e.what()), response);
+		return NSCAPI::hasFailed;
 	}
 }
 int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, std::string request, std::string &reply) {

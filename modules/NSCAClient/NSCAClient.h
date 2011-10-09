@@ -94,7 +94,7 @@ private:
 		nscp_connection_data local_data;
 
 		int query(client::configuration::data_type data, std::string request, std::string &reply);
-		std::list<std::string> submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response);
+		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response);
 		int exec(client::configuration::data_type data, std::string request, std::string &reply);
 	};
 

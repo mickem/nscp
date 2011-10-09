@@ -5,6 +5,24 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-10-09 MickeM
+ * Real-time CheckEventLog working (still only for one, and I think application log)
+ * Added python tests to validfate that Real-time eventlog is working.
+ * Fixed som defects here and there (now builds on Linux again)
+ * Fixed so it builds in "debug mode"
+ * Fixed issue in grammar which caused infiniate loop in som cases
+ * Fixed so error rendering in eventlog works with "infininate number of argumnets"
+ * Added support for targeting execs (in API)
+ * Fixed some invalid return messages
+ * Streamlined submissions wrappers to be more inline with "other wrappers"
+ * Fixed a myrriad of minor python script bugs
+ * Added sleep command (which sometimes causes issues so use with care)
+
+2011-10-06 MickeM
+ * Initial command for createing eventlog records
+ * Initial real-time eventlog checker
+ * Fixed obscure c-tor issue with filters
+ 
 2011-09-27 MickeM
  * Fixed many many issues all over the place as I tried to make things working for my pressention at nwc.
  

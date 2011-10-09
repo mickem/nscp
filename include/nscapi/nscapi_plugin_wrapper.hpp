@@ -379,6 +379,8 @@ namespace nscapi {
 				NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(command, request, reply); 
 				helpers::wrap_string(reply, response_buffer, response_buffer_len);
 				return retCode;
+			} catch (const std::exception &e) { 
+				NSC_LOG_CRITICAL(_T("Exception in: NSCommandLineExec: ") + utf8::cvt<std::wstring>(e.what())); 
 			} catch (...) { 
 				NSC_LOG_CRITICAL(_T("Unknown exception in: NSCommandLineExec")); 
 			} 

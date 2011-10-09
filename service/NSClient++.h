@@ -171,7 +171,7 @@ public:
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	void reportMessage(std::string data);
 	int simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
-	NSCAPI::nagiosReturn exec_command(const wchar_t* raw_command, std::string &request, std::string &response);
+	NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* raw_command, std::string &request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const wchar_t* channel);
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const wchar_t* channel);
 

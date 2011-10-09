@@ -46,14 +46,6 @@ bool PythonScript::loadModule() {
 }
 using namespace boost::python;
 
-template<class T>
-void caller(auto_ptr<T> obj)
-{
-	new_owner_function(obj.get());
-	obj.release();
-}
-
-
 BOOST_PYTHON_MODULE(NSCP)
 {
 	PyEval_InitThreads();
@@ -110,6 +102,7 @@ BOOST_PYTHON_MODULE(NSCP)
 	def("log_deb", script_wrapper::log_debug);
 	def("log_error", script_wrapper::log_error);
 	def("log_debug", script_wrapper::log_debug);
+	def("sleep", script_wrapper::sleep);
 //	def("get_module_alias", script_wrapper::get_module_alias);
 //	def("get_script_alias", script_wrapper::get_script_alias);
 }

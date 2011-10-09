@@ -25,11 +25,11 @@
 using namespace boost::assign;
 using namespace parsers::where;
 
-eventlog_filter::filter_obj::expression_ast_type eventlog_filter::filter_obj::fun_convert_severity(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject) {
-	return expression_ast_type(parsers::where::int_value(convert_severity(subject.get_string(handler))));
+eventlog_filter::filter_obj::expression_ast_type eventlog_filter::filter_obj::fun_convert_severity(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject) {
+	return expression_ast_type(parsers::where::int_value(convert_severity(subject->get_string(handler))));
 }
-eventlog_filter::filter_obj::expression_ast_type eventlog_filter::filter_obj::fun_convert_type(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject) {
-	return expression_ast_type(parsers::where::int_value(convert_type(subject.get_string(handler))));
+eventlog_filter::filter_obj::expression_ast_type eventlog_filter::filter_obj::fun_convert_type(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject) {
+	return expression_ast_type(parsers::where::int_value(convert_type(subject->get_string(handler))));
 }
 
 std::wstring eventlog_filter::filter_obj::render(std::wstring syntax, std::wstring datesyntax) {

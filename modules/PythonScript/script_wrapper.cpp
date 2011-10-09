@@ -4,6 +4,7 @@
 #include "script_wrapper.hpp"
 #include "PythonScript.h"
 #include <nscapi/functions.hpp>
+#include <boost/thread.hpp>
 
 using namespace boost::python;
 namespace py = boost::python;
@@ -12,15 +13,46 @@ boost::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance
 
 //extern PythonScript gPythonScript;
 
+std::wstring pystr(object &o) {
+	std::wstring msg;
+	try {
+		return utf8::cvt<std::wstring>(extract<std::string>(o));
+	} catch (...) {
+		/*
+		try {
+			PyUnicodeObject* pobj = reinterpret_cast<PyUnicodeObject*>(x.ptr());
+			std::string s = PyUnicode_FromUnicode(pobj->str, pobj->length);
+			msg = utf8::cvt<std::wstring>(s);
+		} catch (...) {
+			msg = _T("Unable to convert logmessage to string");
+		}
+		*/
+		return _T("Unable to convert logmessage to string");
+	}
+}
 
-void script_wrapper::log_msg(std::wstring x) {
-	NSC_LOG_MESSAGE(utf8::cvt<std::wstring>(x));
+void script_wrapper::log_msg(object x) {
+	std::wstring msg = pystr(x);
+	Py_BEGIN_ALLOW_THREADS
+	NSC_LOG_MESSAGE(msg);
+	Py_END_ALLOW_THREADS
 }
-void script_wrapper::log_error(std::wstring x) {
-	NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(x));
+void script_wrapper::log_error(object x) {
+	std::wstring msg = pystr(x);
+	Py_BEGIN_ALLOW_THREADS
+	NSC_LOG_ERROR_STD(msg);
+	Py_END_ALLOW_THREADS
 }
-void script_wrapper::log_debug(std::wstring x) {
-	NSC_DEBUG_MSG(utf8::cvt<std::wstring>(x));
+void script_wrapper::log_debug(object x) {
+	std::wstring msg = pystr(x);
+	Py_BEGIN_ALLOW_THREADS
+	NSC_DEBUG_MSG(msg);
+	Py_END_ALLOW_THREADS
+}
+void script_wrapper::sleep(unsigned int seconds) {
+	Py_BEGIN_ALLOW_THREADS
+	boost::this_thread::sleep(boost::posix_time::milliseconds(seconds*1000));
+	Py_END_ALLOW_THREADS
 }
 /*
 std::string script_wrapper::get_alias() {
@@ -299,6 +331,10 @@ int script_wrapper::py_to_nagios_return(status code) {
 	return NSCAPI::returnUNKNOWN;
 }
 
+object pystr(std::wstring str) {
+	return boost::python::object(boost::python::handle<>(PyUnicode_FromString(utf8::cvt<std::string>(str).c_str())));
+}
+
 int script_wrapper::function_wrapper::handle_simple_message(const std::string channel, const std::string source, const std::string command, int code, std::wstring &msg, std::wstring &perf) const {
 	try {
 		functions::function_map_type::iterator it = functions::get()->simple_handler.find(channel);
@@ -307,7 +343,8 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 			return NSCAPI::returnIgnored;
 		}
 		PyGILState_STATE gstate = PyGILState_Ensure();
-		object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, source, command, nagios_return_to_py(code), utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
+		
+		object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, source, command, nagios_return_to_py(code), pystr(msg), utf8::cvt<std::string>(perf));
 		int ret_code = NSCAPI::returnIgnored;
 		if (ret.ptr() == Py_None) {
 			ret_code = NSCAPI::isSuccess;
@@ -351,8 +388,22 @@ std::wstring script_wrapper::function_wrapper::get_commands() {
 
 std::list<std::wstring> script_wrapper::convert(py::list lst) {
 	std::list<std::wstring> ret;
-	for (int i = 0;i<len(lst);i++)
-		ret.push_back(utf8::cvt<std::wstring>(extract<std::string>(lst[i])));
+	for (int i = 0;i<len(lst);i++) {
+		try {
+			extract<std::string> es(lst[i]);
+			extract<long long> ei(lst[i]);
+			if (es.check())
+				ret.push_back(utf8::cvt<std::wstring>(es()));
+			else if (ei.check())
+				ret.push_back(strEx::itos(ei()));
+			else
+				NSC_LOG_ERROR_STD(_T("Failed to convert object in list"));
+		} catch( error_already_set e) {
+			log_exception();
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("Failed to parse list"));
+		}
+	}
 	return ret;
 }
 py::list script_wrapper::convert(std::list<std::wstring> lst) {
@@ -408,23 +459,40 @@ tuple script_wrapper::command_wrapper::query(std::string command, std::string re
 	return make_tuple(ret,response);
 }
 
-object script_wrapper::command_wrapper::simple_exec(std::string command, py::list args) {
+tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::string command, py::list args) {
 	try {
 		std::list<std::wstring> result;
-		int ret = core->exec_simple_command(utf8::cvt<std::wstring>(command), convert(args), result);
+		int ret;
+		const std::wstring ws_target = utf8::cvt<std::wstring>(target);
+		const std::wstring ws_command = utf8::cvt<std::wstring>(command);
+		const std::list<std::wstring> ws_argument = convert(args);
+		Py_BEGIN_ALLOW_THREADS
+		ret = core->exec_simple_command(ws_target, ws_command, ws_argument, result);
+		Py_END_ALLOW_THREADS
 		return make_tuple(ret, convert(result));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command) + _T(": ") + utf8::cvt<std::wstring>(e.what()));
-		return object();
+		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command));
-		return object();
+		return make_tuple(false,utf8::cvt<std::wstring>(command));
 	}
 }
-tuple script_wrapper::command_wrapper::exec(std::string command, std::string request) {
-	std::string response;
-	int ret = core->exec_command(utf8::cvt<std::wstring>(command), request, response);
-	return make_tuple(ret, response);
+tuple script_wrapper::command_wrapper::exec(std::string target, std::string command, std::string request) {
+	try {
+		std::string response;
+		int ret;
+		Py_BEGIN_ALLOW_THREADS
+		ret = core->exec_command(utf8::cvt<std::wstring>(target), utf8::cvt<std::wstring>(command), request, response);
+		Py_END_ALLOW_THREADS
+		return make_tuple(ret, response);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command) + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command));
+		return make_tuple(false,utf8::cvt<std::wstring>(command));
+	}
 }
 
 

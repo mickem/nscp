@@ -106,17 +106,26 @@ namespace error {
 					return from_module_wrapper(module, dwError, argList[0], argList[1], argList[2], argList[3], argList[4], argList[5], argList[6], argList[7], argList[8], argList[9], argList[10]);
 				return _T("We cant handle ") + strEx::itos(argCount) + _T(" arguments so you wont get argList here");
 			}
+			static std::wstring from_module_x64(std::wstring module, unsigned long dwError, std::vector<std::wstring> strings) {
+				return __from_module(module, dwError, strings);
+			}
+
 		private:
 
 			static std::wstring from_module_wrapper(std::wstring module, unsigned long dwError, ...) {
 				va_list Ellipsis;
 				va_start(Ellipsis, dwError);
-				std::wstring ret = __from_module(module, dwError, &Ellipsis);
+				std::wstring ret = __from_module(module, dwError, Ellipsis);
 				va_end(Ellipsis);
 				return ret;
 			}
+			static std::wstring __from_module(std::wstring module, unsigned long dwError, std::vector<std::wstring> strings) {
+				if (strings.size() > 0)
+					return __from_module(module, dwError, reinterpret_cast<va_list>(&strings[0]));
+				return __from_module(module, dwError);
+			}
 
-			static std::wstring __from_module(std::wstring module, unsigned long dwError, va_list *arguments) {
+			static std::wstring __from_module(std::wstring module, unsigned long dwError, va_list arguments) {
 				HMODULE hDLL = LoadLibraryEx(module.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
 				if (hDLL == NULL) {
 					return _T("failed to load: ") + module + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
@@ -126,7 +135,29 @@ namespace error {
 				//unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
 				//	dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(arguments));
 				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE,hDLL,
-					dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(arguments));
+					dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(&arguments));
+				if (dwRet == 0) {
+					FreeLibrary(hDLL);
+					DWORD err = GetLastError();
+					if (err == 317) {
+						return _T("");
+					}
+					return _T("failed to lookup error code: ") + strEx::itos(dwError) + _T(" from DLL: ") + module + _T("( reson: ") + strEx::itos(err) + _T(")");
+				}
+				std::wstring str = reinterpret_cast<wchar_t*>(lpMsgBuf);
+				LocalFree(lpMsgBuf);
+				FreeLibrary(hDLL);
+				return str;
+			}
+			static std::wstring __from_module(std::wstring module, unsigned long dwError) {
+				HMODULE hDLL = LoadLibraryEx(module.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
+				if (hDLL == NULL) {
+					return _T("failed to load: ") + module + _T("( reson: ") + strEx::itos(GetLastError()) + _T(")");
+				}
+				LPVOID lpMsgBuf;
+
+				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE,hDLL,
+					dwError,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPTSTR)&lpMsgBuf,0,NULL);
 				if (dwRet == 0) {
 					FreeLibrary(hDLL);
 					DWORD err = GetLastError();

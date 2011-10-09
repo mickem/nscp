@@ -83,7 +83,7 @@ namespace client {
 
 	struct clp_handler {
 		virtual int query(configuration::data_type data, std::string request, std::string &reply) = 0;
-		virtual std::list<std::string> submit(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) = 0;
+		virtual int submit(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) = 0;
 		virtual int exec(configuration::data_type data, std::string request, std::string &reply) = 0;
 	};
 	struct command_manager {
@@ -109,7 +109,7 @@ namespace client {
 		static std::wstring build_help(configuration &config);
 
 		static int commandLineExec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
-		static bool relay_submit(configuration &config, const std::string &request, std::string &response);
+		static int relay_submit(configuration &config, const std::string &request, std::string &response);
 
 		static std::list<std::string> simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
 
