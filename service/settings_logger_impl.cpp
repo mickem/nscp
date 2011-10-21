@@ -46,6 +46,8 @@ void settings_logger::info(std::string file, int line, std::wstring message) {
 ///
 /// @author mickem
 void settings_logger::debug(std::string file, int line, std::wstring message) {
+	if (!mainClient.logDebug())
+		return;
 	std::string s = nsclient::logger_helper::create_debug(file.c_str(), line, message.c_str());
 	mainClient.reportMessage(s);
 }

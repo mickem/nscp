@@ -45,7 +45,7 @@ private:
 
 
 	struct sender_information {
-		sender_information(nscapi::functions::destination_container &src) {
+		sender_information(nscapi::functions::destination_container &src) : timeout(10) {
 			net::url u = src.get_url(5667);
 			host = u.host;
 			port = u.port;
@@ -74,7 +74,10 @@ private:
 		}
 		std::string get_encryption_string() {
 
-			if (encryption.size() > 1 && std::isalnum(encryption[0]))
+			if (
+					(encryption.size() == 1 && std::isalnum(encryption[0])) 
+					|| (encryption.size() > 1 && (std::isalnum(encryption[0]) || std::isalnum(encryption[1]))) 
+					)
 				encryption = parse_encryption();
 			return encryption;
 		}

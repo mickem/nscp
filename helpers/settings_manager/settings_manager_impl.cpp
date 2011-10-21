@@ -65,6 +65,10 @@ namespace settings_manager {
 	/// @author mickem
 	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::wstring key) {
 		net::wurl url = net::parse(key);
+		if (url.protocol.empty()) {
+			url = net::parse(key + _T("://"));
+			get_logger()->debug(__FILE__, __LINE__, _T("No driver specified attemtping to fake one: ") + url.to_string());
+		}
 		get_logger()->debug(__FILE__, __LINE__, _T("Creating instance for: ") + url.to_string());
 		if (url.host.empty() && url.path.empty()) 
 			key = _T("");

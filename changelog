@@ -5,6 +5,21 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-10-21 MickeM
+ * Some more threading issues in Python (works perfectly(?) now)
+ * Refactored the tests a bit making test suites runable from a central hub
+ * Fixed soo everything builds and works on Linux
+
+2011-10-19 MickeM
+ * Fixed some threadding issues in PythonScript
+ * Still working on refactoring the unittest helpers a bit
+
+2011-10-16 MickeM
+ * Fixed issue with loading zero-byte UTF-8 config files
+ * Fixed some issues with settings subsystem (debug log as well as createing instances for --generate)
+ * Added ability to set event log to real-time
+ * Added support for multiple eventlogs in real-time
+
 2011-10-09 MickeM
  * Real-time CheckEventLog working (still only for one, and I think application log)
  * Added python tests to validfate that Real-time eventlog is working.

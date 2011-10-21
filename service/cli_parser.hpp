@@ -191,7 +191,15 @@ public:
 			client.set_current(current);
 			client.set_update_defaults(def);
 
+			if (vm.count("generate")) {
+				core_->set_settings_context(vm["generate"].as<std::wstring>());
+				client.boot();
+				int ret = client.generate(vm["generate"].as<std::wstring>());
+				client.exit();
+				return ret;
+			}
 			client.boot();
+
 
 			int ret = -1;
 
@@ -200,9 +208,6 @@ public:
 			}
 			if (vm.count("migrate-from")) {
 				ret = client.migrate_from(vm["migrate-from"].as<std::wstring>());
-			}
-			if (vm.count("generate")) {
-				ret = client.generate(vm["generate"].as<std::wstring>());
 			}
 			if (vm.count("set")) {
 				ret = client.set(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>(), vm["set"].as<std::wstring>());
@@ -332,7 +337,6 @@ public:
 
 
 			mainClient.set_console_log();
-			mainClient.enableDebug(debug);
 			if (debug) {
 				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
 				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);

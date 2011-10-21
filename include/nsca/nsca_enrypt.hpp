@@ -71,7 +71,10 @@ namespace nsca {
 		};
 		struct helpers {
 			static int encryption_to_int(std::string encryption) {
-				if (encryption.size() > 0 && std::isdigit(encryption[0])) {
+				if (
+					(encryption.size() == 1 && std::isdigit(encryption[0])) 
+					|| (encryption.size() > 1 && std::isdigit(encryption[0]) && std::isdigit(encryption[1])) 
+				){
 					int enc = strEx::stoi(encryption);
 					if (enc == ENCRYPT_XOR 
 #ifdef HAVE_LIBCRYPTOPP
@@ -251,7 +254,7 @@ namespace nsca {
 				return 1;
 			}
 			void init(std::string password, std::string iv) {}
-			void encrypt(std::string &buffer) { std::cout << "USING NO ENCRYPTION * * * " << std::endl;}
+			void encrypt(std::string &buffer) { /* std::cout << "USING NO ENCRYPTION * * * " << std::endl; */}
 			void decrypt(std::string &buffer) {}
 			std::string getName() {
 				return "No Encryption (not safe)";

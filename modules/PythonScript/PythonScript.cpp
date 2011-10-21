@@ -48,7 +48,6 @@ using namespace boost::python;
 
 BOOST_PYTHON_MODULE(NSCP)
 {
-	PyEval_InitThreads();
 	class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", no_init)
 		.def("get",&script_wrapper::settings_wrapper::create)
 		.staticmethod("get")
@@ -114,45 +113,61 @@ python_script::python_script(unsigned int plugin_id, const std::string alias, co
 	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
 python_script::~python_script(){
+	script_wrapper::thread_locker locker;
 	callFunction("shutdown");
 }
 void python_script::callFunction(const std::string& functionName) {
-	try	{
-		object scriptFunction = extract<object>(localDict[functionName]);
-		if( scriptFunction )
-			scriptFunction();
-	} catch( error_already_set e) {
-		script_wrapper::log_exception();
+	try {
+		script_wrapper::thread_locker locker;
+		try	{
+			object scriptFunction = extract<object>(localDict[functionName]);
+			if( scriptFunction )
+				scriptFunction();
+		} catch( error_already_set e) {
+			script_wrapper::log_exception();
+		}
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Unknown exception"));
 	}
 }
 void python_script::callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2){
-	try	{
-		object scriptFunction = extract<object>(localDict[functionName]);
-		if(scriptFunction)
-			scriptFunction(i1, s1, s2);
-	} catch(error_already_set e) {
-		script_wrapper::log_exception();
+	try {
+		script_wrapper::thread_locker locker;
+		try	{
+			object scriptFunction = extract<object>(localDict[functionName]);
+			if(scriptFunction)
+				scriptFunction(i1, s1, s2);
+		} catch(error_already_set e) {
+			script_wrapper::log_exception();
+		}
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Unknown exception"));
 	}
 }
 void python_script::_exec(const std::string &scriptfile){
-	try	{
-		object main_module = import("__main__");
-		dict globalDict = extract<dict>(main_module.attr("__dict__"));
-		localDict = globalDict.copy();
-		//localDict.attr("plugin_id") = plugin_id;
-		//localDict.attr("plugin_alias") = alias;
+	try {
+		script_wrapper::thread_locker locker;
+		try	{
+			object main_module = import("__main__");
+			dict globalDict = extract<dict>(main_module.attr("__dict__"));
+			localDict = globalDict.copy();
+			//localDict.attr("plugin_id") = plugin_id;
+			//localDict.attr("plugin_alias") = alias;
 
-		PyRun_SimpleString("import cStringIO");
-		PyRun_SimpleString("import sys");
-		PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
-		boost::filesystem::wpath path = GET_CORE()->getBasePath();
-		path /= _T("scripts");
-		path /= _T("python");
-		path /= _T("lib");
-		PyRun_SimpleString(("sys.path.append('" + utf8::cvt<std::string>(path.string()) + "')").c_str());
-		object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
-	} catch( error_already_set e) {
-		script_wrapper::log_exception();
+			PyRun_SimpleString("import cStringIO");
+			PyRun_SimpleString("import sys");
+			PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
+			boost::filesystem::wpath path = GET_CORE()->getBasePath();
+			path /= _T("scripts");
+			path /= _T("python");
+			path /= _T("lib");
+			PyRun_SimpleString(("sys.path.append('" + utf8::cvt<std::string>(path.string()) + "')").c_str());
+			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
+		} catch( error_already_set e) {
+			script_wrapper::log_exception();
+		}
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Unknown exception"));
 	}
 }
 static bool has_init = false;
@@ -179,26 +194,32 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		if (!has_init) {
 			has_init = true;
 			Py_Initialize();
+			PyEval_InitThreads();
 			do_init = true;
 		}
 
 		try {
+			script_wrapper::thread_locker locker;
+			try {
 
-			PyRun_SimpleString("import cStringIO");
-			PyRun_SimpleString("import sys");
-			PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
+				PyRun_SimpleString("import cStringIO");
+				PyRun_SimpleString("import sys");
+				PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
 
-			if (do_init)
-				initNSCP();
+				if (do_init)
+					initNSCP();
 
-			BOOST_FOREACH(script_container &script, scripts_) {
-				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
+				BOOST_FOREACH(script_container &script, scripts_) {
+					instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
+				}
+
+			} catch( error_already_set e) {
+				script_wrapper::log_exception();
 			}
-
-		} catch( error_already_set e) {
-			script_wrapper::log_exception();
 		} catch (std::exception &e) {
 			NSC_LOG_ERROR_STD(_T("Exception: Failed to load python scripts: ") + utf8::cvt<std::wstring>(e.what()));
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("Exception: Failed to load python scripts"));
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));

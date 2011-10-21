@@ -275,11 +275,11 @@ namespace socket_helpers {
 					rawSocket.close();
 					return false;
 				} else {
-					if (!rawSocket.is_open()) {
-						timer.cancel();
-						rawSocket.close();
-						return false;
-					}
+// 					if (!rawSocket.is_open()) {
+// 						timer.cancel();
+// 						rawSocket.close();
+// 						return false;
+// 					}
 				}
 			}
 

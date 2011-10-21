@@ -1,18 +1,9 @@
 from NSCP import Settings, Registry, Core, log, status, sleep
-from test_helper import Callable, run_tests, TestResult
+from test_helper import Callable, TestResult, get_test_manager, create_test_manager
 import plugin_pb2
 from types import *
 import socket
 import unicodedata
-
-core = Core.get()
-
-prefix = 'py_'
-plugin_id = 0
-
-def get_help(arguments):
-	return (status.OK, 'help: Get help')
-
 
 class EventLogTest:
 	instance = None
@@ -36,7 +27,10 @@ class EventLogTest:
 	getInstance = SingletonHelper()
 
 	def desc(self):
-		return 'Testing that channels are loaded'
+		return 'Testcase for eventlog'
+
+	def title(self):
+		return 'EventLog test'
 
 	def setup(self, plugin_id, prefix):
 		self.key = '_%stest_command'%prefix
@@ -72,7 +66,7 @@ class EventLogTest:
 		for f in arguments:
 			args.append('--argument')
 			args.append(f)
-		(ret, msg) = core.simple_exec('any', 'insert-eventlog', args)
+		(ret, msg) = Core.get().simple_exec('any', 'insert-eventlog', args)
 		return ret == 0
 
 	def run_test(self):
@@ -84,55 +78,47 @@ class EventLogTest:
 		result.assert_equals(self.last_message, 'error Application Error: ', 'Verify that message is sent through')
 		return result
 
-def test(arguments):
-	global prefix
-	global plugin_id
-	result = TestResult()
-	result.add(run_tests(plugin_id, prefix, [EventLogTest]))
-	return result.return_nagios()
+	def install(self, arguments):
+		conf = Settings.get()
+		conf.set_string('/modules', 'pytest_eventlog', 'CheckEventLog')
+		conf.set_string('/modules', 'pytest', 'PythonScript')
 
-def install_test(arguments):
-	log('-+---==(TEST INSTALLER)==---------------------------------------------------+-')
-	log(' | Setup nessecary configuration for running test                           |')
-	log(' | This includes: Loading the PythonScript module at startup                |')
-	log(' | To use this please run nsclient++ in "test mode" like so:                |')
-	log(' | nscp --test                                                              |')
-	log(' | Then start the test_nsca command by typing it and press enter like so:   |')
-	log(' | test_eventlog                                                            |')
-	log(' | Lastly exit by typing exit like so:                                      |')
-	log(' | exit                                                                     |')
-	log('-+--------------------------------------------------------==(DAS ENDE!)==---+-')
-	conf = Settings.get()
-	conf.set_string('/modules', 'pytest_eventlog', 'CheckEventLog')
-	conf.set_string('/modules', 'pytest', 'PythonScript')
+		conf.set_string('/settings/pytest/scripts', 'test_eventlog', 'test_eventlog.py')
+		
+		conf.set_string('/settings/pytest_eventlog/real-time', 'enabled', 'true')
+		conf.set_string('/settings/pytest_eventlog/real-time', 'maximum age', '5s')
+		conf.set_string('/settings/pytest_eventlog/real-time', 'destination', 'pytest_evlog')
+		conf.set_string('/settings/pytest_eventlog/real-time', 'language', 'english')
+		
+		conf.save()
+	
+	def uninstall(self):
+		None
 
-	conf.set_string('/settings/pytest/scripts', 'test_eventlog', 'test_eventlog.py')
-	
-	conf.set_string('/settings/pytest_eventlog/real-time', 'enabled', 'true')
-	conf.set_string('/settings/pytest_eventlog/real-time', 'maximum age', '5s')
-	conf.set_string('/settings/pytest_eventlog/real-time', 'destination', 'pytest_evlog')
-	conf.set_string('/settings/pytest_eventlog/real-time', 'language', 'english')
-	
-	conf.save()
+	def help(self):
+		None
+
+	def init(self, plugin_id):
+		None
+		#reg = Registry.get(plugin_id)
+		#reg.simple_function('test_eventlog', test, 'Run python EventLog unit test suite')
+
+	def shutdown(self):
+		None
+
+all_tests = [EventLogTest]
 
 def __main__():
-	install_test([])
+	test_manager = create_test_manager()
+	test_manager.add(all_tests)
+	test_manager.install()
 	
-def init(pid, plugin_alias, script_alias):
-	global prefix
-	global plugin_id
-	plugin_id = pid
-	if script_alias:
-		prefix = '%s_'%script_alias
+def init(plugin_id, plugin_alias, script_alias):
+	test_manager = create_test_manager(plugin_id, plugin_alias, script_alias)
+	test_manager.add(all_tests)
 
-	conf = Settings.get()
-
-	reg = Registry.get(plugin_id)
-	
-	reg.simple_cmdline('help', get_help)
-	reg.simple_cmdline('install_python_test', install_test)
-
-	reg.simple_function('test_eventlog', test, 'Run python EventLog unit test suite')
+	test_manager.init()
 
 def shutdown():
-	log('Unloading script...')
+	test_manager = get_test_manager()
+	test_manager.shutdown()

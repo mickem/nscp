@@ -51,6 +51,7 @@ struct real_time_thread {
 	std::list<std::wstring> filters_;
 	boost::shared_ptr<boost::thread> thread_;
 	HANDLE stop_event_;
+	std::list<std::wstring> lists_;
 
 	real_time_thread() : enabled_(false), start_age_(0), max_age_(0) {
 		set_start_age(_T("30m"));
@@ -68,6 +69,9 @@ struct real_time_thread {
 			max_age_ = 0;
 		else
 			max_age_ = strEx::stoi64_as_time(age);
+	} 
+	void set_eventlog(std::wstring log) {
+		lists_ = strEx::splitEx(log, _T(","));
 	} 
 
 	void set_language(std::string lang);

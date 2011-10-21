@@ -145,26 +145,6 @@ void real_time_thread::set_language(std::string lang) {
 		info.dwLang = MAKELANGID(wLang, SUBLANG_NEUTRAL);
 }
 
-
-/*
-void process_event(eventlog_filter::filter_engine engine, eventlog_filter::filter_argument fargs, const EVENTLOGRECORD* record) {
-
-	__time64_t ltime;
-	_time64(&ltime);
-
-	EventLogRecord elr(_T("application"), record, ltime);
-	;
-	//boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(record));
-	boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(elr));
-
-	if (engine->match(arg)) {
-		NSC_DEBUG_MSG(_T("Found record: ") + elr.render(true, fargs->syntax));
-
-	} else {
-		NSC_DEBUG_MSG(_T("Ignored record: ") + elr.render(true, fargs->syntax));
-	}
-}
-*/
 void real_time_thread::process_no_events() {
 	std::wstring response;
 	if (!GET_CORE()->submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, info.ok_msg, info.perf_msg, response)) {
@@ -175,7 +155,6 @@ void real_time_thread::process_no_events() {
 void real_time_thread::process_record(const EventLogRecord &record) {
 	std::wstring response;
 	std::wstring message = record.render(true, info.syntax, DATE_FORMAT, info.dwLang);
-	NSC_LOG_ERROR(_T("XXX: ") + message);
 	if (!GET_CORE()->submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, message, info.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
@@ -210,61 +189,75 @@ void real_time_thread::thread_proc() {
 		return;
 	}
 
-	eventlog_wrapper eventlog(_T("application"));
-	// TODO: add support for "multiple" eventlogs and configurable event logs
 
+	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
+	typedef std::vector<eventlog_type> eventlog_list;
+	eventlog_list list;
+
+	BOOST_FOREACH(std::wstring l, lists_) {
+		eventlog_type el = eventlog_type(new eventlog_wrapper(l));
+		if (!el->seek_end()) {
+			NSC_LOG_ERROR_STD(_T("Failed to find the end of eventlog: ") + l);
+		} else {
+			list.push_back(el);
+		}
+	}
+	
 	// TODO: add support for scanning "missed messages" at startup
 
-	if (!eventlog.seek_end()) {
-		NSC_LOG_ERROR_STD(_T("Failed to find the end of the eventlog"));
-		return;
+	HANDLE *handles = new HANDLE[1+list.size()];
+	handles[0] = stop_event_;
+	for (int i=0;i<list.size();i++) {
+		list[i]->notify(handles[i+1]);
 	}
-
-	HANDLE handles[2];
-	handles[1] = stop_event_;
-
-	eventlog.notify(handles[0]);
 
 	DWORD dwWaitTime = max_age_;
 	if (dwWaitTime > 0 && dwWaitTime < 5000)
 		dwWaitTime = 5000;
 	unsigned int errors = 0;
 	while (true) {
-		DWORD dwWaitReason = WaitForMultipleObjects(sizeof(handles)/sizeof(HANDLE), handles, FALSE, dwWaitTime==0?INFINITE:dwWaitTime);
-		
+		DWORD dwWaitReason = WaitForMultipleObjects(list.size()+1, handles, FALSE, dwWaitTime==0?INFINITE:dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
 			process_no_events();
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
+			delete [] handles;
+			return;
+		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + list.size())) {
 
-			DWORD status = eventlog.read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
-			if (ERROR_SUCCESS != status && ERROR_HANDLE_EOF != status)
+			eventlog_type el = list[dwWaitReason-WAIT_OBJECT_0-1];
+			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
+			if (ERROR_SUCCESS != status && ERROR_HANDLE_EOF != status) {
+				delete [] handles;
 				return;
+			}
 
 			__time64_t ltime;
 			_time64(&ltime);
 
-			EVENTLOGRECORD *pevlr = eventlog.read_record_with_buffer();
+			EVENTLOGRECORD *pevlr = el->read_record_with_buffer();
 			while (pevlr != NULL) {
-				EventLogRecord elr(eventlog.get_name(), pevlr, ltime);
+				EventLogRecord elr(el->get_name(), pevlr, ltime);
 				boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(elr));
 
 				if (engine->match(arg)) {
 					process_record(elr);
 				} else if (fargs->debug) {
+					// TODO: Decrease timeout here so we get "ok" every x seconds even if we have ok results...
 					NSC_DEBUG_MSG(_T("Ignored record: ") + elr.render(true, fargs->syntax));
 				}
-				pevlr = eventlog.read_record_with_buffer();
+				pevlr = el->read_record_with_buffer();
 			}
-		} else if (dwWaitReason == WAIT_OBJECT_0 + 1) {
-			return;
 		} else {
 			NSC_LOG_ERROR(_T("Error failed to wait for eventlog message: ") + error::lookup::last_error());
-			if (errors > 10) {
+			if (errors++ > 10) {
 				NSC_LOG_ERROR(_T("To many errors giving up"));
+				delete [] handles;
 				return;
 			}
 		}
 	}
+	delete [] handles;
+	return;
 }
 
 
@@ -350,6 +343,9 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 
 			(_T("language"), sh::string_fun_key<std::string>(boost::bind(&real_time_thread::set_language, &thread_, _1), ""),
 			_T("MESSAGE LANGUAGE"), _T("The language to use for rendering message (mainly used fror testing)"))
+
+			(_T("log"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_eventlog, &thread_, _1), _T("application")),
+			_T("LOGS TO CHECK"), _T("Coma separated list of logs to check"))
 
 			;
 

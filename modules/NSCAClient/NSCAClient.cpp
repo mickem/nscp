@@ -225,7 +225,7 @@ NSCAPI::nagiosReturn NSCAAgent::send(sender_information &data, const std::list<n
 		boost::asio::io_service io_service;
 		nsca::socket socket(io_service);
 		socket.connect(data.host, data.port);
-		if (!socket.recv_iv(data.password, data.get_encryption(), boost::posix_time::seconds(data.timeout))) {
+		if (!socket.recv_iv(data.password, data.get_encryption(), boost::posix_time::seconds(data.timeout<5?30:data.timeout))) {
 			NSC_LOG_ERROR_STD(_T("Failed to read iv"));
 			return NSCAPI::hasFailed;
 		}
@@ -275,6 +275,7 @@ int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, :
 
 		std::wstring errmsg;
 		sender_information si(recipient);
+		si.timeout = data->timeout;
 		if (instance->send(si, list) != NSCAPI::isSuccess) {
 			NSC_LOG_ERROR_STD(_T("Failed to send NSCA message"));
 			if (!errmsg.empty())

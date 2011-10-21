@@ -1399,6 +1399,11 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::LoadData(
         }
     }
 
+	if (a_uDataLen == 0) {
+		return SI_OK;
+	}
+
+
     // determine the length of the converted data
     size_t uLen = converter.SizeFromStore(a_pData, a_uDataLen);
     if (uLen == (size_t)(-1)) {
@@ -3263,6 +3268,8 @@ public:
         size_t          a_uInputDataLen)
     {
         SI_ASSERT(a_uInputDataLen != (size_t) -1);
+		if (a_uInputDataLen == 0)
+			return 0;
 
         int retval = MultiByteToWideChar(
             m_uCodePage, 0,
@@ -3290,6 +3297,8 @@ public:
         SI_CHAR *       a_pOutputData,
         size_t          a_uOutputDataSize)
     {
+		if (a_uInputDataLen == 0)
+			return true;
         int nSize = MultiByteToWideChar(
             m_uCodePage, 0,
             a_pInputData, (int) a_uInputDataLen,

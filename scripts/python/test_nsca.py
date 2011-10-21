@@ -1,8 +1,10 @@
-from NSCP import Settings, Registry, Core, log, status
-from test_helper import Callable, run_tests, TestResult
+from NSCP import Settings, Registry, Core, log, status, log_error, sleep
+from test_helper import Callable, TestResult, get_test_manager, create_test_manager
 import plugin_pb2
 from types import *
 import socket
+import uuid
+import unicodedata
 
 core = Core.get()
 
@@ -22,17 +24,30 @@ def isOpen(ip, port):
 	except:
 		return False
 
+class NSCAMessage:
+	uuid = None
+	source = None
+	command = None
+	status = None
+	message = None
+	perfdata = None
+	got_simple_response = False
+
+	def __init__(self, command):
+		try:
+			self.uuid = command.decode('ascii')
+		except UnicodeDecodeError:
+			self.uuid = command
+		#self.uuid = unicodedata.normalize('NFKD', command).encode('ascii','ignore')
+		self.command = command
+	def __str__(self):
+		return 'Message: %s (%s, %s, %s)'%(self.uuid, self.source, self.command, self.status)
+
 class NSCAServerTest:
 	instance = None
 	key = ''
 	reg = None
-	got_response = False
-	last_source = None
-	last_command = None
-	last_status = None
-	last_message = None
-	last_perfdata = None
-	got_simple_response = None
+	responses = {}
 	
 	class SingletonHelper:
 		def __call__( self, *args, **kw ) :
@@ -44,7 +59,10 @@ class NSCAServerTest:
 	getInstance = SingletonHelper()
 
 	def desc(self):
-		return 'Testing that channels are loaded'
+		return 'Testcase for NSCA protocol'
+
+	def title(self):
+		return 'NSCA Server test'
 
 	def setup(self, plugin_id, prefix):
 		self.key = '_%stest_command'%prefix
@@ -64,22 +82,36 @@ class NSCAServerTest:
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
 		log('Got simple message %s on %s'%(command, channel))
-		self.got_simple_response = True
-		self.last_source = source
-		self.last_command = command
-		self.last_status = status
-		self.last_message = message
-		self.last_perfdata = perf
+		msg = NSCAMessage(command)
+		if msg.uuid in self.responses:
+			msg = self.responses[msg.uuid]
+		msg.source = source
+		msg.status = status
+		msg.message = message
+		msg.perfdata = perf
+		msg.got_simple_response = True
+		self.responses[msg.uuid] = msg
 		return True
 
 	def inbox_handler_wrapped(self, channel, request):
-		self.got_response = True
+		log_error('DISCARDED message on %s'%(channel))
+		
+		message = plugin_pb2.SubmitRequestMessage()
+		message.ParseFromString(request)
+		command = message.payload[0].command
+		log('Got simple message %s on %s'%(command, channel))
+		
+		msg = NSCAMessage(command)
+		if msg.uuid in self.responses:
+			msg = self.responses[msg.uuid]
+		msg.got_response = True
+		self.responses[msg.uuid] = msg
 		return (False, '')
 		
 	def teardown(self):
 		None
 		
-	def submit_payload(self, encryption, source, command, status, msg, perf):
+	def submit_payload(self, encryption, source, status, msg, perf):
 		message = plugin_pb2.SubmitRequestMessage()
 		
 		message.header.version = plugin_pb2.Common.VERSION_1
@@ -95,26 +127,38 @@ class NSCAServerTest:
 		enc.key = "password"
 		enc.value = 'pwd-%s'%encryption
 
+		uid = str(uuid.uuid4())
 		payload = message.payload.add()
 		payload.result = status
-		payload.command = command
-		payload.message = msg
+		payload.command = uid
+		payload.message = '%s - %s'%(uid, msg)
 		payload.source = source
-		self.got_response = False
-		self.got_simple_response = False
 		(result_code, err) = core.submit('nsca_test_outbox', message.SerializeToString())
 		result = TestResult()
-		result.add_message(len(err) == 0, 'Testing to send message using %s'%encryption, err)
-		result.add_message(self.got_simple_response, 'Testing to recieve simple message using %s'%encryption)
-		#result.assert_equals(self.last_source, source, 'Verify that source is sent through')
-		result.assert_equals(self.last_command, command, 'Verify that command is sent through')
-		result.assert_equals(self.last_message, msg, 'Verify that message is sent through')
-		result.assert_equals(self.last_perfdata, perf, 'Verify that performance data is sent through')
-		result.add_message(self.got_response, 'Testing to recieve message')
+		
+		found = False
+		for i in range(0,10):
+			if uid in self.responses:
+				rmsg = self.responses[uid]
+				result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%encryption)
+				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%encryption)
+				result.add_message(len(err) == 0, 'Testing to send message using %s'%encryption, err)
+				#result.assert_equals(rmsg.last_source, source, 'Verify that source is sent through')
+				result.assert_equals(rmsg.command, uid, 'Verify that command is sent through')
+				result.assert_contains(rmsg.message, msg, 'Verify that message is sent through')
+				result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
+				del self.responses[uid]
+				found = True
+				break
+			else:
+				log('Waiting for %s (%s)'%(uid, self.responses.keys()))
+				sleep(1)
+		if not found:
+			result.add_message(False, 'Failed to send message with uuid: %s using %s'%(uid, encryption), err)
 		return result
 
 	def test_one_full(self, encryption, state, key):
-		return self.submit_payload(encryption, '%ssrc%s'%(key, key), '%scmd%s'%(key, key), state, '%smsg%s'%(key, key), '')
+		return self.submit_payload(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '')
 
 	def test_one(self, crypto):
 		conf = Settings.get()
@@ -131,64 +175,56 @@ class NSCAServerTest:
 	def run_test(self):
 		result = TestResult()
 		result.add_message(isOpen('localhost', 15667), 'Checking that port is open')
-		# seems broken: "xor", "3way"
-		for c in ["des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "serpent", "gost", "none"]:
+		# Currently broken: "xor"
+		cryptos = ["des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "serpent", "gost", "none", "3way"]
+		for c in cryptos:
+			result.add_message(True, 'Testing crypto: %s'%c)
 			result.add(self.test_one(c))
 		
 		return result
+		
+	def install(self, arguments):
+		conf = Settings.get()
+		conf.set_string('/modules', 'test_nsca_server', 'NSCAServer')
+		conf.set_string('/modules', 'test_nsca_client', 'NSCAClient')
+		conf.set_string('/modules', 'pytest', 'PythonScript')
 
-def test(arguments):
-	global prefix
-	global plugin_id
-	result = TestResult()
-	result.add(run_tests(plugin_id, prefix, [NSCAServerTest]))
-	return result.return_nagios()
+		conf.set_string('/settings/pytest/scripts', 'test_nsca', 'test_nsca.py')
+		
+		conf.set_string('/settings/NSCA/test_nsca_server', 'port', '15667')
+		conf.set_string('/settings/NSCA/test_nsca_server', 'inbox', 'nsca_test_inbox')
+		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '1')
 
-def install_test(arguments):
-	log('-+---==(TEST INSTALLER)==---------------------------------------------------+-')
-	log(' | Setup nessecary configuration for running test                           |')
-	log(' | This includes: Loading the PythonScript module at startup                |')
-	log(' | To use this please run nsclient++ in "test mode" like so:                |')
-	log(' | nscp --test                                                              |')
-	log(' | Then start the test_nsca command by typing it and press enter like so:   |')
-	log(' | test_nsca                                                                |')
-	log(' | Lastly exit by typing exit like so:                                      |')
-	log(' | exit                                                                     |')
-	log('-+--------------------------------------------------------==(DAS ENDE!)==---+-')
-	conf = Settings.get()
-	conf.set_string('/modules', 'test_nsca_server', 'NSCAServer')
-	conf.set_string('/modules', 'test_nsca_client', 'NSCAClient')
-	conf.set_string('/modules', 'pytest', 'PythonScript')
+		conf.set_string('/settings/NSCA/test_nsca_client/targets', 'nsca_test_local', 'nsca://127.0.0.1:15667')
+		conf.set_string('/settings/NSCA/test_nsca_client', 'channel', 'nsca_test_outbox')
+		
+		conf.save()
 
-	conf.set_string('/settings/pytest/scripts', 'test_nsca', 'test_nsca.py')
-	
-	conf.set_string('/settings/NSCA/test_nsca_server', 'port', '15667')
-	conf.set_string('/settings/NSCA/test_nsca_server', 'inbox', 'nsca_test_inbox')
-	conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '1')
+	def uninstall(self):
+		None
 
-	conf.set_string('/settings/NSCA/test_nsca_client/targets', 'nsca_test_local', 'nsca://127.0.0.1:15667')
-	conf.set_string('/settings/NSCA/test_nsca_client', 'channel', 'nsca_test_outbox')
-	
-	conf.save()
+	def help(self):
+		None
+
+	def init(self, plugin_id):
+		None
+
+	def shutdown(self):
+		None
+
+all_tests = [NSCAServerTest]
 
 def __main__():
-	install_test([])
+	test_manager = create_test_manager()
+	test_manager.add(all_tests)
+	test_manager.install()
 	
-def init(pid, plugin_alias, script_alias):
-	global prefix
-	global plugin_id
-	plugin_id = pid
-	if script_alias:
-		prefix = '%s_'%script_alias
+def init(plugin_id, plugin_alias, script_alias):
+	test_manager = create_test_manager(plugin_id, plugin_alias, script_alias)
+	test_manager.add(all_tests)
 
-	conf = Settings.get()
-
-	reg = Registry.get(plugin_id)
-	
-	reg.simple_cmdline('help', get_help)
-	reg.simple_cmdline('install_python_test', install_test)
-
-	reg.simple_function('test_nsca', test, 'Run python NSCA unit test suite')
+	test_manager.init()
 
 def shutdown():
-	log('Unloading script...')
+	test_manager = get_test_manager()
+	test_manager.shutdown()

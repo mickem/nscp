@@ -4,6 +4,37 @@
 
 namespace script_wrapper {
 	using namespace boost::python;
+
+
+	namespace thread_support {
+		static bool enabled = true;
+	}
+
+	struct thread_locker {
+		PyGILState_STATE state;
+		thread_locker() {
+			if (thread_support::enabled)
+				state = PyGILState_Ensure();
+		}
+
+		~thread_locker() {
+			if (thread_support::enabled)
+				PyGILState_Release(state);
+		}
+	};
+
+
+	struct thread_unlocker {
+		PyThreadState *state;
+		thread_unlocker() {
+			state = PyEval_SaveThread();
+		}
+		~thread_unlocker() {
+			PyEval_RestoreThread(state);
+		}
+
+
+	};
 	
 	enum status {
 		OK = NSCAPI::returnOK, 
