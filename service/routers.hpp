@@ -13,7 +13,7 @@ namespace nsclient {
 		void add_plugin(plugin_type plugin) {
 			if (!plugin || !plugin->has_routing_handler())
 				return;
-			plugins_list::add_plugin(plugin);
+			plugins_list_with_listener::add_plugin(plugin);
 		}
 	};
 }

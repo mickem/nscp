@@ -5,6 +5,19 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-11-06 MickeM
+ * Had some "vacation" so no updates for a while
+ * A lot of fixes to the NSCA parts (now 100% compatible with old settings file)
+ * Added option to read sections (to plugin API)
+ * Fixed issues in settings wrapper so child paths are also mapped (not just keys)
+ * Many fixes related to NRPE/NSCA/*
+ * "RC quality" expect RC within the week (only need to fix default config file somehow)
+ * Upgraded all unit test to use the simplified API
+ * Fixed a some unicode issues in PythonScript module
+ * Improved threading a bit
+ * Fixed CheckSystem (service check)
+ * Fixed duplicate keys (when replacing) in old settings client
+ 
 2011-10-21 MickeM
  * Some more threading issues in Python (works perfectly(?) now)
  * Refactored the tests a bit making test suites runable from a central hub
