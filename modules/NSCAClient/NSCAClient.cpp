@@ -66,9 +66,14 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NSCA"), alias, _T("client"));
+		target_path = settings.alias().get_settings_path(_T("targets"));
 
 		settings.alias().add_path_to_settings()
 			(_T("NSCA AGENT SECTION"), _T("Section for NSCA passive check module."))
+
+			(_T("targets"), sh::fun_values_path(boost::bind(&NSCAAgent::add_target, this, _1, _2)), 
+			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+
 			;
 
 		settings.alias().add_key_to_settings()
@@ -94,17 +99,19 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings(_T("server"))
+			/*
 			(_T("host"), sh::wstring_key(&nscahost_),
 			_T("NSCA HOST"), _T("The NSCA server to report results to."))
 
 			(_T("port"), sh::uint_key(&nscaport_, 5666),
 			_T("NSCA PORT"), _T("The NSCA server port"))
 
-			(_T("encryption method"), sh::int_key(&encryption_method_),
+			(_T("encryption method"), sh::string_key(&encryption_method_),
 			_T("ENCRYPTION METHOD"), _T("Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all."))
 
 			(_T("password"), sh::string_key(&password_),
 			_T("PASSWORD"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
+			*/
 
 			(_T("timeout"), sh::uint_key(&timeout_, 30),
 			_T("SOCKET TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out."))
@@ -157,6 +164,13 @@ std::wstring NSCAAgent::getCryptos() {
 	return ret + _T("}");
 }
 
+void NSCAAgent::add_target(std::wstring key, std::wstring arg) {
+	try {
+		targets.add(get_settings_proxy(), target_path , key, arg);
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+	}
+}
 void NSCAAgent::add_local_options(po::options_description &desc, nscp_connection_data &command_data) {
 	desc.add_options()
 		("payload-length,l", po::value<unsigned int>(&command_data.payload_length)->zero_tokens()->default_value(512), "The payload length to use in the NSCA packet.")
@@ -202,7 +216,23 @@ int NSCAAgent::commandLineExec(const std::wstring &command, std::list<std::wstri
 //NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
 NSCAPI::nagiosReturn NSCAAgent::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
 	try {
+
 		client::configuration config;
+		net::wurl url;
+		url.protocol = _T("nsca");
+
+		nscapi::target_handler::optarget target = targets.find_target(_T("default"));
+		if (target) {
+			url.host = target->host;
+			url.port = strEx::stoi(target->options[_T("port")]);
+			config.data->recipient.data["encryption"] = utf8::cvt<std::string>(target->options[_T("encryption")]);
+			config.data->recipient.data["password"] = utf8::cvt<std::string>(target->options[_T("password")]);
+		}
+		config.data->recipient.id = "default";
+		config.data->recipient.address = utf8::cvt<std::string>(url.to_string());
+		config.data->host_self.id = "self";
+		config.data->host_self.host = hostname_;
+
 		setup(config, _T(""));
 		if (!client::command_line_parser::relay_submit(config, request, response)) {
 			NSC_LOG_ERROR_STD(_T("Failed to submit message..."));
@@ -229,7 +259,7 @@ NSCAPI::nagiosReturn NSCAAgent::send(sender_information &data, const std::list<n
 			NSC_LOG_ERROR_STD(_T("Failed to read iv"));
 			return NSCAPI::hasFailed;
 		}
-		NSC_LOG_ERROR_STD(_T("Got IV sending data: ") + strEx::itos(packets.size()));
+		NSC_DEBUG_MSG_STD(_T("Got IV sending data: ") + strEx::itos(packets.size()));
 		BOOST_FOREACH(const nsca::packet &packet, packets) {
 			socket.send_nsca(packet, boost::posix_time::seconds(data.timeout));
 		}
@@ -255,11 +285,13 @@ int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, st
 }
 int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
 	try {
+
 		Plugin::SubmitRequestMessage message;
 		message.ParseFromString(request);
 		std::list<nsca::packet> list;
+		int iii = message.payload_size();
 
-		std::wstring command, msg, perf;
+		std::wstring alias, command, msg, perf;
 		nscapi::functions::destination_container recipient; // = data->host_default_recipient;
 		nscapi::functions::parse_destination(*header, header->recipient_id(), recipient, true);
 		nscapi::functions::destination_container source;
@@ -267,8 +299,10 @@ int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, :
 
 		for (int i=0;i < message.payload_size(); ++i) {
 			nsca::packet packet(source.host, local_data.payload_length, local_data.time_delta);
-			packet.code = nscapi::functions::parse_simple_submit_request_payload(message.payload(i), command, msg, perf);
-			packet.service = utf8::cvt<std::string>(command);
+			packet.code = nscapi::functions::parse_simple_submit_request_payload(message.payload(i), alias, command, msg, perf);
+			if (alias != _T("host_check"))
+				packet.service = utf8::cvt<std::string>(alias);
+			packet.host = source.host;
 			packet.result = utf8::cvt<std::string>(msg) + "|" + utf8::cvt<std::string>(perf);
 			list.push_back(packet);
 		}

@@ -39,6 +39,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIGetApplicationName fNSAPIGetApplicationName;
 		nscapi::core_api::lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr;
 		nscapi::core_api::lpNSAPIGetSettingsSection fNSAPIGetSettingsSection;
+		nscapi::core_api::lpNSAPIGetSettingsSections fNSAPIGetSettingsSections;
 		nscapi::core_api::lpNSAPIReleaseSettingsSectionBuffer fNSAPIReleaseSettingsSectionBuffer;
 		nscapi::core_api::lpNSAPIGetSettingsString fNSAPIGetSettingsString;
 		nscapi::core_api::lpNSAPIExpandPath fNSAPIExpandPath;
@@ -87,6 +88,7 @@ namespace nscapi {
 			, fNSAPIGetApplicationName(NULL)
 			, fNSAPIGetApplicationVersionStr(NULL)
 			, fNSAPIGetSettingsSection(NULL)
+			, fNSAPIGetSettingsSections(NULL)
 			, fNSAPIReleaseSettingsSectionBuffer(NULL)
 			, fNSAPIGetSettingsString(NULL)
 			, fNSAPIGetSettingsInt(NULL)
@@ -121,6 +123,7 @@ namespace nscapi {
 		std::wstring getApplicationName(void);
 		std::wstring getApplicationVersionString(void);
 		std::list<std::wstring> getSettingsSection(std::wstring section);
+		std::list<std::wstring> getSettingsSections(std::wstring section);
 		std::wstring getSettingsString(std::wstring section, std::wstring key, std::wstring defaultValue);
 		std::wstring expand_path(std::wstring value);
 		int getSettingsInt(std::wstring section, std::wstring key, int defaultValue);

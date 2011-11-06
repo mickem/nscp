@@ -72,12 +72,17 @@ namespace nrpe {
 		}
 	};
 
-	class nrpe_exception {
-		std::wstring error_;
+	class nrpe_exception : public std::exception {
+		std::string error_;
 	public:
-		nrpe_exception(std::wstring error) : error_(error) {}
-		std::wstring getMessage() {
-			return error_;
+		nrpe_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
+		nrpe_exception(std::string error) : error_(utf8::cvt<std::string>(error)) {}
+		~nrpe_exception() throw() {}
+		const char* what() const throw() {
+			return error_.c_str();
+		}
+		const std::wstring wwhat() const throw() {
+			return utf8::cvt<std::wstring>(error_);
 		}
 	};
 	class nrpe_packet_exception : public nrpe_exception {

@@ -139,7 +139,9 @@ namespace nsca {
 		}
 
 		void parse_data(const char* buffer, unsigned int buffer_len) {
-			const nsca::data::data_packet *data = reinterpret_cast<const nsca::data::data_packet*>(buffer);
+			char *tmp = new char[buffer_len];
+			memcpy(tmp, buffer, buffer_len);
+			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(tmp);
 			//packet_version=swap_bytes::ntoh<int16_t>(data->packet_version);
 			time=swap_bytes::ntoh<u_int32_t>(data->timestamp);
 			code = swap_bytes::ntoh<int16_t>(data->return_code);
@@ -149,6 +151,12 @@ namespace nsca {
 			service= data->get_desc_ptr(nsca::length::host_length);
 			result= data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length);
 
+			unsigned int crc32 = swap_bytes::ntoh<u_int32_t>(data->crc32_value);
+			data->crc32_value = 0;
+			unsigned int calculated_crc32=calculate_crc32(tmp, buffer_len);
+			delete [] tmp;
+			if (crc32 != calculated_crc32)
+				throw nsca::nsca_exception(_T("Invalid crc: ") + strEx::itos(crc32) + _T(" != ") + strEx::itos(calculated_crc32));
 		}
 
 		void get_buffer(std::string &buffer) const {

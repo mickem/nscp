@@ -128,8 +128,13 @@ void script_wrapper::log_debug(object x) {
 	}
 }
 void script_wrapper::sleep(unsigned int seconds) {
-	thread_unlocker unlocker;
-	boost::this_thread::sleep(boost::posix_time::milliseconds(seconds*1000));
+	{
+		thread_unlocker unlocker;
+		{
+			boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+
+		}
+	}
 }
 /*
 std::string script_wrapper::get_alias() {
@@ -251,14 +256,14 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 			NSC_LOG_ERROR_STD(_T("Failed to find python function: ") + utf8::cvt<std::wstring>(cmd));
 			return NSCAPI::returnIgnored;
 		}
-
-		py::list l;
-		BOOST_FOREACH(std::wstring a, arguments) {
-			l.append(utf8::cvt<std::string>(a));
-		}
 		{
 			thread_locker locker;
+
 			try {
+				py::list l;
+				BOOST_FOREACH(std::wstring a, arguments) {
+					l.append(utf8::cvt<std::string>(a));
+				}
 				tuple ret = boost::python::call<tuple>(boost::python::object(it->second).ptr(), l);
 				if (ret.ptr() == Py_None) {
 					msg = _T("None");

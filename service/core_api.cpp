@@ -147,6 +147,19 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** a
 	}
 	return NSCAPI::hasFailed;
 }
+NSCAPI::errorReturn NSAPIGetSettingsSections(const wchar_t* section, wchar_t*** aBuffer, unsigned int * bufLen) {
+	try {
+		unsigned int len = 0;
+		*aBuffer = array_buffer::list2arrayBuffer(settings_manager::get_settings()->get_sections(section), len);
+		*bufLen = len;
+		return NSCAPI::isSuccess;
+	} catch (settings::settings_exception e) {
+		LOG_ERROR_STD(_T("Failed to get section: ") + e.getMessage());
+	} catch (...) {
+		LOG_ERROR_STD(_T("Failed to getSection: ") + section);
+	}
+	return NSCAPI::hasFailed;
+}
 NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsigned int * bufLen) {
 	array_buffer::destroyArrayBuffer(*aBuffer, *bufLen);
 	*bufLen = 0;
@@ -435,6 +448,8 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsString);
 	if (wcscasecmp(buffer, _T("NSAPIGetSettingsSection")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsSection);
+	if (wcscasecmp(buffer, _T("NSAPIGetSettingsSections")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsSections);
 	if (wcscasecmp(buffer, _T("NSAPIReleaseSettingsSectionBuffer")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIReleaseSettingsSectionBuffer);
 	if (wcscasecmp(buffer, _T("NSAPIGetSettingsInt")) == 0)

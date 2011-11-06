@@ -139,6 +139,20 @@ namespace nscapi {
 			T* store_to_;
 		};
 
+		template<class T, class V, class TBase>
+		class typed_key_entry_in_vector : public TBase {
+		public:
+			typed_key_entry_in_vector(V* store_to, typename V::key_type key, const T& v) : TBase(v), store_to_(store_to), key_(key) {}
+
+			virtual void update_target(T *value) const {
+				if (store_to_)
+					(*store_to_)[key_] = *value;
+			}
+		protected:
+			V* store_to_;
+			typename V::key_type key_;
+		};
+
 		template<class T, class TBase>
 		class typed_key_fun : public TBase {
 		public:
@@ -151,6 +165,11 @@ namespace nscapi {
 			boost::function<void (T)> callback_;
 		};
 
+		template<typename T>
+		typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* wstring_vector_key(T *val, typename T::key_type key, std::wstring def) {
+			typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* r = new typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >(val, key, def);
+			return r;
+		}
 
 		typedef typed_key_value<std::wstring, typed_string_value<std::wstring> > wstring_key_type;
 		typedef typed_key_value<std::string, typed_string_value<std::string> > string_key_type;
@@ -159,6 +178,10 @@ namespace nscapi {
 		typedef typed_key_value<int, typed_int_value<int> > int_key_type;
 		typedef typed_key_value<bool, typed_bool_value<bool> > bool_key_type;
 
+		/*
+		template<typename T>
+		typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* wstring_vector_key(T *val, typename T::key_type key, std::wstring def);
+		*/
 		wstring_key_type* wstring_key(std::wstring *val, std::wstring def = _T(""));
 		string_key_type* string_key(std::string *val, std::string def = "");
 		int_key_type* int_key(int *val, int def = 0);
@@ -231,6 +254,10 @@ namespace nscapi {
 					BOOST_FOREACH(std::wstring key, list) {
 						std::wstring val = core_->get_string(path, key, _T(""));
 						callback_(key, val);
+					}
+					list = core_->get_sections(path);
+					BOOST_FOREACH(std::wstring key, list) {
+						callback_(key, _T(""));
 					}
 				}
 			}

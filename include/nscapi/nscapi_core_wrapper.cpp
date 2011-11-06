@@ -369,6 +369,22 @@ std::list<std::wstring> nscapi::core_wrapper::getSettingsSection(std::wstring se
 		throw nscapi::nscapi_exception(_T("buffer is not null?."));
 	return ret;
 }
+std::list<std::wstring> nscapi::core_wrapper::getSettingsSections(std::wstring section) {
+	if (!fNSAPIGetSettingsSections)
+		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+	array_buffer::arrayBuffer aBuffer = NULL;
+	unsigned int argLen = 0;
+	if (fNSAPIGetSettingsSections(section.c_str(), &aBuffer, &argLen) != NSCAPI::isSuccess) {
+		throw nscapi::nscapi_exception(_T("Settings could not be retrieved."));
+	}
+	std::list<std::wstring> ret = array_buffer::arrayBuffer2list(argLen, aBuffer);
+	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
+		throw nscapi::nscapi_exception(_T("Settings could not be destroyed."));
+	}
+	if (aBuffer != NULL)
+		throw nscapi::nscapi_exception(_T("buffer is not null?."));
+	return ret;
+}
 /**
  * Retrieve an int from the settings subsystem (INI-file)
  * Might possibly be located in the registry in the future.
@@ -638,6 +654,7 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIGetSettingsBool = (nscapi::core_api::lpNSAPIGetSettingsBool)f(_T("NSAPIGetSettingsBool"));
 	fNSAPIGetSettingsString = (nscapi::core_api::lpNSAPIGetSettingsString)f(_T("NSAPIGetSettingsString"));
 	fNSAPIGetSettingsSection = (nscapi::core_api::lpNSAPIGetSettingsSection)f(_T("NSAPIGetSettingsSection"));
+	fNSAPIGetSettingsSections = (nscapi::core_api::lpNSAPIGetSettingsSections)f(_T("NSAPIGetSettingsSections"));
 	fNSAPIReleaseSettingsSectionBuffer = (nscapi::core_api::lpNSAPIReleaseSettingsSectionBuffer)f(_T("NSAPIReleaseSettingsSectionBuffer"));
 	fNSAPIMessage = (nscapi::core_api::lpNSAPIMessage)f(_T("NSAPIMessage"));
 	fNSAPIStopServer = (nscapi::core_api::lpNSAPIStopServer)f(_T("NSAPIStopServer"));

@@ -1,19 +1,17 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from test_helper import Callable, TestResult, get_test_manager, create_test_manager
+from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
 import socket
 import uuid
 import unicodedata
+#import _thread
+#sync = _thread.allocate_lock()
+
+import threading
+sync = threading.RLock()
 
 core = Core.get()
-
-prefix = 'py_'
-plugin_id = 0
-
-def get_help(arguments):
-	return (status.OK, 'help: Get help')
-
 
 def isOpen(ip, port):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,30 +32,45 @@ class NSCAMessage:
 	got_simple_response = False
 
 	def __init__(self, command):
-		try:
-			self.uuid = command.decode('ascii')
-		except UnicodeDecodeError:
+		if type(command) == 'unicode':
+			try:
+				self.uuid = command.decode('ascii', 'replace')
+			except UnicodeDecodeError:
+				self.uuid = command
+		else:
 			self.uuid = command
 		#self.uuid = unicodedata.normalize('NFKD', command).encode('ascii','ignore')
 		self.command = command
 	def __str__(self):
 		return 'Message: %s (%s, %s, %s)'%(self.uuid, self.source, self.command, self.status)
 
-class NSCAServerTest:
+class NSCAServerTest(BasicTest):
 	instance = None
 	key = ''
 	reg = None
-	responses = {}
+	_responses = {}
 	
-	class SingletonHelper:
-		def __call__( self, *args, **kw ) :
-			if NSCAServerTest.instance is None :
-				object = NSCAServerTest()
-				NSCAServerTest.instance = object
-			return NSCAServerTest.instance
+	def has_response(self, id):
+		with sync:
+			return id in self._responses
+	
+	def get_response(self, id):
+		with sync:
+			if id in self._responses:
+				return self._responses[id]
+			msg = NSCAMessage(id)
+			self._responses[id] = msg
+			return msg
 
-	getInstance = SingletonHelper()
+	def set_response(self, msg):
+		with sync:
+			self._responses[msg.uuid] = msg
 
+	def del_response(self, id):
+		with sync:
+			del self._responses[id]
+			
+	
 	def desc(self):
 		return 'Testcase for NSCA protocol'
 
@@ -81,16 +94,14 @@ class NSCAServerTest:
 	inbox_handler = Callable(inbox_handler)
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
-		log('Got simple message %s on %s'%(command, channel))
-		msg = NSCAMessage(command)
-		if msg.uuid in self.responses:
-			msg = self.responses[msg.uuid]
+		log('Got simple message %s'%command)
+		msg = self.get_response(command)
 		msg.source = source
 		msg.status = status
 		msg.message = message
 		msg.perfdata = perf
 		msg.got_simple_response = True
-		self.responses[msg.uuid] = msg
+		self.set_response(msg)
 		return True
 
 	def inbox_handler_wrapped(self, channel, request):
@@ -99,13 +110,11 @@ class NSCAServerTest:
 		message = plugin_pb2.SubmitRequestMessage()
 		message.ParseFromString(request)
 		command = message.payload[0].command
-		log('Got simple message %s on %s'%(command, channel))
+		#log('Got message %s on %s'%(command, channel))
 		
-		msg = NSCAMessage(command)
-		if msg.uuid in self.responses:
-			msg = self.responses[msg.uuid]
+		msg = self.get_response(command)
 		msg.got_response = True
-		self.responses[msg.uuid] = msg
+		self.set_response(msg)
 		return (False, '')
 		
 	def teardown(self):
@@ -138,8 +147,8 @@ class NSCAServerTest:
 		
 		found = False
 		for i in range(0,10):
-			if uid in self.responses:
-				rmsg = self.responses[uid]
+			if self.has_response(uid):
+				rmsg = self.get_response(uid)
 				result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%encryption)
 				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%encryption)
 				result.add_message(len(err) == 0, 'Testing to send message using %s'%encryption, err)
@@ -147,11 +156,11 @@ class NSCAServerTest:
 				result.assert_equals(rmsg.command, uid, 'Verify that command is sent through')
 				result.assert_contains(rmsg.message, msg, 'Verify that message is sent through')
 				result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
-				del self.responses[uid]
+				self.del_response(uid)
 				found = True
 				break
 			else:
-				log('Waiting for %s (%s)'%(uid, self.responses.keys()))
+				log('Waiting for %s'%uid)
 				sleep(1)
 		if not found:
 			result.add_message(False, 'Failed to send message with uuid: %s using %s'%(uid, encryption), err)
@@ -177,6 +186,7 @@ class NSCAServerTest:
 		result.add_message(isOpen('localhost', 15667), 'Checking that port is open')
 		# Currently broken: "xor"
 		cryptos = ["des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "serpent", "gost", "none", "3way"]
+		#cryptos = ["none"]
 		for c in cryptos:
 			result.add_message(True, 'Testing crypto: %s'%c)
 			result.add(self.test_one(c))
@@ -212,19 +222,15 @@ class NSCAServerTest:
 	def shutdown(self):
 		None
 
+setup_singleton(NSCAServerTest)
+
 all_tests = [NSCAServerTest]
 
 def __main__():
-	test_manager = create_test_manager()
-	test_manager.add(all_tests)
-	test_manager.install()
+	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):
-	test_manager = create_test_manager(plugin_id, plugin_alias, script_alias)
-	test_manager.add(all_tests)
-
-	test_manager.init()
+	init_testcases(plugin_id, plugin_alias, script_alias, all_tests)
 
 def shutdown():
-	test_manager = get_test_manager()
-	test_manager.shutdown()
+	shutdown_testcases()

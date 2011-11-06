@@ -113,7 +113,6 @@ python_script::python_script(unsigned int plugin_id, const std::string alias, co
 	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
 python_script::~python_script(){
-	script_wrapper::thread_locker locker;
 	callFunction("shutdown");
 }
 void python_script::callFunction(const std::string& functionName) {
@@ -193,8 +192,8 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		bool do_init = false;
 		if (!has_init) {
 			has_init = true;
-			Py_Initialize();
 			PyEval_InitThreads();
+			Py_Initialize();
 			do_init = true;
 		}
 
@@ -389,6 +388,7 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	if (inst->has_simple_message_handler(chnl)) {
 		std::wstring src, cmd, msg, perf;
 		int code = nscapi::functions::parse_simple_submit_request(request, src, cmd, msg, perf);
+		NSC_LOG_ERROR_STD(_T(" --- command: ") + cmd);
 		int ret = inst->handle_simple_message(chnl, to_string(src), to_string(cmd), code, msg, perf);
 		nscapi::functions::create_simple_submit_response(channel, cmd, ret, _T(""), response);
 		return ret;

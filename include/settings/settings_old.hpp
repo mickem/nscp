@@ -385,10 +385,12 @@ namespace settings {
 				return;
 			}
 			// @todo: this will NOT work for "nodes in paths"
+			std::set<std::wstring> ignore_list;
 			BOOST_FOREACH(settings_map::keys_key_type key, map.keys_) {
 				if (key.first.first == path) {
 					if (has_key_int(key.second.first, key.second.second)) {
 						list.push_back(key.first.second);
+						ignore_list.insert(key.second.first + _T("/") + key.second.second);
 					}
 				}
 			}
@@ -401,7 +403,12 @@ namespace settings {
 						section_cache_[path] = list2;
 						it = section_cache_.find(path);
 					}
-					list.insert(list.end(), (*it).second.begin(), (*it).second.end());
+					BOOST_FOREACH(std::wstring k, (*it).second) {
+						std::set<std::wstring>::const_iterator cit = ignore_list.find(key.second + _T("/") + k);
+						if (cit == ignore_list.end())
+							list.push_back(k);
+					}
+					//list.insert(list.end(), (*it).second.begin(), (*it).second.end());
 				}
 			}
 		}

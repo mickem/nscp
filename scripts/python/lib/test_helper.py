@@ -1,6 +1,21 @@
 from NSCP import Settings, Registry, Core, log, log_error, status
+import os
+import inspect
 
 test_manager = None
+
+def install_testcases(tests):
+	test_manager = create_test_manager()
+	test_manager.add(tests)
+	test_manager.install()
+
+def init_testcases(plugin_id, plugin_alias, script_alias, tests):
+	test_manager = create_test_manager(plugin_id, plugin_alias, script_alias)
+	test_manager.add(tests)
+	test_manager.init()
+
+def shutdown_testcases():
+	get_test_manager().shutdown()
 
 def get_test_manager():
 	global test_manager
@@ -39,11 +54,79 @@ def run_tests(arguments = []):
 
 def display_help(arguments = []):
 	return (status.OK, 'TODO')
-	
+
 class Callable:
 	def __init__(self, anycallable):
 		self.__call__ = anycallable
 
+class SingletonHelper:
+	klass = None
+	def __init__(self, klass):
+		self.klass = klass
+	def __call__(self, *args, **kw):
+		if not self.klass._instance:
+			self.klass._instance = self.klass()
+		return self.klass._instance
+
+def setup_singleton(klass, src = None):
+	klass.getInstance = SingletonHelper(klass)
+	log('Setting path: %s'%src)
+	if not src:
+		cf = inspect.currentframe()
+		if cf:
+			bf = cf.f_back
+			if bf:
+				src = bf.f_code.co_filename
+	klass.__source__ = src
+	log('==>%s'%src)
+
+class BasicTest(object):
+
+	_instance = None
+	getInstance = None
+	__source__ = ''
+
+	def desc(self):
+		return 'TODO: Describe: %s'%self.title()
+
+	def title(self):
+		return self._instance.__class__.__name__
+
+	def setup(self, plugin_id, prefix):
+		None
+
+	def teardown(self):
+		None
+
+	def run_test(self):
+		result = TestResult()
+		result.add_message(False, 'TODO add implementation')
+		return result
+
+	def install(self, arguments):
+		conf = Settings.get()
+		conf.set_string('/modules', 'pytest', 'PythonScript')
+		log('==> %s'%self.__source__)
+		fn = os.path.basename(self.__source__)
+		(sn, ext) = os.path.splitext(fn)
+		conf.register_key('/settings/pytest/scripts', sn, 'string', 'UNIT TEST SCRIPT: %s'%self.title(), 'A script for running unittests for: %s'%self.desc(), fn)
+		conf.set_string('/settings/pytest/scripts', sn, fn)
+		
+		conf.save()
+	
+	def uninstall(self):
+		None
+
+	def help(self):
+		None
+
+	def init(self, plugin_id):
+		None
+
+	def shutdown(self):
+		None
+		
+		
 class TestResult:
 	class Entry:
 		status = False

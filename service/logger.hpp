@@ -65,7 +65,7 @@ namespace nsclient {
 	namespace logging_queue {
 
 		namespace ip = boost::interprocess;
-		const int max_message_size = 4096;
+		const int max_message_size = 40960;
 		const std::string queue_name = "logging_queue";
 
 

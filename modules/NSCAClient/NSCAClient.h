@@ -25,6 +25,7 @@
 #include <boost/program_options.hpp>
 
 #include <nsca/nsca_packet.hpp>
+#include <nscapi/targets.hpp>
 
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CHANNELS();
@@ -33,15 +34,13 @@ class NSCAAgent : public nscapi::impl::simple_plugin {
 private:
 
 	std::string hostname_;
-	std::wstring nscahost_;
-	unsigned int nscaport_;
 	unsigned int payload_length_;
 	bool cacheNscaHost_;
-	std::string password_;
-	int encryption_method_;
 	unsigned int timeout_;
 	std::wstring channel_;
 	int time_delta_;
+	nscapi::target_handler targets;
+	std::wstring target_path;
 
 
 	struct sender_information {
@@ -145,6 +144,7 @@ public:
 
 	std::wstring setup(client::configuration &config, const std::wstring &command);
 	void add_local_options(boost::program_options::options_description &desc, nscp_connection_data &command_data);
+	void add_target(std::wstring key, std::wstring args);
 
 	void set_delay(std::wstring key) {
 		time_delta_ = strEx::stol_as_time_sec(key, 1);

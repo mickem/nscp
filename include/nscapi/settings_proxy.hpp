@@ -41,7 +41,7 @@ namespace nscapi {
 		}
 
 		virtual string_list get_sections(std::wstring path) {
-			return core_->getSettingsSection(path);
+			return core_->getSettingsSections(path);
 		}
 		virtual string_list get_keys(std::wstring path) {
 			return core_->getSettingsSection(path);

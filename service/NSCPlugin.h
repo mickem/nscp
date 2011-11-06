@@ -156,6 +156,11 @@ public:
 	
 	bool route_message(const wchar_t *channel, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
+	std::wstring get_description() {
+		if (alias_.empty())
+			return getName();
+		return getName() + _T(" (") + alias_ + _T(")");
+	}
 	std::wstring get_alias() {
 		return alias_;
 	}

@@ -74,10 +74,14 @@ namespace nrpe {
 						try {
 							nrpe::packet request = parser_.parse();
 							response = handler_->handle(request);
-						} catch (nrpe::nrpe_packet_exception &e) {
-							response = handler_->create_error(e.getMessage());
+						} catch (const nrpe::nrpe_packet_exception &e) {
+							response = handler_->create_error(e.wwhat());
+						} catch (const nrpe::nrpe_exception &e) {
+							response = handler_->create_error(e.wwhat());
+						} catch (const std::exception &e) {
+							response = handler_->create_error(_T("Error handling NRPE packet: ") + utf8::cvt<std::wstring>(e.what()));
 						} catch (...) {
-							response = handler_->create_error(_T("Unknown error handling packet"));
+							response = handler_->create_error(_T("Unknown error handling NRPE packet"));
 						}
 
 						std::vector<boost::asio::const_buffer> buffers;

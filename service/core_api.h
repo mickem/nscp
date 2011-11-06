@@ -40,6 +40,7 @@ void NSAPIStopServer(void);
 NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::nagiosReturn NSAPIExecCommand(const wchar_t* target, const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t*, wchar_t***, unsigned int *);
+NSCAPI::errorReturn NSAPIGetSettingsSections(const wchar_t*, wchar_t***, unsigned int *);
 NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsigned int * bufLen);
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
 NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen);

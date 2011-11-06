@@ -152,7 +152,7 @@ bool Scheduler::unloadModule() {
 void Scheduler::on_error(std::wstring error) {
 	NSC_LOG_ERROR_STD(error);
 }
-
+#include <nscapi/functions.hpp>
 void Scheduler::handle_schedule(scheduler::target item) {
 	try {
 		std::string response;
@@ -160,6 +160,7 @@ void Scheduler::handle_schedule(scheduler::target item) {
 		if (nscapi::report::matches(item.report, code)) {
 			// @todo: allow renaming of commands here item.alias, 
 			// @todo this is broken, fix this (uses the wrong message)
+			nscapi::functions::make_submit_from_query(response, item.channel, item.alias);
 			std::string result;
 			GET_CORE()->submit_message(item.channel, response, result);
 		}

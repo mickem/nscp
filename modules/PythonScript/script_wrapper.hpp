@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/python.hpp>
+#include <boost/thread.hpp>
 
 namespace script_wrapper {
 	using namespace boost::python;
@@ -8,6 +9,16 @@ namespace script_wrapper {
 
 	namespace thread_support {
 		static bool enabled = true;
+		static boost::shared_mutex mutex;
+
+		struct log_lock {
+			boost::unique_lock<boost::shared_mutex> lock;
+			log_lock() : lock(thread_support::mutex, boost::get_system_time() + boost::posix_time::seconds(2)) {
+				if (!lock.owns_lock())
+					NSC_LOG_ERROR(_T("Failed to get mutex: thread_locker"));
+			}
+		};
+
 	}
 
 	struct thread_locker {
@@ -27,13 +38,13 @@ namespace script_wrapper {
 	struct thread_unlocker {
 		PyThreadState *state;
 		thread_unlocker() {
-			state = PyEval_SaveThread();
+			if (thread_support::enabled)
+				state = PyEval_SaveThread();
 		}
 		~thread_unlocker() {
-			PyEval_RestoreThread(state);
+			if (thread_support::enabled)
+				PyEval_RestoreThread(state);
 		}
-
-
 	};
 	
 	enum status {

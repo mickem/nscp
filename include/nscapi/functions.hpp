@@ -179,6 +179,8 @@ namespace nscapi {
 				host->set_id(dst.id);
 			if (!dst.host.empty())
 				host->set_host(dst.host);
+			if (!dst.address.empty())
+				host->set_address(dst.address);
 			if (!dst.protocol.empty())
 				host->set_protocol(dst.protocol);
 			if (!dst.comment.empty())
@@ -198,10 +200,14 @@ namespace nscapi {
 				const ::Plugin::Common::Host &host = header.hosts(i);
 				if (host.id() == tag) {
 					data.id = tag;
-					data.host = host.host();
-					data.address = host.address();
-					data.protocol = host.protocol();
-					data.comment = host.comment();
+					if (!host.host().empty())
+						data.host = host.host();
+					if (!host.address().empty())
+						data.address = host.address();
+					if (!host.protocol().empty())
+						data.protocol = host.protocol();
+					if (!host.comment().empty())
+						data.comment = host.comment();
 					if (expand_meta) {
 						for(int j=0;j<host.tags_size(); ++j) {
 							data.tags.push_back(host.tags(j));
@@ -217,6 +223,20 @@ namespace nscapi {
 		}
 
 		//////////////////////////////////////////////////////////////////////////
+
+		static void make_submit_from_query(std::string &message, const std::wstring channel, const std::wstring alias = _T("")) {
+			Plugin::QueryResponseMessage response;
+			response.ParseFromString(message);
+			Plugin::SubmitRequestMessage request;
+			request.mutable_header()->CopyFrom(response.header());
+			request.set_channel(to_string(channel));
+			for (int i=0;i<response.payload_size();++i) {
+				request.add_payload()->CopyFrom(response.payload(i));
+				if (!alias.empty())
+					request.mutable_payload(i)->set_alias(to_string(alias));
+			}
+			message = request.SerializeAsString();
+		}
 
 		static void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
@@ -270,7 +290,8 @@ namespace nscapi {
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
 			return gbp_to_nagios_status(payload.result());
 		}
-		static NSCAPI::errorReturn parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &command, std::wstring &msg, std::wstring &perf) {
+		static NSCAPI::errorReturn parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &command, std::wstring &msg, std::wstring &perf) {
+			alias = utf8::cvt<std::wstring>(payload.alias());
 			command = utf8::cvt<std::wstring>(payload.command());
 			msg = utf8::cvt<std::wstring>(payload.message());
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
@@ -360,7 +381,7 @@ namespace nscapi {
 			return data;
 		}
 
-		static int parse_simple_query_response(std::string &response, std::wstring &msg, std::wstring &perf) {
+		static int parse_simple_query_response(const std::string &response, std::wstring &msg, std::wstring &perf) {
 			Plugin::QueryResponseMessage message;
 			message.ParseFromString(response);
 

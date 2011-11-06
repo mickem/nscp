@@ -370,9 +370,11 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 	BOOST_FOREACH(std::wstring plugin, list) {
 		std::wstring alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin);
-		if (plugin == _T("enabled")) {
+		if (plugin == _T("enabled") || plugin == _T("1")) {
 			plugin = alias;
 			alias = _T("");
+		} else if (alias == _T("enabled") || alias == _T("1")) {
+				alias = _T("");
 		} else if ((active && plugin == _T("disabled")) || (active && alias == _T("disabled")))
 			continue;
 		else if (plugin == _T("disabled")) {
@@ -386,7 +388,11 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 			plugin = alias;
 			alias = tmp;
 		}
-		LOG_DEBUG_CORE_STD(_T("Found: ") + plugin + _T(" as ") + alias);
+		if (alias.empty()) {
+			LOG_DEBUG_CORE_STD(_T("Found: ") + plugin);
+		} else {
+			LOG_DEBUG_CORE_STD(_T("Found: ") + plugin + _T(" as ") + alias);
+		}
 		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == _T(".dll"))
 			plugin = plugin.substr(0, plugin.length()-4);
 		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
@@ -686,7 +692,11 @@ bool NSClientT::boot_load_plugins(bool boot) {
 		BOOST_FOREACH(v, plugins) {
 			std::wstring file = NSCPlugin::get_plugin_file(v.second);
 			std::wstring alias = v.first;
-			LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file + _T(" as ") + alias);
+			if (!alias.empty()) {
+				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file + _T(" as ") + alias);
+			} else {
+				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file);
+			}
 			try {
 				addPlugin(pluginPath / boost::filesystem::wpath(file), alias);
 			} catch(const NSPluginException& e) {
@@ -920,7 +930,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 			return;
 		}
 		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
-			LOG_DEBUG_CORE_STD(_T("Loading plugin: ") + (*it)->getName() + _T(" as ") + (*it)->get_alias());
+			LOG_DEBUG_CORE_STD(_T("Loading plugin: ") + (*it)->get_description());
 			try {
 				if (!(*it)->load_plugin(mode)) {
 					LOG_ERROR_CORE_STD(_T("Plugin refused to load: ") + (*it)->getModule());

@@ -73,7 +73,7 @@ namespace nsca {
 			unsigned int len = nsca::length::iv::get_packet_length();
 			std::vector<char> buf(len);
 			if (!read_with_timeout(buf, timeout)) {
-				NSC_LOG_ERROR_STD(_T("Failed to read IV from server."));
+				NSC_LOG_ERROR_STD(_T("Failed to read IV from server (using ") + strEx::itos(encryption_method) + _T(", ") + strEx::itos(len) + _T(")."));
 				return false;
 			}
 			std::string str_buf(buf.begin(), buf.end());

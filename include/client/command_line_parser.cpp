@@ -245,6 +245,8 @@ std::list<std::string> client::command_line_parser::simple_submit(configuration 
 void client::command_line_parser::modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient) {
 	nscapi::functions::destination_container myself = config.data->host_self;
 	if (!header->has_recipient_id()) {
+		if (recipient.id.empty())
+			recipient.id = "TODO missing id";
 		nscapi::functions::add_host(header, recipient);
 		header->set_recipient_id(recipient.id);
 	}

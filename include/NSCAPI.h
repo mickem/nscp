@@ -143,6 +143,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const wchar_t*, const wchar_t*, int);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsBool)(const wchar_t*, const wchar_t*, int);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const wchar_t*, wchar_t***, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSections)(const wchar_t*, wchar_t***, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(wchar_t***, unsigned int *);
 		typedef void (*lpNSAPIMessage)(const char*, unsigned int);
 		typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);

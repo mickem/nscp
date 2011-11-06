@@ -22,7 +22,7 @@ public:
 	nrpe::packet handle(nrpe::packet packet);
 
 	nrpe::packet create_error(std::wstring msg) {
-		return nrpe::packet::create_response(4, msg, payload_length_);
+		return nrpe::packet::create_response(3, msg, payload_length_);
 	}
 
 	virtual void set_allow_arguments(bool v)  {

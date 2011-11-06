@@ -73,7 +73,6 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 	data->check_intervall = 100;
 	try {
 		typedef std::map<std::wstring,std::wstring> counter_map_type;
-		std::map<std::wstring,std::wstring> service_mappings;
 		std::map<std::wstring,std::wstring> counters;
 		bool default_counters = true;
 
@@ -83,13 +82,13 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 		settings.alias().add_path_to_settings()
 			(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
 
-			(_T("service mapping"), sh::wstring_map_path(&service_mappings)
-			, _T("SERVICE MAPPING SECTION"), _T(""))
+			(_T("service mapping"), _T("SERVICE MAPPING SECTION"), _T("Confiure which services has to be in which state"))
 
 			(_T("pdh"), _T("PDH COUNTER INFORMATION"), _T(""))
 
 			(_T("pdh/counters"), sh::wstring_map_path(&counters)
 			, _T("PDH COUNTERS"), _T(""))
+
 
 			;
 
@@ -115,16 +114,32 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 			;
 
+		//std::map<DWORD,std::wstring>::key_type
+
+		settings.alias().add_key_to_settings()
+
+			(_T("BOOT_START"), sh::wstring_vector_key(&lookups_, SERVICE_BOOT_START, _T("ignored")),
+			_T("SERVICE_BOOT_START"), _T("TODO"))
+
+			(_T("SYSTEM_START"), sh::wstring_vector_key(&lookups_, SERVICE_SYSTEM_START, _T("ignored")),
+			_T("SERVICE_SYSTEM_START"), _T("TODO"))
+
+			(_T("AUTO_START"), sh::wstring_vector_key(&lookups_, SERVICE_AUTO_START, _T("started")),
+			_T("SERVICE_AUTO_START"), _T("TODO"))
+
+			(_T("DEMAND_START"), sh::wstring_vector_key(&lookups_, SERVICE_DEMAND_START, _T("ignored")),
+			_T("SERVICE_DEMAND_START"), _T("TODO"))
+
+			(_T("DISABLED"), sh::wstring_vector_key(&lookups_, SERVICE_DISABLED, _T("stopped")),
+			_T("SERVICE_DISABLED"), _T("TODO"))
+
+			(_T("DELAYED"), sh::wstring_vector_key(&lookups_, NSCP_SERVICE_DELAYED, _T("ignored")),
+			_T("SERVICE_DELAYED"), _T("TODO"))
+
+			;
 
 		settings.register_all();
 		settings.notify();
-
-		lookups_[SERVICE_BOOT_START] = service_mappings[_T("BOOT_START")];
-		lookups_[SERVICE_SYSTEM_START] = service_mappings[_T("SYSTEM_START")];
-		lookups_[SERVICE_AUTO_START] = service_mappings[_T("AUTO_START")];
-		lookups_[SERVICE_DEMAND_START] = service_mappings[_T("DEMAND_START")];
-		lookups_[SERVICE_DISABLED] = service_mappings[_T("DISABLED")];
-		lookups_[NSCP_SERVICE_DELAYED] = service_mappings[_T("DELAYED")];
 
 		typedef PDHCollector::system_counter_data::counter cnt;
 		if (default_counters) {

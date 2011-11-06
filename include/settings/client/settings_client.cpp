@@ -3,8 +3,13 @@
 
 namespace nscapi {
 	namespace settings_helper {
-
-
+/*
+		template<typename T>
+		typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* wstring_vector_key(T *val, typename T::key_type key, std::wstring def) {
+			typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* r = new typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >(val, key, def);
+			return r;
+		}
+*/
 		wstring_key_type* wstring_key(std::wstring *val, std::wstring def) {
 			wstring_key_type* r = new wstring_key_type(val, def);
 			return r;

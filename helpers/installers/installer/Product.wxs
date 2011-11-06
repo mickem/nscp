@@ -117,18 +117,18 @@
               <File Id="NSCServerDLL" Name="NSClientServer.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
             </Component>
             <Component Id="NSCA" Guid="8820A304-C596-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-              <File Id="NSCAAgentDLL" Name="NSCAAgent.dll" DiskId="1" Source="$(var.Source)/modules/NSCAAgent.dll" Vital="no" />
+              <File Id="NSCAClientDLL" Name="NSCAClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCAClient.dll" Vital="no" />
+              <File Id="NSCAServerDLL" Name="NSCAServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCAServer.dll" Vital="no" />
               <File Id="SchedulerDLL" Name="Scheduler.dll" DiskId="1" Source="$(var.Source)/modules/Scheduler.dll" Vital="no" />
+            </Component>
+            <Component Id="NSCP" Guid="B185B8F1-3718-4e8e-ADA4-38049A0721EA" Win64="$(var.Win64)">
+              <File Id="NSCPClientDLL" Name="NSCPClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCPClient.dll" Vital="no" />
+              <File Id="NSCPServerDLL" Name="NSCPServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCPServer.dll" Vital="no" />
             </Component>
             <Component Id="PythonScript" Guid="8820A304-C696-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
               <File Id="PythonScript" Name="PythonScript.dll" DiskId="1" Source="$(var.Source)/modules/PythonScript.dll" Vital="no" />
             </Component>
             <Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-              <!-- NOT PORTED MODULES !
-								<File Id="ModRemoteConfiguration.dll" Name="RmtCfg.dll" LongName="RemoteConfiguration.dll" DiskId="1" Source="$(var.Source)/modules/RemoteConfiguration.dll" Vital="no" />
-								<File Id="ModSysTray.dll" Name="SysTray.dll" LongName="SysTray.dll" DiskId="1" Source="$(var.Source)/modules/SysTray.dll" Vital="no" />
-								<File Id="A_DebugLogMetrics.dll" Name="ADebug.dll" LongName="A_DebugLogMetrics.dll" DiskId="1" Source="$(var.Source)/modules/A_DebugLogMetrics.dll" Vital="no" />
-							-->
               <File Id="ModCheckEventLog.dll" Name="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
               <File Id="ModCheckExternalScripts.dll" Name="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
               <File Id="ModCheckHelpers.dll" Name="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
@@ -146,16 +146,17 @@
             <Component Id="Scripts" Guid="9B490E67-5472-4268-96DF-$(var.Postfix.GUID)" Win64="$(var.Win64)">
               <File Id="script001" Name="check_60s.bat" DiskId="1" Source="$(var.Source)/scripts/check_60s.bat" Vital="no" />
               <File Id="script002" Name="check_battery.vbs" DiskId="1" Source="$(var.Source)/scripts/check_battery.vbs" Vital="no" />
-              <File Id="script003" Name="check_no_rdp.bat" DiskId="1" Source="$(var.Source)/scripts/check_no_rdp.bat" Vital="no" />
-              <File Id="script004" Name="check_printer.vbs" DiskId="1" Source="$(var.Source)/scripts/check_printer.vbs" Vital="no" />
-              <File Id="script005" Name="check_ok.bat" DiskId="1" Source="$(var.Source)/scripts/check_ok.bat" Vital="no" />
-              <File Id="script006" Name="check_files.vbs" DiskId="1" Source="$(var.Source)/scripts/check_files.vbs" Vital="no" />
+              <File Id="script003" Name="check_files.vbs" DiskId="1" Source="$(var.Source)/scripts/check_files.vbs" Vital="no" />
+              <File Id="script004" Name="check_no_rdp.bat" DiskId="1" Source="$(var.Source)/scripts/check_no_rdp.bat" Vital="no" />
+              <File Id="script005" Name="check_printer.vbs" DiskId="1" Source="$(var.Source)/scripts/check_printer.vbs" Vital="no" />
+              <File Id="script006" Name="check_ok.bat" DiskId="1" Source="$(var.Source)/scripts/check_ok.bat" Vital="no" />
               <File Id="script007" Name="check_ping.bat" DiskId="1" Source="$(var.Source)/scripts/check_ping.bat" Vital="no" />
               <File Id="script008" Name="check_updates.vbs" DiskId="1" Source="$(var.Source)/scripts/check_updates.vbs" Vital="no" />
-              <File Id="sample002" Name="check_test.ps1" DiskId="1" Source="$(var.Source)/scripts/check_test.ps1" Vital="no" />
-              <File Id="sample003" Name="check_test.vbs" DiskId="1" Source="$(var.Source)/scripts/check_test.vbs" Vital="no" />
+              <File Id="sample001" Name="check_test.ps1" DiskId="1" Source="$(var.Source)/scripts/check_test.ps1" Vital="no" />
+              <File Id="sample002" Name="check_test.vbs" DiskId="1" Source="$(var.Source)/scripts/check_test.vbs" Vital="no" />
               <!--
 								Scripts missing
+              <File Id="sample003" Name="check_test.bat" DiskId="1" Source="$(var.Source)/scripts/check_test.bat" Vital="no" />
 							<File Id="lua001" Name="test.lua" LongName="test.lua" DiskId="1" Source="$(var.Source)/scripts/test.lua" Vital="no" />
 							-->
             </Component>
@@ -167,8 +168,10 @@
             </Directory>
             <Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON" Name="python">
               <Component Id="PythonScripts" Guid="8820A304-C697-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
-                <File Id="P_script_001" Name="test.py" DiskId="1" Source="$(var.Source)/scripts/python/test.py" Vital="no" />
-                <File Id="P_script_002" Name="test_pb.py" DiskId="1" Source="$(var.Source)/scripts/python/test_pb.py" Vital="no" />
+                <File Id="P_script_001" Name="test_eventlog.py" DiskId="1" Source="$(var.Source)/scripts/python/test_eventlog.py" Vital="no" />
+                <File Id="P_script_002" Name="test_nsca.py" DiskId="1" Source="$(var.Source)/scripts/python/test_nsca.py" Vital="no" />
+                <File Id="P_script_003" Name="test_pb.py" DiskId="1" Source="$(var.Source)/scripts/python/test_pb.py" Vital="no" />
+                <File Id="P_script_004" Name="test_sample.py" DiskId="1" Source="$(var.Source)/scripts/python/test_sample.py" Vital="no" />
               </Component>
             </Directory>
 
@@ -251,6 +254,9 @@
 				</Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
           <ComponentRef Id="NSCA" />
+        </Feature>
+        <Feature Id="NSCPPlugin" Title="NSCP plugin (experimental)" Description="Plugin to submit passive results to an NSCP server" Level="1" Absent="disallow">
+          <ComponentRef Id="NSCP" />
         </Feature>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Python scripting requires python to be installed)" Level="1" Absent="disallow">
           <ComponentRef Id="PythonScript" />
