@@ -53,13 +53,13 @@ NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t
 	try {
 		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
+		LOG_ERROR_STD(_T("Failed to get string: ") + e.getMessage());
 		return NSCAPI::hasFailed;
 	} catch (const std::exception &e) {
-		LOG_ERROR_STD(_T("Failed to get key: ") + utf8::cvt<std::wstring>(e.what()));
+		LOG_ERROR_STD(_T("Failed to get string: ") + utf8::cvt<std::wstring>(e.what()));
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to get key: <UNKNOWN EXCEPTION>"));
+		LOG_ERROR_STD(_T("Failed to get string: <UNKNOWN EXCEPTION>"));
 		return NSCAPI::hasFailed;
 	}
 }

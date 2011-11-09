@@ -132,7 +132,8 @@ namespace nscapi {
 		void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 		void settings_save();
 
-		void Message(int msgType, std::string file, int line, std::wstring message);
+		void log(int msgType, std::string file, int line, std::wstring message);
+		void log(int msgType, std::string file, int line, std::string message);
 		void DestroyBuffer(char**buffer);
 		NSCAPI::nagiosReturn query(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::nagiosReturn query(const std::wstring & command, const std::string & request, std::string & result);

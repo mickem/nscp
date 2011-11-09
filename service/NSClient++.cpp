@@ -369,7 +369,12 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 
 	settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 	BOOST_FOREACH(std::wstring plugin, list) {
-		std::wstring alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin);
+		std::wstring alias;
+		try {
+			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin);
+		} catch (settings::settings_exception e) {
+			LOG_DEBUG_CORE_STD(_T("Exception looking for module: ") + e.getMessage());
+		}
 		if (plugin == _T("enabled") || plugin == _T("1")) {
 			plugin = alias;
 			alias = _T("");
@@ -710,7 +715,7 @@ bool NSClientT::boot_load_plugins(bool boot) {
 			}
 		}
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_CORE_STD(_T("Failed to set settings file") + e.getMessage());
+		LOG_ERROR_CORE_STD(_T("Settings exception when loading modules: ") + e.getMessage());
 	} catch (...) {
 		LOG_ERROR_CORE_STD(_T("Unknown exception when loading plugins"));
 		return false;

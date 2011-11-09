@@ -272,7 +272,7 @@ namespace script_wrapper {
 			for (int i=0;i<nargs;i++) {
 				str += pop_string(L);
 			}
-			GET_CORE()->Message(mode, utf8::cvt<std::string>(w.first), w.second, str);
+			GET_CORE()->log(mode, utf8::cvt<std::string>(w.first), w.second, str);
 			return 0;
 		}
 

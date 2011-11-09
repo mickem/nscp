@@ -5,6 +5,13 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-11-09 MickeM
+ * Added initial SMTPClient to allow sending messages via SMTP.
+   Still requires template support and configuration options (mainly PoC right now).
+ * Fixed unicode log issue (still not sure message format is correct)
+ * Renamed Message to log in internal wrapper API
+ * Fixed issue in settings old (regarding readin new keys, not 100% supported yet)
+
 2011-11-06 MickeM
  * Had some "vacation" so no updates for a while
  * A lot of fixes to the NSCA parts (now 100% compatible with old settings file)

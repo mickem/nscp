@@ -46,7 +46,7 @@
 #define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG((std::wstring)msg)
 #define NSC_DEBUG_MSG(msg) NSC_ANY_MSG(msg,NSCAPI::debug)
 
-#define NSC_ANY_MSG(msg, type) GET_CORE()->Message(type, __FILE__, __LINE__, msg)
+#define NSC_ANY_MSG(msg, type) GET_CORE()->log(type, __FILE__, __LINE__, msg)
 /*
 #define NSC_LOG_ERROR_STD(msg) 
 #define NSC_LOG_ERROR(msg) 

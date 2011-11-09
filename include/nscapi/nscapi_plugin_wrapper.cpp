@@ -116,9 +116,9 @@ NSCAPI::nagiosReturn nscapi::impl::simple_submission_handler::handleRAWNotificat
 			return NSCAPI::returnIgnored;
 		nscapi::functions::create_simple_submit_response(channel, command, ret, _T(""), response);
 	} catch (std::exception &e) {
-		nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(request) + ": " + e.what()));
+		nscapi::plugin_singleton->get_core()->log(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(request) + ": " + e.what()));
 	} catch (...) {
-		nscapi::plugin_singleton->get_core()->Message(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(request)));
+		nscapi::plugin_singleton->get_core()->log(NSCAPI::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(request)));
 	}
 	return NSCAPI::returnIgnored;
 }

@@ -210,9 +210,13 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(settings_core::key_path_type key) {
-			key = map.key(key);
-			return internal_get_value(key.first, key.second);
+		virtual std::wstring get_real_string(settings_core::key_path_type in_key) {
+			settings_core::key_path_type key = map.key(in_key);
+			if (has_key_int(key.first, key.second))
+				return internal_get_value(key.first, key.second);
+			if (has_key_int(in_key.first, in_key.second))
+				return internal_get_value(in_key.first, in_key.second);
+			throw KeyNotFoundException(key);
 		}
 #define UNLIKELY_STRING _T("$$$EMPTY_KEY$$$")
 

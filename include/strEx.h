@@ -85,7 +85,7 @@ namespace utf8 {
 	inline std::string cvt(std::wstring const & str) {
 #ifdef WIN32
 		// figure out how many narrow characters we are going to get 
-		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
+		int nChars = WideCharToMultiByte(CP_OEMCP, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
 		if (nChars == 0)
 			return "";
 
@@ -93,7 +93,7 @@ namespace utf8 {
 		// nb: slightly naughty to write directly into the string like this
 		std::string buf;
 		buf.resize(nChars);
-		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
+		WideCharToMultiByte(CP_OEMCP, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
 		return buf;
 #else
 		size_t wideSize = sizeof(wchar_t)*str.length();
@@ -127,16 +127,17 @@ namespace utf8 {
 	template<>
 	inline std::wstring cvt(std::string const & str) {
 #ifdef WIN32
-		// figure out how many wide characters we are going to get 
-		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0);
+		int len = str.length();
+		int nChars = MultiByteToWideChar(CP_OEMCP, 0, str.c_str(), len, NULL, 0);
 		if (nChars == 0)
 			return L"";
-
-		// convert the narrow string to a wide string 
-		// nb: slightly naughty to write directly into the string like this
-		std::wstring buf;
-		buf.resize(nChars);
-		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<wchar_t*>(buf.c_str()), nChars);
+		wchar_t *buffer = new wchar_t[nChars+1];
+		if (buffer == NULL)
+			return L"";
+		MultiByteToWideChar(CP_OEMCP, 0, str.c_str(), len, buffer, nChars);
+		buffer[nChars] = 0;
+		std::wstring buf(buffer, nChars);
+		delete [] buffer;
 		return buf;
 #else
 		size_t utf8Length = str.length();

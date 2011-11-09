@@ -51,16 +51,16 @@ namespace nscapi {
 		}
 
 		virtual void err(std::string file, int line, std::wstring message) {
-			core_->Message(NSCAPI::error, file, line, message);
+			core_->log(NSCAPI::error, file, line, message);
 		}
 		virtual void warn(std::string file, int line, std::wstring message) {
-			core_->Message(NSCAPI::warning, file, line, message);
+			core_->log(NSCAPI::warning, file, line, message);
 		}
 		virtual void info(std::string file, int line, std::wstring message)  {
-			core_->Message(NSCAPI::log, file, line, message);
+			core_->log(NSCAPI::log, file, line, message);
 		}
 		virtual void debug(std::string file, int line, std::wstring message)  {
-			core_->Message(NSCAPI::debug, file, line, message);
+			core_->log(NSCAPI::debug, file, line, message);
 		}
 	};
 }

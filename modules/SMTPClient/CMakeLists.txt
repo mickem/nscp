@@ -1,0 +1,39 @@
+cmake_minimum_required(VERSION 2.6)
+
+SET(TARGET SMTPClient)
+	
+PROJECT(${TARGET})
+
+SET(SRCS
+	stdafx.cpp
+	"${TARGET}.cpp"
+	smtp.cpp
+	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
+
+	${NSCP_DEF_PLUGIN_CPP}
+)
+
+ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+
+IF(WIN32)
+	SET(SRCS ${SRCS}
+		stdafx.h
+		"${TARGET}.h"
+		"${TARGET}.def"
+		smtp.hpp
+		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
+		${NSCP_DEF_PLUGIN_HPP}
+	)
+ENDIF(WIN32)
+
+
+add_library(${TARGET} MODULE ${SRCS})
+
+target_link_libraries(${TARGET}
+	${Boost_FILESYSTEM_LIBRARY}
+	${NSCP_DEF_PLUGIN_LIB}
+)
+INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/smtp/.*)

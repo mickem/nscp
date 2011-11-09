@@ -46,7 +46,7 @@ using namespace nscp::helpers;
 #define CORE_DEBUG_MSG_STD(msg) CORE_DEBUG_MSG((std::wstring)msg)
 #define CORE_DEBUG_MSG(msg) CORE_ANY_MSG(msg,NSCAPI::debug)
 
-#define CORE_ANY_MSG(msg, type) Message(type, __FILE__, __LINE__, msg)
+#define CORE_ANY_MSG(msg, type) log(type, __FILE__, __LINE__, msg)
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,7 @@ using namespace nscp::helpers;
  * @param message Message in human readable format
  * @throws nscapi::nscapi_exception When core pointer set is unavailable.
  */
-void nscapi::core_wrapper::Message(int msgType, std::string file, int line, std::wstring logMessage) {
+void nscapi::core_wrapper::log(int msgType, std::string file, int line, std::wstring logMessage) {
 	if (fNSAPIMessage) {
 		if ((msgType == NSCAPI::debug) && (!logDebug()))
 			return;
@@ -86,6 +86,12 @@ void nscapi::core_wrapper::Message(int msgType, std::string file, int line, std:
 	else
 		std::wcout << _T("*** *** *** NSCore not loaded, dumping log: ") << to_wstring(file) << _T(":") << line << _T(": ") << std::endl << logMessage << std::endl;
 }
+void nscapi::core_wrapper::log(int msgType, std::string file, int line, std::string message) {
+	if ((msgType == NSCAPI::debug) && (!logDebug()))
+		return;
+	log(msgType, file, line, utf8::cvt<std::wstring>(message));
+}
+
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
  * @param command Command to inject (password should not be included.
