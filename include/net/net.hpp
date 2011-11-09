@@ -9,6 +9,11 @@ namespace net {
 		std::string path;
 		std::string query;
 		unsigned int port;
+		std::string get_port() {
+			std::stringstream ss;
+			ss << port;
+			return ss.str();
+		}
 		std::string to_string() {
 			std::stringstream ss;
 			ss << protocol << "://" << host << ":" << port << path;

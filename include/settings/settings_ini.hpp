@@ -159,6 +159,7 @@ namespace settings {
 		virtual void get_real_sections(std::wstring path, string_list &list) {
 			get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			CSimpleIni::TNamesDepend lst;
+			std::wstring::size_type path_len = path.length();
 			ini.GetAllSections(lst);
 			if (path.empty()) {
 				for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
@@ -171,17 +172,17 @@ namespace settings {
 					list.push_back(mapped);
 				}
 			} else {
-				for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
-					std::wstring mapped = (*cit).pItem;
-					std::wstring::size_type mapped_len = mapped.length();
-					std::wstring::size_type path_len = path.length();
-					if (mapped_len > path_len+1 && mapped.substr(0,path_len) == path) {
-						std::wstring::size_type pos = mapped.find(L'/', path_len+1);
+				BOOST_FOREACH(const CSimpleIni::Entry e, lst) {
+					std::wstring key = e.pItem;
+					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("  + ")) + key);
+					if (key.length() > path_len+1 && key.substr(0,path_len) == path) {
+						get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("  + >> ")) + key);
+						std::wstring::size_type pos = key.find(L'/', path_len+1);
 						if (pos == std::wstring::npos)
-							mapped = mapped.substr(path_len+1);
+							key = key.substr(path_len+1);
 						else
-							mapped = mapped.substr(path_len+1, pos-path_len-1);
-						list.push_back(mapped);
+							key = key.substr(path_len+1, pos-path_len-1);
+						list.push_back(key);
 					}
 				}
 			}

@@ -6,6 +6,8 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2011-11-09 MickeM
+ * Added initial SyslogClient module to allow syuslog forwarding (of passive checks ish)
+   Still requires template support and configuration options (mainly PoC right now).
  * Added initial SMTPClient to allow sending messages via SMTP.
    Still requires template support and configuration options (mainly PoC right now).
  * Fixed unicode log issue (still not sure message format is correct)
@@ -1286,5 +1288,3 @@ TODO:
 
 2005-02-14 MickeM
  * Initial SourceForge release
-
- 

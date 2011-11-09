@@ -29,8 +29,12 @@
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CHANNELS();
 
-class SMTPClient : public nscapi::impl::simple_plugin {
+class SyslogClient : public nscapi::impl::simple_plugin {
 private:
+
+	typedef std::map<std::string,int> syslog_map;
+	syslog_map facilities;
+	syslog_map severities;
 
 	std::string hostname_;
 	std::wstring channel_;
@@ -40,8 +44,8 @@ private:
 	struct connection_data : public client::nscp_cli_data {};
 	struct clp_handler_impl : public client::clp_handler {
 
-		SMTPClient *instance;
-		clp_handler_impl(SMTPClient *instance) : instance(instance) {}
+		SyslogClient *instance;
+		clp_handler_impl(SyslogClient *instance) : instance(instance) {}
 		connection_data local_data;
 
 		int query(client::configuration::data_type data, std::string request, std::string &reply);
@@ -50,8 +54,8 @@ private:
 	};
 
 public:
-	SMTPClient();
-	virtual ~SMTPClient();
+	SyslogClient();
+	virtual ~SyslogClient();
 	// Module calls
 	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
@@ -62,7 +66,7 @@ public:
 	* @return The module name
 	*/
 	static std::wstring getModuleName() {
-		return _T("SMTPClient");
+		return _T("SyslogClient");
 	}
 	/**
 	* Module version
@@ -73,7 +77,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return _T("Passive check support via SMTP");
+		return _T("Passive check support via Syslog");
 	}
 	bool hasNotificationHandler() { return true; }
 
@@ -84,5 +88,6 @@ public:
 	std::wstring setup(client::configuration &config, const std::wstring &command);
 	void add_local_options(boost::program_options::options_description &desc, connection_data &command_data);
 	void add_target(std::wstring key, std::wstring args);
+	std::string	parse_priority(std::string severity, std::string facility);
 
 };

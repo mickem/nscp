@@ -1,4 +1,4 @@
-LIBRARY	SMTPClient
+LIBRARY	SyslogClient
 
 EXPORTS
 	NSModuleHelperInit

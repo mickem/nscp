@@ -113,6 +113,21 @@ namespace client {
 
 		static std::list<std::string> simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
 
+		static std::wstring parse_command(std::wstring command, std::wstring prefix) {
+			std::wstring cmd = command;
+			if (command.length() > prefix.length()) {
+				if (command.substr(0,prefix.length()) == prefix)
+					cmd = command.substr(prefix.length());
+				else if (command.substr(command.length()-prefix.length()) == prefix)
+					cmd = command.substr(0, command.length()-prefix.length());
+				if (cmd[0] == L'_')
+					cmd = cmd.substr(1);
+				if (cmd[cmd.length()-1] == L'_')
+					cmd = cmd.substr(0, cmd.length()-1);
+			}
+			return cmd;
+		}
+
 		static int query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
 		//static std::list<std::string> submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
 		static int exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
