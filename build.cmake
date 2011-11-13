@@ -34,6 +34,8 @@ IF(WIN32)
 	SET(INC_LUA_DIR "D:/source/libraries/lua-5.1.4")
 	
 	SET(ARCHIVE_FOLDER "D:/archive")
+	
+	SET(TARGET_SITE "")
 
 ELSE(WIN32)
 

@@ -15,6 +15,24 @@ version.read()
 datestr = version.datestr()
 vstring = version.version()
 
+def scp_file(file):
+	tfile = os.path.basename(file)
+	(name, version, arch) = tfile.split('-')
+	target = None
+	if '_' in name:
+		(name, tag) = name.split('_')
+		if globals().has_key('TARGET_SITE_%s'%tag):
+			target = globals().get('TARGET_SITE_%s'%tag)
+			print 'Found tagged installer %s for %s'%(tfile, tag)
+		else:
+			print 'Ignoring unconfigured tagged installer: %s (define TARGET_SITE_%s to a destination)'%(tag,tag)
+	else:
+		print 'Found normal installer %s'%tfile
+		target = TARGET_SITE
+	if target:
+		print 'Uploading name: %s to %s'%(tfile, target)
+		os.system("%s %s %s"%(SCP_BINARY, file, target))
+
 def rename_and_move(file, target):
 	tfile = '%s/%s'%(target, os.path.basename(file))
 	tfile = tfile.replace('win64', 'x64')
@@ -29,12 +47,12 @@ def find_by_pattern(path, pattern):
 				matches.append(os.path.join(root, filename))
 	return matches
 	
-target_name = 'NSCP-%s-%s-symbols.zip'%(VERSION, VERSION_ARCH)
+target_name = 'NSCP-%s-%s_symbols.zip'%(vstring, VERSION_ARCH)
 
-if BREAKPAD_FOUND == "TRUEee":
+if BREAKPAD_FOUND == "TRUE":
 	print "Gathering symbols into %s"%target_name
 	matches = find_by_pattern(BUILD_TARGET_EXE_PATH, '*.pdb')
-	zip = zipfile.ZipFile(target_name, "w")
+	zip = zipfile.ZipFile(target_name, 'w', zipfile.ZIP_DEFLATED)
 	for f in matches:
 		print "Processing: %s"%f
 		out = f.replace('.pdb', '.sym')
@@ -61,5 +79,14 @@ if ARCHIVE_FOLDER != "":
 		rename_and_move(f, target_installer)
 	for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.zip'%vstring):
 		rename_and_move(f, target_archives)
-	
 
+try:
+	if TARGET_SITE != '' and SCP_BINARY != '':
+		print "Distributing files to site..."
+
+		for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.msi'%vstring):
+			scp_file(f)
+		for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.zip'%vstring):
+			scp_file(f)
+except NameError:
+	print 'TARGET_SITE not defined so we wont upload anything...'
