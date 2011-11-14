@@ -5,6 +5,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-11-14 MickeM
+ * Fixed issue with installer not saving nsc.ini when upgrading from 0.3.9
+
 2011-11-09 MickeM
  * Added initial SyslogClient module to allow syuslog forwarding (of passive checks ish)
    Still requires template support and configuration options (mainly PoC right now).

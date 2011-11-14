@@ -51,6 +51,7 @@ public:
 		debug_log.push_back(_T("INFO: ") + message);
 	}
 	virtual void debug(std::string file, int line, std::wstring message) {
+		h->logMessage(_T("DEBUG: ") + message);
 		debug_log.push_back(_T("DEBUG: ") + message);
 	}
 	std::list<std::wstring> get_debug() {
@@ -159,6 +160,21 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			return ERROR_SUCCESS;
 		}
 
+		boost::filesystem::wpath restore_path = h.getTempPath();
+		restore_path = restore_path / (_T("old_nsc.ini"));
+		boost::filesystem::wpath old_path = target;
+		old_path = old_path / (_T("nsc.ini"));
+
+		h.logMessage(_T("Looking for old settings file (for archiving): ") + old_path.string());
+		h.logMessage(_T("Using restore path: ") + restore_path.string());
+		if (boost::filesystem::exists(old_path)) {
+			h.logMessage(_T("Found old file: ") + strEx::itos(boost::filesystem::file_size(old_path)));
+			h.setProperty(_T("RESTORE_FILE"), restore_path.string());
+			copy_file(h, old_path.string(), restore_path.string());
+		}
+		if (boost::filesystem::exists(restore_path))
+			h.logMessage(_T("Found restore file: ") + strEx::itos(boost::filesystem::file_size(restore_path)));
+
 		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_settings(&provider, _T(""))) {
 			h.logMessage(_T("Settings context had fatal errors"));
@@ -227,7 +243,6 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			h.setPropertyAndOld(_T("CONF_CHECKS"), _T("0"));
 		}
 		settings_manager::destroy_settings();
-
 	} catch (installer_exception e) {
 		h.logMessage(_T("Failed to read old configuration file: ") + e.what());
 		h.setProperty(_T("CONF_OLD_ERROR"), e.what());
@@ -277,6 +292,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		msi_helper::custom_action_data_w data;
 		data.write_string(h.getTargetPath(_T("INSTALLLOCATION")));
 		data.write_string(h.getPropery(_T("CONFIGURATION_TYPE")));
+		data.write_string(h.getPropery(_T("RESTORE_FILE")));
 		data.write_int(h.getPropery(_T("ADD_DEFAULTS"))==_T("1")?1:0);
 
 		std::wstring modpath = _T("/modules");
@@ -325,17 +341,52 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		h.logMessage(_T("Got CA data: ") + data.to_string());
 		std::wstring target = data.get_next_string();
 		std::wstring context = data.get_next_string();
+		std::wstring restore = data.get_next_string();
 		int add_defaults = data.get_next_int();
 
-		//std::wstring map_data = read_map_data(h);
+		h.logMessage(_T("Target: ") + target);
+		h.logMessage(_T("Context: ") + context);
+		h.logMessage(_T("Restore: ") + restore);
+
+		boost::filesystem::wpath path = target;
+		boost::filesystem::wpath old_path = path / _T("nsc.ini.old");
+		path = path / _T("nsc.ini");
+
+		boost::filesystem::wpath restore_path = restore;
+
+		if (boost::filesystem::exists(old_path))
+			h.logMessage(_T("Found old (.old) file: ") + strEx::itos(boost::filesystem::file_size(old_path)));
+		if (boost::filesystem::exists(path))
+			h.logMessage(_T("Found old file: ") + strEx::itos(boost::filesystem::file_size(path)));
+		if (boost::filesystem::exists(restore_path))
+			h.logMessage(_T("Found restore file: ") + strEx::itos(boost::filesystem::file_size(restore_path)));
+
+		if (boost::filesystem::exists(restore_path)) {
+			if (!boost::filesystem::exists(path)) {
+				h.logMessage(_T("Restoring nsc.ini configuration file"));
+				copy_file(h, restore_path.string(), path.string());
+			}
+			if (!boost::filesystem::exists(old_path)) {
+				h.logMessage(_T("Creating backup nsc.ini.old configuration file"));
+				copy_file(h, restore_path.string(), old_path.string());
+			}
+		}
+
+		if (boost::filesystem::exists(path))
+			h.logMessage(_T("Size (001): ") + strEx::itos(boost::filesystem::file_size(path)));
 
 		installer_settings_provider provider(&h, target);
 		if (!settings_manager::init_settings(&provider, context)) {
 			h.errorMessage(_T("Failed to boot settings: ") + provider.get_error());
 			return ERROR_INSTALL_FAILURE;
 		}
+		if (boost::filesystem::exists(path))
+			h.logMessage(_T("Size (002): ") + strEx::itos(boost::filesystem::file_size(path)));
+
 		h.logMessage(_T("Switching to: ") + context);
 		settings_manager::change_context(context);
+		if (boost::filesystem::exists(path))
+			h.logMessage(_T("Size (003): ") + strEx::itos(boost::filesystem::file_size(path)));
 
 		while (data.has_more()) {
 			unsigned int mode = data.get_next_int();
@@ -353,7 +404,11 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 				return ERROR_INSTALL_FAILURE;
 			}
 		}
+		if (boost::filesystem::exists(path))
+			h.logMessage(_T("Size (004): ") + strEx::itos(boost::filesystem::file_size(path)));
 		settings_manager::get_settings()->save();
+		if (boost::filesystem::exists(path))
+			h.logMessage(_T("Size (005): ") + strEx::itos(boost::filesystem::file_size(path)));
 	} catch (installer_exception e) {
 		h.errorMessage(_T("Failed to write configuration: ") + e.what());
 		return ERROR_INSTALL_FAILURE;
