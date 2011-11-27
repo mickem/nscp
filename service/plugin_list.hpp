@@ -100,7 +100,8 @@ namespace nsclient {
 
 		std::wstring to_wstring() {
 			std::wstring ret;
-			BOOST_FOREACH(std::wstring str, list()) {
+			std::list<std::wstring> lst = list();
+			BOOST_FOREACH(std::wstring str, lst) {
 				if (!ret.empty()) ret += _T(", ");
 				ret += str;
 			}
@@ -108,11 +109,12 @@ namespace nsclient {
 		}
 		std::string to_string() {
 			std::string ret;
-			BOOST_FOREACH(std::wstring str, list()) {
+			std::list<std::wstring> lst = list();
+			BOOST_FOREACH(std::wstring str, lst) {
 				if (!ret.empty()) ret += ", ";
 				ret += utf8::cvt<std::string>(str);
 			}
-			return ret + parent::to_string();
+			return "plugins: {" + ret + "}, " + parent::to_string();
 		}
 
 		inline std::wstring make_key(std::wstring key) {
@@ -188,7 +190,7 @@ namespace nsclient {
 			}
 			std::wstring lc = make_key(channel);
 			if (!have_plugin(plugin_id)) {
-				writeLock.release();
+				writeLock.unlock();
 				throw plugins_list_exception("Failed to find plugin: " + ::to_string(plugin_id) + ", Plugins: " + to_string());
 			}
 			listeners_[lc].insert(plugin_id);

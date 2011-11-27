@@ -147,8 +147,8 @@ namespace settings {
 		}
 		struct reg_buffer {
 			wchar_t *buf;
-			unsigned int len;
-			reg_buffer(int len) : buf(new wchar_t[len]), len(len) {}
+			std::wstring::size_type len;
+			reg_buffer(std::wstring::size_type len) : buf(new wchar_t[len]), len(len) {}
 			reg_buffer(std::wstring str) : buf(new wchar_t[str.length()]), len(str.length()) {
 				copy_from(str);
 			}

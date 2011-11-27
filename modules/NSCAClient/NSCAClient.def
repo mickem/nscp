@@ -1,4 +1,4 @@
-LIBRARY	NSCAAgent
+LIBRARY	NSCAClient
 
 EXPORTS
 	NSModuleHelperInit
@@ -12,6 +12,7 @@ EXPORTS
 	NSHandleCommand
 	NSUnloadModule
 	NSGetModuleDescription
+	NSCommandLineExec
 	NSDeleteBuffer
 	NSHandleNotification
 	NSHasNotificationHandler

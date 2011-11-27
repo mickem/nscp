@@ -103,8 +103,12 @@ namespace nsca {
 					return ENCRYPT_TWOFISH;
 				if (encryption == "rc2")
 					return ENCRYPT_RC2;
-				if (encryption == "rijndael128" || encryption == "aes")
+				if (encryption == "rijndael128" || encryption == "aes128")
 					return ENCRYPT_RIJNDAEL128;
+				if (encryption == "rijndael192" || encryption == "aes192")
+					return ENCRYPT_RIJNDAEL192;
+				if (encryption == "rijndael256" || encryption == "aes256" || encryption == "aes")
+					return ENCRYPT_RIJNDAEL256;
 				if (encryption == "serpent")
 					return ENCRYPT_SERPENT;
 				if (encryption == "gost")
@@ -133,6 +137,10 @@ namespace nsca {
 				if (encryption == ENCRYPT_RC2)
 					return "rc2";
 				if (encryption == ENCRYPT_RIJNDAEL128)
+					return "aes128";
+				if (encryption == ENCRYPT_RIJNDAEL192)
+					return "aes192";
+				if (encryption == ENCRYPT_RIJNDAEL256)
 					return "aes";
 				if (encryption == ENCRYPT_SERPENT)
 					return "serpent";
@@ -337,6 +345,8 @@ namespace nsca {
 			case ENCRYPT_TWOFISH:
 			case ENCRYPT_RC2:
 			case ENCRYPT_RIJNDAEL128:
+			case ENCRYPT_RIJNDAEL192:
+			case ENCRYPT_RIJNDAEL256:
 			case ENCRYPT_SERPENT:
 			case ENCRYPT_GOST:
 #endif
@@ -350,8 +360,6 @@ namespace nsca {
 			case ENCRYPT_LOKI97:
 			case ENCRYPT_WAKE:
 			case ENCRYPT_ENIGMA:
-			case ENCRYPT_RIJNDAEL192:
-			case ENCRYPT_RIJNDAEL256:
 			case ENCRYPT_SAFER64:
 			case ENCRYPT_SAFER128:
 			case ENCRYPT_SAFERPLUS:
@@ -386,6 +394,10 @@ namespace nsca {
 	case ENCRYPT_RC2:
 		return new cryptopp_encryption<CryptoPP::RC2>(128);
 	case ENCRYPT_RIJNDAEL128:
+		return new cryptopp_encryption<CryptoPP::AES>(16);
+	case ENCRYPT_RIJNDAEL192:
+		return new cryptopp_encryption<CryptoPP::AES>(24);
+	case ENCRYPT_RIJNDAEL256:
 		return new cryptopp_encryption<CryptoPP::AES>(32);
 	case ENCRYPT_SERPENT:
 		return new cryptopp_encryption<CryptoPP::Serpent>(32);

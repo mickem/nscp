@@ -193,7 +193,7 @@ public:
 				if (dwLang == 0)
 					dwLang = MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT);
 				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
-					eventID(),dwLang,(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(buffer.get_buffer_unsafe()));
+					pevlr_->EventID,dwLang,(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(buffer.get_buffer_unsafe()));
 				if (dwRet == 0) {
 					DWORD err = GetLastError();
 					FreeLibrary(hDLL);

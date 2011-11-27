@@ -68,6 +68,7 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
 class NSClientT : public nsclient::logger /*: public nsclient_session::session_handler_interface*/ {
 
 public:
+	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 	struct plugin_info_type {
 		std::wstring dll;
 		std::wstring name;
@@ -87,7 +88,6 @@ private:
 		}
 	};
 
-	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 	typedef std::vector<plugin_type> pluginList;
 	pluginList plugins_;
 	boost::filesystem::wpath basePath;
@@ -171,6 +171,7 @@ public:
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	void reportMessage(std::string data);
 	int simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
+	int simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
 	NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* raw_command, std::string &request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const wchar_t* channel);
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const wchar_t* channel);
@@ -228,6 +229,10 @@ public:
 	void set_console_log() {
 		logger_master_.set_console_log();
 	}
+
+
+	typedef boost::function<int(plugin_type)> run_function;
+	int load_and_run(std::wstring module, run_function fun, std::list<std::wstring> &errors);
 
 
 	public:

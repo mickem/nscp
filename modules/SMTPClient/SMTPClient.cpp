@@ -122,31 +122,32 @@ void SMTPClient::add_local_options(po::options_description &desc, connection_dat
 		*/
 }
 
-std::wstring SMTPClient::setup(client::configuration &config, const std::wstring &command) {
+void SMTPClient::setup(client::configuration &config) {
 	clp_handler_impl *handler = new clp_handler_impl(this);
 	add_local_options(config.local, handler->local_data);
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("smtp"));
 	config.handler = client::configuration::handler_type(handler);
-	return cmd;
 }
 
 NSCAPI::nagiosReturn SMTPClient::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("submit_smtp")) {
-		client::configuration config;
-		std::wstring cmd = setup(config, command);
-		std::list<std::string> errors = client::command_line_parser::simple_submit(config, cmd, arguments);
-		BOOST_FOREACH(std::string p, errors) {
-			NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(p));
-		}
-		return errors.empty()?NSCAPI::returnOK:NSCAPI::returnCRIT;
-	}
-	return NSCAPI::returnIgnored;
+	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nsca"));
+	if (!client::command_line_parser::is_command(cmd))
+		return NSCAPI::returnIgnored;
+
+	client::configuration config;
+	setup(config);
+	boost::tuple<int,std::wstring> result = client::command_line_parser::simple_submit(config, cmd, arguments);
+	message = result.get<1>();
+	return result.get<0>();
 }
 
 
 int SMTPClient::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+	std::wstring cmd = client::command_line_parser::parse_command(command, _T("smtp"));
+	if (!client::command_line_parser::is_command(cmd))
+		return NSCAPI::returnIgnored;
+
 	client::configuration config;
-	std::wstring cmd = setup(config, command);
+	setup(config);
 	return client::command_line_parser::commandLineExec(config, cmd, arguments, result);
 }
 
@@ -169,7 +170,7 @@ NSCAPI::nagiosReturn SMTPClient::handleRAWNotification(const wchar_t* channel, s
 		config.data->host_self.id = "self";
 		config.data->host_self.host = hostname_;
 
-		setup(config, _T(""));
+		setup(config);
 		if (!client::command_line_parser::relay_submit(config, request, response)) {
 			NSC_LOG_ERROR_STD(_T("Failed to submit message..."));
 			return NSCAPI::hasFailed;
@@ -186,16 +187,16 @@ NSCAPI::nagiosReturn SMTPClient::handleRAWNotification(const wchar_t* channel, s
 
 //////////////////////////////////////////////////////////////////////////
 // Parser implementations
-int SMTPClient::clp_handler_impl::query(client::configuration::data_type data, std::string request, std::string &reply) {
+int SMTPClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	NSC_LOG_ERROR_STD(_T("SMTP does not support query patterns"));
 	return NSCAPI::hasFailed;
 }
-int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, std::string request, std::string &reply) {
+int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	NSC_LOG_ERROR_STD(_T("SMTP does not support exec patterns"));
 	return NSCAPI::hasFailed;
 }
 
-int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) {
+int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	try {
 
 		Plugin::SubmitRequestMessage message;
@@ -216,11 +217,11 @@ int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 			io_service.run();
 		}
 
-		nscapi::functions::create_simple_submit_response(_T(""), _T(""), NSCAPI::isSuccess, _T(""), response);
+		nscapi::functions::create_simple_submit_response(_T(""), _T(""), NSCAPI::isSuccess, _T(""), reply);
 		return NSCAPI::isSuccess;
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		nscapi::functions::create_simple_submit_response(_T(""), _T(""), NSCAPI::hasFailed, utf8::cvt<std::wstring>(e.what()), response);
+		nscapi::functions::create_simple_submit_response(_T(""), _T(""), NSCAPI::hasFailed, utf8::cvt<std::wstring>(e.what()), reply);
 		return NSCAPI::hasFailed;
 	}
 }

@@ -18,79 +18,92 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
+#pragma once
+
+#include <boost/tuple/tuple.hpp>
+
+#include <client/command_line_parser.hpp>
+#include <nscapi/targets.hpp>
+
+#include <nrpe/packet.hpp>
 
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
-
-
-#include <map>
-#include <nrpe/packet.hpp>
+NSC_WRAPPERS_CHANNELS();
 
 namespace po = boost::program_options;
 
 class NRPEClient : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:
-	typedef enum {
-		inject, script, script_dir,
-	} command_type;
-	struct nrpe_connection_data {
-		std::wstring host;
-		std::wstring command;
-		std::wstring arguments;
-		std::wstring command_line;
-		std::vector<std::wstring> argument_vector;
-		int port;
+
+	std::wstring channel_;
+	std::wstring target_path;
+
+	nscapi::target_handler targets;
+	client::command_manager commands;
+
+	struct connection_data {
+		std::string cert;
+		std::string host;
+		std::string port;
 		int timeout;
-		unsigned int buffer_length;
-		bool no_ssl;
-		nrpe_connection_data(unsigned int buffer_length_ = 1024) 
-			: host(_T("127.0.0.1")), 
-			port(5666), 
-			timeout(10), 
-			no_ssl(false), 
-			buffer_length(buffer_length_) 
-		{}
-		void parse_arguments() {
-			for (std::vector<std::wstring>::const_iterator cit = argument_vector.begin(); cit != argument_vector.end(); ++cit) {
-				if (!arguments.empty())
-					arguments += _T("!");
-				arguments += *cit;
-			}
+		int buffer_length;
+		bool use_ssl;
+
+		connection_data(nscapi::functions::destination_container recipient) {
+			cert = recipient.get_string_data("certificate");
+			timeout = recipient.get_int_data("timeout", 30);
+			buffer_length = recipient.get_int_data("payload length", 1024);
+			use_ssl = recipient.get_bool_data("ssl");
+			if (recipient.has_data("no ssl"))
+				use_ssl = !recipient.get_bool_data("no ssl");
+
+			net::url url = recipient.get_url(5666);
+			host = url.host;
+			port = url.get_port();
 		}
-		std::wstring get_cli(std::wstring arguments_) {
-			if (command_line.empty()) {
-				command_line = command;
-				if (command_line.empty())
-					command_line = _T("_NRPE_CHECK");
-				if (!arguments_.empty())
-					command_line += _T("!") + arguments_;
-				else if (!arguments.empty())
-					command_line += _T("!") + arguments;
-			}
-			return command_line;
-		}
-		std::wstring toString() {
+
+		std::wstring to_wstring() const {
 			std::wstringstream ss;
-			ss << _T("host: ") << host;
-			ss << _T(", port: ") << port;
+			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
+			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
 			ss << _T(", timeout: ") << timeout;
-			ss << _T(", no_ssl: ") << no_ssl;
 			ss << _T(", buffer_length: ") << buffer_length;
-			ss << _T(", command: ") << command;
-			ss << _T(", argument: ") << arguments;
+			ss << _T(", use_ssl: ") << use_ssl;
+			ss << _T(", certificate: ") << utf8::cvt<std::wstring>(cert);
 			return ss.str();
 		}
 	};
-	struct nrpe_result_data {
-		nrpe_result_data() {}
-		nrpe_result_data(int result_, std::wstring text_) : result(result_), text(text_) {}
-		std::wstring text;
-		int result;
+
+	struct clp_handler_impl : public client::clp_handler, client::target_lookup_interface {
+
+		NRPEClient *instance;
+		clp_handler_impl(NRPEClient *instance) : instance(instance) {}
+
+		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+
+		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
+			nscapi::functions::destination_container ret;
+			nscapi::target_handler::optarget t = instance->targets.find_target(id);
+			if (t) {
+				if (!t->alias.empty())
+					ret.id = utf8::cvt<std::string>(t->alias);
+				if (!t->host.empty())
+					ret.host = utf8::cvt<std::string>(t->host);
+				if (t->has_option("address"))
+					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
+				else 
+					ret.address = utf8::cvt<std::string>(t->host);
+				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
+					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
+				}
+			}
+			return ret;
+		}
 	};
-	typedef std::map<strEx::blindstr, nrpe_connection_data> command_list;
-	command_list commands;
-	unsigned int buffer_length_;
-	std::wstring cert_;
+
 
 public:
 	NRPEClient();
@@ -100,7 +113,10 @@ public:
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-
+	/**
+	* Return the module name.
+	* @return The module name
+	*/
 	static std::wstring getModuleName() {
 #ifdef USE_SSL
 		return _T("NRPE client (w/ SSL)");
@@ -108,36 +124,41 @@ public:
 		return _T("NRPE client");
 #endif
 	}
+	/**
+	* Module version
+	* @return module version
+	*/
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
+		nscapi::plugin_wrapper::module_version version = {0, 4, 0 };
 		return version;
 	}
 	static std::wstring getModuleDescription() {
 		return _T("A simple client for checking remote NRPE servers (think proxy).\n")
-#ifndef USE_BOOST
-		_T("BOOST support is missing (this is probably very bad)!\n")
-#endif
 #ifndef USE_SSL
 		_T("SSL support is missing (so you cant use encryption)!")
 #endif
 	;
 	}
 
-	bool hasCommandHandler();
-	bool hasMessageHandler();
+	bool hasCommandHandler() { return true; };
+	bool hasMessageHandler() { return true; };
+	bool hasNotificationHandler() { return true; };
+	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
-	std::wstring getConfigurationMeta();
 
 private:
-	nrpe_result_data  execute_nrpe_command(nrpe_connection_data con, std::wstring arguments);
-	nrpe::packet send_nossl(std::wstring host, int port, int timeout, nrpe::packet packet);
-	nrpe::packet send_ssl(std::wstring host, int port, int timeout, nrpe::packet packet);
-	void add_options(po::options_description &desc, nrpe_connection_data &command_data);
+	boost::tuple<int,std::wstring> send(connection_data con, std::string data);
+	static nrpe::packet send_nossl(std::string host, std::string port, int timeout, nrpe::packet packet);
+	static nrpe::packet send_ssl(std::string cert, std::string host, std::string port, int timeout, nrpe::packet packet);
+
+	static connection_data parse_header(const ::Plugin::Common_Header &header);
 
 private:
+	void add_local_options(po::options_description &desc, client::configuration::data_type data);
+	void setup(client::configuration &config);
 	void add_command(std::wstring key, std::wstring args);
-	void add_server(std::wstring key, std::wstring args);
+	void add_target(std::wstring key, std::wstring args);
 
 };
 

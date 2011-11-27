@@ -1,7 +1,8 @@
 #pragma once
 
-#include <zeromq/interface.hpp>
+#include <boost/thread.hpp>
 
+#include <zeromq/interface.hpp>
 
 namespace zeromq {
 

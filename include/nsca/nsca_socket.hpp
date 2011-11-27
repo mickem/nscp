@@ -32,10 +32,10 @@ namespace nsca {
 			return *socket_;
 		}
 
-		virtual void connect(std::string host, int port) {
+		virtual void connect(std::string host, std::string port) {
 			NSC_DEBUG_MSG(_T("Connecting to: ") + to_wstring(host) + _T(" (") + to_wstring(port) + _T(")"));
 			tcp::resolver resolver(get_io_service());
-			tcp::resolver::query query(host, boost::lexical_cast<std::string>(port));
+			tcp::resolver::query query(host, port);
 
 			tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 			tcp::resolver::iterator end;

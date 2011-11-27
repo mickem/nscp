@@ -126,14 +126,62 @@ namespace nscapi {
 			std::string id;
 			std::string host;
 			std::string address;
-			std::string protocol;
 			std::string comment;
 			std::list<std::string> tags;
 			typedef std::map<std::string,std::string> data_map;
 			data_map data;
 
-			net::url get_url(unsigned int port = 80) {
+			std::string get_protocol() const {
+				net::url url = get_url();
+				return url.protocol;
+			}
+			bool has_protocol() const {
+				return !address.empty();
+			}
+			net::url get_url(unsigned int port = 80) const {
 				return net::parse(address, port);
+			}
+			static bool to_bool(std::string value) {
+				if (value.empty())
+					return false;
+				if (value == "true" || value == "1")
+					return true;
+				return false;
+			}
+			static int to_int(std::string value, int def = 0) {
+				if (value.empty())
+					return def;
+				try {
+					return boost::lexical_cast<int>(value);
+				} catch (...) {
+					return def;
+				}
+			}
+
+			inline int get_int_data(std::string key, int def = 0) {
+				return to_int(data[key]);
+			}
+			inline bool get_bool_data(std::string key, int def = 0) {
+				return to_bool(data[key]);
+			}
+			inline std::string get_string_data(std::string key) {
+				return data[key];
+			}
+			inline bool has_data(std::string key) {
+				return data.find(key) != data.end();
+			}
+
+			inline net::url get_url(int default_port) {
+				return net::parse(address, default_port);
+			}
+			void set_string_data(std::string key, std::string value) {
+				data[key] = value;
+			}
+			void set_int_data(std::string key, int value) {
+				data[key] = boost::lexical_cast<std::string>(value);
+			}
+			void set_bool_data(std::string key, bool value) {
+				data[key] = value?"true":"false";
 			}
 
 			std::string to_string() {
@@ -141,7 +189,7 @@ namespace nscapi {
 				ss << "id: " << id;
 				ss << ", host: " << host;
 				ss << ", address: " << address;
-				ss << ", protocol: " << protocol;
+//				ss << ", protocol: " << protocol;
 				ss << ", comment: " << comment;
 				int i=0;
 				BOOST_FOREACH(std::string a, tags) {
@@ -160,8 +208,8 @@ namespace nscapi {
 					host = other.host;
 				if (!other.address.empty())
 					address = other.address;
-				if (!other.protocol.empty())
-					protocol = other.protocol;
+// 				if (!other.protocol.empty())
+// 					protocol = other.protocol;
 				if (!other.comment.empty())
 					comment = other.comment;
 				BOOST_FOREACH(const std::string &t, other.tags) {
@@ -181,8 +229,8 @@ namespace nscapi {
 				host->set_host(dst.host);
 			if (!dst.address.empty())
 				host->set_address(dst.address);
-			if (!dst.protocol.empty())
-				host->set_protocol(dst.protocol);
+ 			if (!dst.has_protocol())
+ 				host->set_protocol(dst.get_protocol());
 			if (!dst.comment.empty())
 				host->set_comment(dst.comment);
 			BOOST_FOREACH(const std::string &t, dst.tags) {
@@ -204,8 +252,10 @@ namespace nscapi {
 						data.host = host.host();
 					if (!host.address().empty())
 						data.address = host.address();
-					if (!host.protocol().empty())
-						data.protocol = host.protocol();
+					if (data.address.empty() && !host.host().empty())
+						data.address = host.host();
+// 					if (!host.protocol().empty())
+// 						data.protocol = host.protocol();
 					if (!host.comment().empty())
 						data.comment = host.comment();
 					if (expand_meta) {
@@ -290,6 +340,7 @@ namespace nscapi {
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
 			return gbp_to_nagios_status(payload.result());
 		}
+		/*
 		static NSCAPI::errorReturn parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &command, std::wstring &msg, std::wstring &perf) {
 			alias = utf8::cvt<std::wstring>(payload.alias());
 			command = utf8::cvt<std::wstring>(payload.command());
@@ -297,7 +348,17 @@ namespace nscapi {
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
 			return gbp_to_nagios_status(payload.result());
 		}
-		static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::wstring response) {
+		*/
+		static int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message) {
+			alias = utf8::cvt<std::wstring>(payload.alias());
+			message = utf8::cvt<std::wstring>(payload.message());
+			return gbp_to_nagios_status(payload.result());
+		}
+		static void parse_simple_query_request_payload(const Plugin::QueryRequestMessage::Request &payload, std::wstring &alias, std::wstring &command) {
+			alias = utf8::cvt<std::wstring>(payload.alias());
+			command = utf8::cvt<std::wstring>(payload.command());
+		}
+		static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::wstring &response) {
 			Plugin::SubmitResponseMessage message;
 			message.ParseFromString(request);
 
@@ -356,6 +417,16 @@ namespace nscapi {
 
 			message.SerializeToString(&buffer);
 		}
+
+		
+		static void append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf = _T("")) {
+			payload->set_command(to_string(command));
+			payload->set_message(to_string(msg));
+			payload->set_result(nagios_status_to_gpb(ret));
+			if (!perf.empty())
+				parse_performance_data(payload, perf);
+		}
+
 		static void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf) {
 			payload->set_command(to_string(command));
 			payload->set_message(to_string(msg));
@@ -363,6 +434,28 @@ namespace nscapi {
 			if (!perf.empty())
 				parse_performance_data(payload, perf);
 		}
+
+		static void append_simple_exec_response_payload(Plugin::ExecuteResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg) {
+			payload->set_command(to_string(command));
+			payload->set_message(to_string(msg));
+			payload->set_result(nagios_status_to_gpb(ret));
+		}
+
+
+		static void append_simple_query_request_payload(Plugin::QueryRequestMessage::Request *payload, std::wstring command, std::vector<std::wstring> arguments) {
+			payload->set_command(to_string(command));
+			BOOST_FOREACH(const std::wstring &s, arguments) {
+				payload->add_arguments(to_string(s));
+			}
+		}
+
+		static void append_simple_exec_request_payload(Plugin::ExecuteRequestMessage::Request *payload, std::wstring command, std::vector<std::wstring> arguments) {
+			payload->set_command(to_string(command));
+			BOOST_FOREACH(const std::wstring &s, arguments) {
+				payload->add_arguments(to_string(s));
+			}
+		}
+
 
 		static decoded_simple_command_data parse_simple_query_request(const wchar_t* char_command, const std::string &request) {
 			decoded_simple_command_data data;
@@ -377,6 +470,14 @@ namespace nscapi {
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
 				data.args.push_back(to_wstring(payload.arguments(i)));
+			}
+			return data;
+		}
+		static decoded_simple_command_data parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload) {
+			decoded_simple_command_data data;
+			data.command = utf8::cvt<std::wstring>(payload.command());
+			for (int i=0;i<payload.arguments_size();i++) {
+				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
 			}
 			return data;
 		}
@@ -435,6 +536,14 @@ namespace nscapi {
 				result.push_back(utf8::cvt<std::wstring>(message.payload(i).message()));
 			}
 		}
+		static void parse_simple_exec_result(const std::string &response, std::wstring &result) {
+			Plugin::ExecuteResponseMessage message;
+			message.ParseFromString(response);
+
+			for (int i=0;i<message.payload_size(); i++) {
+				result += utf8::cvt<std::wstring>(message.payload(i).message());
+			}
+		}
 
 		static void create_simple_exec_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring result, std::string &response) {
 			Plugin::ExecuteResponseMessage message;
@@ -462,6 +571,14 @@ namespace nscapi {
 			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
 				data.args.push_back(to_wstring(payload.arguments(i)));
+			}
+			return data;
+		}
+		static decoded_simple_command_data parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload) {
+			decoded_simple_command_data data;
+			data.command = utf8::cvt<std::wstring>(payload.command());
+			for (int i=0;i<payload.arguments_size();i++) {
+				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
 			}
 			return data;
 		}

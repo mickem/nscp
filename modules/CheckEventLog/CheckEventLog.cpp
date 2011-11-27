@@ -606,13 +606,20 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 }
 NSCAPI::nagiosReturn CheckEventLog::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	std::wstring command = char_command;
-	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message")) {
+	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message") || command == _T("insert")) {
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 		std::wstring message;
 		std::vector<std::wstring> args(data.args.begin(), data.args.end());
 		bool ok = insert_eventlog(args, message);
 		nscapi::functions::create_simple_exec_response(command, ok?NSCAPI::isSuccess:NSCAPI::hasFailed, message, response);
 		return ok?NSCAPI::isSuccess:NSCAPI::hasFailed;
+	} else if (command == _T("help")) {
+		std::vector<std::wstring> args;
+		args.push_back(_T("--help"));
+		std::wstring message;
+		insert_eventlog(args, message);
+		nscapi::functions::create_simple_exec_response(command, NSCAPI::isSuccess, message, response);
+		return NSCAPI::isSuccess;
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -627,14 +634,18 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 		std::wstring type, category, severity, source_name;
 		std::vector<std::wstring> strings;
 		WORD wEventID;
+		WORD facility = 0;
 		po::options_description desc("Allowed options");
 		desc.add_options()
 			("help,h", po::bool_switch(&help), "Show help screen")
 			("source,s", po::wvalue<std::wstring>(&source_name)->default_value(_T("Application Error")), "source to use")
 			("type,t", po::wvalue<std::wstring>(&type), "Event type")
+			("facility,f", po::value<WORD>(&facility), "Facility")
 			("severity", po::wvalue<std::wstring>(&severity), "Event severity")
 			("category,c", po::wvalue<std::wstring>(&category), "Event category")
 			("arguments,a", po::wvalue<std::vector<std::wstring> >(&strings), "Message arguments (strings)")
+			("eventlog-arguments", po::wvalue<std::vector<std::wstring> >(&strings), "Message arguments (strings)")
+			("event-arguments", po::wvalue<std::vector<std::wstring> >(&strings), "Message arguments (strings)")
 			("id,i", po::value<WORD>(&wEventID), "Event ID")
 			;
 
@@ -655,7 +666,7 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 			WORD dwType = EventLogRecord::translateType(type);
 			WORD wSeverity = EventLogRecord::translateSeverity(severity);
 			WORD dwCategory = EventLogRecord::translateType(category);
-			DWORD tID = (wEventID&0xffff) | (wSeverity<<30);
+			DWORD tID = (wEventID&0xffff) | (wSeverity<<30) | (facility<<16);
 
 			int size = 0;
 			BOOST_FOREACH(const std::wstring &s, strings) {

@@ -9,6 +9,7 @@ SET(SRCS
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -27,6 +28,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/nrpe/client/socket.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

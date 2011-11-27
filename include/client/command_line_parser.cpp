@@ -8,15 +8,17 @@ void client::command_line_parser::add_common_options(po::options_description &de
 		("host,H", po::value<std::string>(&command_data->recipient.address), "The address of the host running the server")
 		("timeout,T", po::value<int>(&command_data->timeout), "Number of seconds before connection times out (default=10)")
 		("target,t", po::wvalue<std::wstring>(&command_data->target_id), "Target to use (lookup connection info from config)")
-		("query,q", po::bool_switch(&command_data->query), "Force query mode (only useful when this is not obvious)")
-		("submit,s", po::bool_switch(&command_data->submit), "Force submit mode (only useful when this is not obvious)")
-		("exec,e", po::bool_switch(&command_data->exec), "Force exec mode (only useful when this is not obvious)")
+		("query,q", po::bool_switch(&command_data->query), "Force query mode (only useful when this is not already obvious)")
+		("submit,s", po::bool_switch(&command_data->submit), "Force submit mode (only useful when this is not already obvious)")
+		("exec,e", po::bool_switch(&command_data->exec), "Force exec mode (only useful when this is not already obvious)")
 		;
 }
 void client::command_line_parser::add_query_options(po::options_description &desc, data_type command_data) {
 	desc.add_options()
 		("command,c", po::wvalue<std::wstring>(&command_data->command), "The name of the query that the remote daemon should run")
 		("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data->arguments), "list of arguments")
+		("query-command", po::wvalue<std::wstring>(&command_data->command), "The name of the query that the remote daemon should run")
+		("query-arguments", po::wvalue<std::vector<std::wstring> >(&command_data->arguments), "list of arguments")
 		;
 }
 void client::command_line_parser::add_submit_options(po::options_description &desc, data_type command_data) {
@@ -36,116 +38,80 @@ void client::command_line_parser::add_exec_options(po::options_description &desc
 std::wstring client::command_line_parser::build_help(configuration &config) {
 	po::options_description common("Common options");
 	add_common_options(common, config.data);
-	po::options_description query("Query options");
+	po::options_description query("Command: query");
 	add_query_options(query, config.data);
-	po::options_description submit("Submit options");
+	po::options_description submit("Command: submit");
 	add_submit_options(submit, config.data);
-	po::options_description exec("Execute options");
+	po::options_description exec("Command: exec");
 	add_exec_options(exec, config.data);
-	po::options_description desc("Allowed options");
+	po::options_description desc("Options for the following commands: (query, submit, exec)");
 	desc.add(common).add(query).add(submit).add(config.local);
-
 	std::stringstream ss;
-	ss << "Command line syntax:" << std::endl;
 	ss << desc;
 	return utf8::cvt<std::wstring>(ss.str());
 }
 
 
 int client::command_line_parser::commandLineExec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+	if (!config.validate())
+		throw cli_exception("Invalid data: " + config.to_string());
 	if (command == _T("help")) {
 		result = build_help(config);
 		return NSCAPI::returnUNKNOWN;
 	} else if (command == _T("query")) {
 		std::wstring msg, perf;
 		int ret = query(config, command, arguments, msg, perf);
-		result = msg + _T("|") + perf + _T("\n");
+		if (perf.empty())
+			result = msg;
+		else
+			result = msg + _T("|") + perf;
 		return ret;
 	} else if (command == _T("exec")) {
 		return exec(config, command, arguments, result);
 	} else if (command == _T("submit")) {
-		std::list<std::string> errors = simple_submit(config, command, arguments);
-		bool has_errors = false;
-		BOOST_FOREACH(std::string p, errors) {
-			has_errors = true;
-			result += utf8::cvt<std::wstring>(p) + _T("\n");
-		}
-		return has_errors?NSCAPI::returnCRIT:NSCAPI::returnOK;
+		boost::tuple<int,std::wstring> ret = simple_submit(config, command, arguments);
+		result = ret.get<1>();
+		return ret.get<0>();
 	}
 	return NSCAPI::returnIgnored;
 }
 
-std::wstring client::command_manager::add_command(configuration &config, std::wstring name, std::wstring args) {
-	boost::program_options::variables_map vm;
-
-	po::options_description common("Common options");
-	client::command_line_parser::add_common_options(common, config.data);
-	po::options_description query("Query options");
-	client::command_line_parser::add_query_options(query, config.data);
-	po::options_description submit("Submit options");
-	client::command_line_parser::add_submit_options(submit, config.data);
-	po::options_description exec("Execute options");
-	client::command_line_parser::add_exec_options(exec, config.data);
-	po::options_description desc("Allowed options");
-	desc.add(common).add(query).add(submit).add(config.local);
-
-	po::positional_options_description p;
-	p.add("arguments", -1);
-
-	std::vector<std::wstring> list;
+std::wstring client::command_manager::add_command(std::wstring name, std::wstring args) {
+	command_container data;
 	boost::escaped_list_separator<wchar_t> sep(L'\\', L' ', L'\"');
 	typedef boost::tokenizer<boost::escaped_list_separator<wchar_t>,std::wstring::const_iterator, std::wstring > tokenizer_t;
 	tokenizer_t tok(args, sep);
-	for(tokenizer_t::iterator beg=tok.begin(); beg!=tok.end();++beg){
-		list.push_back(*beg);
+	bool first = true;
+	BOOST_FOREACH(const std::wstring &s, tok) {
+		if (first) {
+			data.command = s;
+			first = false;
+		} else {
+			data.arguments.push_back(s);
+		}
 	}
 
-	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(list).options(desc).positional(p).run();
-	po::store(parsed, vm);
-	po::notify(vm);
-
-	std::wstring key = make_key(name);
-	commands[key] = configuration_instance(config);
-	return key;
+	data.key = make_key(name);
+	commands[data.key] = data;
+	return data.key;
 }
 
-int client::command_manager::exec_simple(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
+int client::command_manager::exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	command_type::const_iterator cit = commands.find(command);
 	if (cit == commands.end())
 		return NSCAPI::returnIgnored;
-	configuration_instance ci = (*cit).second;
+	const command_container ci = (*cit).second;
 
-	// @todo: add support for extending with arguments here!
-	if (ci.data->submit) {
-		std::string buffer;
-		configuration config;
-		config.handler = ci.handler;
-		config.data = ci.data;
-		std::list<std::string> errors = command_line_parser::simple_submit(config, command, arguments);
-		//nscapi::functions::create_simple_query_response(ci.data->command, ci.data->result, ci.data->message, _T(""), buffer);
-		//std::list<std::string> errors = ci.handler->submit(ci.data, buffer);
-		BOOST_FOREACH(std::string l, errors) {
-			message += to_wstring(l) + _T("\n");
+	std::list<std::wstring> rendered_arguments;
+	BOOST_FOREACH(std::wstring a, ci.arguments) {
+		int i=1;
+		BOOST_FOREACH(const std::wstring &param, arguments) {
+			strEx::replace(a, _T("$ARG") + strEx::itos(i++)+_T("$"), param);
 		}
-		return errors.empty()?NSCAPI::returnOK:NSCAPI::returnCRIT;
-	} else if (ci.data->query) {
-		std::string buffer, reply;
-		nscapi::functions::create_simple_query_request(ci.data->command, ci.data->arguments, buffer);
-		int ret = ci.handler->exec(ci.data, buffer, reply);
-		nscapi::functions::parse_simple_query_response(reply, message, perf);
-		return ret;
-	} else if (ci.data->exec) {
-		std::string buffer, reply;
-		nscapi::functions::create_simple_exec_request(ci.data->command, ci.data->arguments, buffer);
-		int ret = ci.handler->exec(ci.data, buffer, reply);
-		std::list<std::wstring> list;
-		nscapi::functions::parse_simple_exec_result(reply, list);
-		BOOST_FOREACH(std::wstring l, list) {
-			message += l + _T("\n");
-		}
-		return ret;
+		rendered_arguments.push_back(a);
 	}
-	return NSCAPI::returnIgnored;
+	// TODO: Add support for target here!
+	return client::command_line_parser::commandLineExec(config, ci.command, rendered_arguments, message);
 }
 int client::command_line_parser::query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
 	boost::program_options::variables_map vm;
@@ -163,11 +129,19 @@ int client::command_line_parser::query(configuration &config, const std::wstring
 	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
 	po::store(parsed, vm);
 	po::notify(vm);
+	if (!config.data->target_id.empty()) {
+		if (!config.target_lookup)
+			throw cli_exception("No target interface given when looking for targets");
+		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+	}
 
-	std::string buffer, reply;
-	nscapi::functions::create_simple_query_request(config.data->command, config.data->arguments, buffer);
-	int ret = config.handler->query(config.data, buffer, reply);
-	nscapi::functions::parse_simple_query_response(reply, msg, perf);
+	Plugin::QueryRequestMessage message;
+	nscapi::functions::create_simple_header(message.mutable_header());
+	modify_header(config, message.mutable_header(), config.data->recipient);
+	nscapi::functions::append_simple_query_request_payload(message.add_payload(), config.data->command, config.data->arguments);
+	std::string result;
+	int ret = config.handler->query(config.data, message.mutable_header(), message.SerializeAsString(), result);
+	nscapi::functions::parse_simple_query_response(result, msg, perf);
 	return ret;
 }
 
@@ -187,26 +161,24 @@ int client::command_line_parser::exec(configuration &config, const std::wstring 
 	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
 	po::store(parsed, vm);
 	po::notify(vm);
-
-	std::string buffer, reply;
-	nscapi::functions::create_simple_exec_request(config.data->command, config.data->arguments, buffer);
-	int ret = config.handler->exec(config.data, buffer, reply);
-	std::list<std::wstring> list;
-	nscapi::functions::parse_simple_exec_result(reply, list);
-	BOOST_FOREACH(std::wstring l, list) {
-		result += l + _T("\n");
-	}
-	return ret;
-}
-
-std::list<std::string> client::command_line_parser::simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments) {
-	boost::program_options::variables_map vm;
-
-	config.data->recipient = config.host_default_recipient;
 	if (!config.data->target_id.empty()) {
+		if (!config.target_lookup)
+			throw cli_exception("No target interface given when looking for targets");
 		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
 	}
 
+	Plugin::ExecuteRequestMessage message;
+	nscapi::functions::create_simple_header(message.mutable_header());
+	modify_header(config, message.mutable_header(), config.data->recipient);
+	std::string response;
+	nscapi::functions::append_simple_exec_request_payload(message.add_payload(), config.data->command, config.data->arguments);
+	int ret = config.handler->exec(config.data, message.mutable_header(), message.SerializeAsString(), response);
+	nscapi::functions::parse_simple_exec_result(response, result);
+	return ret;
+}
+
+boost::tuple<int,std::wstring> client::command_line_parser::simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments) {
+	boost::program_options::variables_map vm;
 	po::options_description common("Common options");
 	add_common_options(common, config.data);
 	po::options_description submit("Submit options");
@@ -218,29 +190,25 @@ std::list<std::string> client::command_line_parser::simple_submit(configuration 
 	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
 	po::store(parsed, vm);
 	po::notify(vm);
-	// lookup targets here
 	if (!config.data->target_id.empty()) {
+		if (!config.target_lookup)
+			throw cli_exception("No target interface given when looking for targets");
 		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
-		po::notify(vm);
 	}
 
-	Plugin::QueryResponseMessage message;
+	Plugin::SubmitRequestMessage message;
 	nscapi::functions::create_simple_header(message.mutable_header());
 	modify_header(config, message.mutable_header(), config.data->recipient);
-	nscapi::functions::append_simple_query_response_payload(message.add_payload(), config.data->command, config.data->result, config.data->message, _T(""));
+	message.set_channel("CLI");
+	nscapi::functions::append_simple_submit_request_payload(message.add_payload(), config.data->command, config.data->result, config.data->message);
 
 	std::string response;
-	std::list<std::string> errors;
-	int ret = config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
-	if (ret != NSCAPI::isSuccess)
-		errors.push_back("Failed to submit message...");
+	if (config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response) != NSCAPI::isSuccess)
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Failed to submit command"));
 
-	std::string error;
-	nscapi::functions::parse_simple_submit_response(response, error);
-	if (!error.empty())
-		errors.push_back(error);
-	return errors;
-
+	std::wstring messages;
+	int ret = nscapi::functions::parse_simple_submit_response(response, messages);
+	return boost::make_tuple(ret, messages);
 }
 void client::command_line_parser::modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient) {
 	nscapi::functions::destination_container myself = config.data->host_self;

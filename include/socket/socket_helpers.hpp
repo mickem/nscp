@@ -182,7 +182,7 @@ namespace socket_helpers {
 
 
 		template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
-		void write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+		bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
 			boost::optional<boost::system::error_code> timer_result;
 			boost::asio::deadline_timer timer(sock.get_io_service());
 			timer.expires_from_now(duration);
@@ -201,6 +201,7 @@ namespace socket_helpers {
 
 			if (*read_result)
 				throw boost::system::system_error(*read_result);
+			return true;
 		}
 
 

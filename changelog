@@ -5,6 +5,18 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-11-27 MickeM
+ * Major refactoring in the command line interface
+ * Added support for alias to many common module (command line)
+   so: nscp eventlog (is the same as nscp client --module CheckEventLog)
+ * Fixed issue with CheckEventLog message rendering and eventid
+ * Refactored all Client modules to all support command line, commands and submissions.
+ * Added uniform handling of "everything" to all Client plugins
+ * Fixed SyslogClient to work "as advertised" (ie. all hardcoded stuff is removed)
+ * Fixed utf8 issue with text strings (now have a working concept which needs to be implementd "all over the place")
+ * Many issues and fixes related to clients.
+ * Fixed so CheckEvent log (insert) works much better (added new options)
+
 2011-11-14 MickeM
  * Fixed issue with installer not saving nsc.ini when upgrading from 0.3.9
 

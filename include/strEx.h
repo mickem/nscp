@@ -81,8 +81,50 @@ namespace utf8 {
 		return rc_string;
 	}
 
-	template<>
-	inline std::string cvt(std::wstring const & str) {
+	inline std::wstring to_unicode(std::string const & str) {
+#ifdef WIN32
+		int len = static_cast<int>(str.length());
+		int nChars = MultiByteToWideChar(CP_ACP, 0, str.c_str(), len, NULL, 0);
+		if (nChars == 0)
+			return L"";
+		wchar_t *buffer = new wchar_t[nChars+1];
+		if (buffer == NULL)
+			return L"";
+		MultiByteToWideChar(CP_ACP, 0, str.c_str(), len, buffer, nChars);
+		buffer[nChars] = 0;
+		std::wstring buf(buffer, nChars);
+		delete [] buffer;
+		return buf;
+#else
+		size_t utf8Length = str.length();
+		size_t outbytesLeft = utf8Length*sizeof(wchar_t);
+
+		//Copy the instring
+		char *inString = new char[str.length()+1];
+		strcpy(inString, str.c_str());
+
+		//Create buffer for output
+		char *outString = (char*)new wchar_t[utf8Length+1];
+		memset(outString, 0, sizeof(wchar_t)*(utf8Length+1));
+
+		char *inPointer = inString;
+		char *outPointer = outString;
+
+		iconv_t convDesc = iconv_open("WCHAR_T", "");
+		iconv(convDesc, &inPointer, &utf8Length, &outPointer, &outbytesLeft);
+		iconv_close(convDesc);
+
+		std::wstring retval( (wchar_t *)outString );
+
+		//Cleanup
+		delete[] inString;
+		delete[] outString;
+
+		return retval;
+#endif	
+	}
+	/*
+	inline std::wstring to_unicode(std::wstring const & str) {
 #ifdef WIN32
 		// figure out how many narrow characters we are going to get 
 		int nChars = WideCharToMultiByte(CP_OEMCP, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
@@ -94,6 +136,26 @@ namespace utf8 {
 		std::string buf;
 		buf.resize(nChars);
 		WideCharToMultiByte(CP_OEMCP, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
+		return buf;
+#else
+		return str;
+#endif
+	}
+*/
+
+	template<>
+	inline std::string cvt(std::wstring const & str) {
+#ifdef WIN32
+		// figure out how many narrow characters we are going to get 
+		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
+		if (nChars == 0)
+			return "";
+
+		// convert the wide string to a narrow string
+		// nb: slightly naughty to write directly into the string like this
+		std::string buf;
+		buf.resize(nChars);
+		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
 		return buf;
 #else
 		size_t wideSize = sizeof(wchar_t)*str.length();
@@ -127,14 +189,14 @@ namespace utf8 {
 	template<>
 	inline std::wstring cvt(std::string const & str) {
 #ifdef WIN32
-		int len = str.length();
-		int nChars = MultiByteToWideChar(CP_OEMCP, 0, str.c_str(), len, NULL, 0);
+		int len = static_cast<int>(str.length());
+		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), len, NULL, 0);
 		if (nChars == 0)
 			return L"";
 		wchar_t *buffer = new wchar_t[nChars+1];
 		if (buffer == NULL)
 			return L"";
-		MultiByteToWideChar(CP_OEMCP, 0, str.c_str(), len, buffer, nChars);
+		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), len, buffer, nChars);
 		buffer[nChars] = 0;
 		std::wstring buf(buffer, nChars);
 		delete [] buffer;
@@ -400,6 +462,17 @@ namespace strEx {
 				pos = string.find(replace, pos+1);
 		}
 	}
+	inline void replace(std::string &string, const std::string replace, const std::string with) {
+		std::string::size_type pos = string.find(replace);
+		std::string::size_type len = replace.length();
+		while (pos != std::string::npos) {
+			string = string.substr(0,pos)+with+string.substr(pos+len);
+			if (with.find(replace) != std::string::npos) // If the replace containes the key look after the replace!
+				pos = string.find(replace, pos+with.length());
+			else
+				pos = string.find(replace, pos+1);
+		}
+	}
 	inline std::wstring ctos(wchar_t c) {
 		return std::wstring(1, c);
 	}
@@ -504,6 +577,24 @@ namespace strEx {
 		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
 		if (p == std::wstring::npos)
 			return value * smallest_unit;
+		else if ( (time[p] == L's') || (time[p] == L'S') )
+			return value;
+		else if ( (time[p] == L'm') || (time[p] == L'M') )
+			return value * 60;
+		else if ( (time[p] == L'h') || (time[p] == L'H') )
+			return value * 60 * 60;
+		else if ( (time[p] == L'd') || (time[p] == L'D') )
+			return value * 24 * 60 * 60;
+		else if ( (time[p] == L'w') || (time[p] == L'W') )
+			return value * 7 * 24 * 60 * 60;
+		return value * smallest_unit;
+	}
+	inline unsigned stoui_as_time_sec(std::string time, unsigned int smallest_unit = 1) {
+		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
+		std::string::size_type pend = time.find_first_not_of("0123456789");
+		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::string::npos?time:time.substr(0,pend).c_str());
+		if (p == std::string::npos)
+			return value * smallest_unit;
 		else if ( (time[p] == 's') || (time[p] == 'S') )
 			return value;
 		else if ( (time[p] == 'm') || (time[p] == 'M') )
@@ -519,6 +610,12 @@ namespace strEx {
 	inline long stol_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
 		long neg = 1;
 		if (time.length() > 1 && time[0] == L'-')
+			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
+		return stoui_as_time_sec(time, smallest_unit);
+	}
+	inline long stol_as_time_sec(std::string time, unsigned int smallest_unit = 1) {
+		long neg = 1;
+		if (time.length() > 1 && time[0] == '-')
 			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
 		return stoui_as_time_sec(time, smallest_unit);
 	}

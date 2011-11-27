@@ -4,12 +4,27 @@
 #include <boost/program_options.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include <nscapi/functions.hpp>
 
 namespace client {
 
 	namespace po = boost::program_options;
+
+	struct cli_exception : public std::exception {
+		std::string error_;
+	public:
+		cli_exception(std::string error) : error_(error) {}
+		~cli_exception() throw() {}
+		const char* what() const throw() {
+			return error_.c_str();
+		}
+		const std::wstring wwhat() const throw() {
+			return utf8::to_unicode(error_);
+		}
+
+	};
 
 	struct nscp_cli_data {
 		std::wstring target_id;
@@ -60,38 +75,51 @@ namespace client {
 		data_type data;
 		handler_type handler;
 		target_lookup_type target_lookup;
-		nscapi::functions::destination_container host_default_recipient;
 
 		configuration() : data(data_type(new nscp_cli_data())) {}
 
-	};
-	struct configuration_instance {
-		typedef boost::shared_ptr<nscp_cli_data> data_type;
-		typedef boost::shared_ptr<clp_handler> handler_type;
-		data_type data;
-		handler_type handler;
+		bool validate() {
+			if (!data) return false;
+			if (!handler) return false;
+			//if (!target_lookup) return false;
+			return true;
+		}
+		std::string to_string() {
+			std::stringstream ss;
+			ss << "Title: " << title;
+			ss << ", data: " << data;
+			ss << ", handler: " << handler;
+			ss << ", target_lookup: " << target_lookup;
+			return ss.str();
+		}
 
-		configuration_instance() : data(data_type(new nscp_cli_data())) {}
-		configuration_instance(configuration &config) : data(config.data), handler(config.handler) {}
-		configuration_instance(const configuration_instance &other) : data(other.data), handler(other.handler) {}
-		const configuration_instance& operator=(const configuration_instance &other) {
-			data = other.data;
-			handler = other.handler;
+	};
+	struct command_container {
+		std::list<std::wstring> arguments;
+		std::wstring command;
+		std::wstring key;
+
+		command_container() {}
+		command_container(const command_container &other) : command(other.command), key(other.key), arguments(other.arguments) {}
+		const command_container& operator=(const command_container &other) {
+			command = other.command;
+			arguments = other.arguments;
+			key = other.key;
 			return *this;
 		}
 	};
 
 	struct clp_handler {
-		virtual int query(configuration::data_type data, std::string request, std::string &reply) = 0;
+		virtual int query(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) = 0;
 		virtual int submit(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) = 0;
-		virtual int exec(configuration::data_type data, std::string request, std::string &reply) = 0;
+		virtual int exec(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) = 0;
 	};
 	struct command_manager {
-		typedef boost::unordered_map<std::wstring, configuration_instance> command_type;
+		typedef boost::unordered_map<std::wstring, command_container> command_type;
 		command_type commands;
 
-		std::wstring add_command(configuration &config, std::wstring name, std::wstring args);
-		int exec_simple(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
+		std::wstring add_command(std::wstring name, std::wstring args);
+		int exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 
 		static std::wstring make_key(std::wstring key) {
 			return boost::algorithm::to_lower_copy(key);
@@ -111,7 +139,7 @@ namespace client {
 		static int commandLineExec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 		static int relay_submit(configuration &config, const std::string &request, std::string &response);
 
-		static std::list<std::string> simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
+		static boost::tuple<int,std::wstring> simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
 
 		static std::wstring parse_command(std::wstring command, std::wstring prefix) {
 			std::wstring cmd = command;
@@ -126,6 +154,12 @@ namespace client {
 					cmd = cmd.substr(0, cmd.length()-1);
 			}
 			return cmd;
+		}
+		static bool is_command(std::wstring command) {
+			return (command == _T("help")) 
+				|| (command == _T("query"))
+				|| (command == _T("exec"))
+				||(command == _T("submit"));
 		}
 
 		static int query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);

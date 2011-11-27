@@ -16,7 +16,7 @@ namespace nscp {
 		typedef boost::asio::basic_socket<tcp,boost::asio::stream_socket_service<tcp> >  basic_socket_type;
 
 	public:
-		socket(boost::asio::io_service &io_service, std::wstring host, int port) {
+		socket(boost::asio::io_service &io_service, std::string host, std::string port) {
 			socket_.reset(new tcp::socket(io_service));
 			connect(host, port);
 		}
@@ -37,12 +37,9 @@ namespace nscp {
 			return *socket_;
 		}
 
-		virtual void connect(std::wstring host, int port) {
+		virtual void connect(std::string host, std::string port) {
 			tcp::resolver resolver(get_io_service());
-			tcp::resolver::query query(to_string(host), to_string(port));
-			//tcp::resolver::query query("www.medin.name", "80");
-			//tcp::resolver::query query("test_server", "80");
-
+			tcp::resolver::query query(host, port);
 			tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 			tcp::resolver::iterator end;
 

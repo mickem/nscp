@@ -20,85 +20,97 @@
 ***************************************************************************/
 #pragma once
 
+#include <boost/tuple/tuple.hpp>
 
 #include <client/command_line_parser.hpp>
-#include <boost/program_options.hpp>
-
-#include <nsca/nsca_packet.hpp>
 #include <nscapi/targets.hpp>
 
+#include <nsca/nsca_packet.hpp>
+
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
 
-class NSCAAgent : public nscapi::impl::simple_plugin {
+namespace po = boost::program_options;
+
+class NSCAAgent : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:
 
-	std::string hostname_;
-	unsigned int payload_length_;
-	bool cacheNscaHost_;
-	unsigned int timeout_;
 	std::wstring channel_;
-	int time_delta_;
-	nscapi::target_handler targets;
 	std::wstring target_path;
+	std::string hostname_;
+	bool cacheNscaHost_;
+	long time_delta_;
 
+	nscapi::target_handler targets;
+	client::command_manager commands;
 
-	struct sender_information {
-		sender_information(nscapi::functions::destination_container &src) : timeout(10) {
-			net::url u = src.get_url(5667);
-			host = u.host;
-			port = u.port;
-			password = src.data["password"];
-			encryption = src.data["encryption"];
-		}
+	struct connection_data {
 		std::string password;
 		std::string encryption;
-		std::string host;
-		unsigned int timeout;
-		int port;
+		std::string host, port;
+		std::string sender_hostname;
+		int timeout;
+		int buffer_length;
+		int time_delta;
+
+		connection_data(nscapi::functions::destination_container recipient, nscapi::functions::destination_container sender) {
+			timeout = recipient.get_int_data("timeout", 30);
+			buffer_length = recipient.get_int_data("payload length", 1024);
+			password = recipient.get_string_data("password");
+			encryption = recipient.get_string_data("encryption");
+			time_delta = strEx::stol_as_time_sec(recipient.get_string_data("time offset"));
+			net::url url = recipient.get_url(5667);
+			host = url.host;
+			port = url.get_port();
+			sender_hostname = sender.get_string_data("host");
+		}
 		unsigned int get_encryption() {
 			return nsca::nsca_encrypt::helpers::encryption_to_int(encryption);
-		}
-	};
-
-	struct nscp_connection_data : public client::nscp_cli_data {
-		unsigned int payload_length;
-		int time_delta;
-		std::string encryption;
-		std::wstring cert;
-		nscp_connection_data(unsigned int payload_length, int time_delta) : payload_length(payload_length), time_delta(time_delta) {}
-
-		std::string parse_encryption() {
-
-		}
-		std::string get_encryption_string() {
-
-			if (
-					(encryption.size() == 1 && std::isalnum(encryption[0])) 
-					|| (encryption.size() > 1 && (std::isalnum(encryption[0]) || std::isalnum(encryption[1]))) 
-					)
-				encryption = parse_encryption();
-			return encryption;
 		}
 
 		std::wstring to_wstring() {
 			std::wstringstream ss;
-			ss << _T(", cert: ") << cert;
-			ss << _T(", no_ssl: ") << utf8::cvt<std::wstring>(get_encryption_string());
+			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
+			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
+			ss << _T(", timeout: ") << timeout;
+			ss << _T(", buffer_length: ") << buffer_length;
+			ss << _T(", time_delta: ") << time_delta;
+			ss << _T(", password: ") << utf8::cvt<std::wstring>(password);
+			ss << _T(", encryption: ") << utf8::cvt<std::wstring>(encryption);
 			return ss.str();
 		}
 	};
 
-	struct clp_handler_impl : public client::clp_handler {
+	struct clp_handler_impl : public client::clp_handler, client::target_lookup_interface {
 
 		NSCAAgent *instance;
-		clp_handler_impl(NSCAAgent *instance, unsigned int payload_length, int time_delta) : instance(instance), local_data(payload_length, time_delta) {}
-		nscp_connection_data local_data;
+		clp_handler_impl(NSCAAgent *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, std::string request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response);
-		int exec(client::configuration::data_type data, std::string request, std::string &reply);
+		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+
+		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
+			nscapi::functions::destination_container ret;
+			nscapi::target_handler::optarget t = instance->targets.find_target(id);
+			if (t) {
+				if (!t->alias.empty())
+					ret.id = utf8::cvt<std::string>(t->alias);
+				if (!t->host.empty())
+					ret.host = utf8::cvt<std::string>(t->host);
+				if (t->has_option("address"))
+					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
+				else 
+					ret.address = utf8::cvt<std::string>(t->host);
+				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
+					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
+				}
+			}
+			return ret;
+		}
 	};
+
 
 public:
 	NSCAAgent();
@@ -114,9 +126,9 @@ public:
 	*/
 	static std::wstring getModuleName() {
 #ifdef HAVE_LIBCRYPTOPP
-		return _T("NSCAAgent (w/ encryption)");
+		return _T("NSCAClient");
 #else
-		return _T("NSCAAgent");
+		return _T("NSCAClient (without encryption support)");
 #endif
 	}
 	/**
@@ -124,28 +136,32 @@ public:
 	* @return module version
 	*/
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
+		nscapi::plugin_wrapper::module_version version = {0, 4, 0 };
 		return version;
 	}
 	static std::wstring getModuleDescription() {
 		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
 	}
-	bool hasNotificationHandler() { return true; }
 
-	static std::wstring getCryptos();
-
+	bool hasCommandHandler() { return true; };
+	bool hasMessageHandler() { return true; };
+	bool hasNotificationHandler() { return true; };
 	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
-	//NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 
-	NSCAPI::nagiosReturn send(sender_information &data, const std::list<nsca::packet> packets);
+private:
+	boost::tuple<int,std::wstring> send(connection_data data, const std::list<nsca::packet> packets);
+	void add_options(po::options_description &desc, connection_data &command_data);
+	static connection_data parse_header(const ::Plugin::Common_Header &header);
 
-
-	std::wstring setup(client::configuration &config, const std::wstring &command);
-	void add_local_options(boost::program_options::options_description &desc, nscp_connection_data &command_data);
+private:
+	void add_local_options(po::options_description &desc, client::configuration::data_type data);
+	void setup(client::configuration &config);
+	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 
+	static std::wstring getCryptos();
 	void set_delay(std::wstring key) {
 		time_delta_ = strEx::stol_as_time_sec(key, 1);
 	}

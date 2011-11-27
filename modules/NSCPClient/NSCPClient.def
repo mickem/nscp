@@ -1,4 +1,4 @@
-LIBRARY	NRPEClient
+LIBRARY	NSCPClient
 
 EXPORTS
 	NSModuleHelperInit
@@ -14,3 +14,5 @@ EXPORTS
 	NSGetModuleDescription
 	NSCommandLineExec
 	NSDeleteBuffer
+	NSHandleNotification
+	NSHasNotificationHandler

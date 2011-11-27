@@ -44,9 +44,9 @@ private:
 		clp_handler_impl(SMTPClient *instance) : instance(instance) {}
 		connection_data local_data;
 
-		int query(client::configuration::data_type data, std::string request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response);
-		int exec(client::configuration::data_type data, std::string request, std::string &reply);
+		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
 	};
 
 public:
@@ -81,7 +81,7 @@ public:
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 
-	std::wstring setup(client::configuration &config, const std::wstring &command);
+	void setup(client::configuration &config);
 	void add_local_options(boost::program_options::options_description &desc, connection_data &command_data);
 	void add_target(std::wstring key, std::wstring args);
 

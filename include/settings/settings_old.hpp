@@ -69,7 +69,7 @@ namespace settings {
 			void parse_line(std::wstring line) {
 				strEx::replace(line, _T("\n"), _T(""));
 				strEx::replace(line, _T("\r"), _T(""));
-				int pos = line.find('#');
+				std::wstring::size_type pos = line.find('#');
 				if (pos != -1)
 					line = line.substr(0, pos);
 				pos = line.find_first_not_of(_T(" \t\n\r"));
@@ -92,7 +92,7 @@ namespace settings {
 			}
 			std::pair<std::wstring,std::wstring> split_key(std::wstring key) {
 				std::pair<std::wstring,std::wstring> ret;
-				int pos = key.find_last_of('/');
+				std::wstring::size_type pos = key.find_last_of('/');
 				if (pos == -1)
 					return std::pair<std::wstring,std::wstring>(key, _T(""));
 				return std::pair<std::wstring,std::wstring>(key.substr(0, pos), key.substr(pos+1));

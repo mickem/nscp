@@ -1092,32 +1092,24 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 }
 
 
-int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
+int NSClientT::load_and_run(std::wstring module, run_function fun, std::list<std::wstring> &errors) {
+	int ret = -1;
 	bool found = false;
-	std::string request;
-	std::list<std::string> responses;
-	nscapi::functions::create_simple_exec_request(command, arguments, request);
-	int ret = 0;
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!readLock.owns_lock()) {
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (001)."));
 			return -1;
 		}
-		BOOST_FOREACH(plugin_type p, plugins_) {
-			if (p) {
-				if ((module.empty() || p->getModule() == module)&&(p->has_command_line_exec())) {
-					LOG_DEBUG_CORE_STD(_T("Found module: ") + p->getName() + _T("..."));
-					try {
-						std::string response;
-						ret = p->commandLineExec(command.c_str(), request, response);
-						found = true;
-						if (ret != NSCAPI::returnIgnored && !response.empty())
-							responses.push_back(response);
-					} catch (NSPluginException e) {
-						LOG_ERROR_CORE_STD(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);
-						return -1;
-					}
+		BOOST_FOREACH(plugin_type plugin, plugins_) {
+			if (plugin && (module.empty() || plugin->getModule() == module)) {
+				LOG_DEBUG_CORE_STD(_T("Found module: ") + plugin->getName() + _T("..."));
+				try {
+					ret = fun(plugin);
+					found = true;
+				} catch (const NSPluginException &e) {
+					errors.push_back(_T("Could not execute command: ") + e.error_ + _T(" in ") + e.file_);
+					return -1;
 				}
 			}
 		}
@@ -1130,31 +1122,43 @@ int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vecto
 				if (plugin) {
 					LOG_DEBUG_CORE_STD(_T("Loading plugin: ") + plugin->getName() + _T("..."));
 					plugin->load_plugin(NSCAPI::dontStart);
-					std::string response;
-					ret = plugin->commandLineExec(command.c_str(), request, response);
-					if (ret != NSCAPI::returnIgnored && !response.empty())
-						responses.push_back(response);
+					ret = fun(plugin);
 				} else {
-					LOG_ERROR_CORE_STD(_T("Failed to load: ") + std::wstring(module));
+					errors.push_back(_T("Failed to load: ") + std::wstring(module));
 					return 1;
 				}
 			} else {
-				LOG_ERROR_CORE_STD(_T("Failed to load: ") + std::wstring(module));
+				errors.push_back(_T("Failed to load: ") + std::wstring(module));
 				return 1;
 			}
 		} catch (const NSPluginException &e) {
-			resp.push_back(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
-			LOG_INFO_CORE_STD(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
+			errors.push_back(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
 		} catch(const std::exception &e) {
-			resp.push_back(_T("Module (") + module + _T(") was not found: ") + utf8::cvt<std::wstring>(e.what()));
-			LOG_INFO_CORE_STD(_T("Module (") + module + _T(") was not found: ") + utf8::cvt<std::wstring>(e.what()));
+			errors.push_back(_T("Module (") + module + _T(") was not found: ") + utf8::cvt<std::wstring>(e.what()));
 			return 1;
 		} catch(...) {
-			resp.push_back(_T("Module (") + module + _T(") was not found..."));
-			LOG_INFO_CORE_STD(_T("Module (") + module + _T(") was not found..."));
+			errors.push_back(_T("Module (") + module + _T(") was not found..."));
 			return 1;
 		}
 	}
+	return ret;
+}
+
+int exec_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector<std::wstring> arguments, std::string request, std::list<std::string> *responses) {
+	std::string response;
+	int ret = plugin->commandLineExec(command.c_str(), request, response);
+	if (ret != NSCAPI::returnIgnored && !response.empty())
+		responses->push_back(response);
+	return ret;
+}
+
+int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
+	std::string request;
+	std::list<std::string> responses;
+	std::list<std::wstring> errors;
+	nscapi::functions::create_simple_exec_request(command, arguments, request);
+	int ret = load_and_run(module, boost::bind(&exec_helper, _1, command, arguments, request, &responses), errors);
+
 	BOOST_FOREACH(std::string &r, responses) {
 		try {
 			nscapi::functions::parse_simple_exec_result(r, resp);
@@ -1164,9 +1168,44 @@ int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vecto
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
+	BOOST_FOREACH(const std::wstring &e, errors) {
+		LOG_ERROR_CORE_STD(e);
+		resp.push_back(e);
+	}
+	return ret;
+}
+int query_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector<std::wstring> arguments, std::string request, std::list<std::string> *responses) {
+	std::string response;
+	int ret = plugin->handleCommand(command.c_str(), request, response);
+	if (ret != NSCAPI::returnIgnored && !response.empty())
+		responses->push_back(response);
 	return ret;
 }
 
+int NSClientT::simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
+	std::string request;
+	std::list<std::string> responses;
+	std::list<std::wstring> errors;
+	nscapi::functions::create_simple_query_request(command, arguments, request);
+	int ret = load_and_run(module, boost::bind(&query_helper, _1, command, arguments, request, &responses), errors);
+
+	BOOST_FOREACH(std::string &r, responses) {
+		try {
+			std::wstring msg, perf;
+			nscapi::functions::parse_simple_query_response(r, msg, perf);
+			resp.push_back(msg + _T("|") + perf);
+		} catch (std::exception &e) {
+			resp.push_back(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+			LOG_ERROR_CORE_STD(resp.back());
+			return NSCAPI::returnUNKNOWN;
+		}
+	}
+	BOOST_FOREACH(const std::wstring &e, errors) {
+		LOG_ERROR_CORE_STD(e);
+		resp.push_back(e);
+	}
+	return ret;
+}
 
 NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_target, const wchar_t* raw_command, std::string &request, std::string &response) {
 	std::wstring target = raw_target;
@@ -1232,18 +1271,18 @@ NSCAPI::errorReturn NSClientT::reroute(std::wstring &channel, std::string &buffe
 		char *new_buffer;
 		unsigned int new_buffer_len;
 		int status = p->route_message(channel.c_str(), buffer.c_str(), buffer.size(), &new_channel_buffer, &new_buffer, &new_buffer_len);
-		if (status&NSCAPI::message_modified == NSCAPI::message_modified) {
+		if ((status&NSCAPI::message_modified) == NSCAPI::message_modified) {
 			buffer = std::string(new_buffer, new_buffer_len);
 			p->deleteBuffer(&new_buffer);
 		}
-		if (status&NSCAPI::message_routed == NSCAPI::message_routed) {
+		if ((status&NSCAPI::message_routed) == NSCAPI::message_routed) {
 			channel = new_channel_buffer;
 			//p->deleteBuffer(new_channel_buffer);
 			return NSCAPI::message_routed;
 		}
-		if (status&NSCAPI::message_ignored == NSCAPI::message_ignored)
+		if ((status&NSCAPI::message_ignored) == NSCAPI::message_ignored)
 			return NSCAPI::message_ignored;
-		if (status&NSCAPI::message_digested == NSCAPI::message_digested)
+		if ((status&NSCAPI::message_digested) == NSCAPI::message_digested)
 			return NSCAPI::message_ignored;
 	}
 	return NSCAPI::isfalse;

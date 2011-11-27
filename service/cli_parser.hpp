@@ -74,23 +74,25 @@ public:
 			;
 
 		client.add_options()
-			("command,C", po::value<std::wstring>(), "Name of command to start")
+			("exec,e", po::value<std::wstring>(), "Run a command (execute)")
+			("query,q", po::value<std::wstring>(), "Run a query with a given name")
+			("submit,s", po::value<std::wstring>(), "Name of query to ask")
 			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
-			("arguments,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments")
+			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
+			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
 			;
 
 	}
 
-	bool process_common_options() {
+	bool process_common_options(std::string context, po::options_description &desc) {
+		core_->set_console_log();
 		if (debug) {
 			core_->enableDebug(true);
 			core_->log_debug(__FILE__, __LINE__, _T("Enabling debug mode"));
 		}
 
 		if (help) {
-			po::options_description all("Allowed options");
-			all.add(root).add(common).add(service).add(settings).add(client);
-			std::cout << all << std::endl;
+			std::cout << desc << std::endl;
 			return true;
 		}
 		if (version) {
@@ -99,7 +101,52 @@ public:
 		}
 		return false;
 	}
+
+
+
 	int parse(int argc, wchar_t* argv[]) {
+
+		typedef boost::function<int(int, wchar_t**)> handler_function;
+		typedef std::map<std::string,handler_function> handler_map;
+		typedef std::map<std::string,std::string> alias_map;
+		handler_map handlers;
+		alias_map aliases;
+		handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, _1, _2);
+		handlers["service"] = boost::bind(&cli_parser::parse_service, this, _1, _2);
+		handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, _T(""));
+		handlers["test"] = boost::bind(&cli_parser::parse_test, this, _1, _2);
+
+		aliases["nrpe"] = "NRPEClient";
+		aliases["nscp"] = "NSCPClient";
+		aliases["nsca"] = "NSCAClient";
+		aliases["eventlog"] = "CheckEventLog";
+		aliases["python"] = "PythonScript";
+		aliases["py"] = "PythonScript";
+		aliases["lua"] = "LuaScript";
+		aliases["syslog"] = "SyslogClient";
+
+		if (argc > 1 && argv[1][0] != L'-') {
+			std::string mod = utf8::cvt<std::string>(argv[1]);
+			handler_map::const_iterator it = handlers.find(mod);
+			if (it != handlers.end())
+				return it->second(argc-1, &argv[1]);
+
+			alias_map::const_iterator alias_it = aliases.find(mod);
+			if (alias_it != aliases.end())
+				return parse_client(argc-1, &argv[1], utf8::cvt<std::wstring>(alias_it->second));
+
+			std::cerr << "Invalid module specified: " << mod << std::endl;
+			std::cerr << "Available modules are: ";
+			BOOST_FOREACH(const handler_map::value_type &itm, handlers) {
+				std::cerr << itm.first << ", ";
+			}
+			BOOST_FOREACH(const alias_map::value_type &itm, aliases) {
+				std::cerr << itm.first << ", ";
+			}
+			std::cerr << std::endl;
+			return 1;
+		}
+
 		try {
 			po::options_description all("Allowed options");
 			all.add(root).add(common).add(service).add(settings).add(client);
@@ -111,35 +158,10 @@ public:
 			po::store(parsed, vm);
 			po::notify(vm);
 
-			if (process_common_options())
-				return 1;
-
-			if (vm.count("settings-help")) {
-				std::cout << settings << std::endl;
-				return 1;
-			}
-			if (vm.count("service-help")) {
-				std::cout << service << std::endl;
-				return 1;
-			}
-			if (vm.count("client-help")) {
-				std::cout << client << std::endl;
-				return 1;
-			}
-
-			if (vm.count("settings")) {
-				return parse_settings(argc-1, &argv[1]);
-			}
-			if (vm.count("service")) {
-				//mainClient.set_console_log();
-				return parse_service(argc-1, &argv[1]);
-			}
-			if (vm.count("client")) {
-				return parse_client(argc-1, &argv[1]);
-			}
-			if (vm.count("test")) {
-				mainClient.set_console_log();
-				return parse_test(argc-1, &argv[1]);
+			BOOST_FOREACH(handler_map::value_type &it, handlers) {
+				if (vm.count(it.first)) {
+					return it.second(argc-1, &argv[1]);
+				}
 			}
 			std::cerr << "First argument has to be one of the following: " << std::endl;
 			std::cout << root << std::endl;
@@ -156,6 +178,10 @@ public:
 
 	int parse_test(int argc, wchar_t* argv[]) {
 		bool server = false;
+
+		core_->set_console_log();
+		core_->enableDebug(true);
+
 // 		if (argc > 2 && wcscasecmp( _T("server"), argv[2] ) == 0 ) {
 // 			server = true;
 // 		}
@@ -175,10 +201,7 @@ public:
 			po::store(po::parse_command_line(argc, argv, all), vm);
 			po::notify(vm);
 
-			if (debug)
-				mainClient.set_console_log();
-
-			if (process_common_options())
+			if (process_common_options("settings", all))
 				return 1;
 
 			bool def = vm.count("add-defaults")==1;
@@ -241,7 +264,7 @@ public:
 			po::store(po::parse_command_line(argc, argv, all), vm);
 			po::notify(vm);
 
-			if (process_common_options())
+			if (process_common_options("service", all))
 				return 1;
 
 			std::wstring name;
@@ -269,7 +292,6 @@ public:
 					mainClient.log_error(__FILE__, __LINE__, _T("Unknown exception in service"));
 				}
 			} else {
-				mainClient.set_console_log();
 				nsclient::client::service_manager service_manager(name);
 
 				if (vm.count("install")) {
@@ -294,7 +316,7 @@ public:
 		}
 	}
 
-	int parse_client(int argc, wchar_t* argv[]) {
+	int parse_client(int argc, wchar_t* argv[], std::wstring module = _T("")) {
 		try {
 			po::options_description all("Allowed options (client)");
 			all.add(common).add(client);
@@ -308,20 +330,28 @@ public:
 			po::store(parsed, vm);
 			po::notify(vm);
 
-			if (process_common_options())
+			if (process_common_options("client", all))
 				return 1;
 
 			std::wstring command;
-			if (vm.count("command"))
-				command = vm["command"].as<std::wstring>();
+			enum modes { exec, query, submit};
+			modes mode;
 
-			std::wstring module;
+			if (vm.count("exec")) {
+				command = vm["exec"].as<std::wstring>();
+				mode = exec;
+			}
+			if (vm.count("query")) {
+				command = vm["query"].as<std::wstring>();
+				mode = query;
+			}
+
 			if (vm.count("module"))
 				module = vm["module"].as<std::wstring>();
 
 			std::vector<std::wstring> kvp_args;
-			if (vm.count("arguments"))
-				kvp_args = vm["arguments"].as<std::vector<std::wstring> >();
+			if (vm.count("argument"))
+				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
 
 			std::vector<std::wstring> arguments = po::collect_unrecognized(parsed.options, po::include_positional);
 
@@ -335,11 +365,22 @@ public:
 				}
 			}
 
+			if (vm.count("raw-argument"))
+				kvp_args = vm["raw-argument"].as<std::vector<std::wstring> >();
+			BOOST_FOREACH(std::wstring s, kvp_args) {
+				std::wstring::size_type pos = s.find(L'=');
+				if (pos == std::wstring::npos)
+					arguments.push_back(s);
+				else {
+					arguments.push_back(s.substr(0,pos));
+					arguments.push_back(s.substr(pos+1));
+				}
+			}
 
-			mainClient.set_console_log();
 			if (debug) {
 				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
 				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
+				mainClient.log_info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
 				std::wstring args;
 				BOOST_FOREACH(std::wstring s, arguments)
 					strEx::append_list(args, s, _T(", "));
@@ -351,9 +392,20 @@ public:
 			}
 			int ret = 0;
 			std::list<std::wstring> resp;
-			if (mainClient.simple_exec(module, command, arguments, resp) == NSCAPI::returnIgnored) {
-				ret = 1;
-				std::wcout << _T("No handler for that command: ") << command << std::endl;
+			if (mode == query) {
+				ret = mainClient.simple_query(module, command, arguments, resp);
+			} else {
+				if (command.empty()) {
+					mainClient.simple_exec(module, _T("help"), arguments, resp);
+					ret = 1;
+				} else {
+					ret = mainClient.simple_exec(module, command, arguments, resp);
+					if (ret == NSCAPI::returnIgnored) {
+						ret = 1;
+						std::wcout << _T("Command not found (by module): ") << command << std::endl;
+						mainClient.simple_exec(module, _T("help"), arguments, resp);
+					}
+				}
 			}
 			mainClient.exitCore(false);
 
@@ -362,11 +414,10 @@ public:
 			}
 			return ret;
 		} catch(std::exception & e) {
-			std::cout << "Client: Unable to parse command line: "  << e.what() << std::endl;
+			mainClient.log_error(__FILE__, __LINE__, std::string("Client: Unable to parse command line: ") + e.what());
 			return 1;
 		} catch(...) {
 			mainClient.log_error(__FILE__, __LINE__, "Unknown exception parsing command line");
-			std::cout << "Client: Unknown exception parsing command line" << std::endl;
 			return 1;
 		}
 	}

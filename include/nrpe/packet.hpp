@@ -82,7 +82,7 @@ namespace nrpe {
 			return error_.c_str();
 		}
 		const std::wstring wwhat() const throw() {
-			return utf8::cvt<std::wstring>(error_);
+			return utf8::to_unicode(error_);
 		}
 	};
 	class nrpe_packet_exception : public nrpe_exception {

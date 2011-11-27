@@ -18,11 +18,14 @@ nscapi::target_handler::target nscapi::target_handler::read_target(boost::shared
 		;
 
 	settings.path(tpath).add_key()
-		(_T("protocol"), sh::wstring_key(&t.protocol, _T("*")),
-		_T("TARGET PROTOCOL"), _T("The default protocol to use for target"))
+//		(_T("protocol"), sh::wstring_key(&t.protocol, _T("*")),
+//		_T("TARGET PROTOCOL"), _T("The default protocol to use for target"))
 
 		(_T("host"), sh::wstring_key(&t.host, t.host),
-		_T("TARGET HOST"), _T("Target host ip address"))
+		_T("TARGET HOST"), _T("Target host name"))
+
+		(_T("address"), sh::wstring_key(&t.address, t.address),
+		_T("TARGET ADDRESS"), _T("Target host address"))
 
 		(_T("alias"), sh::wstring_key(&t.alias, t.alias),
 		_T("TARGET ALIAS"), _T("The alias for the target"))
@@ -59,6 +62,16 @@ nscapi::target_handler::optarget nscapi::target_handler::find_target(std::wstrin
 	return optarget();
 }
 
+bool nscapi::target_handler::has_target(std::wstring alias) {
+	target_list_type::const_iterator cit = target_list.find(alias);
+	if (cit != target_list.end())
+		return true;
+	cit = template_list.find(alias);
+	if (cit != template_list.end())
+		return true;
+	return false;
+}
+
 void nscapi::target_handler::apply_parent(target &t, target &p) {
 	if (t.host.empty())
 		t.host = p.host;
@@ -69,6 +82,11 @@ void nscapi::target_handler::apply_parent(target &t, target &p) {
 			t.options[i.first] = i.second;
 	}
 }
+
+void nscapi::target_handler::rebuild() {
+	// TODO re-build targets since default has changed!
+}
+
 
 std::wstring nscapi::target_handler::to_wstring() {
 	std::wstringstream ss;

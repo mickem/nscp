@@ -85,7 +85,13 @@ namespace nsclient {
 
 
 		public:
-			slave() : mq_(ip::open_only,queue_name.c_str()), plugins_loaded_(false), console_log_(false) {}
+			slave() : mq_(ip::open_only,queue_name.c_str()), plugins_loaded_(false), console_log_(false) {
+#ifdef WIN32
+				if(!SetConsoleOutputCP(CP_UTF8)) { // 65001
+					std::cerr << "Failed to set console output mode!\n";
+				}
+#endif
+			}
 
 			void add_plugin(plugin_type plugin) {
 				boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -197,7 +203,18 @@ namespace nsclient {
 					std::wstring s = render_console_message(buffer);
 					strEx::replace(s, _T("\n"), _T(""));
 					strEx::replace(s, _T("\r"), _T(""));
+
+#ifdef WIN32
+					s += _T("\n");
+					HANDLE const consout = GetStdHandle(STD_OUTPUT_HANDLE);
+					DWORD nNumberOfCharsWritten;
+					if(!WriteConsole(consout, s.c_str(), s.length(), &nNumberOfCharsWritten, NULL)) {
+						DWORD const err = GetLastError();
+						cerr << "WriteConsole failed with << " << err << "!\n";
+					}
+#else
 					std::wcout << s << std::endl;
+#endif
 				}
 
 				boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
