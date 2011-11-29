@@ -114,7 +114,7 @@ bool SyslogClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 
 			;
 
-		settings.alias(_T("/targets/default")).add_key_to_settings()
+		settings.alias().add_key_to_settings(_T("targets/default"))
 
 			(_T("severity"), sh::wpath_key(&severity, _T("error")),
 			_T("SSL CERTIFICATE"), _T(""))
@@ -429,12 +429,12 @@ boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list
 		return boost::make_tuple(NSCAPI::returnOK, _T("OK"));
 	} catch (std::runtime_error &e) {
 		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
 

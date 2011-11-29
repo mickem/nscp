@@ -86,7 +86,7 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 			;
 
-		settings.alias(_T("/targets/default")).add_key_to_settings()
+		settings.alias().add_key_to_settings(_T("targets/default"))
 
 			(_T("timeout"), sh::uint_key(&timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))

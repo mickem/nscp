@@ -6,6 +6,10 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2011-11-27 MickeM
+ * Fixed some NSCA issues (reading from new conf)
+ * Fixed some linux build issues (related to refactoring)
+
+2011-11-27 MickeM
  * Major refactoring in the command line interface
  * Added support for alias to many common module (command line)
    so: nscp eventlog (is the same as nscp client --module CheckEventLog)

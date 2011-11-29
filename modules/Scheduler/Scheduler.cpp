@@ -157,7 +157,12 @@ void Scheduler::handle_schedule(scheduler::target item) {
 	try {
 		std::string response;
 		NSCAPI::nagiosReturn code = GET_CORE()->simple_query(item.command.c_str(), item.arguments, response);
-		if (nscapi::report::matches(item.report, code)) {
+		if (code == NSCAPI::returnIgnored) {
+			NSC_LOG_ERROR_STD(_T("Command was not found: ") + item.command.c_str());
+			nscapi::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::returnUNKNOWN, _T("Command was not found: ") + item.command, _T(""), response);
+			std::string result;
+			GET_CORE()->submit_message(item.channel, response, result);
+		} else if (nscapi::report::matches(item.report, code)) {
 			// @todo: allow renaming of commands here item.alias, 
 			// @todo this is broken, fix this (uses the wrong message)
 			nscapi::functions::make_submit_from_query(response, item.channel, item.alias);

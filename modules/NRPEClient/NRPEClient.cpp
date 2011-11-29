@@ -81,7 +81,7 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 			;
 
-		settings.alias(_T("/targets/default")).add_key_to_settings()
+		settings.alias().add_key_to_settings(_T("targets/default"))
 
 			(_T("timeout"), sh::uint_key(&timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
@@ -385,21 +385,21 @@ boost::tuple<int,std::wstring> NRPEClient::send(connection_data con, const std::
 			packet = send_ssl(con.cert, con.host, con.port, con.timeout, nrpe::packet::make_request(utf8::cvt<std::wstring>(data), con.buffer_length));
 #else
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
-			return boost::tie(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)"));
+			return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)"));
 #endif
 		} else
 			packet = send_nossl(con.host, con.port, con.timeout, nrpe::packet::make_request(utf8::cvt<std::wstring>(data), con.buffer_length));
 		return boost::make_tuple(static_cast<int>(packet.getResult()), packet.getPayload());
 	} catch (nrpe::nrpe_packet_exception &e) {
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.wwhat());
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.wwhat());
 	} catch (std::runtime_error &e) {
 		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
 

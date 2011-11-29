@@ -192,29 +192,38 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		bool do_init = false;
 		if (!has_init) {
 			has_init = true;
-			PyEval_InitThreads();
 			Py_Initialize();
+			PyEval_InitThreads();
+
+			  //PyThreadState *mainThreadState = PyThreadState_Get();
+			  //PyThreadState_Clear
+			  //PyGILState_Release(mainThreadState);
+
 			do_init = true;
 		}
 
 		try {
-			script_wrapper::thread_locker locker;
-			try {
+			{
+				script_wrapper::thread_locker locker;
+				try {
 
-				PyRun_SimpleString("import cStringIO");
-				PyRun_SimpleString("import sys");
-				PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
+					PyRun_SimpleString("import cStringIO");
+					PyRun_SimpleString("import sys");
+					PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
 
-				if (do_init)
-					initNSCP();
+					if (do_init)
+						initNSCP();
 
-				BOOST_FOREACH(script_container &script, scripts_) {
-					instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
+				} catch( error_already_set e) {
+					script_wrapper::log_exception();
 				}
 
-			} catch( error_already_set e) {
-				script_wrapper::log_exception();
 			}
+			BOOST_FOREACH(script_container &script, scripts_) {
+				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
+			}
+			PyEval_ReleaseLock();
+
 		} catch (std::exception &e) {
 			NSC_LOG_ERROR_STD(_T("Exception: Failed to load python scripts: ") + utf8::cvt<std::wstring>(e.what()));
 		} catch (...) {

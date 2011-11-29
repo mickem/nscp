@@ -93,7 +93,7 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("NSCA SERVER"), _T("Configure the NSCA server to report to."))
 			;
 
-		settings.alias(_T("/targets/default")).add_key_to_settings()
+		settings.alias().add_key_to_settings(_T("targets/default"))
 
 			(_T("timeout"), sh::uint_key(&timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out."))
@@ -440,15 +440,15 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 		return NSCAPI::isSuccess;
 	} catch (nsca::nsca_encrypt::encryption_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSCA Error: ") + utf8::to_unicode(e.what()));
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("NSCA error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NSCA error: ") + utf8::to_unicode(e.what()));
 	} catch (std::runtime_error &e) {
 		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
-		return boost::tie(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
 
