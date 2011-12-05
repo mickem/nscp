@@ -30,7 +30,7 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 
 #define MAP_OPTIONS_BEGIN(args) \
 	for (std::list<std::wstring>::const_iterator cit__=args.begin();cit__!=args.end();++cit__) { \
-	std::pair<std::wstring,std::wstring> p__ = strEx::split(*cit__,_T("=")); if (false) {}
+	std::pair<std::wstring,std::wstring> p__ = strEx::split(*cit__,std::wstring(_T("="))); if (false) {}
 
 #define MAP_OPTIONS_SHOWALL(obj) \
 			else if (p__.first == SHOW_ALL) { if (p__.second == _T("long")) obj.show = checkHolders::showLong; else obj.show = checkHolders::showShort; } \
@@ -107,7 +107,7 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 
 #define MAP_OPTIONS_SECONDARY_BEGIN(splt, arg) \
 	else if (p__.first.find(splt) != std::wstring::npos) { \
-	std::pair<std::wstring,std::wstring> arg = strEx::split(p__.first,splt); if (false) {}
+	std::pair<std::wstring,std::wstring> arg = strEx::split(p__.first,std::wstring(splt)); if (false) {}
 
 #define MAP_OPTIONS_SECONDARY_STR_AND(opt, value, objfirst, objsecond, extra) \
 			else if (opt.first == value) { objfirst = p__.second; objsecond = opt.second; extra;}

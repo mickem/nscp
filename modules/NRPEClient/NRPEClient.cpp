@@ -53,7 +53,6 @@ bool NRPEClient::loadModule() {
 }
 
 bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	std::map<std::wstring,std::wstring> commands;
 
 	std::wstring certificate;
 	unsigned int timeout = 30, buffer_length = 1024;
@@ -186,51 +185,30 @@ bool NRPEClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn NRPEClient::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nrpe"));
-
+NSCAPI::nagiosReturn NRPEClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
 	client::configuration config;
 	setup(config);
-	if (cmd == _T("query"))
-		return client::command_line_parser::query(config, cmd, arguments, message, perf);
-	if (cmd == _T("submit")) {
-		boost::tuple<int,std::wstring> result = client::command_line_parser::simple_submit(config, cmd, arguments);
-		message = result.get<1>();
-		return result.get<0>();
-	}
-	if (cmd == _T("exec")) {
-		return client::command_line_parser::exec(config, cmd, arguments, message);
-	}
-	return commands.exec_simple(config, target, command, arguments, message, perf);
+	if (!client::command_line_parser::is_command(cmd))
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+	return commands.exec_simple(config, data.target, char_command, data.args, result);
 }
 
-int NRPEClient::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nrpe"));
+NSCAPI::nagiosReturn NRPEClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
 	if (!client::command_line_parser::is_command(cmd))
 		return NSCAPI::returnIgnored;
-
 	client::configuration config;
 	setup(config);
-	return client::command_line_parser::commandLineExec(config, cmd, arguments, result);
+	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
 }
 
-NSCAPI::nagiosReturn NRPEClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
-	try {
-		client::configuration config;
-		setup(config);
-
-		if (!client::command_line_parser::relay_submit(config, request, response)) {
-			NSC_LOG_ERROR_STD(_T("Failed to submit message..."));
-			return NSCAPI::hasFailed;
-		}
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + utf8::to_unicode(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: UNKNOWN"));
-		return NSCAPI::hasFailed;
-	}
+NSCAPI::nagiosReturn NRPEClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	client::configuration config;
+	setup(config);
+	return client::command_line_parser::do_relay_submit(config, request, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -291,84 +269,67 @@ NRPEClient::connection_data NRPEClient::parse_header(const ::Plugin::Common_Head
 //
 
 int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
-	try {
-		Plugin::QueryRequestMessage request_message;
-		request_message.ParseFromString(request);
-		connection_data con = parse_header(*header);
+	Plugin::QueryRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
 
-		Plugin::QueryResponseMessage response_message;
-		nscapi::functions::create_simple_header(response_message.mutable_header());	// TODO copy request header (inverted)
+	Plugin::QueryResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
 
-		for (int i=0;i<request_message.payload_size();i++) {
-			std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
-			std::string data = command;
-			for (int a=0;a<request_message.payload(i).arguments_size();a++) {
-				data += "!" + request_message.payload(i).arguments(a);
-			}
-			boost::tuple<int,std::wstring> ret = instance->send(con, data);
-			std::pair<std::wstring,std::wstring> rdata = strEx::split(ret.get<1>(), _T("|"));
-			nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), utf8::cvt<std::wstring>(command), ret.get<0>(), rdata.first, rdata.second);
+	for (int i=0;i<request_message.payload_size();i++) {
+		std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
+		std::string data = command;
+		for (int a=0;a<request_message.payload(i).arguments_size();a++) {
+			data += "!" + request_message.payload(i).arguments(a);
 		}
-		response_message.SerializeToString(&reply);
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::to_unicode(e.what()));
-		nscapi::functions::create_simple_query_response(_T("command"), NSCAPI::returnUNKNOWN, _T("Exception: ") + utf8::to_unicode(e.what()), _T(""), reply);
-		return NSCAPI::returnUNKNOWN;
+		boost::tuple<int,std::wstring> ret = instance->send(con, data);
+		std::pair<std::wstring,std::wstring> rdata = strEx::split(ret.get<1>(), std::wstring(_T("|")));
+		nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), utf8::cvt<std::wstring>(command), ret.get<0>(), rdata.first, rdata.second);
 	}
+	response_message.SerializeToString(&reply);
+	return NSCAPI::isSuccess;
 }
 
 int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	std::wstring channel;
-	try {
-		Plugin::SubmitRequestMessage message;
-		message.ParseFromString(request);
-		connection_data con = parse_header(*header);
-		channel = utf8::cvt<std::wstring>(message.channel());
-		
-		for (int i=0;i<message.payload_size();++i) {
-			std::string command = get_command(message.payload(i).alias(), message.payload(i).command());
-			std::string data = command;
-			for (int a=0;a<message.payload(i).arguments_size();a++) {
-				data += "!" + message.payload(i).arguments(i);
-			}
-			boost::tuple<int,std::wstring> ret = instance->send(con, data);
-			// TODO: Change this to append!
-			nscapi::functions::create_simple_submit_response(channel, utf8::cvt<std::wstring>(command), ret.get<0>(), _T("Message submitted successfully: ") + ret.get<1>(), reply);
-			return NSCAPI::isSuccess;
+	Plugin::SubmitRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
+	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
+	
+	Plugin::SubmitResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+
+	for (int i=0;i<request_message.payload_size();++i) {
+		std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
+		std::string data = command;
+		for (int a=0;a<request_message.payload(i).arguments_size();a++) {
+			data += "!" + request_message.payload(i).arguments(i);
 		}
-		nscapi::functions::create_simple_submit_response(channel, _T("UNKNOWN"), NSCAPI::returnUNKNOWN, _T("Empty message was submitted"), reply);
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::to_unicode(e.what()));
-		nscapi::functions::create_simple_submit_response(channel, _T("UNKNOWN"), NSCAPI::returnUNKNOWN, utf8::to_unicode(e.what()), reply);
-		return NSCAPI::hasFailed;
-	}	
+		boost::tuple<int,std::wstring> ret = instance->send(con, data);
+		nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), command, ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	}
+	response_message.SerializeToString(&reply);
+	return NSCAPI::isSuccess;
 }
 
 int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
-	try {
-		Plugin::ExecuteRequestMessage request_message;
-		request_message.ParseFromString(request);
-		connection_data con = parse_header(*header);
+	Plugin::ExecuteRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
 
-		for (int i=0;i<request_message.payload_size();i++) {
-			std::string command = get_command(request_message.payload(i).command());
-			std::string data = command;
-			for (int a=0;a<request_message.payload(i).arguments_size();a++) {
-				data += "!" + request_message.payload(i).arguments(a);
-			}
-			boost::tuple<int,std::wstring> ret = instance->send(con, data);
-			nscapi::functions::create_simple_exec_response(utf8::cvt<std::wstring>(command), ret.get<0>(), ret.get<1>(), reply);
-		}
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::to_unicode(e.what()));
-		nscapi::functions::create_simple_exec_response(_T("command"), NSCAPI::returnUNKNOWN, _T("Exception: ") + utf8::to_unicode(e.what()), reply);
-		return NSCAPI::hasFailed;
+	Plugin::ExecuteResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+
+	for (int i=0;i<request_message.payload_size();i++) {
+		std::string command = get_command(request_message.payload(i).command());
+		std::string data = command;
+		for (int a=0;a<request_message.payload(i).arguments_size();a++)
+			data += "!" + request_message.payload(i).arguments(a);
+		boost::tuple<int,std::wstring> ret = instance->send(con, data);
+		nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), command, ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
 	}
+	response_message.SerializeToString(&reply);
+	return NSCAPI::isSuccess;
 }
 
 //////////////////////////////////////////////////////////////////////////

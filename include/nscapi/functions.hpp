@@ -40,6 +40,41 @@
 using namespace nscp::helpers;
 
 namespace nscapi {
+
+	namespace traits {
+
+		template<class T>
+		struct perf_data_consts {
+			static const T get_valid_perf_numbers();
+			static const T get_replace_perf_coma_src();
+			static const T get_replace_perf_coma_tgt();
+		};
+
+		template<>
+		struct perf_data_consts<std::wstring> {
+			static const std::wstring get_valid_perf_numbers() {
+				return _T("0123456789,.");
+			}
+			static const std::wstring get_replace_perf_coma_src() {
+				return _T(",");
+			}
+			static const std::wstring get_replace_perf_coma_tgt() {
+				return _T(".");
+			}
+		};
+		template<>
+		struct perf_data_consts<std::string> {
+			static const std::string get_valid_perf_numbers() {
+				return "0123456789,.";
+			}
+			static const std::string get_replace_perf_coma_src() {
+				return ",";
+			}
+			static const std::string get_replace_perf_coma_tgt() {
+				return ".";
+			}
+		};
+	}
 	class functions {
 	public:
 		static Plugin::Common::ResultCode nagios_status_to_gpb(int ret) {
@@ -70,6 +105,17 @@ namespace nscapi {
 				return NSCAPI::isSuccess;
 			return NSCAPI::hasFailed;
 		}
+		static Plugin::Common::ResultCode gbp_status_to_gbp_nagios(Plugin::Common::Status::StatusType ret) {
+			if (ret == Plugin::Common_Status_StatusType_OK)
+				return Plugin::Common_ResultCode_OK;
+			return Plugin::Common_ResultCode_UNKNOWN;
+		}
+		static Plugin::Common::Status::StatusType gbp_to_nagios_gbp_status(Plugin::Common::ResultCode ret) {
+			if (ret == Plugin::Common_ResultCode_UNKNOWN||ret == Plugin::Common_ResultCode_WARNING||ret == Plugin::Common_ResultCode_CRITCAL)
+				return Plugin::Common_Status_StatusType_CRITICAL;
+			return Plugin::Common_Status_StatusType_OK;
+		}
+		
 		static Plugin::LogEntry::Entry::Level log_to_gpb(NSCAPI::messageTypes ret) {
 			if (ret == NSCAPI::critical)
 				return Plugin::LogEntry_Entry_Level_LOG_CRITICAL;
@@ -97,13 +143,17 @@ namespace nscapi {
 			return NSCAPI::error;
 		}
 
-		static double trim_to_double(std::wstring s) {
-			std::wstring::size_type pend = s.find_first_not_of(_T("0123456789,."));
-			if (pend != std::wstring::npos)
+
+		template<class T>
+		static double trim_to_double(T s) {
+			typename T::size_type pend = s.find_first_not_of(nscapi::traits::perf_data_consts<T>::get_valid_perf_numbers());
+			if (pend != T::npos)
 				s = s.substr(0,pend);
-			strEx::replace(s, _T(","), _T("."));
+			strEx::replace(s, nscapi::traits::perf_data_consts<T>::get_replace_perf_coma_src(), nscapi::traits::perf_data_consts<T>::get_replace_perf_coma_tgt());
 			return strEx::stod(s);
 		}
+
+		
 
 		struct decoded_simple_command_data {
 			std::wstring command;
@@ -279,6 +329,7 @@ namespace nscapi {
 			response.ParseFromString(message);
 			Plugin::SubmitRequestMessage request;
 			request.mutable_header()->CopyFrom(response.header());
+			request.mutable_header()->set_source_id(request.mutable_header()->recipient_id());
 			request.set_channel(to_string(channel));
 			for (int i=0;i<response.payload_size();++i) {
 				request.add_payload()->CopyFrom(response.payload(i));
@@ -286,6 +337,63 @@ namespace nscapi {
 					request.mutable_payload(i)->set_alias(to_string(alias));
 			}
 			message = request.SerializeAsString();
+		}
+
+		static void make_query_from_exec(std::string &data) {
+			Plugin::ExecuteResponseMessage exec_response_message;
+			exec_response_message.ParseFromString(data);
+			Plugin::QueryResponseMessage query_response_message;
+			query_response_message.mutable_header()->CopyFrom(exec_response_message);
+			for (int i=0;i<exec_response_message.payload_size();++i) {
+				Plugin::ExecuteResponseMessage::Response p = exec_response_message.payload(i);
+				append_simple_query_response_payload(query_response_message.add_payload(), p.command(), p.result(), p.message());
+			}
+			data = query_response_message.SerializeAsString();
+		}
+		static void make_query_from_submit(std::string &data) {
+			Plugin::SubmitResponseMessage submit_response_message;
+			submit_response_message.ParseFromString(data);
+			Plugin::QueryResponseMessage query_response_message;
+			query_response_message.mutable_header()->CopyFrom(submit_response_message);
+			for (int i=0;i<submit_response_message.payload_size();++i) {
+				Plugin::SubmitResponseMessage::Response p = submit_response_message.payload(i);
+				append_simple_query_response_payload(query_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.status().status()), p.status().message(), "");
+			}
+			data = query_response_message.SerializeAsString();
+		}
+
+		static void make_exec_from_submit(std::string &data) {
+			Plugin::SubmitResponseMessage submit_response_message;
+			submit_response_message.ParseFromString(data);
+			Plugin::ExecuteResponseMessage exec_response_message;
+			exec_response_message.mutable_header()->CopyFrom(submit_response_message);
+			for (int i=0;i<submit_response_message.payload_size();++i) {
+				Plugin::SubmitResponseMessage::Response p = submit_response_message.payload(i);
+				append_simple_exec_response_payload(exec_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.status().status()), p.status().message());
+			}
+			data = exec_response_message.SerializeAsString();
+		}
+		static void make_exec_from_query(std::string &data) {
+			Plugin::QueryResponseMessage query_response_message;
+			query_response_message.ParseFromString(data);
+			Plugin::ExecuteResponseMessage exec_response_message;
+			exec_response_message.mutable_header()->CopyFrom(query_response_message);
+			for (int i=0;i<query_response_message.payload_size();++i) {
+				Plugin::QueryResponseMessage::Response p = query_response_message.payload(i);
+				std::string s = build_performance_data(p);
+				if (!s.empty())
+					s = p.message() + "|" + s;
+				else
+					s = p.message();
+				append_simple_exec_response_payload(exec_response_message.add_payload(), p.command(), p.result(), s);
+			}
+			data = exec_response_message.SerializeAsString();
+		}
+
+
+		static void make_return_header(::Plugin::Common_Header *target, const ::Plugin::Common_Header &source) {
+			target->CopyFrom(source);
+			target->set_source_id(target->recipient_id());
 		}
 
 		static void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer) {
@@ -408,6 +516,10 @@ namespace nscapi {
 			create_simple_query_response(command, NSCAPI::returnUNKNOWN, msg, perf, buffer);
 			return NSCAPI::returnUNKNOWN;
 		}
+		static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::string &buffer) {
+			create_simple_query_response(command, NSCAPI::returnUNKNOWN, msg, _T(""), buffer);
+			return NSCAPI::returnUNKNOWN;
+		}
 
 		static void create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
 			Plugin::QueryResponseMessage message;
@@ -435,10 +547,44 @@ namespace nscapi {
 				parse_performance_data(payload, perf);
 		}
 
-		static void append_simple_exec_response_payload(Plugin::ExecuteResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg) {
+		template<class T>
+		static void append_response_payloads(T &target_message, std::string &payload) {
+			T source_message;
+			source_message.ParseFromString(payload);
+			for (int i=0;i<source_message.payload_size();++i)
+				target_message.add_payload()->CopyFrom(source_message.payload(i));
+		}
+
+		static void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "") {
 			payload->set_command(to_string(command));
 			payload->set_message(to_string(msg));
 			payload->set_result(nagios_status_to_gpb(ret));
+			if (!perf.empty())
+				parse_performance_data(payload, perf);
+		}
+/*
+		static void append_simple_exec_response_payload(Plugin::ExecuteResponseMessage::Response *payload, std::string command, Plugin::Common::ResultCode ret, std::string msg) {
+			payload->set_command(command);
+			payload->set_message(msg);
+			payload->set_result(ret);
+		}
+		*/
+		static void append_simple_exec_response_payload(Plugin::ExecuteResponseMessage::Response *payload, std::string command, int ret, std::string msg) {
+			payload->set_command(command);
+			payload->set_message(msg);
+			payload->set_result(nagios_status_to_gpb(ret));
+		}
+		/*
+		static void append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, Plugin::Common::ResultCode ret, std::string msg) {
+			payload->set_command(command);
+			payload->mutable_status()->set_status(gbp_to_nagios_gbp_status(ret));
+			payload->mutable_status()->set_message(msg);
+		}
+		*/
+		static void append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, int ret, std::string msg) {
+			payload->set_command(command);
+			payload->mutable_status()->set_status(status_to_gpb(ret));
+			payload->mutable_status()->set_message(msg);
 		}
 
 
@@ -545,7 +691,8 @@ namespace nscapi {
 			}
 		}
 
-		static void create_simple_exec_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring result, std::string &response) {
+		template<class T>
+		static int create_simple_exec_response(T command, NSCAPI::nagiosReturn ret, T result, std::string &response) {
 			Plugin::ExecuteResponseMessage message;
 			create_simple_header(message.mutable_header());
 
@@ -555,6 +702,20 @@ namespace nscapi {
 
 			payload->set_result(nagios_status_to_gpb(ret));
 			message.SerializeToString(&response);
+			return ret;
+		}
+		template<class T>
+		static int create_simple_exec_response_unknown(T command, T result, std::string &response) {
+			Plugin::ExecuteResponseMessage message;
+			create_simple_header(message.mutable_header());
+
+			Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(to_string(command));
+			payload->set_message(to_string(result));
+
+			payload->set_result(nagios_status_to_gpb(NSCAPI::returnUNKNOWN));
+			message.SerializeToString(&response);
+			return NSCAPI::returnUNKNOWN;
 		}
 		static decoded_simple_command_data parse_simple_exec_request(const wchar_t* char_command, const std::string &request) {
 			decoded_simple_command_data data;
@@ -586,16 +747,26 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf) {
-			boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring> tok(perf, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\''));
-			BOOST_FOREACH(std::wstring s, tok) {
+		template<class T, class U>
+		struct tokenizer_data {
+			boost::escaped_list_separator<U> separator;	// \\, ' ', \'
+			T perf_item_splitter;						// ; 
+			T perf_equal_sign;							// =
+			T perf_valid_number;						// 0123456789.,
+
+		};
+
+		template<class T, class U>
+		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, T &perf, tokenizer_data<T, U> tokenizer_data) {
+			boost::tokenizer<boost::escaped_list_separator<U>, typename T::const_iterator, T> tok(perf, tokenizer_data.separator);
+			BOOST_FOREACH(const T s, tok) {
 				if (s.size() == 0)
 					break;
-				strEx::splitVector items = strEx::splitV(s, _T(";"));
+				std::vector<T> items = strEx::splitV(s, tokenizer_data.perf_item_splitter);
 				if (items.size() < 1) {
 					Plugin::Common::PerformanceData* perfData = payload->add_perf();
 					perfData->set_type(Plugin::Common_DataType_STRING);
-					std::pair<std::wstring,std::wstring> fitem = strEx::split(_T(""), _T("="));
+					std::pair<T,T> fitem = strEx::split(T(), tokenizer_data.perf_equal_sign);
 					perfData->set_alias("invalid");
 					Plugin::Common_PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
 					stringPerfData->set_value("invalid performance data");
@@ -604,15 +775,15 @@ namespace nscapi {
 
 				Plugin::Common::PerformanceData* perfData = payload->add_perf();
 				perfData->set_type(Plugin::Common_DataType_FLOAT);
-				std::pair<std::wstring,std::wstring> fitem = strEx::split(items[0], _T("="));
+				std::pair<T,T> fitem = strEx::split(items[0], tokenizer_data.perf_equal_sign);
 				perfData->set_alias(to_string(fitem.first));
 				Plugin::Common_PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
 
-				std::wstring::size_type pend = fitem.second.find_first_not_of(_T("0123456789,."));
-				if (pend == std::wstring::npos) {
-					floatPerfData->set_value(trim_to_double(fitem.second.c_str()));
+				typename T::size_type pend = fitem.second.find_first_not_of(tokenizer_data.perf_valid_number);
+				if (pend == T::npos) {
+					floatPerfData->set_value(trim_to_double(fitem.second));
 				} else {
-					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend).c_str()));
+					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend)));
 					floatPerfData->set_unit(to_string(fitem.second.substr(pend)));
 				}
 				if (items.size() > 2) {
@@ -624,8 +795,28 @@ namespace nscapi {
 					floatPerfData->set_maximum(trim_to_double(items[4]));
 				}
 			}
-//			std::wcout << _T("Converting performance data") << perf << _T(" -- ") << utf8::cvt<std::wstring>(build_performance_data(*resp)) << std::endl;
 		}
+		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf) {
+			typedef std::wstring t_string;
+			typedef wchar_t t_char;
+			tokenizer_data<t_string, t_char> data;
+			data.separator = boost::escaped_list_separator<t_char>(L'\\', L' ', L'\'');
+			data.perf_equal_sign = _T("=");
+			data.perf_item_splitter = _T(";");
+			data.perf_valid_number = _T("0123456789,.");
+			parse_performance_data<t_string, t_char>(payload, perf, data);
+		}
+		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::string &perf) {
+			typedef std::string t_string;
+			typedef char t_char;
+			tokenizer_data<t_string, t_char> data;
+			data.separator = boost::escaped_list_separator<t_char>('\\', ' ', '\'');
+			data.perf_equal_sign = "=";
+			data.perf_item_splitter = ";";
+			data.perf_valid_number = "0123456789,.";
+			parse_performance_data<t_string, t_char>(payload, perf, data);
+		}
+
 		static std::string build_performance_data(Plugin::QueryResponseMessage::Response const &payload) {
 			std::stringstream ss;
 			ss.precision(5);

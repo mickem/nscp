@@ -144,7 +144,7 @@ NSCAPI::nagiosReturn handler_impl::process_single_exec_request_payload(std::wstr
 	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
 	std::string outBuffer;
 	if (command.empty() || command == _T("_NSCP_CHECK")) {
-		nscapi::functions::create_simple_exec_response(_T("_NSCP_CHECK"), NSCAPI::returnOK, _T("I (") + nscapi::plugin_singleton->get_core()->getApplicationVersionString() + _T(") seem to be doing fine..."), outBuffer);
+		nscapi::functions::create_simple_exec_response<std::string>("_NSCP_CHECK", NSCAPI::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", outBuffer);
 	} else if (!allowArgs_ && payload.arguments_size() > 0) {
 		nscapi::functions::create_simple_exec_response(command, NSCAPI::returnUNKNOWN, _T("Arguments not allowed for command: ") + command, outBuffer);
 	} else {

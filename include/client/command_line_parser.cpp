@@ -52,26 +52,41 @@ std::wstring client::command_line_parser::build_help(configuration &config) {
 }
 
 
-int client::command_line_parser::commandLineExec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+int client::command_line_parser::do_execute_command_as_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
 	if (!config.validate())
 		throw cli_exception("Invalid data: " + config.to_string());
 	if (command == _T("help")) {
-		result = build_help(config);
-		return NSCAPI::returnUNKNOWN;
+		return nscapi::functions::create_simple_exec_response_unknown(command, build_help(config), result);
 	} else if (command == _T("query")) {
 		std::wstring msg, perf;
-		int ret = query(config, command, arguments, msg, perf);
-		if (perf.empty())
-			result = msg;
-		else
-			result = msg + _T("|") + perf;
+		int ret = do_query(config, command, arguments, result);
+		nscapi::functions::make_exec_from_query(result);
 		return ret;
 	} else if (command == _T("exec")) {
-		return exec(config, command, arguments, result);
+		return do_exec(config, command, arguments, result);
 	} else if (command == _T("submit")) {
-		boost::tuple<int,std::wstring> ret = simple_submit(config, command, arguments);
-		result = ret.get<1>();
-		return ret.get<0>();
+		int ret = do_submit(config, command, arguments, result);
+		nscapi::functions::make_exec_from_submit(result);
+		return ret;
+	}
+	return NSCAPI::returnIgnored;
+}
+
+int client::command_line_parser::do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
+	if (!config.validate())
+		throw cli_exception("Invalid data: " + config.to_string());
+	if (command == _T("help")) {
+		return nscapi::functions::create_simple_query_response_unknown(command, build_help(config), _T(""), result);
+	} else if (command == _T("query")) {
+		return do_query(config, command, arguments, result);
+	} else if (command == _T("exec")) {
+		int ret = do_exec(config, command, arguments, result);
+		nscapi::functions::make_query_from_exec(result);
+		return ret;
+	} else if (command == _T("submit")) {
+		int ret = do_submit(config, command, arguments, result);
+		nscapi::functions::make_query_from_submit(result);
+		return ret;
 	}
 	return NSCAPI::returnIgnored;
 }
@@ -96,7 +111,7 @@ std::wstring client::command_manager::add_command(std::wstring name, std::wstrin
 	return data.key;
 }
 
-int client::command_manager::exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
+int client::command_manager::exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response) {
 	command_type::const_iterator cit = commands.find(command);
 	if (cit == commands.end())
 		return NSCAPI::returnIgnored;
@@ -111,9 +126,9 @@ int client::command_manager::exec_simple(configuration &config, const std::wstri
 		rendered_arguments.push_back(a);
 	}
 	// TODO: Add support for target here!
-	return client::command_line_parser::commandLineExec(config, ci.command, rendered_arguments, message);
+	return client::command_line_parser::do_execute_command_as_exec(config, ci.command, rendered_arguments, response);
 }
-int client::command_line_parser::query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
+int client::command_line_parser::do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response) {
 	boost::program_options::variables_map vm;
 
 	po::options_description common("Common options");
@@ -140,12 +155,10 @@ int client::command_line_parser::query(configuration &config, const std::wstring
 	modify_header(config, message.mutable_header(), config.data->recipient);
 	nscapi::functions::append_simple_query_request_payload(message.add_payload(), config.data->command, config.data->arguments);
 	std::string result;
-	int ret = config.handler->query(config.data, message.mutable_header(), message.SerializeAsString(), result);
-	nscapi::functions::parse_simple_query_response(result, msg, perf);
-	return ret;
+	return config.handler->query(config.data, message.mutable_header(), message.SerializeAsString(), result);
 }
 
-int client::command_line_parser::exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+int client::command_line_parser::do_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
 	boost::program_options::variables_map vm;
 
 	po::options_description common("Common options");
@@ -172,12 +185,10 @@ int client::command_line_parser::exec(configuration &config, const std::wstring 
 	modify_header(config, message.mutable_header(), config.data->recipient);
 	std::string response;
 	nscapi::functions::append_simple_exec_request_payload(message.add_payload(), config.data->command, config.data->arguments);
-	int ret = config.handler->exec(config.data, message.mutable_header(), message.SerializeAsString(), response);
-	nscapi::functions::parse_simple_exec_result(response, result);
-	return ret;
+	return config.handler->exec(config.data, message.mutable_header(), message.SerializeAsString(), response);
 }
 
-boost::tuple<int,std::wstring> client::command_line_parser::simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments) {
+int client::command_line_parser::do_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
 	boost::program_options::variables_map vm;
 	po::options_description common("Common options");
 	add_common_options(common, config.data);
@@ -202,13 +213,7 @@ boost::tuple<int,std::wstring> client::command_line_parser::simple_submit(config
 	message.set_channel("CLI");
 	nscapi::functions::append_simple_submit_request_payload(message.add_payload(), config.data->command, config.data->result, config.data->message);
 
-	std::string response;
-	if (config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response) != NSCAPI::isSuccess)
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Failed to submit command"));
-
-	std::wstring messages;
-	int ret = nscapi::functions::parse_simple_submit_response(response, messages);
-	return boost::make_tuple(ret, messages);
+	return config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), result);
 }
 void client::command_line_parser::modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient) {
 	nscapi::functions::destination_container myself = config.data->host_self;
@@ -224,7 +229,7 @@ void client::command_line_parser::modify_header(configuration &config, ::Plugin:
 	header->set_sender_id(myself.id);
 }
 
-int client::command_line_parser::relay_submit(configuration &config, const std::string &request, std::string &response) {
+int client::command_line_parser::do_relay_submit(configuration &config, const std::string &request, std::string &response) {
 	Plugin::SubmitRequestMessage message;
 	message.ParseFromString(request);
 	modify_header(config, message.mutable_header(), config.data->recipient);

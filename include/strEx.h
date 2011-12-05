@@ -547,7 +547,8 @@ namespace strEx {
 	inline int stoi(std::string s) {
 		return boost::lexical_cast<int>(s.c_str());
 	}
-	inline double stod(std::wstring s) {
+	template<class T>
+	inline double stod(T s) {
 		return boost::lexical_cast<double>(s.c_str());
 	}
 	inline long long stoi64(std::wstring s) {
@@ -748,10 +749,11 @@ namespace strEx {
 		return ret;
 	}
 	typedef std::vector<std::wstring> splitVector;
-	inline splitVector splitV(const std::wstring str, const std::wstring key) {
-		splitVector ret;
-		std::wstring::size_type pos = 0, lpos = 0;
-		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {
+	template<class T>
+	inline std::vector<T> splitV(const T str, const T key) {
+		std::vector<T> ret;
+		typename T::size_type pos = 0, lpos = 0;
+		while ((pos = str.find(key, pos)) !=  T::npos) {
 			ret.push_back(str.substr(lpos, pos-lpos));
 			lpos = ++pos;
 		}
@@ -788,11 +790,12 @@ namespace strEx {
 		std::wstring str = source;
 		return trim_left( trim_right( str , t) , t );
 	} 
-	inline std::pair<std::wstring,std::wstring> split(std::wstring str, std::wstring key) {
-		std::wstring::size_type pos = str.find(key);
-		if (pos == std::wstring::npos)
-			return std::pair<std::wstring,std::wstring>(str, _T(""));
-		return std::pair<std::wstring,std::wstring>(str.substr(0, pos), str.substr(pos+key.length()));
+	template<class T>
+	inline std::pair<T,T> split(T str, T key) {
+		typename T::size_type pos = str.find(key);
+		if (pos == T::npos)
+			return std::pair<T,T>(str, T());
+		return std::pair<T,T>(str.substr(0, pos), str.substr(pos+key.length()));
 	}
 	typedef std::pair<std::wstring,std::wstring> token;
 	// foo bar "foo \" bar" foo -> foo, bar "foo \" bar" foo -> bar, "foo \" bar" foo -> 
@@ -1054,6 +1057,9 @@ namespace nscp {
 		}
 		template <typename T> std::string to_string(const std::wstring& arg) {
 			return utf8::cvt<std::string>(arg);
+		}
+		template <typename T> std::string to_string(const wchar_t* arg) {
+			return utf8::cvt<std::string>(std::wstring(arg));
 		}
 		template <typename T> std::wstring to_wstring(const T& arg) {
 			try {

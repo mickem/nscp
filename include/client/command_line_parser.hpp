@@ -119,7 +119,7 @@ namespace client {
 		command_type commands;
 
 		std::wstring add_command(std::wstring name, std::wstring args);
-		int exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
+		int exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response);
 
 		static std::wstring make_key(std::wstring key) {
 			return boost::algorithm::to_lower_copy(key);
@@ -136,10 +136,9 @@ namespace client {
 		static void add_exec_options(po::options_description &desc, data_type command_data);
 		static std::wstring build_help(configuration &config);
 
-		static int commandLineExec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
-		static int relay_submit(configuration &config, const std::string &request, std::string &response);
-
-		static boost::tuple<int,std::wstring> simple_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
+		static int do_execute_command_as_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
+		static int do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
+		static int do_relay_submit(configuration &config, const std::string &request, std::string &response);
 
 		static std::wstring parse_command(std::wstring command, std::wstring prefix) {
 			std::wstring cmd = command;
@@ -162,9 +161,9 @@ namespace client {
 				||(command == _T("submit"));
 		}
 
-		static int query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-		//static std::list<std::string> submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments);
-		static int exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+		static int do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
+		static int do_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
+		static int do_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
 
 	private:
 		static void modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient);

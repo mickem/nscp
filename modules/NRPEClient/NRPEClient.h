@@ -33,7 +33,7 @@ NSC_WRAPPERS_CHANNELS();
 
 namespace po = boost::program_options;
 
-class NRPEClient : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
+class NRPEClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::wstring channel_;
@@ -144,8 +144,8 @@ public:
 	bool hasMessageHandler() { return true; };
 	bool hasNotificationHandler() { return true; };
 	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 
 private:
 	boost::tuple<int,std::wstring> send(connection_data con, std::string data);

@@ -38,7 +38,7 @@ NSC_WRAPPERS_CHANNELS();
 namespace po = boost::program_options;
 
 
-class DistributedClient : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
+class DistributedClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::wstring channel_;
@@ -48,19 +48,14 @@ private:
 	client::command_manager commands;
 
 	struct connection_data {
-		std::string cert;
 		std::string address;
 		int timeout;
 		int buffer_length;
 		bool use_ssl;
 
 		connection_data(nscapi::functions::destination_container recipient) {
-			cert = recipient.get_string_data("certificate");
 			timeout = recipient.get_int_data("timeout", 30);
-			buffer_length = recipient.get_int_data("payload length", 1024);
-			use_ssl = recipient.get_bool_data("ssl");
-			if (recipient.has_data("no ssl"))
-				use_ssl = !recipient.get_bool_data("no ssl");
+
 			address = recipient.address;
 		}
 
@@ -68,9 +63,6 @@ private:
 			std::wstringstream ss;
 			ss << _T("address: ") << utf8::cvt<std::wstring>(address);
 			ss << _T(", timeout: ") << timeout;
-			ss << _T(", buffer_length: ") << buffer_length;
-			ss << _T(", use_ssl: ") << use_ssl;
-			ss << _T(", certificate: ") << utf8::cvt<std::wstring>(cert);
 			return ss.str();
 		}
 	};
@@ -136,8 +128,8 @@ public:
 	bool hasMessageHandler() { return true; };
 	bool hasNotificationHandler() { return true; };
 	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 
 private:
 	std::list<std::string> submit_nscp_command(connection_data con, std::string buffer);

@@ -221,51 +221,30 @@ bool SyslogClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn SyslogClient::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nsca"));
-
+NSCAPI::nagiosReturn SyslogClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
 	client::configuration config;
 	setup(config);
-	if (cmd == _T("query"))
-		return client::command_line_parser::query(config, cmd, arguments, message, perf);
-	if (cmd == _T("submit")) {
-		boost::tuple<int,std::wstring> result = client::command_line_parser::simple_submit(config, cmd, arguments);
-		message = result.get<1>();
-		return result.get<0>();
-	}
-	if (cmd == _T("exec")) {
-		return client::command_line_parser::exec(config, cmd, arguments, message);
-	}
-	return commands.exec_simple(config, target, command, arguments, message, perf);
+	if (!client::command_line_parser::is_command(cmd))
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+	return commands.exec_simple(config, data.target, char_command, data.args, result);
 }
 
-int SyslogClient::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nsca"));
+NSCAPI::nagiosReturn SyslogClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
 	if (!client::command_line_parser::is_command(cmd))
 		return NSCAPI::returnIgnored;
-
 	client::configuration config;
 	setup(config);
-	return client::command_line_parser::commandLineExec(config, cmd, arguments, result);
+	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
 }
 
-NSCAPI::nagiosReturn SyslogClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
-	try {
-		client::configuration config;
-		setup(config);
-
-		if (!client::command_line_parser::relay_submit(config, request, response)) {
-			NSC_LOG_ERROR_STD(_T("Failed to submit message..."));
-			return NSCAPI::hasFailed;
-		}
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + utf8::to_unicode(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: UNKNOWN"));
-		return NSCAPI::hasFailed;
-	}
+NSCAPI::nagiosReturn SyslogClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	client::configuration config;
+	setup(config);
+	return client::command_line_parser::do_relay_submit(config, request, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -342,52 +321,50 @@ SyslogClient::connection_data SyslogClient::parse_header(const ::Plugin::Common_
 
 int SyslogClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	NSC_LOG_ERROR_STD(_T("SYSLOG does not support query patterns"));
+	nscapi::functions::create_simple_query_response_unknown(_T("UNKNOWN"), _T("SYSLOG does not support query patterns"), reply);
 	return NSCAPI::hasFailed;
 }
 
 int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	std::wstring channel;
-	try {
-		Plugin::SubmitRequestMessage message;
-		message.ParseFromString(request);
-		connection_data con = parse_header(*header);
-		channel = utf8::cvt<std::wstring>(message.channel());
+	Plugin::SubmitRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
 
-		//TODO: Map seveity!
+	Plugin::SubmitResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
 
-		std::list<std::string> messages;
-		for (int i=0;i < message.payload_size(); ++i) {
-			const ::Plugin::QueryResponseMessage::Response& payload = message.payload(i);
-			std::string date = "Nov 10 00:12:00"; // TODO is this actually used?
-			std::string tag = con.tag_syntax;
-			std::string message = con.message_syntax;
-			strEx::replace(message, "%message%", payload.message());
-			strEx::replace(tag, "%message%", payload.message());
+	//TODO: Map seveity!
 
-			std::string severity = con.severity;
-			if (payload.result() == ::Plugin::Common_ResultCode_OK)
-				severity = con.ok_severity;
-			if (payload.result() == ::Plugin::Common_ResultCode_WARNING)
-				severity = con.warn_severity;
-			if (payload.result() == ::Plugin::Common_ResultCode_CRITCAL)
-				severity = con.crit_severity;
-			if (payload.result() == ::Plugin::Common_ResultCode_UNKNOWN)
-				severity = con.unknown_severity;
+	std::list<std::string> messages;
+	for (int i=0;i < request_message.payload_size(); ++i) {
+		const ::Plugin::QueryResponseMessage::Response& payload = request_message.payload(i);
+		std::string date = "Nov 10 00:12:00"; // TODO is this actually used?
+		std::string tag = con.tag_syntax;
+		std::string message = con.message_syntax;
+		strEx::replace(message, "%message%", payload.message());
+		strEx::replace(tag, "%message%", payload.message());
 
-			messages.push_back(instance->parse_priority(severity, con.facility) + date + " " + tag + " " + message);
-		}
-		boost::tuple<int,std::wstring> ret = instance->send(con, messages);
-		nscapi::functions::create_simple_submit_response(channel, _T("UNKNOWN"), ret.get<0>(), _T("Message submitted successfully: ") + ret.get<1>(), reply);
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::to_unicode(e.what()));
-		nscapi::functions::create_simple_submit_response(channel, _T("UNKNOWN"), NSCAPI::returnUNKNOWN, utf8::to_unicode(e.what()), reply);
-		return NSCAPI::hasFailed;
+		std::string severity = con.severity;
+		if (payload.result() == ::Plugin::Common_ResultCode_OK)
+			severity = con.ok_severity;
+		if (payload.result() == ::Plugin::Common_ResultCode_WARNING)
+			severity = con.warn_severity;
+		if (payload.result() == ::Plugin::Common_ResultCode_CRITCAL)
+			severity = con.crit_severity;
+		if (payload.result() == ::Plugin::Common_ResultCode_UNKNOWN)
+			severity = con.unknown_severity;
+
+		messages.push_back(instance->parse_priority(severity, con.facility) + date + " " + tag + " " + message);
 	}
+	boost::tuple<int,std::wstring> ret = instance->send(con, messages);
+	nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	response_message.SerializeToString(&reply);
+	return NSCAPI::isSuccess;
 }
 
 int SyslogClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	NSC_LOG_ERROR_STD(_T("SYSLOG does not support exec patterns"));
+	nscapi::functions::create_simple_exec_response_unknown("UNKNOWN", "SYSLOG does not support exec patterns", reply);
 	return NSCAPI::hasFailed;
 }
 std::string	SyslogClient::parse_priority(std::string severity, std::string facility) {

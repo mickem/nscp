@@ -22,32 +22,83 @@
 
 
 #include <client/command_line_parser.hpp>
-#include <boost/program_options.hpp>
-
 #include <nscapi/targets.hpp>
 
 NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
+
+namespace po = boost::program_options;
 
 class SMTPClient : public nscapi::impl::simple_plugin {
 private:
 
-	std::string hostname_;
 	std::wstring channel_;
-	nscapi::target_handler targets;
 	std::wstring target_path;
 
-	struct connection_data : public client::nscp_cli_data {};
-	struct clp_handler_impl : public client::clp_handler {
+	nscapi::target_handler targets;
+	client::command_manager commands;
+
+	struct connection_data {
+		std::string recipient_str;
+		std::string sender;
+		std::string template_string;
+		std::string host;
+		std::string port;
+		int timeout;
+
+		connection_data(nscapi::functions::destination_container recipient) {
+			recipient_str = recipient.get_string_data("recipient");
+			timeout = recipient.get_int_data("timeout", 30);
+			sender = recipient.get_string_data("sender");
+			template_string = recipient.get_string_data("template");
+
+			net::url url = recipient.get_url(25);
+			host = url.host;
+			port = url.get_port();
+		}
+
+		std::wstring to_wstring() const {
+			std::wstringstream ss;
+			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
+			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
+			ss << _T(", timeout: ") << timeout;
+			ss << _T(", recipient: ") << utf8::cvt<std::wstring>(recipient_str);
+			ss << _T(", sender: ") << utf8::cvt<std::wstring>(sender);
+			ss << _T(", template: ") << utf8::cvt<std::wstring>(template_string);
+			return ss.str();
+		}
+	};
+
+	struct clp_handler_impl : public client::clp_handler, client::target_lookup_interface {
 
 		SMTPClient *instance;
 		clp_handler_impl(SMTPClient *instance) : instance(instance) {}
-		connection_data local_data;
 
 		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
 		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
 		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+
+		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
+			nscapi::functions::destination_container ret;
+			nscapi::target_handler::optarget t = instance->targets.find_target(id);
+			if (t) {
+				if (!t->alias.empty())
+					ret.id = utf8::cvt<std::string>(t->alias);
+				if (!t->host.empty())
+					ret.host = utf8::cvt<std::string>(t->host);
+				if (t->has_option("address"))
+					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
+				else 
+					ret.address = utf8::cvt<std::string>(t->host);
+				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
+					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
+				}
+			}
+			return ret;
+		}
 	};
+
 
 public:
 	SMTPClient();
@@ -69,20 +120,28 @@ public:
 	* @return module version
 	*/
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
+		nscapi::plugin_wrapper::module_version version = {0, 4, 0 };
 		return version;
 	}
 	static std::wstring getModuleDescription() {
 		return _T("Passive check support via SMTP");
 	}
-	bool hasNotificationHandler() { return true; }
 
+	bool hasCommandHandler() { return true; };
+	bool hasMessageHandler() { return true; };
+	bool hasNotificationHandler() { return true; };
 	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	int commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 
+private:
+	static connection_data parse_header(const ::Plugin::Common_Header &header);
+
+private:
+	void add_local_options(po::options_description &desc, client::configuration::data_type data);
 	void setup(client::configuration &config);
-	void add_local_options(boost::program_options::options_description &desc, connection_data &command_data);
+	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 
 };
+

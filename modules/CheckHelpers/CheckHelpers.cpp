@@ -144,7 +144,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> a
 	std::list<std::wstring>::const_iterator cit;
 	for (cit=arguments.begin();cit!=arguments.end();++cit) {
 		std::wstring arg = *cit;
-		std::pair<std::wstring,std::wstring> p = strEx::split(arg,_T("="));
+		std::pair<std::wstring,std::wstring> p = strEx::split(arg,std::wstring(_T("=")));
 		if (p.first == _T("command")) {
 			if (!currentCommand.first.empty())
 				commands.push_back(currentCommand);

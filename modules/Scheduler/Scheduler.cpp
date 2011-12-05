@@ -159,6 +159,7 @@ void Scheduler::handle_schedule(scheduler::target item) {
 		NSCAPI::nagiosReturn code = GET_CORE()->simple_query(item.command.c_str(), item.arguments, response);
 		if (code == NSCAPI::returnIgnored) {
 			NSC_LOG_ERROR_STD(_T("Command was not found: ") + item.command.c_str());
+			//make_submit_from_query(response, item.channel, item.alias);
 			nscapi::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::returnUNKNOWN, _T("Command was not found: ") + item.command, _T(""), response);
 			std::string result;
 			GET_CORE()->submit_message(item.channel, response, result);

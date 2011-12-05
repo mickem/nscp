@@ -21,7 +21,7 @@
 #include "stdafx.h"
 #include "DistributedClient.h"
 #include <time.h>
-#include <strEx.h>
+#include <boost/filesystem.hpp>
 
 #include <strEx.h>
 #include <net/net.hpp>
@@ -35,22 +35,22 @@
 namespace sh = nscapi::settings_helper;
 
 /**
- * Default c-tor
- * @return 
- */
+* Default c-tor
+* @return 
+*/
 DistributedClient::DistributedClient() {}
 
 /**
- * Default d-tor
- * @return 
- */
+* Default d-tor
+* @return 
+*/
 DistributedClient::~DistributedClient() {}
 
 /**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
+* Load (initiate) module.
+* Start the background collector thread and let it run until unloadModule() is called.
+* @return true
+*/
 bool DistributedClient::loadModule() {
 	return false;
 }
@@ -69,7 +69,6 @@ bool DistributedClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode 
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("distributed"), alias, _T("client"));
-
 		target_path = settings.alias().get_settings_path(_T("targets"));
 
 		settings.alias().add_path_to_settings()
@@ -80,6 +79,7 @@ bool DistributedClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode 
 
 			(_T("targets"), sh::fun_values_path(boost::bind(&DistributedClient::add_target, this, _1, _2)), 
 			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+
 			;
 
 		settings.alias().add_key_to_settings()
@@ -88,7 +88,7 @@ bool DistributedClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode 
 
 			;
 
-		settings.alias(_T("/targets/default")).add_key_to_settings()
+		settings.alias().add_key_to_settings(_T("targets/default"))
 
 			(_T("timeout"), sh::uint_key(&timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
@@ -139,6 +139,13 @@ bool DistributedClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode 
 	}
 	return true;
 }
+std::string get_command(std::string alias, std::string command = "") {
+	if (!alias.empty())
+		return alias; 
+	if (!command.empty())
+		return command; 
+	return "_NRPE_CHECK";
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Settings helpers
@@ -146,7 +153,20 @@ bool DistributedClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode 
 
 void DistributedClient::add_target(std::wstring key, std::wstring arg) {
 	try {
-		targets.add(get_settings_proxy(), target_path , key, arg);
+		nscapi::target_handler::target t = targets.add(get_settings_proxy(), target_path , key, arg);
+		if (t.has_option(_T("certificate"))) {
+			boost::filesystem::wpath p = t.options[_T("certificate")];
+			if (!boost::filesystem::is_regular(p)) {
+				p = get_core()->getBasePath() / p;
+				t.options[_T("certificate")] = utf8::cvt<std::wstring>(p.string());
+				targets.add(t);
+			}
+			if (boost::filesystem::is_regular(p)) {
+				NSC_DEBUG_MSG_STD(_T("Using certificate: ") + p.string());
+			} else {
+				NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
+			}
+		}
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}
@@ -156,7 +176,7 @@ void DistributedClient::add_command(std::wstring name, std::wstring args) {
 	try {
 		std::wstring key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("Custom command for: ") + name);
+			register_command(key.c_str(), _T("DNSCP relay for: ") + name);
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
 	} catch (...) {
@@ -165,59 +185,38 @@ void DistributedClient::add_command(std::wstring name, std::wstring args) {
 }
 
 /**
- * Unload (terminate) module.
- * Attempt to stop the background processing thread.
- * @return true if successfully, false if not (if not things might be bad)
- */
+* Unload (terminate) module.
+* Attempt to stop the background processing thread.
+* @return true if successfully, false if not (if not things might be bad)
+*/
 bool DistributedClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn DistributedClient::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("dist"));
-
+NSCAPI::nagiosReturn DistributedClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
 	client::configuration config;
 	setup(config);
-	if (cmd == _T("query"))
-		return client::command_line_parser::query(config, cmd, arguments, message, perf);
-	if (cmd == _T("submit")) {
-		boost::tuple<int,std::wstring> result = client::command_line_parser::simple_submit(config, cmd, arguments);
-		message = result.get<1>();
-		return result.get<0>();
-	}
-	if (cmd == _T("exec")) {
-		return client::command_line_parser::exec(config, cmd, arguments, message);
-	}
-	return commands.exec_simple(config, target, command, arguments, message, perf);
+	if (!client::command_line_parser::is_command(cmd))
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+	return commands.exec_simple(config, data.target, char_command, data.args, result);
 }
 
-int DistributedClient::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nrpe"));
+int DistributedClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
 	if (!client::command_line_parser::is_command(cmd))
 		return NSCAPI::returnIgnored;
-
 	client::configuration config;
 	setup(config);
-	return client::command_line_parser::commandLineExec(config, cmd, arguments, result);
+	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
 }
 
-NSCAPI::nagiosReturn DistributedClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
-	try {
-		client::configuration config;
-		setup(config);
-
-		if (!client::command_line_parser::relay_submit(config, request, response)) {
-			NSC_LOG_ERROR_STD(_T("Failed to submit message..."));
-			return NSCAPI::hasFailed;
-		}
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + utf8::to_unicode(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: UNKNOWN"));
-		return NSCAPI::hasFailed;
-	}
+NSCAPI::nagiosReturn DistributedClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	client::configuration config;
+	setup(config);
+	return client::command_line_parser::do_relay_submit(config, request, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -226,6 +225,13 @@ NSCAPI::nagiosReturn DistributedClient::handleRAWNotification(const wchar_t* cha
 
 void DistributedClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
+		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		"Length of payload (has to be same as on the server)")
+		/*
+		("no-ssl,n", po::value<bool>(&command_data.no_ssl)->zero_tokens()->default_value(false), "Do not initial an ssl handshake with the server, talk in plain text.")
+
+		("cert,c", po::value<std::wstring>(&command_data.cert)->default_value(cert_), "Certificate to use.")
+		*/
 		;
 }
 
@@ -234,8 +240,8 @@ void DistributedClient::setup(client::configuration &config) {
 	add_local_options(config.local, config.data);
 
 	net::wurl url;
-	url.protocol = _T("nrpe");
-	url.port = 5666;
+	url.protocol = _T("dnscp");
+	url.port = 5669;
 	nscapi::target_handler::optarget opt = targets.find_target(_T("default"));
 	if (opt) {
 		nscapi::target_handler::target t = *opt;
@@ -244,7 +250,7 @@ void DistributedClient::setup(client::configuration &config) {
 			try {
 				url.port = strEx::stoi(t.options[_T("port")]);
 			} catch (...) {}
-}
+		}
 		std::string keys[] = {"certificate", "timeout", "payload length", "ssl"};
 		BOOST_FOREACH(std::string s, keys) {
 			config.data->recipient.data[s] = utf8::cvt<std::string>(t.options[utf8::cvt<std::wstring>(s)]);
@@ -269,113 +275,102 @@ DistributedClient::connection_data DistributedClient::parse_header(const ::Plugi
 // Parser implementations
 //
 
-
-int DistributedClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
-	try {
-
-		Plugin::QueryRequestMessage request_message;
-		request_message.ParseFromString(request);
-		connection_data con = parse_header(*header);
-
-		std::list<nscp::packet> chunks;
-		chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request, 0));
-		chunks = instance->send(con, chunks);
-		BOOST_FOREACH(nscp::packet &packet, chunks) {
-			if (nscp::checks::is_query_response(packet)) {
-				reply = packet.payload;
-			} else if (nscp::checks::is_error(packet)) {
-				NSCPIPC::ErrorMessage message;
-				message.ParseFromString(packet.payload);
-				for (int i=0;i<message.error_size();i++) {
-					NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
-				}
-				ret = NSCAPI::returnUNKNOWN;
-			} else {
-				NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(packet.signature.payload_type));
-				ret = NSCAPI::returnUNKNOWN;
-			}
-		}
-		return ret;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return NSCAPI::returnUNKNOWN;
+std::string gather_and_log_errors(std::string  &payload) {
+	NSCPIPC::ErrorMessage message;
+	message.ParseFromString(payload);
+	std::string ret;
+	for (int i=0;i<message.error_size();i++) {
+		ret += message.error(i).message();
+		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
 	}
+	return ret;
+}
+int DistributedClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
+	int ret = NSCAPI::returnUNKNOWN;
+	Plugin::QueryRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
+
+	Plugin::QueryResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+
+	std::list<nscp::packet> chunks;
+	chunks.push_back(nscp::factory::create_envelope_request(1));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request, 0));
+	chunks = instance->send(con, chunks);
+	BOOST_FOREACH(nscp::packet &chunk, chunks) {
+		if (nscp::checks::is_query_response(chunk)) {
+			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+		} else if (nscp::checks::is_error(chunk)) {
+			std::string error = gather_and_log_errors(chunk.payload);
+			nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			ret = NSCAPI::returnUNKNOWN;
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			ret = NSCAPI::returnUNKNOWN;
+		}
+	}
+	response_message.SerializeToString(&reply);
+	return ret;
 }
 
 int DistributedClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	std::list<std::string> result;
-	std::wstring channel;
-	try {
+	int ret = NSCAPI::returnUNKNOWN;
+	Plugin::SubmitRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
+	Plugin::SubmitResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
 
-		Plugin::SubmitRequestMessage message;
-		message.ParseFromString(request);
-		connection_data con = parse_header(*header);
-		channel = utf8::cvt<std::wstring>(message.channel());
-
-		std::list<nscp::packet> chunks;
-		chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request, 0));
-		chunks = instance->send(con, chunks);
-		BOOST_FOREACH(nscp::packet &chunk, chunks) {
-			if (nscp::checks::is_query_response(chunk)) {
-				result.push_back(chunk.payload);
-			} else if (nscp::checks::is_error(chunk)) {
-				NSCPIPC::ErrorMessage message;
-				message.ParseFromString(chunk.payload);
-				for (int i=0;i<message.error_size();i++) {
-					result.push_back("Error: " + message.error(i).message());
-				}
-			} else {
-				NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-				result.push_back("Invalid payload");
-			}
+	std::list<nscp::packet> chunks;
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request, 0));
+	chunks = instance->send(con, chunks);
+	BOOST_FOREACH(nscp::packet &chunk, chunks) {
+		if (nscp::checks::is_submit_response(chunk)) {
+			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+		} else if (nscp::checks::is_error(chunk)) {
+			std::string error = gather_and_log_errors(chunk.payload);
+			nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			ret = NSCAPI::returnUNKNOWN;
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			ret = NSCAPI::returnUNKNOWN;
 		}
-		if (result.empty()) {
-			std::wstring msg;
-			BOOST_FOREACH(std::string &e, result) {
-				msg += utf8::cvt<std::wstring>(e);
-			}
-			nscapi::functions::create_simple_submit_response(channel, _T(""), result.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed, msg, reply);
-		}
-
-		return result.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		nscapi::functions::create_simple_submit_response(channel, _T(""), NSCAPI::hasFailed, utf8::cvt<std::wstring>(e.what()), reply);
-		return NSCAPI::hasFailed;
 	}
+	response_message.SerializeToString(&reply);
+	return ret;
 }
 
 int DistributedClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	int ret = NSCAPI::returnOK;
-	try {
-		Plugin::ExecuteRequestMessage request_message;
-		request_message.ParseFromString(request);
-		connection_data con = parse_header(*header);
+	Plugin::ExecuteRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
 
-		std::list<nscp::packet> chunks;
-		chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request, 0));
-		chunks = instance->send(con, chunks);
-		BOOST_FOREACH(nscp::packet &chunk, chunks) {
-			if (nscp::checks::is_exec_response(chunk)) {
-				reply = chunk.payload;
-			} else if (nscp::checks::is_error(chunk)) {
-				NSCPIPC::ErrorMessage message;
-				message.ParseFromString(chunk.payload);
-				for (int i=0;i<message.error_size();i++) {
-					NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
-					ret = NSCAPI::returnUNKNOWN;
-				}
-			} else {
-				NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-				ret = NSCAPI::returnUNKNOWN;
-			}
+	Plugin::ExecuteResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+
+	std::list<nscp::packet> chunks;
+	chunks.push_back(nscp::factory::create_envelope_request(1));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request, 0));
+	chunks = instance->send(con, chunks);
+	BOOST_FOREACH(nscp::packet &chunk, chunks) {
+		if (nscp::checks::is_exec_response(chunk)) {
+			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+		} else if (nscp::checks::is_error(chunk)) {
+			std::string error = gather_and_log_errors(chunk.payload);
+			nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			ret = NSCAPI::returnUNKNOWN;
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			ret = NSCAPI::returnUNKNOWN;
 		}
-		return ret;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return NSCAPI::returnUNKNOWN;
 	}
+	response_message.SerializeToString(&reply);
+	return ret;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -388,9 +383,9 @@ std::list<nscp::packet> DistributedClient::send(connection_data &data, std::list
 	/*
 	std::wstring host = generic_data->host;
 	if (host.empty() && !generic_data->target.empty()) {
-		nscapi::target_handler::optarget t = targets.find_target(generic_data->target);
-		if (t)
-			host = (*t).host;
+	nscapi::target_handler::optarget t = targets.find_target(generic_data->target);
+	if (t)
+	host = (*t).host;
 	}
 	*/
 	return send_nossl(data.address, data.timeout, chunks);

@@ -71,6 +71,7 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		target_path = settings.alias().get_settings_path(_T("targets"));
 
 		settings.alias().add_path_to_settings()
+			(_T("NSCP CLIENT SECTION"), _T("Section for NSCP active/passive check module."))
 
 			(_T("handlers"), sh::fun_values_path(boost::bind(&NSCPClient::add_command, this, _1, _2)), 
 			_T("CLIENT HANDLER SECTION"), _T(""))
@@ -191,51 +192,30 @@ bool NSCPClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn NSCPClient::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nscp"));
-
+NSCAPI::nagiosReturn NSCPClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
 	client::configuration config;
 	setup(config);
-	if (cmd == _T("query"))
-		return client::command_line_parser::query(config, cmd, arguments, message, perf);
-	if (cmd == _T("submit")) {
-		boost::tuple<int,std::wstring> result = client::command_line_parser::simple_submit(config, cmd, arguments);
-		message = result.get<1>();
-		return result.get<0>();
-	}
-	if (cmd == _T("exec")) {
-		return client::command_line_parser::exec(config, cmd, arguments, message);
-	}
-	return commands.exec_simple(config, target, command, arguments, message, perf);
+	if (!client::command_line_parser::is_command(cmd))
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+	return commands.exec_simple(config, data.target, char_command, data.args, result);
 }
 
-int NSCPClient::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(command, _T("nscp"));
+NSCAPI::nagiosReturn NSCPClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
 	if (!client::command_line_parser::is_command(cmd))
 		return NSCAPI::returnIgnored;
-
 	client::configuration config;
 	setup(config);
-	return client::command_line_parser::commandLineExec(config, cmd, arguments, result);
+	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
 }
 
-NSCAPI::nagiosReturn NSCPClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
-	try {
-		client::configuration config;
-		setup(config);
-
-		if (!client::command_line_parser::relay_submit(config, request, response)) {
-			NSC_LOG_ERROR_STD(_T("Failed to submit message..."));
-			return NSCAPI::hasFailed;
-		}
-		return NSCAPI::isSuccess;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: ") + utf8::to_unicode(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to send data: UNKNOWN"));
-		return NSCAPI::hasFailed;
-	}
+NSCAPI::nagiosReturn NSCPClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	client::configuration config;
+	setup(config);
+	return client::command_line_parser::do_relay_submit(config, request, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -294,118 +274,102 @@ NSCPClient::connection_data NSCPClient::parse_header(const ::Plugin::Common_Head
 // Parser implementations
 //
 
+std::string gather_and_log_errors(std::string  &payload) {
+	NSCPIPC::ErrorMessage message;
+	message.ParseFromString(payload);
+	std::string ret;
+	for (int i=0;i<message.error_size();i++) {
+		ret += message.error(i).message();
+		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
+	}
+	return ret;
+}
 int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	NSCAPI::nagiosReturn ret = NSCAPI::returnOK;
-	try {
+	int ret = NSCAPI::returnUNKNOWN;
+	Plugin::QueryRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
 
-		Plugin::QueryRequestMessage request_message;
-		request_message.ParseFromString(request);
-		connection_data con = parse_header(*header);
+	Plugin::QueryResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
 
-		// TODO: Humm, this cant be right?!?!
-
-		std::list<nscp::packet> chunks;
-		chunks.push_back(nscp::factory::create_envelope_request(1));
-		chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request, 0));
-		chunks = instance->send(con, chunks);
-		BOOST_FOREACH(nscp::packet &chunk, chunks) {
-			if (nscp::checks::is_query_response(chunk)) {
-				reply = chunk.payload;
-			} else if (nscp::checks::is_error(chunk)) {
-				NSCPIPC::ErrorMessage message;
-				message.ParseFromString(chunk.payload);
-				for (int i=0;i<message.error_size();i++) {
-					NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
-				}
-				ret = NSCAPI::returnUNKNOWN;
-			} else {
-				NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-				ret = NSCAPI::returnUNKNOWN;
-			}
+	std::list<nscp::packet> chunks;
+	chunks.push_back(nscp::factory::create_envelope_request(1));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request, 0));
+	chunks = instance->send(con, chunks);
+	BOOST_FOREACH(nscp::packet &chunk, chunks) {
+		if (nscp::checks::is_query_response(chunk)) {
+			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+		} else if (nscp::checks::is_error(chunk)) {
+			std::string error = gather_and_log_errors(chunk.payload);
+			nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			ret = NSCAPI::returnUNKNOWN;
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			ret = NSCAPI::returnUNKNOWN;
 		}
-		return ret;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return NSCAPI::returnUNKNOWN;
 	}
+	response_message.SerializeToString(&reply);
+	return ret;
 }
+
 int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	std::list<std::string> result;
-	try {
+	int ret = NSCAPI::returnUNKNOWN;
+	Plugin::SubmitRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
+	Plugin::SubmitResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
 
-		Plugin::QueryRequestMessage request_message;
-		request_message.ParseFromString(request);
-		connection_data con = parse_header(*header);
-
-		// TODO: Humm, this cant be right?!?!
-
-		std::list<nscp::packet> chunks;
-		chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request, 0));
-		chunks = instance->send(con, chunks);
-		BOOST_FOREACH(nscp::packet &chunk, chunks) {
-			if (nscp::checks::is_query_response(chunk)) {
-				result.push_back(chunk.payload);
-			} else if (nscp::checks::is_error(chunk)) {
-				NSCPIPC::ErrorMessage message;
-				message.ParseFromString(chunk.payload);
-				for (int i=0;i<message.error_size();i++) {
-					result.push_back("Error: " + message.error(i).message());
-				}
-			} else {
-				NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-				result.push_back("Invalid payload");
-			}
+	std::list<nscp::packet> chunks;
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request, 0));
+	chunks = instance->send(con, chunks);
+	BOOST_FOREACH(nscp::packet &chunk, chunks) {
+		if (nscp::checks::is_submit_response(chunk)) {
+			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+		} else if (nscp::checks::is_error(chunk)) {
+			std::string error = gather_and_log_errors(chunk.payload);
+			nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			ret = NSCAPI::returnUNKNOWN;
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			ret = NSCAPI::returnUNKNOWN;
 		}
-
-		if (result.empty()) {
-			std::wstring msg;
-			BOOST_FOREACH(std::string &e, result) {
-				msg += utf8::cvt<std::wstring>(e);
-			}
-			nscapi::functions::create_simple_submit_response(_T(""), _T(""), result.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed, msg, reply);
-		}
-		return result.empty()?NSCAPI::isSuccess:NSCAPI::hasFailed;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		nscapi::functions::create_simple_submit_response(_T(""), _T(""), NSCAPI::hasFailed, utf8::cvt<std::wstring>(e.what()), reply);
-		return NSCAPI::hasFailed;
 	}
+	response_message.SerializeToString(&reply);
+	return ret;
 }
+
 int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	int ret = NSCAPI::returnOK;
-	try {
+	Plugin::ExecuteRequestMessage request_message;
+	request_message.ParseFromString(request);
+	connection_data con = parse_header(*header);
 
+	Plugin::ExecuteResponseMessage response_message;
+	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
 
-		Plugin::QueryRequestMessage request_message;
-		request_message.ParseFromString(request);
-		connection_data con = parse_header(*header);
-
-		// TODO: Humm, this cant be right?!?!
-
-		std::list<nscp::packet> chunks;
-		chunks.push_back(nscp::factory::create_envelope_request(1));
-		chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request, 0));
-		chunks = instance->send(con, chunks);
-		BOOST_FOREACH(nscp::packet &chunk, chunks) {
-			if (nscp::checks::is_exec_response(chunk)) {
-				reply = chunk.payload;
-			} else if (nscp::checks::is_error(chunk)) {
-				NSCPIPC::ErrorMessage message;
-				message.ParseFromString(chunk.payload);
-				for (int i=0;i<message.error_size();i++) {
-					NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
-					ret = NSCAPI::returnUNKNOWN;
-				}
-			} else {
-				NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-				ret = NSCAPI::returnUNKNOWN;
-			}
+	std::list<nscp::packet> chunks;
+	chunks.push_back(nscp::factory::create_envelope_request(1));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request, 0));
+	chunks = instance->send(con, chunks);
+	BOOST_FOREACH(nscp::packet &chunk, chunks) {
+		if (nscp::checks::is_exec_response(chunk)) {
+			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+		} else if (nscp::checks::is_error(chunk)) {
+			std::string error = gather_and_log_errors(chunk.payload);
+			nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			ret = NSCAPI::returnUNKNOWN;
+		} else {
+			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			ret = NSCAPI::returnUNKNOWN;
 		}
-		return ret;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return NSCAPI::returnUNKNOWN;
 	}
+	response_message.SerializeToString(&reply);
+	return ret;
 }
 
 //////////////////////////////////////////////////////////////////////////
