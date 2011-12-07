@@ -74,7 +74,8 @@ public:
 			;
 
 		client.add_options()
-			("exec,e", po::value<std::wstring>(), "Run a command (execute)")
+			("exec,e", po::value<std::wstring>()->implicit_value(_T("")), "Run a command (execute)")
+			("boot,b", "Boot the client before executing command (similar as running the command from test)")
 			("query,q", po::value<std::wstring>(), "Run a query with a given name")
 			("submit,s", po::value<std::wstring>(), "Name of query to ask")
 			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
@@ -334,8 +335,8 @@ public:
 				return 1;
 
 			std::wstring command;
-			enum modes { exec, query, submit};
-			modes mode;
+			enum modes { exec, query, submit, none};
+			modes mode = none;
 
 			if (vm.count("exec")) {
 				command = vm["exec"].as<std::wstring>();
@@ -345,9 +346,17 @@ public:
 				command = vm["query"].as<std::wstring>();
 				mode = query;
 			}
+			if (vm.count("submit")) {
+				command = vm["submit"].as<std::wstring>();
+				mode = submit;
+			}
 
 			if (vm.count("module"))
 				module = vm["module"].as<std::wstring>();
+
+			bool boot = false;
+			if (vm.count("boot"))
+				boot = true;
 
 			std::vector<std::wstring> kvp_args;
 			if (vm.count("argument"))
@@ -381,43 +390,47 @@ public:
 				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
 				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
 				mainClient.log_info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
+				mainClient.log_info(__FILE__, __LINE__, _T("Boot: ") + strEx::itos(boot));
 				std::wstring args;
 				BOOST_FOREACH(std::wstring s, arguments)
 					strEx::append_list(args, s, _T(", "));
 				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
 			}
 			core_->boot_init();
-			if (module.empty()) {
-				core_->boot_load_plugins(false);
-			}
+			if (module.empty())
+				core_->boot_load_all_plugins();
+			else
+				core_->boot_load_plugin(module);
+			core_->boot_start_plugins(boot);
 			int ret = 0;
 			std::list<std::wstring> resp;
+			if (mode == none) {
+				mode = exec;
+				std::wcerr << _T("Since no mode was specified assuming --exec (other options are --query and --submit)") << std::endl;
+			}
 			if (mode == query) {
 				ret = mainClient.simple_query(module, command, arguments, resp);
-			} else {
-				if (command.empty()) {
-					mainClient.simple_exec(module, _T("help"), arguments, resp);
+			} else if (mode == exec) {
+				ret = mainClient.simple_exec(module, command, arguments, resp);
+				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
-				} else {
-					ret = mainClient.simple_exec(module, command, arguments, resp);
-					if (ret == NSCAPI::returnIgnored) {
-						ret = 1;
-						std::wcout << _T("Command not found (by module): ") << command << std::endl;
-						mainClient.simple_exec(module, _T("help"), arguments, resp);
-					}
+					std::wcout << _T("Command not found (by module): ") << command << std::endl;
+					mainClient.simple_exec(module, _T("help"), arguments, resp);
 				}
+			} else {
+				std::wcerr << _T("Need to specify one of --exec, --query or --submit") << std::endl;
 			}
-			mainClient.exitCore(false);
+			mainClient.exitCore(boot);
 
 			BOOST_FOREACH(std::wstring r, resp) {
 				std::wcout << r << std::endl;
 			}
 			return ret;
 		} catch(std::exception & e) {
-			mainClient.log_error(__FILE__, __LINE__, std::string("Client: Unable to parse command line: ") + e.what());
+			std::wcerr << _T("Client: Unable to parse command line: ") << utf8::to_unicode(e.what()) << std::endl;
 			return 1;
 		} catch(...) {
-			mainClient.log_error(__FILE__, __LINE__, "Unknown exception parsing command line");
+			std::wcerr << _T("Client: Unable to parse command line: UNKNOWN") << std::endl;
 			return 1;
 		}
 	}

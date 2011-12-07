@@ -13,6 +13,22 @@ struct script_container {
 		script = other.script;
 	}
 
+	bool validate(std::wstring &error) const {
+		if (script.empty()) {
+			error = _T("No script given on command line!");
+			return false;
+		}
+		if (!boost::filesystem::exists(script)) {
+			error = _T("Script not found: ") + script.string();
+			return false;
+		}
+		if (!boost::filesystem::is_regular(script)) {
+			error = _T("Script is not a file: ") + script.string();
+			return false;
+		}
+		return true;
+	}
+
 	static void push(list_type &list, std::wstring alias, boost::filesystem::wpath script) {
 		list.push_back(script_container(alias, script));
 	}

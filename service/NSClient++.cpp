@@ -688,7 +688,7 @@ bool NSClientT::boot_init() {
 #endif
 	return true;
 }
-bool NSClientT::boot_load_plugins(bool boot) {
+bool NSClientT::boot_load_all_plugins() {
 	LOG_DEBUG_CORE(_T("booting::loading plugins"));
 	try {
 		boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
@@ -716,10 +716,41 @@ bool NSClientT::boot_load_plugins(bool boot) {
 		}
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_CORE_STD(_T("Settings exception when loading modules: ") + e.getMessage());
+		return false;
 	} catch (...) {
 		LOG_ERROR_CORE_STD(_T("Unknown exception when loading plugins"));
 		return false;
 	}
+	return true;
+}
+
+bool NSClientT::boot_load_plugin(std::wstring plugin) {
+	try {
+		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == _T(".dll"))
+			plugin = plugin.substr(0, plugin.length()-4);
+
+		std::wstring plugin_file = NSCPlugin::get_plugin_file(plugin);
+		boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
+		boost::filesystem::wpath file = pluginPath / plugin_file;
+		if (boost::filesystem::is_regular(file)) {
+			plugin_type plugin = addPlugin(file, _T(""));
+		} else {
+			LOG_ERROR_CORE_STD(_T("Failed to load: ") + std::wstring(plugin));
+			return false;
+		}
+	} catch (const NSPluginException &e) {
+		LOG_ERROR_CORE_STD(_T("Module (") + e.file_ + _T(") was not found: ") + e.error_);
+		return false;
+	} catch(const std::exception &e) {
+		LOG_ERROR_CORE_STD(_T("Module (") + plugin + _T(") was not found: ") + utf8::to_unicode(e.what()));
+		return false;
+	} catch(...) {
+		LOG_ERROR_CORE_STD(_T("Module (") + plugin + _T(") was not found..."));
+		return false;
+	}
+	return true;
+}
+bool NSClientT::boot_start_plugins(bool boot) {
 	try {
 		loadPlugins(boot?NSCAPI::normalStart:NSCAPI::dontStart);
 	} catch (...) {
@@ -847,14 +878,14 @@ void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon
  * Unload all plug-ins (in reversed order)
  */
 void NSClientT::unloadPlugins(bool unloadLoggers) {
+	if (unloadLoggers)
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (003)."));
 			return;
 		}
-		if (unloadLoggers)
-			logger_master_.remove_all_plugins();
+		logger_master_.remove_all_plugins();
 	}
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
@@ -1466,7 +1497,8 @@ NSClient* NSClientT::get_global_instance() {
 void NSClientT::handle_startup(std::wstring service_name) {
 	service_name_ = service_name;
 	boot_init();
-	boot_load_plugins(true);
+	boot_load_all_plugins();
+	boot_start_plugins(true);
 /*
 	DWORD dwSessionId = remote_processes::getActiveSessionId();
 	if (dwSessionId != 0xFFFFFFFF)

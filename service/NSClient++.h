@@ -131,7 +131,9 @@ public:
 
 	// Service helper functions
 	bool boot_init();
-	bool boot_load_plugins(bool boot);
+	bool boot_load_all_plugins();
+	bool boot_load_plugin(std::wstring plugin);
+	bool boot_start_plugins(bool boot);
 	bool exitCore(bool boot);
 	void set_settings_context(std::wstring context) { context_ = context; }
 #ifdef WIN32x

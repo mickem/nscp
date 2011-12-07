@@ -108,8 +108,12 @@ BOOST_PYTHON_MODULE(NSCP)
 
 python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) : alias(alias), plugin_id(plugin_id) {
 	NSC_DEBUG_MSG_STD(_T("Loading python script: ") + script.script.string());
-	std::wcout << script.script.string() << std::endl;;
-	_exec(utf8::cvt<std::string>(script.script.string()));
+	std::wstring err;
+	if (!script.validate(err)) {
+		NSC_LOG_ERROR(err);
+		return;
+	}
+	_exec(utf8::cvt<std::string>(script.script.file_string()));
 	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
 python_script::~python_script(){
@@ -161,9 +165,12 @@ void python_script::_exec(const std::string &scriptfile){
 			path /= _T("python");
 			path /= _T("lib");
 			PyRun_SimpleString(("sys.path.append('" + utf8::cvt<std::string>(path.string()) + "')").c_str());
+
 			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
 		} catch( error_already_set e) {
 			script_wrapper::log_exception();
+		} catch(...) {
+			NSC_LOG_ERROR(_T("Failed to run python script: ") + utf8::to_unicode(scriptfile));
 		}
 	} catch (...) {
 		NSC_LOG_ERROR(_T("Unknown exception"));
@@ -194,10 +201,13 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			has_init = true;
 			Py_Initialize();
 			PyEval_InitThreads();
+			//PyEval_ReleaseLock();
 
+			PyThreadState *state;
+			state = PyEval_SaveThread();
 			  //PyThreadState *mainThreadState = PyThreadState_Get();
 			  //PyThreadState_Clear
-			  //PyGILState_Release(mainThreadState);
+			  //PyThreadState_(mainThreadState);
 
 			do_init = true;
 		}
@@ -219,10 +229,10 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 				}
 
 			}
+			//PyEval_ReleaseLock();
 			BOOST_FOREACH(script_container &script, scripts_) {
 				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
 			}
-			PyEval_ReleaseLock();
 
 		} catch (std::exception &e) {
 			NSC_LOG_ERROR_STD(_T("Exception: Failed to load python scripts: ") + utf8::cvt<std::wstring>(e.what()));
@@ -254,12 +264,13 @@ boost::optional<boost::filesystem::wpath> PythonScript::find_file(std::wstring f
 	return boost::optional<boost::filesystem::wpath>();
 }
 
-NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstring> args) {
+NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstring> args, std::wstring &message) {
 	try {
-		po::options_description desc;
+		po::options_description desc("Options for the following commands: (exec, execute)");
 		boost::program_options::variables_map vm;
 		std::wstring file;
 		desc.add_options()
+			("help", "Display help")
 			("script", po::wvalue<std::wstring>(&file), "The script to run")
 			("file", po::wvalue<std::wstring>(&file), "The script to run")
 			;
@@ -269,16 +280,29 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 		po::store(parsed, vm);
 		po::notify(vm);
 
+		if (vm.count("help") > 0) {
+			std::stringstream ss;
+			ss << desc;
+			message = utf8::to_unicode(ss.str());
+			return NSCAPI::returnUNKNOWN;
+		}
+
 		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
 		if (!ofile)
 			return false;
 		script_container sc(*ofile);
 		python_script script(get_id(), "", sc);
 		script.callFunction("__main__");
+		message = _T("Script execute successfully...");
+		return NSCAPI::returnOK;
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to execute script ") + utf8::cvt<std::wstring>(e.what()));
+		message = _T("Failed to execute script ") + utf8::to_unicode(e.what());
+		NSC_LOG_ERROR_STD(message);
+		return NSCAPI::returnUNKNOWN;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to execute script..."));
+		message = _T("Failed to execute script ");
+		NSC_LOG_ERROR_STD(message);
+		return NSCAPI::returnUNKNOWN;
 	}
 }
 
@@ -343,9 +367,21 @@ bool PythonScript::reload(std::wstring &message) {
 
 NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	std::wstring command = char_command;
-	if (command == _T("execute-and-load-python") || command == _T("execute-python") || command == _T("run")) {
+	if (command == _T("help")) {
+		std::list<std::wstring> args;
+		args.push_back(_T("--help"));
+		std::wstring result;
+		int ret = execute_and_load_python(args, result);
+		nscapi::functions::create_simple_exec_response<std::wstring>(_T("help"), ret, result, response);
+		return ret;
+	} else if (command == _T("execute-and-load-python") || command == _T("execute-python") || command == _T("run") || command == _T("execute") || command == _T("exec")|| command == _T("")) {
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-		return execute_and_load_python(data.args);
+		if (data.command == _T("") && data.args.size() == 0)
+			return NSCAPI::returnIgnored;
+		std::wstring result;
+		int ret = execute_and_load_python(data.args, result);
+		nscapi::functions::create_simple_exec_response(data.command, ret, result, response);
+		return ret;
 	}
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	std::string cmd = utf8::cvt<std::string>(char_command);
@@ -397,7 +433,6 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	if (inst->has_simple_message_handler(chnl)) {
 		std::wstring src, cmd, msg, perf;
 		int code = nscapi::functions::parse_simple_submit_request(request, src, cmd, msg, perf);
-		NSC_LOG_ERROR_STD(_T(" --- command: ") + cmd);
 		int ret = inst->handle_simple_message(chnl, to_string(src), to_string(cmd), code, msg, perf);
 		nscapi::functions::create_simple_submit_response(channel, cmd, ret, _T(""), response);
 		return ret;

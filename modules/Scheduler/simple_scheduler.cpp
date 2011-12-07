@@ -77,51 +77,58 @@ namespace scheduler {
 	}
 
 	void simple_scheduler::thread_proc(int id) {
-		int iteration = 0;
-		schedule_queue_type::value_type instance;
-		while (!stop_requested_) {
-			instance = queue_.pop();
-			if (!instance) {
-				boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
-				idle_thread_cond_.wait(lock);
-				continue;
-			}
-
-			try {
-				boost::posix_time::time_duration off = now() - (*instance).time;
-				if (off.total_seconds() > error_threshold_) {
-					log_error(_T("Ran scheduled item ") + to_wstring((*instance).schedule_id) + _T(" ") + to_wstring(off.total_seconds()) + _T(" seconds to late from thread ") + to_wstring(id));
+		try {
+			int iteration = 0;
+			schedule_queue_type::value_type instance;
+			while (!stop_requested_) {
+				instance = queue_.pop();
+				if (!instance) {
+					boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
+					idle_thread_cond_.wait(lock);
+					continue;
 				}
-				boost::thread::sleep((*instance).time);
-			} catch (boost::thread_interrupted  &e) {
-				if (!queue_.push(*instance))
-					log_error(_T("ERROR"));
-				if (stop_requested_) {
-					log_error(_T("Terminating thread: ") + to_wstring(id));
-					return;
-				}
-				continue;
-			} catch (...) {
-				if (!queue_.push(*instance))
-					log_error(_T("ERROR"));
-				continue;
-			}
 
-			boost::posix_time::ptime now_time = now();
-			boost::optional<target> item = get_task((*instance).schedule_id);
-			if (item) {
 				try {
-					if (handler_)
-						handler_->handle_schedule(*item);
-					reschedule(*item,now_time);
+					boost::posix_time::time_duration off = now() - (*instance).time;
+					if (off.total_seconds() > error_threshold_) {
+						log_error(_T("Ran scheduled item ") + to_wstring((*instance).schedule_id) + _T(" ") + to_wstring(off.total_seconds()) + _T(" seconds to late from thread ") + to_wstring(id));
+					}
+					boost::thread::sleep((*instance).time);
+				} catch (boost::thread_interrupted  &e) {
+					if (!queue_.push(*instance))
+						log_error(_T("ERROR"));
+					if (stop_requested_) {
+						log_error(_T("Terminating thread: ") + to_wstring(id));
+						return;
+					}
+					continue;
 				} catch (...) {
-					log_error(_T("UNKNOWN ERROR RUNING TASK: "));
-					reschedule(*item);
+					if (!queue_.push(*instance))
+						log_error(_T("ERROR"));
+					continue;
 				}
-			} else {
-				log_error(_T("Task not found: ") + to_wstring((*instance).schedule_id));
+
+				boost::posix_time::ptime now_time = now();
+				boost::optional<target> item = get_task((*instance).schedule_id);
+				if (item) {
+					try {
+						if (handler_)
+							handler_->handle_schedule(*item);
+						reschedule(*item,now_time);
+					} catch (...) {
+						log_error(_T("UNKNOWN ERROR RUNING TASK: "));
+						reschedule(*item);
+					}
+				} else {
+					log_error(_T("Task not found: ") + to_wstring((*instance).schedule_id));
+				}
 			}
+		} catch (const std::exception &e) {
+			log_error(_T("Exception in scheduler thread (thread will be killed): ") + utf8::to_unicode(e.what()));
+		} catch (...) {
+			log_error(_T("Exception in scheduler thread (thread will be killed)"));
 		}
+
 	}
 
 	void simple_scheduler::reschedule(target item) {

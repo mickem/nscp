@@ -25,8 +25,12 @@ namespace nsclient {
 				std::wcout << _T("boot::init failed") << std::endl;
 				return;
 			}
-			if (!core_->boot_load_plugins(false)) {
-				std::wcout << _T("boot::load_plugins failed!") << std::endl;
+			if (!core_->boot_load_all_plugins()) {
+				std::wcout << _T("boot::load_all_plugins failed!") << std::endl;
+				return;
+			}
+			if (!core_->boot_start_plugins(false)) {
+				std::wcout << _T("boot::start_plugins failed!") << std::endl;
 				return;
 			}
 			if (default_) {

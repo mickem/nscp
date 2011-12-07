@@ -40,7 +40,7 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		typedef std::map<std::wstring,std::wstring> schedule_map;
 		schedule_map schedules;
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("scheduler"), alias);
+		settings.set_alias(alias, _T("scheduler"));
 
 		settings.alias().add_path_to_settings()
 			(_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))

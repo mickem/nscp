@@ -5,6 +5,16 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-12-06 MickeM
+ * Added python unittests to make sure threading is working properly
+ * Simpliefied and cleaned up the command line syntax a bit
+ * Now --exec is the default option for client mode (but it will notify you it thought so)
+ * Added "command-less" execution to PythonScript so you can do --exec --script ... (without having --exec run)
+ * Fixed an issue related to python threading
+ * Fixed Scheduler header propgation
+ * Fixed so all Client module use "complex" API meaning headers are propagated correctly
+ * Fixed scheduler alias issue
+
 2011-11-27 MickeM
  * Fixed some NSCA issues (reading from new conf)
  * Fixed some linux build issues (related to refactoring)

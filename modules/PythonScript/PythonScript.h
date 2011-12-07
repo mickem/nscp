@@ -87,12 +87,7 @@ public:
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 	NSCAPI::nagiosReturn handleRAWNotification(const std::wstring &channel, std::string &request, std::string &response);
 
-	NSCAPI::nagiosReturn execute_and_load_python(std::list<std::wstring> args);
-	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
-	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);
-
-	//script_wrapper::lua_handler
-	//void register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function);
+	NSCAPI::nagiosReturn execute_and_load_python(std::list<std::wstring> args, std::wstring &message);
 
 private:
 

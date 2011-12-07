@@ -18,8 +18,12 @@ namespace nsclient {
 				core_->log_error(__FILE__, __LINE__, _T("Service failed to init"));
 				return;
 			}
-			if (!core_->boot_load_plugins(true)) {
-				core_->log_error(__FILE__, __LINE__, _T("Service failed to load plugin"));
+			if (!core_->boot_load_all_plugins()) {
+				core_->log_error(__FILE__, __LINE__, _T("Service failed to load plugins"));
+				return;
+			}
+			if (!core_->boot_start_plugins(true)) {
+				core_->log_error(__FILE__, __LINE__, _T("Service failed to start plugins"));
 				return;
 			}
 
