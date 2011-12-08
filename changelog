@@ -6,6 +6,11 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2011-12-06 MickeM
+ * Fixed so command line client wont try to run commands in modules which does not support it.
+ * Changed to when no settings is found a default one is created
+ * Removed old "location" key from switch context and changed so it use the new number scheme
+ 
+2011-12-06 MickeM
  * Added python unittests to make sure threading is working properly
  * Simpliefied and cleaned up the command line syntax a bit
  * Now --exec is the default option for client mode (but it will notify you it thought so)

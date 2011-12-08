@@ -175,7 +175,7 @@ namespace settings_manager {
 			}
 		}
 		if (!key.empty()) {
-			get_logger()->info(__FILE__, __LINE__, _T("No valid settings found but one was givben (using that): ") + key);
+			get_logger()->info(__FILE__, __LINE__, _T("No valid settings found but one was given (using that): ") + key);
 			set_instance(key);
 			return;
 		}
@@ -188,7 +188,8 @@ namespace settings_manager {
 			set_instance(tgt);
 			return;
 		}
-		get_logger()->err(__FILE__, __LINE__, _T("No valid settings found (tried): ") + boot_order);
+		get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Settings contexts exausted, will create a new ")) + DEFAULT_CONF_INI_LOCATION);
+		set_instance(DEFAULT_CONF_INI_LOCATION);
 	}
 
 	void NSCSettingsImpl::set_primary(std::wstring key) {
@@ -226,7 +227,7 @@ namespace settings_manager {
 	void NSCSettingsImpl::change_context(std::wstring context) {
 		try {
 			get_core()->migrate_to(context);
-			set_boot_string(_T("settings"), _T("location"), context);
+			set_primary(context);
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
 			provider_->log_fatal_error(_T("Failed to initialize settings: ") + e.getError());

@@ -228,7 +228,7 @@ bool NSCPlugin::has_routing_handler() {
  * @throws NSPluginException if the module is not loaded.
  */
 NSCAPI::nagiosReturn NSCPlugin::handleCommand(const wchar_t* command, const char* dataBuffer, unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len) {
-	if (!isLoaded())
+	if (!isLoaded() || fHandleCommand == NULL)
 		throw NSPluginException(module_, _T("Library is not loaded"));
 	try {
 		return fHandleCommand(plugin_id_, command, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
@@ -322,6 +322,7 @@ void NSCPlugin::unload_plugin() {
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in fUnLoadModule."));
 	}
+	fHandleCommand = NULL;
 }
 void NSCPlugin::unload_dll() {
 	if (isLoaded())

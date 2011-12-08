@@ -1207,6 +1207,8 @@ int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vecto
 }
 int query_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector<std::wstring> arguments, std::string request, std::list<std::string> *responses) {
 	std::string response;
+	if (!plugin->hasCommandHandler())
+		return NSCAPI::returnIgnored;
 	int ret = plugin->handleCommand(command.c_str(), request, response);
 	if (ret != NSCAPI::returnIgnored && !response.empty())
 		responses->push_back(response);

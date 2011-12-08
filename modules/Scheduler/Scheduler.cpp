@@ -182,9 +182,6 @@ void Scheduler::handle_schedule(scheduler::target item) {
 	}
 }
 
-
-
-
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(Scheduler);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

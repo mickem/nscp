@@ -54,7 +54,4 @@ public:
 	static std::wstring getModuleDescription() {
 		return _T("A scheduler which schedules checks at regular intervals");
 	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
 };
