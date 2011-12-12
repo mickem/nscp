@@ -944,6 +944,90 @@ NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
 	return ret;
 }
 
+
+
+struct process_count_result {
+	unsigned long running;
+	unsigned long hung;
+	process_count_result() : running(0), hung(0) {}
+
+	std::wstring format_value(std::wstring tag, unsigned long count) {
+		if (count > 1)
+			return tag + _T("(") + strEx::itos(count) +_T(")");
+		if (count == 1)
+			return tag;
+		return _T("");
+	}
+	std::wstring to_wstring() {
+		if (running > 0 && hung > 0)
+			return format_value(_T("running"), running) + _T(", ") + format_value(_T("hung"), hung);
+		if (running > 0)
+			return format_value(_T("running"), running);
+		if (hung > 0)
+			return format_value(_T("hung"), hung);
+		return _T("stopped");
+	}
+	std::wstring to_wstring_short() {
+		if (running > 0 && hung > 0)
+			return _T("running, hung");
+		if (running > 0)
+			return _T("running");
+		if (hung > 0)
+			return _T("hung");
+		return _T("stopped");
+	}
+
+};
+
+class ProcessBound {
+public:
+	checkHolders::ExactBounds<checkHolders::NumericBounds<unsigned long, checkHolders::int_handler> > running;
+	checkHolders::ExactBounds<checkHolders::NumericBounds<unsigned long, checkHolders::int_handler> > hung;
+	typedef checkHolders::NumericBounds<unsigned long, checkHolders::int_handler> THolder;
+
+	typedef ProcessBound TMyType;
+	typedef process_count_result TValueType;
+
+	ProcessBound() {}
+	ProcessBound(const ProcessBound &other) {
+		running = other.running;
+		hung = other.hung;
+	}
+
+	void reset() {
+		running.reset();
+		hung.reset();
+	}
+	bool hasBounds() {
+		return running.hasBounds() || hung.hasBounds();
+	}
+	static std::wstring toStringLong(TValueType &value) {
+		return value.to_wstring();
+	}
+	static std::wstring toStringShort(TValueType &value) {
+		return value.to_wstring_short();
+	}
+	std::wstring gatherPerfData(std::wstring alias, TValueType &value, TMyType &warn, TMyType &crit) {
+		if (hung.hasBounds())
+			return hung.gatherPerfData(alias, value.hung, warn.hung, crit.hung);
+		return running.gatherPerfData(alias, value.running, warn.running, crit.running);
+	}
+	std::wstring gatherPerfData(std::wstring alias, TValueType &value) {
+		THolder tmp;
+		if (hung.hasBounds())
+			return tmp.gatherPerfData(alias, value.hung);
+		return tmp.gatherPerfData(alias, value.running);
+	}
+	bool check(TValueType &value, std::wstring lable, std::wstring &message, checkHolders::ResultType type) {
+		if (hung.hasBounds()) {
+			return hung.check_preformatted(value.hung, value.to_wstring(), lable, message, type);
+		} else {
+			return running.check_preformatted(value.running, value.to_wstring(), lable, message, type);
+		}
+		return false;
+	}
+
+};
 /**
  * Check process state and return result
  *
@@ -956,7 +1040,10 @@ NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
  */
 NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinStateBoundsStateBoundsInteger> StateContainer;
+	typedef checkHolders::CheckContainer<ProcessBound> StateContainer;
+	
+//	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsState> StateContainer2;
+
 	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
@@ -976,11 +1063,15 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 
 	
 
-	tmpObject.data = _T("uptime");
-	tmpObject.crit.state = _T("started");
+	//tmpObject.data = _T("uptime");
+	//tmpObject.crit.min = 1;
 
 	MAP_OPTIONS_BEGIN(arguments)
-		MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T("Count"))
+		//MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T("Count"))
+		MAP_OPTIONS_EXACT_NUMERIC_ALL_EX(tmpObject, _T("Count"), running)
+		MAP_OPTIONS_EXACT_NUMERIC_LEGACY_EX(tmpObject, _T("Count"), running)
+		MAP_OPTIONS_EXACT_NUMERIC_ALL_EX(tmpObject, _T("HungCount"), hung)
+		MAP_OPTIONS_EXACT_NUMERIC_LEGACY_EX(tmpObject, _T("HungCount"), hung)
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.alias)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
@@ -1002,11 +1093,21 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 		MAP_OPTIONS_SECONDARY_END()
 		else { 
 			tmpObject.data = p__.first;
-			if (p__.second.empty())
-				tmpObject.crit.state = _T("started"); 
-			else
-				tmpObject.crit.state = p__.second; 
-			list.push_back(tmpObject); 
+			if (p__.second.empty()) {
+				if (!tmpObject.crit.running.hasBounds() && !tmpObject.warn.running.hasBounds())
+					tmpObject.crit.running.min = _T("1"); 
+			} else if (p__.second == _T("started")) {
+				if (!tmpObject.crit.running.hasBounds() && !tmpObject.warn.running.hasBounds())
+					tmpObject.crit.running.min = _T("1");
+			} else if (p__.second == _T("stopped")) {
+				if (!tmpObject.crit.running.hasBounds() && !tmpObject.warn.running.hasBounds())
+					tmpObject.crit.running.max = _T("0");
+			} else if (p__.second == _T("hung")) {
+				if (!tmpObject.crit.hung.hasBounds() && !tmpObject.warn.hung.hasBounds())
+					tmpObject.crit.hung.max = _T("1");
+			}
+			list.push_back(tmpObject);
+			tmpObject.reset();
 		}
 	MAP_OPTIONS_END()
 
@@ -1032,7 +1133,6 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 				if ((*proc).first.find((*it).data) != std::wstring::npos)
 					break;
 			}
-#ifdef USE_BOOST
 		} else if (match == match_regexp) {
 			try {
 				boost::wregex filter((*it).data,boost::regex::icase);
@@ -1050,11 +1150,6 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 				msg = _T("Failed to compile regular expression: ") + (*proc).first;
 				return NSCAPI::returnUNKNOWN;
 			}
-#else
-			NSC_LOG_ERROR_STD(_T("NSClient++ is compiled without USEBOOST so no regular expression support for you...") + (*proc).first);
-			msg = _T("Regular expression is not supported: ") + (*proc).first;
-			return NSCAPI::returnUNKNOWN;
-#endif
 		} else {
 			NSC_LOG_ERROR_STD(_T("Unsupported mode for: ") + (*proc).first);
 			msg = _T("Unsupported mode for: ") + (*proc).first;
@@ -1072,22 +1167,17 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 				nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
 			}
 		} else {
-			checkHolders::MaxMinStateValueType<int, checkHolders::state_type> value;
+			process_count_result value;
 			if (bFound) {
-				if ((*proc).second.hung_count > 0) {
-					NSC_LOG_ERROR_STD(_T("Hung proc: ") + strEx::itos((*proc).second.hung_count));
-					value.count = (*proc).second.count;
-					value.state = checkHolders::state_hung;
-				} else {
-					value.count = (*proc).second.count;
-					value.state = checkHolders::state_started;
-				}
+				value.hung = (*proc).second.hung_count;
+				value.running = (*proc).second.count;
 			} else {
-				value.count = 0;
-				if (ignoreState)
-					value.state = checkHolders::state_stopped | checkHolders::state_started | checkHolders::state_hung;
-				else
-				value.state = checkHolders::state_stopped;
+				value.hung = 0;
+				value.running = 0;
+//				if (ignoreState)
+//					value.state = checkHolders::state_stopped | checkHolders::state_started | checkHolders::state_hung;
+//				else
+//				value.state = checkHolders::state_stopped;
 			}
 			if (bFound && (*it).alias.empty()) {
 				(*it).alias = (*proc).first;

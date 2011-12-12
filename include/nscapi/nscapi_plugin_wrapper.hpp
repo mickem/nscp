@@ -297,8 +297,12 @@ namespace nscapi {
 					NSC_LOG_ERROR(_T("A module returned an invalid return code"));
 				}
 				return retCode;
+			} catch (const std::exception &e) { 
+				NSC_LOG_CRITICAL(_T("Exception in: NSHandleCommand: ") + utf8::to_unicode(e.what())); 
+				return NSCAPI::returnUNKNOWN;
 			} catch (...) { 
 				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHandleCommand")); 
+				return NSCAPI::returnUNKNOWN;
 			} 
 			return NSCAPI::returnIgnored; 
 		} 

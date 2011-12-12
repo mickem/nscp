@@ -5,6 +5,22 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2011-12-08 MickeM
+ * Fixed so non custom installers gets configuration UI (meaning you can configure it)
+ * Added WarnCount/CritCount exact bounds to CheckProcState so:
+   CheckProcState CritCount=gt:50 WarnCount=ne:45 svchost.exe=started
+ * Added embryo for Graphite plugin (https://launchpad.net/graphite)
+ * Added WarnHungCount/CritHungCount exact bounds to CheckProcState so:
+   CheckProcState CritHungCount=gt:50 WarnHungCount=ne:45 svchost.exe
+ * Changed so Count takes presedence meaning if you specify: CheckProcState CritCount=gt:50 svchost.exe=stopped it will be treated 
+   as (CheckProcState CritCount=gt:50 svchost.exe) hence the stopped/started is meaningless if you specify a count.
+ * Fixed so perfoamnce data parsin handled non escaped \:es (ie. using stupiud parsing)
+ * Added a lot of unittests to CheckProcState to verify that many features work properly.
+    nscp python --script test_w32_system.py --install
+    nscp client --query py_unittest
+    ...
+    OK: 121 test(s) successfull|
+
 2011-12-06 MickeM
  * Fixed so command line client wont try to run commands in modules which does not support it.
  * Changed to when no settings is found a default one is created

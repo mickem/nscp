@@ -747,22 +747,39 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		template<class T, class U>
+		template<class T>
 		struct tokenizer_data {
-			boost::escaped_list_separator<U> separator;	// \\, ' ', \'
+			T perf_lable_enclosure;						// '
+			T perf_separator;							// ' '
 			T perf_item_splitter;						// ; 
 			T perf_equal_sign;							// =
 			T perf_valid_number;						// 0123456789.,
 
 		};
 
-		template<class T, class U>
-		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, T &perf, tokenizer_data<T, U> tokenizer_data) {
-			boost::tokenizer<boost::escaped_list_separator<U>, typename T::const_iterator, T> tok(perf, tokenizer_data.separator);
-			BOOST_FOREACH(const T s, tok) {
-				if (s.size() == 0)
-					break;
-				std::vector<T> items = strEx::splitV(s, tokenizer_data.perf_item_splitter);
+		template<class T>
+		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, T &perf, tokenizer_data<T> tokenizer_data) {
+			while (true) {
+				if (perf.size() == 0)
+					return;
+				typename T::size_type p = 0;
+				if (perf[0] == tokenizer_data.perf_lable_enclosure[0]) {
+					p = perf.find(tokenizer_data.perf_lable_enclosure[0], 1)+1;
+					if (p == T::npos)
+						return;
+				}
+				p = perf.find(tokenizer_data.perf_separator, p);
+				if (p == 0)
+					return;
+				T chunk;
+				if (p == T::npos) {
+					chunk = perf;
+					perf = T();
+				} else {
+					chunk = perf.substr(0, p);
+					perf = perf.substr(p);
+				}
+				std::vector<T> items = strEx::splitV(chunk, tokenizer_data.perf_item_splitter);
 				if (items.size() < 1) {
 					Plugin::Common::PerformanceData* perfData = payload->add_perf();
 					perfData->set_type(Plugin::Common_DataType_STRING);
@@ -776,7 +793,11 @@ namespace nscapi {
 				Plugin::Common::PerformanceData* perfData = payload->add_perf();
 				perfData->set_type(Plugin::Common_DataType_FLOAT);
 				std::pair<T,T> fitem = strEx::split(items[0], tokenizer_data.perf_equal_sign);
-				perfData->set_alias(to_string(fitem.first));
+				T alias = fitem.first;
+				if (alias.size() > 0 && alias[0] == tokenizer_data.perf_lable_enclosure[0] && alias[alias.size()-1] == tokenizer_data.perf_lable_enclosure[0])
+					alias = alias.substr(1, alias.size()-2);
+					
+				perfData->set_alias(to_string(alias));
 				Plugin::Common_PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
 
 				typename T::size_type pend = fitem.second.find_first_not_of(tokenizer_data.perf_valid_number);
@@ -799,22 +820,24 @@ namespace nscapi {
 		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf) {
 			typedef std::wstring t_string;
 			typedef wchar_t t_char;
-			tokenizer_data<t_string, t_char> data;
-			data.separator = boost::escaped_list_separator<t_char>(L'\\', L' ', L'\'');
+			tokenizer_data<t_string> data;
+			data.perf_separator = _T(" ");
+			data.perf_lable_enclosure = _T("'");
 			data.perf_equal_sign = _T("=");
 			data.perf_item_splitter = _T(";");
 			data.perf_valid_number = _T("0123456789,.");
-			parse_performance_data<t_string, t_char>(payload, perf, data);
+			parse_performance_data<t_string>(payload, perf, data);
 		}
 		static void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::string &perf) {
 			typedef std::string t_string;
 			typedef char t_char;
-			tokenizer_data<t_string, t_char> data;
-			data.separator = boost::escaped_list_separator<t_char>('\\', ' ', '\'');
+			tokenizer_data<t_string> data;
+			data.perf_separator = " ";
+			data.perf_lable_enclosure = "'";
 			data.perf_equal_sign = "=";
 			data.perf_item_splitter = ";";
 			data.perf_valid_number = "0123456789,.";
-			parse_performance_data<t_string, t_char>(payload, perf, data);
+			parse_performance_data<t_string>(payload, perf, data);
 		}
 
 		static std::string build_performance_data(Plugin::QueryResponseMessage::Response const &payload) {

@@ -87,9 +87,9 @@ namespace nsclient {
 		public:
 			slave() : mq_(ip::open_only,queue_name.c_str()), plugins_loaded_(false), console_log_(false) {
 #ifdef WIN32
-				if(!SetConsoleOutputCP(CP_UTF8)) { // 65001
-					std::cerr << "Failed to set console output mode!\n";
-				}
+// 				if(!SetConsoleOutputCP(CP_UTF8)) { // 65001
+// 					std::cerr << "Failed to set console output mode!\n";
+// 				}
 #endif
 			}
 

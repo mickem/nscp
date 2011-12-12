@@ -127,6 +127,10 @@ namespace checkHolders {
 			perfData = other.perfData;
 			return *this;
 		}
+		void reset() {
+			warn.reset();
+			crit.reset();
+		}
 		std::wstring getAlias() {
 			if (alias.empty())
 				return data;
@@ -603,6 +607,9 @@ namespace checkHolders {
 			value_ = other.value_;
 		}
 
+		void reset() {
+			bHasBounds_ = false;
+		}
 		checkResultType check(TType value) const {
 			if (value == value_)
 				return same;
@@ -750,6 +757,9 @@ namespace checkHolders {
 			lower.setParent(this);
 			return *this;
 		}
+		void reset() {
+			type_ = none;
+		}
 		checkResultType check(TType value) const {
 			if (type_ == percentage_lower) {
 				if (value.getLowerPercentage() == value.adjust_lower_magic(value_, normal_size, magic))
@@ -890,6 +900,9 @@ namespace checkHolders {
 		StateBounds() : value_(state_none) {}
 		StateBounds(const StateBounds &other) : value_(other.value_) {}
 
+		void reset() {
+			value_ = state_none;
+		}
 		bool check(TType value) const {
 			return (value & value_) != 0;
 		}
@@ -945,6 +958,11 @@ namespace checkHolders {
 			max_ = other.max_;
 			min_ = other.min_;
 			return *this;
+		}
+		void reset() {
+			state.reset();
+			max_.reset();
+			min_.reset();
 		}
 		bool hasBounds() {
 			return state.hasBounds() ||  max_.hasBounds() || min_.hasBounds();
@@ -1009,6 +1027,9 @@ namespace checkHolders {
 		FilterBounds(const FilterBounds &other) {
 			filter = other.filter;
 		}
+		void reset() {
+			filter.reset();
+		}
 		bool hasBounds() {
 			return filter.hasFilter();
 		}
@@ -1061,6 +1082,9 @@ namespace checkHolders {
 		SimpleStateBounds(const SimpleStateBounds &other) {
 			state = other.state;
 		}
+		void reset() {
+			state.reset();
+		}
 		bool hasBounds() {
 			return state.hasBounds();
 		}
@@ -1105,6 +1129,10 @@ namespace checkHolders {
 			max_ = other.max_;
 			min_ = other.min_;
 			return *this;
+		}
+		void reset() {
+			max_.reset();
+			min_.reset();
 		}
 		bool hasBounds() {
 			return max_.hasBounds() || min_.hasBounds();
@@ -1204,6 +1232,12 @@ namespace checkHolders {
 			return *this;
 		}
 
+		void reset() {
+			max.reset();
+			min.reset();
+			eq.reset();
+			neq.reset();
+		}
 		bool hasBounds() {
 			return max.hasBounds() || min.hasBounds() || eq.hasBounds() || neq.hasBounds();
 		}
@@ -1232,24 +1266,26 @@ namespace checkHolders {
 			return tmp.gatherPerfData(alias, value);
 		}
 		bool check(typename THolder::TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
+			return check_preformatted(value, THolder::toStringLong(value), lable, message, type);
+		}
+		bool check_preformatted(typename THolder::TValueType &value, std::wstring formatted_value, std::wstring lable, std::wstring &message, ResultType type) {
 			if ((max.hasBounds())&&(max.check(value) == above)) {
-				message = lable + _T(": ") + formatAbove(THolder::toStringLong(value), type);
+				message = lable + _T(": ") + formatAbove(formatted_value, type);
 				return true;
 			} else if ((min.hasBounds())&&(min.check(value) == below)) {
-				message = lable + _T(": ") + formatBelow(THolder::toStringLong(value), type);
+				message = lable + _T(": ") + formatBelow(formatted_value, type);
 				return true;
 			} else if ((eq.hasBounds())&&(eq.check(value) == same)) {
-				message = lable + _T(": ") + formatSame(THolder::toStringLong(value), type);
+				message = lable + _T(": ") + formatSame(formatted_value, type);
 				return true;
 			} else if ((neq.hasBounds())&&(neq.check(value) != same)) {
-				message = lable + _T(": ") + formatNotSame(THolder::toStringLong(value), type);
+				message = lable + _T(": ") + formatNotSame(formatted_value, type);
 				return true;
 			} else {
 				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
 		}
-
 	};
 	typedef ExactBounds<NumericBounds<unsigned long int, int_handler> > ExactBoundsULongInteger;
 	typedef ExactBounds<NumericBounds<unsigned int, int_handler> > ExactBoundsUInteger;
