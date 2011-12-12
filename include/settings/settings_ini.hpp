@@ -117,7 +117,6 @@ namespace settings {
 				if (!desc.description.empty())
 					comment += desc.description;
 				strEx::replace(comment, _T("\n"), _T(" "));
-				get_core()->get_logger()->quick_debug(_T("saving: ") + key.first + _T("//") + key.second);
 				
 				ini.Delete(key.first.c_str(), key.second.c_str());
 				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), comment.c_str());
@@ -132,7 +131,6 @@ namespace settings {
 
 		virtual void set_real_path(std::wstring path) {
 			try {
-				get_core()->get_logger()->quick_debug(_T("Setting path: ") + path);
 				const settings_core::path_description desc = get_core()->get_registred_path(path);
 				if (!desc.description.empty()) {
 					std::wstring comment = _T("; ") + desc.description;
@@ -157,7 +155,6 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void get_real_sections(std::wstring path, string_list &list) {
-			get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			CSimpleIni::TNamesDepend lst;
 			std::wstring::size_type path_len = path.length();
 			ini.GetAllSections(lst);
@@ -174,9 +171,7 @@ namespace settings {
 			} else {
 				BOOST_FOREACH(const CSimpleIni::Entry e, lst) {
 					std::wstring key = e.pItem;
-					get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("  + ")) + key);
 					if (key.length() > path_len+1 && key.substr(0,path_len) == path) {
-						get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("  + >> ")) + key);
 						std::wstring::size_type pos = key.find(L'/', path_len+1);
 						if (pos == std::wstring::npos)
 							key = key.substr(path_len+1);
