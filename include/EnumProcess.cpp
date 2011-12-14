@@ -260,15 +260,13 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 	entry.dwPID = pid;
 	// Open process to get filename
 	DWORD openArgs = PROCESS_QUERY_INFORMATION|PROCESS_VM_READ;
-	if (expand_command_line)
-		openArgs |= PROCESS_VM_OPERATION;
+//	if (expand_command_line)
+//		openArgs |= PROCESS_VM_OPERATION;
 	HANDLE hProc = OpenProcess(openArgs, FALSE, pid);
-	if (!hProc) {
+	if (!hProc)
 		throw process_enumeration_exception(GetLastError(), _T("Failed to open process: ") + strEx::itos(pid) + _T(": "));
-	}
-	if (expand_command_line) {
+	if (expand_command_line)
 		entry.command_line = GetCommandLine(hProc);
-	}
 	HMODULE hMod;
 	DWORD size;
 	// Get the first module (the process itself)
@@ -291,58 +289,68 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 	return entry;
 }
 
-// Process data block is found in an NT machine.
-// on an Intel system at 0x00020000  which is the 32
-// memory page. At offset 0x0498 is what I believe to be
-// the process' startup directory which is followed by
-// the system's PATH. Next is  process full command
-// followed by the exe name.
-#define PROCESS_DATA_BLOCK_ADDRESS      (LPVOID)0x00020498
-// align pointer
-#define ALIGNMENT(x) ( (x & 0xFFFFFFFC) ? (x & 0xFFFFFFFC) + sizeof(DWORD) : x )
+typedef struct _PROCESS_BASIC_INFORMATION {
+	LONG ExitStatus;
+	PVOID PebBaseAddress;
+	ULONG_PTR AffinityMask;
+	LONG BasePriority;
+	ULONG_PTR UniqueProcessId;
+	ULONG_PTR ParentProcessId;
+} PROCESS_BASIC_INFORMATION, *PPROCESS_BASIC_INFORMATION;
 
-std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess)
-{
-	SYSTEM_INFO sysinfo;
-	GetSystemInfo (&sysinfo);
 
-	MEMORY_BASIC_INFORMATION mbi;
-	if (VirtualQueryEx (hProcess, PROCESS_DATA_BLOCK_ADDRESS, &mbi, sizeof(mbi) ) == 0)
-		throw process_enumeration_exception(_T("VirtualQueryEx failed: ") + error::lookup::last_error());
-	LPBYTE lpBuffer = (LPBYTE)malloc (sysinfo.dwPageSize);
-	if (lpBuffer == NULL)
-		throw process_enumeration_exception(_T("Failed to allocate buffer"));
-	SIZE_T dwBytesRead;
-	if (!ReadProcessMemory( hProcess, mbi.BaseAddress, (LPVOID)lpBuffer, sysinfo.dwPageSize, &dwBytesRead)) {
-		free(lpBuffer);
-		throw process_enumeration_exception(_T("ReadProcessMemory failed: ") + error::lookup::last_error());
+typedef struct _UNICODE_STRING {
+	USHORT Length;
+	USHORT MaximumLength;
+	PWSTR Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+PVOID GetPebAddress(HANDLE ProcessHandle) {
+	PFNtQueryInformationProcess NtQueryInformationProcess = (PFNtQueryInformationProcess)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess");
+	if (NtQueryInformationProcess == NULL)
+		throw CEnumProcess::process_enumeration_exception(_T("Failed to load NtQueryInformationProcess"));
+	PROCESS_BASIC_INFORMATION pbi;
+	NtQueryInformationProcess(ProcessHandle, 0, &pbi, sizeof(pbi), NULL);
+	return pbi.PebBaseAddress;
+}
+
+std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess) {
+
+	PVOID rtlUserProcParamsAddress;
+	UNICODE_STRING commandLine;
+	PVOID pebAddress = GetPebAddress(hProcess);
+
+
+#ifdef _WIN64
+	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x20, &rtlUserProcParamsAddress, sizeof(PVOID), NULL))
+		throw process_enumeration_exception(_T("Could not read the address of ProcessParameters: ") + error::lookup::last_error());
+#else
+	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x10, &rtlUserProcParamsAddress, sizeof(PVOID), NULL))
+		throw process_enumeration_exception(_T("Could not read the address of ProcessParameters: ") + error::lookup::last_error());
+#endif
+
+#ifdef _WIN64
+	if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x70, &commandLine, sizeof(commandLine), NULL))
+		throw process_enumeration_exception(_T("Could not read commandline: ") + error::lookup::last_error());
+#else
+	if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x40, &commandLine, sizeof(commandLine), NULL))
+		throw process_enumeration_exception(_T("Could not read commandline: ") + error::lookup::last_error());
+#endif
+
+	/* allocate memory to hold the command line */
+	wchar_t *commandLineContents = new wchar_t[commandLine.Length+2];
+	memset(commandLineContents, 0, commandLine.Length);
+
+	/* read the command line */
+	if (!ReadProcessMemory(hProcess, commandLine.Buffer, commandLineContents, commandLine.Length, NULL)) {
+		delete [] commandLineContents;
+		throw process_enumeration_exception(_T("Could not read commandline string: ") + error::lookup::last_error());
 	}
-	LPBYTE lpPos = lpPos = lpBuffer + ((DWORD)PROCESS_DATA_BLOCK_ADDRESS - (DWORD)mbi.BaseAddress);
 
-	// Skip programs current directory and path
-	lpPos += (wcslen((LPWSTR)lpPos) + 1) * sizeof(WCHAR);
+	commandLineContents[(commandLine.Length/sizeof(WCHAR))] = '\0';
+	std::wstring ret = commandLineContents;
+	delete [] commandLineContents;
 
-	// Aligned on a DWORD boundary skip it, and copy the next string into
-	// buffer and null terminate it.
-	lpPos = (LPBYTE)ALIGNMENT((DWORD)lpPos);
-	lpPos += (wcslen((LPWSTR)lpPos) + 1) * sizeof(WCHAR);
-
-	// Sometimes there is an extra \0 here
-	/*
-	if ( *lpPos == '\0' ) 
-		lpPos += sizeof(WCHAR);
-	*/
-
-	DWORD nStrLength = (wcslen((LPWSTR)lpPos) + 1) * sizeof(WCHAR);
-	WCHAR *buffer = new TCHAR[nStrLength+2];
-	buffer[0] = L'\0';
-	if(nStrLength > sizeof(WCHAR)) {
-		wcsncpy(buffer, (LPWSTR)lpPos, nStrLength);
-		buffer[nStrLength] = L'\0';
-	}
-	free(lpBuffer);
-	std::wstring ret = buffer;
-	delete [] buffer;
 	return ret;
 }
 

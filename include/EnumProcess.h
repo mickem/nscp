@@ -41,6 +41,8 @@ typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, 
 //typedef BOOL ( WINAPI *PROCESSENUMPROC )(DWORD dwProcessId,	DWORD dwAttributes,	LPARAM lpUserDefined	);
 typedef BOOL ( WINAPI *TASKENUMPROCEX )(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined );
 typedef INT (WINAPI *PFVDMEnumTaskWOWEx)(DWORD dwProcessId, TASKENUMPROCEX fp, LPARAM lparam); 
+typedef LONG (WINAPI *PFNtQueryInformationProcess)(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength, PDWORD ReturnLength);
+
 #else
 // Functions loaded from PSAPI
 typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
