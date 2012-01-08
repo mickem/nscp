@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/date_time.hpp>
-#include <boost/lexical_cast.hpp>
 
 #include <types.hpp>
 #include <swap_bytes.hpp>
@@ -10,6 +9,7 @@
 #include <unicode_char.hpp>
 #include <utils.h>
 
+namespace nstr = nscp::helpers;
 namespace nsca {
 //#define NSCA_MAX_PLUGINOUTPUT_LENGTH	512
 //#define NSCA_MAX_PASSWORD_LENGTH     512
@@ -60,11 +60,13 @@ namespace nsca {
 	};
 
 	/* data packet containing service check results */
-	class nsca_exception {
-		std::wstring msg_;
+	class nsca_exception : public std::exception {
+		std::string msg_;
 	public:
-		nsca_exception(std::wstring msg) : msg_(msg) {}
-		std::wstring what() { return msg_;}
+		nsca_exception() {}
+		~nsca_exception() throw () {}
+		nsca_exception(std::string msg) : msg_(msg) {}
+		const char* what() const throw () { return msg_.c_str(); }
 	};
 
 	class length {
@@ -133,8 +135,8 @@ namespace nsca {
 
 		std::string to_string() const {
 			return "service: " + service + ", " + 
-				"code: " + boost::lexical_cast<std::string>(code) + ", " + 
-				"time: " + boost::lexical_cast<std::string>(time) + ", " + 
+				"code: " + nstr::to_string(code) + ", " + 
+				"time: " + nstr::to_string(time) + ", " + 
 				"result: " + result;
 		}
 
@@ -156,19 +158,19 @@ namespace nsca {
 			unsigned int calculated_crc32=calculate_crc32(tmp, buffer_len);
 			delete [] tmp;
 			if (crc32 != calculated_crc32)
-				throw nsca::nsca_exception(_T("Invalid crc: ") + strEx::itos(crc32) + _T(" != ") + strEx::itos(calculated_crc32));
+				throw nsca::nsca_exception("Invalid crc: " + nstr::to_string(crc32) + " != " + nstr::to_string(calculated_crc32));
 		}
 
 		void get_buffer(std::string &buffer) const {
 			// FIXME: This is crap and needs rewriting. No std::string and beetter zero handling...
 			if (service.length() >= nsca::length::desc_length)
-				throw nsca::nsca_exception(_T("Description field to long"));
+				throw nsca::nsca_exception("Description field to long: " + nstr::to_string(service.length()) + " > " + nstr::to_string(nsca::length::desc_length));
 			if (host.length() >= nsca::length::host_length)
-				throw nsca::nsca_exception(_T("Host field to long"));
+				throw nsca::nsca_exception("Host field to long: " + nstr::to_string(host.length()) + " > " + nstr::to_string(nsca::length::host_length));
 			if (result.length() >= get_payload_length())
-				throw nsca::nsca_exception(_T("Result field to long"));
+				throw nsca::nsca_exception("Result field to long: " + nstr::to_string(result.length()) + " > " + nstr::to_string(get_payload_length()));
 			if (buffer.size() < get_packet_length())
-				throw nsca::nsca_exception(_T("Buffer is to short"));
+				throw nsca::nsca_exception("Buffer is to short: " + nstr::to_string(buffer.length()) + " > " + nstr::to_string(get_packet_length()));
 
 			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
 

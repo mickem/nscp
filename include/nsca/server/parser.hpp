@@ -41,6 +41,9 @@ namespace nsca {
 				payload_length_ = length;
 				packet_length_ = nsca::length::get_packet_length(length);
 			}
+			std::string::size_type size() {
+				return buffer_.size();
+			}
 		};
 
 	}// namespace server

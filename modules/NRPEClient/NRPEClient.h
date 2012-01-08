@@ -50,13 +50,15 @@ private:
 		int buffer_length;
 		bool use_ssl;
 
-		connection_data(nscapi::functions::destination_container recipient) {
-			cert = recipient.get_string_data("certificate");
+		connection_data(nscapi::functions::destination_container recipient, nscapi::target_handler::optarget dt) {
+			cert = recipient.get_string_data("certificate", dt?utf8::cvt<std::string>(dt->options[_T("certificate")]):"");
 			timeout = recipient.get_int_data("timeout", 30);
 			buffer_length = recipient.get_int_data("payload length", 1024);
 			use_ssl = recipient.get_bool_data("ssl");
 			if (recipient.has_data("no ssl"))
 				use_ssl = !recipient.get_bool_data("no ssl");
+			if (recipient.has_data("use ssl"))
+				use_ssl = recipient.get_bool_data("use ssl");
 
 			net::url url = recipient.get_url(5666);
 			host = url.host;
@@ -152,7 +154,7 @@ private:
 	static nrpe::packet send_nossl(std::string host, std::string port, int timeout, nrpe::packet packet);
 	static nrpe::packet send_ssl(std::string cert, std::string host, std::string port, int timeout, nrpe::packet packet);
 
-	static connection_data parse_header(const ::Plugin::Common_Header &header);
+	connection_data parse_header(const ::Plugin::Common_Header &header);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);

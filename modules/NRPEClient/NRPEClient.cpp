@@ -99,7 +99,11 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
-
+		register_command(_T("nrpe_query"), _T("Check remote NRPE host"));
+		register_command(_T("nrpe_submit"), _T("Submit (via query) remote NRPE host"));
+		register_command(_T("nrpe_forward"), _T("Forward query to remote NRPE host"));
+		register_command(_T("nrpe_exec"), _T("Execute (via query) remote NRPE host"));
+		register_command(_T("nrpe_help"), _T("Help on using NRPE Client"));
 		if (!targets.has_target(_T("default"))) {
 			add_target(_T("default"), _T("default"));
 			targets.rebuild();
@@ -187,11 +191,11 @@ bool NRPEClient::unloadModule() {
 
 NSCAPI::nagiosReturn NRPEClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
+	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("nrpe"));
 	client::configuration config;
 	setup(config);
-	if (!client::command_line_parser::is_command(cmd))
-		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+	if (client::command_line_parser::is_command(cmd))
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, request, result);
 	return commands.exec_simple(config, data.target, char_command, data.args, result);
 }
 
@@ -261,7 +265,7 @@ void NRPEClient::setup(client::configuration &config) {
 NRPEClient::connection_data NRPEClient::parse_header(const ::Plugin::Common_Header &header) {
 	nscapi::functions::destination_container recipient;
 	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	return connection_data(recipient);
+	return connection_data(recipient, targets.find_target(_T("default")));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -271,7 +275,7 @@ NRPEClient::connection_data NRPEClient::parse_header(const ::Plugin::Common_Head
 int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	Plugin::QueryRequestMessage request_message;
 	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+	connection_data con = this->instance->parse_header(*header);
 
 	Plugin::QueryResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
@@ -293,7 +297,7 @@ int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, :
 int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	Plugin::SubmitRequestMessage request_message;
 	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+	connection_data con = this->instance->parse_header(*header);
 	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 	
 	Plugin::SubmitResponseMessage response_message;
@@ -315,7 +319,7 @@ int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, 
 int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
 	Plugin::ExecuteRequestMessage request_message;
 	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+	connection_data con = this->instance->parse_header(*header);
 
 	Plugin::ExecuteResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), *header);

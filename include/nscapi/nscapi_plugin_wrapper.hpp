@@ -356,6 +356,8 @@ namespace nscapi {
 				helpers::wrap_string(reply, response_buffer, response_buffer_len);
 				//return helpers::wrap_string(reply, response_buffer, response_buffer_len, retCode);
 				return retCode;
+			} catch (const std::exception &e) { 
+				NSC_LOG_CRITICAL(_T("Exception in NSHandleNotification: ") + utf8::to_unicode(e.what())); 
 			} catch (...) { 
 				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHandleNotification")); 
 			} 

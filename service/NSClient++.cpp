@@ -1206,13 +1206,14 @@ int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vecto
 	return ret;
 }
 int query_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector<std::wstring> arguments, std::string request, std::list<std::string> *responses) {
-	std::string response;
-	if (!plugin->hasCommandHandler())
-		return NSCAPI::returnIgnored;
-	int ret = plugin->handleCommand(command.c_str(), request, response);
-	if (ret != NSCAPI::returnIgnored && !response.empty())
-		responses->push_back(response);
-	return ret;
+	return NSCAPI::returnIgnored;
+// 	std::string response;
+// 	if (!plugin->hasCommandHandler())
+// 		return NSCAPI::returnIgnored;
+// 	int ret = plugin->handleCommand(command.c_str(), request, response);
+// 	if (ret != NSCAPI::returnIgnored && !response.empty())
+// 		responses->push_back(response);
+// 	return ret;
 }
 
 int NSClientT::simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
@@ -1222,16 +1223,21 @@ int NSClientT::simple_query(std::wstring module, std::wstring command, std::vect
 	nscapi::functions::create_simple_query_request(command, arguments, request);
 	int ret = load_and_run(module, boost::bind(&query_helper, _1, command, arguments, request, &responses), errors);
 
-	BOOST_FOREACH(std::string &r, responses) {
-		try {
-			std::wstring msg, perf;
-			nscapi::functions::parse_simple_query_response(r, msg, perf);
-			resp.push_back(msg + _T("|") + perf);
-		} catch (std::exception &e) {
-			resp.push_back(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
-			LOG_ERROR_CORE_STD(resp.back());
-			return NSCAPI::returnUNKNOWN;
-		}
+	nsclient::commands::plugin_type plugin = commands_.get(command);
+	if (!plugin) {
+		LOG_ERROR_CORE(_T("No handler for command: ") + command + _T(" avalible commands: ") + commands_.to_wstring());
+		return NSCAPI::returnUNKNOWN;
+	}
+	std::string response;
+	NSCAPI::nagiosReturn c = plugin->handleCommand(command.c_str(), request, response);
+	try {
+		std::wstring msg, perf;
+		nscapi::functions::parse_simple_query_response(response, msg, perf);
+		resp.push_back(msg + _T("|") + perf);
+	} catch (std::exception &e) {
+		resp.push_back(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+		LOG_ERROR_CORE_STD(resp.back());
+		return NSCAPI::returnUNKNOWN;
 	}
 	BOOST_FOREACH(const std::wstring &e, errors) {
 		LOG_ERROR_CORE_STD(e);

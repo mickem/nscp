@@ -55,6 +55,13 @@ namespace nsca {
 			get_socket().close();
 		}
 
+		virtual void shutdown() {
+			NSC_DEBUG_MSG(_T("Ending socket (gracefully)"));
+			// Initiate graceful connection closure.
+			boost::system::error_code ignored_ec;
+			get_socket().lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+		};
+
 		virtual void send_nsca(const nsca::packet &packet, const boost::posix_time::seconds timeout) {
 			if (!get_socket().is_open()) {
 				NSC_DEBUG_MSG(_T("is closed..."));
@@ -63,6 +70,7 @@ namespace nsca {
 			std::string buffer = crypt_inst.get_rand_buffer(packet.get_packet_length());
 			packet.get_buffer(buffer);
 			crypt_inst.encrypt_buffer(buffer);
+			NSC_DEBUG_MSG(_T("Sending data: ") + strEx::itos(buffer.size()));
 			write_with_timeout(buffer, timeout);
 		}
 		virtual bool recv_iv(std::string password, int encryption_method, boost::posix_time::seconds timeout) {

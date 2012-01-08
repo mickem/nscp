@@ -227,7 +227,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleRAWCommand(const wchar_t* char_command, co
 	client::configuration config;
 	setup(config);
 	if (!client::command_line_parser::is_command(cmd))
-		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, request, result);
 	return commands.exec_simple(config, data.target, char_command, data.args, result);
 }
 
@@ -400,22 +400,24 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 			NSC_LOG_ERROR_STD(_T("Failed to read iv"));
 			return NSCAPI::hasFailed;
 		}
-		NSC_DEBUG_MSG_STD(_T("Got IV sending data: ") + strEx::itos(packets.size()));
+		NSC_DEBUG_MSG_STD(_T("Got IV sending packets: ") + strEx::itos(packets.size()));
 		BOOST_FOREACH(const nsca::packet &packet, packets) {
-			NSC_DEBUG_MSG_STD(_T("Sending: ") + utf8::cvt<std::wstring>(packet.to_string()));
+			NSC_DEBUG_MSG_STD(_T("Sending (data): ") + utf8::cvt<std::wstring>(packet.to_string()));
 			socket.send_nsca(packet, boost::posix_time::seconds(data.timeout));
 		}
+		socket.shutdown();
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
-	} catch (nsca::nsca_encrypt::encryption_exception &e) {
+	} catch (const nsca::nsca_encrypt::encryption_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSCA Error: ") + utf8::to_unicode(e.what()));
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NSCA error: ") + utf8::to_unicode(e.what()));
-	} catch (std::runtime_error &e) {
+	} catch (const std::runtime_error &e) {
 		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
-	} catch (std::exception &e) {
+	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Unknown exception when sending NSCA data: "));
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }

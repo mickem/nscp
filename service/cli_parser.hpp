@@ -391,6 +391,8 @@ public:
 				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
 				mainClient.log_info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
 				mainClient.log_info(__FILE__, __LINE__, _T("Boot: ") + strEx::itos(boot));
+				if (!module.empty() && boot)
+					mainClient.log_info(__FILE__, __LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
 				std::wstring args;
 				BOOST_FOREACH(std::wstring s, arguments)
 					strEx::append_list(args, s, _T(", "));

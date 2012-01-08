@@ -105,17 +105,17 @@ class NSCAServerTest(BasicTest):
 		return True
 
 	def inbox_handler_wrapped(self, channel, request):
-		log_error('DISCARDED message on %s'%(channel))
+		log_error('DISCARDING message on %s'%(channel))
 		
 		message = plugin_pb2.SubmitRequestMessage()
 		message.ParseFromString(request)
 		command = message.payload[0].command
-		#log('Got message %s on %s'%(command, channel))
+		log('Got message %s on %s'%(command, channel))
 		
 		msg = self.get_response(command)
 		msg.got_response = True
 		self.set_response(msg)
-		return (False, '')
+		return None
 		
 	def teardown(self):
 		None
@@ -163,22 +163,32 @@ class NSCAServerTest(BasicTest):
 				log('Waiting for %s'%uid)
 				sleep(1)
 		if not found:
-			result.add_message(False, 'Failed to send message with uuid: %s using %s'%(uid, encryption), err)
+			return None
 		return result
 
-	def test_one_full(self, encryption, state, key):
-		return self.submit_payload(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '')
+	def test_one_crypto_full(self, encryption, state, key):
+		r1 = self.submit_payload(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '')
+		if r1:
+			return r1
+		result = TestResult()
+		result.add_message(True, '*FAILED* to send message with %s (retrying)'%encryption)
+		r2 = self.submit_payload(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '')
+		if r2:
+			result.add(r2)
+			return result
+		result.add_message(False, 'Failed to send message with uuid: %s'%encryption)
+		return result
 
-	def test_one(self, crypto):
+	def test_one_crypto(self, crypto):
 		conf = Settings.get()
 		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '%s'%crypto)
 		conf.set_string('/settings/NSCA/test_nsca_server', 'password', 'pwd-%s'%crypto)
 		core.reload('test_nsca_server')
 		result = TestResult()
-		result.add(self.test_one_full(crypto, status.UNKNOWN, 'unknown'))
-		result.add(self.test_one_full(crypto, status.OK, 'ok'))
-		result.add(self.test_one_full(crypto, status.WARNING, 'warn'))
-		result.add(self.test_one_full(crypto, status.CRITICAL, 'crit'))
+		result.add(self.test_one_crypto_full(crypto, status.UNKNOWN, 'unknown'))
+		result.add(self.test_one_crypto_full(crypto, status.OK, 'ok'))
+		result.add(self.test_one_crypto_full(crypto, status.WARNING, 'warn'))
+		result.add(self.test_one_crypto_full(crypto, status.CRITICAL, 'crit'))
 		return result
 
 	def run_test(self):
@@ -186,10 +196,9 @@ class NSCAServerTest(BasicTest):
 		result.add_message(isOpen('localhost', 15667), 'Checking that port is open')
 		# Currently broken: "xor"
 		cryptos = ["des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "serpent", "gost", "none", "3way"]
-		#cryptos = ["none"]
 		for c in cryptos:
 			result.add_message(True, 'Testing crypto: %s'%c)
-			result.add(self.test_one(c))
+			result.add(self.test_one_crypto(c))
 		
 		return result
 		

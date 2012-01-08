@@ -188,7 +188,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring comma
 	NSCAPI::nagiosReturn ret = simple_query(command, argument, response);
 	if (!response.empty()) {
 		try {
-			nscapi::functions::parse_simple_query_response(response, msg, perf);
+			return nscapi::functions::parse_simple_query_response(response, msg, perf);
 		} catch (std::exception &e) {
 			CORE_LOG_ERROR_STD(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
 			return NSCAPI::returnUNKNOWN;

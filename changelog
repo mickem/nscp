@@ -5,6 +5,12 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+
+2012-01-08 MickeM
+ * Fixed some issues in the NRPE decoder
+ * Added support for forwarding queries (ie. xxx_forward) mainly usefull for python(?) scripts where we can now handconstruct messages for delivery
+ * Added NRPE unit tests (52 of them)
+
 2011-12-08 MickeM
  * Fixed so non custom installers gets configuration UI (meaning you can configure it)
  * Added WarnCount/CritCount exact bounds to CheckProcState so:

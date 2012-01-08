@@ -72,13 +72,15 @@ int client::command_line_parser::do_execute_command_as_exec(configuration &confi
 	return NSCAPI::returnIgnored;
 }
 
-int client::command_line_parser::do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
+int client::command_line_parser::do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, const std::string &request, std::string &result) {
 	if (!config.validate())
 		throw cli_exception("Invalid data: " + config.to_string());
 	if (command == _T("help")) {
 		return nscapi::functions::create_simple_query_response_unknown(command, build_help(config), _T(""), result);
 	} else if (command == _T("query")) {
 		return do_query(config, command, arguments, result);
+	} else if (command == _T("forward")) {
+		return do_forward(config, request, result);
 	} else if (command == _T("exec")) {
 		int ret = do_exec(config, command, arguments, result);
 		nscapi::functions::make_query_from_exec(result);
@@ -154,8 +156,20 @@ int client::command_line_parser::do_query(configuration &config, const std::wstr
 	nscapi::functions::create_simple_header(message.mutable_header());
 	modify_header(config, message.mutable_header(), config.data->recipient);
 	nscapi::functions::append_simple_query_request_payload(message.add_payload(), config.data->command, config.data->arguments);
-	std::string result;
-	return config.handler->query(config.data, message.mutable_header(), message.SerializeAsString(), result);
+	return config.handler->query(config.data, message.mutable_header(), message.SerializeAsString(), response);
+}
+
+int client::command_line_parser::do_forward(configuration &config, const std::string &request, std::string &response) {
+	/*
+	if (!config.data->target_id.empty()) {
+		if (!config.target_lookup)
+			throw cli_exception("No target interface given when looking for targets");
+		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+	}
+	*/
+	Plugin::QueryRequestMessage message;
+	message.ParseFromString(request);
+	return config.handler->query(config.data, message.mutable_header(), request, response);
 }
 
 int client::command_line_parser::do_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {

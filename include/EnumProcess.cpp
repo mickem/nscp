@@ -291,13 +291,12 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 
 typedef struct _PROCESS_BASIC_INFORMATION {
 	LONG ExitStatus;
-	PVOID PebBaseAddress;
+	LPVOID PebBaseAddress;
 	ULONG_PTR AffinityMask;
 	LONG BasePriority;
 	ULONG_PTR UniqueProcessId;
 	ULONG_PTR ParentProcessId;
 } PROCESS_BASIC_INFORMATION, *PPROCESS_BASIC_INFORMATION;
-
 
 typedef struct _UNICODE_STRING {
 	USHORT Length;
@@ -305,7 +304,7 @@ typedef struct _UNICODE_STRING {
 	PWSTR Buffer;
 } UNICODE_STRING, *PUNICODE_STRING;
 
-PVOID GetPebAddress(HANDLE ProcessHandle) {
+LPVOID GetPebAddress(HANDLE ProcessHandle) {
 	PFNtQueryInformationProcess NtQueryInformationProcess = (PFNtQueryInformationProcess)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess");
 	if (NtQueryInformationProcess == NULL)
 		throw CEnumProcess::process_enumeration_exception(_T("Failed to load NtQueryInformationProcess"));
@@ -314,25 +313,38 @@ PVOID GetPebAddress(HANDLE ProcessHandle) {
 	return pbi.PebBaseAddress;
 }
 
+
+typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+LPFN_ISWOW64PROCESS fnIsWow64Process;
+
+bool IsWow64(HANDLE hProcess, bool def = false) {
+	BOOL bIsWow64 = FALSE;
+	fnIsWow64Process = (LPFN_ISWOW64PROCESS) GetProcAddress(GetModuleHandle(TEXT("kernel32")),"IsWow64Process");
+	if(NULL != fnIsWow64Process) {
+		if (!fnIsWow64Process(hProcess,&bIsWow64))
+			return def;
+	}
+	return bIsWow64?true:false;
+}
+
 std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess) {
 
-	PVOID rtlUserProcParamsAddress;
 	UNICODE_STRING commandLine;
-	PVOID pebAddress = GetPebAddress(hProcess);
-
-
 #ifdef _WIN64
-	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x20, &rtlUserProcParamsAddress, sizeof(PVOID), NULL))
+	LPVOID pebAddress = GetPebAddress(hProcess);
+	LPVOID rtlUserProcParamsAddress;
+	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x20, &rtlUserProcParamsAddress, sizeof(LPVOID), NULL))
 		throw process_enumeration_exception(_T("Could not read the address of ProcessParameters: ") + error::lookup::last_error());
-#else
-	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x10, &rtlUserProcParamsAddress, sizeof(PVOID), NULL))
-		throw process_enumeration_exception(_T("Could not read the address of ProcessParameters: ") + error::lookup::last_error());
-#endif
-
-#ifdef _WIN64
 	if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x70, &commandLine, sizeof(commandLine), NULL))
 		throw process_enumeration_exception(_T("Could not read commandline: ") + error::lookup::last_error());
 #else
+	bool osIsWin64 = IsWow64(GetCurrentProcess());
+	if (!IsWow64(hProcess, !osIsWin64))
+		return _T("");
+	LPVOID pebAddress = GetPebAddress(hProcess);
+	LPVOID rtlUserProcParamsAddress;
+	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x10, &rtlUserProcParamsAddress, sizeof(LPVOID), NULL))
+		throw process_enumeration_exception(_T("Could not read the address of ProcessParameters: ") + error::lookup::last_error());
 	if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x40, &commandLine, sizeof(commandLine), NULL))
 		throw process_enumeration_exception(_T("Could not read commandline: ") + error::lookup::last_error());
 #endif

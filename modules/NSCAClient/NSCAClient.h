@@ -59,7 +59,11 @@ private:
 			buffer_length = recipient.get_int_data("payload length", 512);
 			password = recipient.get_string_data("password");
 			encryption = recipient.get_string_data("encryption");
-			time_delta = strEx::stol_as_time_sec(recipient.get_string_data("time offset"));
+			std::string tmp = recipient.get_string_data("time offset");
+			if (!tmp.empty())
+				time_delta = strEx::stol_as_time_sec(recipient.get_string_data("time offset"));
+			else
+				time_delta = 0;
 			net::url url = recipient.get_url(5667);
 			host = url.host;
 			port = url.get_port();

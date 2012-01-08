@@ -264,7 +264,7 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 				BOOST_FOREACH(std::wstring a, arguments) {
 					l.append(utf8::cvt<std::string>(a));
 				}
-				tuple ret = boost::python::call<tuple>(boost::python::object(it->second).ptr(), l);
+				object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), l);
 				if (ret.ptr() == Py_None) {
 					msg = _T("None");
 					return NSCAPI::returnUNKNOWN;
@@ -389,7 +389,7 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
 			thread_locker locker;
 			int ret_code = NSCAPI::returnIgnored;
 			try {
-				tuple ret = boost::python::call<tuple>(boost::python::object(it->second).ptr(), channel, request);
+				object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, request);
 				if (ret.ptr() == Py_None) {
 					return NSCAPI::returnIgnored;
 				}

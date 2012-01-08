@@ -191,10 +191,10 @@ namespace nscapi {
 			net::url get_url(unsigned int port = 80) const {
 				return net::parse(address, port);
 			}
-			static bool to_bool(std::string value) {
+			static bool to_bool(std::string value, bool def = false) {
 				if (value.empty())
-					return false;
-				if (value == "true" || value == "1")
+					return def;
+				if (value == "true" || value == "1" || value == "True")
 					return true;
 				return false;
 			}
@@ -209,13 +209,16 @@ namespace nscapi {
 			}
 
 			inline int get_int_data(std::string key, int def = 0) {
-				return to_int(data[key]);
+				return to_int(data[key], def);
 			}
-			inline bool get_bool_data(std::string key, int def = 0) {
-				return to_bool(data[key]);
+			inline bool get_bool_data(std::string key, bool def = false) {
+				return to_bool(data[key], def);
 			}
-			inline std::string get_string_data(std::string key) {
-				return data[key];
+			inline std::string get_string_data(std::string key, std::string def = "") {
+				data_map::iterator it = data.find(key);
+				if (it == data.end())
+					return def;
+				return it->second;
 			}
 			inline bool has_data(std::string key) {
 				return data.find(key) != data.end();
@@ -459,6 +462,8 @@ namespace nscapi {
 		*/
 		static int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message) {
 			alias = utf8::cvt<std::wstring>(payload.alias());
+			if (alias.empty())
+				alias = utf8::cvt<std::wstring>(payload.command());
 			message = utf8::cvt<std::wstring>(payload.message());
 			return gbp_to_nagios_status(payload.result());
 		}

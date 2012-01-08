@@ -36,6 +36,7 @@ namespace nsca {
 
 			nsca::iv_packet packet(iv);
 			buffers.push_back(buf(packet.get_buffer()));
+			handler_->log_debug(__FILE__, __LINE__, _T("Sending IV..."));
 			start_write_request(buffers, 30);
 		}
 
@@ -63,7 +64,7 @@ namespace nsca {
 			}
 		}
 		void connection::handle_write_response(const boost::system::error_code& e, std::size_t bytes_transferred) {
-			handler_->log_error(__FILE__, __LINE__, _T("Wrote data (server): ") + strEx::itos(bytes_transferred));
+			handler_->log_debug(__FILE__, __LINE__, _T("Wrote data (server): ") + strEx::itos(bytes_transferred));
 			if (!e)
 				start_read_request(buffer_);
 		}
@@ -71,6 +72,7 @@ namespace nsca {
 
 		void connection::handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
 			if (!e) {
+				handler_->log_debug(__FILE__, __LINE__, _T("Recieved data (server): ") + strEx::itos(bytes_transferred));
 				bool result;
 				buffer_type::iterator begin = buffer_.begin();
 				buffer_type::iterator end = buffer_.begin() + bytes_transferred;
@@ -78,7 +80,7 @@ namespace nsca {
 					buffer_type::iterator old_begin = begin;
 					boost::tie(result, begin) = parser_.digest(begin, end);
 					if (begin == old_begin) {
-						handler_->log_error(__FILE__, __LINE__, _T("Something strange happened..."));
+						handler_->log_error(__FILE__, __LINE__, _T("Failed to digest data"));
 						return;
 					}
 					if (result) {
@@ -100,7 +102,7 @@ namespace nsca {
 					}
 				}
 			} else {
-				handler_->log_debug(__FILE__, __LINE__, _T("Failed to read request"));
+				handler_->log_debug(__FILE__, __LINE__, _T("Failed to read request: ") + utf8::to_unicode(e.message()) + _T(" after ") + strEx::itos(parser_.size()));
 			}
 		}
 		void connection::start_read_request(buffer_type &buffer) {

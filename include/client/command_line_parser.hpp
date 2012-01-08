@@ -137,7 +137,7 @@ namespace client {
 		static std::wstring build_help(configuration &config);
 
 		static int do_execute_command_as_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-		static int do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
+		static int do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, const std::string &request, std::string &result);
 		static int do_relay_submit(configuration &config, const std::string &request, std::string &response);
 
 		static std::wstring parse_command(std::wstring command, std::wstring prefix) {
@@ -158,10 +158,12 @@ namespace client {
 			return (command == _T("help")) 
 				|| (command == _T("query"))
 				|| (command == _T("exec"))
-				||(command == _T("submit"));
+				|| (command == _T("submit"))
+				|| (command == _T("forward"));
 		}
 
 		static int do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
+		static int do_forward(configuration &config, const std::string &request, std::string &result);
 		static int do_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
 		static int do_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
 

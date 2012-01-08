@@ -224,7 +224,7 @@ namespace nrpe {
 			if (crc32_ != calculatedCRC32_) 
 				throw nrpe::nrpe_packet_exception(_T("Invalid checksum in NRPE packet: ") + strEx::ihextos(crc32_) + _T("!=") + strEx::ihextos(calculatedCRC32_));
 			// Verify CRC32 end
-			result_ = swap_bytes::ntoh<u_int32_t>(p->result_code);
+			result_ = swap_bytes::ntoh<int16_t>(p->result_code);
 			payload_ = strEx::string_to_wstring(std::string(p->buffer));
 		}
 
