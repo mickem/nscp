@@ -346,7 +346,7 @@ namespace nscapi {
 			Plugin::ExecuteResponseMessage exec_response_message;
 			exec_response_message.ParseFromString(data);
 			Plugin::QueryResponseMessage query_response_message;
-			query_response_message.mutable_header()->CopyFrom(exec_response_message);
+			query_response_message.mutable_header()->CopyFrom(exec_response_message.header());
 			for (int i=0;i<exec_response_message.payload_size();++i) {
 				Plugin::ExecuteResponseMessage::Response p = exec_response_message.payload(i);
 				append_simple_query_response_payload(query_response_message.add_payload(), p.command(), p.result(), p.message());
@@ -357,7 +357,7 @@ namespace nscapi {
 			Plugin::SubmitResponseMessage submit_response_message;
 			submit_response_message.ParseFromString(data);
 			Plugin::QueryResponseMessage query_response_message;
-			query_response_message.mutable_header()->CopyFrom(submit_response_message);
+			query_response_message.mutable_header()->CopyFrom(submit_response_message.header());
 			for (int i=0;i<submit_response_message.payload_size();++i) {
 				Plugin::SubmitResponseMessage::Response p = submit_response_message.payload(i);
 				append_simple_query_response_payload(query_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.status().status()), p.status().message(), "");
@@ -369,7 +369,7 @@ namespace nscapi {
 			Plugin::SubmitResponseMessage submit_response_message;
 			submit_response_message.ParseFromString(data);
 			Plugin::ExecuteResponseMessage exec_response_message;
-			exec_response_message.mutable_header()->CopyFrom(submit_response_message);
+			exec_response_message.mutable_header()->CopyFrom(submit_response_message.header());
 			for (int i=0;i<submit_response_message.payload_size();++i) {
 				Plugin::SubmitResponseMessage::Response p = submit_response_message.payload(i);
 				append_simple_exec_response_payload(exec_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.status().status()), p.status().message());
@@ -380,7 +380,7 @@ namespace nscapi {
 			Plugin::QueryResponseMessage query_response_message;
 			query_response_message.ParseFromString(data);
 			Plugin::ExecuteResponseMessage exec_response_message;
-			exec_response_message.mutable_header()->CopyFrom(query_response_message);
+			exec_response_message.mutable_header()->CopyFrom(query_response_message.header());
 			for (int i=0;i<query_response_message.payload_size();++i) {
 				Plugin::QueryResponseMessage::Response p = query_response_message.payload(i);
 				std::string s = build_performance_data(p);

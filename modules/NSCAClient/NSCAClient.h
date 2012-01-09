@@ -67,7 +67,9 @@ private:
 			net::url url = recipient.get_url(5667);
 			host = url.host;
 			port = url.get_port();
-			sender_hostname = sender.get_string_data("host");
+			sender_hostname = sender.host;
+			if (sender.has_data("host"))
+				sender_hostname = sender.get_string_data("host");
 		}
 		unsigned int get_encryption() {
 			return nsca::nsca_encrypt::helpers::encryption_to_int(encryption);

@@ -31,7 +31,7 @@ namespace client {
 		std::wstring command;
 		std::wstring command_line;
 		std::wstring message;
-		unsigned int result;
+		std::wstring result;
 		std::vector<std::wstring> arguments;
 
 		nscapi::functions::destination_container host_self;

@@ -24,8 +24,9 @@ void client::command_line_parser::add_query_options(po::options_description &des
 void client::command_line_parser::add_submit_options(po::options_description &desc, data_type command_data) {
 	desc.add_options()
 		("command,c", po::wvalue<std::wstring>(&command_data->command), "The name of the command that the remote daemon should run")
+		("alias,a", po::wvalue<std::wstring>(&command_data->command), "Same as command")
 		("message,m", po::wvalue<std::wstring>(&command_data->message), "Message")
-		("result,r", po::value<unsigned int>(&command_data->result), "Result code")
+		("result,r", po::wvalue<std::wstring>(&command_data->result), "Result code either a number or OK, WARN, CRIT, UNKNOWN")
 		;
 }
 void client::command_line_parser::add_exec_options(po::options_description &desc, data_type command_data) {
@@ -51,6 +52,21 @@ std::wstring client::command_line_parser::build_help(configuration &config) {
 	return utf8::cvt<std::wstring>(ss.str());
 }
 
+int parse_result(std::wstring key) {
+	if (key == _T("UNKNOWN") || key == _T("unknown"))
+		return NSCAPI::returnUNKNOWN;
+	if (key == _T("warn") || key == _T("WARN") || key == _T("WARNING") || key == _T("warning"))
+		return NSCAPI::returnWARN;
+	if (key == _T("crit") || key == _T("CRIT") || key == _T("CRITICAL") || key == _T("critical"))
+		return NSCAPI::returnWARN;
+	if (key == _T("OK") || key == _T("ok"))
+		return NSCAPI::returnUNKNOWN;
+	try {
+		return strEx::stoi(key);
+	} catch (...) {
+		return NSCAPI::returnUNKNOWN;
+	}
+}
 
 int client::command_line_parser::do_execute_command_as_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
 	if (!config.validate())
@@ -225,7 +241,7 @@ int client::command_line_parser::do_submit(configuration &config, const std::wst
 	nscapi::functions::create_simple_header(message.mutable_header());
 	modify_header(config, message.mutable_header(), config.data->recipient);
 	message.set_channel("CLI");
-	nscapi::functions::append_simple_submit_request_payload(message.add_payload(), config.data->command, config.data->result, config.data->message);
+	nscapi::functions::append_simple_submit_request_payload(message.add_payload(), config.data->command, parse_result(config.data->result), config.data->message);
 
 	return config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), result);
 }

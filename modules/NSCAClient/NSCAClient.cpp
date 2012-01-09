@@ -79,7 +79,7 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("hostname"), sh::string_key(&hostname_),
+			(_T("hostname"), sh::string_key(&hostname_, "auto"),
 			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
 
 			(_T("channel"), sh::wstring_key(&channel_, _T("NSCA")),
@@ -121,6 +121,11 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
+
+		if (hostname_ == "auto") {
+			hostname_ = boost::asio::ip::host_name();
+
+		}
 
 		if (!targets.has_target(_T("default"))) {
 			add_target(_T("default"), _T("default"));
@@ -223,7 +228,7 @@ bool NSCAAgent::unloadModule() {
 
 NSCAPI::nagiosReturn NSCAAgent::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
+	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("nsca"));
 	client::configuration config;
 	setup(config);
 	if (!client::command_line_parser::is_command(cmd))
@@ -233,7 +238,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleRAWCommand(const wchar_t* char_command, co
 
 NSCAPI::nagiosReturn NSCAAgent::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("nsca"));
 	if (!client::command_line_parser::is_command(cmd))
 		return NSCAPI::returnIgnored;
 	client::configuration config;

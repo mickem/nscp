@@ -5,6 +5,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-09 MickeM
+ * Fixed hostname issue in NSCAClient (hostname = auto now auto detects hostname
+ * Fixed some minor issues in NSCA and CLI api
+ * Added CLI based (exec) APIs to NSCA unit tests (now 697 test for NSCA)
 
 2012-01-08 MickeM
  * Fixed some issues in the NRPE decoder
