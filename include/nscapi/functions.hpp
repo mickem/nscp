@@ -228,7 +228,10 @@ namespace nscapi {
 				return net::parse(address, default_port);
 			}
 			void set_string_data(std::string key, std::string value) {
-				data[key] = value;
+				if (key == "host")
+					host = value;
+				else
+					data[key] = value;
 			}
 			void set_int_data(std::string key, int value) {
 				data[key] = boost::lexical_cast<std::string>(value);

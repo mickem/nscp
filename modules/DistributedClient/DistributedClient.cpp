@@ -199,7 +199,7 @@ NSCAPI::nagiosReturn DistributedClient::handleRAWCommand(const wchar_t* char_com
 	client::configuration config;
 	setup(config);
 	if (!client::command_line_parser::is_command(cmd))
-		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, request, result);
 	return commands.exec_simple(config, data.target, char_command, data.args, result);
 }
 

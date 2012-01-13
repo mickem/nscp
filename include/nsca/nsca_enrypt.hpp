@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
 
 #ifdef HAVE_LIBCRYPTOPP
 #include <cryptopp/cryptlib.h>
@@ -70,7 +71,8 @@ namespace nsca {
 			const char* what() const throw () { return msg_.c_str(); }
 		};
 		struct helpers {
-			static int encryption_to_int(std::string encryption) {
+			static int encryption_to_int(std::string encryption_raw) {
+				std::string encryption = boost::algorithm::to_lower_copy(encryption_raw);
 				if (
 					(encryption.size() == 1 && std::isdigit(encryption[0])) 
 					|| (encryption.size() > 1 && std::isdigit(encryption[0]) && std::isdigit(encryption[1])) 

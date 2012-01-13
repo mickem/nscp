@@ -30,6 +30,7 @@
 //#include <config.h>
 #include <strEx.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 
@@ -92,7 +93,8 @@ void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
 NSCAPI::nagiosReturn nscapi::impl::simple_command_handler::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 	std::wstring msg, perf;
-	NSCAPI::nagiosReturn ret = handleCommand(data.target, data.command, data.args, msg, perf);
+
+	NSCAPI::nagiosReturn ret = handleCommand(data.target, boost::algorithm::to_lower_copy(data.command), data.args, msg, perf);
 	nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
 	return ret;
 }

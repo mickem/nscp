@@ -3,6 +3,7 @@
 #include "settings_manager_impl.h"
 
 #include <settings/settings_ini.hpp>
+#include <settings/settings_dummy.hpp>
 #include <settings/settings_http.hpp>
 #ifdef WIN32
 #include <settings/settings_old.hpp>
@@ -90,6 +91,9 @@ namespace settings_manager {
 				key = DEFAULT_CONF_INI_LOCATION;
 			return settings::instance_raw_ptr(new settings::INISettings(this, key));
 		}
+		if (url.protocol == _T("dummy")) {
+			return settings::instance_raw_ptr(new settings::settings_dummy(this, key));
+		}
 		if (url.protocol == _T("http")) {
 			return settings::instance_raw_ptr(new settings::settings_http(this, key));
 		}
@@ -127,6 +131,8 @@ namespace settings_manager {
 #endif
 		if (url.protocol == _T("ini"))
 			return settings::INISettings::context_exists(this, key);
+		if (url.protocol == _T("dummy"))
+			return true;
 		if (url.protocol == _T("http"))
 			return true;
 		return false;

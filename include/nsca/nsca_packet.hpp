@@ -134,7 +134,8 @@ namespace nsca {
 		packet() : payload_length_(nsca::length::get_payload_length()) {}
 
 		std::string to_string() const {
-			return "service: " + service + ", " + 
+			return "host: " + host + ", " + 
+				"service: " + service + ", " + 
 				"code: " + nstr::to_string(code) + ", " + 
 				"time: " + nstr::to_string(time) + ", " + 
 				"result: " + result;

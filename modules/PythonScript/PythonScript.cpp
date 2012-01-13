@@ -374,7 +374,8 @@ NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_comman
 		int ret = execute_and_load_python(args, result);
 		nscapi::functions::create_simple_exec_response<std::wstring>(_T("help"), ret, result, response);
 		return ret;
-	} else if (command == _T("execute-and-load-python") || command == _T("execute-python") || command == _T("run") || command == _T("execute") || command == _T("exec")|| command == _T("")) {
+	} else if (command == _T("execute-and-load-python") || command == _T("execute-python") || command == _T("python-script")
+		|| command == _T("run") || command == _T("execute") || command == _T("exec") || command == _T("")) {
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 		if (data.command == _T("") && data.args.size() == 0)
 			return NSCAPI::returnIgnored;

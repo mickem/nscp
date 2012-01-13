@@ -78,6 +78,7 @@ public:
 			("boot,b", "Boot the client before executing command (similar as running the command from test)")
 			("query,q", po::value<std::wstring>(), "Run a query with a given name")
 			("submit,s", po::value<std::wstring>(), "Name of query to ask")
+			("settings", po::value<std::wstring>(), "Override (temporarily) settings subsystem to use")
 			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
 			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
@@ -398,6 +399,9 @@ public:
 					strEx::append_list(args, s, _T(", "));
 				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
 			}
+			if (vm.count("settings"))
+				core_->set_settings_context(vm["settings"].as<std::wstring>());
+
 			core_->boot_init();
 			if (module.empty())
 				core_->boot_load_all_plugins();
@@ -419,6 +423,8 @@ public:
 					std::wcout << _T("Command not found (by module): ") << command << std::endl;
 					mainClient.simple_exec(module, _T("help"), arguments, resp);
 				}
+			} else if (mode == submit) {
+				std::wcerr << _T("--submit is currently not supported (but you can use --exec submit which is technically the same)") << std::endl;
 			} else {
 				std::wcerr << _T("Need to specify one of --exec, --query or --submit") << std::endl;
 			}

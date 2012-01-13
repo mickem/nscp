@@ -125,6 +125,9 @@ class BasicTest(object):
 
 	def shutdown(self):
 		None
+
+	def require_boot(self):
+		return False
 		
 		
 class TestResult:
@@ -272,19 +275,24 @@ class TestManager:
 			instance.init(self.plugin_id)
 			
 	def install(self, arguments = []):
+		boot = False
 		for suite in self.suites:
 			instance = suite.getInstance()
 			instance.install(arguments)
-			
+			if instance.require_boot():
+				boot = True
+
+		#core = Core.get()
+		#(code, msg, perf) = core.simple_query('py_unittest', [])
+		
 		log('-+---==(TEST INSTALLER)==---------------------------------------------------+-')
 		log(' | Setup nessecary configuration for running test                           |')
 		log(' | This includes: Loading the PythonScript module at startup                |')
 		log(' | To use this please run nsclient++ in "test mode" like so:                |')
-		log(' | nscp --test                                                              |')
-		log(' | Then start the py_unittest command by typing it and press enter like so: |')
-		log(' | test_eventlog                                                            |')
-		log(' | Lastly exit by typing exit like so:                                      |')
-		log(' | exit                                                                     |')
+		if boot:
+			log(' | nscp client --boot --query py_unittest                                   |')
+		else:
+			log(' | nscp client --query py_unittest                                          |')
 		log('-+--------------------------------------------------------==(DAS ENDE!)==---+-')
 			
 	def shutdown(self):

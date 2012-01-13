@@ -246,6 +246,9 @@ class NRPEServerTest(BasicTest):
 	def shutdown(self):
 		None
 
+	def require_boot(self):
+		return True
+
 setup_singleton(NRPEServerTest)
 
 all_tests = [NRPEServerTest]

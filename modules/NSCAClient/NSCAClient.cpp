@@ -270,6 +270,12 @@ void NSCAAgent::add_local_options(po::options_description &desc, client::configu
 		("password", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "password", _1)), 
 		"Password")
 
+		("source-host", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
+		"Source/sender host name (default is auto which means use the name of the actual host)")
+
+		("sender-host", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
+		"Source/sender host name (default is auto which means use the name of the actual host)")
+
 		("time-offset", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "time offset", _1)), 
 		"")
 		;

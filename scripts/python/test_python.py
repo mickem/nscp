@@ -3,7 +3,7 @@ from test_helper import BasicTest, TestResult, Callable, setup_singleton, instal
 from types import *
 from time import time
 
-install_checks = 10
+install_checks = 1000
 
 class PythonTest(BasicTest):
 

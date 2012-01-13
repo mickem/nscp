@@ -24,6 +24,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/settings/macros.h
 		${NSCP_INCLUDEDIR}/settings/settings_ini.hpp
+		${NSCP_INCLUDEDIR}/settings/settings_dummy.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_old.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_registry.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_http.hpp

@@ -1177,6 +1177,8 @@ int NSClientT::load_and_run(std::wstring module, run_function fun, std::list<std
 
 int exec_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector<std::wstring> arguments, std::string request, std::list<std::string> *responses) {
 	std::string response;
+	if (!plugin || !plugin->has_command_line_exec())
+		return -1;
 	int ret = plugin->commandLineExec(command.c_str(), request, response);
 	if (ret != NSCAPI::returnIgnored && !response.empty())
 		responses->push_back(response);

@@ -5,6 +5,12 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-12 MickeM
+ * Fixed issue with --submit command line option erroneusly reported missing optien (when it is not supported)
+ * Added settings store "dummy" for people who dont want to store settings (long term use is for unit tests)
+ * Added new option to NSCClient --source-host for settings the host name of the caller (your machine).
+ * Change so enryption algorithms are case insensitevie (ie. 3DES and 3des both work)
+
 2012-01-09 MickeM
  * Fixed hostname issue in NSCAClient (hostname = auto now auto detects hostname
  * Fixed some minor issues in NSCA and CLI api

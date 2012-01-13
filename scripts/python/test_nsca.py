@@ -251,6 +251,10 @@ class NSCAServerTest(BasicTest):
 
 	def shutdown(self):
 		None
+		
+	def require_boot(self):
+		return True
+		
 
 setup_singleton(NSCAServerTest)
 
