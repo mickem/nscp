@@ -5,6 +5,14 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-15 MickeM
+ * Fixed installer "back" issues
+ * Fixed payload truncation for NRPe and NSCA
+ * Improved the installer target tagging functions in the python installer
+
+2012-01-13 MickeM
+ * Fixed some issues with the trac configuration generator
+
 2012-01-12 MickeM
  * Fixed issue with --submit command line option erroneusly reported missing optien (when it is not supported)
  * Added settings store "dummy" for people who dont want to store settings (long term use is for unit tests)

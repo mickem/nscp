@@ -27,8 +27,6 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 			throw nrpe::nrpe_exception(_T("Request command contained illegal metachars!"));
 		}
 	}
-	//TODO REMOVE THIS
-	//return NRPEPacket(NRPEPacket::responsePacket, NRPEPacket::version2, NSCAPI::returnUNKNOWN, _T("TEST TEST TEST"), buffer_length_);
 
 	NSCAPI::nagiosReturn ret = -3;
 	try {
@@ -51,13 +49,15 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	default:
 		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, _T("UNKNOWN: Internal error."), p.get_payload_length());
 	}
-	std::wstring data = msg;
-	if (!perf.empty()&&!noPerfData_) {
-		data += _T("|") + perf;
-	}
-	if (data.length() >= p.get_payload_length()-1) {
-		//NSC_LOG_ERROR(_T("Truncating returndata as it is bigger then NRPE allowes :("));
-		data = data.substr(0,p.get_payload_length()-2);
+	std::wstring data;
+	if (msg.length() > p.get_payload_length()) {
+		data = msg.substr(0, p.get_payload_length()-1);
+	} else if (perf.empty() || noPerfData_) {
+		data = msg;
+	} else if (msg.length() + perf.length() + 1 > p.get_payload_length()) {
+		data = msg;
+	} else {
+		data = msg + _T("|") + perf;
 	}
 	return nrpe::packet::create_response(ret, data, p.get_payload_length());
 }

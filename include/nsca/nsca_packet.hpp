@@ -161,31 +161,33 @@ namespace nsca {
 			if (crc32 != calculated_crc32)
 				throw nsca::nsca_exception("Invalid crc: " + nstr::to_string(crc32) + " != " + nstr::to_string(calculated_crc32));
 		}
-
-		void get_buffer(std::string &buffer) const {
-			// FIXME: This is crap and needs rewriting. No std::string and beetter zero handling...
+		void validate_lengths() const {
 			if (service.length() >= nsca::length::desc_length)
 				throw nsca::nsca_exception("Description field to long: " + nstr::to_string(service.length()) + " > " + nstr::to_string(nsca::length::desc_length));
 			if (host.length() >= nsca::length::host_length)
 				throw nsca::nsca_exception("Host field to long: " + nstr::to_string(host.length()) + " > " + nstr::to_string(nsca::length::host_length));
 			if (result.length() >= get_payload_length())
 				throw nsca::nsca_exception("Result field to long: " + nstr::to_string(result.length()) + " > " + nstr::to_string(get_payload_length()));
+		}
+
+		static void copy_string(char* data, const std::string &value, std::string::size_type max_length) {
+			memset(data, 0, max_length);
+			value.copy(data, value.size()>max_length?max_length:value.size());
+		}
+
+		void get_buffer(std::string &buffer) const {
+			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
 			if (buffer.size() < get_packet_length())
 				throw nsca::nsca_exception("Buffer is to short: " + nstr::to_string(buffer.length()) + " > " + nstr::to_string(get_packet_length()));
-
-			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
 
 			data->packet_version=swap_bytes::hton<int16_t>(nsca::data::version3);
 			data->timestamp=swap_bytes::hton<u_int32_t>(time);
 			data->return_code = swap_bytes::hton<int16_t>(code);
 			data->crc32_value= swap_bytes::hton<u_int32_t>(0);
 
-			memset(data->get_host_ptr(), 0, host.size()+1);
-			host.copy(data->get_host_ptr(), host.size());
-			memset(data->get_desc_ptr(nsca::length::host_length), 0, service.size()+1);
-			service.copy(data->get_desc_ptr(nsca::length::host_length), service.size());
-			memset(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), 0, result.size()+1);
-			result.copy(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result.size());
+			copy_string(data->get_host_ptr(), host, nsca::length::host_length);
+			copy_string(data->get_desc_ptr(nsca::length::host_length), service, nsca::length::desc_length);
+			copy_string(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result, get_payload_length());
 
 			unsigned int calculated_crc32=calculate_crc32(buffer.c_str(),buffer.size());
 			data->crc32_value=swap_bytes::hton<u_int32_t>(calculated_crc32);

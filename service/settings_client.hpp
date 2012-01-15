@@ -96,6 +96,10 @@ namespace nsclient {
 					settings::string_list s = settings_manager::get_core()->get_reg_sections();
 					BOOST_FOREACH(std::wstring path, s) {
 						std::wcout << _T("== ") << path << _T(" ==") << std::endl;
+						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+						if (!desc.description.empty())
+							std::wcout << desc.description << std::endl;
+						std::wcout << std::endl;
 						settings::string_list k = settings_manager::get_core()->get_reg_keys(path);
 						bool first = true;
 						BOOST_FOREACH(std::wstring key, k) {
@@ -104,6 +108,9 @@ namespace nsclient {
 								if (first)
 									std::wcout << _T("'''Normal settings'''") << std::endl;
 								first = false;
+								strEx::replace(desc.description, _T("\n"), _T("\n|| || ||"));
+								if (desc.defValue.empty())
+									desc.defValue = _T(" ");
 								std::wcout << _T("||") << key << _T("||") << desc.defValue << _T("||") << desc.title << _T(": ") << desc.description << std::endl;
 							}
 						}

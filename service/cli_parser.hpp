@@ -50,6 +50,7 @@ public:
 			;
 
 		settings.add_options()
+			("settings", po::value<std::wstring>(), "Override (temporarily) settings subsystem to use")
 			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
@@ -245,6 +246,10 @@ public:
 			}
 			if (vm.count("switch")) {
 				client.switch_context(vm["switch"].as<std::wstring>());
+				ret = 0;
+			}
+			if (vm.count("settings")) {
+				client.set_current(vm["settings"].as<std::wstring>());
 				ret = 0;
 			}
 			client.exit();

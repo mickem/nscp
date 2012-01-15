@@ -937,7 +937,10 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 }
 
 NSCAPI::errorReturn NSClientT::reload(const wchar_t *module) {
-	{
+	if (module == _T("service")) {
+		boot_start_plugins()
+
+	} else {
 		std::wstring m = module;
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
