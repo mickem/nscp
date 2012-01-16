@@ -5,6 +5,13 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-16 MickeM
+ * Added option to both execute and query item (with a reload in the middle for installing/running unittests)
+ * Fixed issue in python unittest framework to handle "unload" (ie. reload)
+ * Fixed NRPE certificate path lookup issue
+ * Fixed some minor issues here and there
+ * Fixed issue in loader to allow loading dummy as dummy (and not only dummy://)
+
 2012-01-15 MickeM
  * Fixed installer "back" issues
  * Fixed payload truncation for NRPe and NSCA

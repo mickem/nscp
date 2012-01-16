@@ -187,12 +187,12 @@ class NRPEServerTest(BasicTest):
 		if r1:
 			return r1
 		result = TestResult()
-		result.add_message(True, '*FAILED* to send message with %s (retrying)'%encryption)
+		result.add_message(True, '*FAILED* to send message with %s (retrying)'%tag)
 		r2 = self.submit_payload('%s/%s'%(ssl, length), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '')
 		if r2:
 			result.add(r2)
 			return result
-		result.add_message(False, 'Failed to send message with: %s%%s'%(ssl, length))
+		result.add_message(False, 'Failed to send message with: %s/%s'%(ssl, length))
 		return result
 
 	def do_one_test(self, ssl=True, length=1024):

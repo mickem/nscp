@@ -151,10 +151,16 @@ void NRPEClient::add_target(std::wstring key, std::wstring arg) {
 	try {
 		nscapi::target_handler::target t = targets.add(get_settings_proxy(), target_path , key, arg);
 		if (t.has_option(_T("certificate"))) {
-			boost::filesystem::wpath p = t.options[_T("certificate")];
+			std::wstring value = t.options[_T("certificate")];
+			boost::filesystem::wpath p = value;
 			if (!boost::filesystem::is_regular(p)) {
 				p = get_core()->getBasePath() / p;
-				t.options[_T("certificate")] = utf8::cvt<std::wstring>(p.string());
+				if (boost::filesystem::is_regular(p)) {
+					value = p.string();
+				} else {
+					value = get_core()->expand_path(value);
+				}
+				t.options[_T("certificate")] = value;
 				targets.add(t);
 			}
 			if (boost::filesystem::is_regular(p)) {
@@ -163,6 +169,8 @@ void NRPEClient::add_target(std::wstring key, std::wstring arg) {
 				NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
 			}
 		}
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}

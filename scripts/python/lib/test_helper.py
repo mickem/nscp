@@ -15,15 +15,22 @@ def init_testcases(plugin_id, plugin_alias, script_alias, tests):
 	test_manager.init()
 
 def shutdown_testcases():
-	get_test_manager().shutdown()
+	if get_test_manager():
+		get_test_manager().shutdown()
+	destroy_test_manager()
 
 def get_test_manager():
 	global test_manager
 	return test_manager
 
+def destroy_test_manager():
+	global test_manager
+	test_manager = None
+
 def create_test_manager(plugin_id = 0, plugin_alias = '', script_alias = ''):
 	global test_manager
 	if not test_manager:
+		log('=== Creating new Test manager ===')
 		test_manager = TestManager(plugin_id, plugin_alias, script_alias)
 		
 		reg = Registry.get(plugin_id)
@@ -33,6 +40,8 @@ def create_test_manager(plugin_id = 0, plugin_alias = '', script_alias = ''):
 		reg.simple_cmdline('run_python_test', run_tests)
 
 		reg.simple_function('py_unittest', run_tests, 'Run python unit test suite')
+	else:
+		log('=== Reusing existing testmanager ===')
 	
 	return test_manager
 	
@@ -283,6 +292,7 @@ class TestManager:
 				boot = True
 
 		#core = Core.get()
+		#core.reload('service')
 		#(code, msg, perf) = core.simple_query('py_unittest', [])
 		
 		log('-+---==(TEST INSTALLER)==---------------------------------------------------+-')

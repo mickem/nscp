@@ -792,8 +792,8 @@ void NSClientT::startTrayIcon(DWORD dwSessionId) {
 // 	}
 }
 
-bool NSClientT::exitCore(bool boot) {
-	LOG_DEBUG_CORE(_T("Attempting to stop"));
+bool NSClientT::stop_unload_plugins_pre() {
+	LOG_DEBUG_CORE(_T("Attempting to stop all plugins"));
 	try {
 		LOG_DEBUG_CORE(_T("Stopping: NON Message Handling Plugins"));
 		mainClient.unloadPlugins(false);
@@ -802,6 +802,9 @@ bool NSClientT::exitCore(bool boot) {
 	} catch(...) {
 		LOG_ERROR_CORE_STD(_T("Unknown exception raised when unloading non msg plugins"));
 	}
+	return true;
+}
+bool NSClientT::stop_exit_pre() {
 #ifdef WIN32
 	LOG_DEBUG_CORE(_T("Stopping: COM helper"));
 	try {
@@ -844,6 +847,9 @@ bool NSClientT::exitCore(bool boot) {
 	} catch(...) {
 		LOG_ERROR_CORE_STD(_T("UNknown exception raised: When closing shared session"));
 	}
+	return true;
+}
+bool NSClientT::stop_unload_plugins_post() {
 	try {
 		LOG_DEBUG_CORE(_T("Stopping: Message handling Plugins"));
 		mainClient.unloadPlugins(true);
@@ -852,10 +858,17 @@ bool NSClientT::exitCore(bool boot) {
 	} catch(...) {
 		LOG_ERROR_CORE_STD(_T("UNknown exception raised: When stopping message plguins"));
 	}
-	LOG_INFO_CORE(_T("Stopped succcessfully"));
-	logger_master_.stop_slave();
 	return true;
 }
+bool NSClientT::stop_exit_post() {
+	try {
+		logger_master_.stop_slave();
+	} catch(...) {
+		LOG_ERROR_CORE_STD(_T("UNknown exception raised: When closing shared session"));
+	}
+	return true;
+}
+
 void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon, unsigned long dwEventType) {
 // 	if (shared_server_.get() == NULL) {
 // 		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
@@ -936,12 +949,21 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 	}
 }
 
-NSCAPI::errorReturn NSClientT::reload(const wchar_t *module) {
+NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
 	if (module == _T("service")) {
-		boot_start_plugins()
+		try {
+			stop_unload_plugins_pre();
+			stop_unload_plugins_post();
 
+			boot_load_all_plugins();
+			boot_start_plugins(true);
+			return NSCAPI::isSuccess;
+		} catch(const std::exception &e) {
+			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: ") + utf8::to_unicode(e.what()));
+		} catch(...) {
+			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: UNKNOWN"));
+		}
 	} else {
-		std::wstring m = module;
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (007a)."));
@@ -949,8 +971,8 @@ NSCAPI::errorReturn NSClientT::reload(const wchar_t *module) {
 		}
 
 		BOOST_FOREACH(plugin_type &p, plugins_) {
-			if (p->get_alias() == m) {
-				LOG_DEBUG_CORE_STD(_T("Found module: ") + m + _T(", reloading..."));
+			if (p->get_alias() == module) {
+				LOG_DEBUG_CORE_STD(_T("Found module: ") + module + _T(", reloading..."));
 				p->unload_plugin();
 				p->load_plugin(NSCAPI::normalStart);
 				return NSCAPI::isSuccess;
@@ -1521,7 +1543,10 @@ void NSClientT::handle_startup(std::wstring service_name) {
 		*/
 }
 void NSClientT::handle_shutdown(std::wstring service_name) {
-	exitCore(true);
+	stop_unload_plugins_pre();
+	stop_exit_pre();
+	stop_unload_plugins_post();
+	stop_exit_post();
 }
 
 NSClientT::service_controller NSClientT::get_service_control() {

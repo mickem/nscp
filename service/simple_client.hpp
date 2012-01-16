@@ -91,7 +91,10 @@ namespace nsclient {
 					}
 				}
 			}
-			core_->exitCore(true);
+			core_->stop_unload_plugins_pre();
+			core_->stop_exit_pre();
+			core_->stop_unload_plugins_post();
+			core_->stop_exit_post();
 		}
 	};
 }

@@ -134,7 +134,12 @@ public:
 	bool boot_load_all_plugins();
 	bool boot_load_plugin(std::wstring plugin);
 	bool boot_start_plugins(bool boot);
-	bool exitCore(bool boot);
+
+	bool stop_unload_plugins_pre();
+	bool stop_exit_pre();
+	bool stop_exit_post();
+	bool stop_unload_plugins_post();
+	//bool exitCore();
 	void set_settings_context(std::wstring context) { context_ = context; }
 #ifdef WIN32x
 	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
@@ -178,7 +183,7 @@ public:
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const wchar_t* channel);
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const wchar_t* channel);
 
-	NSCAPI::errorReturn reload(const wchar_t *module);
+	NSCAPI::errorReturn reload(const std::wstring module);
 
 	struct service_controller {
 		std::wstring service;

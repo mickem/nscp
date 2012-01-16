@@ -118,11 +118,15 @@ namespace settings_manager {
 #endif
 		if (key == _T("ini"))
 			return DEFAULT_CONF_INI_LOCATION;
+		if (key == _T("dummy"))
+			return _T("dummy://");
 		return key;
 	}
 
 	bool NSCSettingsImpl::context_exists(std::wstring key) {
 		net::wurl url = net::parse(key);
+		if (url.protocol.empty())
+			url = net::parse(expand_context(key));
 #ifdef WIN32
 		if (url.protocol == _T("old"))
 			return settings::OLDSettings::context_exists(this, key);

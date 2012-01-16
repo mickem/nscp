@@ -43,7 +43,7 @@ class PythonTest(BasicTest):
 		result = TestResult()
 		start = time()
 		while self.stress_count < install_checks*10:
-			log('Waiting for 100: %d/%d'%(self.stress_count, self.noop_count))
+			log('Waiting for %d: %d/%d'%(install_checks*10, self.stress_count, self.noop_count))
 			old_stress_count = self.stress_count
 			old_noop_count = self.noop_count
 			sleep(5)

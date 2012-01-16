@@ -340,19 +340,21 @@ public:
 			if (process_common_options("client", all))
 				return 1;
 
-			std::wstring command;
-			enum modes { exec, query, submit, none};
+			std::wstring command, combined_query;
+			enum modes { exec, query, submit, none, combined};
 			modes mode = none;
 
 			if (vm.count("exec")) {
 				command = vm["exec"].as<std::wstring>();
 				mode = exec;
-			}
-			if (vm.count("query")) {
+				if (vm.count("query")) {
+					combined_query = vm["query"].as<std::wstring>();
+					mode = combined;
+				}
+			} else if (vm.count("query")) {
 				command = vm["query"].as<std::wstring>();
 				mode = query;
-			}
-			if (vm.count("submit")) {
+			} else if (vm.count("submit")) {
 				command = vm["submit"].as<std::wstring>();
 				mode = submit;
 			}
@@ -421,19 +423,26 @@ public:
 			}
 			if (mode == query) {
 				ret = mainClient.simple_query(module, command, arguments, resp);
-			} else if (mode == exec) {
+			} else if (mode == exec || mode == combined) {
 				ret = mainClient.simple_exec(module, command, arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
 					std::wcout << _T("Command not found (by module): ") << command << std::endl;
+					resp.push_back(_T("Command not found: ") + command);
 					mainClient.simple_exec(module, _T("help"), arguments, resp);
+				} else if (mode == combined) {
+					mainClient.reload(_T("service"));
+					ret = mainClient.simple_query(module, combined_query, arguments, resp);
 				}
 			} else if (mode == submit) {
 				std::wcerr << _T("--submit is currently not supported (but you can use --exec submit which is technically the same)") << std::endl;
 			} else {
 				std::wcerr << _T("Need to specify one of --exec, --query or --submit") << std::endl;
 			}
-			mainClient.exitCore(boot);
+			mainClient.stop_unload_plugins_pre();
+			mainClient.stop_exit_pre();
+			mainClient.stop_unload_plugins_post();
+			mainClient.stop_exit_post();
 
 			BOOST_FOREACH(std::wstring r, resp) {
 				std::wcout << r << std::endl;
