@@ -25,6 +25,8 @@ def get_test_manager():
 
 def destroy_test_manager():
 	global test_manager
+	if test_manager:
+		test_manager.destroy()
 	test_manager = None
 
 def create_test_manager(plugin_id = 0, plugin_alias = '', script_alias = ''):
@@ -108,7 +110,7 @@ class BasicTest(object):
 		None
 
 	def run_test(self):
-		result = TestResult()
+		result = TestResult('run_test')
 		result.add_message(False, 'TODO add implementation')
 		return result
 
@@ -138,45 +140,123 @@ class BasicTest(object):
 	def require_boot(self):
 		return False
 		
-		
-class TestResult:
-	class Entry:
-		status = False
-		desc = 'Unassigned result'
-		level = 0
-		error = None
-		def __init__(self, status, desc, error):
-			self.status = status
-			self.desc = desc
-			self.error = error
+class TestResultEntry:
+	status = False
+	desc = 'Unassigned result'
+	error = None
+	def __init__(self, status, desc, error):
+		self.status = status
+		self.desc = desc
+		self.error = error
 
-		def log(self):
-			if self.status:
-				log('%s%s'%(''.rjust(self.level, ' '), self))
-			else:
-				log_error('%s%s'%(''.rjust(self.level, ' '), self))
-		
-		def is_ok(self):
-			return self.status
+	def log(self, prefix = '', indent = 0):
+		if self.status:
+			log('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
+		else:
+			log_error('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
 	
-		def indent(self):
-			self.level = self.level + 1
-			
-		def __str__(self):
-			if self.status:
-				return 'OK: %s'%self.desc
-			else:
-				return 'ERROR: %s (%s)'%(self.desc, self.error)
+	def is_ok(self):
+		return self.status
 
-	results = []
+	def count(self):
+		if self.status:
+			return (1, 1)
+		return (1, 0)
+
+	def contains(self, other):
+		if self == other:
+			return True
+		return False
+		
+	def __str__(self):
+		if self.status:
+			return 'OK: %s'%self.desc
+		else:
+			return 'ERROR: %s (%s)'%(self.desc, self.error)
+		
+class TestResultCollection(TestResultEntry):
+
+	status = True
+	title = None
+	children = []
+	def __init__(self, title, list = None):
+		self.title = title
+		self.children = []
+		if list:
+			self.extend(list)
+
+	def log(self, prefix = '', indent = 0):
+		start = '%s%s'%(prefix, ''.rjust(indent, ' '))
+		if self.status:
+			log('%s%s'%(start, self))
+		else:
+			log_error('%s%s'%(start, self))
+		for c in self.children:
+			c.log(prefix, indent+1)
 	
-	def __init__(self):
-		self.results = []
+	def is_ok(self):
+		return self.status
+
+	def count(self):
+		total_count = 1
+		ok_count = 0
+		if self.status:
+			ok_count = 1
+
+		for c in self.children:
+			(total, ok) = c.count()
+			total_count = total_count + total
+			ok_count = ok_count + ok
+
+		return (total_count, ok_count)
+
+	def contains(self, other):
+		for c in self.children:
+			if c.contains(other):
+				return True
+		return False
+
+	def __str__(self):
+		if self.status:
+			return 'OK: %s'%self.title
+		else:
+			(total, ok) = c.count()
+			return 'ERROR: %s (%d/%d)'%(self.title, ok, total)
+
+	def extend(self, lst):
+		if isinstance(lst, list):
+			if self.status:
+				for c in lst:
+					if not c.is_ok():
+						self.status = False
+						
+			for c in lst:
+				if c.contains(self):
+					log_error('Attempting to add a list with me in it')
+					return
+			self.children.extend(lst)
+		else:
+			self.append(lst)
+
+	def append(self, entry):
+		if not entry:
+			log_error('Attempting to add invalid entry (None)')
+		elif entry == self:
+			log_error('Attempting to add self to self')
+		else:
+			if self.status and not entry.is_ok():
+				self.status = False
+			self.children.append(entry)
+	
+class TestResult(TestResultCollection):
+
+	def __init__(self, title = 'DUMMY TITLE'):
+		TestResultCollection.__init__(self, title)
 
 	def add_message(self, status, message, error = None):
-		e = TestResult.Entry(status, message, error)
+		e = TestResultEntry(status, message, error)
 		e.log()
-		self.add_entry(e)
+		self.append(e)
 		
 	def assert_equals(self, s1, s2, msg):
 		self.add_message(s1 == s2, msg, '"%s" != "%s"'%(s1, s2))
@@ -188,55 +268,21 @@ class TestResult:
 			self.add_message(False, msg, '"%s" (contains) "%s"'%(s1, s2))
 		else:
 			self.add_message(s1 in s2 or s2 in s1, msg, '"%s" (contains) "%s"'%(s1, s2))
-		
 
 	def add_entry(self, e):
-		self.results.append(e)
-	
+		self.append(e)
+
 	def add(self, result):
-		try:
-			for e in result.results:
-				e.indent()
-			self.results.extend(result.results)
-		except:
-			log_error('Failed to process results...')
-
-	def log(self):
-		okcount = 0
-		count = len(self.results)
-		for e in self.results:
-			e.log()
-			if e.is_ok():
-				okcount = okcount + 1
-		if okcount == count:
-			log("OK: %d test(s) successfull"%count)
-		else:
-			log("ERROR: %d of %d test(s) succedded (%d failed)"%(okcount, count, count-okcount))
-		return self
-		
-	def is_ok(self):
-		for e in self.results:
-			if not e.is_ok():
-				return False
-		return True
-
-	def __str__(self):
-		s = ''
-		for e in self.results:
-			s += '%s, '%e
-		return s
+		self.extend(result)
 
 	def return_nagios(self):
-		okcount = 0
-		count = len(self.results)
-		for e in self.results:
-			if e.is_ok():
-				okcount = okcount + 1
-		self.log()
-		if okcount == count:
-			return (status.OK, "OK: %d test(s) successfull"%count)
+		(total, ok) = self.count()
+		log(' | Test result log (only summary will be returned to query)')
+		self.log(' | ')
+		if total == ok:
+			return (status.OK, "OK: %d test(s) successfull"%(total))
 		else:
-			return (status.CRITICAL, "ERROR: %d/%d test(s) failed"%(count-okcount, count))
+			return (status.CRITICAL, "ERROR: %d/%d test(s) failed"%(total-ok, total))
 
 class TestManager:
 	
@@ -252,29 +298,31 @@ class TestManager:
 		self.plugin_id = plugin_id
 		self.plugin_alias = plugin_alias
 		self.script_alias = script_alias
+		self.suites = []
 	
 	def add(self, suite):
-		if isinstance(suite, (list)):
+		if isinstance(suite, list):
 			for s in suite:
-				self.suites.append(s)
+				self.add(s)
 		else:
-			self.suites.append(suites)
+			if not suite in self.suites:
+				self.suites.append(suite)
 
 	def run_suite(self, suite):
-		result = TestResult()
+		result = TestResult('Running suite: %s'%suite.title())
 		for c in list:
 			result.add(run_test(plugin_id, prefix, c))
 		return result
 		
 	def run(self, arguments = []):
-		result = TestResult()
+		result = TestResult('Test result for %d suites'%len(self.suites))
 		for suite in self.suites:
 			instance = suite.getInstance()
 			instance.setup(self.plugin_id, self.prefix)
-			tmp = TestResult()
-			tmp.add(instance.run_test())
-			result.add_message(tmp.is_ok(), 'Running suite: %s'%instance.title())
-			result.add(tmp)
+			suite_result = TestResult('Running suite: %s'%instance.title())
+			suite_result.append(instance.run_test())
+			result.append(suite_result)
+			result.add_message(suite_result.is_ok(), 'Result from suite: %s'%instance.title())
 			instance.teardown()
 		return result
 
@@ -282,6 +330,13 @@ class TestManager:
 		for suite in self.suites:
 			instance = suite.getInstance()
 			instance.init(self.plugin_id)
+			
+	def destroy(self):
+		self.suites = []
+		self.prefix = ''
+		self.plugin_id = None
+		self.plugin_alias = None
+		self.script_alias = None
 			
 	def install(self, arguments = []):
 		boot = False

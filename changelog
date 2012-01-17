@@ -5,6 +5,12 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-18 MickeM
+ * Improved unit tests so they can be run all in sequence
+ * Fixed various bugs in the unit tests
+ * Improved the syntax and output of running unit tests
+ * Refactored unit tests to be slightly nicer
+  
 2012-01-16 MickeM
  * Added option to both execute and query item (with a reload in the middle for installing/running unittests)
  * Fixed issue in python unittest framework to handle "unload" (ie. reload)

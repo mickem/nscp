@@ -39,7 +39,7 @@ class Win32SystemTest(BasicTest):
 		return status.UNKNOWN
 	
 	def test_one_proc_int(self, proc, actual, asked):
-		result = TestResult()
+		result = TestResult('Checking one state %d/%d'%(actual, asked))
 		for s in ['eq', 'gt', 'lt', 'ne']:
 			(retcode, retmessage, retperf) = core.simple_query('CheckProcState', ['ShowAll', 'critCount=%s:%d'%(s, asked), '%s=started'%proc])
 			expected = self.get_expected_state(actual, s, asked)
@@ -47,10 +47,10 @@ class Win32SystemTest(BasicTest):
 		return result
 		
 	def test_one_proc(self):
-		result = TestResult()
+		result = TestResult('Checking CheckProcState')
 		
 		for j in range(0,3):
-			result.add(self.test_one_proc_int('notepad.exe', 0, j))
+			result.append(self.test_one_proc_int('notepad.exe', 0, j))
 		
 		pids = []
 		for i in range(1,4):
@@ -59,14 +59,16 @@ class Win32SystemTest(BasicTest):
 			sleep(1)
 			pids.append(handle.pid)
 			for j in range(0,3):
-				result.add(self.test_one_proc_int('notepad.exe', i, j))
+				result.append(self.test_one_proc_int('notepad.exe', i, j))
 
 		for p in pids:
 			subprocess.Popen("taskkill /F /T /PID %i"%p , shell=True)
+
+		return result
 		
 	def run_test(self):
-		result = TestResult()
-		result.add(self.test_one_proc())
+		result = TestResult('Testing process checks on windows 32 bit systems')
+		result.extend(self.test_one_proc())
 		return result
 
 	def install(self, arguments):
