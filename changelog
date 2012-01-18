@@ -10,6 +10,8 @@ TODO:
  * Fixed various bugs in the unit tests
  * Improved the syntax and output of running unit tests
  * Refactored unit tests to be slightly nicer
+ * Fixed error state propagation
+ * Added unit tests to cmake (ie make test will now run unit tests)
   
 2012-01-16 MickeM
  * Added option to both execute and query item (with a reload in the middle for installing/running unittests)

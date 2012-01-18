@@ -40,3 +40,14 @@ MACRO(copy_single_file alias src destDir)
 	INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX}/${destDir} TYPE EXECUTABLE FILES \"${source_file}\")")
 ENDMACRO(copy_single_file)
 
+MACRO(add_nscp_py_test name script)
+	ADD_TEST("${name}"
+		nscp 
+			py 
+			--settings dummy 
+			--exec run 
+			--script ${script}
+			--query py_unittest
+		)
+ENDMACRO(add_nscp_py_test)
+

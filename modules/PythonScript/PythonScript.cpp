@@ -119,32 +119,38 @@ python_script::python_script(unsigned int plugin_id, const std::string alias, co
 python_script::~python_script(){
 	callFunction("shutdown");
 }
-void python_script::callFunction(const std::string& functionName) {
+bool python_script::callFunction(const std::string& functionName) {
 	try {
 		script_wrapper::thread_locker locker;
 		try	{
 			object scriptFunction = extract<object>(localDict[functionName]);
 			if( scriptFunction )
 				scriptFunction();
+			return true;
 		} catch( error_already_set e) {
 			script_wrapper::log_exception();
+			return false;
 		}
 	} catch (...) {
 		NSC_LOG_ERROR(_T("Unknown exception"));
+		return false;
 	}
 }
-void python_script::callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2){
+bool python_script::callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2){
 	try {
 		script_wrapper::thread_locker locker;
 		try	{
 			object scriptFunction = extract<object>(localDict[functionName]);
 			if(scriptFunction)
 				scriptFunction(i1, s1, s2);
+			return true;
 		} catch(error_already_set e) {
 			script_wrapper::log_exception();
+			return false;
 		}
 	} catch (...) {
 		NSC_LOG_ERROR(_T("Unknown exception"));
+		return false;
 	}
 }
 void python_script::_exec(const std::string &scriptfile){
@@ -164,6 +170,7 @@ void python_script::_exec(const std::string &scriptfile){
 			path /= _T("scripts");
 			path /= _T("python");
 			path /= _T("lib");
+			NSC_DEBUG_MSG(_T("Lib path: ") + path.string());
 			PyRun_SimpleString(("sys.path.append('" + utf8::cvt<std::string>(path.string()) + "')").c_str());
 
 			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
@@ -292,7 +299,10 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 			return false;
 		script_container sc(*ofile);
 		python_script script(get_id(), "", sc);
-		script.callFunction("__main__");
+		if (!script.callFunction("__main__")) {
+			message = _T("Failed to execute script: __main__");
+			return NSCAPI::returnUNKNOWN;
+		}
 		message = _T("Script execute successfully...");
 		return NSCAPI::returnOK;
 	} catch (const std::exception &e) {

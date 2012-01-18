@@ -431,8 +431,12 @@ public:
 					resp.push_back(_T("Command not found: ") + command);
 					mainClient.simple_exec(module, _T("help"), arguments, resp);
 				} else if (mode == combined) {
-					mainClient.reload(_T("service"));
-					ret = mainClient.simple_query(module, combined_query, arguments, resp);
+					if (ret == NSCAPI::returnOK) {
+						mainClient.reload(_T("service"));
+						ret = mainClient.simple_query(module, combined_query, arguments, resp);
+					} else {
+						std::wcerr << _T("Failed to execute command, will not attempt query") << std::endl;
+					}
 				}
 			} else if (mode == submit) {
 				std::wcerr << _T("--submit is currently not supported (but you can use --exec submit which is technically the same)") << std::endl;

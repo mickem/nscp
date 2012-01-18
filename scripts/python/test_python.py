@@ -3,7 +3,10 @@ from test_helper import BasicTest, TestResult, Callable, setup_singleton, instal
 from types import *
 from time import time
 
-install_checks = 1000
+install_checks = 100
+time_to_run = 30
+
+core = Core.get()
 
 class PythonTest(BasicTest):
 
@@ -35,15 +38,23 @@ class PythonTest(BasicTest):
 		self.reg = Registry.get(plugin_id)
 		self.reg.simple_function('py_stress_noop', PythonTest.noop_handler, 'This is a simple noop command')
 		self.reg.simple_subscription('py_stress_test', PythonTest.stress_handler)
+		conf = Settings.get()
+		conf.set_string('/settings/test_scheduler', 'threads', '50')
+		core.reload('test_scheduler')
+		
 
 	def teardown(self):
+		conf = Settings.get()
+		conf.set_string('/settings/test_scheduler', 'threads', '0')
+		core.reload('test_scheduler')
 		None
 
 	def run_test(self):
 		result = TestResult()
 		start = time()
-		while self.stress_count < install_checks*10:
-			log('Waiting for %d: %d/%d'%(install_checks*10, self.stress_count, self.noop_count))
+		total_count = install_checks*time_to_run/5
+		while self.stress_count < total_count:
+			log('Waiting for %d: %d/%d'%(total_count, self.stress_count, self.noop_count))
 			old_stress_count = self.stress_count
 			old_noop_count = self.noop_count
 			sleep(5)
@@ -62,7 +73,7 @@ class PythonTest(BasicTest):
 		conf.set_string('/settings/pytest/scripts', 'test_python', 'test_python.py')
 		
 		base_path = '/settings/test_scheduler'
-		conf.set_string(base_path, 'threads', '50')
+		conf.set_string(base_path, 'threads', '0')
 
 		default_path = '%s/default'%base_path
 		conf.set_string(default_path, 'channel', 'py_stress_test')

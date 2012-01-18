@@ -220,7 +220,7 @@ class TestResultCollection(TestResultEntry):
 		if self.status:
 			return 'OK: %s'%self.title
 		else:
-			(total, ok) = c.count()
+			(total, ok) = self.count()
 			return 'ERROR: %s (%d/%d)'%(self.title, ok, total)
 
 	def extend(self, lst):

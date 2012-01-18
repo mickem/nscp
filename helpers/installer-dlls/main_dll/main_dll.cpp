@@ -227,7 +227,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		std::wstring modpath = _T("/modules");
 		h.setPropertyAndOld(_T("CONF_NRPE"), has_key(modpath, _T("NRPEServer")));
 		h.setPropertyAndOld(_T("CONF_SCHEDULER"), has_key(modpath, _T("Scheduler")));
-		h.setPropertyAndOld(_T("CONF_NSCA"), has_key(modpath, _T("NSCAAgent")));
+		h.setPropertyAndOld(_T("CONF_NSCA"), has_key(modpath, _T("NSCAClient")));
 		h.setPropertyAndOld(_T("CONF_NSCLIENT"), has_key(modpath, _T("NSClientServer")));
 		h.setPropertyAndOld(_T("CONF_WMI"), has_key(modpath, _T("CheckWMI")));
 
@@ -299,7 +299,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		std::wstring modval = _T("");
 		write_changed_key(h, data, _T("CONF_NRPE"), modpath, _T("NRPEServer"), modval);
 		write_changed_key(h, data, _T("CONF_SCHEDULER"), modpath, _T("Scheduler"), modval);
-		write_changed_key(h, data, _T("CONF_NSCA"), modpath, _T("NSCAAgent"), modval);
+		write_changed_key(h, data, _T("CONF_NSCA"), modpath, _T("NSCAClient"), modval);
 		write_changed_key(h, data, _T("CONF_NSCLIENT"), modpath, _T("NSClientServer"), modval);
 		write_changed_key(h, data, _T("CONF_WMI"), modpath, _T("CheckWMI"), modval);
 

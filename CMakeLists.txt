@@ -475,3 +475,13 @@ CONFIGURE_FILE(
   ${BUILD_PYTHON_FOLDER}/config.py
   ${BUILD_TARGET_EXE_PATH}/config.py
 )
+
+ENABLE_TESTING()
+
+add_nscp_py_test(nsca test_nsca)
+add_nscp_py_test(nrpe test_nrpe)
+add_nscp_py_test(python test_python)
+IF(WIN32)
+	add_nscp_py_test(eventlog test_eventlog)
+	add_nscp_py_test(w32_system test_w32_system)
+ENDIF(WIN32)

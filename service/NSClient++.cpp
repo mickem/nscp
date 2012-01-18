@@ -253,6 +253,7 @@ int main(int argc, char* argv[]) {
 		delete [] wargv[i];
 	}
 	delete [] wargv;
+	return ret;
 }
 #endif
 
@@ -1256,7 +1257,7 @@ int NSClientT::simple_query(std::wstring module, std::wstring command, std::vect
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::string response;
-	NSCAPI::nagiosReturn c = plugin->handleCommand(command.c_str(), request, response);
+	ret = plugin->handleCommand(command.c_str(), request, response);
 	try {
 		std::wstring msg, perf;
 		nscapi::functions::parse_simple_query_response(response, msg, perf);

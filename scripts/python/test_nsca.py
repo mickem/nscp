@@ -164,7 +164,7 @@ class NSCAServerTest(BasicTest):
 		payload.source = source
 		(result_code, err) = core.submit('nsca_test_outbox', message.SerializeToString())
 
-		result = TestResult()
+		result = TestResult('Testing payload: %s'%tag)
 		result.add_message(len(err) == 0, 'Testing to send message using %s/sbp'%tag, err)
 		found = self.wait_and_validate(uid, result, msg, perf, '%s/spb'%tag)
 		if retry and not found:
@@ -191,7 +191,7 @@ class NSCAServerTest(BasicTest):
 		result.add_message(len(result_message[0]) == 0, 'Testing to send message using %s/exec:3'%tag, result_message[0])
 		found = self.wait_and_validate(uid, result, msg, perf, '%s/exec'%tag)
 		if retry and not found:
-			return self.submit_via_exec(encryption, source, status, msg, perf, tag, False)
+			return self.submit_via_exec(encryption, source, status, msg, perf, '%s (retry)'%tag, False)
 		return result
 
 	def test_one_crypto_full(self, encryption, state, key):
