@@ -5,6 +5,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-19 MickeM
+ * Fixed some NSCA encryption bugs (of the random nature)
+   These are probably inherited in 0.3.x as well so if you have issues you might wannan try to upgrade
+
 2012-01-18 MickeM
  * Improved unit tests so they can be run all in sequence
  * Fixed various bugs in the unit tests

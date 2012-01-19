@@ -140,7 +140,7 @@ class NSCAServerTest(BasicTest):
 		return False
 	
 		
-	def submit_payload(self, encryption, source, status, msg, perf, tag, retry=True):
+	def submit_payload(self, encryption, source, status, msg, perf, tag):
 		message = plugin_pb2.SubmitRequestMessage()
 		
 		message.header.version = plugin_pb2.Common.VERSION_1
@@ -166,12 +166,10 @@ class NSCAServerTest(BasicTest):
 
 		result = TestResult('Testing payload: %s'%tag)
 		result.add_message(len(err) == 0, 'Testing to send message using %s/sbp'%tag, err)
-		found = self.wait_and_validate(uid, result, msg, perf, '%s/spb'%tag)
-		if retry and not found:
-			return self.submit_payload(encryption, source, status, msg, perf, tag, False)
+		self.wait_and_validate(uid, result, msg, perf, '%s/spb'%tag)
 		return result
 		
-	def submit_via_exec(self, encryption, source, status, msg, perf, tag, retry=True):
+	def submit_via_exec(self, encryption, source, status, msg, perf, tag):
 		uid = str(uuid.uuid4())
 	
 		args = [
@@ -189,13 +187,11 @@ class NSCAServerTest(BasicTest):
 		result.add_message(result_code == 0, 'Testing to send message using %s/exec:1'%tag)
 		result.add_message(len(result_message) == 1, 'Testing to send message using %s/exec:2'%tag, len(result_message))
 		result.add_message(len(result_message[0]) == 0, 'Testing to send message using %s/exec:3'%tag, result_message[0])
-		found = self.wait_and_validate(uid, result, msg, perf, '%s/exec'%tag)
-		if retry and not found:
-			return self.submit_via_exec(encryption, source, status, msg, perf, '%s (retry)'%tag, False)
+		self.wait_and_validate(uid, result, msg, perf, '%s/exec'%tag)
 		return result
 
 	def test_one_crypto_full(self, encryption, state, key):
-		result = TestResult()
+		result = TestResult('Testing %s/%s'%(encryption, key))
 		result.add(self.submit_payload(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '', '%s/%s'%(state, encryption)))
 		result.add(self.submit_via_exec(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '', '%s/%s'%(state, encryption)))
 		return result
@@ -205,7 +201,7 @@ class NSCAServerTest(BasicTest):
 		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '%s'%crypto)
 		conf.set_string('/settings/NSCA/test_nsca_server', 'password', 'pwd-%s'%crypto)
 		core.reload('test_nsca_server')
-		result = TestResult()
+		result = TestResult('Testing encryption algorith: %s'%crypto)
 		result.add_message(isOpen('localhost', 15667), 'Checking that port is open')
 		result.add(self.test_one_crypto_full(crypto, status.UNKNOWN, 'unknown'))
 		result.add(self.test_one_crypto_full(crypto, status.OK, 'ok'))
@@ -215,8 +211,7 @@ class NSCAServerTest(BasicTest):
 
 	def run_test(self):
 		result = TestResult()
-		# Currently broken: "xor"
-		cryptos = ["des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "serpent", "gost", "none", "3way"]
+		cryptos = ["none", "xor", "des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "aes256", "aes192", "aes128", "serpent", "gost", "3way"]
 		for c in cryptos:
 			result.add_message(True, 'Testing crypto: %s'%c)
 			result.add(self.test_one_crypto(c))

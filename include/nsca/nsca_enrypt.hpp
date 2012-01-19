@@ -162,6 +162,8 @@ namespace nsca {
 			virtual void encrypt(std::string &buffer) = 0;
 			virtual void decrypt(std::string &buffer) = 0;
 			virtual std::string getName() = 0;
+			virtual int get_keySize() = 0;
+			virtual int get_blockSize() = 0;
 		};
 #ifdef HAVE_LIBCRYPTOPP
 		template <class TMethod>
@@ -190,15 +192,15 @@ namespace nsca {
 			}
 			void init(std::string password, unsigned char *transmitted_iv, int iv_size) {
 				/* generate an encryption/description key using the password */
-				unsigned int keysize=get_keySize();
+				std::string::size_type keysize=get_keySize();
 
 				unsigned char *key = new unsigned char[keysize+1];
 				if (key == NULL){
 					throw encryption_exception("Could not allocate memory for encryption/decryption key");
 				}
-				memset(key,keysize*sizeof(unsigned char), 0);
+				memset(key, 0, keysize);
 				using namespace std;
-				strncpy(reinterpret_cast<char*>(key),password.c_str(),min(keysize,static_cast<unsigned int>(password.length())));
+				memcpy(key,password.c_str(),min(keysize,password.length()));
 
 
 				/* determine size of IV buffer for this algorithm */
@@ -212,6 +214,7 @@ namespace nsca {
 				if (iv == NULL){
 					throw encryption_exception("Could not allocate memory for IV buffer");
 				}
+				memset(iv, 0, blocksize);
 
 				/* fill IV buffer with first bytes of IV that is going to be used to crypt (determined by server) */
 				memcpy(iv, transmitted_iv, sizeof(unsigned char)*blocksize);
@@ -257,10 +260,10 @@ namespace nsca {
 #endif
 		class no_encryption : public any_encryption {
 		public:
-			static int get_keySize() {
+			int get_keySize() {
 				return 0;
 			}
-			static int get_blockSize() {
+			int get_blockSize() {
 				return 1;
 			}
 			void init(std::string password, std::string iv) {}
@@ -277,10 +280,10 @@ namespace nsca {
 		public:
 			xor_encryption() {}
 			~xor_encryption() {}
-			static int get_keySize() {
+			int get_keySize() {
 				return 0;
 			}
-			static int get_blockSize() {
+			int get_blockSize() {
 				return 1;
 			}
 			void init(std::string password, std::string iv) {
@@ -463,6 +466,15 @@ namespace nsca {
 			rng.GenerateBlock((byte*)&*buffer.begin(), length);
 #endif
 			return buffer;
+		}
+		std::string to_string() const {
+			if (core_ == NULL)
+				return "<NULL>";
+			std::stringstream ss;
+			ss << "Name: " << core_->getName() 
+				<< ", block size: " << core_->get_blockSize()
+				<< ", key size: " << core_->get_keySize();
+			return ss.str();
 		}
 	};
 }

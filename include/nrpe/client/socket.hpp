@@ -3,7 +3,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include <socket/socket_helpers.hpp>
-#include <nsca/nsca_packet.hpp>
+//#include <nsca/nsca_packet.hpp>
 
 using boost::asio::ip::tcp;
 

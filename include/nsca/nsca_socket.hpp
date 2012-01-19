@@ -84,9 +84,11 @@ namespace nsca {
 				NSC_LOG_ERROR_STD(_T("Failed to read IV from server (using ") + strEx::itos(encryption_method) + _T(", ") + strEx::itos(len) + _T(")."));
 				return false;
 			}
-			std::string str_buf(buf.begin(), buf.end());
+			std::string tmp = std::string(buf.begin(), buf.end());
+			nsca::iv_packet iv_packet(tmp);
+			std::string iv = iv_packet.get_iv();
 			NSC_DEBUG_MSG(_T("Encrypting using when sending: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(encryption_method)) + _T(" and ") + utf8::cvt<std::wstring>(password));
-			crypt_inst.encrypt_init(password, encryption_method, str_buf);
+			crypt_inst.encrypt_init(password, encryption_method, iv);
 			return true;
 		}
 		virtual bool read_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {

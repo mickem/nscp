@@ -28,14 +28,17 @@ namespace nsca {
 				return boost::make_tuple(buffer_.size() >= packet_length_, begin);
 			}
 
-			nsca::packet parse(nsca::nsca_encrypt &encryption) {
-				nsca::packet packet(payload_length_);
-				//std::string buffer = encryption.get_rand_buffer(packet.get_packet_length());
-				//packet.get_buffer(buffer);
+			void decrypt(nsca::nsca_encrypt &encryption) {
 				encryption.decrypt_buffer(buffer_);
+			}
+			nsca::packet parse() {
+				nsca::packet packet(payload_length_);
 				packet.parse_data(buffer_.c_str(), buffer_.size());
 				buffer_.clear();
 				return packet;
+			}
+			std::string get_buffer() const {
+				return buffer_;
 			}
 			void set_payload_length(unsigned int length) {
 				payload_length_ = length;

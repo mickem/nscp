@@ -31,12 +31,11 @@ namespace nsca {
 			std::vector<boost::asio::const_buffer> buffers;
 
 			std::string iv = nsca::nsca_encrypt::generate_transmitted_iv();
-			handler_->log_debug(__FILE__, __LINE__, _T("Encrypting using when receieving: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(handler_->get_encryption())) + _T(" and ") + utf8::cvt<std::wstring>(handler_->get_password()));
+			handler_->log_debug(__FILE__, __LINE__, _T("Encrypting using when receiving: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(handler_->get_encryption())) + _T(" and ") + utf8::cvt<std::wstring>(handler_->get_password()));
 			encryption_instance_.encrypt_init(handler_->get_password(), handler_->get_encryption(), iv);
 
-			nsca::iv_packet packet(iv);
+			nsca::iv_packet packet(iv, boost::posix_time::second_clock::local_time());
 			buffers.push_back(buf(packet.get_buffer()));
-			handler_->log_debug(__FILE__, __LINE__, _T("Sending IV..."));
 			start_write_request(buffers, 30);
 		}
 
@@ -86,7 +85,8 @@ namespace nsca {
 					if (result) {
 						nsca::packet response;
 						try {
-							nsca::packet request = parser_.parse(encryption_instance_);
+							parser_.decrypt(encryption_instance_);
+							nsca::packet request = parser_.parse();
 							handler_->handle(request);
 						} catch (nsca::nsca_exception &e) {
 							handler_->log_error(__FILE__, __LINE__, str::to_wstring(e.what()));

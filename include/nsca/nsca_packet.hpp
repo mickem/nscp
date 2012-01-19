@@ -94,21 +94,10 @@ namespace nsca {
 		class iv {
 		public:
 			static const unsigned int payload_length_ = nsca::data::transmitted_iuv_size;
-			/*
-			static void set_payload_length(size_type length) {
-				payload_length_ = length;
-			}
-			*/
 			static size_type get_packet_length() {
-				return get_packet_length(payload_length_);
-			}
-			static size_type get_packet_length(size_type output_length) {
 				return sizeof(nsca::data::iv_packet);
 			}
 			static size_type get_payload_length() {
-				return payload_length_;
-			}
-			static size_type get_payload_length(size_type packet_length) {
 				return payload_length_;
 			}
 		};
@@ -203,19 +192,42 @@ namespace nsca {
 
 	class iv_packet {
 		std::string iv;
+		u_int32_t time;
 	public:
-		iv_packet(std::string iv) : iv(iv) {
+		iv_packet(std::string iv, u_int32_t time) : iv(iv), time(time) {}
+		iv_packet(std::string iv, boost::posix_time::ptime now) : iv(iv), time(ptime_to_unixtime(now)) {}
+		iv_packet(std::string buffer) {
+			parse(buffer);
 		}
+		__int32 ptime_to_unixtime(boost::posix_time::ptime now) {
+			//boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
+			boost::posix_time::time_duration diff = now - time_t_epoch;
+			return diff.total_seconds();
+		}
+		u_int32_t get_time() const {
+			return time;
+		}
+		std::string get_iv() const {
+			return iv;
+		}
+
 		std::string get_buffer() const {
+			if (iv.size() != nsca::length::iv::get_payload_length())
+				throw nsca::nsca_exception("Invalid IV size: " + nstr::to_string(iv.size()) + " != " + nstr::to_string(nsca::length::iv::get_payload_length()));
 			nsca::data::iv_packet data;
-			strncpy(data.iv, iv.c_str(), iv.size());
+			memcpy(data.iv, iv.c_str(), iv.size());
+			data.timestamp = swap_bytes::hton<u_int32_t>(time);
 			char *src = reinterpret_cast<char*>(&data);
 			std::string buffer(src, nsca::length::iv::get_packet_length());
 			return buffer;
 		}
-// 		iv_packet(char* buf, unsigned int len) {
-// 
-// 		}
-
+		void parse(const std::string &buffer) {
+			if (buffer.size() < nsca::length::iv::get_packet_length())
+				throw nsca::nsca_exception("Buffer is to short: " + nstr::to_string(buffer.length()) + " > " + nstr::to_string(nsca::length::iv::get_packet_length()));
+			const nsca::data::iv_packet *data = reinterpret_cast<const nsca::data::iv_packet*>(buffer.c_str());
+			iv = std::string(data->iv, nsca::data::transmitted_iuv_size);
+			time = swap_bytes::ntoh<u_int32_t>(data->timestamp);
+		}
 	};
 }
