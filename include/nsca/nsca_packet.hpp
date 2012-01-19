@@ -199,7 +199,7 @@ namespace nsca {
 		iv_packet(std::string buffer) {
 			parse(buffer);
 		}
-		__int32 ptime_to_unixtime(boost::posix_time::ptime now) {
+		u_int32_t ptime_to_unixtime(boost::posix_time::ptime now) {
 			//boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
 			boost::posix_time::time_duration diff = now - time_t_epoch;
