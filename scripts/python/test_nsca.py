@@ -53,14 +53,14 @@ class NSCAMessage:
 	def copy_changed_attributes(self, other):
 		if other.source:
 			self.source = other.source
-		if other.command:
-			self.command = other.command
 		if other.status:
 			self.status = other.status
 		if other.message:
 			self.message = other.message
 		if other.perfdata:
 			self.perfdata = other.perfdata
+		if other.got_response:
+			self.got_response = True
 		if other.got_simple_response:
 			self.got_simple_response = True
 	
@@ -148,32 +148,36 @@ class NSCAServerTest(BasicTest):
 	def wait_and_validate(self, uuid, result, msg, perf, tag):
 		found = False
 		for i in range(0,10):
-			if self.has_response(uuid):
-				rmsg = self.get_response(uuid)
-				if not rmsg.got_simple_response or not rmsg.got_response:
-					for j in range(0,3):
-						rmsg = self.get_response(uuid)
-						if rmsg.got_simple_response and rmsg.got_response:
-							log('Got delayed response %s'%uuid)
-						else:
-							log('Waiting for delayed response %s (%d/10)'%(uuid, j+1))
-					
-				result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
-				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%tag)
-				result.assert_equals(rmsg.command, uuid, 'Verify that command is sent through using %s'%tag)
-				result.assert_contains(rmsg.message, msg, 'Verify that message is sent through using %s'%tag)
-				
-				#result.assert_equals(rmsg.last_source, source, 'Verify that source is sent through')
-				#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through using %s'%tag)
-				self.del_response(uuid)
-				return True
-			else:
+			if not self.has_response(uuid):
 				log('Waiting for %s (%d/10)'%(uuid, i+1))
 				sleep(1)
-		result.add_message(False, 'Failed to recieve message %s using %s'%(uuid, tag))
-		return False
-	
+			else:
+				log('Got response %s'%uuid)
+				found = True
+				break
+		if not found:
+			result.add_message(False, 'Failed to recieve message %s using %s'%(uuid, tag))
+			return False
 		
+		for i in range(0,10):
+			rmsg = self.get_response(uuid)
+			if not rmsg.got_simple_response or not rmsg.got_response:
+				log('Waiting for delayed response %s s/m: %s/%s - (%d/10)'%(uuid, rmsg.got_simple_response, rmsg.got_response, i+1))
+				sleep(1)
+			else:
+				log('Got delayed response %s'%uuid)
+				break
+		
+		result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
+		result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%tag)
+		result.assert_equals(rmsg.command, uuid, 'Verify that command is sent through using %s'%tag)
+		result.assert_contains(rmsg.message, msg, 'Verify that message is sent through using %s'%tag)
+		
+		#result.assert_equals(rmsg.last_source, source, 'Verify that source is sent through')
+		#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through using %s'%tag)
+		self.del_response(uuid)
+		return True
+
 	def submit_payload(self, encryption, source, status, msg, perf, tag):
 		message = plugin_pb2.SubmitRequestMessage()
 		
