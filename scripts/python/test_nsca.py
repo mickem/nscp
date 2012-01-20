@@ -29,6 +29,7 @@ class NSCAMessage:
 	status = None
 	message = None
 	perfdata = None
+	got_response = False
 	got_simple_response = False
 
 	def __init__(self, command):
@@ -41,6 +42,29 @@ class NSCAMessage:
 			self.uuid = command
 		#self.uuid = unicodedata.normalize('NFKD', command).encode('ascii','ignore')
 		self.command = command
+		self.uuid = None
+		self.source = None
+		self.status = None
+		self.message = None
+		self.perfdata = None
+		self.got_response = False
+		self.got_simple_response = False
+		
+		
+	def copy_changed_attributes(self, other):
+		if other.source:
+			self.source = other.source
+		if other.command:
+			self.command = other.command
+		if other.status:
+			self.status = other.status
+		if other.message:
+			self.message = other.message
+		if other.perfdata:
+			self.perfdata = other.perfdata
+		if other.got_simple_response:
+			self.got_simple_response = True
+	
 	def __str__(self):
 		return 'Message: %s (%s, %s, %s)'%(self.uuid, self.source, self.command, self.status)
 
@@ -64,7 +88,7 @@ class NSCAServerTest(BasicTest):
 
 	def set_response(self, msg):
 		with sync:
-			self._responses[msg.uuid] = msg
+			self._responses[msg.uuid].copy_changed_attributes(msg)
 
 	def del_response(self, id):
 		with sync:
@@ -94,7 +118,7 @@ class NSCAServerTest(BasicTest):
 	inbox_handler = Callable(inbox_handler)
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
-		log('Got simple message %s'%command)
+		log('Got simple message %s on %s'%(command, channel))
 		msg = self.get_response(command)
 		msg.source = source
 		msg.status = status
@@ -105,8 +129,6 @@ class NSCAServerTest(BasicTest):
 		return True
 
 	def inbox_handler_wrapped(self, channel, request):
-		log_error('DISCARDING message on %s'%(channel))
-		
 		message = plugin_pb2.SubmitRequestMessage()
 		message.ParseFromString(request)
 		command = message.payload[0].command
