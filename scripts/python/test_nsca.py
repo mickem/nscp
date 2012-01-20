@@ -88,10 +88,8 @@ class NSCAServerTest(BasicTest):
 	def set_response(self, msg):
 		with sync:
 			if msg.uuid in self._responses:
-				log('Updated: %s'%msg.uuid)
-			self._responses[msg.uuid].copy_changed_attributes(msg)
+				self._responses[msg.uuid].copy_changed_attributes(msg)
 			else:
-				log('Added: %s'%msg.uuid)
 				self._responses[msg.uuid] = msg
 			
 
@@ -157,11 +155,11 @@ class NSCAServerTest(BasicTest):
 						rmsg = self.get_response(uuid)
 						if rmsg.got_simple_response and rmsg.got_response:
 							log('Got delayed response %s'%uuid)
-				else:
+						else:
 							log('Waiting for delayed response %s (%d/10)'%(uuid, j+1))
 					
 				result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
-					result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%tag)
+				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%tag)
 				result.assert_equals(rmsg.command, uuid, 'Verify that command is sent through using %s'%tag)
 				result.assert_contains(rmsg.message, msg, 'Verify that message is sent through using %s'%tag)
 				
