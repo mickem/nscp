@@ -42,7 +42,6 @@ class NSCAMessage:
 			self.uuid = command
 		#self.uuid = unicodedata.normalize('NFKD', command).encode('ascii','ignore')
 		self.command = command
-		self.uuid = None
 		self.source = None
 		self.status = None
 		self.message = None
@@ -88,7 +87,13 @@ class NSCAServerTest(BasicTest):
 
 	def set_response(self, msg):
 		with sync:
+			if msg.uuid in self._responses:
+				log('Updated: %s'%msg.uuid)
 			self._responses[msg.uuid].copy_changed_attributes(msg)
+			else:
+				log('Added: %s'%msg.uuid)
+				self._responses[msg.uuid] = msg
+			
 
 	def del_response(self, id):
 		with sync:
@@ -119,7 +124,7 @@ class NSCAServerTest(BasicTest):
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
 		log('Got simple message %s on %s'%(command, channel))
-		msg = self.get_response(command)
+		msg = NSCAMessage(command)
 		msg.source = source
 		msg.status = status
 		msg.message = message
@@ -134,7 +139,7 @@ class NSCAServerTest(BasicTest):
 		command = message.payload[0].command
 		log('Got message %s on %s'%(command, channel))
 		
-		msg = self.get_response(command)
+		msg = NSCAMessage(command)
 		msg.got_response = True
 		self.set_response(msg)
 		return None
@@ -147,15 +152,21 @@ class NSCAServerTest(BasicTest):
 		for i in range(0,10):
 			if self.has_response(uuid):
 				rmsg = self.get_response(uuid)
-				result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
-				if 'exec' in tag and 'UNKNOWN' in tag and not rmsg.got_simple_response:
-					result.add_message(True, 'FAILED -- TODO -- FIX ME -- Testing to recieve simple message using %s'%tag)
+				if not rmsg.got_simple_response or not rmsg.got_response:
+					for j in range(0,3):
+						rmsg = self.get_response(uuid)
+						if rmsg.got_simple_response and rmsg.got_response:
+							log('Got delayed response %s'%uuid)
 				else:
+							log('Waiting for delayed response %s (%d/10)'%(uuid, j+1))
+					
+				result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
 					result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%tag)
-				#result.assert_equals(rmsg.last_source, source, 'Verify that source is sent through')
 				result.assert_equals(rmsg.command, uuid, 'Verify that command is sent through using %s'%tag)
 				result.assert_contains(rmsg.message, msg, 'Verify that message is sent through using %s'%tag)
-				result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through using %s'%tag)
+				
+				#result.assert_equals(rmsg.last_source, source, 'Verify that source is sent through')
+				#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through using %s'%tag)
 				self.del_response(uuid)
 				return True
 			else:
@@ -189,7 +200,7 @@ class NSCAServerTest(BasicTest):
 		payload.source = source
 		(result_code, err) = core.submit('nsca_test_outbox', message.SerializeToString())
 
-		result = TestResult('Testing payload: %s'%tag)
+		result = TestResult('Testing payload submission (via API): %s'%tag)
 		result.add_message(len(err) == 0, 'Testing to send message using %s/sbp'%tag, err)
 		self.wait_and_validate(uid, result, msg, perf, '%s/spb'%tag)
 		return result
@@ -207,7 +218,7 @@ class NSCAServerTest(BasicTest):
 			'--host', '127.0.0.1:15667'
 			]
 		(result_code, result_message) = core.simple_exec('any', 'nsca_submit', args)
-		result = TestResult()
+		result = TestResult('Testing payload submission (via command line exec): %s'%tag)
 		
 		result.add_message(result_code == 0, 'Testing to send message using %s/exec:1'%tag)
 		result.add_message(len(result_message) == 1, 'Testing to send message using %s/exec:2'%tag, len(result_message))
