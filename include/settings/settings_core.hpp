@@ -35,23 +35,31 @@
 namespace settings {
 
 
-	class settings_exception {
-		std::wstring error_;
+	class settings_exception : std::exception {
+		std::string error_;
 	public:
 		//////////////////////////////////////////////////////////////////////////
 		/// Constructor takes an error message.
 		/// @param error the error message
 		///
 		/// @author mickem
-		settings_exception(std::wstring error) : error_(error) {}
+		settings_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
+		settings_exception(std::string error) : error_(utf8::cvt<std::string>(error)) {}
+		~settings_exception() throw() {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Retrieve the error message from the exception.
 		/// @return the error message
 		///
 		/// @author mickem
-		std::wstring getError() const { return error_; }
-		std::wstring getMessage() const { return error_; }
+		std::wstring getError() const { return wwhat(); }
+		std::wstring getMessage() const { return wwhat(); }
+		const char* what() const throw() {
+			return error_.c_str();
+		}
+		const std::wstring wwhat() const throw() {
+			return utf8::to_unicode(error_);
+		}
 	};
 	class KeyNotFoundException : public settings_exception {
 	public:

@@ -117,30 +117,32 @@ namespace nscapi {
 		}
 		
 		static Plugin::LogEntry::Entry::Level log_to_gpb(NSCAPI::messageTypes ret) {
-			if (ret == NSCAPI::critical)
+			if (ret == NSCAPI::log_level::critical)
 				return Plugin::LogEntry_Entry_Level_LOG_CRITICAL;
-			if (ret == NSCAPI::debug)
+			if (ret == NSCAPI::log_level::debug)
 				return Plugin::LogEntry_Entry_Level_LOG_DEBUG;
-			if (ret == NSCAPI::error)
+			if (ret == NSCAPI::log_level::error)
 				return Plugin::LogEntry_Entry_Level_LOG_ERROR;
-			if (ret == NSCAPI::log)
+			if (ret == NSCAPI::log_level::log)
 				return Plugin::LogEntry_Entry_Level_LOG_INFO;
-			if (ret == NSCAPI::warning)
+			if (ret == NSCAPI::log_level::info)
+				return Plugin::LogEntry_Entry_Level_LOG_INFO;
+			if (ret == NSCAPI::log_level::warning)
 				return Plugin::LogEntry_Entry_Level_LOG_WARNING;
 			return Plugin::LogEntry_Entry_Level_LOG_ERROR;
 		}
 		static NSCAPI::messageTypes gpb_to_log(Plugin::LogEntry::Entry::Level ret) {
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_CRITICAL)
-				return NSCAPI::critical;
+				return NSCAPI::log_level::critical;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_DEBUG)
-				return NSCAPI::debug;
+				return NSCAPI::log_level::debug;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_ERROR)
-				return NSCAPI::error;
+				return NSCAPI::log_level::error;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_INFO)
-				return NSCAPI::log;
+				return NSCAPI::log_level::info;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_WARNING)
-				return NSCAPI::warning;
-			return NSCAPI::error;
+				return NSCAPI::log_level::warning;
+			return NSCAPI::log_level::error;
 		}
 
 

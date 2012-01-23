@@ -10,6 +10,8 @@
 ///
 /// @author mickem
 void settings_logger::err(std::string file, int line, std::wstring message) {
+	if (!mainClient.should_log(NSCAPI::log_level::error))
+		return;
 	std::string s = nsclient::logger_helper::create_error(file.c_str(), line, message.c_str());
 	mainClient.reportMessage(s);
 }
@@ -22,6 +24,8 @@ void settings_logger::err(std::string file, int line, std::wstring message) {
 ///
 /// @author mickem
 void settings_logger::warn(std::string file, int line, std::wstring message) {
+	if (!mainClient.should_log(NSCAPI::log_level::warning))
+		return;
 	std::string s = nsclient::logger_helper::create_warning(file.c_str(), line, message.c_str());
 	mainClient.reportMessage(s);
 }
@@ -34,6 +38,8 @@ void settings_logger::warn(std::string file, int line, std::wstring message) {
 ///
 /// @author mickem
 void settings_logger::info(std::string file, int line, std::wstring message) {
+	if (!mainClient.should_log(NSCAPI::log_level::info))
+		return;
 	std::string s = nsclient::logger_helper::create_info(file.c_str(), line, message.c_str());
 	mainClient.reportMessage(s);
 }
@@ -46,7 +52,7 @@ void settings_logger::info(std::string file, int line, std::wstring message) {
 ///
 /// @author mickem
 void settings_logger::debug(std::string file, int line, std::wstring message) {
-	if (!mainClient.logDebug())
+	if (!mainClient.should_log(NSCAPI::log_level::debug))
 		return;
 	std::string s = nsclient::logger_helper::create_debug(file.c_str(), line, message.c_str());
 	mainClient.reportMessage(s);

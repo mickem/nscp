@@ -75,7 +75,7 @@ std::string CheckNSCP::render(int msgType, const std::string file, int line, std
 	return message;
 }
 void CheckNSCP::handleMessage(int msgType, const std::string file, int line, std::string message) {
-	if (msgType != NSCAPI::error||msgType != NSCAPI::critical)
+	if (msgType > NSCAPI::log_level::error)
 		return;
 	std::string err = render(msgType, file, line, message);
 	{

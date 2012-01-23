@@ -5,6 +5,15 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-22 MickeM
+ * Fixed so NSCAClient parses address correctly
+ * setings exception is now derived from exception meaning it will show up more with details (instead of unknown)
+ * Added API for handling log level (replaces older debug flag)
+ * Added options for settings debug level
+ * Changed to --settings is a global argument (meaning you canuse it in any mode)
+ * Added arguments parsing to test: so you can use global arguments such as --log and --settings.
+ * Removed memory leak in settings parsing interface
+
 2012-01-20 MickeM
  * Fixed a race condition in the python unit test script
 

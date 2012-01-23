@@ -150,15 +150,15 @@ namespace nsclient {
 			std::wstring render_log_level(Plugin::LogEntry::Entry::Level l) {
 				int code = nscapi::functions::gpb_to_log(l);
 				switch (code) {
-					case NSCAPI::critical:
+					case NSCAPI::log_level::critical:
 						return _T("c");
-					case NSCAPI::warning:
+					case NSCAPI::log_level::warning:
 						return _T("w");
-					case NSCAPI::error:
+					case NSCAPI::log_level::error:
 						return _T("e");
-					case NSCAPI::log:
+					case NSCAPI::log_level::log:
 						return _T("l");
-					case NSCAPI::debug:
+					case NSCAPI::log_level::debug:
 						return _T("d");
 					default:
 						return _T("?");

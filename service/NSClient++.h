@@ -24,6 +24,7 @@
 #include <com_helpers.hpp>
 #endif
 
+
 #include <types.hpp>
 #include <config.h>
 #include <service/system_service.hpp>
@@ -96,8 +97,9 @@ private:
 
 	//boost::shared_mutex m_mutexRWcmdDescriptions;
 	//cmdMap cmdDescriptions_;
-	enum log_status {log_state_unknown, log_state_looking, log_state_debug, log_state_nodebug };
-	log_status debug_;
+	enum log_status {log_state_unknown, log_state_looking, log_state_set };
+	log_status log_status_;
+	NSCAPI::log_level::level log_level_;
 	std::wstring context_;
 #ifdef WIN32
 	com_helper::initialize_com com_helper_;
@@ -118,16 +120,12 @@ private:
 public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
-	NSClientT(void) : debug_(log_state_unknown), enable_shared_session_(false), commands_(this), channels_(this), routers_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
+	NSClientT(void) : log_status_(log_state_unknown), log_level_(NSCAPI::log_level::log), enable_shared_session_(false), commands_(this), channels_(this), routers_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
 		logger_master_.start_slave();
 	}
 	virtual ~NSClientT(void) {}
-	void enableDebug(bool debug = true) {
-		if (debug)
-			debug_ = log_state_debug;
-		else
-			debug_ = log_state_nodebug;
-	}
+	NSCAPI::log_level::level get_loglevel();
+	void set_loglevel(std::wstring level);
 
 	// Service helper functions
 	bool boot_init();
@@ -212,7 +210,7 @@ public:
 	void startTrayIcons();
 	void startTrayIcon(DWORD dwSessionId);
 
-	bool logDebug();
+	bool should_log(NSCAPI::nagiosReturn level);
 	void listPlugins();
 	plugin_info_list get_all_plugins();
 	plugin_alias_list_type find_all_plugins(bool active);

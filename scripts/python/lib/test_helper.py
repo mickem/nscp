@@ -1,4 +1,4 @@
-from NSCP import Settings, Registry, Core, log, log_error, status
+from NSCP import Settings, Registry, Core, log, log_debug, log_error, status
 import os
 import inspect
 
@@ -32,7 +32,6 @@ def destroy_test_manager():
 def create_test_manager(plugin_id = 0, plugin_alias = '', script_alias = ''):
 	global test_manager
 	if not test_manager:
-		log('=== Creating new Test manager ===')
 		test_manager = TestManager(plugin_id, plugin_alias, script_alias)
 		
 		reg = Registry.get(plugin_id)
@@ -42,8 +41,6 @@ def create_test_manager(plugin_id = 0, plugin_alias = '', script_alias = ''):
 		reg.simple_cmdline('run_python_test', run_tests)
 
 		reg.simple_function('py_unittest', run_tests, 'Run python unit test suite')
-	else:
-		log('=== Reusing existing testmanager ===')
 	
 	return test_manager
 	
@@ -81,7 +78,6 @@ class SingletonHelper:
 
 def setup_singleton(klass, src = None):
 	klass.getInstance = SingletonHelper(klass)
-	log('Setting path: %s'%src)
 	if not src:
 		cf = inspect.currentframe()
 		if cf:
@@ -89,7 +85,6 @@ def setup_singleton(klass, src = None):
 			if bf:
 				src = bf.f_code.co_filename
 	klass.__source__ = src
-	log('==>%s'%src)
 
 class BasicTest(object):
 
@@ -117,7 +112,6 @@ class BasicTest(object):
 	def install(self, arguments):
 		conf = Settings.get()
 		conf.set_string('/modules', 'pytest', 'PythonScript')
-		log('==> %s'%self.__source__)
 		fn = os.path.basename(self.__source__)
 		(sn, ext) = os.path.splitext(fn)
 		conf.register_key('/settings/pytest/scripts', sn, 'string', 'UNIT TEST SCRIPT: %s'%self.title(), 'A script for running unittests for: %s'%self.desc(), fn)
@@ -151,7 +145,7 @@ class TestResultEntry:
 
 	def log(self, prefix = '', indent = 0):
 		if self.status:
-			log('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
+			log_debug('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
 		else:
 			log_error('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
 	
@@ -188,7 +182,7 @@ class TestResultCollection(TestResultEntry):
 	def log(self, prefix = '', indent = 0):
 		start = '%s%s'%(prefix, ''.rjust(indent, ' '))
 		if self.status:
-			log('%s%s'%(start, self))
+			log_debug('%s%s'%(start, self))
 		else:
 			log_error('%s%s'%(start, self))
 		for c in self.children:
@@ -198,10 +192,10 @@ class TestResultCollection(TestResultEntry):
 		return self.status
 
 	def count(self):
-		total_count = 1
+		total_count = 0
 		ok_count = 0
-		if self.status:
-			ok_count = 1
+		#if self.status:
+		#	ok_count = 1
 
 		for c in self.children:
 			(total, ok) = c.count()
@@ -277,7 +271,7 @@ class TestResult(TestResultCollection):
 
 	def return_nagios(self):
 		(total, ok) = self.count()
-		log(' | Test result log (only summary will be returned to query)')
+		log_debug(' | Test result log (only summary will be returned to query)')
 		self.log(' | ')
 		if total == ok:
 			return (status.OK, "OK: %d test(s) successfull"%(total))

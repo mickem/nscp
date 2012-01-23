@@ -260,10 +260,10 @@ namespace script_wrapper {
 			return 1;
 		}
 		static int info (lua_State *L) {
-			return log_any(L, NSCAPI::log);
+			return log_any(L, NSCAPI::log_level::info);
 		}
 		static int error (lua_State *L) {
-			return log_any(L, NSCAPI::error);
+			return log_any(L, NSCAPI::log_level::error);
 		}
 		static int log_any(lua_State *L, int mode) {
 			where_type w = where(L);

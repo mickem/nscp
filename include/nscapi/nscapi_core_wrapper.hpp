@@ -72,6 +72,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPISettingsSave fNSAPISettingsSave;
 		nscapi::core_api::lpNSAPIRegisterSubmissionListener fNSAPIRegisterSubmissionListener;
 		nscapi::core_api::lpNSAPIRegisterRoutingListener fNSAPIRegisterRoutingListener;
+		nscapi::core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
 
 	public:
 
@@ -117,6 +118,7 @@ namespace nscapi {
 			, fNSAPIReleasePluginList(NULL)
 			, fNSAPISettingsSave(NULL)
 			, fNSAPIExpandPath(NULL)
+			, fNSAPIGetLoglevel(NULL)
 		{}
 
 		// Helper functions for calling into the core
@@ -132,8 +134,10 @@ namespace nscapi {
 		void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 		void settings_save();
 
-		void log(int msgType, std::string file, int line, std::wstring message);
-		void log(int msgType, std::string file, int line, std::string message);
+		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::wstring message);
+		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message);
+		bool should_log(NSCAPI::nagiosReturn msgType);
+		NSCAPI::log_level::level get_loglevel();
 		void DestroyBuffer(char**buffer);
 		NSCAPI::nagiosReturn query(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::nagiosReturn query(const std::wstring & command, const std::string & request, std::string & result);
@@ -152,7 +156,6 @@ namespace nscapi {
 		void StopService(void);
 		void Exit(void);
 		std::wstring getBasePath();
-		bool logDebug();
 		bool checkLogMessages(int type);
 		std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 		std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);

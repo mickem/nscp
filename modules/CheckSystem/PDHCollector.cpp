@@ -122,9 +122,9 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			std::list<std::wstring>	errors;
 			{
 				ReadLock lock(&mutex_, true, 5000);
-				if (!lock.IsLocked()) 
+				if (!lock.IsLocked()) {
 					NSC_LOG_ERROR(_T("Failed to get Mutex!"));
-				else {
+				} else {
 					try {
 						pdh.gatherData();
 					} catch (const PDH::PDHException &e) {
@@ -203,9 +203,9 @@ double PDHCollector::get_avg_value(std::wstring counter, unsigned int delta) {
 * Request termination of the thread (waiting for thread termination is not handled)
 */
 void PDHCollector::exitThread(void) {
-	if (hStopEvent_ == NULL)
+	if (hStopEvent_ == NULL) {
 		NSC_LOG_ERROR(_T("Stop event is not created!"));
-	else if (!SetEvent(hStopEvent_)) {
+	} else if (!SetEvent(hStopEvent_)) {
 			NSC_LOG_ERROR_STD(_T("SetStopEvent failed"));
 	}
 }

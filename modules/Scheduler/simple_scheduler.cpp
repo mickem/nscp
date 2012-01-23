@@ -66,8 +66,8 @@ namespace scheduler {
 				if (off.total_seconds() > error_threshold_) {
 					log_error(_T("NOONE IS HANDLING scheduled item ") + to_wstring((*instance).schedule_id) + _T(" ") + to_wstring(off.total_seconds()) + _T(" seconds to late from thread ") + to_wstring(id));
 				}
-			} else {
-				log_error(_T("Nothing is scheduled to run"));
+// 			} else {
+// 				log_error(_T("Nothing is scheduled to run"));
 			}
 
 			// add support for checking queue length

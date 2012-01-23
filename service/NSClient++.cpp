@@ -72,14 +72,16 @@ void NSClientT::log_info(const char* file, const int line, std::wstring message)
 	mainClient.reportMessage(s);
 }
 
-#define LOG_CRITICAL_CORE(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_CRITICAL_CORE(msg) if (mainClient.should_log(NSCAPI::log_level::critical)) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::wstring(msg))
-#define LOG_ERROR_CORE(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_ERROR_CORE(msg) if (mainClient.should_log(NSCAPI::log_level::error)) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::wstring(msg))
-#define LOG_INFO_CORE(msg) { std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_INFO_CORE(msg) if (mainClient.should_log(NSCAPI::log_level::info)) { std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::wstring(msg))
-#define LOG_DEBUG_CORE(msg) { if (mainClient.logDebug()) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); } }
+#define LOG_DEBUG_CORE(msg) if (mainClient.should_log(NSCAPI::log_level::debug)) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::wstring(msg))
+#define LOG_TRACE_CORE(msg) if (mainClient.should_log(NSCAPI::log_level::trace)) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_TRACE_CORE_STD(msg) LOG_DEBUG_CORE(std::wstring(msg))
 
 /**
  * START OF Tray starter MERGE HELPER
@@ -1110,9 +1112,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
  */
 NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::string &request, std::string &response) {
 	std::wstring cmd = nsclient::commands::make_key(raw_command);
-	if (logDebug()) {
-		LOG_DEBUG_CORE_STD(_T("Injecting: ") + cmd + _T("..."));
-	}
+	LOG_DEBUG_CORE_STD(_T("Injecting: ") + cmd + _T("..."));
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
 			std::wstring msg, perf;
@@ -1430,21 +1430,35 @@ void NSClientT::listPlugins() {
 
 }
 
-bool NSClientT::logDebug() {
-	if (debug_ == log_state_unknown) {
-		debug_ = log_state_looking;
+NSCAPI::log_level::level NSClientT::get_loglevel() {
+	if (log_status_ == log_state_unknown) {
+		log_status_ = log_state_looking;
 		try {
-			if (settings_manager::get_settings_no_wait()->get_bool(_T("log"), _T("debug"), false) == 1)
-				debug_ = log_state_debug;
-			else
-				debug_ = log_state_nodebug;
+			if (settings_manager::get_settings_no_wait()->get_bool(_T("log"), _T("debug"), false) == 1) {
+				log_level_ = nscapi::logging::parse(_T("debug"));
+				log_status_ = log_state_set;
+			} else {
+				std::wstring level = settings_manager::get_settings_no_wait()->get_string(_T("log"), _T("level"), _T("service"));
+				log_level_ = nscapi::logging::parse(level);
+				log_status_ = log_state_set;
+			}
 		} catch (settings::settings_exception e) {
-			debug_ = log_state_unknown;
-			return false;
+			log_status_ = log_state_unknown;
 		}
-	} else if (debug_ == log_state_looking) 
-		return false;
-	return (debug_ == log_state_debug);
+	}
+	return log_level_;
+}
+
+bool NSClientT::should_log(NSCAPI::nagiosReturn level) {
+	return nscapi::logging::matches(get_loglevel(), level);
+}
+void NSClientT::set_loglevel(std::wstring level) {
+	log_status_ = log_state_set;
+	NSCAPI::log_level::level new_log_level = nscapi::logging::parse(level);
+	if (new_log_level != log_level_) {
+		//update_log_level() TODO
+		log_level_ = new_log_level;
+	}
 }
 
 /**

@@ -30,10 +30,14 @@ public:
 
 
 	void log_debug(std::string file, int line, std::wstring msg) {
-		GET_CORE()->log(NSCAPI::debug, file, line, msg);
+		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
+		}
 	}
 	void log_error(std::string file, int line, std::wstring msg) {
-		GET_CORE()->log(NSCAPI::error, file, line, msg);
+		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
+		}
 	}
 
 	void set_password(std::wstring password) {

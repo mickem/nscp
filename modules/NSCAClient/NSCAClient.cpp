@@ -124,7 +124,6 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
-
 		}
 
 		if (!targets.has_target(_T("default"))) {
@@ -133,19 +132,20 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		}
 		nscapi::target_handler::optarget t = targets.find_target(_T("default"));
 		if (t) {
-			if (!t->has_option("encryption"))
-				t->options[_T("encryption")] = encryption;
-			if (!t->has_option("timeout"))
-				t->options[_T("timeout")] = strEx::itos(timeout);
-			if (!t->has_option("payload length"))
-				t->options[_T("payload length")] = strEx::itos(payload_length);
-			if (!t->has_option("time offset"))
-				t->options[_T("time offset")] = utf8::cvt<std::wstring>(delay);
-			if (!t->has_option("password"))
-				t->options[_T("password")] = password;
-			if (!t->address.empty())
-				t->address = _T("nsca://") + nscahost + _T(":") + strEx::itos(nscaport);
-			targets.add(*t);
+			nscapi::target_handler::target target = *t;
+			if (!target.has_option("encryption"))
+				target.options[_T("encryption")] = encryption;
+			if (!target.has_option("timeout"))
+				target.options[_T("timeout")] = strEx::itos(timeout);
+			if (!target.has_option("payload length"))
+				target.options[_T("payload length")] = strEx::itos(payload_length);
+			if (!target.has_option("time offset"))
+				target.options[_T("time offset")] = utf8::cvt<std::wstring>(delay);
+			if (!target.has_option("password"))
+				target.options[_T("password")] = password;
+			if (target.address.empty())
+				target.address = _T("nsca://") + nscahost + _T(":") + strEx::itos(nscaport);
+			targets.add(target);
 		} else {
 			NSC_LOG_ERROR(_T("Default target not found!"));
 		}
@@ -169,7 +169,7 @@ std::wstring NSCAAgent::getCryptos() {
 		if (nsca::nsca_encrypt::hasEncryption(i)) {
 			std::wstring name;
 			try {
-				nsca::nsca_encrypt::any_encryption *core = nsca::nsca_encrypt::get_encryption_core(i);
+				boost::shared_ptr<nsca::nsca_encrypt::any_encryption> core(nsca::nsca_encrypt::get_encryption_core(i));
 				if (core == NULL)
 					name = _T("Broken<NULL>");
 				else
@@ -291,11 +291,16 @@ void NSCAAgent::setup(client::configuration &config) {
 	nscapi::target_handler::optarget opt = targets.find_target(_T("default"));
 	if (opt) {
 		nscapi::target_handler::target t = *opt;
-		url.host = t.host;
-		if (t.has_option("port")) {
-			try {
-				url.port = strEx::stoi(t.options[_T("port")]);
-			} catch (...) {}
+		if (t.address.empty()) {
+			if (t.host.empty())
+				url.host = t.host;
+			if (t.has_option("port")) {
+				try {
+					url.port = strEx::stoi(t.options[_T("port")]);
+				} catch (...) {}
+			}
+		} else {
+			url = net::parse(t.address);
 		}
 		std::string keys[] = {"encryption", "timeout", "payload length", "password", "time offset"};
 		BOOST_FOREACH(std::string s, keys) {

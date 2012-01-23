@@ -166,8 +166,8 @@ namespace nscapi {
 		};
 
 		template<typename T>
-		typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* wstring_vector_key(T *val, typename T::key_type key, std::wstring def) {
-			typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* r = new typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >(val, key, def);
+		boost::shared_ptr<typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> > > wstring_vector_key(T *val, typename T::key_type key, std::wstring def) {
+			boost::shared_ptr<typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> > > r(new typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >(val, key, def));
 			return r;
 		}
 
@@ -182,26 +182,26 @@ namespace nscapi {
 		template<typename T>
 		typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* wstring_vector_key(T *val, typename T::key_type key, std::wstring def);
 		*/
-		wstring_key_type* wstring_key(std::wstring *val, std::wstring def = _T(""));
-		string_key_type* string_key(std::string *val, std::string def = "");
-		int_key_type* int_key(int *val, int def = 0);
-		uint_key_type* uint_key(unsigned int *val, unsigned int def = 0);
-		bool_key_type* bool_key(bool *val, bool def = false);
-		wpath_key_type* wpath_key(std::wstring *val, std::wstring def = _T(""));
+		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val, std::wstring def = _T(""));
+		boost::shared_ptr<string_key_type> string_key(std::string *val, std::string def = "");
+		boost::shared_ptr<int_key_type> int_key(int *val, int def = 0);
+		boost::shared_ptr<uint_key_type> uint_key(unsigned int *val, unsigned int def = 0);
+		boost::shared_ptr<bool_key_type> bool_key(bool *val, bool def = false);
+		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val, std::wstring def = _T(""));
 
 		template<class T>
-		typed_key_fun<T, typed_int_value<T> >* int_fun_key(boost::function<void (T)> fun, T def) {
-			typed_key_fun<T, typed_int_value<T> >* r = new typed_key_fun<T, typed_int_value<T> >(fun, def);
+		boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > int_fun_key(boost::function<void (T)> fun, T def) {
+			boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > r(new typed_key_fun<T, typed_int_value<T> >(fun, def));
 			return r;
 		}
 		template<class T>
-		typed_key_fun<T, typed_bool_value<T> >* bool_fun_key(boost::function<void (T)> fun, T def) {
-			typed_key_fun<T, typed_bool_value<T> >* r = new typed_key_fun<T, typed_bool_value<T> >(fun, def);
+		boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > bool_fun_key(boost::function<void (T)> fun, T def) {
+			boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > r(new typed_key_fun<T, typed_bool_value<T> >(fun, def));
 			return r;
 		}
 		template<class T>
-		typed_key_fun<T, typed_string_value<T> >* string_fun_key(boost::function<void (T)> fun, T def) {
-			typed_key_fun<T, typed_string_value<T> >* r = new typed_key_fun<T, typed_string_value<T> >(fun, def);
+		boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > string_fun_key(boost::function<void (T)> fun, T def) {
+			boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > r(new typed_key_fun<T, typed_string_value<T> >(fun, def));
 			return r;
 		}
 
@@ -284,10 +284,10 @@ namespace nscapi {
 		};
 
 
-		typed_path_fun* fun_path(boost::function<void (std::wstring)> fun);
-		typed_path_fun_value* fun_values_path(boost::function<void (std::wstring,std::wstring)> fun);
-		typed_path_map<>* wstring_map_path(std::map<std::wstring,std::wstring> *val);
-		typed_path_list* wstring_list_path(std::list<std::wstring> *val);
+		boost::shared_ptr<typed_path_fun> fun_path(boost::function<void (std::wstring)> fun);
+		boost::shared_ptr<typed_path_fun_value> fun_values_path(boost::function<void (std::wstring,std::wstring)> fun);
+		boost::shared_ptr<typed_path_map<> > wstring_map_path(std::map<std::wstring,std::wstring> *val);
+		boost::shared_ptr<typed_path_list> wstring_list_path(std::list<std::wstring> *val);
 
 		struct description_container {
 			std::wstring title;
@@ -327,7 +327,7 @@ namespace nscapi {
 			boost::shared_ptr<key_interface> key;
 			description_container description;
 
-			key_info(std::wstring path_, std::wstring key_name_, key_interface* key, description_container description_) 
+			key_info(std::wstring path_, std::wstring key_name_, boost::shared_ptr<key_interface> key, description_container description_) 
 				: path(path_)
 				, key_name(key_name_)
 				, key(key)
@@ -358,7 +358,7 @@ namespace nscapi {
 			boost::shared_ptr<path_interface> path;
 
 			path_info(std::wstring path_name, description_container description_) : path_name(path_name), description(description_) {}
-			path_info(std::wstring path_name, path_interface* path, description_container description_) : path_name(path_name), path(path), description(description_) {}
+			path_info(std::wstring path_name, boost::shared_ptr<path_interface> path, description_container description_) : path_name(path_name), path(path), description(description_) {}
 
 			path_info(const path_info& obj) : path_name(obj.path_name), description(obj.description), path(obj.path) {}
 			virtual path_info& operator=(const path_info& obj) {
@@ -376,7 +376,7 @@ namespace nscapi {
 			settings_paths_easy_init(settings_registry* owner) : owner(owner) {}
 			settings_paths_easy_init(std::wstring path, settings_registry* owner) : path_(path), owner(owner) {}
 
-			settings_paths_easy_init& operator()(path_interface *value, std::wstring title, std::wstring description) {
+			settings_paths_easy_init& operator()(boost::shared_ptr<path_interface> value, std::wstring title, std::wstring description) {
 				boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description)));
 				add(d);
 				return *this;
@@ -393,7 +393,7 @@ namespace nscapi {
 				add(d);
 				return *this;
 			}
-			settings_paths_easy_init& operator()(std::wstring path, path_interface *value, std::wstring title, std::wstring description) {
+			settings_paths_easy_init& operator()(std::wstring path, boost::shared_ptr<path_interface> value, std::wstring title, std::wstring description) {
 				if (!path_.empty())
 					path = path_ + _T("/") + path;
 				boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description)));
@@ -414,7 +414,7 @@ namespace nscapi {
 			settings_keys_easy_init(std::wstring path, settings_registry* owner_) : owner(owner_), path_(path) {}
 			settings_keys_easy_init(std::wstring path, std::wstring parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent) {}
 
-			settings_keys_easy_init& operator()(std::wstring path, std::wstring key_name, key_interface *value, std::wstring title, std::wstring description) {
+			settings_keys_easy_init& operator()(std::wstring path, std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description) {
 				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description)));
 				if (!parent_.empty())
 					d->set_parent(parent_);
@@ -422,7 +422,7 @@ namespace nscapi {
 				return *this;
 			}
 
-			settings_keys_easy_init& operator()(std::wstring key_name, key_interface* value, std::wstring title, std::wstring description) {
+			settings_keys_easy_init& operator()(std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description) {
 				boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description)));
 				if (!parent_.empty())
 					d->set_parent(parent_);

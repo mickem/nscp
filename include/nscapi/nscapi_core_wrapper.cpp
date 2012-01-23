@@ -34,24 +34,37 @@
 
 using namespace nscp::helpers;
 
-#define CORE_LOG_ERROR_STD(msg) CORE_LOG_ERROR(((std::wstring)msg).c_str())
-#define CORE_LOG_ERROR(msg) CORE_ANY_MSG(msg,NSCAPI::error)
 
-#define CORE_LOG_CRITICAL_STD(msg) CORE_LOG_CRITICAL(((std::wstring)msg).c_str())
-#define CORE_LOG_CRITICAL(msg) CORE_ANY_MSG(msg,NSCAPI::critical)
+#define CORE_LOG_ERROR_STD(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, (std::wstring)msg); }
+#define CORE_LOG_ERROR(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, msg); }
 
-#define CORE_LOG_MESSAGE_STD(msg) CORE_LOG_MESSAGE(((std::wstring)msg).c_str())
-#define CORE_LOG_MESSAGE(msg) CORE_ANY_MSG(msg,NSCAPI::log)
+//#define CORE_LOG_CRITICAL_STD(msg) if (matches(NSCAPI::critical)) { CORE_ANY_MSG(NSCAPI::critical, __FILE__, __LINE__, (std::wstring)msg) }
+//#define CORE_LOG_CRITICAL(msg) if (matches(NSCAPI::critical)) { CORE_ANY_MSG(NSCAPI::critical, __FILE__, __LINE__, msg) }
 
-#define CORE_DEBUG_MSG_STD(msg) CORE_DEBUG_MSG((std::wstring)msg)
-#define CORE_DEBUG_MSG(msg) CORE_ANY_MSG(msg,NSCAPI::debug)
+//#define CORE_LOG_MESSAGE_STD(msg) if (matches(NSCAPI::info)) { CORE_ANY_MSG(NSCAPI::info, __FILE__, __LINE__, (std::wstring)msg) }
+//#define CORE_LOG_MESSAGE(msg) if (matches(NSCAPI::info)) { CORE_ANY_MSG(NSCAPI::info, __FILE__, __LINE__, msg) }
 
-#define CORE_ANY_MSG(msg, type) log(type, __FILE__, __LINE__, msg)
+//#define CORE_DEBUG_MSG_STD(msg) if (matches(NSCAPI::debug)) { CORE_ANY_MSG(NSCAPI::debug, __FILE__, __LINE__, (std::wstring)msg) }
+//#define CORE_DEBUG_MSG(msg) if (matches(NSCAPI::debug)) { CORE_ANY_MSG(NSCAPI::debug, __FILE__, __LINE__, msg) }
+
+//#define CORE_ANY_MSG(msg, type) log(type, __FILE__, __LINE__, msg)
 
 
 //////////////////////////////////////////////////////////////////////////
 // Callbacks into the core
 //////////////////////////////////////////////////////////////////////////
+
+bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) {
+	enum log_status {unknown, set };
+	static NSCAPI::log_level::level level = NSCAPI::log_level::log;
+	static log_status status = unknown;
+	if (status == unknown) {
+		level = get_loglevel();
+		status = set;
+	}
+	return nscapi::logging::matches(level, msgType);
+}
+
 
 /**
  * Callback to send a message through to the core
@@ -62,35 +75,44 @@ using namespace nscp::helpers;
  * @param message Message in human readable format
  * @throws nscapi::nscapi_exception When core pointer set is unavailable.
  */
-void nscapi::core_wrapper::log(int msgType, std::string file, int line, std::wstring logMessage) {
-	if (fNSAPIMessage) {
-		if ((msgType == NSCAPI::debug) && (!logDebug()))
-			return;
-		std::string str;
-		try {
-			Plugin::LogEntry message;
-			Plugin::LogEntry::Entry *msg = message.add_entry();
-			msg->set_level(nscapi::functions::log_to_gpb(msgType));
-			msg->set_file(file);
-			msg->set_line(line);
-			msg->set_message(utf8::cvt<std::string>(logMessage));
-			if (!message.SerializeToString(&str)) {
-				std::cout << "Failed to generate message";
-			}
-			return fNSAPIMessage(str.c_str(), str.size());
-		} catch (...) {
-			std::wcout << _T("Failed to generate message: ");
-		}
-// 		return fNSAPIMessage(to_string(logMessage).c_str(), logMessage.size());
-	}
-	else
+void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::wstring logMessage) {
+	if (!should_log(msgType))
+		return;
+	if (!fNSAPIMessage) {
 		std::wcout << _T("*** *** *** NSCore not loaded, dumping log: ") << to_wstring(file) << _T(":") << line << _T(": ") << std::endl << logMessage << std::endl;
+		return;
+	}
+	std::string str;
+	try {
+		Plugin::LogEntry message;
+		Plugin::LogEntry::Entry *msg = message.add_entry();
+		msg->set_level(nscapi::functions::log_to_gpb(msgType));
+		msg->set_file(file);
+		msg->set_line(line);
+		msg->set_message(utf8::cvt<std::string>(logMessage));
+		if (!message.SerializeToString(&str)) {
+			std::wcout << _T("Failed to generate message: SERIALIZATION ERROR");
+		}
+		return fNSAPIMessage(str.c_str(), str.size());
+	} catch (const std::exception &e) {
+		std::wcout << _T("Failed to generate message: ") << utf8::to_unicode(e.what());
+	} catch (...) {
+		std::wcout << _T("Failed to generate message: UNKNOWN");
+	}
 }
-void nscapi::core_wrapper::log(int msgType, std::string file, int line, std::string message) {
-	if ((msgType == NSCAPI::debug) && (!logDebug()))
+void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message) {
+	if (!should_log(msgType))
 		return;
 	log(msgType, file, line, utf8::cvt<std::wstring>(message));
 }
+
+NSCAPI::log_level::level nscapi::core_wrapper::get_loglevel() {
+	if (!fNSAPIGetLoglevel) {
+		return NSCAPI::log_level::debug;
+	}
+	return fNSAPIGetLoglevel();
+}
+
 
 /**
  * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
@@ -236,7 +258,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::wstring & command, c
 	DestroyBuffer(&buffer);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
-			CORE_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
+			CORE_LOG_ERROR_STD(_T("No handler for command '") + command + _T("'."));
 			break;
 		case NSCAPI::returnOK:
 		case NSCAPI::returnCRIT:
@@ -272,7 +294,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::wstring targe
 	DestroyBuffer(&buffer);
 	switch (retC) {
 		case NSCAPI::returnIgnored:
-			CORE_LOG_MESSAGE_STD(_T("No handler for command '") + command + _T("'."));
+			CORE_LOG_ERROR_STD(_T("No handler for command '") + command + _T("'."));
 			break;
 		case NSCAPI::returnOK:
 		case NSCAPI::returnCRIT:
@@ -474,18 +496,6 @@ unsigned int nscapi::core_wrapper::getBufferLength() {
 	return len;
 }
 
-
-bool nscapi::core_wrapper::logDebug() {
-	enum status {unknown, debug, nodebug };
-	static status d = unknown;
-	if (d == unknown) {
-		if (checkLogMessages(debug)== NSCAPI::istrue)
-			d = debug;
-		else
-			d = nodebug;
-	}
-	return (d == debug);
-}
 
 std::wstring nscapi::core_wrapper::Encrypt(std::wstring str, unsigned int algorithm) {
 	if (!fNSAPIEncrypt)
@@ -697,6 +707,7 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	
 	fNSAPIRegisterSubmissionListener = (nscapi::core_api::lpNSAPIRegisterSubmissionListener)f(_T("NSAPIRegisterSubmissionListener"));
 	fNSAPIRegisterRoutingListener = (nscapi::core_api::lpNSAPIRegisterRoutingListener)f(_T("NSAPIRegisterRoutingListener"));
+	fNSAPIGetLoglevel = (nscapi::core_api::lpNSAPIGetLoglevel)f(_T("NSAPIGetLoglevel"));
 
 	return true;
 }

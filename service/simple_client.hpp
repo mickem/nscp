@@ -13,7 +13,6 @@ namespace nsclient {
 			core_->reportMessage(s);
 		}
 		void start() {
-			core_->enableDebug(true);
 			if (!core_->boot_init()) {
 				core_->log_error(__FILE__, __LINE__, _T("Service failed to init"));
 				return;
@@ -57,12 +56,9 @@ namespace nsclient {
 					std::list<std::wstring> lst = core_->list_commands();
 					for (std::list<std::wstring>::const_iterator cit = lst.begin(); cit!=lst.end();++cit)
 						log(_T("| ") + *cit + _T(": ") + core_->describeCommand(*cit));
-				} else if (s == _T("debug off")) {
-					log(_T("Setting debug log off..."));
-					core_->enableDebug(false);
-				} else if (s == _T("debug on")) {
-					log(_T("Setting debug log on..."));
-					core_->enableDebug(true);
+				} else if (s.size() > 4 && s.substr(0,3) == _T("log")) {
+					log(_T("Setting log to: ") + s.substr(4));
+					core_->set_loglevel(s.substr(4));
 				} else if (s == _T("reattach")) {
 					log(_T("Reattaching to session 0"));
 					core_->startTrayIcon(0);

@@ -168,9 +168,7 @@ NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsign
 }
 
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
-	if (mainClient.logDebug())
-		return NSCAPI::istrue;
-	return NSCAPI::isfalse;
+	return mainClient.should_log(messageType);
 }
 
 NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
@@ -512,6 +510,8 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIRegisterRoutingListener);
 	if (wcscasecmp(buffer, _T("NSAPIReload")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIReload);
+	if (wcscasecmp(buffer, _T("NSAPIGetLoglevel")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIGetLoglevel);
 
 	LOG_ERROR_STD(_T("Function not found: ") + buffer);
 	return NULL;
@@ -539,4 +539,8 @@ NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const char* request_buff
 
 void NSAPIDestroyBuffer(char**buffer) {
 	delete [] *buffer;
+}
+
+NSCAPI::log_level::level NSAPIGetLoglevel() {
+	return mainClient.get_loglevel();
 }

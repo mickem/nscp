@@ -34,34 +34,19 @@
 //////////////////////////////////////////////////////////////////////////
 // Logging calls for the core wrapper 
 
-#define NSC_LOG_ERROR_STD(msg) NSC_LOG_ERROR(((std::wstring)msg).c_str())
-#define NSC_LOG_ERROR(msg) NSC_ANY_MSG(msg,NSCAPI::error)
+#define NSC_LOG_ERROR_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG((std::wstring)msg, NSCAPI::log_level::error); }
+#define NSC_LOG_ERROR(msg) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG(msg, NSCAPI::log_level::error); }
 
-#define NSC_LOG_CRITICAL_STD(msg) NSC_LOG_CRITICAL(((std::wstring)msg).c_str())
-#define NSC_LOG_CRITICAL(msg) NSC_ANY_MSG(msg,NSCAPI::critical)
+#define NSC_LOG_CRITICAL_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::critical)) { NSC_ANY_MSG((std::wstring)msg, NSCAPI::log_level::critical); }
+#define NSC_LOG_CRITICAL(msg) if (GET_CORE()->should_log(NSCAPI::log_level::critical)) { NSC_ANY_MSG(msg, NSCAPI::log_level::critical); }
 
-#define NSC_LOG_MESSAGE_STD(msg) NSC_LOG_MESSAGE(((std::wstring)msg).c_str())
-#define NSC_LOG_MESSAGE(msg) NSC_ANY_MSG(msg,NSCAPI::log)
+#define NSC_LOG_MESSAGE_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::info)) { NSC_ANY_MSG((std::wstring)msg, NSCAPI::log_level::info); }
+#define NSC_LOG_MESSAGE(msg) if (GET_CORE()->should_log(NSCAPI::log_level::info)) { NSC_ANY_MSG(msg, NSCAPI::log_level::info); }
 
-#define NSC_DEBUG_MSG_STD(msg) NSC_DEBUG_MSG((std::wstring)msg)
-#define NSC_DEBUG_MSG(msg) NSC_ANY_MSG(msg,NSCAPI::debug)
+#define NSC_DEBUG_MSG_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::debug)) { NSC_ANY_MSG((std::wstring)msg, NSCAPI::log_level::debug); }
+#define NSC_DEBUG_MSG(msg) if (GET_CORE()->should_log(NSCAPI::log_level::debug)) { NSC_ANY_MSG(msg, NSCAPI::log_level::debug); }
 
 #define NSC_ANY_MSG(msg, type) GET_CORE()->log(type, __FILE__, __LINE__, msg)
-/*
-#define NSC_LOG_ERROR_STD(msg) 
-#define NSC_LOG_ERROR(msg) 
-
-#define NSC_LOG_CRITICAL_STD(msg) 
-#define NSC_LOG_CRITICAL(msg) 
-
-#define NSC_LOG_MESSAGE_STD(msg) 
-#define NSC_LOG_MESSAGE(msg) 
-
-#define NSC_DEBUG_MSG_STD(msg)
-#define NSC_DEBUG_MSG(msg)
-
-#define NSC_ANY_MSG(msg, type)
-*/
 
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point

@@ -165,8 +165,8 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + nscapi::logging::to_string(log_mask_));
 	init_ = true;
 	std::string hello = "Starting to log for: " + utf8::cvt<std::string>(GET_CORE()->getApplicationName()) + " - " + utf8::cvt<std::string>(GET_CORE()->getApplicationVersionString());
-	handleMessage(NSCAPI::log, __FILE__, __LINE__, hello);
-	handleMessage(NSCAPI::log, __FILE__, __LINE__, "Log path is: " + file_);
+	handleMessage(NSCAPI::log_level::log, __FILE__, __LINE__, hello);
+	handleMessage(NSCAPI::log_level::log, __FILE__, __LINE__, "Log path is: " + file_);
 	return true;
 }
 bool FileLogger::unloadModule() {

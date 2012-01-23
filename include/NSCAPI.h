@@ -95,13 +95,18 @@ namespace NSCAPI {
 	const int settings_inifile = 2;
 
 	// Various message Types
-	const int log = 1;				// Log message
-	const int error = -1;			// Error (non critical)
-	const int critical = -10;		// Critical error
-	const int warning = 2;			// Warning
-	const int debug = 10;			// Debug message
+	namespace log_level {
+		typedef int level;
+		const int critical = 1;	// Critical error
+		const int error = 10;	// Error
+		const int warning = 50;	// Warning			<<< Default for command line interface
+		const int log = 100;	// Log message		<<< Default for service
+		const int info = 150;	// information
+		const int debug = 500;	// Debug messages	<<< Default for test
+		const int trace = 1000;	// Trace messages
+	}
 
-	typedef int messageTypes;		// Message type
+	typedef log_level::level messageTypes;		// Message type
 
 	struct plugin_info {
 		wchar_t *dll;
@@ -174,6 +179,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
 		typedef NSCAPI::errorReturn (*lpNSAPIReload)(const wchar_t* module);
+		typedef NSCAPI::log_level::level (*lpNSAPIGetLoglevel)();
 
 	}
 

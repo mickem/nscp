@@ -23,7 +23,7 @@ namespace settings_manager {
 
 	inline NSCSettingsImpl* internal_get() {
 		if (settings_impl == NULL)
-			throw "Settings has not been initiated!";
+			throw settings::settings_exception(_T("Settings has not been initiated!"));
 		return settings_impl;
 	}
 	nscapi::settings_helper::settings_impl_interface_ptr get_proxy() {

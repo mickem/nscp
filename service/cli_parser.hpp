@@ -14,9 +14,10 @@ class cli_parser {
 	po::options_description client;
 	po::options_description common;
 
-	bool debug;
 	bool help;
 	bool version;
+	std::wstring log_level;
+	std::wstring settings_store;
 
 public:
 	cli_parser(NSClient* core) 
@@ -26,7 +27,6 @@ public:
 		, settings("Settings options")
 		, service("Service Options")
 		, client("Client Options")
-		, debug(false)
 		, help(false)
 		, version(false)
 	{
@@ -36,21 +36,23 @@ public:
 			("service-help", "Produce help message for the various settings related service management")
 			("client-help", "Produce help message for the various settings related client")
 			("test-help", "Produce help message for the various settings related client")
-
+/*
 			("settings", "Enter settings mode and handle settings related commands")
 			("service", "Enter service mode and handle service related commands")
 			("client", "Enter client mode and handle client related commands")
 			("test", "Start test and debug mode")
+			*/
 			("version", po::bool_switch(&version), "Show version information")
 			;
 		common.add_options()
+			("settings", po::value<std::wstring>(&settings_store), "Override (temporarily) settings subsystem to use")
 			("help", po::bool_switch(&help), "produce help message")
-			("debug", po::bool_switch(&debug), "Show debug information")
+			("debug", "Set log level to debug (and show debug information)")
+			("log", po::value<std::wstring>(&log_level), "The log level to use")
 			("version", po::bool_switch(&version), "Show version information")
 			;
 
 		settings.add_options()
-			("settings", po::value<std::wstring>(), "Override (temporarily) settings subsystem to use")
 			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
@@ -79,7 +81,6 @@ public:
 			("boot,b", "Boot the client before executing command (similar as running the command from test)")
 			("query,q", po::value<std::wstring>(), "Run a query with a given name")
 			("submit,s", po::value<std::wstring>(), "Name of query to ask")
-			("settings", po::value<std::wstring>(), "Override (temporarily) settings subsystem to use")
 			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
 			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
@@ -89,10 +90,10 @@ public:
 
 	bool process_common_options(std::string context, po::options_description &desc) {
 		core_->set_console_log();
-		if (debug) {
-			core_->enableDebug(true);
-			core_->log_debug(__FILE__, __LINE__, _T("Enabling debug mode"));
-		}
+		if (!log_level.empty())
+			core_->set_loglevel(log_level);
+		if (!settings_store.empty())
+			core_->set_settings_context(settings_store);
 
 		if (help) {
 			std::cout << desc << std::endl;
@@ -183,16 +184,27 @@ public:
 		bool server = false;
 
 		core_->set_console_log();
-		core_->enableDebug(true);
+		core_->set_loglevel(_T("debug"));
 
-// 		if (argc > 2 && wcscasecmp( _T("server"), argv[2] ) == 0 ) {
-// 			server = true;
-// 		}
-// 		std::wcout << "Launching test mode - " << (server?_T("server mode"):_T("client mode")) << std::endl;
-// 		LOG_MESSAGE_STD(_T("Booting: ") SZSERVICEDISPLAYNAME );
-		nsclient::simple_client client(core_);
-		client.start();
-		return 0;
+
+		try {
+			po::options_description all("Allowed options (settings)");
+			all.add(common).add(settings);
+
+			po::variables_map vm;
+			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::notify(vm);
+
+			if (process_common_options("settings", all))
+				return 1;
+
+			nsclient::simple_client client(core_);
+			client.start();
+			return 0;
+		} catch(std::exception & e) {
+			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
+			return 1;
+		}
 	}
 
 	int parse_settings(int argc, wchar_t* argv[]) {
@@ -286,14 +298,13 @@ public:
 			} else {
 				mainClient.log_info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
 			}
-			if (debug) {
+			if (mainClient.should_log(NSCAPI::log_level::debug)) {
 				mainClient.log_info(__FILE__, __LINE__, _T("Service name: ") + name);
 				mainClient.log_info(__FILE__, __LINE__, _T("Service description: ") + desc);
 			}
 
 			if (vm.count("run")) {
 				try {
-					mainClient.enableDebug(true);
 					mainClient.start_and_wait(name);
 				} catch (...) {
 					mainClient.log_error(__FILE__, __LINE__, _T("Unknown exception in service"));
@@ -394,7 +405,7 @@ public:
 				}
 			}
 
-			if (debug) {
+			if (mainClient.should_log(NSCAPI::log_level::debug)) {
 				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
 				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
 				mainClient.log_info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
@@ -406,8 +417,6 @@ public:
 					strEx::append_list(args, s, _T(", "));
 				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
 			}
-			if (vm.count("settings"))
-				core_->set_settings_context(vm["settings"].as<std::wstring>());
 
 			core_->boot_init();
 			if (module.empty())
@@ -452,7 +461,7 @@ public:
 				std::wcout << r << std::endl;
 			}
 			return ret;
-		} catch(std::exception & e) {
+		} catch(const std::exception & e) {
 			std::wcerr << _T("Client: Unable to parse command line: ") << utf8::to_unicode(e.what()) << std::endl;
 			return 1;
 		} catch(...) {
