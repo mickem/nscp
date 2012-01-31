@@ -158,6 +158,7 @@ namespace nsca {
 		};
 		class any_encryption {
 		public:
+			virtual ~any_encryption() {}
 			virtual void init(std::string password, std::string iv) = 0;
 			virtual void encrypt(std::string &buffer) = 0;
 			virtual void decrypt(std::string &buffer) = 0;
@@ -179,6 +180,7 @@ namespace nsca {
 		public:
 			cryptopp_encryption() : keysize_(TMethod::DEFAULT_KEYLENGTH) {}
 			cryptopp_encryption(int keysize) : keysize_(keysize) {}
+			virtual ~cryptopp_encryption() {}
 			int get_keySize() {
 				return keysize_;
 			}
@@ -187,47 +189,28 @@ namespace nsca {
 			}
 
 			virtual void init(std::string password, std::string iv) {
-				init(password, (unsigned char*)&*iv.begin(), iv.size());
+				int blocksize = get_blockSize();
+				if(blocksize>iv.size())
+					throw encryption_exception("IV size for crypto algorithm exceeds limits");
 
-			}
-			void init(std::string password, unsigned char *transmitted_iv, int iv_size) {
-				/* generate an encryption/description key using the password */
+				// Generate key buffer
 				std::string::size_type keysize=get_keySize();
-
-				unsigned char *key = new unsigned char[keysize+1];
-				if (key == NULL){
+				char *key = new char[keysize+1];
+				if (key == NULL)
 					throw encryption_exception("Could not allocate memory for encryption/decryption key");
-				}
 				memset(key, 0, keysize);
 				using namespace std;
 				memcpy(key,password.c_str(),min(keysize,password.length()));
-
-
-				/* determine size of IV buffer for this algorithm */
-				int blocksize = get_blockSize();
-				if(blocksize>iv_size){
-					throw encryption_exception("IV size for crypto algorithm exceeds limits");
-				}
-
-				/* allocate memory for IV buffer */
-				unsigned char *iv = new unsigned char[blocksize+1];
-				if (iv == NULL){
-					throw encryption_exception("Could not allocate memory for IV buffer");
-				}
-				memset(iv, 0, blocksize);
-
-				/* fill IV buffer with first bytes of IV that is going to be used to crypt (determined by server) */
-				memcpy(iv, transmitted_iv, sizeof(unsigned char)*blocksize);
+				std::string skey(key, keysize);
+				delete [] key;
 
 				try {
-					cipher_.SetKey(key, keysize);
-					crypto_.SetCipherWithIV(cipher_, iv, 1);
-					decrypto_.SetCipherWithIV(cipher_, iv, 1);
+					cipher_.SetKey((const byte*)skey.c_str(), keysize);
+					crypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
+					decrypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
 				} catch (...) {
 					throw encryption_exception("Unknown exception when trying to setup crypto");
 				}
-				delete [] iv;
-				delete [] key;
 			}
 			void encrypt(std::string &buffer) {
 				encrypt((unsigned char*)&*buffer.begin(), buffer.size());
@@ -438,11 +421,11 @@ namespace nsca {
 			if (core_ == NULL)
 				throw encryption_exception("Failed to get encryption module for: " + boost::lexical_cast<std::string>(encryption_method));
 
-			/* server generates IV used for encryption */
+			// server generates IV used for encryption 
 			if (received_iv.empty()) {
 				std::string iv = generate_transmitted_iv();
 				core_->init(password, iv);
-			} else	/* client receives IV from server */
+			} else	// client receives IV from server
 				core_->init(password, received_iv);
 		}
 

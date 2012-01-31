@@ -5,6 +5,32 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-01-31 MickeM
+ * Fixed issue with parsing "invalid external commands".
+   If parsing falies it will notify you but use the legacy split string method instead.
+ * LuaScript module is now modern (ie. works with 0.4.0)
+   Should be 99% compatbile (function needs to be defined before registration) but all old scripts should work now (I think)
+ * LuaScript module has been modernized
+   The new API is very similar to Python
+   Concepts are working but not all commands have beenh implementes (and no testcases either)
+   The old API will still work
+ * Fixed issue with 
+
+2012-01-27 MickeM
+ * Changed CheckCounter format option to take a coma separated list of keyword from the below list:
+	 nocap100: Counter values above 100 (for example, counter values measuring the processor load on multiprocessor computers) will not be reset to 100. The default behavior is that counter values are capped at a value of 100.
+	 1000: Multiply the actual value by 1000.
+	 noscale: Do not apply the default scaling factor.
+	 So format=nocap100,noscale would combine the two aspects above.
+
+2012-01-26 MickeM
+ * Fixed issue with parsing multiple performance data items (internally)
+ * Added option to CheckCounter format=nocap100 to not cap counters at 100% (for multi cpu machines)
+
+2012-01-22 MickeM
+ * Fixed help when specifying invalid options on command line
+ * Eradicated a potential memoryleakin the NSCA encryption library
+
 2012-01-22 MickeM
  * Fixed so NSCAClient parses address correctly
  * setings exception is now derived from exception meaning it will show up more with details (instead of unknown)

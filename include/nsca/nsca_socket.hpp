@@ -15,26 +15,24 @@ namespace nsca {
 	class socket : public boost::noncopyable {
 	private:
 		boost::shared_ptr<tcp::socket> socket_;
+		boost::asio::io_service &io_service_;
 		nsca_encrypt crypt_inst;
 	public:
 		typedef boost::asio::basic_socket<tcp,boost::asio::stream_socket_service<tcp> >  basic_socket_type;
 
 	public:
-		socket(boost::asio::io_service &io_service) {
-			socket_.reset(new tcp::socket(io_service));
+		socket(boost::asio::io_service &io_service) : io_service_(io_service) {
+			socket_.reset(new tcp::socket(io_service_));
 		}
-		socket() {}
-
-		virtual boost::asio::io_service& get_io_service() {
-			return socket_->get_io_service();
-		}
-		virtual basic_socket_type& get_socket() {
-			return *socket_;
+		~socket() {
+			if (socket_)
+				socket_->close();
+			socket_.reset();
 		}
 
 		virtual void connect(std::string host, std::string port) {
 			NSC_DEBUG_MSG(_T("Connecting to: ") + to_wstring(host) + _T(" (") + to_wstring(port) + _T(")"));
-			tcp::resolver resolver(get_io_service());
+			tcp::resolver resolver(io_service_);
 			tcp::resolver::query query(host, port);
 
 			tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
@@ -43,28 +41,33 @@ namespace nsca {
 			boost::system::error_code error = boost::asio::error::host_not_found;
 			while (error && endpoint_iterator != end) {
 				tcp::resolver::endpoint_type ep = *endpoint_iterator;
-				get_socket().close();
-				get_socket().lowest_layer().connect(*endpoint_iterator++, error);
+				socket_->close();
+				socket_->connect(*endpoint_iterator++, error);
 				NSC_DEBUG_MSG(_T("Connected to: ") + to_wstring(ep.address().to_string()));
 			}
-			if (error)
+			if (error) {
+				NSC_DEBUG_MSG(_T("Failed to connect to:") + utf8::to_unicode(host));
 				throw boost::system::system_error(error);
+			}
 		}
 
-		~socket() {
-			get_socket().close();
-		}
 
 		virtual void shutdown() {
 			NSC_DEBUG_MSG(_T("Ending socket (gracefully)"));
 			// Initiate graceful connection closure.
 			boost::system::error_code ignored_ec;
-			get_socket().lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+			if (socket_)
+				socket_->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+		};
+		virtual void close() {
+			if (socket_)
+				socket_->close();
+			socket_.reset();
 		};
 
 		virtual void send_nsca(const nsca::packet &packet, const boost::posix_time::seconds timeout) {
-			if (!get_socket().is_open()) {
-				NSC_DEBUG_MSG(_T("is closed..."));
+			if (!socket_ || !socket_->is_open()) {
+				NSC_LOG_ERROR_STD(_T("Socket was closed when trying to send data..."));
 				return;
 			}
 			std::string buffer = crypt_inst.get_rand_buffer(packet.get_packet_length());
@@ -74,8 +77,8 @@ namespace nsca {
 			write_with_timeout(buffer, timeout);
 		}
 		virtual bool recv_iv(std::string password, int encryption_method, boost::posix_time::seconds timeout) {
-			if (!get_socket().is_open()) {
-				NSC_DEBUG_MSG(_T("is closed..."));
+			if (!socket_ || !socket_->is_open()) {
+				NSC_LOG_ERROR_STD(_T("Socket was closed when trying to read data..."));
 				return false;
 			}
 			unsigned int len = nsca::length::iv::get_packet_length();
@@ -84,18 +87,17 @@ namespace nsca {
 				NSC_LOG_ERROR_STD(_T("Failed to read IV from server (using ") + strEx::itos(encryption_method) + _T(", ") + strEx::itos(len) + _T(")."));
 				return false;
 			}
-			std::string tmp = std::string(buf.begin(), buf.end());
-			nsca::iv_packet iv_packet(tmp);
+			nsca::iv_packet iv_packet(std::string(buf.begin(), buf.end()));
 			std::string iv = iv_packet.get_iv();
 			NSC_DEBUG_MSG(_T("Encrypting using when sending: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(encryption_method)) + _T(" and ") + utf8::cvt<std::wstring>(password));
 			crypt_inst.encrypt_init(password, encryption_method, iv);
 			return true;
 		}
 		virtual bool read_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {
-			return socket_helpers::io::read_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			return socket_helpers::io::read_with_timeout(*socket_, *socket_, boost::asio::buffer(buf), timeout);
 		}
 		virtual void write_with_timeout(std::string &buf, boost::posix_time::seconds timeout) {
-			socket_helpers::io::write_with_timeout(*socket_, get_socket(), boost::asio::buffer(buf), timeout);
+			socket_helpers::io::write_with_timeout(*socket_, *socket_, boost::asio::buffer(buf), timeout);
 		}
 	};
 }

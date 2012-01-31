@@ -28,14 +28,22 @@ class CheckExternalScripts : public nscapi::impl::simple_plugin {
 private:
 	struct command_data {
 		command_data() {}
-		command_data(std::wstring command_, std::wstring arguments_) : command(command_) {
+		command_data(std::wstring alias, std::wstring command_, std::wstring arguments_) : alias(alias), command(command_) {
 			parser_arguments(arguments_);
 		}
 		void parser_arguments(std::wstring args) {
-			boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring> 
-				tok(args, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
-			BOOST_FOREACH(std::wstring s, tok) {
-				arguments.push_back(s);
+			try {
+				boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring> 
+					tok(args, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
+				BOOST_FOREACH(std::wstring s, tok) {
+					arguments.push_back(s);
+				}
+			} catch (const std::exception &e) {
+				NSC_LOG_ERROR(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()));
+				strEx::splitList list = strEx::splitEx(args, _T(" "));
+				BOOST_FOREACH(std::wstring s, list) {
+					arguments.push_back(s);
+				}
 			}
 		}
 		std::wstring get_argument() {
@@ -48,6 +56,7 @@ private:
 			return args;
 		}
 
+		std::wstring alias;
 		std::wstring command;
 		std::list<std::wstring> arguments;
 		std::wstring to_string() {
@@ -118,14 +127,14 @@ private:
 	void add_command(std::wstring key, std::wstring command, std::wstring alias) {
 		strEx::token tok = strEx::getToken(command, ' ', true);
 		boost::to_lower(key);
-		command_data cd = command_data(tok.first, tok.second);
+		command_data cd = command_data(key, tok.first, tok.second);
 		commands[key.c_str()] = cd;
 		register_command(key.c_str(), alias);
 	}
 	void add_alias(std::wstring key, std::wstring command) {
 		strEx::token tok = strEx::getToken(command, ' ', true);
 		boost::to_lower(key);
-		command_data cd = command_data(tok.first, tok.second);
+		command_data cd = command_data(key, tok.first, tok.second);
 		alias[key.c_str()] = cd;
 		register_command(key.c_str(), _T("Alias for: ") + cd.to_string());
 	}

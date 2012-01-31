@@ -1,215 +1,323 @@
 #pragma once
 
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/shared_ptr.hpp>
 #include <map>
 
-extern "C" {
-#include <lua.h>
-#include "lauxlib.h"
-#include "lualib.h"
-}
-#include "luna.h"
+#include "lua_wrappers.hpp"
 
 #include <scripts/functions.hpp>
 
 namespace script_wrapper {
 
-	class Lua_State {
-		lua_State *L;
+	typedef lua_wrappers::lua_wrapper lua_wrapper;
+	typedef lua_wrappers::lua_script_instance script_instance;
+	typedef lua_wrappers::lua_instance_manager instance_manager;
+
+
+	class base_script_object : boost::noncopyable {
+	private:
+		instance_manager::script_instance_type instance;
+
 	public:
-		Lua_State() : L(lua_open()) { }
-
-		~Lua_State() {
-			lua_close(L);
+		base_script_object(lua_State *L) {
+			instance = instance_manager::get_script(L);
 		}
-
-		// implicitly act as a lua_State pointer
-		inline operator lua_State*() {
-			return L;
+		instance_manager::script_instance_type get_instance() {
+			if (!instance)
+				throw lua_wrappers::LUAException("Invalid instance");
+			return instance;
 		}
 	};
 
-	class LUAException {
-		std::wstring error_;
+	class core_wrapper : public base_script_object {
 	public:
-		LUAException(std::wstring error) : error_(error) {}
-
-		std::wstring getMessage() const {
-			return error_;
+		core_wrapper(lua_State *L) : base_script_object(L) {
+			NSC_DEBUG_MSG(_T("get: "));
 		}
 
-	};
+		static const char className[];
+		static const Luna<core_wrapper>::RegType methods[];
 
-	inline std::string w2s(std::wstring s) {
-		return strEx::wstring_to_string(s);
-	}
-	inline std::wstring s2w(std::string s) {
-		return strEx::string_to_wstring(s);
-	}
-	typedef std::pair<std::wstring,int> where_type;
-	where_type where(lua_State *L, int level = 1) {
-		lua_Debug ar;
-		if (lua_getstack(L, level, &ar)) {  /* check function at level */
-			lua_getinfo(L, "Sl", &ar);  /* get info about it */
-			if (ar.currentline > 0) {  /* is there info? */
-				return where_type(s2w(ar.short_src), ar.currentline);
+		int simple_query(lua_State *L) {
+			lua_wrappers::lua_wrapper lua(L);
+			try {
+				int nargs = lua.size();
+				if (nargs == 0)
+					return lua.error("nscp.execute requires at least 1 argument!");
+				const unsigned int argLen = nargs-1;
+				std::list<std::wstring> arguments;
+				for (unsigned int i=argLen; i>0; i--) {
+					if (lua.is_table()) {
+						std::list<std::wstring> table = lua.pop_array();
+						arguments.insert(arguments.begin(), table.begin(), table.end());
+					} else {
+						arguments.push_front(lua.pop_string());
+					}
+				}
+				std::wstring command = lua.pop_string();
+				std::wstring message;
+				std::wstring perf;
+				NSCAPI::nagiosReturn ret = get_instance()->get_core()->simple_query(command, arguments, message, perf);
+				lua.push_code(ret);
+				lua.push_string(message);
+				lua.push_string(perf);
+				return lua.size();
+			} catch (...) {
+				return lua.error("Unknown exception in: simple_query");
 			}
 		}
-		return where_type(_T("unknown"),0);
-	}
-	std::wstring extract_string(lua_State *L) {
-		int top = lua_gettop(L);
-		if (lua_isstring(L, top))
-			return strEx::string_to_wstring(lua_tostring( L, lua_gettop( L ) ));
-		return _T("<NOT_A_STRING>");
-	}
-	std::wstring pop_string(lua_State *L) {
-		std::wstring ret;
-		int top = lua_gettop(L);
-		if (lua_isstring(L, top))
-			ret = strEx::string_to_wstring(lua_tostring( L, top));
-		else if (lua_isnil(L, top))
-			ret = _T("<NIL>");
-		else if (lua_istable(L, top))
-			ret = _T("<TABLE>");
-		else if (lua_isnumber(L, top))
-			ret = _T("<NUMBER>");
-		else if (lua_iscfunction(L, top))
-			ret = _T("<C-FUNCTION>");
-		else
-			ret = _T("<UNKNOWN>");
-		lua_pop(L, 1);
-		return ret;
-	}
-	NSCAPI::nagiosReturn extract_code(lua_State *L) {
-		std::string str;
-		switch (lua_type( L, lua_gettop( L ) )) {
-	case LUA_TNUMBER: 
-		return static_cast<int>(lua_tonumber(L, lua_gettop(L)));
-	case LUA_TTABLE:
-		NSC_LOG_ERROR_STD(_T("Incorect return from script: should be error, ok, warning or unknown"));
-		return NSCAPI::returnUNKNOWN;
-	case LUA_TSTRING:
-		str = lua_tostring(L, lua_gettop(L));
-		if ((str == "critical")||(str == "crit")||(str == "error")) {
-			return NSCAPI::returnCRIT;
-		} else if ((str == "warning")||(str == "warn")) {
-			return NSCAPI::returnWARN;
-		} else if (str == "ok") {
-			return NSCAPI::returnOK;
-		} else if (str == "unknown") {
-			return NSCAPI::returnUNKNOWN;
-		} else {
-			NSC_LOG_ERROR_STD(_T("Incorect return from script: should be ok, warning, critical or unknown not: ") + strEx::string_to_wstring(str) );
-			return NSCAPI::returnUNKNOWN;
+		int query(lua_State *L) {
+			lua_wrappers::lua_wrapper lua(L);
+			NSC_LOG_ERROR_STD(_T("Unsupported API called: query"));
+			return lua.error("Unsupported API called: query");
 		}
-	case LUA_TBOOLEAN:
-		return lua_toboolean( L, lua_gettop( L ) )?NSCAPI::returnOK:NSCAPI::returnCRIT;
+		int simple_exec(lua_State *L) {
+			NSC_DEBUG_MSG(_T("s_q"));
+			return 0;
 		}
-		NSC_LOG_ERROR_STD(_T("Incorect return from script: should be error, ok, warning or unknown"));
-		return NSCAPI::returnUNKNOWN;
-	}
-	void push_code(lua_State *L, NSCAPI::nagiosReturn  code) {
-		if (code == NSCAPI::returnOK)
-			lua_pushstring(L, strEx::wstring_to_string(_T("ok")).c_str());
-		else if (code == NSCAPI::returnWARN)
-			lua_pushstring(L, strEx::wstring_to_string(_T("warning")).c_str());
-		else if (code == NSCAPI::returnCRIT)
-			lua_pushstring(L, strEx::wstring_to_string(_T("critical")).c_str());
-		else
-		lua_pushstring(L, strEx::wstring_to_string(_T("unknown")).c_str());
-	}
-	void push_string(lua_State *L, std::wstring s) {
-		lua_pushstring(L, strEx::wstring_to_string(s).c_str());
-	}
-	void push_array(lua_State *L, std::list<std::wstring> &arr) {
-		lua_createtable(L, 0, arr.size());
-		int i=0;
-		for (std::list<std::wstring>::const_iterator cit=arr.begin(); cit != arr.end(); ++cit) {
-			lua_pushnumber(L,i++);
-			lua_pushstring(L,strEx::wstring_to_string(*cit).c_str());
-			lua_settable(L,-3);
+		int exec(lua_State *L) {
+			lua_wrappers::lua_wrapper lua(L);
+			NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
+			return lua.error("Unsupported API called: exec");
 		}
-	}
-
-	class lua_script;
-	class lua_handler {
-	public:
-		virtual void register_command(lua_script* script, std::wstring command, std::wstring function) = 0;
-
+		int simple_submit(lua_State *L) {
+			NSC_DEBUG_MSG(_T("s_q"));
+			return 0;
+		}
+		int submit(lua_State *L) {
+			lua_wrappers::lua_wrapper lua(L);
+			NSC_LOG_ERROR_STD(_T("Unsupported API called: submit"));
+			return lua.error("Unsupported API called: submit");
+		}
+		int reload(lua_State *L) {
+			lua_wrappers::lua_wrapper lua(L);
+			if (lua.size() > 1)
+				return lua.error("Incorrect syntax: reload([<module>]);");
+			std::wstring module = _T("module");
+			if (lua.size() == 1)
+				module = lua.pop_string();
+			get_instance()->get_core()->reload(module);
+			return 0;
+		}
 	};
-	class lua_manager {
-		typedef std::map<double,lua_handler*> handler_type;
-		typedef std::map<double,lua_script*> script_type;
-		static handler_type handlers;
-		static script_type scripts;
-		static double last_value;
-		static char handler_key[];
-		static char script_key[];
+
+	const char core_wrapper::className[] = "Core";
+	const Luna<core_wrapper>::RegType core_wrapper::methods[] = {
+		{ "simple_query", &core_wrapper::simple_query },
+		{ "query", &core_wrapper::query },
+		{ "simple_exec", &core_wrapper::simple_exec },
+		{ "exec", &core_wrapper::exec },
+		{ "simple_submit", &core_wrapper::simple_submit },
+		{ "submit", &core_wrapper::submit },
+		{ "reload", &core_wrapper::reload },
+		{ 0 }
+	};
+
+	class registry_wrapper : public base_script_object {
+	private:
+		//registry_wrapper(const registry_wrapper &other) {}
+		//registry_wrapper& operator=(const registry_wrapper &other) {}
+
 	public:
-		static lua_handler* get_handler(lua_State *L) {
-			handler_type::const_iterator cit = handlers.find(get_id(L, handler_key));
-			if (cit == handlers.end())
-				throw LUAException(_T("Could not find handler reference"));
-			return (*cit).second;
+
+		registry_wrapper(lua_State *L) : base_script_object(L) {
+			NSC_DEBUG_MSG(_T("create (from LUA)"));
 		}
-		static void set_handler(lua_State *L, lua_handler* handler) {
-			double id = get_id(L, handler_key);
-			handlers[id] = handler;
+		/*
+		registry_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {
+			NSC_DEBUG_MSG(_T("create (from c++)"));
 		}
-		static lua_script* get_script(lua_State *L) {
-			script_type::const_iterator cit = scripts.find(get_id(L, script_key));
-			if (cit == scripts.end())
-				throw LUAException(_T("Could not find script reference"));
-			return (*cit).second;
+		static boost::shared_ptr<registry_wrapper> create(unsigned int plugin_id) {
+			return boost::shared_ptr<registry_wrapper>(new registry_wrapper(nscapi::plugin_singleton->get_core(), plugin_id));
 		}
-		static void set_script(lua_State *L, lua_script* script) {
-			double id = get_id(L, script_key);
-			scripts[id] = script;
+		*/
+
+		static const char className[];
+		static const Luna<registry_wrapper>::RegType methods[];
+
+		int register_function(lua_State *L) {
+			NSC_DEBUG_MSG(_T("register_function"));
+			return 0;
 		}
-		static double get_id(lua_State *L, char *key) {
-			/* retrieve a number */
-			lua_pushstring(L, key);
-			//lua_pushlightuserdata(L, (void*)&key);  /* push address */
-			lua_gettable(L, LUA_REGISTRYINDEX);  /* retrieve value */
-			double v = 0;
-			v = lua_tonumber(L, -1);  /* convert to number */
-			lua_pop(L,1);
-			if (v <= 0) {
-				v = ++last_value;
-				lua_pushstring(L, key);
-				//lua_pushlightuserdata(L, reinterpret_cast<void*>(&key));  /* push address */
-				lua_pushnumber(L, v);  /* push value */
-				/* registry[&Key] = myNumber */
-				lua_settable(L, LUA_REGISTRYINDEX);
+		int register_simple_function(lua_State *L) {
+			NSC_DEBUG_MSG(_T("register_simple_function"));
+			lua_wrapper lua(L);
+			std::wstring description;
+			if (lua.size() > 2)
+				description = lua.pop_string();
+			std::wstring name;
+			if (lua.is_string()) {
+				name = lua.pop_string();
+				lua_getglobal(L, utf8::cvt<std::string>(name).c_str());
 			}
-			return v;
+			if (!lua.is_function())
+				return lua.error("Invalid argument not a function: " + utf8::cvt<std::string>(name));
 
+			int func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+			if (func_ref == 0)
+				return lua.error("Invalid function: " + utf8::cvt<std::string>(name));
+			std::wstring script = lua.pop_string();
+			if (description.empty()) 
+				description = _T("Lua script: ") + script;
+			get_instance()->get_core()->registerCommand(get_instance()->get_plugin_id(), script, description);
+			get_instance()->get_registry()->register_query(script, get_instance(), func_ref);
+			return 0;
+		}
+		int register_cmdline(lua_State *L) {
+			NSC_DEBUG_MSG(_T("register_cmdline"));
+			return 0;
+		}
+		int register_simple_cmdline(lua_State *L) {
+			NSC_DEBUG_MSG(_T("register_simple_cmdline"));
+			return 0;
+		}
+		int subscription(lua_State *L) {
+			NSC_DEBUG_MSG(_T("subscription"));
+			return 0;
+		}
+		int simple_subscription(lua_State *L) {
+			NSC_DEBUG_MSG(_T("simple_subscription"));
+			return 0;
+		}
+	};
+
+	const char registry_wrapper::className[] = "Registry";
+	const Luna<registry_wrapper>::RegType registry_wrapper::methods[] = {
+		{ "function", &registry_wrapper::register_function },
+		{ "simple_function", &registry_wrapper::register_simple_function },
+		{ "cmdline", &registry_wrapper::register_cmdline },
+		{ "simple_cmdline", &registry_wrapper::register_simple_cmdline },
+		{ "subscription", &registry_wrapper::subscription },
+		{ "simple_subscription", &registry_wrapper::simple_subscription },
+		{ 0 }
+	};
+
+
+
+	class settings_wrapper : public base_script_object {
+	public:
+
+		settings_wrapper(lua_State *L) : base_script_object(L) {
+			NSC_DEBUG_MSG(_T("create"));
 		}
 
+		static const char className[];
+		static const Luna<settings_wrapper>::RegType methods[];
+
+
+
+		int get_section(lua_State *L) {
+			lua_wrapper lua(L);
+			int nargs = lua.size();
+			if (nargs > 1)
+				return lua.error("Incorrect syntax: get_section([<section>]);");
+			std::wstring v;
+			if (nargs > 0)
+				v = lua.pop_string();
+			try {
+				lua.push_array(get_instance()->get_core()->getSettingsSection(v));
+			} catch (...) {
+				return lua.error("Unknown exception getting section");
+			}
+			return 1;
+		}
+		int get_string(lua_State *L) {
+			lua_wrapper lua(L);
+			int nargs = lua.size();
+//			if (nargs < 2 || nargs > 3) {
+//				return lua.error("Incorrect syntax: get_string(<section>, <key>[, <default value>]);" + utf8::cvt<std::string>(lua.dump_stack()));
+//			}
+			std::wstring v;
+			if (nargs > 2)
+				v = lua.pop_string();
+			std::wstring k = lua.pop_string();
+			std::wstring s = lua.pop_string();
+			if (nargs > 1)
+				lua.pop_string();
+			lua.push_string(get_instance()->get_core()->getSettingsString(s, k, v));
+			return 1;
+		}
+		int set_string(lua_State *L) {
+			NSC_DEBUG_MSG(_T("set_string"));
+			return 0;
+		}
+		int get_bool(lua_State *L) {
+			lua_wrapper lua(L);
+			int nargs = lua.size();
+			if (nargs < 2 || nargs > 3)
+				return lua.error("Incorrect syntax: get_string(<section>, <key>[, <default value>]);");
+			bool v;
+			if (nargs > 2)
+				v = lua.pop_boolean();
+			std::wstring k = lua.pop_string();
+			std::wstring s = lua.pop_string();
+			lua.push_boolean(get_instance()->get_core()->getSettingsInt(s, k, v?1:0)==1);
+			return 1;
+		}
+		int set_bool(lua_State *L) {
+			NSC_DEBUG_MSG(_T("set_bool"));
+			return 0;
+		}
+		int get_int(lua_State *L) {
+			NSC_DEBUG_MSG(_T("get_int"));
+			return 0;
+		}
+		int set_int(lua_State *L) {
+			NSC_DEBUG_MSG(_T("set_int"));
+			return 0;
+		}
+		int save(lua_State *L) {
+			NSC_DEBUG_MSG(_T("save"));
+			return 0;
+		}
+		int register_path(lua_State *L) {
+			NSC_DEBUG_MSG(_T("register_path"));
+			return 0;
+		}
+		int register_key(lua_State *L) {
+			NSC_DEBUG_MSG(_T("register_key"));
+			return 0;
+		}
+		
 	};
+
+	const char settings_wrapper::className[] = "Settings";
+	const Luna<settings_wrapper>::RegType settings_wrapper::methods[] = {
+		{ "get_section", &settings_wrapper::get_section },
+		{ "get_string", &settings_wrapper::get_string },
+		{ "set_string", &settings_wrapper::set_string },
+		{ "get_bool", &settings_wrapper::get_bool },
+		{ "set_bool", &settings_wrapper::set_bool },
+		{ "get_int", &settings_wrapper::get_int },
+		{ "set_int", &settings_wrapper::set_int },
+		{ "save", &settings_wrapper::save },
+		{ "register_path", &settings_wrapper::register_path },
+		{ "register_key", &settings_wrapper::register_key },
+		{ 0 }
+	};
+
 	class nsclient_wrapper {
 	public:
 
 		static int execute (lua_State *L) {
 			try {
-				int nargs = lua_gettop( L );
-				if (nargs == 0) {
-					return luaL_error(L, "nscp.execute requires at least 1 argument!");
-				}
+				lua_wrapper lua(L);
+				int nargs = lua.size();
+				if (nargs == 0)
+					return lua.error("nscp.execute requires at least 1 argument!");
 				unsigned int argLen = nargs-1;
 				std::list<std::wstring> arguments;
-				for (unsigned int i=argLen;i>0;i--) {
-					arguments.push_front(extract_string(L));
-					lua_pop(L, 1);
-				}
-				std::wstring command = extract_string(L);
-				lua_pop(L, 1);
+				for (unsigned int i=argLen; i>0; i--)
+					arguments.push_front(lua.pop_string());
+				std::wstring command = lua.pop_string();
 				std::wstring message;
 				std::wstring perf;
 				NSCAPI::nagiosReturn ret = GET_CORE()->simple_query(command, arguments, message, perf);
-				push_code(L, ret);
-				lua_pushstring(L, strEx::wstring_to_string(message).c_str());
-				lua_pushstring(L, strEx::wstring_to_string(perf).c_str());
+				lua.push_code(ret);
+				lua.push_string(message);
+				lua.push_string(perf);
 				return 3;
 			} catch (...) {
 				return luaL_error(L, "Unknown exception in: nscp.execute");
@@ -217,47 +325,17 @@ namespace script_wrapper {
 		}
 
 		static int register_command(lua_State *L) {
-			try {
-				lua_handler *handler = lua_manager::get_handler(L);
-				lua_script *script = lua_manager::get_script(L);
-				int nargs = lua_gettop( L );
-				if (nargs != 2)
-					return luaL_error(L, "Incorrect syntax: nscp.register(<key>, <function>);");
-				handler->register_command(script, pop_string(L), pop_string(L));
-				return 0;
-			} catch (LUAException e) {
-				return luaL_error(L, std::string("Error in nscp.register: " + w2s(e.getMessage())).c_str());
-			} catch (...) {
-				return luaL_error(L, "Unknown exception in: nscp.register");
-			}
+			registry_wrapper registry(L);
+			return registry.register_simple_function(L);
 		}
 
 		static int getSetting (lua_State *L) {
-			int nargs = lua_gettop( L );
-			if (nargs < 2 || nargs > 3)
-				return luaL_error(L, "Incorrect syntax: nscp.getSetting(<section>, <key>[, <default value>]);");
-			std::wstring v;
-			if (nargs > 2)
-				v = pop_string(L);
-			std::wstring k = pop_string(L);
-			std::wstring s = pop_string(L);
-			push_string(L, GET_CORE()->getSettingsString(s, k, v));
-			return 1;
+			settings_wrapper sw(L);
+			return sw.get_string(L);
 		}
 		static int getSection (lua_State *L) {
-			int nargs = lua_gettop( L );
-			if (nargs > 1)
-				return luaL_error(L, "Incorrect syntax: nscp.getSection([<section>]);");
-			std::wstring v;
-			if (nargs > 0)
-				v = pop_string(L);
-			try {
-				std::list<std::wstring> list = GET_CORE()->getSettingsSection(v);
-				push_array(L, list);
-			} catch (...) {
-				return luaL_error(L, "Unknown exception getting section");
-			}
-			return 1;
+			settings_wrapper sw(L);
+			return sw.get_section(L);
 		}
 		static int info (lua_State *L) {
 			return log_any(L, NSCAPI::log_level::info);
@@ -266,23 +344,26 @@ namespace script_wrapper {
 			return log_any(L, NSCAPI::log_level::error);
 		}
 		static int log_any(lua_State *L, int mode) {
-			where_type w = where(L);
-			int nargs = lua_gettop( L );
+			lua_wrapper lua(L);
+			lua_wrapper::stack_trace trace = lua.get_stack_trace();
+			int nargs = lua.size();
 			std::wstring str;
 			for (int i=0;i<nargs;i++) {
-				str += pop_string(L);
+				str += lua.pop_string();
 			}
-			GET_CORE()->log(mode, utf8::cvt<std::string>(w.first), w.second, str);
+			GET_CORE()->log(mode, utf8::cvt<std::string>(trace.first), trace.second, str);
 			return 0;
 		}
 
 		static const luaL_Reg my_funcs[];
 
-		static int luaopen(lua_State *L) {
+		static void luaopen(lua_State *L) {
 			luaL_register(L, "nscp", my_funcs);
-			return 1;
+			lua_pop(L, 1);
+			Luna<core_wrapper>::Register(L);
+			Luna<registry_wrapper>::Register(L);
+			Luna<settings_wrapper>::Register(L);
 		}
-
 
 	};
 	const luaL_Reg nsclient_wrapper::my_funcs[] = {
@@ -296,99 +377,71 @@ namespace script_wrapper {
 		{NULL, NULL}
 	};
 
-	lua_manager::handler_type lua_manager::handlers;
-	lua_manager::script_type lua_manager::scripts;
-	double lua_manager::last_value = 0;
-	char lua_manager::handler_key[] = "registry.key.handler";
-	char lua_manager::script_key[] = "registry.key.script";
-
-	class lua_script {
-		Lua_State L;
-		std::string script_;
-		std::string alias_;
-	public:
-		lua_script(const script_container &script) : script_(utf8::cvt<std::string>(script.script.string())), alias_(utf8::cvt<std::string>(script.alias)) {
+	class lua_script : public script_instance, public boost::enable_shared_from_this<lua_script>  {
+		lua_script(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua_wrappers::lua_registry> registry, const std::string alias, const std::string script) 
+			: script_instance(core, plugin_id, registry, alias, script) {
 			load();
 		}
-		void load() {
-			luaL_openlibs(L);
-			nsclient_wrapper::luaopen(L);
-			if (luaL_loadfile(L, script_.c_str()) != 0) {
-				throw LUAException(_T("Failed to load script: ") + get_wscript() + _T(": ") + s2w(lua_tostring(L, -1)));
-			}
+	public:
 
+		static boost::shared_ptr<lua_script> create_instance(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua_wrappers::lua_registry> registry, const std::wstring alias, const std::wstring script) {
+			boost::shared_ptr<lua_script> instance(new lua_script(core, plugin_id, registry, utf8::cvt<std::string>(alias), utf8::cvt<std::string>(script)));
+			if (instance)
+				instance->init();
+			return instance;
+		}
+		void init() {
+			lua_wrappers::lua_instance_manager::set_script(get_lua_state(), shared_from_this());
+		}
+
+		void load() {
+			int i = lua_gettop(get_lua_state());
+			luaL_openlibs(get_lua_state());
+			i = lua_gettop(get_lua_state());
+			nsclient_wrapper::luaopen(get_lua_state());
+			i = lua_gettop(get_lua_state());
+			if (luaL_loadfile(get_lua_state(), get_script().c_str()) != 0) {
+				throw lua_wrappers::LUAException(_T("Failed to load script: ") + get_wscript() + _T(": ") + utf8::cvt<std::wstring>(lua_tostring(get_lua_state(), -1)));
+			}
 		}
 		std::wstring get_wscript() const {
-			return utf8::cvt<std::wstring>(script_);
-		}
-		std::string get_script() const {
-			return script_;
+			return utf8::cvt<std::wstring>(get_script());
 		}
 		void unload() {}
-		void reload(lua_handler *handler) {
+		void reload() {
 			unload();
 			load();
-			pre_load(handler);
+			pre_load();
 		}
-		void pre_load(lua_handler *handler) {
-			lua_manager::set_handler(L, handler);
-			lua_manager::set_script(L, this);
-			if (lua_pcall(L, 0, 0, 0) != 0) {
-				throw LUAException(_T("Failed to parse script: ") + get_wscript() + _T(": ") + s2w(lua_tostring(L, -1)));
+		void pre_load() {
+			if (lua_pcall(get_lua_state(), 0, 0, 0) != 0) {
+				throw lua_wrappers::LUAException(_T("Failed to parse script: ") + get_wscript() + _T(": ") + utf8::cvt<std::wstring>(lua_tostring(get_lua_state(), -1)));
 			}
 		}
 
 
-		NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf) {
-			// code, message, performance data
-			if (arg_count > 3) {
-				NSC_LOG_ERROR_STD(_T("Too many arguments return from script (only using last 3)"));
-				lua_pop(L, arg_count-3);
-			}
-			if (arg_count > 2) {
-				perf = extract_string(L);
-				lua_pop( L, 1 );
-			}
-			if (arg_count > 1) {
-				message = extract_string(L);
-				lua_pop( L, 1 );
-			}
-			if (arg_count > 0) {
-				int ret = extract_code(L);
-				lua_pop( L, 1 );
-				return ret;
-			}
-			NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
-			return NSCAPI::returnUNKNOWN;
-		}
-
+/*
 		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, std::wstring function, std::wstring cmd, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
 			lua_manager::set_handler(L, handler);
 			lua_manager::set_script(L, this);
-			int nargs = lua_gettop( L );
-			lua_getglobal(L, w2s(function).c_str());
+			lua_wrapper lua(L);
+			int nargs = lua.size();
+			lua_getglobal(L, utf8::cvt<std::string>(function).c_str());
 			if (!lua_isfunction(L, -1)) {
 				lua_pop(L, 1); // remove function from LUA stack
-				throw LUAException(_T("Failed to run script: ") + get_wscript() + _T(": Function not found: handle"));
+				throw lua_wrappers::LUAException(_T("Failed to run script: ") + get_wscript() + _T(": Function not found: handle"));
 			}
-			lua_pushstring(L, w2s(cmd).c_str()); 
-
-			lua_createtable(L, 0, arguments.size());
-			int i=0;
-			BOOST_FOREACH(std::wstring arg, arguments) {
-				lua_pushnumber(L,i++);
-				lua_pushstring(L,strEx::wstring_to_string(arg).c_str());
-				lua_settable(L,-3);
-			}
+			lua.push_string(cmd); 
+			lua.push_array(arguments);
 
 			if (lua_pcall(L, 2, LUA_MULTRET, 0) != 0) {
-				std::wstring err = strEx::string_to_wstring(lua_tostring(L, -1));
+				std::wstring err = lua.pop_string();
 				NSC_LOG_ERROR_STD(_T("Failed to call main function in script: ") + get_wscript() + _T(": ") + err);
-				lua_pop(L, 1); // remove error message
 				return NSCAPI::returnUNKNOWN;
 			}
-			return extract_return(L, lua_gettop( L )-nargs, msg, perf);
+			return extract_return(L, lua.size(), msg, perf);
 		}
+		*/
 	};
 
 

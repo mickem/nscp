@@ -29,7 +29,7 @@
 #include <settings/client/settings_client.hpp>
 
 
-LUAScript::LUAScript() {
+LUAScript::LUAScript() : registry(new lua_wrappers::lua_registry()) {
 }
 LUAScript::~LUAScript() {
 }
@@ -67,33 +67,32 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		BOOST_FOREACH(script_container &script, scripts_) {
 			try {
-				boost::shared_ptr<script_wrapper::lua_script> instance = boost::shared_ptr<script_wrapper::lua_script>(new script_wrapper::lua_script(script));
-				instance->pre_load(this);
+				boost::shared_ptr<script_wrapper::lua_script> instance = script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, script.script.string());
+				instance->pre_load();
 				instances_.push_back(instance);
-			} catch (script_wrapper::LUAException e) {
+			} catch (const lua_wrappers::LUAException &e) {
 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
+			} catch (const std::exception &e) {
+				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + utf8::to_unicode(e.what()));
 			}
 		}
 
 		// 	} catch (nrpe::server::nrpe_exception &e) {
 		// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
 		// 		return false;
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
 		return false;
 	}
-	return true;
 
 // 	std::list<std::wstring>::const_iterator it;
 // 	for (it = commands.begin(); it != commands.end(); ++it) {
 // 		loadScript((*it));
 // 	}
 	return true;
-}
-
-void LUAScript::register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function) {
-	NSC_LOG_MESSAGE(_T("Script loading: ") + script->get_wscript() + _T(": ") + command);
-	commands_[command] = lua_func(script, function);
 }
 
 boost::optional<boost::filesystem::wpath> LUAScript::find_file(std::wstring file) {
@@ -134,6 +133,7 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 
 bool LUAScript::unloadModule() {
 	instances_.clear();
+	scripts_.clear();
 	return true;
 }
 
@@ -147,11 +147,11 @@ bool LUAScript::hasMessageHandler() {
 
 bool LUAScript::reload(std::wstring &message) {
 	bool error = false;
-	commands_.clear();
+	registry->clear();
 	for (script_list::const_iterator cit = instances_.begin(); cit != instances_.end() ; ++cit) {
 		try {
-			(*cit)->reload(this);
-		} catch (script_wrapper::LUAException e) {
+			(*cit)->reload();
+		} catch (const lua_wrappers::LUAException &e) {
 			error = true;
 			message += _T("Exception when reloading script: ") + (*cit)->get_wscript() + _T(": ") + e.getMessage();
 			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + (*cit)->get_wscript() + _T(": ") + e.getMessage());
@@ -172,10 +172,10 @@ NSCAPI::nagiosReturn LUAScript::handleCommand(const std::wstring &target, const 
 	if (command == _T("luareload")) {
 		return reload(message)?NSCAPI::returnOK:NSCAPI::returnCRIT;
 	}
-	cmd_list::const_iterator cit = commands_.find(command);
-	if (cit == commands_.end())
+	if (!registry->has_command(command))
 		return NSCAPI::returnIgnored;
-	return (*cit).second.handleCommand(this, command.c_str(), arguments, message, perf);
+	return registry->on_query(target, command, arguments, message, perf);
+		// const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf
 }
 
 

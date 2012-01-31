@@ -120,6 +120,7 @@ namespace PDHCollectors {
 		virtual double get_double() = 0;
 		virtual __int64 get_int64() = 0;
 		virtual double get_average(int backlog) = 0;
+		virtual void set_extra_format(DWORD format) = 0;
 	};
 
 
@@ -134,8 +135,9 @@ namespace PDHCollectors {
 		bool hasValue_;
 		std::wstring lastError_;
 		const PDH::PDHCounter *parent_;
+		DWORD extra_format;
 	public:
-		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL), extra_format(0) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
@@ -153,8 +155,11 @@ namespace PDHCollectors {
 				throw PDHException(get_name(), _T("No value has been collected yet"));
 			return value_;
 		}
+		void set_extra_format(DWORD format) {
+			extra_format = format;
+		}
 		DWORD getFormat() const {
-			return format_double;
+			return format_double|extra_format;
 		}
 	public:
 		inline std::wstring get_string() {
@@ -183,8 +188,9 @@ namespace PDHCollectors {
 		TMutextHandler mutex_;
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
+		DWORD extra_format;
 	public:
-		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL), extra_format(0) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
@@ -202,8 +208,11 @@ namespace PDHCollectors {
 				throw PDHException(get_name(), _T("No value has been collected yet"));
 			return value_;
 		}
+		void set_extra_format(DWORD format) {
+			extra_format = format;
+		}
 		DWORD getFormat() const {
-			return format_long;
+			return format_long|extra_format;
 		}
 		inline std::wstring get_string() {
 			return to_wstring(getValue());
@@ -231,8 +240,9 @@ namespace PDHCollectors {
 		TType value_;
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
+		DWORD extra_format;
 	public:
-		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL) {}
+		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL), extra_format(0) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
 			PDHCounterMutexHandler mutex(&mutex_);
 			if (!mutex.hasLock())
@@ -250,8 +260,11 @@ namespace PDHCollectors {
 				throw PDHException(get_name(), std::wstring(_T("No value has been collected yet")));
 			return value_;
 		}
+		void set_extra_format(DWORD format) {
+			extra_format = format;
+		}
 		DWORD getFormat() const {
-			return format_large;
+			return format_large|extra_format;
 		}
 		inline std::wstring get_string() {
 			return boost::lexical_cast<std::wstring>(getValue());
@@ -283,7 +296,8 @@ namespace PDHCollectors {
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
 	public:
-		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL) {}
+		DWORD extra_format;
+		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL), extra_format(0) {}
 		RoundINTPDHBufferListenerImpl(int length_) : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL) {
 			resize(length_);
 		}
@@ -292,6 +306,10 @@ namespace PDHCollectors {
 			if (!mutex.hasLock())
 				return;
 			delete [] buffer;
+		}
+
+		virtual void set_extra_format(DWORD format) {
+			extra_format = format;
 		}
 
 		/**
@@ -395,7 +413,7 @@ namespace PDHCollectors {
 			pushValue(counter.getDoubleValue());
 		}
 		virtual DWORD getFormat() const {
-			return format_double;
+			return format_double|extra_format;
 		}
 	};
 
@@ -409,7 +427,7 @@ namespace PDHCollectors {
 			pushValue(counter.getIntValue());
 		}
 		virtual DWORD getFormat() const {
-			return format_long;
+			return format_long|extra_format;
 		}
 	};
 
@@ -423,7 +441,7 @@ namespace PDHCollectors {
 			pushValue(counter.getInt64Value());
 		}
 		virtual DWORD getFormat() const {
-			return format_large;
+			return format_large|extra_format;
 		}
 	};
 }

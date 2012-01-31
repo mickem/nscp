@@ -16,8 +16,6 @@ void handler_impl::handle(nsca::packet p) {
 		GET_CORE()->submit_simple_message(channel_, utf8::cvt<std::wstring>(p.service), nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
 
 	}
-	std::wstring perf = _T(""); // @todo fix this!
-
 	NSC_DEBUG_MSG(_T("Got response: ") + response);
 }
 

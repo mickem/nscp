@@ -49,7 +49,7 @@ public:
     lua_setmetatable(L, methods);
 
     // fill method table with methods from class T
-    for (RegType *l = T::methods; l->name; l++) {
+    for (const RegType *l = T::methods; l->name; l++) {
     /* edited by Snaily: shouldn't it be const RegType *l ... ? */
       lua_pushstring(L, l->name);
       lua_pushlightuserdata(L, (void*)l);

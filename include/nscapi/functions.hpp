@@ -787,6 +787,7 @@ namespace nscapi {
 					perf = T();
 				} else {
 					chunk = perf.substr(0, p);
+					p = perf.find_first_not_of(tokenizer_data.perf_separator, p);
 					perf = perf.substr(p);
 				}
 				std::vector<T> items = strEx::splitV(chunk, tokenizer_data.perf_item_splitter);

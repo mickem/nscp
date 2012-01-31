@@ -32,10 +32,12 @@ public:
 	{
 		root.add_options()
 			("help", po::bool_switch(&help), "produce help message")
+			/*
 			("settings-help", "Produce help message for the various settings related options")
 			("service-help", "Produce help message for the various settings related service management")
 			("client-help", "Produce help message for the various settings related client")
 			("test-help", "Produce help message for the various settings related client")
+			*/
 /*
 			("settings", "Enter settings mode and handle settings related commands")
 			("service", "Enter service mode and handle service related commands")
@@ -106,20 +108,22 @@ public:
 		return false;
 	}
 
+	typedef boost::function<int(int, wchar_t**)> handler_function;
+	typedef std::map<std::string,handler_function> handler_map;
+	typedef std::map<std::string,std::string> alias_map;
 
-
-	int parse(int argc, wchar_t* argv[]) {
-
-		typedef boost::function<int(int, wchar_t**)> handler_function;
-		typedef std::map<std::string,handler_function> handler_map;
-		typedef std::map<std::string,std::string> alias_map;
+	handler_map get_handlers() {
 		handler_map handlers;
-		alias_map aliases;
 		handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, _1, _2);
 		handlers["service"] = boost::bind(&cli_parser::parse_service, this, _1, _2);
 		handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, _T(""));
 		handlers["test"] = boost::bind(&cli_parser::parse_test, this, _1, _2);
+		handlers["help"] = boost::bind(&cli_parser::parse_help, this, _1, _2);
+		return handlers;
+	}
 
+	alias_map get_aliases() {
+		alias_map aliases;
 		aliases["nrpe"] = "NRPEClient";
 		aliases["nscp"] = "NSCPClient";
 		aliases["nsca"] = "NSCAClient";
@@ -128,8 +132,15 @@ public:
 		aliases["py"] = "PythonScript";
 		aliases["lua"] = "LuaScript";
 		aliases["syslog"] = "SyslogClient";
+		return aliases;
+	}
+
+	int parse(int argc, wchar_t* argv[]) {
 
 		if (argc > 1 && argv[1][0] != L'-') {
+			handler_map handlers = get_handlers();
+			alias_map aliases = get_aliases();
+
 			std::string mod = utf8::cvt<std::string>(argv[1]);
 			handler_map::const_iterator it = handlers.find(mod);
 			if (it != handlers.end())
@@ -139,36 +150,31 @@ public:
 			if (alias_it != aliases.end())
 				return parse_client(argc-1, &argv[1], utf8::cvt<std::wstring>(alias_it->second));
 
+			parse_help(argc, argv);
 			std::cerr << "Invalid module specified: " << mod << std::endl;
-			std::cerr << "Available modules are: ";
+			return 1;
+		}
+		return parse_help(argc, argv);
+	}
+	int parse_help(int argc, wchar_t* argv[]) {
+		try {
+
+			po::options_description all("Allowed options");
+			all.add(root).add(common).add(service).add(settings).add(client);
+			std::cout << all << std::endl;
+
+			std::cerr << "First argument has to be one of the following: ";
+			handler_map handlers = get_handlers();
 			BOOST_FOREACH(const handler_map::value_type &itm, handlers) {
 				std::cerr << itm.first << ", ";
 			}
+			std::cerr << std::endl;
+			std::cerr << "Or on of the following client aliases: ";
+			alias_map aliases = get_aliases();
 			BOOST_FOREACH(const alias_map::value_type &itm, aliases) {
 				std::cerr << itm.first << ", ";
 			}
 			std::cerr << std::endl;
-			return 1;
-		}
-
-		try {
-			po::options_description all("Allowed options");
-			all.add(root).add(common).add(service).add(settings).add(client);
-
-			po::variables_map vm;
-			po::wparsed_options parsed = 
-				po::wcommand_line_parser((argc>2)?2:argc, argv).options(root).run();
-
-			po::store(parsed, vm);
-			po::notify(vm);
-
-			BOOST_FOREACH(handler_map::value_type &it, handlers) {
-				if (vm.count(it.first)) {
-					return it.second(argc-1, &argv[1]);
-				}
-			}
-			std::cerr << "First argument has to be one of the following: " << std::endl;
-			std::cout << root << std::endl;
 			return 1;
 		} catch(std::exception & e) {
 			std::cerr << "Unable to parse root option: " << e.what() << std::endl;
@@ -177,7 +183,6 @@ public:
 			std::cerr << "Unable to parse root option" << std::endl;
 			return 1;
 		}
-		return 0;
 	}
 
 	int parse_test(int argc, wchar_t* argv[]) {

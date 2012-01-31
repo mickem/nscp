@@ -30,27 +30,12 @@ NSC_WRAPPERS_MAIN();
 #include <scripts/functions.hpp>
 
 
-class LUAScript : public nscapi::impl::simple_command_handler, public script_wrapper::lua_handler, public nscapi::impl::simple_plugin {
+class LUAScript : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
 private:
 
-	class lua_func {
-	public:
-		lua_func(script_wrapper::lua_script* script_, std::wstring function_) : script(script_), function(function_) {}
-		lua_func() : script(NULL) {}
-		script_wrapper::lua_script* script;
-		std::wstring function;
-
-		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, std::wstring command, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) const {
-			return script->handleCommand(handler, function, command, arguments, msg, perf);
-		}
-	};
-
+	boost::shared_ptr<lua_wrappers::lua_registry> registry;
 	script_container::list_type scripts_;
-
-	typedef std::map<std::wstring,lua_func> cmd_list;
 	typedef std::list<boost::shared_ptr<script_wrapper::lua_script> > script_list;
-
-	cmd_list commands_;
 	script_list instances_;
 	boost::filesystem::wpath root_;
 
@@ -83,10 +68,4 @@ public:
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	//NSCAPI::nagiosReturn extract_return(Lua_State &L, int arg_count,  std::wstring &message, std::wstring &perf);
 
-	//script_wrapper::lua_handler
-	void register_command(script_wrapper::lua_script* script, std::wstring command, std::wstring function);
-
-private:
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 };

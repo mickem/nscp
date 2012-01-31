@@ -1226,6 +1226,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 	CounterContainer tmpObject;
 	bool bExpandIndex = false;
 	bool bForceReload = false;
+	std::wstring extra_format;
 
 	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_STR(_T("InvalidStatus"), invalidStatus)
@@ -1236,6 +1237,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min_)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
+		MAP_OPTIONS_STR(_T("format"), extra_format)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_EX(_T("Averages"), bCheckAverages, _T("true"), _T("false"))
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
@@ -1294,6 +1296,24 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 				typedef boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > ptr_lsnr_type;
 				ptr_lsnr_type cDouble(new PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE>());
 				//boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > cDouble;
+				if (!extra_format.empty()) {
+					boost::char_separator<wchar_t> sep(_T(","));
+
+					boost::tokenizer< boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tokens(extra_format, sep);
+					DWORD flags = 0;
+					BOOST_FOREACH(std::wstring t, tokens) {
+						if (extra_format == _T("nocap100"))
+							flags |= PDH_FMT_NOCAP100;
+						else if (extra_format == _T("1000"))
+							flags |= PDH_FMT_1000;
+						else if (extra_format == _T("noscale"))
+							flags |= PDH_FMT_NOSCALE;
+						else {
+							NSC_LOG_ERROR_STD(_T("Unsupported extrta format: ") + extra_format);
+						}
+					}
+					cDouble->set_extra_format(flags);
+				}
 				pdh.addCounter(counter.data, cDouble);
 				pdh.open();
 				if (bCheckAverages) {
@@ -1311,7 +1331,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 					msg += _T(",");
 				msg += strEx::itos(static_cast<float>(value));
 			} else {
-				std::wcout << _T("perf data: ") << bPerfData << std::endl;
 				counter.perfData = bPerfData;
 				counter.setDefault(tmpObject);
 				counter.runCheck(value, returnCode, msg, perf);

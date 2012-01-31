@@ -282,7 +282,7 @@ void NSCAAgent::add_local_options(po::options_description &desc, client::configu
 }
 
 void NSCAAgent::setup(client::configuration &config) {
-	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
+	boost::shared_ptr<clp_handler_impl> handler(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
 	net::wurl url;
