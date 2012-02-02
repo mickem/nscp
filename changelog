@@ -5,6 +5,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-02-02 MickeM
+ * Implemented full API for LuaScript
+	Now "everything" (ish) works including channels, exec and query (via moderna API)
+	Still no protocol buffer support but not sure how to play that yet so will not be avalible in 0.4.0.
+
 2012-02-01 MickeM
  * Implemented full settings API for LuaScript (next RC will have to wait till next weekend)
 

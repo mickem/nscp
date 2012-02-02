@@ -176,8 +176,24 @@ NSCAPI::nagiosReturn LUAScript::handleCommand(const std::wstring &target, const 
 		// const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf
 }
 
+NSCAPI::nagiosReturn LUAScript::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+	if (!registry->has_exec(command))
+		return NSCAPI::returnIgnored;
+	return registry->on_exec(command, arguments, result);
+}
+
+NSCAPI::nagiosReturn LUAScript::handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) {
+	if (!registry->has_submit(channel))
+		return NSCAPI::returnIgnored;
+	return registry->on_submission(channel, source, command, code, msg, perf);
+}
+
+
+
 
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(LUAScript);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
+NSC_WRAPPERS_CLI_DEF();
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();

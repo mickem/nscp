@@ -73,8 +73,20 @@ namespace script_wrapper {
 			return lua.error("Unsupported API called: query");
 		}
 		int simple_exec(lua_State *L) {
-			NSC_DEBUG_MSG(_T("s_q"));
-			return 0;
+			lua_wrappers::lua_wrapper lua(L);
+			try {
+				int nargs = lua.size();
+				std::wstring target = lua.wstring(1);
+				std::wstring command = lua.wstring(2);
+				std::list<std::wstring> arguments = lua.checkarray(3);
+				std::list<std::wstring> result;
+				NSCAPI::nagiosReturn ret = get_instance()->get_core()->exec_simple_command(target, command, arguments, result);
+				lua.push_code(ret);
+				lua.push_array(result);
+				return 2;
+			} catch (...) {
+				return lua.error("Unknown exception in: simple_query");
+			}
 		}
 		int exec(lua_State *L) {
 			lua_wrappers::lua_wrapper lua(L);
@@ -82,8 +94,22 @@ namespace script_wrapper {
 			return lua.error("Unsupported API called: exec");
 		}
 		int simple_submit(lua_State *L) {
-			NSC_DEBUG_MSG(_T("s_q"));
-			return 0;
+			lua_wrappers::lua_wrapper lua(L);
+			try {
+				int nargs = lua.size();
+				std::wstring channel = lua.wstring(1);
+				std::wstring command = lua.wstring(2);
+				NSCAPI::nagiosReturn code = lua.get_code(3);
+				std::wstring message = lua.wstring(4);
+				std::wstring perf = lua.wstring(5);
+				std::wstring result;
+				NSCAPI::nagiosReturn ret = get_instance()->get_core()->submit_simple_message(channel, command, code, message, perf, result);
+				lua.push_code(ret);
+				lua.push_string(result);
+				return 2;
+			} catch (...) {
+				return lua.error("Unknown exception in: simple_query");
+			}
 		}
 		int submit(lua_State *L) {
 			lua_wrappers::lua_wrapper lua(L);
@@ -173,7 +199,7 @@ namespace script_wrapper {
 			if (func_ref == 0)
 				return lua.error("Invalid function: " + utf8::cvt<std::string>(name));
 			std::wstring script = lua.pop_string();
-			get_instance()->get_registry()->register_cmdline(script, get_instance(), func_ref);
+			get_instance()->get_registry()->register_exec(script, get_instance(), func_ref);
 			return 0;
 		}
 		int subscription(lua_State *L) {
@@ -310,7 +336,7 @@ namespace script_wrapper {
 			lua_wrapper lua(L);
 			std::wstring path = lua.wstring(1);
 			std::wstring key = lua.wstring(1);
-			std::wstring stype = lua.wstring(1);
+			std::string stype = lua.string(1);
 			NSCAPI::settings_type type = get_type(stype);
 			std::wstring title = lua.wstring(1);
 			std::wstring description = lua.wstring(1);
@@ -340,26 +366,8 @@ namespace script_wrapper {
 	public:
 
 		static int execute (lua_State *L) {
-			try {
-				lua_wrapper lua(L);
-				int nargs = lua.size();
-				if (nargs == 0)
-					return lua.error("nscp.execute requires at least 1 argument!");
-				unsigned int argLen = nargs-1;
-				std::list<std::wstring> arguments;
-				for (unsigned int i=argLen; i>0; i--)
-					arguments.push_front(lua.pop_string());
-				std::wstring command = lua.pop_string();
-				std::wstring message;
-				std::wstring perf;
-				NSCAPI::nagiosReturn ret = GET_CORE()->simple_query(command, arguments, message, perf);
-				lua.push_code(ret);
-				lua.push_string(message);
-				lua.push_string(perf);
-				return 3;
-			} catch (...) {
-				return luaL_error(L, "Unknown exception in: nscp.execute");
-			}
+			core_wrapper core(L);
+			return core.simple_query(L);
 		}
 
 		static int register_command(lua_State *L) {

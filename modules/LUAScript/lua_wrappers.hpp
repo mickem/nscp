@@ -322,6 +322,11 @@ namespace lua_wrappers {
 			return utf8::cvt<std::wstring>(string(pos));
 		}
 
+		std::list<std::wstring> inline checkarray(int pos) {
+			luaL_checktype(L, pos, LUA_TTABLE);
+			return get_array(pos);
+		}
+
 		boolean inline checkbool(int pos) {
 			return lua_toboolean(L, pos);
 		}
@@ -403,44 +408,28 @@ namespace lua_wrappers {
 		typedef std::map<std::wstring,function_container> function_map;
 		function_map functions;
 		function_map channels;
+		function_map execs;
+
+		inline lua_State * prep_function(const function_container &c) {
+			lua_State *L = c.instance->get_lua_state();
+			lua_rawgeti(L, LUA_REGISTRYINDEX, c.func_ref);
+			return L;
+		}
 	public:
-		NSCAPI::nagiosReturn on_query(const std::wstring & target, const std::wstring & command, std::list<std::wstring> & arguments, std::wstring & message, std::wstring & perf) 
-		{
-			NSC_DEBUG_MSG_STD(_T("Running command: ") + command);
+
+		NSCAPI::nagiosReturn on_query(const std::wstring & target, const std::wstring & command, std::list<std::wstring> & arguments, std::wstring & message, std::wstring & perf) {
 			function_map::iterator it = functions.find(command);
 			if (it == functions.end())
 				throw LUAException(_T("Invalid function: ") + command);
 			function_container c = it->second;
-
-			lua_State *L = c.instance->get_lua_state();
-			lua_rawgeti(L, LUA_REGISTRYINDEX, c.func_ref);
-			//lua_pushnumber(L, 1);
-			lua_pushstring(L, utf8::cvt<std::string>(command).c_str()); 
-
-			lua_createtable(L, 0, arguments.size());
-			int i=0;
-			BOOST_FOREACH(std::wstring arg, arguments) {
-				lua_pushnumber(L,i++);
-				lua_pushstring(L,strEx::wstring_to_string(arg).c_str());
-				lua_settable(L,-3);
-			}
-
-			if (lua_pcall(L, 2, LUA_MULTRET, 0) != 0) {
-				std::wstring err = utf8::cvt<std::wstring>(lua_tostring(L, -1));
-				NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + err);
-				lua_pop(L, 1);
+			lua_wrapper lua(prep_function(c));
+			lua.push_string(command);
+			lua.push_array(arguments);
+			if (lua.pcall(2, LUA_MULTRET, 0) != 0) {
+				NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
 				return NSCAPI::returnUNKNOWN;
 			}
-			return extract_return(L, lua_gettop(L), message, perf);
-		}
-
-		NSCAPI::nagiosReturn extract_return(lua_State *L, int arg_count, std::wstring &message, std::wstring &perf) {
-			lua_wrapper lua(L);
-			// code, message, performance data
-			if (arg_count > 3) {
-				NSC_LOG_ERROR_STD(_T("Too many arguments return from script (only using last 3)"));
-				lua_pop(L, arg_count-3);
-			}
+			int arg_count = lua.size();
 			if (arg_count > 2)
 				perf = lua.pop_string();
 			if (arg_count > 1)
@@ -451,21 +440,53 @@ namespace lua_wrappers {
 			return NSCAPI::returnUNKNOWN;
 		}
 
-		bool has_command(const std::wstring & command) {
-			return functions.find(command) != functions.end();
+		NSCAPI::nagiosReturn on_exec(const std::wstring & command, std::list<std::wstring> & arguments, std::wstring & result) {
+			function_map::iterator it = execs.find(command);
+			if (it == execs.end())
+				throw LUAException(_T("Invalid function: ") + command);
+			function_container c = it->second;
+			lua_wrapper lua(prep_function(c));
+			lua.push_string(command);
+			lua.push_array(arguments);
+			if (lua.pcall(2, LUA_MULTRET, 0) != 0) {
+				NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
+				return NSCAPI::returnUNKNOWN;
+			}
+			int arg_count = lua.size();
+			if (arg_count > 1)
+				result = lua.pop_string();
+			if (arg_count > 0)
+				return lua.pop_code();
+			NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
+			return NSCAPI::returnUNKNOWN;
 		}
+		NSCAPI::nagiosReturn on_submission(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) {
+			function_map::iterator it = channels.find(channel);
+			if (it == channels.end())
+				throw LUAException(_T("Invalid function: ") + channel);
+			function_container c = it->second;
+			lua_wrapper lua(prep_function(c));
+			lua.push_string(source);
+			lua.push_string(command);
+			lua.push_code(code);
+			lua.push_string(msg);
+			lua.push_string(perf);
+			if (lua.pcall(5, LUA_MULTRET, 0) != 0) {
+				NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
+				return NSCAPI::returnUNKNOWN;
+			}
+			if (lua.size() > 0)
+				return lua.pop_code();
+			NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
+			return NSCAPI::returnUNKNOWN;
+		}
+
 		void register_query(const std::wstring &command, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
 			function_container c;
 			c.func_ref = func_ref;
 			c.instance = instance;
 			functions[command] = c;
 		}
-
-		void clear() {
-			functions.clear();
-			// DO we need to release reference here?
-		}
-
 		void register_subscription(const std::wstring &channel, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
 			function_container c;
 			c.func_ref = func_ref;
@@ -473,16 +494,29 @@ namespace lua_wrappers {
 			channels[channel] = c;
 		}
 
-		void register_cmdline(const std::wstring &command, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
+		void register_exec(const std::wstring &command, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
 			function_container c;
 			c.func_ref = func_ref;
 			c.instance = instance;
-			channels[command] = c;
+			execs[command] = c;
 		}
 
+		void clear() {
+			functions.clear();
+			execs.clear();
+			channels.clear();
+			// DO we need to release reference here?
+		}
 
-
-
+		bool has_command(const std::wstring & command) {
+			return functions.find(command) != functions.end();
+		}
+		bool has_exec(const std::wstring & command) {
+			return execs.find(command) != execs.end();
+		}
+		bool has_submit(const std::wstring &command) {
+			return channels.find(command) != channels.end();
+		}
 	};
 
 	class lua_instance_manager {

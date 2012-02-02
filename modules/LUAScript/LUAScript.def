@@ -12,5 +12,7 @@ EXPORTS
 	NSHandleCommand
 	NSUnloadModule
 	NSGetModuleDescription
+	NSCommandLineExec
 	NSDeleteBuffer
-
+	NSHasNotificationHandler
+	NSHandleNotification
