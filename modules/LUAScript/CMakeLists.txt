@@ -18,6 +18,8 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
+		lua_wrappers.hpp
+		script_wrapper.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

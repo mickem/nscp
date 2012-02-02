@@ -116,32 +116,20 @@ namespace script_wrapper {
 
 	class registry_wrapper : public base_script_object {
 	private:
-		//registry_wrapper(const registry_wrapper &other) {}
-		//registry_wrapper& operator=(const registry_wrapper &other) {}
 
 	public:
 
-		registry_wrapper(lua_State *L) : base_script_object(L) {
-			NSC_DEBUG_MSG(_T("create (from LUA)"));
-		}
-		/*
-		registry_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {
-			NSC_DEBUG_MSG(_T("create (from c++)"));
-		}
-		static boost::shared_ptr<registry_wrapper> create(unsigned int plugin_id) {
-			return boost::shared_ptr<registry_wrapper>(new registry_wrapper(nscapi::plugin_singleton->get_core(), plugin_id));
-		}
-		*/
+		registry_wrapper(lua_State *L) : base_script_object(L) {}
 
 		static const char className[];
 		static const Luna<registry_wrapper>::RegType methods[];
 
 		int register_function(lua_State *L) {
-			NSC_DEBUG_MSG(_T("register_function"));
-			return 0;
+			lua_wrappers::lua_wrapper lua(L);
+			NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
+			return lua.error("Unsupported API called: exec");
 		}
 		int register_simple_function(lua_State *L) {
-			NSC_DEBUG_MSG(_T("register_simple_function"));
 			lua_wrapper lua(L);
 			std::wstring description;
 			if (lua.size() > 2)
@@ -166,19 +154,50 @@ namespace script_wrapper {
 			return 0;
 		}
 		int register_cmdline(lua_State *L) {
-			NSC_DEBUG_MSG(_T("register_cmdline"));
-			return 0;
+			lua_wrappers::lua_wrapper lua(L);
+			NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
+			return lua.error("Unsupported API called: exec");
 		}
 		int register_simple_cmdline(lua_State *L) {
-			NSC_DEBUG_MSG(_T("register_simple_cmdline"));
+			lua_wrapper lua(L);
+			std::wstring name;
+			if (lua.is_string()) {
+				name = lua.pop_string();
+				lua_getglobal(L, utf8::cvt<std::string>(name).c_str());
+			}
+			if (!lua.is_function())
+				return lua.error("Invalid argument not a function: " + utf8::cvt<std::string>(name));
+
+			int func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+			if (func_ref == 0)
+				return lua.error("Invalid function: " + utf8::cvt<std::string>(name));
+			std::wstring script = lua.pop_string();
+			get_instance()->get_registry()->register_cmdline(script, get_instance(), func_ref);
 			return 0;
 		}
 		int subscription(lua_State *L) {
-			NSC_DEBUG_MSG(_T("subscription"));
-			return 0;
+			lua_wrappers::lua_wrapper lua(L);
+			NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
+			return lua.error("Unsupported API called: exec");
 		}
 		int simple_subscription(lua_State *L) {
-			NSC_DEBUG_MSG(_T("simple_subscription"));
+			lua_wrapper lua(L);
+			std::wstring name;
+			if (lua.is_string()) {
+				name = lua.pop_string();
+				lua_getglobal(L, utf8::cvt<std::string>(name).c_str());
+			}
+			if (!lua.is_function())
+				return lua.error("Invalid argument not a function: " + utf8::cvt<std::string>(name));
+
+			int func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+			if (func_ref == 0)
+				return lua.error("Invalid function: " + utf8::cvt<std::string>(name));
+			std::wstring channel = lua.pop_string();
+			get_instance()->get_core()->registerSubmissionListener(get_instance()->get_plugin_id(), channel);
+			get_instance()->get_registry()->register_subscription(channel, get_instance(), func_ref);
 			return 0;
 		}
 	};
@@ -206,16 +225,9 @@ namespace script_wrapper {
 		static const char className[];
 		static const Luna<settings_wrapper>::RegType methods[];
 
-
-
 		int get_section(lua_State *L) {
 			lua_wrapper lua(L);
-			int nargs = lua.size();
-			if (nargs > 1)
-				return lua.error("Incorrect syntax: get_section([<section>]);");
-			std::wstring v;
-			if (nargs > 0)
-				v = lua.pop_string();
+			std::wstring v = lua.op_wstring(1);
 			try {
 				lua.push_array(get_instance()->get_core()->getSettingsSection(v));
 			} catch (...) {
@@ -225,59 +237,85 @@ namespace script_wrapper {
 		}
 		int get_string(lua_State *L) {
 			lua_wrapper lua(L);
-			int nargs = lua.size();
-//			if (nargs < 2 || nargs > 3) {
-//				return lua.error("Incorrect syntax: get_string(<section>, <key>[, <default value>]);" + utf8::cvt<std::string>(lua.dump_stack()));
-//			}
-			std::wstring v;
-			if (nargs > 2)
-				v = lua.pop_string();
-			std::wstring k = lua.pop_string();
-			std::wstring s = lua.pop_string();
-			if (nargs > 1)
-				lua.pop_string();
+			std::wstring s = lua.wstring(1);
+			std::wstring k = lua.wstring(2);
+			std::wstring v = lua.op_wstring(3);
 			lua.push_string(get_instance()->get_core()->getSettingsString(s, k, v));
 			return 1;
 		}
 		int set_string(lua_State *L) {
-			NSC_DEBUG_MSG(_T("set_string"));
+			lua_wrapper lua(L);
+			std::wstring s = lua.wstring(1);
+			std::wstring k = lua.wstring(2);
+			std::wstring v = lua.wstring(3);
+			get_instance()->get_core()->SetSettingsString(s, k, v);
 			return 0;
 		}
 		int get_bool(lua_State *L) {
 			lua_wrapper lua(L);
-			int nargs = lua.size();
-			if (nargs < 2 || nargs > 3)
-				return lua.error("Incorrect syntax: get_string(<section>, <key>[, <default value>]);");
-			bool v;
-			if (nargs > 2)
-				v = lua.pop_boolean();
-			std::wstring k = lua.pop_string();
-			std::wstring s = lua.pop_string();
+			std::wstring s = lua.wstring(1);
+			std::wstring k = lua.wstring(2);
+			bool v = lua.checkbool(3);
 			lua.push_boolean(get_instance()->get_core()->getSettingsInt(s, k, v?1:0)==1);
 			return 1;
 		}
 		int set_bool(lua_State *L) {
-			NSC_DEBUG_MSG(_T("set_bool"));
+			lua_wrapper lua(L);
+			std::wstring s = lua.wstring(1);
+			std::wstring k = lua.wstring(2);
+			bool v = lua.checkbool(3);
+			get_instance()->get_core()->SetSettingsInt(s, k, v?1:0);
 			return 0;
 		}
 		int get_int(lua_State *L) {
-			NSC_DEBUG_MSG(_T("get_int"));
-			return 0;
+			lua_wrapper lua(L);
+			std::wstring s = lua.wstring(1);
+			std::wstring k = lua.wstring(2);
+			int v = lua.checkint(3);
+			lua.push_int(get_instance()->get_core()->getSettingsInt(s, k, v));
+			return 1;
 		}
 		int set_int(lua_State *L) {
-			NSC_DEBUG_MSG(_T("set_int"));
+			lua_wrapper lua(L);
+			std::wstring s = lua.wstring(1);
+			std::wstring k = lua.wstring(2);
+			int v = lua.checkint(3);
+			get_instance()->get_core()->SetSettingsInt(s, k, v);
 			return 0;
 		}
 		int save(lua_State *L) {
-			NSC_DEBUG_MSG(_T("save"));
+			get_instance()->get_core()->settings_save();
 			return 0;
 		}
 		int register_path(lua_State *L) {
-			NSC_DEBUG_MSG(_T("register_path"));
+			lua_wrapper lua(L);
+			std::wstring path = lua.wstring(1);
+			std::wstring title = lua.wstring(1);
+			std::wstring description = lua.wstring(1);
+			get_instance()->get_core()->settings_register_path(path, title, description, false);
 			return 0;
 		}
+		NSCAPI::settings_type script_wrapper::settings_wrapper::get_type(std::string stype) {
+			if (stype == "string" || stype == "str" || stype == "s")
+				return NSCAPI::key_string;
+			if (stype == "integer" || stype == "int" || stype == "i")
+				return NSCAPI::key_integer;
+			if (stype == "bool" || stype == "b")
+				return NSCAPI::key_bool;
+			NSC_LOG_ERROR_STD(_T("Invalid settings type"));
+			return NSCAPI::key_string;
+		}
+
 		int register_key(lua_State *L) {
-			NSC_DEBUG_MSG(_T("register_key"));
+			lua_wrapper lua(L);
+			std::wstring path = lua.wstring(1);
+			std::wstring key = lua.wstring(1);
+			std::wstring stype = lua.wstring(1);
+			NSCAPI::settings_type type = get_type(stype);
+			std::wstring title = lua.wstring(1);
+			std::wstring description = lua.wstring(1);
+			std::wstring defaultValue = lua.wstring(1);
+			get_instance()->get_core()->settings_register_key(path, key, type, title, description, defaultValue, false);
 			return 0;
 		}
 		
@@ -379,15 +417,15 @@ namespace script_wrapper {
 
 	class lua_script : public script_instance, public boost::enable_shared_from_this<lua_script>  {
 		lua_script(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua_wrappers::lua_registry> registry, const std::string alias, const std::string script) 
-			: script_instance(core, plugin_id, registry, alias, script) {
-			load();
-		}
+			: script_instance(core, plugin_id, registry, alias, script) {}
 	public:
 
 		static boost::shared_ptr<lua_script> create_instance(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua_wrappers::lua_registry> registry, const std::wstring alias, const std::wstring script) {
 			boost::shared_ptr<lua_script> instance(new lua_script(core, plugin_id, registry, utf8::cvt<std::string>(alias), utf8::cvt<std::string>(script)));
-			if (instance)
+			if (instance) {
 				instance->init();
+				instance->load();
+			}
 			return instance;
 		}
 		void init() {
@@ -395,14 +433,13 @@ namespace script_wrapper {
 		}
 
 		void load() {
-			int i = lua_gettop(get_lua_state());
-			luaL_openlibs(get_lua_state());
-			i = lua_gettop(get_lua_state());
+			lua_wrappers::lua_wrapper lua(get_lua_state());
+			lua.openlibs();
 			nsclient_wrapper::luaopen(get_lua_state());
-			i = lua_gettop(get_lua_state());
-			if (luaL_loadfile(get_lua_state(), get_script().c_str()) != 0) {
-				throw lua_wrappers::LUAException(_T("Failed to load script: ") + get_wscript() + _T(": ") + utf8::cvt<std::wstring>(lua_tostring(get_lua_state(), -1)));
-			}
+			if (lua.loadfile(get_script()) != 0)
+				throw lua_wrappers::LUAException(_T("Failed to load script: ") + get_wscript() + _T(": ") + lua.pop_string());
+			if (lua.pcall(0, 0, 0) != 0)
+				throw lua_wrappers::LUAException(_T("Failed to execute script: ") + get_wscript() + _T(": ") + lua.pop_string());
 		}
 		std::wstring get_wscript() const {
 			return utf8::cvt<std::wstring>(get_script());
@@ -411,41 +448,6 @@ namespace script_wrapper {
 		void reload() {
 			unload();
 			load();
-			pre_load();
 		}
-		void pre_load() {
-			if (lua_pcall(get_lua_state(), 0, 0, 0) != 0) {
-				throw lua_wrappers::LUAException(_T("Failed to parse script: ") + get_wscript() + _T(": ") + utf8::cvt<std::wstring>(lua_tostring(get_lua_state(), -1)));
-			}
-		}
-
-
-/*
-		NSCAPI::nagiosReturn handleCommand(lua_handler *handler, std::wstring function, std::wstring cmd, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
-			lua_manager::set_handler(L, handler);
-			lua_manager::set_script(L, this);
-			lua_wrapper lua(L);
-			int nargs = lua.size();
-			lua_getglobal(L, utf8::cvt<std::string>(function).c_str());
-			if (!lua_isfunction(L, -1)) {
-				lua_pop(L, 1); // remove function from LUA stack
-				throw lua_wrappers::LUAException(_T("Failed to run script: ") + get_wscript() + _T(": Function not found: handle"));
-			}
-			lua.push_string(cmd); 
-			lua.push_array(arguments);
-
-			if (lua_pcall(L, 2, LUA_MULTRET, 0) != 0) {
-				std::wstring err = lua.pop_string();
-				NSC_LOG_ERROR_STD(_T("Failed to call main function in script: ") + get_wscript() + _T(": ") + err);
-				return NSCAPI::returnUNKNOWN;
-			}
-			return extract_return(L, lua.size(), msg, perf);
-		}
-		*/
 	};
-
-
-
-
-
 }

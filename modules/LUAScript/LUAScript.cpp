@@ -67,9 +67,7 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		BOOST_FOREACH(script_container &script, scripts_) {
 			try {
-				boost::shared_ptr<script_wrapper::lua_script> instance = script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, script.script.string());
-				instance->pre_load();
-				instances_.push_back(instance);
+				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, script.script.string()));
 			} catch (const lua_wrappers::LUAException &e) {
 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
 			} catch (const std::exception &e) {
@@ -148,17 +146,17 @@ bool LUAScript::hasMessageHandler() {
 bool LUAScript::reload(std::wstring &message) {
 	bool error = false;
 	registry->clear();
-	for (script_list::const_iterator cit = instances_.begin(); cit != instances_.end() ; ++cit) {
+	BOOST_FOREACH(script_instance i, instances_) {
 		try {
-			(*cit)->reload();
+			i->reload();
 		} catch (const lua_wrappers::LUAException &e) {
 			error = true;
-			message += _T("Exception when reloading script: ") + (*cit)->get_wscript() + _T(": ") + e.getMessage();
-			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + (*cit)->get_wscript() + _T(": ") + e.getMessage());
+			message += _T("Exception when reloading script: ") + i->get_wscript() + _T(": ") + e.getMessage();
+			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + i->get_wscript() + _T(": ") + e.getMessage());
 		} catch (...) {
 			error = true;
-			message += _T("Unhandeled Exception when reloading script: ") + (*cit)->get_wscript();
-			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when reloading script: ") + (*cit)->get_wscript());
+			message += _T("Unhandeled Exception when reloading script: ") + i->get_wscript();
+			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when reloading script: ") + i->get_wscript());
 		}
 	}
 	if (!error)

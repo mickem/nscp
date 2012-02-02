@@ -26,6 +26,7 @@ namespace lua_wrappers {
 			return L;
 		}
 		inline lua_State* get_state() const {
+			int i = lua_gettop(L);
 			return L;
 		}
 
@@ -52,6 +53,17 @@ namespace lua_wrappers {
 			if (is_number(pos))
 				return strEx::itos(lua_tonumber(L, pos));
 			return _T("<NOT_A_STRING>");
+		}
+		int get_int(int pos = -1) {
+			if (pos == -1)
+				pos = lua_gettop(L);
+			if (pos == 0)
+				return 0;
+			if (is_string(pos))
+				return strEx::stoi(utf8::cvt<std::wstring>(lua_tostring(L, pos)));
+			if (is_number(pos))
+				return lua_tonumber(L, pos);
+			return 0;
 		}
 		boolean get_boolean(int pos = -1) {
 			if (pos == -1)
@@ -112,6 +124,15 @@ namespace lua_wrappers {
 			pop();
 			return ret;
 		}
+		int pop_int() {
+			int ret;
+			int top = lua_gettop(L);
+			if (top == 0)
+				return 0;
+			ret = get_int(top);
+			pop();
+			return ret;
+		}
 		NSCAPI::nagiosReturn pop_code() {
 			int pos = lua_gettop(L);
 			if (pos == 0)
@@ -159,6 +180,26 @@ namespace lua_wrappers {
 			int type = lua_type(L, pos);
 			return type;
 		}
+		std::wstring get_type_as_string(int pos = -1) {
+			if (pos == -1)
+				pos = lua_gettop(L);
+			if (pos == 0)
+				return _T("<EMPTY>");
+			switch (lua_type(L, pos)) {
+				case LUA_TNUMBER: 
+					return _T("<NUMBER>");
+				case LUA_TSTRING:
+					return _T("<STRING>");
+				case LUA_TBOOLEAN:
+					return _T("<TABLE>");
+				case LUA_TLIGHTUSERDATA:
+					return _T("<LIGHTUSERDATA>");
+				case LUA_TTABLE:
+					return _T("<TABLE>");
+			}
+			return _T("<UNKNOWN>");
+		}
+
 		inline bool is_string(int pos = -1) {
 			return type(pos) == LUA_TSTRING;
 		}
@@ -197,6 +238,9 @@ namespace lua_wrappers {
 		void push_boolean(bool b) {
 			lua_pushboolean(L, b?TRUE:FALSE);
 		}
+		void push_int(int b) {
+			lua_pushinteger(L, b);
+		}
 		void push_string(std::string s) {
 			lua_pushstring(L, s.c_str());
 		}
@@ -214,6 +258,13 @@ namespace lua_wrappers {
 		}
 		inline bool empty() {
 			return size() == 0;
+		}
+		void log_stack() {
+			int args = size();
+			NSC_DEBUG_MSG_STD(_T("Invalid lua stack state, dumping stack"));
+			for (int i=1;i<args+1;i++) {
+				NSC_DEBUG_MSG_STD(get_type_as_string(i) +_T(": ") + get_string(i));
+			}
 		}
 
 		int error(std::string s) {
@@ -242,6 +293,44 @@ namespace lua_wrappers {
 			return ret;
 		}
 
+		inline void openlibs() {
+			luaL_openlibs(L);
+		}
+
+		inline int loadfile(std::string script) {
+			return luaL_loadfile(L, script.c_str());
+		}
+
+		int pcall(int nargs, int nresults, int errfunc) {
+			return lua_pcall(L, nargs, nresults, errfunc);
+		}
+
+
+		std::string inline op_string(int pos, std::string def = "") {
+			return luaL_optstring(L, pos, def.c_str());
+		}
+		std::wstring inline op_wstring(int pos, std::string def = "") {
+			return utf8::cvt<std::wstring>(op_string(pos, def));
+		}
+		std::wstring inline op_wstring(int pos, std::wstring def) {
+			return op_wstring(pos, utf8::cvt<std::string>(def));
+		}
+		std::string inline string(int pos) {
+			return luaL_checkstring(L, pos);
+		}
+		std::wstring inline wstring(int pos) {
+			return utf8::cvt<std::wstring>(string(pos));
+		}
+
+		boolean inline checkbool(int pos) {
+			return lua_toboolean(L, pos);
+		}
+		int inline op_int(int pos, int def = 0) {
+			return luaL_optinteger(L, pos, def);
+		}
+		int inline checkint(int pos) {
+			return luaL_checkint(L, pos);
+		}
 	};
 
 	class LUAException : std::exception {
@@ -313,6 +402,7 @@ namespace lua_wrappers {
 
 		typedef std::map<std::wstring,function_container> function_map;
 		function_map functions;
+		function_map channels;
 	public:
 		NSCAPI::nagiosReturn on_query(const std::wstring & target, const std::wstring & command, std::list<std::wstring> & arguments, std::wstring & message, std::wstring & perf) 
 		{
@@ -361,23 +451,36 @@ namespace lua_wrappers {
 			return NSCAPI::returnUNKNOWN;
 		}
 
-		bool has_command(const std::wstring & command) 
-		{
-			NSC_DEBUG_MSG_STD(_T("Looking for command: ") + command);
+		bool has_command(const std::wstring & command) {
 			return functions.find(command) != functions.end();
 		}
 		void register_query(const std::wstring &command, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
-			NSC_DEBUG_MSG_STD(_T("Registring command: ") + command);
 			function_container c;
 			c.func_ref = func_ref;
 			c.instance = instance;
 			functions[command] = c;
 		}
 
-		void clear() 
-		{
-			throw std::exception("The method or operation is not implemented.");
+		void clear() {
+			functions.clear();
+			// DO we need to release reference here?
 		}
+
+		void register_subscription(const std::wstring &channel, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
+			function_container c;
+			c.func_ref = func_ref;
+			c.instance = instance;
+			channels[channel] = c;
+		}
+
+		void register_cmdline(const std::wstring &command, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
+			function_container c;
+			c.func_ref = func_ref;
+			c.instance = instance;
+			channels[command] = c;
+		}
+
+
 
 
 	};

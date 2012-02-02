@@ -5,6 +5,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-02-01 MickeM
+ * Implemented full settings API for LuaScript (next RC will have to wait till next weekend)
+
 2012-01-31 MickeM
  * Fixed issue with parsing "invalid external commands".
    If parsing falies it will notify you but use the legacy split string method instead.

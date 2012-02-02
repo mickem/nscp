@@ -35,7 +35,8 @@ private:
 
 	boost::shared_ptr<lua_wrappers::lua_registry> registry;
 	script_container::list_type scripts_;
-	typedef std::list<boost::shared_ptr<script_wrapper::lua_script> > script_list;
+	typedef boost::shared_ptr<script_wrapper::lua_script> script_instance;
+	typedef std::list<script_instance> script_list;
 	script_list instances_;
 	boost::filesystem::wpath root_;
 
