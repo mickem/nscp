@@ -48,7 +48,7 @@ namespace nrpe {
 		}
 
 		void connection::timeout(const boost::system::error_code& e) {
-			handler_->log_debug(__FILE__, __LINE__, _T("Timeout"));
+			handler_->log_debug(__FILE__, __LINE__, _T("Timeout reading: ") + strEx::itos(parser_.get_payload_length()));
 			if (e != boost::asio::error::operation_aborted) {
 				handler_->log_debug(__FILE__, __LINE__, _T("Timeout <<<-"));
 				boost::system::error_code ignored_ec;

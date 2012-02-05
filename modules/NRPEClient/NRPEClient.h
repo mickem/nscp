@@ -32,6 +32,7 @@ NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
 
 namespace po = boost::program_options;
+namespace sh = nscapi::settings_helper;
 
 class NRPEClient : public nscapi::impl::simple_plugin {
 private:
@@ -39,7 +40,63 @@ private:
 	std::wstring channel_;
 	std::wstring target_path;
 
-	nscapi::target_handler targets;
+	struct custom_reader {
+		typedef nscapi::targets::target_object object_type;
+		typedef nscapi::targets::target_object target_object;
+
+		static void init_default(target_object &target) {
+			target.set_property_int(_T("timeout"), 30);
+			target.set_property_bool(_T("ssl"), true);
+			target.set_property_string(_T("certificate"), _T("${certificate-path}/nrpe_dh_512.pem"));
+			target.set_property_int(_T("payload length"), 1024);
+		}
+
+		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+			settings.path(object.path).add_key()
+
+				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
+				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+
+				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
+				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+
+				(_T("certificate"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
+				_T("SSL CERTIFICATE"), _T(""))
+
+				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 1024),
+				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
+				;
+		}
+
+		static void post_process_target(target_object &target) {
+			nscapi::core_wrapper* core = GET_CORE();
+			if (core == NULL) {
+				NSC_LOG_ERROR_STD(_T("Invalid core"));
+				return;
+			}
+			if (target.has_option(_T("certificate"))) {
+				std::wstring value = target.options[_T("certificate")];
+				boost::filesystem::wpath p = value;
+				if (!boost::filesystem::is_regular(p)) {
+					p = core->getBasePath() / p;
+					if (boost::filesystem::is_regular(p)) {
+						value = p.string();
+					} else {
+						value = core->expand_path(value);
+					}
+					target.options[_T("certificate")] = value;
+				}
+				if (boost::filesystem::is_regular(p)) {
+					NSC_DEBUG_MSG_STD(_T("Using certificate: ") + p.string());
+				} else {
+					NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
+				}
+			}
+		}
+
+	};
+
+	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
 
 	struct connection_data {
@@ -50,19 +107,19 @@ private:
 		int buffer_length;
 		bool use_ssl;
 
-		connection_data(nscapi::functions::destination_container recipient, nscapi::target_handler::optarget dt) {
-			cert = recipient.get_string_data("certificate", dt?utf8::cvt<std::string>(dt->options[_T("certificate")]):"");
-			timeout = recipient.get_int_data("timeout", 30);
-			buffer_length = recipient.get_int_data("payload length", 1024);
-			use_ssl = recipient.get_bool_data("ssl");
-			if (recipient.has_data("no ssl"))
-				use_ssl = !recipient.get_bool_data("no ssl");
-			if (recipient.has_data("use ssl"))
-				use_ssl = recipient.get_bool_data("use ssl");
+		connection_data(nscapi::functions::destination_container arguments, nscapi::functions::destination_container target) {
+			arguments.import(target);
+			cert = arguments.get_string_data("certificate", "");
+			timeout = arguments.get_int_data("timeout", 30);
+			buffer_length = arguments.get_int_data("payload length", 1024);
+			use_ssl = arguments.get_bool_data("ssl");
+			if (arguments.has_data("no ssl"))
+				use_ssl = !arguments.get_bool_data("no ssl");
+			if (arguments.has_data("use ssl"))
+				use_ssl = arguments.get_bool_data("use ssl");
 
-			net::url url = recipient.get_url(5666);
-			host = url.host;
-			port = url.get_port();
+			host = arguments.address.host;
+			port = arguments.address.get_port_string("5666");
 		}
 
 		std::wstring to_wstring() const {
@@ -87,21 +144,10 @@ private:
 		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
+			nscapi::targets::optional_target_object t = instance->targets.find_object(id);
+			if (t)
+				return t->to_destination_container();
 			nscapi::functions::destination_container ret;
-			nscapi::target_handler::optarget t = instance->targets.find_target(id);
-			if (t) {
-				if (!t->alias.empty())
-					ret.id = utf8::cvt<std::string>(t->alias);
-				if (!t->host.empty())
-					ret.host = utf8::cvt<std::string>(t->host);
-				if (t->has_option("address"))
-					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
-				else 
-					ret.address = utf8::cvt<std::string>(t->host);
-				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
-					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
-				}
-			}
 			return ret;
 		}
 	};
@@ -154,7 +200,7 @@ private:
 	static nrpe::packet send_nossl(std::string host, std::string port, int timeout, nrpe::packet packet);
 	static nrpe::packet send_ssl(std::string cert, std::string host, std::string port, int timeout, nrpe::packet packet);
 
-	connection_data parse_header(const ::Plugin::Common_Header &header);
+	connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);

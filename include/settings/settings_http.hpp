@@ -21,7 +21,7 @@ namespace settings {
 
 	public:
 		settings_http(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			net::url url = net::parse(context).get_url();
+			net::url url = net::parse(utf8::cvt<std::string>(context));
 			std::wstring path = core->expand_path(DEFAULT_CACHE_PATH);
 			if (!file_helpers::checks::is_directory(path)) {
 				if (file_helpers::checks::exists(path)) 

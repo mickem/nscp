@@ -26,6 +26,7 @@ namespace scheduler {
 	public:
 		int id;
 		std::wstring alias;
+		std::wstring target_id;
 
 		std::wstring command;
 		std::list<std::wstring> arguments;
@@ -45,7 +46,7 @@ namespace scheduler {
 		
  		target(const target &other) : id(other.id), alias(other.alias)
 			, command(other.command), arguments(other.arguments), tag(other.tag)
-			, duration(other.duration), report(other.report), channel(other.channel) {}
+			, duration(other.duration), report(other.report), channel(other.channel), target_id(other.target_id) {}
 		target& operator=(target const& other) {
 			id = other.id;
 			alias = other.alias;
@@ -57,12 +58,13 @@ namespace scheduler {
 			duration = other.duration;
 			report = other.report;
 			channel = other.channel;
+			target_id = other.target_id;
 			return *this;
 		}
  		~target() {}
 		std::wstring to_string() {
 			std::wstringstream ss;
-			ss << alias << _T("[") << id << _T("] = {command: ") << command << _T(", channel") << channel << _T("}");
+			ss << alias << _T("[") << id << _T("] = {command: ") << command << _T(", channel=") << channel << _T(", target_id=") << target_id << _T("}");
 			return ss.str();
 		}
 	};

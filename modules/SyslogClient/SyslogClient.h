@@ -30,6 +30,7 @@ NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
 
 namespace po = boost::program_options;
+namespace sh = nscapi::settings_helper;
 
 class SyslogClient : public nscapi::impl::simple_plugin {
 private:
@@ -37,7 +38,54 @@ private:
 	std::wstring channel_;
 	std::wstring target_path;
 
-	nscapi::target_handler targets;
+	struct custom_reader {
+		typedef nscapi::targets::target_object object_type;
+		typedef nscapi::targets::target_object target_object;
+
+		static void init_default(target_object &target) {
+			target.set_property_string(_T("severity"), _T("error"));
+			target.set_property_string(_T("facility"), _T("kernel"));
+			target.set_property_string(_T("tag syntax"), _T("NSCA"));
+			target.set_property_string(_T("message syntax"), _T("%message%"));
+			target.set_property_string(_T("ok severity"), _T("informational"));
+			target.set_property_string(_T("warning severity"), _T("warning"));
+			target.set_property_string(_T("critical severity"), _T("critical"));
+			target.set_property_string(_T("unknown severity"), _T("emergency"));
+		}
+
+		static void post_process_target(target_object &target) {}
+
+		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+			settings.path(object.path).add_key()
+
+				(_T("severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("severity"), _1), _T("error")),
+				_T("TODO"), _T(""))
+
+				(_T("facility"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("facility"), _1), _T("kernel")),
+				_T("TODO"), _T(""))
+
+				(_T("tag_syntax"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("tag syntax"), _1), _T("NSCA")),
+				_T("TODO"), _T(""))
+
+				(_T("message_syntax"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("message syntax"), _1), _T("%message%")),
+				_T("TODO"), _T(""))
+
+				(_T("ok severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ok severity"), _1), _T("informational")),
+				_T("TODO"), _T(""))
+
+				(_T("warning severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("warning severity"), _1), _T("warning")),
+				_T("TODO"), _T(""))
+
+				(_T("critical severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("critical severity"), _1), _T("critical")),
+				_T("TODO"), _T(""))
+
+				(_T("unknown severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("unknown severity"), _1), _T("emergency")),
+				_T("TODO"), _T(""))
+				;
+		}
+	};
+
+	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
 
 	typedef std::map<std::string,int> syslog_map;
@@ -65,9 +113,8 @@ private:
 			crit_severity = recipient.data["critical severity"];
 			unknown_severity = recipient.data["unknown severity"];
 
-			net::url url = recipient.get_url(514);
-			host = url.host;
-			port = url.get_port();
+			host = recipient.address.host;
+			port = recipient.address.get_port(514);
 		}
 
 		std::wstring to_wstring() const {
@@ -93,20 +140,9 @@ private:
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
 			nscapi::functions::destination_container ret;
-			nscapi::target_handler::optarget t = instance->targets.find_target(id);
-			if (t) {
-				if (!t->alias.empty())
-					ret.id = utf8::cvt<std::string>(t->alias);
-				if (!t->host.empty())
-					ret.host = utf8::cvt<std::string>(t->host);
-				if (t->has_option("address"))
-					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
-				else 
-					ret.address = utf8::cvt<std::string>(t->host);
-				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
-					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
-				}
-			}
+			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
+			if (opt)
+				return opt->to_destination_container();
 			return ret;
 		}
 	};

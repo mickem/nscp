@@ -117,6 +117,9 @@ scheduler::target Scheduler::read_schedule(std::wstring path, std::wstring sched
 		(_T("report"), sh::wstring_key(&report, def==NULL?_T("all"):nscapi::report::to_string(def->report)),
 		_T("REPORT MODE"), _T("What to report to the server (any of the following: all, critical, warning, unknown, ok)"))
 
+		(_T("target"), sh::wstring_key(&item.target_id, def==NULL?_T(""):def->target_id),
+		_T("TARGET"), _T(""))
+
 		// TODO: get the proper default value here!
 		(_T("interval"), sh::wstring_key(&duration, _T("5s")),
 		_T("SCHEDULE INTERAVAL"), _T("Time in seconds between each check"))
@@ -166,7 +169,7 @@ void Scheduler::handle_schedule(scheduler::target item) {
 		} else if (nscapi::report::matches(item.report, code)) {
 			// @todo: allow renaming of commands here item.alias, 
 			// @todo this is broken, fix this (uses the wrong message)
-			nscapi::functions::make_submit_from_query(response, item.channel, item.alias);
+			nscapi::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id);
 			std::string result;
 			GET_CORE()->submit_message(item.channel, response, result);
 		}

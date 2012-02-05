@@ -113,66 +113,10 @@ bool SyslogClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			_T("CHANNEL"), _T("The channel to listen to."))
 
 			;
-
-		settings.alias().add_key_to_settings(_T("targets/default"))
-
-			(_T("severity"), sh::wpath_key(&severity, _T("error")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("facility"), sh::wpath_key(&facility, _T("kernel")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("tag_syntax"), sh::wpath_key(&tag_syntax, _T("NSCP")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("message_syntax"), sh::wpath_key(&message_syntax, _T("%message%")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("ok severity"), sh::wpath_key(&ok_severity, _T("informational")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("warning severity"), sh::wpath_key(&warn_severity, _T("warning")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("critical severity"), sh::wpath_key(&crit_severity, _T("critical")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("unknown severity"), sh::wpath_key(&unknown_severity, _T("emergency")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			;
-
 		settings.register_all();
 		settings.notify();
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
-
-		if (!targets.has_target(_T("default"))) {
-			add_target(_T("default"), _T("default"));
-			targets.rebuild();
-		}
-		nscapi::target_handler::optarget t = targets.find_target(_T("default"));
-		if (t) {
-			if (!t->has_option("severity"))
-				t->options[_T("severity")] = severity;
-			if (!t->has_option("facility"))
-				t->options[_T("facility")] = facility;
-			if (!t->has_option("tag syntax"))
-				t->options[_T("tag syntax")] = tag_syntax;
-			if (!t->has_option("message syntax"))
-				t->options[_T("message syntax")] = message_syntax;
-			if (!t->has_option("ok severity"))
-				t->options[_T("ok severity")] = ok_severity;
-			if (!t->has_option("warning severity"))
-				t->options[_T("warning severity")] = warn_severity;
-			if (!t->has_option("critical severity"))
-				t->options[_T("critical severity")] = crit_severity;
-			if (!t->has_option("unknown severity"))
-				t->options[_T("unknown severity")] = unknown_severity;
-			targets.add(*t);
-		} else {
-			NSC_LOG_ERROR(_T("Default target not found!"));
-		}
 
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
@@ -283,27 +227,15 @@ void SyslogClient::setup(client::configuration &config) {
 	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	net::wurl url;
-	url.protocol = _T("syslog");
-	url.port = 514;
-	nscapi::target_handler::optarget opt = targets.find_target(_T("default"));
-	if (opt) {
-		nscapi::target_handler::target t = *opt;
-		url.host = t.host;
-		if (t.has_option("port")) {
-			try {
-				url.port = strEx::stoi(t.options[_T("port")]);
-			} catch (...) {}
-		}
-		std::string keys[] = {"message template", "tag template", "severity", "ok_severity", "warning_severity", "critical_severity", "unknown_severity", "facility"};
-		BOOST_FOREACH(std::string s, keys) {
-			config.data->recipient.data[s] = utf8::cvt<std::string>(t.options[utf8::cvt<std::wstring>(s)]);
-		}
-	}
 	config.data->recipient.id = "default";
-	config.data->recipient.address = utf8::cvt<std::string>(url.to_string());
+	config.data->recipient.address = net::parse("syslog://localhost:514");
+	nscapi::targets::optional_target_object opt = targets.find_object(_T("default"));
+	if (opt) {
+		nscapi::functions::destination_container def = opt->to_destination_container();
+		config.data->recipient.import(def);
+	}
 	config.data->host_self.id = "self";
-	config.data->host_self.host = hostname_;
+	config.data->host_self.address.host = hostname_;
 
 	config.target_lookup = handler;
 	config.handler = handler;

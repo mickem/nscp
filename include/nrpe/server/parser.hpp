@@ -35,6 +35,9 @@ namespace nrpe {
 				payload_length_ = length;
 				packet_length_ = nrpe::length::get_packet_length(length);
 			}
+			unsigned int get_payload_length() const {
+				return payload_length_;
+			}
 		};
 
 	}// namespace server

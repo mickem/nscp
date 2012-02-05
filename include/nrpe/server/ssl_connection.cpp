@@ -24,6 +24,7 @@ namespace nrpe {
 		}
 
 		void ssl_connection::start() {
+			handler_->log_debug(__FILE__, __LINE__, _T("starting secure data connection"));
 			socket_.async_handshake(boost::asio::ssl::stream_base::server,
 				strand_.wrap(
 					boost::bind(&connection::handle_handshake, shared_from_this(), boost::asio::placeholders::error)

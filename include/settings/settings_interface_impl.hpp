@@ -182,8 +182,8 @@ namespace settings {
 			try {
 				return get_string(path, key);
 			} catch (KeyNotFoundException e) {
-				MUTEX_GUARD();
-				settings_cache_[cache_key_type(path,key)] = def;
+				//MUTEX_GUARD();
+				//settings_cache_[cache_key_type(path,key)] = def;
 				return def;
 			}
 		}
@@ -199,6 +199,7 @@ namespace settings {
 			{
 				MUTEX_GUARD();
 				settings_cache_[cache_key_type(path,key)] = value;
+				path_cache_.insert(path);
 			}
 			add_key(path, key);
 		}
@@ -268,8 +269,8 @@ namespace settings {
 			try {
 				return get_int(path, key);
 			} catch (KeyNotFoundException e) {
-				MUTEX_GUARD();
-				settings_cache_[cache_key_type(path,key)] = def;
+				//MUTEX_GUARD();
+				//settings_cache_[cache_key_type(path,key)] = def;
 				return def;
 			}
 		}
@@ -285,6 +286,7 @@ namespace settings {
 			{
 				MUTEX_GUARD();
 				settings_cache_[cache_key_type(path,key)] = value;
+				path_cache_.insert(path);
 			}
 			add_key(path, key);
 		}
@@ -352,8 +354,8 @@ namespace settings {
 			try {
 				return get_bool(path, key);
 			} catch (KeyNotFoundException e) {
-				MUTEX_GUARD();
-				settings_cache_[cache_key_type(path,key)] = def;
+				//MUTEX_GUARD();
+				//settings_cache_[cache_key_type(path,key)] = def;
 				return def;
 			}
 		}
@@ -369,6 +371,7 @@ namespace settings {
 			{
 				MUTEX_GUARD();
 				settings_cache_[cache_key_type(path,key)] = value;
+				path_cache_.insert(path);
 			}
 			add_key(path, key);
 		}
@@ -405,6 +408,7 @@ namespace settings {
 							list.push_back(s);
 					}
 				}
+				// TODO add support for retrieving all key paths here!
 			} else {
 				std::wstring::size_type path_len = path.length();
 				BOOST_FOREACH(std::wstring s, path_cache_) {

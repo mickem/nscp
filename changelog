@@ -5,6 +5,12 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+
+2012-02-05 MickeM
+ * Refactored the targets concept internally to be simpler to use (less code)
+ * Fixed issue with reloading plugins
+ * Fixed target handling in NRPE Client, will add NSCA client tomorrow...
+
 2012-02-02 MickeM
  * Implemented full API for LuaScript
 	Now "everything" (ish) works including channels, exec and query (via moderna API)

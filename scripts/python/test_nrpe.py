@@ -136,20 +136,26 @@ class NRPEServerTest(BasicTest):
 	def teardown(self):
 		None
 		
-	def submit_payload(self, alias, ssl, length, source, status, msg, perf):
+	def submit_payload(self, alias, ssl, length, source, status, msg, perf, target):
 		message = plugin_pb2.QueryRequestMessage()
 		
 		message.header.version = plugin_pb2.Common.VERSION_1
-		message.header.recipient_id = "test_rp"
+		message.header.recipient_id = target
 		host = message.header.hosts.add()
 		host.address = "127.0.0.1:15666"
-		host.id = "test_rp"
+		host.id = target
+		if (target == 'valid'):
+			pass
+		else:
+			enc = host.metadata.add()
+			enc.key = "use ssl"
+			enc.value = '%s'%ssl
+			enc = host.metadata.add()
+			enc.key = "payload length"
+			enc.value = '%d'%length
 		enc = host.metadata.add()
-		enc.key = "use ssl"
-		enc.value = '%s'%ssl
-		enc = host.metadata.add()
-		enc.key = "payload length"
-		enc.value = '%d'%length
+		enc.key = "timeout"
+		enc.value = '5'
 
 		uid = str(uuid.uuid4())
 		payload = message.payload.add()
@@ -163,7 +169,7 @@ class NRPEServerTest(BasicTest):
 		(result_code, response) = core.query('nrpe_forward', message.SerializeToString())
 		response_message = plugin_pb2.QueryResponseMessage()
 		response_message.ParseFromString(response)
-		result = TestResult()
+		result = TestResult('Testing NRPE: %s for %s'%(alias, target))
 		
 		found = False
 		for i in range(0,10):
@@ -179,23 +185,17 @@ class NRPEServerTest(BasicTest):
 				found = True
 				break
 			else:
-				log('Waiting for %s'%uid)
+				log('Waiting for %s (%s/%s)'%(uid,alias,target))
 				sleep(1)
 		if found:
 			return result
 		return None
 
 	def test_one(self, ssl=True, length=1024, state = status.UNKNOWN, tag = 'TODO'):
-		r1 = self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '')
-		if r1:
-			return r1
-		result = TestResult()
-		result.add_message(True, '*FAILED* to send message with %s (retrying)'%tag)
-		r2 = self.submit_payload('%s/%s'%(ssl, length), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '')
-		if r2:
-			result.add(r2)
-			return result
-		result.add_message(False, 'Failed to send message with: %s/%s'%(ssl, length))
+		result = TestResult('Testing NRPE: %s/%s/%s with various targets'%(ssl, length, tag))
+		result.add(self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '', "valid"))
+		result.add(self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '', "test_rp"))
+		result.add(self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '', "invalid"))
 		return result
 
 	def do_one_test(self, ssl=True, length=1024):
@@ -205,6 +205,21 @@ class NRPEServerTest(BasicTest):
 		conf.set_bool('/settings/NRPE/test_nrpe_server', 'allow arguments', True)
 		# TODO: conf.set_string('/settings/NRPE/test_nrpe_server', 'certificate', ssl)
 		core.reload('test_nrpe_server')
+
+		#                /settings/NRPE/test_nrpe_client/targets/default
+		conf.set_string('/settings/NRPE/test_nrpe_client/targets/default', 'address', 'nrpe://127.0.0.1:35666')
+		conf.set_bool('/settings/NRPE/test_nrpe_client/targets/default', 'use ssl', not ssl)
+		conf.set_int('/settings/NRPE/test_nrpe_client/targets/default', 'payload length', length*3)
+
+		conf.set_string('/settings/NRPE/test_nrpe_client/targets/invalid', 'address', 'nrpe://127.0.0.1:25666')
+		conf.set_bool('/settings/NRPE/test_nrpe_client/targets/invalid', 'use ssl', not ssl)
+		conf.set_int('/settings/NRPE/test_nrpe_client/targets/invalid', 'payload length', length*2)
+
+		conf.set_string('/settings/NRPE/test_nrpe_client/targets/valid', 'address', 'nrpe://127.0.0.1:15666')
+		conf.set_bool('/settings/NRPE/test_nrpe_client/targets/valid', 'use ssl', ssl)
+		conf.set_int('/settings/NRPE/test_nrpe_client/targets/valid', 'payload length', length)
+		core.reload('test_nrpe_client')
+		
 		result = TestResult()
 		result.add_message(isOpen('127.0.0.1', 15666), 'Checking that port is open (server is up)')
 		result.add(self.test_one(ssl, length, state = status.UNKNOWN, tag = 'unknown'))

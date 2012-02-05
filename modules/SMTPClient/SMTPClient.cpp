@@ -78,47 +78,10 @@ bool SMTPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			_T("CHANNEL"), _T("The channel to listen to."))
 
 			;
-
-		settings.alias().add_key_to_settings(_T("targets/default"))
-
-			(_T("timeout"), sh::uint_key(&timeout, 30),
-			_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
-
-			(_T("sender"), sh::wpath_key(&sender, _T("nscp@localhost")),
-			_T("SENDER"), _T("Sender of email message"))
-
-			(_T("recipient"), sh::wpath_key(&recipient, _T("nscp@localhost")),
-			_T("RECIPIENT"), _T("Recipient of email message"))
-
-			(_T("template"), sh::wpath_key(&template_string, _T("Hello, this is %source% reporting %message%!")),
-			_T("TEMPLATE"), _T("Template for message data"))
-
-			;
-
 		settings.register_all();
 		settings.notify();
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
-
-		if (!targets.has_target(_T("default"))) {
-			add_target(_T("default"), _T("default"));
-			targets.rebuild();
-		}
-		nscapi::target_handler::optarget t = targets.find_target(_T("default"));
-		if (t) {
-			if (!t->has_option("template"))
-				t->options[_T("template")] = template_string;
-			if (!t->has_option("timeout"))
-				t->options[_T("timeout")] = strEx::itos(timeout);
-			if (!t->has_option("recipient"))
-				t->options[_T("recipient")] = recipient;
-			if (!t->has_option("sender"))
-				t->options[_T("sender")] = sender;
-			targets.add(*t);
-		} else {
-			NSC_LOG_ERROR(_T("Default target not found!"));
-		}
-
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -222,25 +185,13 @@ void SMTPClient::setup(client::configuration &config) {
 	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	net::wurl url;
-	url.protocol = _T("smtp");
-	url.port = 25;
-	nscapi::target_handler::optarget opt = targets.find_target(_T("default"));
-	if (opt) {
-		nscapi::target_handler::target t = *opt;
-		url.host = t.host;
-		if (t.has_option("port")) {
-			try {
-				url.port = strEx::stoi(t.options[_T("port")]);
-			} catch (...) {}
-		}
-		std::string keys[] = {"sender", "timeout", "recipient", "template"};
-		BOOST_FOREACH(std::string s, keys) {
-			config.data->recipient.data[s] = utf8::cvt<std::string>(t.options[utf8::cvt<std::wstring>(s)]);
-		}
-	}
 	config.data->recipient.id = "default";
-	config.data->recipient.address = utf8::cvt<std::string>(url.to_string());
+	config.data->recipient.address = net::parse("smtp://localhost:25");
+	nscapi::targets::optional_target_object opt = targets.find_object(_T("default"));
+	if (opt) {
+		nscapi::functions::destination_container def = opt->to_destination_container();
+		config.data->recipient.import(def);
+	}
 	config.data->host_self.id = "self";
 	//config.data->host_self.host = hostname_;
 

@@ -322,11 +322,26 @@ void NSCPlugin::unload_plugin() {
 	} catch (...) {
 		throw NSPluginException(module_, _T("Unhandled exception in fUnLoadModule."));
 	}
-	fHandleCommand = NULL;
 }
 void NSCPlugin::unload_dll() {
 	if (isLoaded())
 		return;
+	fModuleHelperInit = NULL;
+	fLoadModule = NULL;
+	fGetName = NULL;
+	fGetVersion = NULL;
+	fGetDescription = NULL;
+	fHasCommandHandler = NULL;
+	fHasMessageHandler = NULL;
+	fHandleCommand = NULL;
+	fDeleteBuffer = NULL;
+	fHandleMessage = NULL;
+	fUnLoadModule = NULL;
+	fCommandLineExec = NULL;
+	fHasNotificationHandler = NULL;
+	fHandleNotification = NULL;
+	fHasRoutingHandler = NULL;
+	fRouteMessage = NULL;
 	module_.unload_library();
 }
 bool NSCPlugin::getName_(wchar_t* buf, unsigned int buflen) {

@@ -51,22 +51,27 @@
  * @bug 
  *
  */
-class NSPluginException {
+class NSPluginException : public std::exception {
 public:
 	std::wstring file_;	// DLL filename (for which the exception was thrown)
 	std::wstring error_;	// An error message (human readable format)
+	std::string msg_;
 	/**
 	 * @param file DLL filename (for which the exception is thrown)
 	 * @param error An error message (human readable format)
 	 */
 	NSPluginException(dll::dll &module, std::wstring error) : error_(error) {
 		file_ = module.get_module_name();
-	}
-	std::wstring what() {
-		return error_ + _T(" in file: ") + file_;
+		msg_ = utf8::cvt<std::string>(error_ + _T(" in file: ") + file_);
 	}
 
-
+	~NSPluginException() throw() {}
+	const char* what() const throw() {
+		return msg_.c_str();
+	}
+	const std::wstring wwhat() const throw() {
+		return utf8::cvt<std::wstring>(msg_);
+	}
 };
 
 /**

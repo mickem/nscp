@@ -29,6 +29,7 @@ NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
 
 namespace po = boost::program_options;
+namespace sh = nscapi::settings_helper;
 
 class SMTPClient : public nscapi::impl::simple_plugin {
 private:
@@ -36,7 +37,38 @@ private:
 	std::wstring channel_;
 	std::wstring target_path;
 
-	nscapi::target_handler targets;
+	struct custom_reader {
+		typedef nscapi::targets::target_object object_type;
+		typedef nscapi::targets::target_object target_object;
+
+
+		static void init_default(target_object &target) {
+			target.set_property_int(_T("timeout"), 30);
+			target.set_property_string(_T("sender"), _T("nscp@localhost"));
+			target.set_property_string(_T("recipient"), _T("nscp@localhost"));
+			target.set_property_string(_T("template"), _T("Hello, this is %source% reporting %message%!"));
+		}
+		static void post_process_target(target_object &target) {}
+
+		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+			settings.path(object.path).add_key()
+
+				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
+				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+
+				(_T("sender"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("sender"), _1), _T("nscp@localhost")),
+				_T("SENDER"), _T("Sender of email message"))
+
+				(_T("recipient"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("recipient"), _1), _T("nscp@localhost")),
+				_T("RECIPIENT"), _T("Recipient of email message"))
+
+				(_T("template"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("template"), _1), _T("Hello, this is %source% reporting %message%!")),
+				_T("TEMPLATE"), _T("Template for message data"))
+			;
+		}
+	};
+
+	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
 
 	struct connection_data {
@@ -53,9 +85,8 @@ private:
 			sender = recipient.get_string_data("sender");
 			template_string = recipient.get_string_data("template");
 
-			net::url url = recipient.get_url(25);
-			host = url.host;
-			port = url.get_port();
+			host = recipient.address.host;
+			port = recipient.address.get_port(25);
 		}
 
 		std::wstring to_wstring() const {
@@ -81,20 +112,9 @@ private:
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
 			nscapi::functions::destination_container ret;
-			nscapi::target_handler::optarget t = instance->targets.find_target(id);
-			if (t) {
-				if (!t->alias.empty())
-					ret.id = utf8::cvt<std::string>(t->alias);
-				if (!t->host.empty())
-					ret.host = utf8::cvt<std::string>(t->host);
-				if (t->has_option("address"))
-					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
-				else 
-					ret.address = utf8::cvt<std::string>(t->host);
-				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
-					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
-				}
-			}
+			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
+			if (opt)
+				return opt->to_destination_container();
 			return ret;
 		}
 	};

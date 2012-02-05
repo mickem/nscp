@@ -1,11 +1,17 @@
 #include <client/command_line_parser.hpp>
 #include <nscapi/functions.hpp>
+#include <boost/bind.hpp>
 
 namespace po = boost::program_options;
 
 void client::command_line_parser::add_common_options(po::options_description &desc, data_type command_data) {
 	desc.add_options()
-		("host,H", po::value<std::string>(&command_data->recipient.address), "The address of the host running the server")
+		("host,H", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_host, &command_data->recipient, _1)), 
+		"The host of the host running the server")
+		("port,P", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_port, &command_data->recipient, _1)), 
+		"The port of the host running the server")
+		("address", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_address, &command_data->recipient, _1)), 
+		"The address (host:port) of the host running the server")
 		("timeout,T", po::value<int>(&command_data->timeout), "Number of seconds before connection times out (default=10)")
 		("target,t", po::wvalue<std::wstring>(&command_data->target_id), "Target to use (lookup connection info from config)")
 		("query,q", po::bool_switch(&command_data->query), "Force query mode (only useful when this is not already obvious)")

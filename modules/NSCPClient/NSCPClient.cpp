@@ -87,44 +87,10 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 			;
 
-		settings.alias().add_key_to_settings(_T("targets/default"))
-
-			(_T("timeout"), sh::uint_key(&timeout, 30),
-			_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
-
-			(_T("use ssl"), sh::bool_key(&use_ssl, true),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
-
-			(_T("certificate"), sh::wpath_key(&certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
-			_T("SSL CERTIFICATE"), _T(""))
-
-			(_T("payload length"),  sh::uint_key(&buffer_length, 1024),
-			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
-			;
-
 		settings.register_all();
 		settings.notify();
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
-
-		if (!targets.has_target(_T("default"))) {
-			add_target(_T("default"), _T("default"));
-			targets.rebuild();
-		}
-		nscapi::target_handler::optarget t = targets.find_target(_T("default"));
-		if (t) {
-			if (!t->has_option("certificate"))
-				t->options[_T("certificate")] = certificate;
-			if (!t->has_option("timeout"))
-				t->options[_T("timeout")] = strEx::itos(timeout);
-			if (!t->has_option("payload length"))
-				t->options[_T("payload length")] = strEx::itos(buffer_length);
-			if (!t->has_option("ssl"))
-				t->options[_T("ssl")] = use_ssl?_T("true"):_T("false");
-			targets.add(*t);
-		} else {
-			NSC_LOG_ERROR(_T("Default target not found!"));
-		}
 
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
@@ -152,20 +118,7 @@ std::string get_command(std::string alias, std::string command = "") {
 
 void NSCPClient::add_target(std::wstring key, std::wstring arg) {
 	try {
-		nscapi::target_handler::target t = targets.add(get_settings_proxy(), target_path , key, arg);
-		if (t.has_option(_T("certificate"))) {
-			boost::filesystem::wpath p = t.options[_T("certificate")];
-			if (!boost::filesystem::is_regular(p)) {
-				p = get_core()->getBasePath() / p;
-				t.options[_T("certificate")] = utf8::cvt<std::wstring>(p.string());
-				targets.add(t);
-			}
-			if (boost::filesystem::is_regular(p)) {
-				NSC_DEBUG_MSG_STD(_T("Using certificate: ") + p.string());
-			} else {
-				NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
-			}
-		}
+		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}
@@ -238,25 +191,13 @@ void NSCPClient::setup(client::configuration &config) {
 	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	net::wurl url;
-	url.protocol = _T("nscp");
-	url.port = 5668;
-	nscapi::target_handler::optarget opt = targets.find_target(_T("default"));
-	if (opt) {
-		nscapi::target_handler::target t = *opt;
-		url.host = t.host;
-		if (t.has_option("port")) {
-			try {
-				url.port = strEx::stoi(t.options[_T("port")]);
-			} catch (...) {}
-		}
-		std::string keys[] = {"certificate", "timeout", "payload length", "ssl"};
-		BOOST_FOREACH(std::string s, keys) {
-			config.data->recipient.data[s] = utf8::cvt<std::string>(t.options[utf8::cvt<std::wstring>(s)]);
-		}
-	}
 	config.data->recipient.id = "default";
-	config.data->recipient.address = utf8::cvt<std::string>(url.to_string());
+	config.data->recipient.address = net::parse("nscp://localhost:5668");
+	nscapi::targets::optional_target_object opt = targets.find_object(_T("default"));
+	if (opt) {
+		nscapi::functions::destination_container def = opt->to_destination_container();
+		config.data->recipient.import(def);
+	}
 	config.data->host_self.id = "self";
 	//config.data->host_self.host = hostname_;
 

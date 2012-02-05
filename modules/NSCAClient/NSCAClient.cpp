@@ -93,30 +93,6 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("NSCA SERVER"), _T("Configure the NSCA server to report to."))
 			;
 
-		settings.alias().add_key_to_settings(_T("targets/default"))
-
-			(_T("timeout"), sh::uint_key(&timeout, 30),
-			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out."))
-
-			(_T("host"), sh::wstring_key(&nscahost),
-			_T("NSCA HOST"), _T("The NSCA server to report results to."))
-
-			(_T("port"), sh::uint_key(&nscaport, 5667),
-			_T("NSCA PORT"), _T("The NSCA server port"))
-
-			(_T("encryption"), sh::wstring_key(&encryption, _T("aes")),
-			_T("ENCRYPTION METHOD"), _T("Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all."))
-
-			(_T("password"), sh::wstring_key(&password),
-			_T("PASSWORD"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
-
-			(_T("payload length"), sh::uint_key(&payload_length, 512),
-			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA agent to use the same value for it to work."))
-
-			(_T("time offset"), sh::string_key(&delay, "0"),
-			_T("TIME OFFSET"), _T("Time offset."))
-			;
-
 		settings.register_all();
 		settings.notify();
 
@@ -125,31 +101,6 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
 		}
-
-		if (!targets.has_target(_T("default"))) {
-			add_target(_T("default"), _T("default"));
-			targets.rebuild();
-		}
-		nscapi::target_handler::optarget t = targets.find_target(_T("default"));
-		if (t) {
-			nscapi::target_handler::target target = *t;
-			if (!target.has_option("encryption"))
-				target.options[_T("encryption")] = encryption;
-			if (!target.has_option("timeout"))
-				target.options[_T("timeout")] = strEx::itos(timeout);
-			if (!target.has_option("payload length"))
-				target.options[_T("payload length")] = strEx::itos(payload_length);
-			if (!target.has_option("time offset"))
-				target.options[_T("time offset")] = utf8::cvt<std::wstring>(delay);
-			if (!target.has_option("password"))
-				target.options[_T("password")] = password;
-			if (target.address.empty())
-				target.address = _T("nsca://") + nscahost + _T(":") + strEx::itos(nscaport);
-			targets.add(target);
-		} else {
-			NSC_LOG_ERROR(_T("Default target not found!"));
-		}
-
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -199,7 +150,7 @@ std::string get_command(std::string alias, std::string command = "") {
 
 void NSCAAgent::add_target(std::wstring key, std::wstring arg) {
 	try {
-		targets.add(get_settings_proxy(), target_path , key, arg);
+		nscapi::targets::target_object t = targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}
@@ -285,32 +236,17 @@ void NSCAAgent::setup(client::configuration &config) {
 	boost::shared_ptr<clp_handler_impl> handler(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	net::wurl url;
-	url.protocol = _T("nsca");
-	url.port = 5667;
-	nscapi::target_handler::optarget opt = targets.find_target(_T("default"));
-	if (opt) {
-		nscapi::target_handler::target t = *opt;
-		if (t.address.empty()) {
-			if (t.host.empty())
-				url.host = t.host;
-			if (t.has_option("port")) {
-				try {
-					url.port = strEx::stoi(t.options[_T("port")]);
-				} catch (...) {}
-			}
-		} else {
-			url = net::parse(t.address);
-		}
-		std::string keys[] = {"encryption", "timeout", "payload length", "password", "time offset"};
-		BOOST_FOREACH(std::string s, keys) {
-			config.data->recipient.data[s] = utf8::cvt<std::string>(t.options[utf8::cvt<std::wstring>(s)]);
-		}
-	}
 	config.data->recipient.id = "default";
-	config.data->recipient.address = utf8::cvt<std::string>(url.to_string());
+	config.data->recipient.address = net::parse("nsca://localhost:5667");
+
+	nscapi::targets::optional_target_object opt = targets.find_object(_T("default"));
+	if (opt) {
+		nscapi::targets::target_object t = *opt;
+		nscapi::functions::destination_container def = t.to_destination_container();
+		config.data->recipient.import(def);
+	}
 	config.data->host_self.id = "self";
-	config.data->host_self.host = hostname_;
+	config.data->host_self.address.host = hostname_;
 
 	config.target_lookup = handler;
 	config.handler = handler;

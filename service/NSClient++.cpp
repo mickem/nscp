@@ -462,8 +462,8 @@ void NSClientT::load_all_plugins(int mode) {
 		BOOST_FOREACH(v, plugins) {
 			try {
 				addPlugin(pluginPath / v.second, v.first);
-			} catch (NSPluginException &e) {
-				LOG_CRITICAL_CORE_STD(_T("Failed to register plugin: ") + e.what());
+			} catch (const NSPluginException &e) {
+				LOG_CRITICAL_CORE_STD(_T("Failed to register plugin: ") + e.wwhat());
 			} catch (...) {
 				LOG_CRITICAL_CORE_STD(_T("Failed to register plugin key: ") + v.second);
 			}
@@ -920,7 +920,7 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 				} else {
 					LOG_DEBUG_CORE_STD(_T("Skipping log plugin: ") + p->getModule() + _T("..."));
 				}
-			} catch(NSPluginException e) {
+			} catch(const NSPluginException &e) {
 				LOG_ERROR_CORE_STD(_T("Exception raised when unloading plugin: ") + e.error_ + _T(" in module: ") + e.file_);
 			} catch(...) {
 				LOG_ERROR_CORE_STD(_T("Unknown exception raised when unloading plugin"));
@@ -1138,8 +1138,11 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 			NSCAPI::nagiosReturn c = plugin->handleCommand(cmd.c_str(), request, response);
 			LOG_DEBUG_CORE_STD(_T("Result ") + cmd + _T(": ") + nscapi::plugin_helper::translateReturn(c));
 			return c;
-		} catch (nsclient::commands::command_exception &e) {
-			LOG_ERROR_CORE(_T("No handler for command: ") + cmd + _T(": ") + to_wstring(e.what()));
+		} catch (const nsclient::commands::command_exception &e) {
+			LOG_ERROR_CORE(_T("Failed to process command: ") + cmd + _T(": ") + utf8::to_unicode(e.what()));
+			return NSCAPI::returnIgnored;
+		} catch (const std::exception &e) {
+			LOG_ERROR_CORE(_T("Failed to process command: ") + cmd + _T(": ") + utf8::to_unicode(e.what()));
 			return NSCAPI::returnIgnored;
 		} catch (...) {
 			LOG_ERROR_CORE(_T("Error handling command: ") + cmd);

@@ -24,6 +24,7 @@
 
 #include <string>
 #include <list>
+#include <set>
 #include <iostream>
 
 #include <NSCAPI.h>
@@ -176,23 +177,31 @@ namespace nscapi {
 
 		struct destination_container {
 			std::string id;
-			std::string host;
-			std::string address;
+			net::url address;
 			std::string comment;
-			std::list<std::string> tags;
+			std::set<std::string> tags;
 			typedef std::map<std::string,std::string> data_map;
 			data_map data;
-
+			void set_host(std::string value) {
+				address.host = value;
+			}
+			void set_address(std::string value) {
+				address = net::parse(value);
+			}
+			void set_port(std::string value) {
+				address.port = strEx::stoi(value);
+			}
 			std::string get_protocol() const {
-				net::url url = get_url();
-				return url.protocol;
+				return address.protocol;
 			}
 			bool has_protocol() const {
-				return !address.empty();
+				return !address.protocol.empty();
 			}
+			/*
 			net::url get_url(unsigned int port = 80) const {
 				return net::parse(address, port);
 			}
+			*/
 			static bool to_bool(std::string value, bool def = false) {
 				if (value.empty())
 					return def;
@@ -226,17 +235,22 @@ namespace nscapi {
 				return data.find(key) != data.end();
 			}
 
+			/*
 			inline net::url get_url(int default_port) {
 				return net::parse(address, default_port);
 			}
+			*/
 			void set_string_data(std::string key, std::string value) {
 				if (key == "host")
-					host = value;
-				else
+					set_host(value);
+				else 
 					data[key] = value;
 			}
 			void set_int_data(std::string key, int value) {
-				data[key] = boost::lexical_cast<std::string>(value);
+				if (key == "port")
+					address.port = value;
+				else 
+					data[key] = boost::lexical_cast<std::string>(value);
 			}
 			void set_bool_data(std::string key, bool value) {
 				data[key] = value?"true":"false";
@@ -245,9 +259,7 @@ namespace nscapi {
 			std::string to_string() {
 				std::stringstream ss;
 				ss << "id: " << id;
-				ss << ", host: " << host;
-				ss << ", address: " << address;
-//				ss << ", protocol: " << protocol;
+				ss << ", address: " << address.to_string();
 				ss << ", comment: " << comment;
 				int i=0;
 				BOOST_FOREACH(std::string a, tags) {
@@ -260,18 +272,27 @@ namespace nscapi {
 			}
 
 			void import(const destination_container &other) {
+				if (id.empty() && !other.id.empty())
+					id = other.id;
+				address.import(other.address);
+				if (comment.empty() && !other.comment.empty())
+					comment = other.comment;
+				BOOST_FOREACH(const std::string &t, other.tags) {
+					tags.insert(t);
+				}
+				BOOST_FOREACH(const data_map::value_type &kvp, other.data) {
+					if (data.find(kvp.first) == data.end())
+						data[kvp.first] = kvp.second;
+				}
+			}
+			void apply(const destination_container &other) {
 				if (!other.id.empty())
 					id = other.id;
-				if (!other.host.empty())
-					host = other.host;
-				if (!other.address.empty())
-					address = other.address;
-// 				if (!other.protocol.empty())
-// 					protocol = other.protocol;
+				address.apply(other.address);
 				if (!other.comment.empty())
 					comment = other.comment;
 				BOOST_FOREACH(const std::string &t, other.tags) {
-					tags.push_back(t);
+					tags.insert(t);
 				}
 				BOOST_FOREACH(const data_map::value_type &kvp, other.data) {
 					data[kvp.first] = kvp.second;
@@ -283,10 +304,8 @@ namespace nscapi {
 			::Plugin::Common::Host *host = hdr->add_hosts();
 			if (!dst.id.empty())
 				host->set_id(dst.id);
-			if (!dst.host.empty())
-				host->set_host(dst.host);
-			if (!dst.address.empty())
-				host->set_address(dst.address);
+			if (!dst.address.host.empty())
+				host->set_address(dst.address.to_string());
  			if (!dst.has_protocol())
  				host->set_protocol(dst.get_protocol());
 			if (!dst.comment.empty())
@@ -306,19 +325,12 @@ namespace nscapi {
 				const ::Plugin::Common::Host &host = header.hosts(i);
 				if (host.id() == tag) {
 					data.id = tag;
-					if (!host.host().empty())
-						data.host = host.host();
-					if (!host.address().empty())
-						data.address = host.address();
-					if (data.address.empty() && !host.host().empty())
-						data.address = host.host();
-// 					if (!host.protocol().empty())
-// 						data.protocol = host.protocol();
+					data.address.import(net::parse(host.address()));
 					if (!host.comment().empty())
 						data.comment = host.comment();
 					if (expand_meta) {
 						for(int j=0;j<host.tags_size(); ++j) {
-							data.tags.push_back(host.tags(j));
+							data.tags.insert(host.tags(j));
 						}
 						for(int j=0;j<host.metadata_size(); ++j) {
 							data.data[host.metadata(j).key()] = host.metadata(j).value();
@@ -332,13 +344,16 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		static void make_submit_from_query(std::string &message, const std::wstring channel, const std::wstring alias = _T("")) {
+		static void make_submit_from_query(std::string &message, const std::wstring channel, const std::wstring alias = _T(""), const std::wstring target = _T("")) {
 			Plugin::QueryResponseMessage response;
 			response.ParseFromString(message);
 			Plugin::SubmitRequestMessage request;
 			request.mutable_header()->CopyFrom(response.header());
 			request.mutable_header()->set_source_id(request.mutable_header()->recipient_id());
 			request.set_channel(to_string(channel));
+			if (!target.empty()) {
+				request.mutable_header()->set_recipient_id(to_string(target));
+			}
 			for (int i=0;i<response.payload_size();++i) {
 				request.add_payload()->CopyFrom(response.payload(i));
 				if (!alias.empty())

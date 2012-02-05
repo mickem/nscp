@@ -66,6 +66,33 @@ namespace nscapi {
 			}
 		};
 		template<class T>
+		class typed_string_value_no_default : public typed_key<T> {
+		public:
+			typed_string_value_no_default(const T& v) : typed_key<T>(v) {}
+			virtual NSCAPI::settings_type get_type() const {
+				return NSCAPI::key_string;
+			}
+			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const {
+				std::wstring dummy = _T("$$DUMMY_VALUE_DO_NOT_USE$$");
+				std::wstring data = core_->get_string(path, key, dummy);
+				if (data != dummy) {
+					T value = boost::lexical_cast<T>(data);
+					update_target(&value);
+				}
+			}
+			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
+				std::wstring dummy = _T("$$DUMMY_VALUE_DO_NOT_USE$$");
+				std::wstring data = core_->get_string(parent, key, dummy);
+				if (data != dummy) 
+					dummy = data;
+				data = core_->get_string(path, key, dummy);
+				if (data != dummy) {
+					T value = boost::lexical_cast<T>(data);
+					update_target(&value);
+				}
+			}
+		};
+		template<class T>
 		class typed_path_value : public typed_key<T> {
 		public:
 			typed_path_value(const T& v) : typed_key<T>(v) {}
@@ -84,6 +111,7 @@ namespace nscapi {
 				update_target(&value);
 			}
 		};
+		
 		template<class T>
 		class typed_int_value : public typed_key<T> {
 		public:
@@ -103,6 +131,55 @@ namespace nscapi {
 			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
 				T default_value = static_cast<T>(core_->get_int(parent, key, default_value_as_int_));
 				T value = static_cast<T>(core_->get_int(path, key, default_value));
+				update_target(&value);
+			}
+		protected:
+			int default_value_as_int_;
+		};
+		template<class T>
+		class typed_int_value_no_default : public typed_key<T> {
+		public:
+			typed_int_value_no_default(const T& v) : typed_key<T>(v), default_value_as_int_(0) {}
+			typed_key<T>* default_value(const T& v) {
+				typed_key<T>::default_value(v);
+				default_value_as_int_ = boost::lexical_cast<int>(v);
+				return this;
+			}
+			virtual NSCAPI::settings_type get_type() const {
+				return NSCAPI::key_integer;
+			}
+			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const {
+				int dummy = -1;
+				int val = core_->get_int(path, key, dummy);
+				if (val == dummy) {
+					dummy = -2;
+					val = core_->get_int(path, key, dummy);
+					if (val == dummy)
+						return;
+				}
+				T value = static_cast<T>(val);
+				update_target(&value);
+			}
+			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
+				int dummy = -1;
+				int defval = core_->get_int(path, key, dummy);
+				if (defval == dummy) {
+					dummy = -2;
+					defval = core_->get_int(path, key, dummy);
+				}
+				if (defval != dummy) {
+					T value = static_cast<T>(core_->get_int(path, key, defval));
+					update_target(&value);
+				}
+				dummy = -1;
+				int val = core_->get_int(path, key, dummy);
+				if (val == dummy) {
+					dummy = -2;
+					val = core_->get_int(path, key, dummy);
+					if (val == dummy)
+						return;
+				}
+				T value = static_cast<T>(val);
 				update_target(&value);
 			}
 		protected:
@@ -195,6 +272,11 @@ namespace nscapi {
 			return r;
 		}
 		template<class T>
+		boost::shared_ptr<typed_key_fun<T, typed_int_value_no_default<T> > > int_fun_key(boost::function<void (T)> fun) {
+			boost::shared_ptr<typed_key_fun<T, typed_int_value_no_default<T> > > r(new typed_key_fun<T, typed_int_value_no_default<T> >(fun, 0));
+			return r;
+		}
+		template<class T>
 		boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > bool_fun_key(boost::function<void (T)> fun, T def) {
 			boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > r(new typed_key_fun<T, typed_bool_value<T> >(fun, def));
 			return r;
@@ -202,6 +284,11 @@ namespace nscapi {
 		template<class T>
 		boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > string_fun_key(boost::function<void (T)> fun, T def) {
 			boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > r(new typed_key_fun<T, typed_string_value<T> >(fun, def));
+			return r;
+		}
+		template<class T>
+		boost::shared_ptr<typed_key_fun<T, typed_string_value_no_default<T> > > string_fun_key(boost::function<void (T)> fun) {
+			boost::shared_ptr<typed_key_fun<T, typed_string_value_no_default<T> > > r(new typed_key_fun<T, typed_string_value_no_default<T> >(fun, T()));
 			return r;
 		}
 

@@ -3,45 +3,118 @@
 #include <strEx.h>
 
 namespace net {
-	struct url {
-		std::string protocol;
-		std::string host;
-		std::string path;
-		std::string query;
-		unsigned int port;
-		std::string get_port() {
-			std::stringstream ss;
-			ss << port;
-			return ss.str();
+
+	struct string_traits {
+		static std::string protocol_suffix() {
+			return "://";
 		}
-		std::string to_string() {
-			std::stringstream ss;
-			ss << protocol << "://" << host << ":" << port << path;
-			return ss.str();
+		static std::string port_prefix() {
+			return ":";
 		}
 	};
-	struct wurl {
-		std::wstring protocol;
-		std::wstring host;
-		std::wstring path;
-		std::wstring query;
-		unsigned int port;
-		std::wstring to_string() {
-			std::wstringstream ss;
-			ss << protocol << _T("://") << host << _T(":") << port << path;
-			return ss.str();
+	struct wstring_traits {
+		static std::wstring protocol_suffix() {
+			return _T("://");
 		}
-		inline url get_url() {
-			url r;
-			r.protocol = utf8::cvt<std::string>(protocol);
-			r.host = utf8::cvt<std::string>(host);
-			r.path = utf8::cvt<std::string>(path);
-			r.query = utf8::cvt<std::string>(query);
-			r.port = port;
-			return r;
+		static std::wstring port_prefix() {
+			return _T(":");
+		}
+	};
+
+
+	template<class string_type, class stream = std::wstringstream, class traits = wstring_traits>
+	struct base_url {
+		typedef base_url<string_type, stream, traits> my_type;
+		string_type protocol;
+		string_type host;
+		string_type path;
+		string_type query;
+		unsigned int port;
+		base_url() : port(0) {}
+
+		string_type to_string() const {
+			stream ss;
+			ss << protocol << traits::protocol_suffix() << host << traits::port_prefix() << port << path;
+			return ss.str();
 		}
 
+		inline int get_port() const {
+			return port;
+		}
+		inline int get_port(int default_port) const {
+			if (port == 0)
+				return default_port;
+			return port;
+		}
+		inline std::wstring get_whost(std::wstring default_host = _T("127.0.0.1")) const {
+			if (!host.empty())
+				return utf8::cvt<std::wstring>(host);
+			return default_host;
+		}
+		inline std::string get_host(std::string default_host = "127.0.0.1") const {
+			if (!host.empty())
+				return utf8::cvt<std::string>(host);
+			return default_host;
+		}
+		inline std::string get_port_string(std::string default_port) const {
+			if (port != 0)
+				return boost::lexical_cast<std::string>(port);
+			return default_port;
+		}
+		inline std::string get_port_string() const {
+			return boost::lexical_cast<std::string>(port);
+		}
+
+		void import(const base_url &n) {
+
+			if (protocol.empty() && !n.protocol.empty())
+				protocol = n.protocol;
+			if (host.empty() && !n.host.empty())
+				host = n.host;
+			if (port == 0 && n.port != 0)
+				port = n.port;
+			if (path.empty() && !n.path.empty())
+				path = n.path;
+			if (query.empty() && !n.query.empty())
+				query = n.query;
+		}
+		void apply(const base_url &n) {
+			if (!n.protocol.empty())
+				protocol = n.protocol;
+			if (!n.host.empty())
+				host = n.host;
+			if (n.port != 0)
+				port = n.port;
+			if (!n.path.empty())
+				path = n.path;
+			if (!n.query.empty())
+				query = n.query;
+		}
 	};
+
+	typedef public base_url<std::string, std::stringstream, string_traits> url;
+	typedef public base_url<std::wstring, std::wstringstream, wstring_traits> wurl;
+
+	inline wurl url_to_wide(const url &u) {
+		wurl r;
+		r.protocol = utf8::cvt<std::wstring>(u.protocol);
+		r.host = utf8::cvt<std::wstring>(u.host);
+		r.path = utf8::cvt<std::wstring>(u.path);
+		r.query = utf8::cvt<std::wstring>(u.query);
+		r.port = u.port;
+		return r;
+	}
+	inline url wide_to_url(const wurl &u) {
+		url r;
+		r.protocol = utf8::cvt<std::string>(u.protocol);
+		r.host = utf8::cvt<std::string>(u.host);
+		r.path = utf8::cvt<std::string>(u.path);
+		r.query = utf8::cvt<std::string>(u.query);
+		r.port = u.port;
+		return r;
+	}
+
+
 	inline wurl parse(const std::wstring& url_s, unsigned int default_port = 80) {
 		wurl ret;
 		const std::wstring prot_end(_T("://"));
