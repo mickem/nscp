@@ -32,6 +32,7 @@
 
 namespace sh = nscapi::settings_helper;
 
+const std::wstring NSCAAgent::command_prefix = _T("nsca");
 /**
  * Default c-tor
  * @return 
@@ -52,18 +53,11 @@ NSCAAgent::~NSCAAgent() {}
 bool NSCAAgent::loadModule() {
 	return false;
 }
-/*
-DEFINE_SETTING_S(REPORT_MODE, NSCA_SERVER_SECTION, "report", "all");
-DESCRIBE_SETTING(REPORT_MODE, "REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)");
-*/
 
 bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
-
-	std::wstring encryption, password, nscahost;
-	std::string delay;
-	unsigned int timeout = 30, payload_length = 512, nscaport = 5666;
 	try {
+
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NSCA"), alias, _T("client"));
 		target_path = settings.alias().get_settings_path(_T("targets"));
@@ -89,14 +83,19 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			_T("DELAY"), _T(""))
 			;
 
-		settings.alias().add_path_to_settings(_T("server"))
-			(_T("NSCA SERVER"), _T("Configure the NSCA server to report to."))
-			;
-
 		settings.register_all();
 		settings.notify();
 
+		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
+
+
 		get_core()->registerSubmissionListener(get_id(), channel_);
+
+		register_command(_T("nsca_query"), _T("Check remote NRPE host"));
+		register_command(_T("nsca_submit"), _T("Submit (via query) remote NRPE host"));
+		register_command(_T("nsca_forward"), _T("Forward query to remote NRPE host"));
+		register_command(_T("nsca_exec"), _T("Execute (via query) remote NRPE host"));
+		register_command(_T("nsca_help"), _T("Help on using NRPE Client"));
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
@@ -150,7 +149,9 @@ std::string get_command(std::string alias, std::string command = "") {
 
 void NSCAAgent::add_target(std::wstring key, std::wstring arg) {
 	try {
-		nscapi::targets::target_object t = targets.add(get_settings_proxy(), target_path , key, arg);
+		targets.add(get_settings_proxy(), target_path , key, arg);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}
@@ -178,29 +179,37 @@ bool NSCAAgent::unloadModule() {
 }
 
 NSCAPI::nagiosReturn NSCAAgent::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("nsca"));
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
+	Plugin::QueryRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	if (!client::command_line_parser::is_command(cmd))
-		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, request, result);
-	return commands.exec_simple(config, data.target, char_command, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_query(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn NSCAAgent::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("nsca"));
-	if (!client::command_line_parser::is_command(cmd))
-		return NSCAPI::returnIgnored;
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
+	Plugin::ExecuteRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_exec(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn NSCAAgent::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	Plugin::SubmitRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_relay_submit(config, request, result);
+	setup(config, message.header());
+
+	return client::command_line_parser::do_relay_submit(config, message, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -212,7 +221,7 @@ void NSCAAgent::add_local_options(po::options_description &desc, client::configu
 		("encryption,e", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "encryption", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("buffer-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
 		"Length of payload (has to be same as on the server)")
 
 		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
@@ -232,18 +241,22 @@ void NSCAAgent::add_local_options(po::options_description &desc, client::configu
 		;
 }
 
-void NSCAAgent::setup(client::configuration &config) {
+void NSCAAgent::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
 	boost::shared_ptr<clp_handler_impl> handler(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	config.data->recipient.id = "default";
-	config.data->recipient.address = net::parse("nsca://localhost:5667");
+	config.data->recipient.id = header.recipient_id();
+	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	if (!targets.has_object(recipient)) {
+		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
+		recipient = _T("default");
+	}
+	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
-	nscapi::targets::optional_target_object opt = targets.find_object(_T("default"));
 	if (opt) {
 		nscapi::targets::target_object t = *opt;
 		nscapi::functions::destination_container def = t.to_destination_container();
-		config.data->recipient.import(def);
+		config.data->recipient.apply(def);
 	}
 	config.data->host_self.id = "self";
 	config.data->host_self.address.host = hostname_;
@@ -252,24 +265,23 @@ void NSCAAgent::setup(client::configuration &config) {
 	config.handler = handler;
 }
 
-NSCAAgent::connection_data NSCAAgent::parse_header(const ::Plugin::Common_Header &header) {
+NSCAAgent::connection_data NSCAAgent::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::functions::destination_container recipient, sender;
 	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	nscapi::functions::parse_destination(header, header.sender_id(), sender, true);
-	return connection_data(recipient, sender);
+	return connection_data(recipient, data->recipient, sender);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Parser implementations
 //
 
-int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	Plugin::QueryRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
+	connection_data con = parse_header(request_header, data);
 
 	Plugin::QueryResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
 	for (int i=0;i < request_message.payload_size(); ++i) {
@@ -287,21 +299,20 @@ int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, ::
 	return NSCAPI::isSuccess;
 }
 
-int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-	connection_data con = parse_header(*header);
-	std::wstring channel = utf8::cvt<std::wstring>(message.channel());
+int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
+	connection_data con = parse_header(request_header, data);
+	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 
 	Plugin::SubmitResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
 
-	for (int i=0;i < message.payload_size(); ++i) {
+	for (int i=0;i < request_message.payload_size(); ++i) {
 		nsca::packet packet(con.sender_hostname, con.buffer_length, con.time_delta);
 		std::wstring alias, msg;
-		packet.code = nscapi::functions::parse_simple_submit_request_payload(message.payload(i), alias, msg);
+		packet.code = nscapi::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg);
 		if (alias != _T("host_check"))
 			packet.service = utf8::cvt<std::string>(alias);
 		packet.result = utf8::cvt<std::string>(msg);
@@ -314,13 +325,12 @@ int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, :
 	return NSCAPI::isSuccess;
 }
 
-int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	Plugin::ExecuteRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
+	connection_data con = parse_header(request_header, data);
 
 	Plugin::ExecuteResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
 	for (int i=0;i < request_message.payload_size(); ++i) {

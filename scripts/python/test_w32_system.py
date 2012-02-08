@@ -56,7 +56,7 @@ class Win32SystemTest(BasicTest):
 		for i in range(1,4):
 			log('Starting notepad...')
 			handle = subprocess.Popen('notepad.exe', shell=False)
-			sleep(1)
+			sleep(500)
 			pids.append(handle.pid)
 			for j in range(0,3):
 				result.append(self.test_one_proc_int('notepad.exe', i, j))

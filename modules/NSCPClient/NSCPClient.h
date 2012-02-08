@@ -35,12 +35,12 @@ NSC_WRAPPERS_CHANNELS();
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
-
 class NSCPClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::wstring channel_;
 	std::wstring target_path;
+	const static std::wstring command_prefix;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
@@ -52,8 +52,6 @@ private:
 			target.set_property_string(_T("certificate"), _T("${certificate-path}/nrpe_dh_512.pem"));
 			target.set_property_int(_T("payload length"), 1024);
 		}
-
-		//static void post_process_target(target_object &target) {}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
@@ -110,14 +108,18 @@ private:
 		std::string host, port;
 		int timeout;
 
-		connection_data(nscapi::functions::destination_container recipient) {
-			cert = recipient.get_string_data("certificate");
-			timeout = recipient.get_int_data("timeout", 30);
-			use_ssl = recipient.get_bool_data("ssl");
-			if (recipient.has_data("no ssl"))
-				use_ssl = !recipient.get_bool_data("no ssl");
-			host = recipient.address.host;
-			port = recipient.address.get_port(5668);
+		connection_data(nscapi::functions::destination_container arguments, nscapi::functions::destination_container target) {
+			arguments.import(target);
+			cert = arguments.get_string_data("certificate");
+			timeout = arguments.get_int_data("timeout", 30);
+			use_ssl = arguments.get_bool_data("ssl");
+			if (arguments.has_data("no ssl"))
+				use_ssl = !arguments.get_bool_data("no ssl");
+			if (arguments.has_data("use ssl"))
+				use_ssl = arguments.get_bool_data("use ssl");
+
+			host = arguments.address.host;
+			port = arguments.address.get_port(5668);
 		}
 
 		std::wstring to_wstring() const {
@@ -125,8 +127,8 @@ private:
 			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
 			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
 			ss << _T(", timeout: ") << timeout;
-			ss << _T(", certificate: ") << utf8::cvt<std::wstring>(cert);
 			ss << _T(", use_ssl: ") << use_ssl;
+			ss << _T(", certificate: ") << utf8::cvt<std::wstring>(cert);
 			return ss.str();
 		}
 	};
@@ -136,15 +138,15 @@ private:
 		NSCPClient *instance;
 		clp_handler_impl(NSCPClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
-			nscapi::functions::destination_container ret;
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
+			nscapi::functions::destination_container ret;
 			return ret;
 		}
 	};
@@ -201,11 +203,11 @@ private:
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);
 	bool submit_nscp(std::list<std::wstring> &arguments, std::wstring &result);
 
-	static connection_data parse_header(const ::Plugin::Common_Header &header);
+	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config);
+	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 

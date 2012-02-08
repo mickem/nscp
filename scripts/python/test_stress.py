@@ -112,7 +112,7 @@ class StressTest(BasicTest):
 			while self.results_count < total_count:
 				old_stress_count = self.results_count
 				old_noop_count = self.check_count
-				sleep(5)
+				sleep(5000)
 				result.add_message(True, 'Commands/second: %d/%d'%( (self.results_count-old_stress_count)/5, (self.check_count-old_noop_count)/5 ) )
 				if (self.results_count*100/total_count) > last_major + 10:
 					last_major = last_major + 10

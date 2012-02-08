@@ -150,7 +150,7 @@ class NSCAServerTest(BasicTest):
 		for i in range(0,10):
 			if not self.has_response(uuid):
 				log('Waiting for %s (%d/10)'%(uuid, i+1))
-				sleep(1)
+				sleep(200)
 			else:
 				log('Got response %s'%uuid)
 				found = True
@@ -163,7 +163,7 @@ class NSCAServerTest(BasicTest):
 			rmsg = self.get_response(uuid)
 			if not rmsg.got_simple_response or not rmsg.got_response:
 				log('Waiting for delayed response %s s/m: %s/%s - (%d/10)'%(uuid, rmsg.got_simple_response, rmsg.got_response, i+1))
-				sleep(1)
+				sleep(500)
 			else:
 				log('Got delayed response %s'%uuid)
 				break
@@ -178,21 +178,27 @@ class NSCAServerTest(BasicTest):
 		self.del_response(uuid)
 		return True
 
-	def submit_payload(self, encryption, source, status, msg, perf, tag):
+	def submit_payload(self, encryption, target, length, source, status, msg, perf, tag):
 		message = plugin_pb2.SubmitRequestMessage()
 		
 		message.header.version = plugin_pb2.Common.VERSION_1
-		message.header.recipient_id = "test_rp"
+		message.header.recipient_id = target
 		message.channel = 'nsca_test_outbox'
 		host = message.header.hosts.add()
-		host.address = "127.0.0.1:15667"
-		host.id = "test_rp"
-		enc = host.metadata.add()
-		enc.key = "encryption"
-		enc.value = encryption
-		enc = host.metadata.add()
-		enc.key = "password"
-		enc.value = 'pwd-%s'%encryption
+		host.id = target
+		if (target == 'valid'):
+			pass
+		else:
+			host.address = "127.0.0.1:15667"
+			enc = host.metadata.add()
+			enc.key = "encryption"
+			enc.value = encryption
+			enc = host.metadata.add()
+			enc.key = "password"
+			enc.value = 'pwd-%s'%encryption
+			enc = host.metadata.add()
+			enc.key = "payload length"
+			enc.value = '%d'%length
 
 		uid = str(uuid.uuid4())
 		payload = message.payload.add()
@@ -207,7 +213,7 @@ class NSCAServerTest(BasicTest):
 		self.wait_and_validate(uid, result, msg, perf, '%s/spb'%tag)
 		return result
 		
-	def submit_via_exec(self, encryption, source, status, msg, perf, tag):
+	def submit_via_exec(self, encryption, target, length, source, status, msg, perf, tag):
 		uid = str(uuid.uuid4())
 	
 		args = [
@@ -215,10 +221,17 @@ class NSCAServerTest(BasicTest):
 			'--alias', uid, 
 			'--result', '%d'%status, 
 			'--message', '%s - %s'%(uid, msg), 
-			'--encryption', encryption,
-			'--password', 'pwd-%s'%encryption,
-			'--address', '127.0.0.1:15667'
+			'--target', target,
 			]
+		if (target == 'valid'):
+			pass
+		else:
+			args.extend([
+				'--address', '127.0.0.1:15667',
+				'--encryption', encryption,
+				'--password', 'pwd-%s'%encryption,
+				'--payload-length', '%d'%length,
+			])
 		(result_code, result_message) = core.simple_exec('any', 'nsca_submit', args)
 		result = TestResult('Testing payload submission (via command line exec): %s'%tag)
 		
@@ -231,31 +244,53 @@ class NSCAServerTest(BasicTest):
 			result.add_message(False, 'Sending faliled: giving up on %s'%tag)
 		return result
 
-	def test_one_crypto_full(self, encryption, state, key):
+	def test_one_crypto_full(self, encryption, state, key, target, length):
 		result = TestResult('Testing %s/%s'%(encryption, key))
-		result.add(self.submit_payload(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '', '%s/%s'%(state, encryption)))
-		result.add(self.submit_via_exec(encryption, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '', '%s/%s'%(state, encryption)))
+		result.add(self.submit_payload(encryption, target, length, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '', '%s/%s/%d/%s'%(state, encryption, length, target)))
+		result.add(self.submit_via_exec(encryption, target, length, '%ssrc%s'%(key, key), state, '%smsg%s'%(key, key), '', '%s/%s/%d/%s'%(state, encryption, length, target)))
 		return result
 
-	def test_one_crypto(self, crypto):
+	def test_one_crypto(self, crypto, length=512):
 		conf = Settings.get()
 		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '%s'%crypto)
 		conf.set_string('/settings/NSCA/test_nsca_server', 'password', 'pwd-%s'%crypto)
+		conf.set_int('/settings/NSCA/test_nsca_server', 'payload length', length)
 		core.reload('test_nsca_server')
-		result = TestResult('Testing encryption algorith: %s'%crypto)
+		
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/default', 'address', 'nsca://127.0.0.1:35667')
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/default', 'encryption', '%s'%crypto)
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/default', 'password', 'default-%s'%crypto)
+		conf.set_int('/settings/NSCA/test_nsca_client/targets/default', 'payload length', length*3)
+
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/invalid', 'address', 'nsca://127.0.0.1:25667')
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/invalid', 'encryption', 'none')
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/invalid', 'password', 'invalid-%s'%crypto)
+		conf.set_int('/settings/NSCA/test_nsca_client/targets/invalid', 'payload length', length*2)
+
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/valid', 'address', 'nsca://127.0.0.1:15667')
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/valid', 'encryption', '%s'%crypto)
+		conf.set_string('/settings/NSCA/test_nsca_client/targets/valid', 'password', 'pwd-%s'%crypto)
+		conf.set_int('/settings/NSCA/test_nsca_client/targets/valid', 'payload length', length)
+		core.reload('test_nsca_client')
+
+		
+		
+		result = TestResult('Testing: %s/%d'%(crypto, length))
 		result.add_message(isOpen('localhost', 15667), 'Checking that port is open')
-		result.add(self.test_one_crypto_full(crypto, status.UNKNOWN, 'unknown'))
-		result.add(self.test_one_crypto_full(crypto, status.OK, 'ok'))
-		result.add(self.test_one_crypto_full(crypto, status.WARNING, 'warn'))
-		result.add(self.test_one_crypto_full(crypto, status.CRITICAL, 'crit'))
+		for target in ['valid', 'test_rp', 'invalid']:
+			result.add(self.test_one_crypto_full(crypto, status.UNKNOWN, 'unknown', target, length))
+			result.add(self.test_one_crypto_full(crypto, status.OK, 'ok', target, length))
+			result.add(self.test_one_crypto_full(crypto, status.WARNING, 'warn', target, length))
+			result.add(self.test_one_crypto_full(crypto, status.CRITICAL, 'crit', target, length))
 		return result
 
 	def run_test(self):
 		result = TestResult()
 		cryptos = ["none", "xor", "des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "aes256", "aes192", "aes128", "serpent", "gost", "3way"]
 		for c in cryptos:
-			result.add_message(True, 'Testing crypto: %s'%c)
-			result.add(self.test_one_crypto(c))
+			for l in [128, 512, 1024, 4096]:
+				result.add(self.test_one_crypto(c, l))
+			#result.add(self.test_one_crypto(c))
 		
 		return result
 		

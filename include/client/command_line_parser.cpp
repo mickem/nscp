@@ -94,15 +94,13 @@ int client::command_line_parser::do_execute_command_as_exec(configuration &confi
 	return NSCAPI::returnIgnored;
 }
 
-int client::command_line_parser::do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, const std::string &request, std::string &result) {
+int client::command_line_parser::do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
 	if (!config.validate())
 		throw cli_exception("Invalid data: " + config.to_string());
 	if (command == _T("help")) {
 		return nscapi::functions::create_simple_query_response_unknown(command, build_help(config), _T(""), result);
 	} else if (command == _T("query")) {
 		return do_query(config, command, arguments, result);
-	} else if (command == _T("forward")) {
-		return do_forward(config, request, result);
 	} else if (command == _T("exec")) {
 		int ret = do_exec(config, command, arguments, result);
 		nscapi::functions::make_query_from_exec(result);
@@ -133,6 +131,35 @@ std::wstring client::command_manager::add_command(std::wstring name, std::wstrin
 	data.key = make_key(name);
 	commands[data.key] = data;
 	return data.key;
+}
+
+
+int client::command_manager::process_query(std::wstring cmd, client::configuration &config, const Plugin::QueryRequestMessage &message, std::string &result) {
+	if (cmd == _T("forward"))
+		return config.handler->query(config.data, message, result);
+
+	// TODO: Loop though commands here!
+	if (message.payload_size() != 1) {
+		return nscapi::functions::create_simple_query_response_unknown(cmd, _T("Multiple payloads currently not supported"), result);
+	}
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(message.payload(0));
+	if (client::command_line_parser::is_command(cmd))
+		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, result);
+	return exec_simple(config, data.target, cmd, data.args, result);
+}
+
+int client::command_manager::process_exec(std::wstring cmd, client::configuration &config, const Plugin::ExecuteRequestMessage &message, std::string &result) {
+	if (cmd == _T("forward"))
+		return config.handler->exec(config.data, message, result);
+
+	// TODO: Loop though commands here!
+	if (message.payload_size() != 1) {
+		return nscapi::functions::create_simple_exec_response_unknown(cmd, std::wstring(_T("Multiple payloads currently not supported")), result);
+	}
+	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(cmd, message);
+	if (client::command_line_parser::is_command(cmd))
+		return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
+	return exec_simple(config, data.target, cmd, data.args, result);
 }
 
 int client::command_manager::exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response) {
@@ -178,20 +205,7 @@ int client::command_line_parser::do_query(configuration &config, const std::wstr
 	nscapi::functions::create_simple_header(message.mutable_header());
 	modify_header(config, message.mutable_header(), config.data->recipient);
 	nscapi::functions::append_simple_query_request_payload(message.add_payload(), config.data->command, config.data->arguments);
-	return config.handler->query(config.data, message.mutable_header(), message.SerializeAsString(), response);
-}
-
-int client::command_line_parser::do_forward(configuration &config, const std::string &request, std::string &response) {
-	/*
-	if (!config.data->target_id.empty()) {
-		if (!config.target_lookup)
-			throw cli_exception("No target interface given when looking for targets");
-		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
-	}
-	*/
-	Plugin::QueryRequestMessage message;
-	message.ParseFromString(request);
-	return config.handler->query(config.data, message.mutable_header(), request, response);
+	return config.handler->query(config.data, message, response);
 }
 
 int client::command_line_parser::do_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
@@ -221,7 +235,7 @@ int client::command_line_parser::do_exec(configuration &config, const std::wstri
 	modify_header(config, message.mutable_header(), config.data->recipient);
 	std::string response;
 	nscapi::functions::append_simple_exec_request_payload(message.add_payload(), config.data->command, config.data->arguments);
-	return config.handler->exec(config.data, message.mutable_header(), message.SerializeAsString(), response);
+	return config.handler->exec(config.data, message, response);
 }
 
 int client::command_line_parser::do_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result) {
@@ -240,7 +254,9 @@ int client::command_line_parser::do_submit(configuration &config, const std::wst
 	if (!config.data->target_id.empty()) {
 		if (!config.target_lookup)
 			throw cli_exception("No target interface given when looking for targets");
-		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+		config.data->recipient.apply(config.target_lookup->lookup_target(config.data->target_id));
+		//po::store(parsed, vm);
+		po::notify(vm);
 	}
 
 	Plugin::SubmitRequestMessage message;
@@ -249,7 +265,7 @@ int client::command_line_parser::do_submit(configuration &config, const std::wst
 	message.set_channel("CLI");
 	nscapi::functions::append_simple_submit_request_payload(message.add_payload(), config.data->command, parse_result(config.data->result), config.data->message);
 
-	return config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), result);
+	return config.handler->submit(config.data, message, result);
 }
 void client::command_line_parser::modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient) {
 	nscapi::functions::destination_container myself = config.data->host_self;
@@ -265,10 +281,8 @@ void client::command_line_parser::modify_header(configuration &config, ::Plugin:
 	header->set_sender_id(myself.id);
 }
 
-int client::command_line_parser::do_relay_submit(configuration &config, const std::string &request, std::string &response) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-	modify_header(config, message.mutable_header(), config.data->recipient);
-	return config.handler->submit(config.data, message.mutable_header(), message.SerializeAsString(), response);
+int client::command_line_parser::do_relay_submit(configuration &config, Plugin::SubmitRequestMessage &request_message, std::string &response) {
+	modify_header(config, request_message.mutable_header(), config.data->recipient);
+	return config.handler->submit(config.data, request_message, response);
 }
 

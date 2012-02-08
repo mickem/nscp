@@ -127,11 +127,11 @@ void script_wrapper::log_debug(object x) {
 		NSC_DEBUG_MSG(msg);
 	}
 }
-void script_wrapper::sleep(unsigned int seconds) {
+void script_wrapper::sleep(unsigned int ms) {
 	{
 		thread_unlocker unlocker;
 		{
-			boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+			boost::this_thread::sleep(boost::posix_time::milliseconds(ms));
 
 		}
 	}

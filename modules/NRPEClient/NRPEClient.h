@@ -39,6 +39,7 @@ private:
 
 	std::wstring channel_;
 	std::wstring target_path;
+	const static std::wstring command_prefix;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
@@ -109,7 +110,7 @@ private:
 
 		connection_data(nscapi::functions::destination_container arguments, nscapi::functions::destination_container target) {
 			arguments.import(target);
-			cert = arguments.get_string_data("certificate", "");
+			cert = arguments.get_string_data("certificate");
 			timeout = arguments.get_int_data("timeout", 30);
 			buffer_length = arguments.get_int_data("payload length", 1024);
 			use_ssl = arguments.get_bool_data("ssl");
@@ -139,14 +140,14 @@ private:
 		NRPEClient *instance;
 		clp_handler_impl(NRPEClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
-			nscapi::targets::optional_target_object t = instance->targets.find_object(id);
-			if (t)
-				return t->to_destination_container();
+			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
+			if (opt)
+				return opt->to_destination_container();
 			nscapi::functions::destination_container ret;
 			return ret;
 		}
@@ -200,11 +201,11 @@ private:
 	static nrpe::packet send_nossl(std::string host, std::string port, int timeout, nrpe::packet packet);
 	static nrpe::packet send_ssl(std::string cert, std::string host, std::string port, int timeout, nrpe::packet packet);
 
-	connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
+	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config);
+	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 

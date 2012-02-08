@@ -186,16 +186,15 @@ class NRPEServerTest(BasicTest):
 				break
 			else:
 				log('Waiting for %s (%s/%s)'%(uid,alias,target))
-				sleep(1)
+				sleep(500)
 		if found:
 			return result
 		return None
 
 	def test_one(self, ssl=True, length=1024, state = status.UNKNOWN, tag = 'TODO'):
 		result = TestResult('Testing NRPE: %s/%s/%s with various targets'%(ssl, length, tag))
-		result.add(self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '', "valid"))
-		result.add(self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '', "test_rp"))
-		result.add(self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '', "invalid"))
+		for t in ['valid', 'test_rp', 'invalid']:
+			result.add(self.submit_payload('%s/%s/%s'%(ssl, length, tag), ssl, length, '%ssrc%s'%(tag, tag), state, '%smsg%s'%(tag, tag), '', t))
 		return result
 
 	def do_one_test(self, ssl=True, length=1024):
@@ -206,7 +205,6 @@ class NRPEServerTest(BasicTest):
 		# TODO: conf.set_string('/settings/NRPE/test_nrpe_server', 'certificate', ssl)
 		core.reload('test_nrpe_server')
 
-		#                /settings/NRPE/test_nrpe_client/targets/default
 		conf.set_string('/settings/NRPE/test_nrpe_client/targets/default', 'address', 'nrpe://127.0.0.1:35666')
 		conf.set_bool('/settings/NRPE/test_nrpe_client/targets/default', 'use ssl', not ssl)
 		conf.set_int('/settings/NRPE/test_nrpe_client/targets/default', 'payload length', length*3)

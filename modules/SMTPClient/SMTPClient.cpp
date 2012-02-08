@@ -34,6 +34,7 @@
 
 namespace sh = nscapi::settings_helper;
 
+const std::wstring SMTPClient::command_prefix = _T("smtp");
 /**
  * Default c-tor
  * @return 
@@ -78,10 +79,19 @@ bool SMTPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			_T("CHANNEL"), _T("The channel to listen to."))
 
 			;
+
 		settings.register_all();
 		settings.notify();
 
+		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
+
+
 		get_core()->registerSubmissionListener(get_id(), channel_);
+		register_command(_T("smtp_query"), _T("Check remote SMTP host"));
+		register_command(_T("smtp_submit"), _T("Submit (via query) remote SMTP host"));
+		register_command(_T("smtp_forward"), _T("Forward query to remote SMTP host"));
+		register_command(_T("smtp_exec"), _T("Execute (via query) remote SMTP host"));
+		register_command(_T("smtp_help"), _T("Help on using SMTP Client"));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -109,6 +119,8 @@ std::string get_command(std::string alias, std::string command = "") {
 void SMTPClient::add_target(std::wstring key, std::wstring arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}
@@ -138,29 +150,37 @@ bool SMTPClient::unloadModule() {
 
 
 NSCAPI::nagiosReturn SMTPClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
+	Plugin::QueryRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	if (!client::command_line_parser::is_command(cmd))
-		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, request, result);
-	return commands.exec_simple(config, data.target, char_command, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_query(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn SMTPClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
-	if (!client::command_line_parser::is_command(cmd))
-		return NSCAPI::returnIgnored;
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
+	Plugin::ExecuteRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_exec(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn SMTPClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	Plugin::SubmitRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_relay_submit(config, request, result);
+	setup(config, message.header());
+
+	return client::command_line_parser::do_relay_submit(config, message, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -181,16 +201,22 @@ void SMTPClient::add_local_options(po::options_description &desc, client::config
  		;
 }
 
-void SMTPClient::setup(client::configuration &config) {
+void SMTPClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
 	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	config.data->recipient.id = "default";
-	config.data->recipient.address = net::parse("smtp://localhost:25");
-	nscapi::targets::optional_target_object opt = targets.find_object(_T("default"));
+	config.data->recipient.id = header.recipient_id();
+	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	if (!targets.has_object(recipient)) {
+		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
+		recipient = _T("default");
+	}
+	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
+
 	if (opt) {
-		nscapi::functions::destination_container def = opt->to_destination_container();
-		config.data->recipient.import(def);
+		nscapi::targets::target_object t = *opt;
+		nscapi::functions::destination_container def = t.to_destination_container();
+		config.data->recipient.apply(def);
 	}
 	config.data->host_self.id = "self";
 	//config.data->host_self.host = hostname_;
@@ -199,27 +225,26 @@ void SMTPClient::setup(client::configuration &config) {
 	config.handler = handler;
 }
 
-SMTPClient::connection_data SMTPClient::parse_header(const ::Plugin::Common_Header &header) {
+SMTPClient::connection_data SMTPClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::functions::destination_container recipient;
 	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	return connection_data(recipient);
+	return connection_data(recipient, data->recipient);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Parser implementations
-int SMTPClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
+int SMTPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
 	NSC_LOG_ERROR_STD(_T("SMTP does not support query patterns"));
 	return NSCAPI::hasFailed;
 }
 
-int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	Plugin::SubmitRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
+	connection_data con = parse_header(request_header, data);
 	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 
 	Plugin::SubmitResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		const ::Plugin::QueryResponseMessage::Response& payload = request_message.payload(i);
@@ -233,13 +258,12 @@ int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 		io_service.run();
 		nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", NSCAPI::returnOK, "Message send successfully");
 	}
-
 	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 
 }
 
-int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
+int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
 	NSC_LOG_ERROR_STD(_T("SMTP does not support exec patterns"));
 	return NSCAPI::hasFailed;
 }

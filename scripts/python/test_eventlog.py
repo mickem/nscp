@@ -72,7 +72,7 @@ class EventLogTest(BasicTest):
 	def run_test(self):
 		result = TestResult()
 		result.add_message(self.test_create('Application Error', 1000, '0', 'error', ['a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a']), 'Testing to create a log message')
-		sleep(1)
+		sleep(500)
 		log(self.last_message)
 		log('%s'%self.last_message)
 		result.assert_equals(self.last_message, 'error Application Error: ', 'Verify that message is sent through')

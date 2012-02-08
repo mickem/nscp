@@ -5,6 +5,14 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-02-05 MickeM
+ * Added test cases for targets to NRPE
+ * Added test cases for targets to NSCA
+ * Added test cases for lenghts to NSCA
+ * Changed to python API sleep uses milliseconds (not seconds as before)
+   Makes NSCA unittests go much faster (as I can wait much less)
+ * Fixed a lot of bugs related to target handling.
+ * implemented target refactoring on all Client modules.
 
 2012-02-05 MickeM
  * Refactored the targets concept internally to be simpler to use (less code)
@@ -19,7 +27,7 @@ TODO:
 2012-02-01 MickeM
  * Implemented full settings API for LuaScript (next RC will have to wait till next weekend)
 
-2012-01-31 MickeM
+2012-01-31 MickeM1
  * Fixed issue with parsing "invalid external commands".
    If parsing falies it will notify you but use the legacy split string method instead.
  * LuaScript module is now modern (ie. works with 0.4.0)

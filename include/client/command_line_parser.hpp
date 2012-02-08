@@ -110,9 +110,9 @@ namespace client {
 	};
 
 	struct clp_handler {
-		virtual int query(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) = 0;
-		virtual int submit(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &response) = 0;
-		virtual int exec(configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) = 0;
+		virtual int query(configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) = 0;
+		virtual int submit(configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &response) = 0;
+		virtual int exec(configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) = 0;
 	};
 	struct command_manager {
 		typedef boost::unordered_map<std::wstring, command_container> command_type;
@@ -125,6 +125,10 @@ namespace client {
 			return boost::algorithm::to_lower_copy(key);
 		}
 
+		int process_query(std::wstring cmd, client::configuration &config, const Plugin::QueryRequestMessage &message, std::string &result);
+		int process_exec(std::wstring cmd, client::configuration &config, const Plugin::ExecuteRequestMessage &message, std::string &result);
+
+		
 	};
 
 	struct command_line_parser {
@@ -137,8 +141,8 @@ namespace client {
 		static std::wstring build_help(configuration &config);
 
 		static int do_execute_command_as_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-		static int do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, const std::string &request, std::string &result);
-		static int do_relay_submit(configuration &config, const std::string &request, std::string &response);
+		static int do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
+		static int do_relay_submit(configuration &config, Plugin::SubmitRequestMessage &request_message, std::string &response);
 
 		static std::wstring parse_command(std::wstring command, std::wstring prefix) {
 			std::wstring cmd = command;
@@ -163,7 +167,6 @@ namespace client {
 		}
 
 		static int do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-		static int do_forward(configuration &config, const std::string &request, std::string &result);
 		static int do_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
 		static int do_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
 

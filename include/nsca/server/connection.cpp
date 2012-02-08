@@ -57,7 +57,7 @@ namespace nsca {
 
 		void connection::timeout(const boost::system::error_code& e) {
 			if (e != boost::asio::error::operation_aborted) {
-				handler_->log_debug(__FILE__, __LINE__, _T("Timeout <<<-"));
+				handler_->log_debug(__FILE__, __LINE__, _T("Timeout reading:") + strEx::itos(parser_.get_payload_lenght()));
 				boost::system::error_code ignored_ec;
 				socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
 			}

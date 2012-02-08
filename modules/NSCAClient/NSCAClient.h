@@ -39,6 +39,7 @@ private:
 
 	std::wstring channel_;
 	std::wstring target_path;
+	const static std::wstring command_prefix;
 	std::string hostname_;
 	bool cacheNscaHost_;
 	long time_delta_;
@@ -52,7 +53,6 @@ private:
 			target.set_property_string(_T("encryption"), _T("ase"));
 			target.set_property_int(_T("payload length"), 512);
 		}
-		static void post_process_target(target_object &target) {}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
@@ -73,6 +73,8 @@ private:
 				_T("TIME OFFSET"), _T("Time offset."))
 				;
 		}
+		static void post_process_target(target_object &target) {
+		}
 	};
 
 	nscapi::targets::handler<custom_reader> targets;
@@ -87,7 +89,8 @@ private:
 		int buffer_length;
 		int time_delta;
 
-		connection_data(nscapi::functions::destination_container recipient, nscapi::functions::destination_container sender) {
+		connection_data(nscapi::functions::destination_container recipient, nscapi::functions::destination_container target, nscapi::functions::destination_container sender) {
+			recipient.import(target);
 			timeout = recipient.get_int_data("timeout", 30);
 			buffer_length = recipient.get_int_data("payload length", 512);
 			password = recipient.get_string_data("password");
@@ -125,9 +128,9 @@ private:
 		NSCAAgent *instance;
 		clp_handler_impl(NSCAAgent *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
 			nscapi::functions::destination_container ret;
@@ -180,11 +183,11 @@ public:
 private:
 	boost::tuple<int,std::wstring> send(connection_data data, const std::list<nsca::packet> packets);
 	void add_options(po::options_description &desc, connection_data &command_data);
-	static connection_data parse_header(const ::Plugin::Common_Header &header);
+	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config);
+	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 

@@ -44,6 +44,7 @@ namespace nsca {
 				payload_length_ = length;
 				packet_length_ = nsca::length::get_packet_length(length);
 			}
+			int get_payload_lenght() const { return payload_length_; }
 			std::string::size_type size() {
 				return buffer_.size();
 			}

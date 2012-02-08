@@ -31,6 +31,7 @@
 
 namespace sh = nscapi::settings_helper;
 
+const std::wstring NRPEClient::command_prefix = _T("nrpe");
 /**
  * Default c-tor
  * @return 
@@ -54,9 +55,6 @@ bool NRPEClient::loadModule() {
 
 bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
-	std::wstring certificate;
-	unsigned int timeout = 30, buffer_length = 1024;
-	bool use_ssl = true;
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
@@ -118,7 +116,7 @@ std::string get_command(std::string alias, std::string command = "") {
 
 void NRPEClient::add_target(std::wstring key, std::wstring arg) {
 	try {
-		nscapi::targets::target_object t = targets.add(get_settings_proxy(), target_path , key, arg);
+		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
 	} catch (...) {
@@ -148,36 +146,37 @@ bool NRPEClient::unloadModule() {
 }
 
 NSCAPI::nagiosReturn NRPEClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
 	Plugin::QueryRequestMessage message;
 	message.ParseFromString(request);
-	if (message.payload_size() != 1) {
-		return nscapi::functions::create_simple_query_response_unknown(char_command, _T("Multiple payloads currently not supported"), result);
-	}
-	std::string recipient = message.header().recipient_id();
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(message.payload(0));
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("nrpe"));
+
 	client::configuration config;
-	config.data->recipient.id = recipient;
-	setup(config);
-	if (client::command_line_parser::is_command(cmd))
-		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, request, result);
-	return commands.exec_simple(config, data.target, cmd, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_query(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn NRPEClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
-	if (!client::command_line_parser::is_command(cmd))
-		return NSCAPI::returnIgnored;
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
+	Plugin::ExecuteRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_exec(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn NRPEClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	Plugin::SubmitRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_relay_submit(config, request, result);
+	setup(config, message.header());
+
+	return client::command_line_parser::do_relay_submit(config, message, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -197,11 +196,11 @@ void NRPEClient::add_local_options(po::options_description &desc, client::config
  		;
 }
 
-void NRPEClient::setup(client::configuration &config) {
+void NRPEClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
 	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	config.data->recipient.address = net::parse("nrpe://localhost:5666");
+	config.data->recipient.id = header.recipient_id();
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
 		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
@@ -214,7 +213,6 @@ void NRPEClient::setup(client::configuration &config) {
 		nscapi::functions::destination_container def = t.to_destination_container();
 		config.data->recipient.apply(def);
 	}
-	config.data->recipient.id = "default";
 	config.data->host_self.id = "self";
 	//config.data->host_self.host = hostname_;
 
@@ -232,13 +230,12 @@ NRPEClient::connection_data NRPEClient::parse_header(const ::Plugin::Common_Head
 // Parser implementations
 //
 
-int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	Plugin::QueryRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = this->instance->parse_header(*header, data);
+int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
+	connection_data con = parse_header(request_header, data);
 
 	Plugin::QueryResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i<request_message.payload_size();i++) {
 		std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
@@ -254,14 +251,13 @@ int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, :
 	return NSCAPI::isSuccess;
 }
 
-int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	Plugin::SubmitRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = this->instance->parse_header(*header, data);
+int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
+	connection_data con = parse_header(request_header, data);
 	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 	
 	Plugin::SubmitResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i<request_message.payload_size();++i) {
 		std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
@@ -276,13 +272,12 @@ int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, 
 	return NSCAPI::isSuccess;
 }
 
-int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
-	Plugin::ExecuteRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = this->instance->parse_header(*header, data);
+int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
+	connection_data con = parse_header(request_header, data);
 
 	Plugin::ExecuteResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i<request_message.payload_size();i++) {
 		std::string command = get_command(request_message.payload(i).command());

@@ -57,7 +57,7 @@ class PythonTest(BasicTest):
 			log('Waiting for %d: %d/%d'%(total_count, self.stress_count, self.noop_count))
 			old_stress_count = self.stress_count
 			old_noop_count = self.noop_count
-			sleep(5)
+			sleep(5000)
 			result.add_message(True, 'Commands/second: %d/%d'%( (self.stress_count-old_stress_count)/5, (self.noop_count-old_noop_count)/5 ) )
 		elapsed = (time() - start)
 		if elapsed == 0:

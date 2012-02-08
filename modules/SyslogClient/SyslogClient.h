@@ -37,6 +37,7 @@ private:
 
 	std::wstring channel_;
 	std::wstring target_path;
+	const static std::wstring command_prefix;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
@@ -53,7 +54,6 @@ private:
 			target.set_property_string(_T("unknown severity"), _T("emergency"));
 		}
 
-		static void post_process_target(target_object &target) {}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
@@ -83,6 +83,8 @@ private:
 				_T("TODO"), _T(""))
 				;
 		}
+		static void post_process_target(target_object &target) {
+		}
 	};
 
 	nscapi::targets::handler<custom_reader> targets;
@@ -102,7 +104,8 @@ private:
 		std::string port;
 		std::string ok_severity, warn_severity, crit_severity, unknown_severity;
 
-		connection_data(nscapi::functions::destination_container recipient) {
+		connection_data(nscapi::functions::destination_container recipient, nscapi::functions::destination_container target) {
+			recipient.import(target);
 			severity = recipient.data["severity"];
 			facility = recipient.data["facility"];
 			tag_syntax = recipient.data["tag template"];
@@ -134,15 +137,15 @@ private:
 		SyslogClient *instance;
 		clp_handler_impl(SyslogClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
-			nscapi::functions::destination_container ret;
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
+			nscapi::functions::destination_container ret;
 			return ret;
 		}
 	};
@@ -185,11 +188,11 @@ public:
 
 private:
 	boost::tuple<int,std::wstring> send(connection_data con, std::list<std::string> messages);
-	static connection_data parse_header(const ::Plugin::Common_Header &header);
+	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config);
+	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 	std::string	parse_priority(std::string severity, std::string facility);

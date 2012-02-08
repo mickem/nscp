@@ -325,7 +325,8 @@ namespace nscapi {
 				const ::Plugin::Common::Host &host = header.hosts(i);
 				if (host.id() == tag) {
 					data.id = tag;
-					data.address.import(net::parse(host.address()));
+					if (!host.address().empty())
+						data.address.import(net::parse(host.address()));
 					if (!host.comment().empty())
 						data.comment = host.comment();
 					if (expand_meta) {
@@ -743,11 +744,14 @@ namespace nscapi {
 			return NSCAPI::returnUNKNOWN;
 		}
 		static decoded_simple_command_data parse_simple_exec_request(const wchar_t* char_command, const std::string &request) {
-			decoded_simple_command_data data;
-
-			data.command = char_command;
 			Plugin::ExecuteRequestMessage message;
 			message.ParseFromString(request);
+
+			return parse_simple_exec_request(char_command, message);
+		}
+		static decoded_simple_command_data parse_simple_exec_request(const std::wstring cmd, const Plugin::ExecuteRequestMessage &message) {
+			decoded_simple_command_data data;
+			data.command = cmd;
 			if (message.has_header())
 				data.target = utf8::cvt<std::wstring>(message.header().recipient_id());
 

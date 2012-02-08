@@ -33,6 +33,7 @@
 
 namespace sh = nscapi::settings_helper;
 
+const std::wstring NSCPClient::command_prefix = _T("nscp");
 /**
  * Default c-tor
  * @return 
@@ -57,14 +58,8 @@ bool NSCPClient::loadModule() {
 bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	std::map<std::wstring,std::wstring> commands;
 
-	std::wstring certificate;
-	unsigned int timeout = 30, buffer_length = 1024;
-	bool use_ssl = true;
 	try {
 
-		register_command(_T("query_nscp"), _T("Submit a query to a remote host via NSCP"));
-		register_command(_T("submit_nscp"), _T("Submit a query to a remote host via NSCP"));
-		register_command(_T("exec_nscp"), _T("Execute remote command on a remote host via NSCP"));
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NSCP"), alias, _T("client"));
@@ -90,7 +85,15 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
+		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
+
+
 		get_core()->registerSubmissionListener(get_id(), channel_);
+		register_command(_T("nscp_query"), _T("Submit a query to a remote host via NSCP"));
+		register_command(_T("nscp_forward"), _T("Forward query to remote NSCP host"));
+		register_command(_T("nscp_submit"), _T("Submit a query to a remote host via NSCP"));
+		register_command(_T("nscp_exec"), _T("Execute remote command on a remote host via NSCP"));
+		register_command(_T("nscp_help"), _T("Help on using NSCP Client"));
 
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
@@ -119,6 +122,8 @@ std::string get_command(std::string alias, std::string command = "") {
 void NSCPClient::add_target(std::wstring key, std::wstring arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}
@@ -146,29 +151,37 @@ bool NSCPClient::unloadModule() {
 }
 
 NSCAPI::nagiosReturn NSCPClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(data.command, _T("syslog"));
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
+	Plugin::QueryRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	if (!client::command_line_parser::is_command(cmd))
-		return client::command_line_parser::do_execute_command_as_query(config, cmd, data.args, request, result);
-	return commands.exec_simple(config, data.target, char_command, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_query(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn NSCPClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, _T("syslog"));
-	if (!client::command_line_parser::is_command(cmd))
-		return NSCAPI::returnIgnored;
+	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
+
+	Plugin::ExecuteRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
+	setup(config, message.header());
+
+	return commands.process_exec(cmd, config, message, result);
 }
 
 NSCAPI::nagiosReturn NSCPClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
+	Plugin::SubmitRequestMessage message;
+	message.ParseFromString(request);
+
 	client::configuration config;
-	setup(config);
-	return client::command_line_parser::do_relay_submit(config, request, result);
+	setup(config, message.header());
+
+	return client::command_line_parser::do_relay_submit(config, message, result);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -187,16 +200,22 @@ void NSCPClient::add_local_options(po::options_description &desc, client::config
 		;
 }
 
-void NSCPClient::setup(client::configuration &config) {
+void NSCPClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
 	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
-	config.data->recipient.id = "default";
-	config.data->recipient.address = net::parse("nscp://localhost:5668");
-	nscapi::targets::optional_target_object opt = targets.find_object(_T("default"));
+	config.data->recipient.id = header.recipient_id();
+	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	if (!targets.has_object(recipient)) {
+		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
+		recipient = _T("default");
+	}
+	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
+
 	if (opt) {
-		nscapi::functions::destination_container def = opt->to_destination_container();
-		config.data->recipient.import(def);
+		nscapi::targets::target_object t = *opt;
+		nscapi::functions::destination_container def = t.to_destination_container();
+		config.data->recipient.apply(def);
 	}
 	config.data->host_self.id = "self";
 	//config.data->host_self.host = hostname_;
@@ -205,10 +224,10 @@ void NSCPClient::setup(client::configuration &config) {
 	config.handler = handler;
 }
 
-NSCPClient::connection_data NSCPClient::parse_header(const ::Plugin::Common_Header &header) {
+NSCPClient::connection_data NSCPClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::functions::destination_container recipient;
 	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	return connection_data(recipient);
+	return connection_data(recipient, data->recipient);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -225,18 +244,17 @@ std::string gather_and_log_errors(std::string  &payload) {
 	}
 	return ret;
 }
-int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
+int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnUNKNOWN;
-	Plugin::QueryRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+	connection_data con = parse_header(request_header, data);
 
 	Plugin::QueryResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
 	chunks.push_back(nscp::factory::create_envelope_request(1));
-	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request, 0));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request_message.SerializeAsString(), 0));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_query_response(chunk)) {
@@ -255,16 +273,15 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, :
 	return ret;
 }
 
-int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
+int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnUNKNOWN;
-	Plugin::SubmitRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+	connection_data con = parse_header(request_header, data);
 	Plugin::SubmitResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
-	chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request, 0));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request_message.SerializeAsString(), 0));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_submit_response(chunk)) {
@@ -283,18 +300,17 @@ int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 	return ret;
 }
 
-int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply) {
+int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnOK;
-	Plugin::ExecuteRequestMessage request_message;
-	request_message.ParseFromString(request);
-	connection_data con = parse_header(*header);
+	connection_data con = parse_header(request_header, data);
 
 	Plugin::ExecuteResponseMessage response_message;
-	nscapi::functions::make_return_header(response_message.mutable_header(), *header);
+	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
 	chunks.push_back(nscp::factory::create_envelope_request(1));
-	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request, 0));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request_message.SerializeAsString(), 0));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_exec_response(chunk)) {

@@ -36,11 +36,11 @@ private:
 
 	std::wstring channel_;
 	std::wstring target_path;
+	const static std::wstring command_prefix;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
 		typedef nscapi::targets::target_object target_object;
-
 
 		static void init_default(target_object &target) {
 			target.set_property_int(_T("timeout"), 30);
@@ -48,7 +48,6 @@ private:
 			target.set_property_string(_T("recipient"), _T("nscp@localhost"));
 			target.set_property_string(_T("template"), _T("Hello, this is %source% reporting %message%!"));
 		}
-		static void post_process_target(target_object &target) {}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
@@ -66,6 +65,8 @@ private:
 				_T("TEMPLATE"), _T("Template for message data"))
 			;
 		}
+		static void post_process_target(target_object &target) {
+		}
 	};
 
 	nscapi::targets::handler<custom_reader> targets;
@@ -79,14 +80,15 @@ private:
 		std::string port;
 		int timeout;
 
-		connection_data(nscapi::functions::destination_container recipient) {
-			recipient_str = recipient.get_string_data("recipient");
-			timeout = recipient.get_int_data("timeout", 30);
-			sender = recipient.get_string_data("sender");
-			template_string = recipient.get_string_data("template");
+		connection_data(nscapi::functions::destination_container arguments, nscapi::functions::destination_container target) {
+			arguments.import(target);
+			recipient_str = arguments.get_string_data("recipient");
+			timeout = arguments.get_int_data("timeout", 30);
+			sender = arguments.get_string_data("sender");
+			template_string = arguments.get_string_data("template");
 
-			host = recipient.address.host;
-			port = recipient.address.get_port(25);
+			host = arguments.address.host;
+			port = arguments.address.get_port(25);
 		}
 
 		std::wstring to_wstring() const {
@@ -106,15 +108,15 @@ private:
 		SMTPClient *instance;
 		clp_handler_impl(SMTPClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
-			nscapi::functions::destination_container ret;
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
+			nscapi::functions::destination_container ret;
 			return ret;
 		}
 	};
@@ -155,11 +157,11 @@ public:
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 
 private:
-	static connection_data parse_header(const ::Plugin::Common_Header &header);
+	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config);
+	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 
