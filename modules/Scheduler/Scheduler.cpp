@@ -37,10 +37,9 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 	try {
 
-		typedef std::map<std::wstring,std::wstring> schedule_map;
-		schedule_map schedules;
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, _T("scheduler"));
+		schedule_path = settings.alias().get_settings_path(_T("schedules"));
 
 		settings.alias().add_path_to_settings()
 			(_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))
@@ -52,17 +51,18 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			_T("THREAD COUNT"), _T("Number of threads to use."))
 			;
 
-		scheduler::target def = read_schedule(settings.alias().get_settings_path(_T("default")), _T("Default schedule"));
-
-		std::wstring sch_path = settings.alias().get_settings_path(_T("schedules"));
-
 		settings.alias().add_path_to_settings()
-			(_T("schedules"), sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, sch_path, _1, _2, def)), 
+			(_T("schedules"), sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)), 
 			_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))
 			;
 
 		settings.register_all();
 		settings.notify();
+
+		BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.object_list) {
+			NSC_DEBUG_MSG(_T("Adding scheduled item: ") + o.second.to_wstring());
+			scheduler_.add_task(o.second);
+		}
 
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
@@ -93,56 +93,13 @@ bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	return true;
 }
 
-scheduler::target Scheduler::read_schedule(std::wstring path, std::wstring schedule_name, scheduler::target *def) {
-
-	scheduler::target item;
-	std::wstring report, duration;
-
-	sh::settings_registry settings(get_settings_proxy());
-
-	settings.path(path).add_path()
-		(_T("SCHEDULE DEFENITION"), _T("Schedule defenition for: ") + schedule_name)
-		;
-
-	settings.path(path).add_key()
-		(_T("channel"), sh::wstring_key(&item.channel, def==NULL?_T("NSCA"):def->channel),
-		_T("SCHEDULE CHANNEL"), _T("Channel to send results on"))
-
-		(_T("command"), sh::wstring_key(&item.command, def==NULL?_T("check_ok"):def->command),
-		_T("SCHEDULE COMMAND"), _T("Command to execute"))
-
-		(_T("alias"), sh::wstring_key(&item.alias, def==NULL?_T(""):def->alias),
-		_T("SCHEDULE ALIAS"), _T("The alias (service name) to report to server"))
-
-		(_T("report"), sh::wstring_key(&report, def==NULL?_T("all"):nscapi::report::to_string(def->report)),
-		_T("REPORT MODE"), _T("What to report to the server (any of the following: all, critical, warning, unknown, ok)"))
-
-		(_T("target"), sh::wstring_key(&item.target_id, def==NULL?_T(""):def->target_id),
-		_T("TARGET"), _T(""))
-
-		// TODO: get the proper default value here!
-		(_T("interval"), sh::wstring_key(&duration, _T("5s")),
-		_T("SCHEDULE INTERAVAL"), _T("Time in seconds between each check"))
-
-		;
-
-	settings.register_all();
-	settings.notify();
-
-	item.report = nscapi::report::parse(report);
-	item.duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(duration, 1));
-	return item;
-}
-void Scheduler::add_schedule(std::wstring path, std::wstring alias, std::wstring command, scheduler::target def) {
+void Scheduler::add_schedule(std::wstring key, std::wstring arg) {
 	try {
-		def.alias = alias;
-		def.command = command;
-		scheduler::target item = read_schedule(path + _T("/") + alias, alias, &def);
-		strEx::parse_command(item.command, item.command, item.arguments);
-		NSC_DEBUG_MSG_STD(_T("Adding scheduled task: ") + alias);
-		scheduler_.add_task(item);
+		schedules_.add(get_settings_proxy(), schedule_path, key, arg, key == _T("default"));
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add schedule: ") + alias);
+		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
 	}
 }
 
@@ -156,22 +113,22 @@ void Scheduler::on_error(std::wstring error) {
 	NSC_LOG_ERROR_STD(error);
 }
 #include <nscapi/functions.hpp>
-void Scheduler::handle_schedule(scheduler::target item) {
+void Scheduler::handle_schedule(schedules::schedule_object item) {
 	try {
 		std::string response;
-		NSCAPI::nagiosReturn code = GET_CORE()->simple_query(item.command.c_str(), item.arguments, response);
+		NSCAPI::nagiosReturn code = get_core()->simple_query(item.command.c_str(), item.arguments, response);
 		if (code == NSCAPI::returnIgnored) {
 			NSC_LOG_ERROR_STD(_T("Command was not found: ") + item.command.c_str());
 			//make_submit_from_query(response, item.channel, item.alias);
 			nscapi::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::returnUNKNOWN, _T("Command was not found: ") + item.command, _T(""), response);
 			std::string result;
-			GET_CORE()->submit_message(item.channel, response, result);
+			get_core()->submit_message(item.channel, response, result);
 		} else if (nscapi::report::matches(item.report, code)) {
 			// @todo: allow renaming of commands here item.alias, 
 			// @todo this is broken, fix this (uses the wrong message)
 			nscapi::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id);
 			std::string result;
-			GET_CORE()->submit_message(item.channel, response, result);
+			get_core()->submit_message(item.channel, response, result);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));

@@ -4,14 +4,16 @@
 #include <strEx.h>
 #include <unicode_char.hpp>
 
+#include <nscapi/macros.hpp>
+
 using namespace nscp::helpers;
 
 namespace scheduler {
 
-	int simple_scheduler::add_task(target item) {
+	int simple_scheduler::add_task(schedules::schedule_object item) {
 		{
 			boost::mutex::scoped_lock l(mutex_);
-			item.id = ++target_id_;
+			item.id = ++schedule_id_;
 			targets_[item.id] = item;
 		}
 		reschedule(item);
@@ -22,12 +24,12 @@ namespace scheduler {
 		target_list_type::iterator it = targets_.find(id);
 		targets_.erase(it);
 	}
-	boost::optional<target> simple_scheduler::get_task(int id) {
+	boost::optional<schedules::schedule_object> simple_scheduler::get_task(int id) {
 		boost::mutex::scoped_lock l(mutex_);
 		target_list_type::iterator it = targets_.find(id);
  		if (it == targets_.end())
-			return boost::optional<target>();
-		return boost::optional<target>((*it).second);
+			return boost::optional<schedules::schedule_object>();
+		return boost::optional<schedules::schedule_object>((*it).second);
 	}
 
 	void simple_scheduler::start() {
@@ -109,7 +111,7 @@ namespace scheduler {
 				}
 
 				boost::posix_time::ptime now_time = now();
-				boost::optional<target> item = get_task((*instance).schedule_id);
+				boost::optional<schedules::schedule_object> item = get_task((*instance).schedule_id);
 				if (item) {
 					try {
 						if (handler_)
@@ -131,15 +133,18 @@ namespace scheduler {
 
 	}
 
-	void simple_scheduler::reschedule(target item) {
-		reschedule_wnext(item, now() + boost::posix_time::seconds(rand()%item.duration.total_seconds()));
+	void simple_scheduler::reschedule(const schedules::schedule_object &item) {
+		if (item.duration.total_seconds() == 0)
+			log_error(_T("Not scheduling since duration is 0: ") + item.to_wstring());
+		else
+			reschedule_wnext(item.id, now() + boost::posix_time::seconds(rand()%item.duration.total_seconds()));
 	}
-	void simple_scheduler::reschedule(target item, boost::posix_time::ptime now) {
-		reschedule_wnext(item, now + item.duration);
+	void simple_scheduler::reschedule(const schedules::schedule_object &item, boost::posix_time::ptime now) {
+		reschedule_wnext(item.id, now + item.duration);
 	}
-	void simple_scheduler::reschedule_wnext(target item, boost::posix_time::ptime next) {
+	void simple_scheduler::reschedule_wnext(int id, boost::posix_time::ptime next) {
 		schedule_instance instance;
-		instance.schedule_id = item.id;
+		instance.schedule_id = id;
 		instance.time = next;
 		if (!queue_.push(instance)) {
 			log_error(_T("ERROR"));

@@ -5,6 +5,14 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-02-12 MickeM
+ * Added support for specifying targets on schedules:
+   [/settings/scheduler/schedules/foo]
+   target = foo-host
+   Will re-target the NSCA (or whatever you use) towards a given target.
+ * Fixed is schedule manager uses new standard object reader
+ * Fixed some issues with reading schedule
+
 2012-02-05 MickeM
  * Added test cases for targets to NRPE
  * Added test cases for targets to NSCA

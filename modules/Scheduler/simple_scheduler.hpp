@@ -13,15 +13,10 @@
 
 #include <unicode_char.hpp>
 
+#include "schedules.hpp"
+
 namespace scheduler {
-
-
-	class task_not_found {
-		int id_;
-	public:
-		task_not_found(int id) : id_(id) {}
-		int get_id() {return id_; }
-	};
+/*
 	class target {
 	public:
 		int id;
@@ -68,9 +63,10 @@ namespace scheduler {
 			return ss.str();
 		}
 	};
+	*/
 	class schedule_handler {
 	public:
-		virtual void handle_schedule(target item) = 0;
+		virtual void handle_schedule(schedules::schedule_object item) = 0;
 		virtual void on_error(std::wstring error) = 0;
 	};
 	struct schedule_instance {
@@ -125,10 +121,10 @@ namespace scheduler {
 
 	class simple_scheduler : public boost::noncopyable {
 	private:
-		typedef std::map<int,target> target_list_type;
+		typedef std::map<int,schedules::schedule_object> target_list_type;
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;
 		target_list_type targets_;
-		unsigned int target_id_;
+		unsigned int schedule_id_;
 		schedule_queue_type queue_;
 		unsigned int thread_count_;
 		boost::mutex idle_thread_mutex_;
@@ -145,7 +141,7 @@ namespace scheduler {
 		int error_threshold_;
 	public:
 
-		simple_scheduler() : target_id_(0), stop_requested_(false), running_(false), thread_count_(10), handler_(NULL), error_threshold_(5) {}
+		simple_scheduler() : schedule_id_(0), stop_requested_(false), running_(false), thread_count_(10), handler_(NULL), error_threshold_(5) {}
 		~simple_scheduler() {}
 
 
@@ -156,9 +152,9 @@ namespace scheduler {
 			handler_ = NULL;
 		}
 
-		int add_task(target item);
+		int add_task(schedules::schedule_object item);
 		void remove_task(int id);
-		boost::optional<target> get_task(int id);
+		boost::optional<schedules::schedule_object> get_task(int id);
 		
 		void start();
 		void stop();
@@ -174,9 +170,9 @@ namespace scheduler {
 		void thread_proc(int id);
 		void watch_dog(int id);
 
-		void reschedule(target item);
-		void reschedule(target item, boost::posix_time::ptime now);
-		void reschedule_wnext(target item, boost::posix_time::ptime next);
+		void reschedule(const schedules::schedule_object &item);
+		void reschedule(const schedules::schedule_object &item, boost::posix_time::ptime now);
+		void reschedule_wnext(int id, boost::posix_time::ptime next);
 		void start_thread();
 
 		void log_error(std::wstring err);

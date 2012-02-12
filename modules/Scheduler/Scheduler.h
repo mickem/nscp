@@ -23,15 +23,20 @@ NSC_WRAPPERS_MAIN();
 #include <strEx.h>
 
 #include "simple_scheduler.hpp"
+#include "schedules.hpp"
 
 
 class Scheduler : public scheduler::schedule_handler, public nscapi::impl::simple_plugin {
 private:
+	std::wstring schedule_path;
 	scheduler::simple_scheduler scheduler_;
+	schedules::schedule_handler schedules_;
 
 
 public:
-	Scheduler() {}
+	Scheduler() {
+		scheduler_.set_handler(this); 
+	}
 	virtual ~Scheduler() {}
 	// Module calls
 	bool loadModule();
@@ -39,9 +44,9 @@ public:
 	bool unloadModule();
 
 
-	void add_schedule(std::wstring path, std::wstring alias, std::wstring command, scheduler::target def);
-	scheduler::target read_schedule(std::wstring path, std::wstring comment, scheduler::target *def = NULL);
-	void handle_schedule(scheduler::target item);
+	void add_schedule(std::wstring alias, std::wstring command);
+	//scheduler::target read_schedule(std::wstring path, std::wstring comment, scheduler::target *def = NULL);
+	void handle_schedule(schedules::schedule_object item);
 	void on_error(std::wstring error);
 
 	static std::wstring getModuleName() {

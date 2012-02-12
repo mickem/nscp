@@ -210,12 +210,7 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			PyEval_InitThreads();
 			//PyEval_ReleaseLock();
 
-			PyThreadState *state;
-			state = PyEval_SaveThread();
-			  //PyThreadState *mainThreadState = PyThreadState_Get();
-			  //PyThreadState_Clear
-			  //PyThreadState_(mainThreadState);
-
+			PyThreadState *state = PyEval_SaveThread();
 			do_init = true;
 		}
 
