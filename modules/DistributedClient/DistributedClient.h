@@ -21,6 +21,7 @@
 #pragma once
 
 #include <boost/tuple/tuple.hpp>
+#include <boost/filesystem.hpp>
 
 #include <client/command_line_parser.hpp>
 #include <nscapi/targets.hpp>
@@ -36,27 +37,74 @@ NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
 
 namespace po = boost::program_options;
-
+namespace sh = nscapi::settings_helper;
 
 class DistributedClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::wstring channel_;
 	std::wstring target_path;
+	const static std::wstring command_prefix;
 
-	nscapi::target_handler targets;
+	struct custom_reader {
+		typedef nscapi::targets::target_object object_type;
+		typedef nscapi::targets::target_object target_object;
+
+		static void init_default(target_object &target) {
+			target.set_property_int(_T("timeout"), 30);
+			target.set_property_bool(_T("ssl"), true);
+			target.set_property_string(_T("certificate"), _T("${certificate-path}/nrpe_dh_512.pem"));
+			target.set_property_int(_T("payload length"), 1024);
+		}
+
+		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+			settings.path(object.path).add_key()
+
+				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
+				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+
+				;
+		}
+
+		static void post_process_target(target_object &target) {
+			nscapi::core_wrapper* core = GET_CORE();
+			if (core == NULL) {
+				NSC_LOG_ERROR_STD(_T("Invalid core"));
+				return;
+			}
+			if (target.has_option(_T("certificate"))) {
+				std::wstring value = target.options[_T("certificate")];
+				boost::filesystem::wpath p = value;
+				if (!boost::filesystem::is_regular(p)) {
+					p = core->getBasePath() / p;
+					if (boost::filesystem::is_regular(p)) {
+						value = p.string();
+					} else {
+						value = core->expand_path(value);
+					}
+					target.options[_T("certificate")] = value;
+				}
+				if (boost::filesystem::is_regular(p)) {
+					NSC_DEBUG_MSG_STD(_T("Using certificate: ") + p.string());
+				} else {
+					NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
+				}
+			}
+		}
+
+	};
+
+	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
 
 	struct connection_data {
 		std::string address;
 		int timeout;
-		int buffer_length;
-		bool use_ssl;
 
-		connection_data(nscapi::functions::destination_container recipient) {
-			timeout = recipient.get_int_data("timeout", 30);
-
-			address = recipient.address;
+		connection_data(nscapi::functions::destination_container arguments, nscapi::functions::destination_container target) {
+			arguments.import(target);
+			timeout = arguments.get_int_data("timeout", 30);
+			address = arguments.address.to_string();
 		}
 
 		std::wstring to_wstring() const {
@@ -72,26 +120,15 @@ private:
 		DistributedClient *instance;
 		clp_handler_impl(DistributedClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
 		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
+			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
+			if (opt)
+				return opt->to_destination_container();
 			nscapi::functions::destination_container ret;
-			nscapi::target_handler::optarget t = instance->targets.find_target(id);
-			if (t) {
-				if (!t->alias.empty())
-					ret.id = utf8::cvt<std::string>(t->alias);
-				if (!t->host.empty())
-					ret.host = utf8::cvt<std::string>(t->host);
-				if (t->has_option("address"))
-					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
-				else 
-					ret.address = utf8::cvt<std::string>(t->host);
-				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
-					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
-				}
-			}
 			return ret;
 		}
 	};
@@ -142,11 +179,11 @@ private:
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);
 	bool submit_nscp(std::list<std::wstring> &arguments, std::wstring &result);
 
-	static connection_data parse_header(const ::Plugin::Common_Header &header);
+	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config);
+	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 

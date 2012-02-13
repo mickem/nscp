@@ -65,8 +65,6 @@ private:
 				(_T("certificate"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
 				_T("SSL CERTIFICATE"), _T(""))
 
-				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 1024),
-				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
 				;
 		}
 

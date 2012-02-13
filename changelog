@@ -1,9 +1,11 @@
 TODO: 
  * Process times and similar ?
  * Fix configuration GUI (low priority)
- * Add API for rehashing the daemon (or implement it the API is there but does nothing)
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
+
+2012-02-13 MickeM
+ * Fixed installer issue (could not start service)
 
 2012-02-12 MickeM
  * Added support for specifying targets on schedules:

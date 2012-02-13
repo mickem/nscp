@@ -42,24 +42,24 @@
 								Source="$(var.Source)/nscp.exe" Vital="yes">
               <Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir"
 								Name="$(var.App.Title) ($(var.arch), test)" WorkingDirectory="INSTALLDIR" Icon="nscp.exe"
-								Advertise="yes" IconIndex="0" Arguments="--test" Description="Run $(var.App.Title) in test mode" />
+								Advertise="yes" IconIndex="0" Arguments="test" Description="Run $(var.App.Title) in test mode" />
               <fire:FirewallException Id="FWX1" Name="NSClient++ Monitoring Agent" Scope="any" IgnoreFailure="yes" />
             </File>
             <ServiceInstall Id="SWCNSCP"
 							Name="[SERVICE_NAME]" DisplayName="$(var.App.Title) ($(var.arch))"
 							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
 							Description="Monitoring agent for nagios (and others) used to respond to status queries"
-							Arguments="--service --run --name [SERVICE_NAME]" />
+							Arguments="service --run --name [SERVICE_NAME]" />
             <ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
             <RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
           </Component>
           <Component Id="Shortcuts" Guid="E6636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
             <Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="Start $(var.App.Title) ($(var.arch))"
 								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
-								  Arguments="--service --name [SERVICE_NAME] --start" Description="Start the $(var.App.Title) service" />
+								  Arguments="service --name [SERVICE_NAME] --start" Description="Start the $(var.App.Title) service" />
             <Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="Stop $(var.App.Title) ($(var.arch))"
 								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
-								  Arguments="--service --name [SERVICE_NAME] --stop" Description="Stop the $(var.App.Title) service" />
+								  Arguments="service --name [SERVICE_NAME] --stop" Description="Stop the $(var.App.Title) service" />
             <Shortcut Id="StarmentNSCHelp" Directory="ProgramMenuDir" Name="Documentation"
 								  Target="[HELP_LINK]" Icon="doc.ico"
 								  Description="Visit the NSClient++ WIKI for documentation">
