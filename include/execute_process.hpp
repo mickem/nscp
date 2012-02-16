@@ -41,6 +41,9 @@ namespace process {
 		std::wstring root_path;
 		std::wstring command;
 		unsigned int timeout;
+		std::wstring user;
+		std::wstring domain;
+		std::wstring password;
 	};
 }
 

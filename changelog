@@ -4,7 +4,17 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2012-02-13 MickeM
+2012-02-16 MickeM
+ * Replaced command reader with object handler
+ * Added support for running commands as other users (#131)
+ * Improved pseed oflarge buffers for external commands (ie. when you return very large outputs) (#481)
+ * Added limit to test interface message length (when messages are to long only first 4k are displayed)
+
+2012-02-15 MickeM
+ * Fixed missing icon on nscp.exe
+ * Fixed missing version info on nscp.exe (#294)
+
+2012-02-13 MickeM - 0.4.0 RC2
  * Fixed installer issue (could not start service)
 
 2012-02-12 MickeM

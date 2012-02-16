@@ -79,7 +79,13 @@ namespace process {
 
 		// Create the child process.
 		//HANDLE hWaitEvt = ::CreateEvent(NULL, TRUE, FALSE, NULL);
-		BOOL processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, args.root_path.c_str(), &si, &pi);
+		BOOL processOK = FALSE;
+		if (!args.user.empty()) {
+			processOK = CreateProcessWithLogonW(args.user.c_str(), args.domain.c_str(), args.password.c_str(), LOGON_WITH_PROFILE, NULL, cmd, NULL, NULL, args.root_path.c_str(), &si, &pi);
+		} else {
+			processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, args.root_path.c_str(), &si, &pi);
+		}
+
 		delete [] cmd;
 		if (processOK) {
 			DWORD dwAvail = 0;
@@ -88,14 +94,16 @@ namespace process {
 			//handles[0] = pi.hProcess;
 			//handles[1] = hWaitEvt;
 			char *buffer = createBuffer();
-			for (unsigned int i=0;i<args.timeout;i++) {
+			for (unsigned int i=0;i<args.timeout*10;i++) {
 				if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))
 					break;
 				if (dwAvail > 0)
 					str += readFromFile(buffer, hChildOutR);
-				dwstate = WaitForSingleObject(pi.hProcess, 1000);
-				if (dwstate != WAIT_TIMEOUT)
-					break;
+				if (dwAvail == 0) {
+					dwstate = WaitForSingleObject(pi.hProcess, 100);
+					if (dwstate != WAIT_TIMEOUT)
+						break;
+				}
 			}
 			CloseHandle(hChildInR);
 			CloseHandle(hChildInW);

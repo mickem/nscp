@@ -31,6 +31,7 @@ IF(WIN32)
 	SET(service_SRCS ${service_SRCS}
 		StdAfx.h
 		NSClient++.h
+		NSClient++.rc
 		NSCPlugin.h
 		core_api.h
 		simple_client.hpp

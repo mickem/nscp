@@ -74,6 +74,10 @@ namespace nsclient {
 						if (ret == NSCAPI::returnIgnored) {
 							log(_T("No handler for command: ") + t.first);
 						} else {
+							if (msg.size() > 4096) {
+								log(_T("Command returned: ") + strEx::itos(msg.size()) + _T(" bytes of data will only display first 4k."));
+								msg = msg.substr(0, 4096);
+							}
 							log(nscapi::plugin_helper::translateReturn(ret) + _T(":") + msg);
 							if (!perf.empty())
 								log(_T(" Performance data: ") + perf);

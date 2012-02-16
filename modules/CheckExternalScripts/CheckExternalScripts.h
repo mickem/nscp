@@ -23,56 +23,15 @@ NSC_WRAPPERS_MAIN();
 #include <map>
 #include <error.hpp>
 #include <execute_process.hpp>
+#include "commands.hpp"
 
 class CheckExternalScripts : public nscapi::impl::simple_plugin {
 private:
-	struct command_data {
-		command_data() {}
-		command_data(std::wstring alias, std::wstring command_, std::wstring arguments_) : alias(alias), command(command_) {
-			parser_arguments(arguments_);
-		}
-		void parser_arguments(std::wstring args) {
-			try {
-				boost::tokenizer<boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring> 
-					tok(args, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
-				BOOST_FOREACH(std::wstring s, tok) {
-					arguments.push_back(s);
-				}
-			} catch (const std::exception &e) {
-				NSC_LOG_ERROR(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()));
-				strEx::splitList list = strEx::splitEx(args, _T(" "));
-				BOOST_FOREACH(std::wstring s, list) {
-					arguments.push_back(s);
-				}
-			}
-		}
-		std::wstring get_argument() {
-			std::wstring args;
-			BOOST_FOREACH(std::wstring s, arguments) {
-				if (!args.empty())
-					args += _T(" ");
-				args += s;
-			}
-			return args;
-		}
-
-		std::wstring alias;
-		std::wstring command;
-		std::list<std::wstring> arguments;
-		std::wstring to_string() {
-			std::wstring args;
-			BOOST_FOREACH(std::wstring s, arguments) {
-				if (!args.empty())
-					args += _T(" ");
-				args += s;
-			}
-			return command + _T("(") + get_argument() + _T(")");
-		}
-	};
-	typedef std::map<std::wstring, command_data> command_list;
-	command_list commands;
-	command_list alias;
+	commands::command_handler commands_;
+	commands::command_handler aliases_;
 	unsigned int timeout;
+	std::wstring commands_path;
+	std::wstring aliases_path;
 	std::wstring scriptDirectory_;
 	std::wstring root_;
 	bool allowArgs_;
@@ -120,24 +79,8 @@ private:
 
 private:
 	void addAllScriptsFrom(std::wstring path);
-	void add_command(std::wstring key, std::wstring command) {
-		strEx::token tok = strEx::getToken(command, ' ', true);
-		add_command(key.c_str(), command, _T("Script: ") + tok.first);
-	}
-	void add_command(std::wstring key, std::wstring command, std::wstring alias) {
-		strEx::token tok = strEx::getToken(command, ' ', true);
-		boost::to_lower(key);
-		command_data cd = command_data(key, tok.first, tok.second);
-		commands[key.c_str()] = cd;
-		register_command(key.c_str(), alias);
-	}
-	void add_alias(std::wstring key, std::wstring command) {
-		strEx::token tok = strEx::getToken(command, ' ', true);
-		boost::to_lower(key);
-		command_data cd = command_data(key, tok.first, tok.second);
-		alias[key.c_str()] = cd;
-		register_command(key.c_str(), _T("Alias for: ") + cd.to_string());
-	}
+	void add_command(std::wstring key, std::wstring arg);
+	void add_alias(std::wstring key, std::wstring command);
 	void add_wrapping(std::wstring key, std::wstring command) {
 		strEx::token tok = strEx::getToken(command, ' ', true);
 		std::wstring::size_type pos = tok.first.find_last_of(_T("."));
@@ -150,7 +93,7 @@ private:
 		strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
 		strEx::replace(tpl, _T("%ARGS%"), tok.second);
 
-		add_command(key,tpl,command);
+		add_command(key,tpl);
 	}
 };
 
