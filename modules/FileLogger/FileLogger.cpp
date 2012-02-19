@@ -26,6 +26,7 @@
 #include <fstream>
 
 #include <boost/date_time.hpp>
+#include <boost/filesystem.hpp>
 
 #include "FileLogger.h"
 
@@ -33,34 +34,13 @@
 
 #include <settings/client/settings_client.hpp>
 #include <settings/macros.h>
+#include <protobuf/plugin.pb.h>
 
 namespace sh = nscapi::settings_helper;
 
 FileLogger::FileLogger() : init_(false) {
 }
 FileLogger::~FileLogger() {
-}
-namespace setting_keys {
-
-	namespace log {
-		DEFINE_PATH(SECTION, LOG_SECTION);
-		//DESCRIBE_SETTING_ADVANCED(SECTION, "LOG SECTION", "Configure loggning properties.");
-
-		DEFINE_SETTING_S(FILENAME, LOG_SECTION, "file", "nsclient.log");
-		//DESCRIBE_SETTING_ADVANCED(FILENAME, "SYNTAX", "The file to write log data to. If no directory is used this is relative to the NSClient++ binary.");
-
-		DEFINE_SETTING_S(ROOT, LOG_SECTION, "root", "auto");
-		//DESCRIBE_SETTING_ADVANCED(ROOT, "TODO", "TODO");
-
-		DEFINE_SETTING_S(DATEMASK, LOG_SECTION, "date format", "%Y-%m-%d %H:%M:%S");
-		//DESCRIBE_SETTING_ADVANCED(DATEMASK, "DATEMASK", "The date format used when logging to a file.");
-
-		DEFINE_SETTING_S(LOG_MASK, LOG_SECTION, "log mask", "normal");
-		//DESCRIBE_SETTING_ADVANCED(LOG_MASK, "LOG MASK", "The log mask information, error, warning, critical, debug");
-
-		DEFINE_SETTING_B(DEBUG_LOG, LOG_SECTION, "debug", false);
-		//DESCRIBE_SETTING_ADVANCED(DEBUG_LOG, "DEBUG LOGGING", "Enable debug logging can help track down errors and find problems but will impact overall perfoamnce negativly.");
-	}
 }
 
 #ifdef WIN32
@@ -100,7 +80,7 @@ std::string FileLogger::getFileName() {
 	if (file_.empty()) {
 		file_ = utf8::cvt<std::string>(cfg_file_);
 		if (file_.empty())
-			file_ = utf8::cvt<std::string>(setting_keys::log::FILENAME_DEFAULT);
+			file_ = "nsclient.log";
 		if (file_.find("\\") == std::wstring::npos) {
 			std::string root = utf8::cvt<std::string>(getFolder(cfg_root_));
 			std::string::size_type pos = root.find_last_not_of('\\');
@@ -122,18 +102,15 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		std::wstring log_mask, file, root;
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("log"), alias);
+		settings.set_alias(_T("file logger"), alias);
 
 		settings.alias().add_path_to_settings()
 			(_T("LOG SECTION"), _T("Configure loggning properties."))
 			;
 
-		settings.alias().add_key_to_settings()
-			//(_T("debug"), sh::bool_key(&debug_, false),
-			//_T("DEBUG LOGGING"), _T("Enable debug logging can help track down errors and find problems but will impact overall performance negativly."))
-
-			(_T("log mask"), sh::wstring_key(&log_mask, _T("false")),
-			_T("LOG MASK"), _T("The log mask information, error, warning, critical, debug"))
+		settings.alias().add_parent(_T("/settings/log")).add_key_to_settings()
+			(_T("level"), sh::wstring_key(&log_mask, _T("info")),
+			_T("LOG LEVEL"), _T("The log level info, error, warning, critical, debug"))
 
 			(_T("root"), sh::wstring_key(&cfg_root_, _T("auto")),
 			_T("ROOT"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
@@ -143,6 +120,9 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 			(_T("date format"), sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
 			_T("DATEMASK"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+
+			(_T("max size"), sh::int_key(&max_size_, 0),
+			_T("MAXIMUM FILE SIZE"), _T("When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled"))
 			;
 
 		settings.register_all();
@@ -165,8 +145,7 @@ bool FileLogger::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	NSC_LOG_MESSAGE_STD(_T("Using logmask: ") + nscapi::logging::to_string(log_mask_));
 	init_ = true;
 	std::string hello = "Starting to log for: " + utf8::cvt<std::string>(GET_CORE()->getApplicationName()) + " - " + utf8::cvt<std::string>(GET_CORE()->getApplicationVersionString());
-	handleMessage(NSCAPI::log_level::log, __FILE__, __LINE__, hello);
-	handleMessage(NSCAPI::log_level::log, __FILE__, __LINE__, "Log path is: " + file_);
+	log(NSCAPI::log_level::log, __FILE__, __LINE__, hello);
 	return true;
 }
 bool FileLogger::unloadModule() {
@@ -201,7 +180,22 @@ HANDLE openAppendOrNew(std::wstring file) {
 }
 */
 
-void FileLogger::handleMessage(int msgType, const std::string file, int line, std::string message) {
+void FileLogger::handleMessageRAW(std::string data) {
+	try {
+		Plugin::LogEntry message;
+		message.ParseFromString(data);
+
+		for (int i=0;i<message.entry_size();i++) {
+			Plugin::LogEntry::Entry msg = message.entry(i);
+			log(msg.level(), msg.file(), msg.line(), msg.message());
+		}
+	} catch (std::exception &e) {
+		std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << e.what() <<  std::endl;;
+	} catch (...) {
+		std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << std::endl;;
+	}
+}
+void FileLogger::log(int msgType, const std::string file, int line, std::string message) {
 	if (!init_) {
 		std::wcout << _T("Discarding: ") << utf8::cvt<std::wstring>(message) << std::endl;
 		return;
@@ -209,6 +203,21 @@ void FileLogger::handleMessage(int msgType, const std::string file, int line, st
 	if (!nscapi::logging::matches(log_mask_, msgType))
 		return;
 
+	if (max_size_ != 0 &&  boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
+		int target_size = max_size_*0.7;
+		char *tmpBuffer = new char[target_size+1];
+		try {
+			std::ifstream ifs(file_.c_str());
+			ifs.seekg(-target_size, std::ios_base::end);  // One call to find it. . .
+			ifs.read(tmpBuffer, target_size);
+			ifs.close();
+			std::ofstream ofs(file_.c_str(), std::ios::trunc);
+			ofs.write(tmpBuffer, target_size);
+		} catch (...) {
+			std::cout << "Failed to truncate log file: " << file_ << std::endl;;
+		}
+		delete [] tmpBuffer;
+	}
 	std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
 	if (!stream) {
 		std::wcout << _T("File could not be opened, Discarding: ") << utf8::cvt<std::wstring>(message) << std::endl;

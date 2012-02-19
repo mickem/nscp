@@ -164,13 +164,16 @@ namespace nsca {
 			value.copy(data, value.size()>max_length?max_length:value.size());
 		}
 
-		void get_buffer(std::string &buffer) const {
+		void get_buffer(std::string &buffer, int servertime=0) const {
 			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
 			if (buffer.size() < get_packet_length())
 				throw nsca::nsca_exception("Buffer is to short: " + nstr::to_string(buffer.length()) + " > " + nstr::to_string(get_packet_length()));
 
 			data->packet_version=swap_bytes::hton<int16_t>(nsca::data::version3);
-			data->timestamp=swap_bytes::hton<u_int32_t>(time);
+			if (servertime != 0)
+				data->timestamp=swap_bytes::hton<u_int32_t>(servertime);
+			else
+				data->timestamp=swap_bytes::hton<u_int32_t>(time);
 			data->return_code = swap_bytes::hton<int16_t>(code);
 			data->crc32_value= swap_bytes::hton<u_int32_t>(0);
 

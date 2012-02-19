@@ -129,6 +129,8 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			nscapi::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id);
 			std::string result;
 			get_core()->submit_message(item.channel, response, result);
+		} else {
+			NSC_DEBUG_MSG(_T("Filter not matched for: ") + item.alias + _T(" so nothing is reported"));
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));

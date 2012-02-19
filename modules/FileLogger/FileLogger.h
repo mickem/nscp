@@ -24,7 +24,7 @@
 
 NSC_WRAPPERS_MAIN();
 
-class FileLogger : public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
+class FileLogger : public nscapi::impl::simple_plugin {
 private:
 	std::string file_;
 	std::string format_;
@@ -32,6 +32,7 @@ private:
 	int log_mask_;
 	std::wstring cfg_file_;
 	std::wstring cfg_root_;
+	int max_size_;
 
 public:
 	FileLogger();
@@ -56,7 +57,8 @@ public:
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
-	void handleMessage(int msgType, const std::string file, int line, std::string message);
+	void handleMessageRAW(std::string data);
+	void log(int msgType, const std::string file, int line, std::string message);
 	int handleCommand(wchar_t* command, wchar_t **argument, wchar_t *returnBuffer, int returnBufferLen);
 	//void writeEntry(std::wstring line);
 

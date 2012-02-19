@@ -50,16 +50,13 @@ namespace nsclient {
 				msg->set_file(file);
 				msg->set_line(line);
 				msg->set_message(utf8::cvt<std::string>(logMessage));
-				if (!message.SerializeToString(&str)) {
-					return "Failed to generate message";
-				}
-				return str;
+				return message.SerializeAsString();
 			} catch (std::exception &e) {
-				return std::string("Failed to generate message: ") + e.what();
+				std::cout << "Failed to generate message: " << e.what() << std::endl;;
 			} catch (...) {
-				return "Failed to generate message";
+				std::cout << "Failed to generate message: " << std::endl;;
 			}
-// 			return to_string(logMessage);
+			return "";
 		}
 	};
 	namespace logging_queue {
@@ -85,13 +82,7 @@ namespace nsclient {
 
 
 		public:
-			slave() : mq_(ip::open_only,queue_name.c_str()), plugins_loaded_(false), console_log_(false) {
-#ifdef WIN32
-// 				if(!SetConsoleOutputCP(CP_UTF8)) { // 65001
-// 					std::cerr << "Failed to set console output mode!\n";
-// 				}
-#endif
-			}
+			slave() : mq_(ip::open_only,queue_name.c_str()), plugins_loaded_(false), console_log_(false) {}
 
 			void add_plugin(plugin_type plugin) {
 				boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -205,13 +196,16 @@ namespace nsclient {
 					strEx::replace(s, _T("\r"), _T(""));
 
 #ifdef WIN32
-					s += _T("\n");
+					//s += _T("\n");
+					std::wcout << s << std::endl;
+					/*
 					HANDLE const consout = GetStdHandle(STD_OUTPUT_HANDLE);
 					DWORD nNumberOfCharsWritten;
 					if(!WriteConsole(consout, s.c_str(), s.length(), &nNumberOfCharsWritten, NULL)) {
 						DWORD const err = GetLastError();
 						cerr << "WriteConsole failed with << " << err << "!\n";
 					}
+					*/
 #else
 					std::wcout << s << std::endl;
 #endif
@@ -309,14 +303,43 @@ namespace nsclient {
 				}
 			}
 
+			void truncate_entries(Plugin::LogEntry &message) {
+				if (message.entry_size() == 1)
+					return;
+				Plugin::LogEntry::Entry e = message.entry(0);
+				message.clear_entry();
+				message.add_entry()->CopyFrom(e);
+				//message.mutable_entry()->add(e);
+			}
+
+			void truncate_string(Plugin::LogEntry &message) {
+				if (message.entry_size() == 0)
+					return;
+				std::string str = message.mutable_entry(0)->message();
+				if (str.size() > max_message_size*0.7)
+					str = str.substr(0, max_message_size*0.7);
+				message.mutable_entry(0)->set_message("TRUNCATED(" + str + "...)");
+			}
+
 			void log(std::string data) {
 				if (!mq_) {
 					log_fatal_error("Failed to send to logging queue: " + data);
 					return;
 				}
 				if (data.size() >= max_message_size) {
-					log_fatal_error("Message to large to fit buffer: " + to_string(data.size()) + " > " + to_string(max_message_size));
-					return;
+					Plugin::LogEntry message;
+					message.ParseFromString(data);
+					truncate_entries(message);
+					data = message.SerializeAsString();
+					if (data.size() >= max_message_size) {
+						truncate_string(message);
+						data = message.SerializeAsString();
+					}
+					if (data.size() >= max_message_size) {
+						log_fatal_error("Message to large to fit buffer: " + to_string(data.size()) + " > " + to_string(max_message_size));
+						return;
+					}
+					data = message.SerializeAsString();
 				}
 				try {
 					mq_->send(&data[0], data.size(), 0);
@@ -329,7 +352,7 @@ namespace nsclient {
 #ifdef WIN32
 				OutputDebugString(strEx::string_to_wstring(message).c_str());
 #endif
-				std::cout << "TODO: " << message << std::endl;
+				std::cout << "FATAL ERROR: " << message << std::endl;
 			}
 
 

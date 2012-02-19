@@ -110,9 +110,7 @@ namespace process {
 			CloseHandle(hChildOutW);
 
 			dwAvail = 0;
-			if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))
-				NSC_LOG_ERROR_STD(_T("Failed to peek buffer: ") + error::lookup::last_error());
-			if (dwAvail > 0)
+			if (::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL) && dwAvail > 0)
 				str += readFromFile(buffer, hChildOutR);
 			msg = strEx::string_to_wstring(str);
 			destroyBuffer(buffer);

@@ -884,7 +884,7 @@ namespace nscapi {
 				if (perfData.has_float_value()) {
 					Plugin::Common_PerformanceData_FloatValue fval = perfData.float_value();
 
-					ss << fval.value();
+					ss << strEx::s::itos_non_sci(fval.value());
 					if (fval.has_unit())
 						ss << fval.unit();
 					if (!fval.has_warning())

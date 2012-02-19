@@ -204,13 +204,13 @@ bool CheckSystem::hasMessageHandler() {
 	return false;
 }
 
-int CheckSystem::commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args) {
-	if (command == NULL) {
+int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+	if (command == _T("help")) {
 		std::wcerr << _T("Usage: ... CheckSystem <command>") << std::endl;
 		std::wcerr << _T("Commands: debugpdh, listpdh, pdhlookup, pdhmatch, pdhobject") << std::endl;
 		return -1;
 	}
-	if (_wcsicmp(command, _T("debugpdh")) == 0) {
+	if (command == _T("debugpdh")) {
 		PDH::Enumerations::Objects lst;
 		try {
 			lst = PDH::Enumerations::EnumObjects();
@@ -333,34 +333,46 @@ int CheckSystem::commandLineExec(const wchar_t* command,const unsigned int argLe
 				}
 			}
 		}
-	} else if (_wcsicmp(command, _T("listpdh")) == 0) {
+	} else if (command == _T("listpdh")) {
+		bool porcelain = arguments.size() > 0 && arguments.front() == _T("--porcelain");
 		PDH::Enumerations::Objects lst;
 		try {
 			lst = PDH::Enumerations::EnumObjects();
 		} catch (const PDH::PDHException e) {
-			std::wcout << _T("Service enumeration failed: ") << e.getError();
-			return 0;
+			result = _T("ERROR: Service enumeration failed: ") + e.getError();
+			return NSCAPI::returnUNKNOWN;
 		}
-		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
-			if ((*it).instances.size() > 0) {
-				for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
-					for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
-						std::wcout << _T("\\") << (*it).name << _T("(") << (*it2).name << _T(")\\") << (*it3).name << std::endl;;
+		std::wstringstream ss;
+		BOOST_FOREACH(PDH::Enumerations::Object &obj, lst) {
+			if (!obj.error.empty()) {
+				ss << "error," << obj.name << "," << utf8::to_unicode(obj.error) << _T("\n");
+			} else if (obj.instances.size() > 0) {
+				BOOST_FOREACH(const PDH::Enumerations::Instance &inst, obj.instances) {
+					BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
+						if (porcelain) 
+							ss << "counter," << obj.name << _T(",") << inst.name << _T(",") << count.name << _T("\n");
+						else
+							ss << _T("\\") << obj.name << _T("(") << inst.name << _T(")\\") << count.name << _T("\n");
 					}
 				}
 			} else {
-				for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
-					std::wcout << _T("\\") << (*it).name << _T("\\") << (*it2).name << std::endl;;
+				BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
+					if (porcelain) 
+						ss << obj.name << _T(",") << count.name << _T("\n");
+					else
+						ss << _T("\\") << obj.name << _T("\\") << count.name << _T("\n");
 				}
 			}
 		}
-	} else if (_wcsicmp(command, _T("pdhlookup")) == 0) {
+		result = ss.str();
+		return NSCAPI::returnOK;
+	} else if (command == _T("pdhlookup")) {
 		try {
-			std::wstring name = array_buffer::arrayBuffer2string(args, argLen, _T(" "));
-			if (name.empty()) {
+			if (arguments.size() == 0) {
 				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
 				return 0;
 			}
+			std::wstring name = arguments.front();
 			DWORD dw = PDH::PDHResolver::lookupIndex(name);
 			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
 			NSC_LOG_MESSAGE_STD(_T("  | Index for '") + name + _T("' is ") + strEx::itos(dw));
@@ -369,13 +381,13 @@ int CheckSystem::commandLineExec(const wchar_t* command,const unsigned int argLe
 			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
 			return 0;
 		}
-	} else if (_wcsicmp(command, _T("pdhmatch")) == 0) {
+	} else if (command == _T("pdhmatch")) {
 		try {
-			std::wstring name = array_buffer::arrayBuffer2string(args, argLen, _T(" "));
-			if (name.empty()) {
-				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
+			if (arguments.size() == 0) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
 				return 0;
 			}
+			std::wstring name = arguments.front();
 			std::list<std::wstring> list = PDH::PDHResolver::PdhExpandCounterPath(name.c_str());
 			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
 			for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
@@ -386,13 +398,13 @@ int CheckSystem::commandLineExec(const wchar_t* command,const unsigned int argLe
 			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
 			return 0;
 		}
-	} else if (_wcsicmp(command, _T("pdhobject")) == 0) {
+	} else if (command == _T("pdhobject")) {
 		try {
-			std::wstring name = array_buffer::arrayBuffer2string(args, argLen, _T(" "));
-			if (name.empty()) {
-				NSC_LOG_ERROR_STD(_T("Need to specify counter pattern!"));
+			if (arguments.size() == 0) {
+				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
 				return 0;
 			}
+			std::wstring name = arguments.front();
 			PDH::Enumerations::pdh_object_details list = PDH::Enumerations::EnumObjectInstances(name.c_str());
 			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
 			for (std::list<std::wstring>::const_iterator cit = list.counters.begin(); cit != list.counters.end(); ++cit) {
@@ -1194,6 +1206,28 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 	return returnCode;
 }
 
+template<class T>
+class PerfDataContainer : public checkHolders::CheckContainer<T> {
+private:
+	typedef PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> counter_type;
+	typedef boost::shared_ptr<counter_type> ptr_lsnr_type;
+	ptr_lsnr_type cDouble;
+public:
+
+	PerfDataContainer() : CheckContainer<T>() {}
+
+	PerfDataContainer(const PerfDataContainer &other) : CheckContainer<T>(other), cDouble(other.cDouble) {}
+	const PerfDataContainer& operator =(const PerfDataContainer &other) {
+		*((CheckContainer<T>*)this) = other;
+		cDouble = other.cDouble;
+		return *this;
+	}
+	ptr_lsnr_type get_listener() {
+		if (!cDouble)
+			cDouble = ptr_lsnr_type(new counter_type());
+		return cDouble;
+	}
+};
 
 /**
  * Check a counter and return the value
@@ -1209,7 +1243,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
  */
 NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
 {
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
+	typedef PerfDataContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
 
 	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
@@ -1259,24 +1293,19 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 		msg = _T("No counters specified");
 		return NSCAPI::returnUNKNOWN;
 	}
+	PDH::PDHQuery pdh;
 
-	for (std::list<CounterContainer>::const_iterator cit = counters.begin(); cit != counters.end(); ++cit) {
-		CounterContainer counter = (*cit);
+	bool has_counter = false;
+	BOOST_FOREACH(CounterContainer &counter, counters) {
 		try {
-
-
-			double value  = 0;
 			if (counter.data.find('\\') == std::wstring::npos) {
-				PDHCollector *pObject = pdhThread.getThread();
-				if (!pObject) {
-					msg = _T("ERROR: PDH Collection thread not running.");
-					return NSCAPI::returnUNKNOWN;
-				}
+				/*
 				value = pObject->get_double(counter.data);
 				if (value == -1) {
 					msg = _T("ERROR: Failed to get counter value: ") + counter.data;
 					return NSCAPI::returnUNKNOWN;
 				}
+				*/
 			} else {
 				std::wstring tstr;
 				if (bExpandIndex) {
@@ -1292,10 +1321,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 						return NSCAPI::returnCRIT;
 					}
 				}
-				PDH::PDHQuery pdh;
-				typedef boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > ptr_lsnr_type;
-				ptr_lsnr_type cDouble(new PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE>());
-				//boost::shared_ptr<PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> > cDouble;
 				if (!extra_format.empty()) {
 					boost::char_separator<wchar_t> sep(_T(","));
 
@@ -1312,19 +1337,56 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 							NSC_LOG_ERROR_STD(_T("Unsupported extrta format: ") + extra_format);
 						}
 					}
-					cDouble->set_extra_format(flags);
+					counter.get_listener()->set_extra_format(flags);
 				}
-				pdh.addCounter(counter.data, cDouble);
-				pdh.open();
-				if (bCheckAverages) {
-					pdh.collect();
-					Sleep(1000);
-				}
-				pdh.gatherData();
-				pdh.close();
-				value = cDouble->getValue();
+				pdh.addCounter(counter.data, counter.get_listener());
+				has_counter = true;
 			}
-
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getError() + _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")"));
+			if (bNSClient)
+				msg = _T("0");
+			else
+				msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getError()+ _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
+			return NSCAPI::returnUNKNOWN;
+		}
+	}
+	if (has_counter) {
+		try {
+			pdh.open();
+			if (bCheckAverages) {
+				pdh.collect();
+				Sleep(1000);
+			}
+			pdh.collect();
+			pdh.gatherData();
+			pdh.close();
+		} catch (const PDH::PDHException e) {
+			NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getError());
+			if (bNSClient)
+				msg = _T("0");
+			else
+				msg = _T("ERROR: ") + e.getError();
+			return NSCAPI::returnUNKNOWN;
+		}
+	}
+	BOOST_FOREACH(CounterContainer &counter, counters) {
+		try {
+			double value = 0;
+			if (counter.data.find('\\') == std::wstring::npos) {
+				PDHCollector *pObject = pdhThread.getThread();
+				if (!pObject) {
+					msg = _T("ERROR: PDH Collection thread not running.");
+					return NSCAPI::returnUNKNOWN;
+				}
+				value = pObject->get_double(counter.data);
+				if (value == -1) {
+					msg = _T("ERROR: Failed to get counter value: ") + counter.data;
+					return NSCAPI::returnUNKNOWN;
+				}
+			} else {
+				value = counter.get_listener()->getValue();
+			}
 
 			if (bNSClient) {
 				if (!msg.empty())
@@ -1751,5 +1813,4 @@ NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(CheckSystem);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
-//NSC_WRAPPERS_CLI_DEF(gCheckSystem);
-
+NSC_WRAPPERS_CLI_DEF();

@@ -217,6 +217,14 @@ namespace settings {
 		void load_data() {
 			if (is_loaded_)
 				return;
+			if (boost::filesystem::is_directory(get_file_name())) {
+
+				boost::filesystem::wdirectory_iterator it(get_file_name()), eod;
+
+				BOOST_FOREACH(boost::filesystem::wpath const &p, std::make_pair(it, eod)) {
+					add_child(_T("ini:///") + p.string());
+				}
+			}
 			if (!file_exists()) {
 				is_loaded_ = true;
 				return;
@@ -248,7 +256,15 @@ namespace settings {
 		std::wstring get_file_name() {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
-				//filename_ = get_core()->get_base() / boost::filesystem::wpath(get_core()->get_boot_string(get_context(), _T("file"), _T("nsclient.ini")));
+				if (filename_.size() > 0) {
+					if (boost::filesystem::is_regular(filename_)) {
+					} else if (boost::filesystem::is_regular(filename_.substr(1))) {
+						filename_ = filename_.substr(1);
+					} else if (boost::filesystem::is_directory(filename_)) {
+					} else if (boost::filesystem::is_directory(filename_.substr(1))) {
+						filename_ = filename_.substr(1);
+					}
+				}
 				get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + filename_);
 			}
 			return filename_;
@@ -264,7 +280,12 @@ namespace settings {
 			net::wurl url = net::parse(key);
 			std::wstring file = url.host + url.path;
 			std::wstring tmp = core->expand_path(file);
-			return boost::filesystem::is_regular(tmp);
+			if (tmp.size()>1 && tmp[0] == '/') {
+				if (boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp))
+					return true;
+				tmp = tmp.substr(1);
+			}
+			return boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp);
 		}
 
 	};

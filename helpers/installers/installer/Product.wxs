@@ -29,8 +29,6 @@
 		</Upgrade>
 
 		<?if "$(var.arch)" = "x64"?>
-			<Condition Message="Win32 bit version not supported (by installer) on x64 bit platform (get x64 bit version instead)">VersionNT64</Condition>
-		<?else?>
 			<Condition Message="x64 bit version not supported (by installer) on Win32 bit platform (get Win32 bit version instead)">NOT VersionNT64</Condition>
 		<?endif?>
 		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high" />
@@ -49,7 +47,9 @@
 							Name="[SERVICE_NAME]" DisplayName="$(var.App.Title) ($(var.arch))"
 							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
 							Description="Monitoring agent for nagios (and others) used to respond to status queries"
-							Arguments="service --run --name [SERVICE_NAME]" />
+							Arguments="service --run --name [SERVICE_NAME]">
+				<ServiceDependency Id="Tcpip" />
+			</ServiceInstall>
             <ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
             <RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
           </Component>

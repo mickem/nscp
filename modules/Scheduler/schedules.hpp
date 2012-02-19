@@ -109,8 +109,10 @@ namespace schedules {
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			object.set_command(object.value);
-			if (object.alias == _T("default"))
+			if (object.alias == _T("default")) {
 				object.set_duration(_T("5m"));
+				object.set_report(_T("all"));
+			}
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 

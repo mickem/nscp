@@ -270,6 +270,19 @@ namespace strEx {
 			ss << i;
 			return ss.str();
 		}
+		inline std::string itos_non_sci(double i) {
+			std::stringstream ss;
+			if (i < 10)
+				ss.precision(20);
+			ss << std::noshowpoint << std::fixed << i;
+			std::string s = ss.str();
+			std::string::size_type pos = s.find_last_not_of('0');
+			if (pos == std::wstring::npos)
+				return s;
+			if (s[pos] != '.')
+				pos++;
+			return s.substr(0, pos);
+		}
 	}
 
 	inline std::wstring strip_hex(std::wstring str) {

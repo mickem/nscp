@@ -4,6 +4,29 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-02-19 MickeM
+ * Added new unit context on command line for running simple unit test cases:
+   nscp unit --language python --script test_nsca
+ * Added dependency on Tcpip
+ * Dropped OS bit-match requirement so now you can install any version on x64 plattform.
+ * Added so you can specify multiple counters for CheckCounter and poll them all in one go (#387)
+ * Added test cases (a bit flaky) for counters.
+ * Added ${host} and ${domain} to hostname settings option which might be used to construct your own hostname. (#428)
+   Not 100% sure about domain as on my box the "hostname" is only a name ie. has no domain...
+
+2012-02-18 MickeM
+ * Fixed so too long log messages are trunacated instead of discarded
+ * Added option to truncate logfile if to large (#358)
+   [/settings/file logger]
+   max size = 1000
+ * Added keyword to reload (settings) to reload settings store (ie. flushing the cache) (#249).
+ * Added ability to load all files in a given directory (#366)
+
+2012-02-17 MickeM
+ * Tweaked a bit in regards to ExternalScripts so it works better and handles errors better (#367)
+ * Fixed default report mode in 0.4.0 (#290)
+ * Made NSCA Client handle timestamps like send_nsca (ie. ignoring local time)
+
 2012-02-16 MickeM
  * Replaced command reader with object handler
  * Added support for running commands as other users (#131)

@@ -953,7 +953,16 @@ void NSClientT::unloadPlugins(bool unloadLoggers) {
 }
 
 NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
-	if (module == _T("service")) {
+	if (module == _T("settings")) {
+		try {
+			settings_manager::get_settings()->clear_cache();
+			return NSCAPI::isSuccess;
+		} catch(const std::exception &e) {
+			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: ") + utf8::to_unicode(e.what()));
+		} catch(...) {
+			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: UNKNOWN"));
+		}
+	} else if (module == _T("service")) {
 		try {
 			stop_unload_plugins_pre();
 			stop_unload_plugins_post();

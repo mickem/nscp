@@ -88,6 +88,11 @@ namespace commands {
 			} catch (const std::exception &e) {
 				NSC_LOG_ERROR(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()));
 				strEx::splitList list = strEx::splitEx(str, _T(" "));
+				if (list.size() > 0) {
+					command = list.front();
+					list.pop_front();
+				}
+				arguments.clear();
 				BOOST_FOREACH(std::wstring s, list) {
 					arguments.push_back(s);
 				}

@@ -99,6 +99,29 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
+		} else {
+			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
+
+			try {
+				boost::asio::io_service svc;
+				boost::asio::ip::tcp::resolver resolver (svc);
+				boost::asio::ip::tcp::resolver::query query (boost::asio::ip::host_name(), "");
+				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve (query), end;
+
+				std::string s;
+				while (iter != end) {
+					s += iter->host_name();
+					s += " - ";
+					s += iter->endpoint().address().to_string();
+					iter++;
+				}
+			} catch (exception& e) {
+				cerr << "Error: " << e.what() << endl;
+			}
+
+
+			strEx::replace(hostname_, "${host}", dn.first);
+			strEx::replace(hostname_, "${domain}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));

@@ -13,6 +13,7 @@ class cli_parser {
 	po::options_description service;
 	po::options_description client;
 	po::options_description common;
+	po::options_description unittest;
 
 	bool help;
 	bool version;
@@ -27,23 +28,12 @@ public:
 		, settings("Settings options")
 		, service("Service Options")
 		, client("Client Options")
+		, unittest("Unittest Options")
 		, help(false)
 		, version(false)
 	{
 		root.add_options()
 			("help", po::bool_switch(&help), "produce help message")
-			/*
-			("settings-help", "Produce help message for the various settings related options")
-			("service-help", "Produce help message for the various settings related service management")
-			("client-help", "Produce help message for the various settings related client")
-			("test-help", "Produce help message for the various settings related client")
-			*/
-/*
-			("settings", "Enter settings mode and handle settings related commands")
-			("service", "Enter service mode and handle service related commands")
-			("client", "Enter client mode and handle client related commands")
-			("test", "Start test and debug mode")
-			*/
 			("version", po::bool_switch(&version), "Show version information")
 			;
 		common.add_options()
@@ -87,6 +77,11 @@ public:
 			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
 			;
+		unittest.add_options()
+			("language,l", po::value<std::wstring>()->implicit_value(_T("")), "Language tests are written in")
+			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
+			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
+			;
 
 	}
 
@@ -119,6 +114,7 @@ public:
 		handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, _T(""));
 		handlers["test"] = boost::bind(&cli_parser::parse_test, this, _1, _2);
 		handlers["help"] = boost::bind(&cli_parser::parse_help, this, _1, _2);
+		handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, _1, _2);
 		return handlers;
 	}
 
@@ -339,8 +335,36 @@ public:
 		}
 	}
 
-	int parse_client(int argc, wchar_t* argv[], std::wstring module = _T("")) {
+	struct client_arguments {
+		std::wstring command, combined_query, module;
+		std::vector<std::wstring> arguments;
+		enum modes { exec, query, submit, none, combined};
+		modes mode;
+		bool boot;
+		client_arguments() : mode(none), boot(false) {}
+
+		void debug() {
+			if (mainClient.should_log(NSCAPI::log_level::debug)) {
+				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
+				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
+				mainClient.log_info(__FILE__, __LINE__, _T("Extra Query: ") + combined_query);
+				mainClient.log_info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
+				mainClient.log_info(__FILE__, __LINE__, _T("Boot: ") + strEx::itos(boot));
+				if (!module.empty() && boot)
+					mainClient.log_info(__FILE__, __LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
+				std::wstring args;
+				BOOST_FOREACH(std::wstring s, arguments)
+					strEx::append_list(args, s, _T(", "));
+				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
+			}
+
+		}
+	};
+	int parse_client(int argc, wchar_t* argv[], std::wstring module_ = _T("")) {
 		try {
+			client_arguments args;
+
+			args.module = module_;
 			po::options_description all("Allowed options (client)");
 			all.add(common).add(client);
 
@@ -356,45 +380,41 @@ public:
 			if (process_common_options("client", all))
 				return 1;
 
-			std::wstring command, combined_query;
-			enum modes { exec, query, submit, none, combined};
-			modes mode = none;
 
 			if (vm.count("exec")) {
-				command = vm["exec"].as<std::wstring>();
-				mode = exec;
+				args.command = vm["exec"].as<std::wstring>();
+				args.mode = client_arguments::exec;
 				if (vm.count("query")) {
-					combined_query = vm["query"].as<std::wstring>();
-					mode = combined;
+					args.combined_query = vm["query"].as<std::wstring>();
+					args.mode = client_arguments::combined;
 				}
 			} else if (vm.count("query")) {
-				command = vm["query"].as<std::wstring>();
-				mode = query;
+				args.command = vm["query"].as<std::wstring>();
+				args.mode = client_arguments::query;
 			} else if (vm.count("submit")) {
-				command = vm["submit"].as<std::wstring>();
-				mode = submit;
+				args.command = vm["submit"].as<std::wstring>();
+				args.mode = client_arguments::submit;
 			}
 
 			if (vm.count("module"))
-				module = vm["module"].as<std::wstring>();
+				args.module = vm["module"].as<std::wstring>();
 
-			bool boot = false;
 			if (vm.count("boot"))
-				boot = true;
+				args.boot = true;
 
 			std::vector<std::wstring> kvp_args;
 			if (vm.count("argument"))
 				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
 
-			std::vector<std::wstring> arguments = po::collect_unrecognized(parsed.options, po::include_positional);
+			args.arguments = po::collect_unrecognized(parsed.options, po::include_positional);
 
 			BOOST_FOREACH(std::wstring s, kvp_args) {
 				std::wstring::size_type pos = s.find(L'=');
 				if (pos == std::wstring::npos)
-					arguments.push_back(_T("--") + s);
+					args.arguments.push_back(_T("--") + s);
 				else {
-					arguments.push_back(_T("--") + s.substr(0,pos));
-					arguments.push_back(s.substr(pos+1));
+					args.arguments.push_back(_T("--") + s.substr(0,pos));
+					args.arguments.push_back(s.substr(pos+1));
 				}
 			}
 
@@ -403,56 +423,131 @@ public:
 			BOOST_FOREACH(std::wstring s, kvp_args) {
 				std::wstring::size_type pos = s.find(L'=');
 				if (pos == std::wstring::npos)
-					arguments.push_back(s);
+					args.arguments.push_back(s);
 				else {
-					arguments.push_back(s.substr(0,pos));
-					arguments.push_back(s.substr(pos+1));
+					args.arguments.push_back(s.substr(0,pos));
+					args.arguments.push_back(s.substr(pos+1));
+				}
+			}
+			return exec_client_mode(args);
+		} catch(const std::exception & e) {
+			std::wcerr << _T("Client: Unable to parse command line: ") << utf8::to_unicode(e.what()) << std::endl;
+			return 1;
+		} catch(...) {
+			std::wcerr << _T("Client: Unable to parse command line: UNKNOWN") << std::endl;
+			return 1;
+		}
+	}
+
+	int parse_unittest(int argc, wchar_t* argv[]) {
+		try {
+			client_arguments args;
+			settings_store = _T("dummy");
+			po::options_description all("Allowed options (client)");
+			all.add(common).add(unittest);
+
+			po::positional_options_description p;
+			p.add("arguments", -1);
+
+			po::variables_map vm;
+			po::wparsed_options parsed = 
+				po::wcommand_line_parser(argc, argv).options(all).allow_unregistered().run();
+			po::store(parsed, vm);
+			po::notify(vm);
+
+			if (process_common_options("unitest", all))
+				return 1;
+
+
+			if (vm.count("language")) {
+				std::wstring lang = vm["language"].as<std::wstring>();
+				if (lang == _T("python") || lang == _T("py")) {
+					args.command = _T("python-script");
+					args.combined_query = _T("py_unittest");
+					args.mode = client_arguments::combined;
+					args.module = _T("PythonScript");
+				} else {
+					std::wcerr << _T("Unknown language: ") << lang << std::endl;
+					return 1;
+				}
+			} else {
+				args.command = _T("python-script");
+				args.combined_query = _T("py_unittest");
+				args.mode = client_arguments::combined;
+				args.module = _T("PythonScript");
+			}
+
+			std::vector<std::wstring> kvp_args;
+			if (vm.count("argument"))
+				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
+
+			args.arguments = po::collect_unrecognized(parsed.options, po::include_positional);
+
+			BOOST_FOREACH(std::wstring s, kvp_args) {
+				std::wstring::size_type pos = s.find(L'=');
+				if (pos == std::wstring::npos)
+					args.arguments.push_back(_T("--") + s);
+				else {
+					args.arguments.push_back(_T("--") + s.substr(0,pos));
+					args.arguments.push_back(s.substr(pos+1));
 				}
 			}
 
-			if (mainClient.should_log(NSCAPI::log_level::debug)) {
-				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
-				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
-				mainClient.log_info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
-				mainClient.log_info(__FILE__, __LINE__, _T("Boot: ") + strEx::itos(boot));
-				if (!module.empty() && boot)
-					mainClient.log_info(__FILE__, __LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
-				std::wstring args;
-				BOOST_FOREACH(std::wstring s, arguments)
-					strEx::append_list(args, s, _T(", "));
-				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
+			if (vm.count("raw-argument"))
+				kvp_args = vm["raw-argument"].as<std::vector<std::wstring> >();
+			BOOST_FOREACH(std::wstring s, kvp_args) {
+				std::wstring::size_type pos = s.find(L'=');
+				if (pos == std::wstring::npos)
+					args.arguments.push_back(s);
+				else {
+					args.arguments.push_back(s.substr(0,pos));
+					args.arguments.push_back(s.substr(pos+1));
+				}
 			}
+			return exec_client_mode(args);
+		} catch(const std::exception & e) {
+			std::wcerr << _T("Client: Unable to parse command line: ") << utf8::to_unicode(e.what()) << std::endl;
+			return 1;
+		} catch(...) {
+			std::wcerr << _T("Client: Unable to parse command line: UNKNOWN") << std::endl;
+			return 1;
+		}
+	}
+
+	int exec_client_mode(client_arguments &args) {
+		try {
+			args.debug();
 
 			core_->boot_init();
-			if (module.empty())
+			if (args.module.empty())
 				core_->boot_load_all_plugins();
 			else
-				core_->boot_load_plugin(module);
-			core_->boot_start_plugins(boot);
+				core_->boot_load_plugin(args.module);
+			core_->boot_start_plugins(args.boot);
 			int ret = 0;
 			std::list<std::wstring> resp;
-			if (mode == none) {
-				mode = exec;
+			if (args.mode == client_arguments::none) {
+				args.mode = client_arguments::exec;
 				std::wcerr << _T("Since no mode was specified assuming --exec (other options are --query and --submit)") << std::endl;
 			}
-			if (mode == query) {
-				ret = mainClient.simple_query(module, command, arguments, resp);
-			} else if (mode == exec || mode == combined) {
-				ret = mainClient.simple_exec(module, command, arguments, resp);
+			if (args.mode == client_arguments::query) {
+				ret = mainClient.simple_query(args.module, args.command, args.arguments, resp);
+			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
+				ret = mainClient.simple_exec(args.module, args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
-					std::wcout << _T("Command not found (by module): ") << command << std::endl;
-					resp.push_back(_T("Command not found: ") + command);
-					mainClient.simple_exec(module, _T("help"), arguments, resp);
-				} else if (mode == combined) {
+					std::wcout << _T("Command not found (by module): ") << args.command << std::endl;
+					resp.push_back(_T("Command not found: ") + args.command);
+					mainClient.simple_exec(args.module, _T("help"), args.arguments, resp);
+				} else if (args.mode == client_arguments::combined) {
 					if (ret == NSCAPI::returnOK) {
 						mainClient.reload(_T("service"));
-						ret = mainClient.simple_query(module, combined_query, arguments, resp);
+						ret = mainClient.simple_query(args.module, args.combined_query, args.arguments, resp);
 					} else {
 						std::wcerr << _T("Failed to execute command, will not attempt query") << std::endl;
 					}
 				}
-			} else if (mode == submit) {
+			} else if (args.mode == client_arguments::submit) {
 				std::wcerr << _T("--submit is currently not supported (but you can use --exec submit which is technically the same)") << std::endl;
 			} else {
 				std::wcerr << _T("Need to specify one of --exec, --query or --submit") << std::endl;

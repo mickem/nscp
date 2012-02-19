@@ -27,7 +27,7 @@
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 
-class CheckSystem : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
+class CheckSystem : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:
 	CheckMemory memoryChecker;
 	PDHCollectorThread pdhThread;
@@ -76,7 +76,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	int commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args);
+	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 
 	NSCAPI::nagiosReturn checkCPU(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn checkUpTime(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
