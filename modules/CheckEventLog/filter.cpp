@@ -51,6 +51,7 @@ eventlog_filter::filter_obj_handler::filter_obj_handler() {
 		(_T("severity"), (type_custom_severity))
 		(_T("message"), (type_string))
 		(_T("strings"), (type_string))
+		(_T("computer"), (type_string))
 		(_T("written"), (type_date))
 		(_T("generated"), (type_date));
 }
@@ -79,6 +80,8 @@ eventlog_filter::filter_obj_handler::base_handler::bound_string_type eventlog_fi
 		ret = &filter_obj::get_message;
 	else if (key == _T("strings"))
 		ret = &filter_obj::get_strings;
+	else if (key == _T("computer"))
+		ret = &filter_obj::get_computer;
 	else
 		NSC_DEBUG_MSG_STD(_T("Failed to bind (string): ") + key);
 	return ret;

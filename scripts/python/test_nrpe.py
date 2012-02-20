@@ -187,9 +187,9 @@ class NRPEServerTest(BasicTest):
 			else:
 				log('Waiting for %s (%s/%s)'%(uid,alias,target))
 				sleep(500)
-		if found:
-			return result
-		return None
+		if not found:
+			result.add_message(False, 'Testing to recieve message using %s'%alias)
+		return result
 
 	def test_one(self, ssl=True, length=1024, state = status.UNKNOWN, tag = 'TODO'):
 		result = TestResult('Testing NRPE: %s/%s/%s with various targets'%(ssl, length, tag))
@@ -231,6 +231,8 @@ class NRPEServerTest(BasicTest):
 		result.add(self.do_one_test(ssl=True))
 		result.add(self.do_one_test(ssl=False))
 		result.add(self.do_one_test(ssl=True, length=4096))
+		result.add(self.do_one_test(ssl=True, length=65536))
+		result.add(self.do_one_test(ssl=True, length=1048576))
 		return result
 		
 	def install(self, arguments):

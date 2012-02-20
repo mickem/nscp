@@ -5,6 +5,14 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2012-02-19 MickeM
+ * Fixed NRPE buffer issue
+ * Added test case for 65K NRPE buffer length as well as 1Mb 
+ * Added support for not regexp as operator to filters (Eventlog) (#463)
+ * Added support for computer as filter keyword and format keyword in EventLog (#442)
+   "filter=computer = 'foo'" syntax=%computer%
+ * Improved messages rendering of eventlog messages a bit 
+
+2012-02-19 MickeM
  * Added new unit context on command line for running simple unit test cases:
    nscp unit --language python --script test_nsca
  * Added dependency on Tcpip

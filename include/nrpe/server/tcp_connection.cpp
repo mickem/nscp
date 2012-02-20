@@ -32,10 +32,18 @@ namespace nrpe {
 					)
 				);
 		}
+		void tcp_connection::continue_read_request(buffer_type &buffer) {
+			socket_.async_read_some(
+				boost::asio::buffer(buffer),
+				strand_.wrap(
+				boost::bind(&connection::handle_read_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+				)
+				);
+		}
 		void tcp_connection::start_write_request(const std::vector<boost::asio::const_buffer>& response) {
 			boost::asio::async_write(socket_, response,
 				strand_.wrap(
-					boost::bind(&connection::handle_write_response, shared_from_this(),boost::asio::placeholders::error)
+					boost::bind(&connection::handle_write_response, shared_from_this(),boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					)
 				);
 		}

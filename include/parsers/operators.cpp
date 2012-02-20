@@ -95,8 +95,11 @@ namespace parsers {
 			};
 			struct operator_gt : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
-					if (debug_enabled && debug_level > 10)
-						std::cout << "(op_gt) " << left.get_int(handler) << " > " << right.get_int(handler) << std::endl;
+					if (debug_enabled && debug_level > 10) {
+						long long lhs = left.get_int(handler);
+						long long rhs = right.get_int(handler);
+						std::cout << "(op_gt) " << lhs << " > " << rhs << std::endl;
+					}
 					return left.get_int(handler) > right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
@@ -178,6 +181,28 @@ namespace parsers {
 					try {
 						boost::wregex re(regexp);
 						return boost::regex_match(str, re);
+					} catch (const boost::bad_expression e) {
+						handler->error(_T("Invalid syntax in regular expression:") + regexp);
+						return false;
+					} catch (...) {
+						handler->error(_T("Invalid syntax in regular expression:") + regexp);
+						return false;
+					}
+				};
+			};
+			struct operator_not_regexp : public simple_bool_binary_operator_impl {
+				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					handler->error(_T("Regular expression not supported on numbers..."));
+					return false;
+				}
+				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					std::wstring str = left.get_string(handler);
+					std::wstring regexp = right.get_string(handler);
+					if (debug_enabled)
+						std::wcout << _T("(op_regexp) ") << str << _T(" regexp ") << regexp << std::endl;
+					try {
+						boost::wregex re(regexp);
+						return !boost::regex_match(str, re);
 					} catch (const boost::bad_expression e) {
 						handler->error(_T("Invalid syntax in regular expression:") + regexp);
 						return false;
@@ -397,6 +422,8 @@ namespace parsers {
 				return bin_op_type(new operator_impl::operator_not_like());
 			if (op == op_regexp)
 				return bin_op_type(new operator_impl::operator_regexp());
+			if (op == op_regexp)
+				return bin_op_type(new operator_impl::operator_not_regexp());
 
 			
 

@@ -28,6 +28,7 @@ namespace nrpe {
 		protected:
 
 			virtual void start_read_request(connection::buffer_type &buffer, int timeout);
+			void continue_read_request(buffer_type &buffer);
 			virtual void start_write_request(const std::vector<boost::asio::const_buffer>& response);
 
 			/// Handle completion of a read operation.

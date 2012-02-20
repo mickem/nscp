@@ -34,11 +34,12 @@ namespace nrpe {
 			virtual ~connection();
 
 			virtual void start_read_request(buffer_type &buffer, int timeout) = 0;
+			virtual void continue_read_request(buffer_type &buffer) = 0;
 			virtual void start_write_request(const std::vector<boost::asio::const_buffer>& response) = 0;
 			//virtual void start_handle_handsc_request(nrpe::packet response) = 0;
 
 			void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred);
-			void handle_write_response(const boost::system::error_code& e);
+			void handle_write_response(const boost::system::error_code& e, std::size_t bytes_transferred);
 			virtual void handle_handshake(const boost::system::error_code& e) {} 
 
 		protected:

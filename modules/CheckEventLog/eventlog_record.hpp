@@ -2,6 +2,7 @@
 
 #include "simple_registry.hpp"
 #include <config.h>
+#include <boost/tuple/tuple.hpp>
 
 class EventLogRecord {
 	const EVENTLOGRECORD *pevlr_;
@@ -22,8 +23,12 @@ public:
 	inline __int64 written() const {
 		return pevlr_->TimeWritten;
 	}
-	inline std::wstring eventSource() const {
+	inline std::wstring get_source() const {
 		return reinterpret_cast<const WCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + sizeof(EVENTLOGRECORD));
+	}
+	inline std::wstring get_computer() const {
+		size_t len = wcslen(reinterpret_cast<const WCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + sizeof(EVENTLOGRECORD)));
+		return reinterpret_cast<const WCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + sizeof(EVENTLOGRECORD) + (len+1)*sizeof(wchar_t));
 	}
 	inline DWORD eventID() const {
 		return (pevlr_->EventID&0xffff);
@@ -140,9 +145,9 @@ public:
 	}
 	std::wstring get_dll() const {
 		try {
-			return simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + eventSource(), _T("EventMessageFile"));
+			return simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
 		} catch (simple_registry::registry_exception &e) {
-			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + eventSource() + _T(": ") + e.what());
+			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + get_source() + _T(": ") + e.what());
 			return _T("");
 		}
 	}
@@ -169,14 +174,34 @@ public:
 		TCHAR** get_buffer_unsafe() { return buffer; }
 
 	};
+
+	boost::tuple<DWORD,std::wstring> wrapped_format(HMODULE hDLL, DWORD dwLang, DWORD id, tchar_array &buffer) const {
+		LPVOID lpMsgBuf;
+		unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY|FORMAT_MESSAGE_IGNORE_INSERTS,hDLL,
+			id,dwLang,(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(buffer.get_buffer_unsafe()));
+		if (dwRet == 0) {
+			return boost::tuple<DWORD,std::wstring>(GetLastError(), _T(""));
+		}
+		LocalFree(lpMsgBuf);
+		dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
+			id,dwLang,(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(buffer.get_buffer_unsafe()));
+		if (dwRet == 0)
+			return boost::make_tuple(GetLastError(), _T(""));
+		std::wstring msg = reinterpret_cast<wchar_t*>(lpMsgBuf);
+		LocalFree(lpMsgBuf);
+		return boost::make_tuple(0, msg);
+	}
 	std::wstring render_message(DWORD dwLang = 0) const {
 		std::vector<std::wstring> args;
 		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
 
-		tchar_array buffer(pevlr_->NumStrings);
-		for (unsigned int i =0;i<pevlr_->NumStrings;i++) {
+		tchar_array buffer(pevlr_->NumStrings+10);
+		for (unsigned int i = 0;i<pevlr_->NumStrings;i++) {
 			unsigned int len = buffer.set(i, p);
 			p = &(p[len+1]);
+		}
+		for (unsigned int i = pevlr_->NumStrings;i<pevlr_->NumStrings+10;i++) {
+			unsigned int len = buffer.set(i, _T(""));
 		}
 		std::wstring ret;
 		strEx::splitList dlls = strEx::splitEx(get_dll(), _T(";"));
@@ -189,24 +214,26 @@ public:
 					msg = _T("failed to load: ") + (*cit) + _T(", reason: ") + strEx::itos(GetLastError());
 					continue;
 				}
-				LPVOID lpMsgBuf;
 				if (dwLang == 0)
 					dwLang = MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT);
-				unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
-					pevlr_->EventID,dwLang,(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(buffer.get_buffer_unsafe()));
-				if (dwRet == 0) {
-					DWORD err = GetLastError();
+				boost::tuple<DWORD,std::wstring> formated_data = wrapped_format(hDLL, dwLang, pevlr_->EventID, buffer);
+				if (formated_data.get<0>() != 0) {
 					FreeLibrary(hDLL);
-					if (err == 317) {
+					if (formated_data.get<0>() == 15100) {
+						// Invalid MUI file (wrong language)
 						msg = _T("");
 						continue;
 					}
-					msg = _T("failed to lookup error code: ") + strEx::itos(eventID()) + _T(" from DLL: ") + (*cit) + _T("( reson: ") + strEx::itos(err) + _T(")");
+					if (formated_data.get<0>() == 317) {
+						// Missing message
+						msg = _T("");
+						continue;
+					}
+					msg = _T("failed to lookup error code: ") + strEx::itos(eventID()) + _T(" from DLL: ") + (*cit) + _T("( reason: ") + strEx::itos(formated_data.get<0>()) + _T(")");
 					continue;
 				}
-				msg = reinterpret_cast<wchar_t*>(lpMsgBuf);
-				LocalFree(lpMsgBuf);
 				FreeLibrary(hDLL);
+				msg = formated_data.get<1>();
 			} catch (...) {
 				msg = _T("Unknown exception getting message");
 			}
@@ -255,7 +282,8 @@ public:
 			strEx::replace(syntax, _T("%message%"), _T("%message% needs the descriptions flag set!"));
 		}
 
-		strEx::replace(syntax, _T("%source%"), eventSource());
+		strEx::replace(syntax, _T("%source%"), get_source());
+		strEx::replace(syntax, _T("%computer%"), get_computer());
 		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), date_format));
 		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), date_format));
 		strEx::replace(syntax, _T("%generated-raw%"), strEx::itos(pevlr_->TimeGenerated));

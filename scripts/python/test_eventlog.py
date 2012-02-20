@@ -76,6 +76,11 @@ class EventLogTest(BasicTest):
 		log(self.last_message)
 		log('%s'%self.last_message)
 		result.assert_equals(self.last_message, 'error Application Error: ', 'Verify that message is sent through')
+		
+		(res, msg, perf) = Core.get().simple_query('CheckEventLog', ['file=Application', 'debug=true', 'warn=gt:1', 'filter=generated gt -2h', 'syntax=:%computer%:, %source%', 'descriptions'])
+		log('===>> %s <==='%msg)
+		result.add_message(self.test_create('Application Error', 1000, '0', 'error', ['a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a']), 'Testing to create a log message')
+		
 		return result
 
 	def install(self, arguments):
@@ -86,6 +91,7 @@ class EventLogTest(BasicTest):
 		conf.set_string('/settings/pytest/scripts', 'test_eventlog', 'test_eventlog.py')
 		
 		conf.set_string('/settings/pytest_eventlog/real-time', 'enabled', 'true')
+		#conf.set_string('/settings/pytest_eventlog/real-time', 'filter', 'generated gt -2h')
 		conf.set_string('/settings/pytest_eventlog/real-time', 'maximum age', '5s')
 		conf.set_string('/settings/pytest_eventlog/real-time', 'destination', 'pytest_evlog')
 		conf.set_string('/settings/pytest_eventlog/real-time', 'language', 'english')

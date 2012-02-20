@@ -32,7 +32,10 @@ namespace eventlog_filter {
 			return record.eventID(); 
 		}
 		std::wstring get_source() {
-			return record.eventSource(); 
+			return record.get_source(); 
+		}
+		std::wstring get_computer() {
+			return record.get_computer(); 
 		}
 		long long get_el_type() {
 			return record.eventType(); 

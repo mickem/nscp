@@ -545,9 +545,9 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 						if (!fargs->syntax.empty()) {
 							uniq_record.message = record.render(fargs->bShowDescriptions, fargs->syntax);
 						} else if (!fargs->bShowDescriptions) {
-							uniq_record.message = record.eventSource();
+							uniq_record.message = record.get_source();
 						} else {
-							uniq_record.message = record.eventSource();
+							uniq_record.message = record.get_source();
 							uniq_record.message += _T("(") + EventLogRecord::translateType(record.eventType()) + _T(", ") + 
 								strEx::itos(record.eventID()) + _T(", ") + EventLogRecord::translateSeverity(record.severity()) + _T(")");
 							uniq_record.message += _T("[") + record.enumStrings() + _T("]");
@@ -560,9 +560,9 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 					if (!fargs->syntax.empty()) {
 						strEx::append_list(message, record.render(fargs->bShowDescriptions, fargs->syntax));
 					} else if (!fargs->bShowDescriptions) {
-						strEx::append_list(message, record.eventSource());
+						strEx::append_list(message, record.get_source());
 					} else {
-						strEx::append_list(message, record.eventSource());
+						strEx::append_list(message, record.get_source());
 						message += _T("(") + EventLogRecord::translateType(record.eventType()) + _T(", ") + 
 							strEx::itos(record.eventID()) + _T(", ") + EventLogRecord::translateSeverity(record.severity()) + _T(")");
 						message += _T("[") + record.enumStrings() + _T("]");

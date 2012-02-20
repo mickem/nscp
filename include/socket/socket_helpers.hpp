@@ -171,6 +171,7 @@ namespace socket_helpers {
 						return false;
 					}
 				}
+				return false;
 			}
 
 			void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code ec) {
@@ -193,15 +194,19 @@ namespace socket_helpers {
 
 			sock.get_io_service().reset();
 			while (sock.get_io_service().run_one()) {
-				if (read_result)
+				if (read_result) {
 					timer.cancel();
-				else if (timer_result)
+					return true;
+				}
+				else if (timer_result) {
 					rawSocket.close();
+					return false;
+				}
 			}
 
-			if (*read_result)
+			if (read_result && *read_result)
 				throw boost::system::system_error(*read_result);
-			return true;
+			return false;
 		}
 
 
@@ -249,6 +254,7 @@ namespace socket_helpers {
 						return false;
 					}
 				}
+				return false;
 			}
 			void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code ec) {
 				if (!ec)
@@ -270,9 +276,10 @@ namespace socket_helpers {
 
 			sock.get_io_service().reset();
 			while (sock.get_io_service().run_one()) {
-				if (read_result)
+				if (read_result) {
 					timer.cancel();
-				else if (timer_result) {
+					return true;
+				} else if (timer_result) {
 					rawSocket.close();
 					return false;
 				} else {
@@ -286,7 +293,7 @@ namespace socket_helpers {
 
 			if (*read_result)
 				throw boost::system::system_error(*read_result);
-			return true;
+			return false;
 		}
 	}
 }

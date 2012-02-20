@@ -83,11 +83,11 @@ namespace nrpe {
 						} catch (...) {
 							response = handler_->create_error(_T("Unknown error handling NRPE packet"));
 						}
-
 						std::vector<boost::asio::const_buffer> buffers;
 						buffers.push_back(buf(response.get_buffer()));
 						start_write_request(buffers);
-						cancel_timer();
+					} else {
+						continue_read_request(buffer_);
 					}
 				}
 			} else {
@@ -100,8 +100,10 @@ namespace nrpe {
 			return boost::asio::buffer(buffers_.back());
 		}
 
-		void connection::handle_write_response(const boost::system::error_code& e) {
+		void connection::handle_write_response(const boost::system::error_code& e, std::size_t bytes_transferred) {
 			if (!e) {
+				cancel_timer();
+				handler_->log_debug(__FILE__, __LINE__, _T("Wrote data: ") + strEx::itos(bytes_transferred));
 				// Initiate graceful connection closure.
 				boost::system::error_code ignored_ec;
 				socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);

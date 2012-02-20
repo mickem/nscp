@@ -179,6 +179,7 @@ namespace parsers {
 					| ascii::no_case[qi::lit("like")]					[_val = op_like]
 					| ascii::no_case[qi::lit("regexp")]					[_val = op_regexp]
 					| ascii::no_case[qi::lit("not like")]				[_val = op_not_like]
+					| ascii::no_case[qi::lit("not regexp")]				[_val = op_not_regexp]
 					;
 
 			bitop 	= qi::lit("&")										[_val = op_binand]
