@@ -330,7 +330,7 @@ public:
 			}
 			return 0;
 		} catch(std::exception & e) {
-			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
+			std::cerr << std::string("Unable to parse command line (settings): ") << e.what() << "\n";
 			return 1;
 		}
 	}

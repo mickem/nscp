@@ -25,7 +25,7 @@ namespace nsclient {
 				return DEFAULT_SERVICE_DEPS;
 			}
 			static std::wstring get_default_arguments() {
-				return _T("--service --run");
+				return _T("service --run");
 			}
 			inline void print_msg(std::wstring str) {
 				std::wcout << str << std::endl;
@@ -41,7 +41,7 @@ namespace nsclient {
 						args += _T(" --name ") + service_name_;
 					serviceControll::Install(service_name_, service_description, get_default_service_deps(), SERVICE_WIN32_OWN_PROCESS, args);
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service installation failed: ") + e.error_);
+					print_error(_T("Service installation failed of '") + service_name_ + _T("' failed: ") + e.error_);
 					return -1;
 				}
 				try {

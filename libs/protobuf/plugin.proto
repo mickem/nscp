@@ -311,11 +311,11 @@ message QuerySettingsResponseMessage {
 message LogEntry {
 	message Entry {
 		enum Level {
-			LOG_DEBUG	=  0;
-			LOG_INFO 	= 10;
-			LOG_WARNING	= 20;
-			LOG_ERROR	= 30;
-			LOG_CRITICAL	= 40;
+			LOG_DEBUG	= 500;
+			LOG_INFO 	= 150;
+			LOG_WARNING	=  50;
+			LOG_ERROR	=  10;
+			LOG_CRITICAL	=   1;
 		};
 		required Level	level	= 1;
 		optional string	sender	= 2;

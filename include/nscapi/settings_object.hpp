@@ -35,11 +35,11 @@ namespace nscapi {
 		};
 
 
-		template<class object_type = default_object_type, class object_reader = default_object_reader<default_object_type> >
+		template<class t_object_type, class object_reader>
 		struct object_handler : boost::noncopyable {
-			typedef boost::optional<object_type> optional_object;
-			typedef std::map<std::wstring, object_type> object_list_type;
-			typedef object_handler<object_type, object_reader> my_type;
+			typedef boost::optional<t_object_type> optional_object;
+			typedef std::map<std::wstring, t_object_type> object_list_type;
+			typedef object_handler<t_object_type, object_reader> my_type;
 
 			object_list_type object_list;
 			object_list_type template_list;
@@ -50,8 +50,8 @@ namespace nscapi {
 				add(proxy, path, alias, value, is_template);
 			}
 
-			object_type add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring value, bool is_template = false) {
-				object_type object;
+			t_object_type add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring value, bool is_template = false) {
+				t_object_type object;
 				object.alias = alias;
 				object.value = value;
 				object.path = path + _T("/") + alias;
@@ -61,7 +61,7 @@ namespace nscapi {
 				object_reader::read_object(proxy, object);
 
 				if (!object.parent.empty() && object.parent != alias & object.parent != object.alias) {
-					object_type parent;
+					t_object_type parent;
 					optional_object tmp = find_object(object.parent);
 					if (!tmp) {
 						parent = add(proxy, path, object.parent, _T(""));
@@ -79,12 +79,12 @@ namespace nscapi {
 			}
 
 			void rebuild(boost::shared_ptr<nscapi::settings_proxy> proxy) {
-				std::list<object_type> tmp;
-				BOOST_FOREACH(object_list_type::value_type t, object_list) {
+				std::list<t_object_type> tmp;
+				BOOST_FOREACH(const typename object_list_type::value_type &t, object_list) {
 					tmp.push_back(t.second);
 				}
 				object_list.clear();
-				BOOST_FOREACH(const &object_item o, tmp) {
+				BOOST_FOREACH(const t_object_type &o, tmp) {
 					std::wstring::size_type pos = o.path.find_last_of(_T("/"));
 					if (pos == std::wstring::npos)
 						continue;
@@ -94,7 +94,7 @@ namespace nscapi {
 
 
 			optional_object find_object(std::wstring alias) {
-				object_list_type::const_iterator cit = object_list.find(alias);
+				typename object_list_type::const_iterator cit = object_list.find(alias);
 				if (cit != object_list.end())
 					return optional_object(cit->second);
 				cit = template_list.find(alias);
@@ -104,7 +104,7 @@ namespace nscapi {
 			}
 
 			bool has_object(std::wstring alias) {
-				object_list_type::const_iterator cit = object_list.find(alias);
+				typename object_list_type::const_iterator cit = object_list.find(alias);
 				if (cit != object_list.end())
 					return true;
 				cit = template_list.find(alias);
@@ -117,25 +117,25 @@ namespace nscapi {
 			std::wstring to_wstring() {
 				std::wstringstream ss;
 				ss << _T("Objects: ");
-				BOOST_FOREACH(object_list_type::value_type t, object_list) {
+				BOOST_FOREACH(const typename object_list_type::value_type &t, object_list) {
 					ss << _T(", ") << t.first << _T(" = {") << t.second.to_wstring() + _T("} ");
 				}
 				ss << _T("Templates: ");
-				BOOST_FOREACH(object_list_type::value_type t, template_list) {
+				BOOST_FOREACH(const typename object_list_type::value_type &t, template_list) {
 					ss << _T(", ") << t.first << _T(" = {") << t.second.to_wstring() + _T("} ");
 				}
 				return ss.str();
 			}
 
-			void add_object(object_type object) {
+			void add_object(t_object_type object) {
 				object_reader::post_process_object(object);
-				object_list_type::iterator cit = template_list.find(object.alias);
+				typename object_list_type::iterator cit = template_list.find(object.alias);
 				if (cit != template_list.end())
 					template_list.erase(cit);
 				object_list[object.alias] = object;
 			}
-			void add_template(object_type object) {
-				object_list_type::const_iterator cit = object_list.find(object.alias);
+			void add_template(t_object_type object) {
+				typename object_list_type::const_iterator cit = object_list.find(object.alias);
 				if (cit != object_list.end())
 					return;
 				object_reader::post_process_object(object);

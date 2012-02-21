@@ -4,7 +4,17 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2012-02-19 MickeM
+2012-02-21 MickeM
+ * Added new module CauseCrash which has a single command CrashClient to allow the service to be crashed remotly
+   *WARNING* Dont use this command, it is for debugging and testing purpouses only
+ * Fixed issue with BreakPad which was disabled
+ * Fixed some unix issues (sorry but hudson's stopped emailing me again:( )
+ * Fixed service --install (now sets correct options)
+ * Fixed service --install (now sets description correctly)
+ * Fixed log level defined in protobuf (now same as rest of the system)
+ * Fixed some issues with the check_nscp command
+
+2012-02-20 MickeM
  * Fixed NRPE buffer issue
  * Added test case for 65K NRPE buffer length as well as 1Mb 
  * Added support for not regexp as operator to filters (Eventlog) (#463)

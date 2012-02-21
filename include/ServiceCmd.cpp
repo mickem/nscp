@@ -393,7 +393,7 @@ namespace serviceControll {
 		}
 
 		TCHAR* d = new TCHAR[desc.length()+2];
-		wcsncpy(d, desc.c_str(), desc.length());
+		wcsncpy(d, desc.c_str(), desc.length()+1);
 		descr.lpDescription = d;
 		BOOL bResult = FChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
 		delete [] d;

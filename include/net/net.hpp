@@ -92,8 +92,8 @@ namespace net {
 		}
 	};
 
-	typedef public base_url<std::string, std::stringstream, string_traits> url;
-	typedef public base_url<std::wstring, std::wstringstream, wstring_traits> wurl;
+	typedef base_url<std::string, std::stringstream, string_traits> url;
+	typedef base_url<std::wstring, std::wstringstream, wstring_traits> wurl;
 
 	inline wurl url_to_wide(const url &u) {
 		wurl r;

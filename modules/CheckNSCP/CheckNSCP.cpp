@@ -42,7 +42,7 @@ bool CheckNSCP::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("archive folder"), sh::wstring_key(&crashFolder, CRASH_ARCHIVE_FOLDER),
+			(_T("archive folder"), sh::wpath_key(&crashFolder, CRASH_ARCHIVE_FOLDER),
 			CRASH_ARCHIVE_FOLDER_KEY, _T("The archive folder for crash dunpes."))
 			;
 
@@ -89,6 +89,7 @@ void CheckNSCP::handleMessage(int msgType, const std::string file, int line, std
 
 int CheckNSCP::get_crashes(std::wstring &last_crash) {
 #ifdef WIN32
+	NSC_DEBUG_MSG(_T("Crash folder is: ") + crashFolder);
 	if (!file_helpers::checks::is_directory(crashFolder)) {
 		return 0;
 	}

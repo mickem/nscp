@@ -115,8 +115,8 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 					s += iter->endpoint().address().to_string();
 					iter++;
 				}
-			} catch (exception& e) {
-				cerr << "Error: " << e.what() << endl;
+			} catch (const std::exception& e) {
+				NSC_LOG_ERROR_STD(_T("Failed to resolve: ") + utf8::to_unicode(e.what()));
 			}
 
 

@@ -631,7 +631,7 @@ bool NSClientT::boot_init() {
 		if (!crashHandling) {
 			LOG_ERROR_CORE(_T("No crash handling configured"));
 		} else {
-			//g_exception_manager->StartMonitoring();
+			g_exception_manager->StartMonitoring();
 		}
 	}
 #else
