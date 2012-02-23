@@ -37,7 +37,7 @@
 
 #include "filter.hpp"
 
-#include <nscapi/functions.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/list_value.hpp>

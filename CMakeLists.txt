@@ -357,14 +357,8 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/config.h
 	${NSCP_INCLUDEDIR}/utils.h
 	${NSCP_INCLUDEDIR}/NSCAPI.h
-#	${NSCP_INCLUDEDIR}/nscapi/macros.hpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp	
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp
+	#${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp	
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
-#	${NSCP_INCLUDEDIR}/nscapi/settings_proxy.hpp
-	${NSCP_INCLUDEDIR}/nscapi/macros.hpp
-	${NSCP_INCLUDEDIR}/nscapi/functions.hpp
 )
 
 SET(NSCP_FILTER_CPP

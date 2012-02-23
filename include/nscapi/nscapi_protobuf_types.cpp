@@ -18,34 +18,53 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
-NSC_WRAPPERS_MAIN();
+#include <nscapi/nscapi_protobuf_types.hpp>
 
-class CauseCrashes : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
-private:
+namespace nscapi {
+	namespace protobuf {
+		namespace types {
+			std::string destination_container::to_string() {
+				std::stringstream ss;
+				ss << "id: " << id;
+				ss << ", address: " << address.to_string();
+				ss << ", comment: " << comment;
+				int i=0;
+				BOOST_FOREACH(std::string a, tags) {
+					ss << ", tags[" << i++ << "]: " << a;
+				}
+				BOOST_FOREACH(const data_map::value_type &kvp, data) {
+					ss << ", data[" << kvp.first << "]: " << kvp.second;
+				}
+				return ss.str();
+			}
 
-public:
-	CauseCrashes();
-	virtual ~CauseCrashes();
-	// Module calls
-
-
-	static std::wstring getModuleName() {
-		return _T("Helper function");
+			void destination_container::import(const destination_container &other) {
+				if (id.empty() && !other.id.empty())
+					id = other.id;
+				address.import(other.address);
+				if (comment.empty() && !other.comment.empty())
+					comment = other.comment;
+				BOOST_FOREACH(const std::string &t, other.tags) {
+					tags.insert(t);
+				}
+				BOOST_FOREACH(const data_map::value_type &kvp, other.data) {
+					if (data.find(kvp.first) == data.end())
+						data[kvp.first] = kvp.second;
+				}
+			}
+			void destination_container::apply(const destination_container &other) {
+				if (!other.id.empty())
+					id = other.id;
+				address.apply(other.address);
+				if (!other.comment.empty())
+					comment = other.comment;
+				BOOST_FOREACH(const std::string &t, other.tags) {
+					tags.insert(t);
+				}
+				BOOST_FOREACH(const data_map::value_type &kvp, other.data) {
+					data[kvp.first] = kvp.second;
+				}
+			}
+		}
 	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Various helper function to extend other checks.\nThis is also only supported through NRPE.");
-	}
-
-	bool loadModule();
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-
-};
+}

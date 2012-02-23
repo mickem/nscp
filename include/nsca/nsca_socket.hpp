@@ -32,7 +32,7 @@ namespace nsca {
 		}
 
 		virtual void connect(std::string host, std::string port) {
-			NSC_DEBUG_MSG(_T("Connecting to: ") + to_wstring(host) + _T(" (") + to_wstring(port) + _T(")"));
+			NSC_DEBUG_MSG(_T("Connecting to: ") + utf8::cvt<std::wstring>(host) + _T(" (") + utf8::cvt<std::wstring>(port) + _T(")"));
 			tcp::resolver resolver(io_service_);
 			tcp::resolver::query query(host, port);
 
@@ -44,7 +44,7 @@ namespace nsca {
 				tcp::resolver::endpoint_type ep = *endpoint_iterator;
 				socket_->close();
 				socket_->connect(*endpoint_iterator++, error);
-				NSC_DEBUG_MSG(_T("Connected to: ") + to_wstring(ep.address().to_string()));
+				NSC_DEBUG_MSG(_T("Connected to: ") + utf8::cvt<std::wstring>(ep.address().to_string()));
 			}
 			if (error) {
 				NSC_DEBUG_MSG(_T("Failed to connect to:") + utf8::to_unicode(host));

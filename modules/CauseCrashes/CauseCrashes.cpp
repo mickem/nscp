@@ -21,6 +21,8 @@
 #include "stdafx.h"
 #include "CauseCrashes.h"
 
+#include <strEx.h>
+
 CauseCrashes::CauseCrashes() {
 }
 CauseCrashes::~CauseCrashes() {

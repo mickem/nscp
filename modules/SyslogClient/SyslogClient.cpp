@@ -30,6 +30,7 @@
 #include <strEx.h>
 
 #include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace ip = boost::asio::ip;

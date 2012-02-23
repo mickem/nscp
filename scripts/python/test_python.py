@@ -75,7 +75,7 @@ class PythonTest(BasicTest):
 		base_path = '/settings/test_scheduler'
 		conf.set_string(base_path, 'threads', '0')
 
-		default_path = '%s/default'%base_path
+		default_path = '%s/python_test'%base_path
 		conf.set_string(default_path, 'channel', 'py_stress_test')
 		conf.set_string(default_path, 'alias', 'stress')
 		conf.set_string(default_path, 'command', 'py_stress_noop')

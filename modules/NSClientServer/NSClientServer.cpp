@@ -24,7 +24,6 @@
 #include <time.h>
 #include <config.h>
 #include "handler_impl.hpp"
-#include "settings.hpp"
 #include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -32,15 +31,6 @@ namespace sh = nscapi::settings_helper;
 NSClientListener::NSClientListener() : info_(boost::shared_ptr<check_nt::server::handler>(new handler_impl())) {
 }
 NSClientListener::~NSClientListener() {
-}
-std::wstring getAllowedHosts() {
-	std::wstring ret = SETTINGS_GET_STRING(nsclient::ALLOWED_HOSTS);
-	if (ret.empty())
-		ret = SETTINGS_GET_STRING(protocol_def::ALLOWED_HOSTS);
-	return ret;
-}
-bool getCacheAllowedHosts() {
-	return SETTINGS_GET_INT_FALLBACK(nsclient::CACHE_ALLOWED, protocol_def::CACHE_ALLOWED);
 }
 
 bool NSClientListener::loadModule() {

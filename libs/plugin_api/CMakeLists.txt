@@ -11,11 +11,16 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDEDIR}/b64/b64.c
 	${NSCP_INCLUDEDIR}/utils.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.cpp
+	
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
+	
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
-	${NSCP_INCLUDEDIR}/nscapi/targets.cpp
 )
 	
 IF(WIN32)
@@ -25,13 +30,18 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_INCLUDEDIR}/NSCAPI.h
-		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
-		${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp	
+		
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.hpp
+
 		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 		${NSCP_INCLUDEDIR}/nscapi/settings_proxy.hpp
 		${NSCP_INCLUDEDIR}/nscapi/macros.hpp
-		${NSCP_INCLUDEDIR}/nscapi/targets.hpp
 
 	)
 ENDIF(WIN32)

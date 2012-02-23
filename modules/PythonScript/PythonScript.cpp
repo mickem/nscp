@@ -439,7 +439,7 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	if (inst->has_simple_message_handler(chnl)) {
 		std::wstring src, cmd, msg, perf;
 		int code = nscapi::functions::parse_simple_submit_request(request, src, cmd, msg, perf);
-		int ret = inst->handle_simple_message(chnl, to_string(src), to_string(cmd), code, msg, perf);
+		int ret = inst->handle_simple_message(chnl, utf8::cvt<std::string>(src), utf8::cvt<std::string>(cmd), code, msg, perf);
 		nscapi::functions::create_simple_submit_response(channel, cmd, ret, _T(""), response);
 		return ret;
 	}

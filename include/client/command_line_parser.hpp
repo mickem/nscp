@@ -6,7 +6,9 @@
 #include <boost/unordered_map.hpp>
 #include <boost/tuple/tuple.hpp>
 
-#include <nscapi/functions.hpp>
+#include <nscapi/nscapi_protobuf_types.hpp>
+
+#include <protobuf/plugin.pb.h>
 
 namespace client {
 
@@ -34,8 +36,8 @@ namespace client {
 		std::wstring result;
 		std::vector<std::wstring> arguments;
 
-		nscapi::functions::destination_container host_self;
-		nscapi::functions::destination_container recipient;
+		nscapi::protobuf::types::destination_container host_self;
+		nscapi::protobuf::types::destination_container recipient;
 
 		bool submit;
 		bool query;
@@ -63,7 +65,7 @@ namespace client {
 	struct clp_handler;
 
 	struct target_lookup_interface {
-		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) = 0;
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) = 0;
 	};
 	struct configuration /*: boost::noncopyable*/ {
 		typedef boost::shared_ptr<nscp_cli_data> data_type;
@@ -171,6 +173,6 @@ namespace client {
 		static int do_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
 
 	private:
-		static void modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient);
+		static void modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::protobuf::types::destination_container &recipient);
 	};
 }

@@ -35,8 +35,8 @@
 #include <parsers/where/variable.hpp>
 
 #include <settings/client/settings_client.hpp>
-#include "settings.hpp"
 
+namespace sh = nscapi::settings_helper;
 
 bool CheckTaskSched::loadModule() {
 	return false;
@@ -46,8 +46,26 @@ bool CheckTaskSched::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 		register_command(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
 		register_command(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
 
-		SETTINGS_REG_PATH(task_scheduler::SECTION);
-		SETTINGS_REG_KEY_S(task_scheduler::SYNTAX);
+
+		sh::settings_registry settings(get_settings_proxy());
+		settings.set_alias(_T("check"), alias, _T("task schedule"));
+
+		settings.alias().add_path_to_settings()
+			(_T("TASK SCHEDULE"), _T("Section for system checks and system settings"))
+
+			;
+
+
+		settings.alias().add_key_to_settings()
+
+			(_T("default buffer length"), sh::wstring_key(&syntax, _T("%title% last run: %most-recent-run-time% (%exit-code%)")),
+			_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)"))
+			;
+
+
+		settings.register_all();
+		settings.notify();
+
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;
@@ -58,7 +76,6 @@ bool CheckTaskSched::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 		NSC_LOG_ERROR_STD(_T("Failed to register command."));
 		return false;
 	}
-	syntax = SETTINGS_GET_STRING(task_scheduler::SYNTAX);
 	return true;
 }
 bool CheckTaskSched::unloadModule() {

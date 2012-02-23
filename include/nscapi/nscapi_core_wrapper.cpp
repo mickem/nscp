@@ -19,37 +19,21 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include <boost/foreach.hpp>
-#include <boost/tokenizer.hpp>
+#include <iostream>
+
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <strEx.h>
 #include <arrayBuffer.h>
 
-#include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/functions.hpp>
-#include <settings/macros.h>
-
 #include <protobuf/plugin.pb.h>
-
-using namespace nscp::helpers;
-
 
 #define CORE_LOG_ERROR_STD(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, (std::wstring)msg); }
 #define CORE_LOG_ERROR(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, msg); }
 
-//#define CORE_LOG_CRITICAL_STD(msg) if (matches(NSCAPI::critical)) { CORE_ANY_MSG(NSCAPI::critical, __FILE__, __LINE__, (std::wstring)msg) }
-//#define CORE_LOG_CRITICAL(msg) if (matches(NSCAPI::critical)) { CORE_ANY_MSG(NSCAPI::critical, __FILE__, __LINE__, msg) }
-
-//#define CORE_LOG_MESSAGE_STD(msg) if (matches(NSCAPI::info)) { CORE_ANY_MSG(NSCAPI::info, __FILE__, __LINE__, (std::wstring)msg) }
-//#define CORE_LOG_MESSAGE(msg) if (matches(NSCAPI::info)) { CORE_ANY_MSG(NSCAPI::info, __FILE__, __LINE__, msg) }
-
-//#define CORE_DEBUG_MSG_STD(msg) if (matches(NSCAPI::debug)) { CORE_ANY_MSG(NSCAPI::debug, __FILE__, __LINE__, (std::wstring)msg) }
-//#define CORE_DEBUG_MSG(msg) if (matches(NSCAPI::debug)) { CORE_ANY_MSG(NSCAPI::debug, __FILE__, __LINE__, msg) }
-
-//#define CORE_ANY_MSG(msg, type) log(type, __FILE__, __LINE__, msg)
-
-
+#define LEGACY_BUFFER_LENGTH 4096
 //////////////////////////////////////////////////////////////////////////
 // Callbacks into the core
 //////////////////////////////////////////////////////////////////////////
@@ -79,7 +63,7 @@ void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, i
 	if (!should_log(msgType))
 		return;
 	if (!fNSAPIMessage) {
-		std::wcout << _T("*** *** *** NSCore not loaded, dumping log: ") << to_wstring(file) << _T(":") << line << _T(": ") << std::endl << logMessage << std::endl;
+		std::wcout << _T("NSCORE NOT LOADED Dumping log: ") << line << _T(": ") << std::endl << logMessage << std::endl;
 		return;
 	}
 	std::string str;
@@ -135,14 +119,14 @@ NSCAPI::log_level::level nscapi::core_wrapper::get_loglevel() {
 NSCAPI::nagiosReturn nscapi::core_wrapper::query(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
 {
 	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIInject(command, request, request_len, response, response_len);
 }
 
 
 void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 	if (!fNSAPIDestroyBuffer)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIDestroyBuffer(buffer);
 }
 
@@ -150,7 +134,7 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::wstring channel, std::string request, std::string &response) {
 
 	if (!fNSAPINotify)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	NSCAPI::nagiosReturn ret = submit_message(channel.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
@@ -166,7 +150,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::wstring channel, s
 NSCAPI::errorReturn nscapi::core_wrapper::reload(std::wstring module) {
 
 	if (!fNSAPIReload)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIReload(module.c_str());
 }
 
@@ -189,7 +173,7 @@ bool nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstr
 NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const wchar_t* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
 {
 	if (!fNSAPINotify)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPINotify(channel, request, request_len, response, response_len);
 }
 
@@ -205,7 +189,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const wchar_t* channel
 NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & msg, std::wstring & perf) 
 {
 	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	std::string response;
 	NSCAPI::nagiosReturn ret = simple_query(command, argument, response);
 	if (!response.empty()) {
@@ -230,7 +214,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring comma
 NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & arguments, std::string & result) 
 {
 	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 
 	std::string request;
 	try {
@@ -245,7 +229,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring comma
 NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::wstring & command, const std::string & request, std::string & result) 
 {
 	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	NSCAPI::nagiosReturn retC = query(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
@@ -266,7 +250,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::wstring & command, c
 		case NSCAPI::returnUNKNOWN:
 			break;
 		default:
-			throw nscapi::nscapi_exception(_T("Unknown return code when injecting: ") + std::wstring(command));
+			throw nscapi::nscapi_exception("Unknown return code from query: " + utf8::cvt<std::string>(command));
 	}
 	return retC;
 }
@@ -274,7 +258,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::wstring & command, c
 
 NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf) {
 	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	boost::tokenizer<boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::char_separator<wchar_t>(_T("!")));
 	std::list<std::wstring> arglist;
 	BOOST_FOREACH(std::wstring s, tok)
@@ -302,14 +286,14 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::wstring targe
 		case NSCAPI::returnUNKNOWN:
 			break;
 		default:
-			throw nscapi::nscapi_exception(_T("Unknown return code when injecting: ") + std::wstring(command));
+			throw nscapi::nscapi_exception("Unknown return from exec: " + utf8::cvt<std::string>(command));
 	}
 	return retC;
 }
 NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const wchar_t* target, const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
 {
 	if (!fNSAPIExecCommand)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIExecCommand(target, command, request, request_len, response, response_len);
 }
 
@@ -351,12 +335,12 @@ void nscapi::core_wrapper::Exit(void) {
  */
 std::wstring nscapi::core_wrapper::getSettingsString(std::wstring section, std::wstring key, std::wstring defaultValue) {
 	if (!fNSAPIGetSettingsString)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	unsigned int buf_len = getBufferLength();
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetSettingsString(section.c_str(), key.c_str(), defaultValue.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw nscapi::nscapi_exception(_T("Settings could not be retrieved."));
+		throw nscapi::nscapi_exception("Settings could not be retrieved.");
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
@@ -365,12 +349,12 @@ std::wstring nscapi::core_wrapper::getSettingsString(std::wstring section, std::
 
 std::wstring nscapi::core_wrapper::expand_path(std::wstring value) {
 	if (!fNSAPIExpandPath)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	unsigned int buf_len = getBufferLength();
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIExpandPath(value.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw nscapi::nscapi_exception(_T("Settings could not be retrieved."));
+		throw nscapi::nscapi_exception("Settings could not be retrieved.");
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
@@ -383,34 +367,34 @@ std::wstring nscapi::core_wrapper::expand_path(std::wstring value) {
  */
 std::list<std::wstring> nscapi::core_wrapper::getSettingsSection(std::wstring section) {
 	if (!fNSAPIGetSettingsSection)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	array_buffer::arrayBuffer aBuffer = NULL;
 	unsigned int argLen = 0;
 	if (fNSAPIGetSettingsSection(section.c_str(), &aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw nscapi::nscapi_exception(_T("Settings could not be retrieved."));
+		throw nscapi::nscapi_exception("Settings could not be retrieved.");
 	}
 	std::list<std::wstring> ret = array_buffer::arrayBuffer2list(argLen, aBuffer);
 	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw nscapi::nscapi_exception(_T("Settings could not be destroyed."));
+		throw nscapi::nscapi_exception("Settings could not be destroyed.");
 	}
 	if (aBuffer != NULL)
-		throw nscapi::nscapi_exception(_T("buffer is not null?."));
+		throw nscapi::nscapi_exception("buffer is not null?.");
 	return ret;
 }
 std::list<std::wstring> nscapi::core_wrapper::getSettingsSections(std::wstring section) {
 	if (!fNSAPIGetSettingsSections)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	array_buffer::arrayBuffer aBuffer = NULL;
 	unsigned int argLen = 0;
 	if (fNSAPIGetSettingsSections(section.c_str(), &aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw nscapi::nscapi_exception(_T("Settings could not be retrieved."));
+		throw nscapi::nscapi_exception("Settings could not be retrieved.");
 	}
 	std::list<std::wstring> ret = array_buffer::arrayBuffer2list(argLen, aBuffer);
 	if (fNSAPIReleaseSettingsSectionBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw nscapi::nscapi_exception(_T("Settings could not be destroyed."));
+		throw nscapi::nscapi_exception("Settings could not be destroyed.");
 	}
 	if (aBuffer != NULL)
-		throw nscapi::nscapi_exception(_T("buffer is not null?."));
+		throw nscapi::nscapi_exception("buffer is not null?.");
 	return ret;
 }
 /**
@@ -425,29 +409,29 @@ std::list<std::wstring> nscapi::core_wrapper::getSettingsSections(std::wstring s
  */
 int nscapi::core_wrapper::getSettingsInt(std::wstring section, std::wstring key, int defaultValue) {
 	if (!fNSAPIGetSettingsInt)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIGetSettingsInt(section.c_str(), key.c_str(), defaultValue);
 }
 bool nscapi::core_wrapper::getSettingsBool(std::wstring section, std::wstring key, bool defaultValue) {
 	if (!fNSAPIGetSettingsBool)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIGetSettingsBool(section.c_str(), key.c_str(), defaultValue?1:0) == 1;
 }
 void nscapi::core_wrapper::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
 	if (!fNSAPISettingsRegKey)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	fNSAPISettingsRegKey(path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
 }
 void nscapi::core_wrapper::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
 	if (!fNSAPISettingsRegPath)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	fNSAPISettingsRegPath(path.c_str(), title.c_str(), description.c_str(), advanced);
 }
 
 
 void nscapi::core_wrapper::settings_save() {
 	if (!fNSAPISettingsSave)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	fNSAPISettingsSave();
 }
 
@@ -458,12 +442,12 @@ void nscapi::core_wrapper::settings_save() {
  */
 std::wstring nscapi::core_wrapper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	unsigned int buf_len = getBufferLength();
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetApplicationName(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw nscapi::nscapi_exception(_T("Application name could not be retrieved"));
+		throw nscapi::nscapi_exception("Application name could not be retrieved");
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
@@ -476,30 +460,21 @@ std::wstring nscapi::core_wrapper::getApplicationName() {
  */
 std::wstring nscapi::core_wrapper::getBasePath() {
 	if (!fNSAPIGetBasePath)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	unsigned int buf_len = getBufferLength();
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetBasePath(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw nscapi::nscapi_exception(_T("Base path could not be retrieved"));
+		throw nscapi::nscapi_exception("Base path could not be retrieved");
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
 	return ret;
 }
 
-unsigned int nscapi::core_wrapper::getBufferLength() {
-	static unsigned int len = 0;
-	if (len == 0) {
-		len = getSettingsInt(setting_keys::settings_def::PAYLOAD_LEN_PATH, setting_keys::settings_def::PAYLOAD_LEN, setting_keys::settings_def::PAYLOAD_LEN_DEFAULT);
-	}
-	return len;
-}
-
-
 std::wstring nscapi::core_wrapper::Encrypt(std::wstring str, unsigned int algorithm) {
 	if (!fNSAPIEncrypt)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int len = 0;
 	// @todo investigate potential problems with static_cast<unsigned int>
 	fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
@@ -515,7 +490,7 @@ std::wstring nscapi::core_wrapper::Encrypt(std::wstring str, unsigned int algori
 }
 std::wstring nscapi::core_wrapper::Decrypt(std::wstring str, unsigned int algorithm) {
 	if (!fNSAPIDecrypt)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int len = 0;
 	// @todo investigate potential problems with: static_cast<unsigned int>(str.size())
 	fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
@@ -531,32 +506,32 @@ std::wstring nscapi::core_wrapper::Decrypt(std::wstring str, unsigned int algori
 }
 NSCAPI::errorReturn nscapi::core_wrapper::SetSettingsString(std::wstring section, std::wstring key, std::wstring value) {
 	if (!fNSAPISetSettingsString)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPISetSettingsString(section.c_str(), key.c_str(), value.c_str());
 }
 NSCAPI::errorReturn nscapi::core_wrapper::SetSettingsInt(std::wstring section, std::wstring key, int value) {
 	if (!fNSAPISetSettingsInt)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPISetSettingsInt(section.c_str(), key.c_str(), value);
 }
 NSCAPI::errorReturn nscapi::core_wrapper::WriteSettings(int type) {
 	if (!fNSAPIWriteSettings)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIWriteSettings(type);
 }
 NSCAPI::errorReturn nscapi::core_wrapper::ReadSettings(int type) {
 	if (!fNSAPIReadSettings)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIReadSettings(type);
 }
 NSCAPI::errorReturn nscapi::core_wrapper::Rehash(int flag) {
 	if (!fNSAPIRehash)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIRehash(flag);
 }
 nscapi::core_wrapper::plugin_info_list nscapi::core_wrapper::getPluginList() {
 	if (!fNSAPIGetPluginList || !fNSAPIReleasePluginList)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	plugin_info_list ret;
 	
 	
@@ -582,28 +557,28 @@ nscapi::core_wrapper::plugin_info_list nscapi::core_wrapper::getPluginList() {
 
 std::list<std::wstring> nscapi::core_wrapper::getAllCommandNames() {
 	if (!fNSAPIGetAllCommandNames || !fNSAPIReleaseAllCommandNamessBuffer )
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	array_buffer::arrayBuffer aBuffer = NULL;
 	unsigned int argLen = 0;
 	if (fNSAPIGetAllCommandNames(&aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw nscapi::nscapi_exception(_T("Commands could not be retrieved."));
+		throw nscapi::nscapi_exception("Commands could not be retrieved.");
 	}
 	std::list<std::wstring> ret = array_buffer::arrayBuffer2list(argLen, aBuffer);
 	if (fNSAPIReleaseAllCommandNamessBuffer(&aBuffer, &argLen) != NSCAPI::isSuccess) {
-		throw nscapi::nscapi_exception(_T("Commands could not be destroyed."));
+		throw nscapi::nscapi_exception("Commands could not be destroyed.");
 	}
 	if (aBuffer != NULL)
-		throw nscapi::nscapi_exception(_T("buffer is not null?."));
+		throw nscapi::nscapi_exception("buffer is not null?.");
 	return ret;
 }
 std::wstring nscapi::core_wrapper::describeCommand(std::wstring command) {
 	if (!fNSAPIDescribeCommand)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	unsigned int buf_len = getBufferLength();
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIDescribeCommand(command.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;
-		throw nscapi::nscapi_exception(_T("Base path could not be retrieved"));
+		throw nscapi::nscapi_exception("Base path could not be retrieved");
 	}
 	std::wstring ret = buffer;
 	delete [] buffer;
@@ -611,31 +586,31 @@ std::wstring nscapi::core_wrapper::describeCommand(std::wstring command) {
 }
 void nscapi::core_wrapper::registerCommand(unsigned int id, std::wstring command, std::wstring description) {
 	if (!fNSAPIRegisterCommand)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	if (fNSAPIRegisterCommand(id, command.c_str(), description.c_str()) != NSCAPI::isSuccess) {
-		CORE_LOG_ERROR_STD(_T("Failed to register command: ") + command + _T(" in plugin: ") + to_wstring(id));
+		CORE_LOG_ERROR_STD(_T("Failed to register command: ") + command + _T(" in plugin: ") + strEx::itos(id));
 	}
 }
 
 void nscapi::core_wrapper::registerSubmissionListener(unsigned int id, std::wstring channel) {
 	if (!fNSAPIRegisterSubmissionListener)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	if (fNSAPIRegisterSubmissionListener(id, channel.c_str()) != NSCAPI::isSuccess) {
-		CORE_LOG_ERROR_STD(_T("Failed to register channel: ") + channel + _T(" in plugin: ") + to_wstring(id));
+		CORE_LOG_ERROR_STD(_T("Failed to register channel: ") + channel + _T(" in plugin: ") + strEx::itos(id));
 	}
 }
 void nscapi::core_wrapper::registerRoutingListener(unsigned int id, std::wstring channel) {
 	if (!fNSAPIRegisterRoutingListener)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	if (fNSAPIRegisterRoutingListener(id, channel.c_str()) != NSCAPI::isSuccess) {
-		CORE_LOG_ERROR_STD(_T("Failed to register channel: ") + channel + _T(" in plugin: ") + to_wstring(id));
+		CORE_LOG_ERROR_STD(_T("Failed to register channel: ") + channel + _T(" in plugin: ") + strEx::itos(id));
 	}
 }
 
 
 bool nscapi::core_wrapper::checkLogMessages(int type) {
 	if (!fNSAPICheckLogMessages)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPICheckLogMessages(type) == NSCAPI::istrue;
 }
 /**
@@ -645,8 +620,8 @@ bool nscapi::core_wrapper::checkLogMessages(int type) {
  */
 std::wstring nscapi::core_wrapper::getApplicationVersionString() {
 	if (!fNSAPIGetApplicationVersionStr)
-		throw nscapi::nscapi_exception(_T("NSCore has not been initiated..."));
-	unsigned int buf_len = getBufferLength();
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	wchar_t *buffer = new wchar_t[buf_len+1];
 	if (fNSAPIGetApplicationVersionStr(buffer, buf_len) != NSCAPI::isSuccess) {
 		delete [] buffer;

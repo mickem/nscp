@@ -1,2 +1,0 @@
-#include <nscapi/targets.hpp>
-

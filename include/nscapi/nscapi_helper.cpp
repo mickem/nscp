@@ -19,15 +19,9 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include <unicode_char.hpp>
 #include <strEx.h>
 
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/macros.hpp>
-#include <settings/macros.h>
-
-#include <boost/foreach.hpp>
-#include <boost/tokenizer.hpp>
 
 #define REPORT_ERROR	0x01
 #define REPORT_WARNING	0x02

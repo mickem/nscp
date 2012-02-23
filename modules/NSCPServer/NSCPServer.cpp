@@ -26,7 +26,6 @@
 #include "handler_impl.hpp"
 
 #include <settings/client/settings_client.hpp>
-#include "settings.hpp"
 
 
 namespace sh = nscapi::settings_helper;

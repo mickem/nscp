@@ -3,7 +3,6 @@
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
 #include "handler_impl.hpp"
-#include "settings.hpp"
 
 
 #define REQ_CLIENTVERSION	1	// Works fine!
@@ -82,9 +81,9 @@ check_nt::packet handler_impl::handle(check_nt::packet p) {
 			break;
 		case REQ_CLIENTVERSION:
 			{
-				std::wstring v = SETTINGS_GET_STRING(nsclient::VERSION);
-				if (v == _T("auto"))
-					v = nscapi::plugin_singleton->get_core()->getApplicationName() + _T(" ") + nscapi::plugin_singleton->get_core()->getApplicationVersionString();
+				//std::wstring v = SETTINGS_GET_STRING(nsclient::VERSION);
+				//if (v == _T("auto"))
+				std::wstring v = nscapi::plugin_singleton->get_core()->getApplicationName() + _T(" ") + nscapi::plugin_singleton->get_core()->getApplicationVersionString();
 				return strEx::wstring_to_string(v);
 			}
 		case REQ_SERVICESTATE:

@@ -24,6 +24,7 @@
 
 #include <client/command_line_parser.hpp>
 #include <nscapi/targets.hpp>
+#include <nscapi/nscapi_protobuf_types.hpp>
 
 #include <nsca/nsca_packet.hpp>
 
@@ -89,7 +90,7 @@ private:
 		int buffer_length;
 		int time_delta;
 
-		connection_data(nscapi::functions::destination_container recipient, nscapi::functions::destination_container target, nscapi::functions::destination_container sender) {
+		connection_data(nscapi::protobuf::types::destination_container recipient, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
 			recipient.import(target);
 			timeout = recipient.get_int_data("timeout", 30);
 			buffer_length = recipient.get_int_data("payload length", 512);
@@ -132,11 +133,11 @@ private:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
-		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
-			nscapi::functions::destination_container ret;
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
+			nscapi::protobuf::types::destination_container ret;
 			return ret;
 		}
 	};

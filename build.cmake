@@ -35,7 +35,7 @@ IF(WIN32)
 	
 	SET(ARCHIVE_FOLDER "D:/archive")
 	
-	SET(TARGET_SITE "")
+	SET(TARGET_SITE "nscp@nsclient.org:/var/nsclient/www/files/nightly/;op5=mickem@home.medin.name:/home/nscp-dist/op5/nscp/;opsera=mickem@home.medin.name:/home/nscp-dist/opsera/nscp/")
 
 ELSE(WIN32)
 

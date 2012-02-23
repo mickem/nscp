@@ -24,6 +24,7 @@
 
 #include <client/command_line_parser.hpp>
 #include <nscapi/targets.hpp>
+#include <nscapi/nscapi_protobuf_types.hpp>
 
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
@@ -104,20 +105,20 @@ private:
 		std::string port;
 		std::string ok_severity, warn_severity, crit_severity, unknown_severity;
 
-		connection_data(nscapi::functions::destination_container recipient, nscapi::functions::destination_container target) {
-			recipient.import(target);
-			severity = recipient.data["severity"];
-			facility = recipient.data["facility"];
-			tag_syntax = recipient.data["tag template"];
-			message_syntax = recipient.data["message template"];
+		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target) {
+			arguments.import(target);
+			severity = arguments.data["severity"];
+			facility = arguments.data["facility"];
+			tag_syntax = arguments.data["tag template"];
+			message_syntax = arguments.data["message template"];
 
-			ok_severity = recipient.data["ok severity"];
-			warn_severity = recipient.data["warning severity"];
-			crit_severity = recipient.data["critical severity"];
-			unknown_severity = recipient.data["unknown severity"];
+			ok_severity = arguments.data["ok severity"];
+			warn_severity = arguments.data["warning severity"];
+			crit_severity = arguments.data["critical severity"];
+			unknown_severity = arguments.data["unknown severity"];
 
-			host = recipient.address.host;
-			port = recipient.address.get_port(514);
+			host = arguments.address.host;
+			port = arguments.address.get_port(514);
 		}
 
 		std::wstring to_wstring() const {
@@ -141,11 +142,11 @@ private:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
-		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
-			nscapi::functions::destination_container ret;
+			nscapi::protobuf::types::destination_container ret;
 			return ret;
 		}
 	};

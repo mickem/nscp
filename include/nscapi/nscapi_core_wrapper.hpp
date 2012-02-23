@@ -22,15 +22,8 @@
 
 #include <string>
 #include <list>
-//#include <iostream>
 
 #include <NSCAPI.h>
-//#include <charEx.h>
-//#include <arrayBuffer.h>
-//#include <types.hpp>
-
-//#include <unicode_char.hpp>
-//#include <strEx.h>
 
 namespace nscapi {
 	class core_wrapper {
@@ -172,7 +165,6 @@ namespace nscapi {
 		void registerSubmissionListener(unsigned int id, std::wstring channel);
 		void registerRoutingListener(unsigned int id, std::wstring channel);
 
-		unsigned int getBufferLength();
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 
 	};

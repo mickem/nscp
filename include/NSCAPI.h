@@ -23,7 +23,7 @@
 
 #include <unicode_char.hpp>
 #include <string>
-#include <strEx.h>
+//#include <strEx.h>
 
 namespace NSCAPI {
 /*
@@ -124,16 +124,12 @@ namespace nscapi {
 
 	class nscapi_exception : public std::exception {
 	public:
-		std::string msg_;
-		nscapi_exception(std::wstring msg) : msg_(utf8::cvt<std::string>(msg)) {}
-
+		std::string msg;
+		nscapi_exception(std::string msg) : msg(msg) {}
 
 		~nscapi_exception() throw() {}
 		const char* what() const throw() {
-			return msg_.c_str();
-		}
-		const std::wstring wwhat() const throw() {
-			return utf8::cvt<std::wstring>(msg_);
+			return msg.c_str();
 		}
 	};
 

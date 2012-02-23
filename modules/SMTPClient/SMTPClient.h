@@ -23,6 +23,7 @@
 
 #include <client/command_line_parser.hpp>
 #include <nscapi/targets.hpp>
+#include <nscapi/nscapi_protobuf_types.hpp>
 
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
@@ -80,7 +81,7 @@ private:
 		std::string port;
 		int timeout;
 
-		connection_data(nscapi::functions::destination_container arguments, nscapi::functions::destination_container target) {
+		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target) {
 			arguments.import(target);
 			recipient_str = arguments.get_string_data("recipient");
 			timeout = arguments.get_int_data("timeout", 30);
@@ -112,11 +113,11 @@ private:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
-		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
-			nscapi::functions::destination_container ret;
+			nscapi::protobuf::types::destination_container ret;
 			return ret;
 		}
 	};
