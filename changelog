@@ -7,6 +7,7 @@ TODO:
 2012-03-04 MickeM
  * Added new dot-net API (Which does not require any strange wrappers)
  * Added brand new sample C# plugin
+ * Fixed issue with python unit script loading usig the wrong default options
 
 2012-02-21 MickeM
  * Added new module CauseCrash which has a single command CrashClient to allow the service to be crashed remotly

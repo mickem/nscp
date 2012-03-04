@@ -112,6 +112,7 @@ namespace schedules {
 			if (object.alias == _T("default")) {
 				object.set_duration(_T("5m"));
 				object.set_report(_T("all"));
+				object.channel = _T("NSCA");
 			}
 
 			nscapi::settings_helper::settings_registry settings(proxy);
