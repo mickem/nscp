@@ -7,6 +7,7 @@
 #include "lua_wrappers.hpp"
 
 #include <scripts/functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace script_wrapper {
 
@@ -58,7 +59,7 @@ namespace script_wrapper {
 				std::wstring command = lua.pop_string();
 				std::wstring message;
 				std::wstring perf;
-				NSCAPI::nagiosReturn ret = get_instance()->get_core()->simple_query(command, arguments, message, perf);
+				NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(command, arguments, message, perf);
 				lua.push_code(ret);
 				lua.push_string(message);
 				lua.push_string(perf);
@@ -80,7 +81,7 @@ namespace script_wrapper {
 				std::wstring command = lua.wstring(2);
 				std::list<std::wstring> arguments = lua.checkarray(3);
 				std::list<std::wstring> result;
-				NSCAPI::nagiosReturn ret = get_instance()->get_core()->exec_simple_command(target, command, arguments, result);
+				NSCAPI::nagiosReturn ret = nscapi::core_helper::exec_simple_command(target, command, arguments, result);
 				lua.push_code(ret);
 				lua.push_array(result);
 				return 2;
@@ -103,7 +104,7 @@ namespace script_wrapper {
 				std::wstring message = lua.wstring(4);
 				std::wstring perf = lua.wstring(5);
 				std::wstring result;
-				NSCAPI::nagiosReturn ret = get_instance()->get_core()->submit_simple_message(channel, command, code, message, perf, result);
+				NSCAPI::nagiosReturn ret = nscapi::core_helper::submit_simple_message(channel, command, code, message, perf, result);
 				lua.push_code(ret);
 				lua.push_string(result);
 				return 2;

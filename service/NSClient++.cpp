@@ -71,6 +71,10 @@ void NSClientT::log_info(const char* file, const int line, std::wstring message)
 	std::string s = nsclient::logger_helper::create_info(file, line, message);
 	mainClient.reportMessage(s);
 }
+void NSClientT::log_any(int level, const char* file, const int line, std::wstring message) {
+	std::string s = nsclient::logger_helper::create_message(nscapi::protobuf::functions::log_to_gpb(level), file, line, message);
+	mainClient.reportMessage(s);
+}
 
 #define LOG_CRITICAL_CORE(msg) if (mainClient.should_log(NSCAPI::log_level::critical)) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
 #define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::wstring(msg))

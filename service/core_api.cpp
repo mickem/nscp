@@ -100,6 +100,9 @@ NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen)
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, CURRENT_SERVICE_VERSION, NSCAPI::isSuccess);
 }
+void NSAPISimpleMessage(int loglevel, const char* file, int line, const wchar_t* message) {
+	mainClient.log_any(loglevel, file, line, message);
+}
 void NSAPIMessage(const char* data, unsigned int count) {
 	mainClient.reportMessage(std::string(data, count));
 }
@@ -456,6 +459,8 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsBool);
 	if (wcscasecmp(buffer, _T("NSAPIMessage")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIMessage);
+	if (wcscasecmp(buffer, _T("NSAPISimpleMessage")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISimpleMessage);
 	if (wcscasecmp(buffer, _T("NSAPIStopServer")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIStopServer);
 	if (wcscasecmp(buffer, _T("NSAPIInject")) == 0)

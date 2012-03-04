@@ -53,7 +53,7 @@
 
 #ifdef _WIN32
 #define NSC_WRAP_DLL() \
-	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { GET_PLUGIN()->wrapDllMain(hModule, ul_reason_for_call); return TRUE; } \
+	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { /*GET_PLUGIN()->wrapDllMain(hModule, ul_reason_for_call); */return TRUE; } \
 	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 #else
 #define NSC_WRAP_DLL() \

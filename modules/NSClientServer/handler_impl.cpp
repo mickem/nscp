@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 #include "handler_impl.hpp"
 
 
@@ -120,7 +121,7 @@ check_nt::packet handler_impl::handle(check_nt::packet p) {
 	}
 
 	std::wstring message, perf;
-	NSCAPI::nagiosReturn ret = nscapi::plugin_singleton->get_core()->simple_query(cmd.first.c_str(), args, message, perf);
+	NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd.first.c_str(), args, message, perf);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(ret)) {
 		if (message.empty())
 			return check_nt::packet("ERROR: Could not complete the request check log file for more information.");

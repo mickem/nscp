@@ -247,6 +247,7 @@ public:
 		static void log_error(const char* file, const int line, std::wstring message);
 		static void log_error(const char* file, const int line, std::string message);
 		static void log_info(const char* file, const int line, std::wstring message);
+		static void log_any(int loglevel, const char* file, const int line, std::wstring message);
 
 
 

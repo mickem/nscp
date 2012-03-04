@@ -46,19 +46,19 @@ namespace nscapi {
 			int revision;
 		};
 
-		plugin_wrapper() : hModule_(NULL) {}
+		plugin_wrapper() /*: hModule_(NULL)*/ {}
 		int wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode);
 
 #ifdef WIN32
 	private:
-		HINSTANCE hModule_;
+		//HINSTANCE hModule_;
 	public:
-		int wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call);
-		HINSTANCE getModule() {
-			hModule_;
-		}
+		//int wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call);
+		//HINSTANCE getModule() {
+		//	hModule_;
+		//}
 #else
-		void* hModule_;
+		//void* hModule_;
 #endif
 		int wrapModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);;
 		NSCAPI::errorReturn wrapGetModuleName(wchar_t* buf, unsigned int buflen, std::wstring str);
@@ -113,7 +113,7 @@ namespace nscapi {
 	struct helpers {
 		static void wrap_string(std::string &string, char** buffer, unsigned int *buffer_len) {
 			// TODO: Make this global to allow remote deletion!!!
-			unsigned int buf_len = string.size();
+			size_t buf_len = string.size();
 			*buffer = new char[buf_len + 10];
 			memcpy(*buffer, string.c_str(), buf_len+1);
 			(*buffer)[buf_len] = 0;

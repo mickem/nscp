@@ -25,6 +25,7 @@
 #include <utils.h>
 #include <settings/macros.h>
 
+#include <nscapi/nscapi_core_helper.hpp>
 #include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -116,7 +117,7 @@ void Scheduler::on_error(std::wstring error) {
 void Scheduler::handle_schedule(schedules::schedule_object item) {
 	try {
 		std::string response;
-		NSCAPI::nagiosReturn code = get_core()->simple_query(item.command.c_str(), item.arguments, response);
+		NSCAPI::nagiosReturn code = nscapi::core_helper::simple_query(item.command.c_str(), item.arguments, response);
 		if (code == NSCAPI::returnIgnored) {
 			NSC_LOG_ERROR_STD(_T("Command was not found: ") + item.command.c_str());
 			//make_submit_from_query(response, item.channel, item.alias);

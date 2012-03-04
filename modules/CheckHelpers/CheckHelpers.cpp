@@ -28,6 +28,8 @@
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
 
+#include <nscapi/nscapi_core_helper.hpp>
+
 #include <settings/client/settings_client.hpp>
 
 CheckHelpers::CheckHelpers() {
@@ -96,7 +98,7 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring &target, con
 			return NSCAPI::returnUNKNOWN;
 		}
 		std::wstring new_command = arguments.front(); arguments.pop_front();
-		GET_CORE()->simple_query(new_command, arguments, message, perf);
+		nscapi::core_helper::simple_query(new_command, arguments, message, perf);
 		return NSCAPI::returnOK;
 	} else if (command == _T("checkalwayscritical")) {
 		if (arguments.size() < 1) {
@@ -104,7 +106,7 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring &target, con
 			return NSCAPI::returnUNKNOWN;
 		}
 		std::wstring new_command = arguments.front(); arguments.pop_front();
-		GET_CORE()->simple_query(new_command, arguments, message, perf);
+		nscapi::core_helper::simple_query(new_command, arguments, message, perf);
 		return NSCAPI::returnCRIT;
 	} else if (command == _T("checkalwayswarning")) {
 		if (arguments.size() < 1) {
@@ -112,7 +114,7 @@ NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring &target, con
 			return NSCAPI::returnUNKNOWN;
 		}
 		std::wstring new_command = arguments.front(); arguments.pop_front();
-		GET_CORE()->simple_query(new_command, arguments, message, perf);
+		nscapi::core_helper::simple_query(new_command, arguments, message, perf);
 		return NSCAPI::returnWARN;
 	} else if (command == _T("checkok")) {
 		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
@@ -160,7 +162,7 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> a
 	for (cit2 = commands.begin(); cit2 != commands.end(); ++cit2) {
 		std::list<std::wstring> sub_args;
 		std::wstring tMsg, tPerf;
-		NSCAPI::nagiosReturn tRet = GET_CORE()->simple_query((*cit2).first.c_str(), (*cit2).second, tMsg, tPerf);
+		NSCAPI::nagiosReturn tRet = nscapi::core_helper::simple_query((*cit2).first.c_str(), (*cit2).second, tMsg, tPerf);
 		returnCode = nscapi::plugin_helper::maxState(returnCode, tRet);
 		if (!message.empty())
 			message += _T(", ");
@@ -234,7 +236,7 @@ NSCAPI::nagiosReturn CheckHelpers::negate(std::list<std::wstring> arguments, std
 	}
 	std::list<std::wstring> cmd_args_l(cmd_args.begin(), cmd_args.end());
 
-	NSCAPI::nagiosReturn tRet = GET_CORE()->simple_query(command, cmd_args_l, msg, perf);
+	NSCAPI::nagiosReturn tRet = nscapi::core_helper::simple_query(command, cmd_args_l, msg, perf);
 	switch (tRet) {
 		case NSCAPI::returnOK:
 			return OK;
@@ -253,7 +255,7 @@ NSCAPI::nagiosReturn CheckHelpers::negate(std::list<std::wstring> arguments, std
 class worker {
 public:
 	void proc(std::wstring command, std::list<std::wstring> arguments) {
-		code = GET_CORE()->simple_query(command, arguments, msg, perf);
+		code = nscapi::core_helper::simple_query(command, arguments, msg, perf);
 	}
 	std::wstring msg;
 	std::wstring perf;

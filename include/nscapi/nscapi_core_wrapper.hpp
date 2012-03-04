@@ -39,6 +39,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIGetSettingsInt fNSAPIGetSettingsInt;
 		nscapi::core_api::lpNSAPIGetSettingsBool fNSAPIGetSettingsBool;
 		nscapi::core_api::lpNSAPIMessage fNSAPIMessage;
+		nscapi::core_api::lpNSAPISimpleMessage fNSAPISimpleMessage;
 		nscapi::core_api::lpNSAPIStopServer fNSAPIStopServer;
 		nscapi::core_api::lpNSAPIExit fNSAPIExit;
 		nscapi::core_api::lpNSAPIInject fNSAPIInject;
@@ -134,15 +135,17 @@ namespace nscapi {
 		void DestroyBuffer(char**buffer);
 		NSCAPI::nagiosReturn query(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::nagiosReturn query(const std::wstring & command, const std::string & request, std::string & result);
+		/*
 		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & message, std::wstring & perf);
 		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::string & result);
 		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf);
+		NSCAPI::nagiosReturn exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
+		bool submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response);
+		*/
 
 		NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::nagiosReturn exec_command(const std::wstring target, const std::wstring command, std::string request, std::string & result);
-		NSCAPI::nagiosReturn exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
 
-		bool submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response);
 		NSCAPI::errorReturn submit_message(const wchar_t* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::errorReturn submit_message(std::wstring channel, std::string request, std::string &response);
 		NSCAPI::errorReturn reload(std::wstring module);

@@ -18,45 +18,6 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
+#pragma once
 
-#include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_core_wrapper.hpp>
-
-
-nscapi::helper_singleton::helper_singleton() : core_(new nscapi::core_wrapper()), plugin_(new nscapi::plugin_wrapper()) {}
-
-/**
- * Used to help store the module handle (and possibly other things in the future)
- * @param hModule cf. DllMain
- * @param ul_reason_for_call cf. DllMain
- * @return TRUE
- */
-#ifdef WIN32
-/*
-int nscapi::plugin_wrapper::wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call)
-{
-	switch (ul_reason_for_call)
-	{
-	case DLL_PROCESS_ATTACH:
-	case DLL_THREAD_ATTACH:
-		hModule_ = (HINSTANCE)hModule;
-		break;
-	case DLL_THREAD_DETACH:
-	case DLL_PROCESS_DETACH:
-		break;
-	}
-	return TRUE;
-}
-*/
-#endif
-/**
- * Wrapper function around the ModuleHelperInit call.
- * This wrapper retrieves all pointers and stores them for future use.
- * @param f A function pointer to a function that can be used to load function from the core.
- * @return NSCAPI::success or NSCAPI::failure
- */
-int nscapi::plugin_wrapper::wrapModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) {
-	return nscapi::plugin_singleton->get_core()->load_endpoints(f)?NSCAPI::isSuccess:NSCAPI::hasFailed;
-}
-
-
+#include "NSCP.h"

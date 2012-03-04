@@ -4,6 +4,7 @@
 #include "script_wrapper.hpp"
 #include "PythonScript.h"
 #include <nscapi/functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 #include <boost/thread.hpp>
 
 using namespace boost::python;
@@ -481,7 +482,7 @@ tuple script_wrapper::command_wrapper::simple_submit(std::string channel, std::s
 	bool ret = false;
 	{
 		thread_unlocker unlocker;
-		ret = core->submit_simple_message(wchannel, wcommand, c, wmessage, wperf, wresp);
+		ret = nscapi::core_helper::submit_simple_message(wchannel, wcommand, c, wmessage, wperf, wresp);
 	}
 	return make_tuple(ret,utf8::cvt<std::string>(wresp));
 }
@@ -515,7 +516,7 @@ tuple script_wrapper::command_wrapper::simple_query(std::string command, py::lis
 	int ret = 0;
 	{
 		thread_unlocker unlocker;
-		ret = core->simple_query(utf8::cvt<std::wstring>(command), ws_argument, msg, perf);
+		ret = nscapi::core_helper::simple_query(utf8::cvt<std::wstring>(command), ws_argument, msg, perf);
 	}
 	return make_tuple(nagios_return_to_py(ret),utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
 }
@@ -538,7 +539,7 @@ tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::stri
 		const std::list<std::wstring> ws_argument = convert(args);
 		{
 			thread_unlocker unlocker;
-			ret = core->exec_simple_command(ws_target, ws_command, ws_argument, result);
+			ret = nscapi::core_helper::exec_simple_command(ws_target, ws_command, ws_argument, result);
 		}
 		return make_tuple(ret, convert(result));
 	} catch (const std::exception &e) {

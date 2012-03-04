@@ -13,6 +13,7 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/utils.cpp
 	
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.cpp
@@ -32,6 +33,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/NSCAPI.h
 		
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp

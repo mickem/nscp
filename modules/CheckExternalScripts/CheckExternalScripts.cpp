@@ -31,6 +31,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 #include <config.h>
 
@@ -219,11 +220,11 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 	if (isAlias) {
 		std::wstring message;
 		try {
-			return GET_CORE()->simple_query(cd.command, args, response);
+			return nscapi::core_helper::simple_query(cd.command, args, response);
 		} catch (boost::escaped_list_error &e) {
 			NSC_LOG_MESSAGE(_T("Failed to parse alias expression: ") + strEx::string_to_wstring(e.what()));
 			NSC_LOG_MESSAGE(_T("We will now try parsing the old syntax instead..."));
-			return GET_CORE()->simple_query(cd.command, args, response);
+			return nscapi::core_helper::simple_query(cd.command, args, response);
 		}
 	} else {
 		NSC_DEBUG_MSG(_T("---> ") + cd.to_wstring());

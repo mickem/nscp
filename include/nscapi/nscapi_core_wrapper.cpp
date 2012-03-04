@@ -23,12 +23,12 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <strEx.h>
 #include <arrayBuffer.h>
 
-#include <protobuf/plugin.pb.h>
+//#include <protobuf/plugin.pb.h>
+//#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #define CORE_LOG_ERROR_STD(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, (std::wstring)msg); }
 #define CORE_LOG_ERROR(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, msg); }
@@ -62,12 +62,13 @@ bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) {
 void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::wstring logMessage) {
 	if (!should_log(msgType))
 		return;
-	if (!fNSAPIMessage) {
+	if (!fNSAPISimpleMessage) {
 		std::wcout << _T("NSCORE NOT LOADED Dumping log: ") << line << _T(": ") << std::endl << logMessage << std::endl;
 		return;
 	}
 	std::string str;
 	try {
+		/*
 		Plugin::LogEntry message;
 		Plugin::LogEntry::Entry *msg = message.add_entry();
 		msg->set_level(nscapi::functions::log_to_gpb(msgType));
@@ -77,7 +78,8 @@ void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, i
 		if (!message.SerializeToString(&str)) {
 			std::wcout << _T("Failed to generate message: SERIALIZATION ERROR");
 		}
-		return fNSAPIMessage(str.c_str(), str.size());
+		*/
+		return fNSAPISimpleMessage(msgType, file.c_str(), line, logMessage.c_str());
 	} catch (const std::exception &e) {
 		std::wcout << _T("Failed to generate message: ") << utf8::to_unicode(e.what());
 	} catch (...) {
@@ -153,77 +155,11 @@ NSCAPI::errorReturn nscapi::core_wrapper::reload(std::wstring module) {
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIReload(module.c_str());
 }
-
-bool nscapi::core_wrapper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response) {
-	std::string request, buffer;
-	nscapi::functions::create_simple_submit_request(channel, command, code, message, perf, request);
-	NSCAPI::nagiosReturn ret = submit_message(channel, request, buffer);
-	if (ret == NSCAPI::returnIgnored) {
-		response = _T("No handler for this message");
-		return false;
-	}
-	if (buffer.size() == 0) {
-		response = _T("Missing response from submission");
-		return false;
-	}
-	nscapi::functions::parse_simple_submit_response(buffer, response);
-	return ret == NSCAPI::isSuccess;
-}
-
 NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const wchar_t* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
 {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPINotify(channel, request, request_len, response, response_len);
-}
-
-/**
-* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
-* @param command Command to inject (password should not be included.
-* @param argLen The length of the argument buffer
-* @param **argument The argument buffer
-* @param message The return message buffer
-* @param perf The return performance data buffer
-* @return The return of the command
-*/
-NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & msg, std::wstring & perf) 
-{
-	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	std::string response;
-	NSCAPI::nagiosReturn ret = simple_query(command, argument, response);
-	if (!response.empty()) {
-		try {
-			return nscapi::functions::parse_simple_query_response(response, msg, perf);
-		} catch (std::exception &e) {
-			CORE_LOG_ERROR_STD(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
-			return NSCAPI::returnUNKNOWN;
-		}
-	}
-	return ret;
-}
-/**
-* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
-* @param command Command to inject (password should not be included.
-* @param argLen The length of the argument buffer
-* @param **argument The argument buffer
-* @param message The return message buffer
-* @param perf The return performance data buffer
-* @return The return of the command
-*/
-NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query(const std::wstring command, const std::list<std::wstring> & arguments, std::string & result) 
-{
-	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-
-	std::string request;
-	try {
-		nscapi::functions::create_simple_query_request(command, arguments, request);
-	} catch (std::exception &e) {
-		CORE_LOG_ERROR_STD(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
-		return NSCAPI::returnUNKNOWN;
-	}
-	return query(command.c_str(), request, result);
 }
 
 NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::wstring & command, const std::string & request, std::string & result) 
@@ -253,17 +189,6 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::wstring & command, c
 			throw nscapi::nscapi_exception("Unknown return code from query: " + utf8::cvt<std::string>(command));
 	}
 	return retC;
-}
-
-
-NSCAPI::nagiosReturn nscapi::core_wrapper::simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf) {
-	if (!fNSAPIInject)
-		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	boost::tokenizer<boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::char_separator<wchar_t>(_T("!")));
-	std::list<std::wstring> arglist;
-	BOOST_FOREACH(std::wstring s, tok)
-		arglist.push_back(s);
-	return simple_query(command, arglist, message, perf);
 }
 
 NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::wstring target, const std::wstring command, std::string request, std::string & result) {
@@ -296,16 +221,6 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const wchar_t* target, c
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIExecCommand(target, command, request, request_len, response, response_len);
 }
-
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result) {
-	std::string request, response;
-	nscapi::functions::create_simple_exec_request(command, argument, request);
-	NSCAPI::nagiosReturn ret = exec_command(target, command, request, response);
-	nscapi::functions::parse_simple_exec_result(response, result);
-	return ret;
-}
-
-
 
 /**
  * Ask the core to shutdown (only works when run as a service, o/w does nothing ?
@@ -648,6 +563,7 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIGetSettingsSections = (nscapi::core_api::lpNSAPIGetSettingsSections)f(_T("NSAPIGetSettingsSections"));
 	fNSAPIReleaseSettingsSectionBuffer = (nscapi::core_api::lpNSAPIReleaseSettingsSectionBuffer)f(_T("NSAPIReleaseSettingsSectionBuffer"));
 	fNSAPIMessage = (nscapi::core_api::lpNSAPIMessage)f(_T("NSAPIMessage"));
+	fNSAPISimpleMessage = (nscapi::core_api::lpNSAPISimpleMessage)f(_T("NSAPISimpleMessage"));
 	fNSAPIStopServer = (nscapi::core_api::lpNSAPIStopServer)f(_T("NSAPIStopServer"));
 	//fNSAPIExit = (nscapi::core_api::lpNSAPIExit)f(_T("NSAPIExit"));
 	fNSAPIInject = (nscapi::core_api::lpNSAPIInject)f(_T("NSAPIInject"));

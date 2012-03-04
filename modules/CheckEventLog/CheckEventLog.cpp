@@ -38,6 +38,7 @@
 #include "filter.hpp"
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/list_value.hpp>
@@ -147,7 +148,7 @@ void real_time_thread::set_language(std::string lang) {
 
 void real_time_thread::process_no_events() {
 	std::wstring response;
-	if (!GET_CORE()->submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, info.ok_msg, info.perf_msg, response)) {
+	if (!nscapi::core_helper::submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, info.ok_msg, info.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 }
@@ -155,7 +156,7 @@ void real_time_thread::process_no_events() {
 void real_time_thread::process_record(const EventLogRecord &record) {
 	std::wstring response;
 	std::wstring message = record.render(true, info.syntax, DATE_FORMAT, info.dwLang);
-	if (!GET_CORE()->submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, message, info.perf_msg, response)) {
+	if (!nscapi::core_helper::submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, message, info.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 }
