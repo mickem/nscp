@@ -108,8 +108,11 @@ namespace parsers {
 			};
 			struct operator_lt : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
-					if (debug_enabled && debug_level > 10)
-						std::cout << "(op_lt) " << left.get_int(handler) << " < " << right.get_int(handler) << std::endl;
+					if (debug_enabled && debug_level > 10) {
+						long long lhs = left.get_int(handler);
+						long long rhs = right.get_int(handler);
+						std::cout << "(op_lt) " << lhs << " < " << rhs << std::endl;
+					}
 					return left.get_int(handler) < right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 

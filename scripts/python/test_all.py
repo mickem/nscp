@@ -7,7 +7,6 @@ path.append(os.getcwd() + '/scripts/python')
 
 from test_nsca import NSCAServerTest
 from test_nrpe import NRPEServerTest
-#from test_pb import NSCAServerTest
 from test_python import PythonTest
 
 # 
@@ -15,7 +14,8 @@ all_tests = [NSCAServerTest, PythonTest, NRPEServerTest]
 if os.name == 'nt':
 	from test_eventlog import EventLogTest
 	from test_w32_system import Win32SystemTest
-	all_tests.extend([EventLogTest, Win32SystemTest])
+	from test_w32_file import Win32FileTest
+	all_tests.extend([EventLogTest, Win32SystemTest, Win32FileTest])
 
 def __main__():
 	install_testcases(all_tests)

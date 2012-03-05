@@ -22,19 +22,9 @@ namespace parsers {
 			return (t-start).total_seconds(); 
 		} 
 
-
-
 		void constants::reset() {
-			now = to_time_t(pt::second_clock::local_time());
-//			__time64_t utctime;
-//			_time64(&utctime);
-//			now = utctime;
-// 			struct tm localtime;
-// 			_localtime64_s(&localtime, &utctime);
-// 			now = _mktime64(&localtime);
+			now = to_time_t(pt::second_clock::universal_time());
 		}
-
-
 	}
 }
 

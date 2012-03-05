@@ -158,6 +158,7 @@ namespace script_wrapper {
 		tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
 		tuple submit(std::string channel, std::string request);
 		bool reload(std::string module);
+		std::string expand_path(std::string module);
 	};
 
 	struct settings_wrapper {

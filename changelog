@@ -4,6 +4,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-03-05 MickeM
+ * Fixed so time/date comparissons are actually done in UTC (fixed for real this time!)
+ * Added a series of testcases for CheckFiles (test_w32_file)
+
 2012-03-04 MickeM
  * Added new dot-net API (Which does not require any strange wrappers)
  * Added brand new sample C# plugin

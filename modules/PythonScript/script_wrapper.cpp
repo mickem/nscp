@@ -509,6 +509,12 @@ bool script_wrapper::command_wrapper::reload(std::string module) {
 	return ret==NSCAPI::isSuccess;
 }
 
+std::string script_wrapper::command_wrapper::expand_path(std::string aPath) {
+	thread_unlocker unlocker;
+	return utf8::cvt<std::string>(core->expand_path(utf8::cvt<std::wstring>(aPath)));
+}
+
+
 
 tuple script_wrapper::command_wrapper::simple_query(std::string command, py::list args) {
 	std::wstring msg, perf;

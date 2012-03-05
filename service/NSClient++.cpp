@@ -1521,6 +1521,37 @@ boost::filesystem::wpath NSClientT::getBasePath(void) {
 	return basePath;
 }
 
+#ifdef WIN32
+typedef DWORD (WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out  LPTSTR lpBuffer);
+#endif
+boost::filesystem::wpath NSClientT::getTempPath() {
+	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock()) {
+		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
+		return _T("FATAL ERROR");
+	}
+	if (!tempPath.empty())
+		return tempPath;
+	unsigned int buf_len = 4096;
+#ifdef WIN32
+	HMODULE hKernel = ::LoadLibrary(_TEXT("kernel32"));
+	if (hKernel)  
+	{
+		// Find PSAPI functions
+		PFGetTempPath FGetTempPath = (PFGetTempPath)::GetProcAddress(hKernel, "GetTempPathW");
+		if (FGetTempPath) {
+			wchar_t* buffer = new wchar_t[buf_len+1];
+			if (FGetTempPath(buf_len, buffer)) {
+				tempPath = buffer;
+			}
+			delete [] buffer;
+		}
+	}
+#else
+	tempPath = _T("/tmp");
+#endif
+	return tempPath;
+}
 
 std::wstring Encrypt(std::wstring str, unsigned int algorithm) {
 	unsigned int len = 0;
@@ -1612,6 +1643,7 @@ std::wstring NSClientT::expand_path(std::wstring file) {
 	strEx::replace(file, _T("${module-path}"), _T("${shared-path}/modules"));
 	
 	strEx::replace(file, _T("${base-path}"), getBasePath().string());
+	strEx::replace(file, _T("${temp}"), getTempPath().string());
 #ifdef WIN32
 	strEx::replace(file, _T("${shared-path}"), getBasePath().string());
 #else

@@ -92,6 +92,7 @@ private:
 	typedef std::vector<plugin_type> pluginList;
 	pluginList plugins_;
 	boost::filesystem::wpath basePath;
+	boost::filesystem::wpath tempPath;
 	boost::timed_mutex internalVariables;
 	boost::shared_mutex m_mutexRW;
 
@@ -166,7 +167,8 @@ public:
 
 
 	// Member functions
-	boost::filesystem::wpath getBasePath(void);
+	boost::filesystem::wpath getBasePath();
+	boost::filesystem::wpath getTempPath();
 
 	NSCAPI::errorReturn reroute(std::wstring &channel, std::string &buffer);
 	NSCAPI::errorReturn send_notification(const wchar_t* channel, std::string &request, std::string &response);

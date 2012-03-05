@@ -88,6 +88,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("simple_submit", &script_wrapper::command_wrapper::simple_submit)
 		.def("submit", &script_wrapper::command_wrapper::submit)
 		.def("reload", &script_wrapper::command_wrapper::reload)
+		.def("expand_path", &script_wrapper::command_wrapper::expand_path)
 		;
 
 	enum_<script_wrapper::status>("status")

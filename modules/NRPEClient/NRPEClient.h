@@ -85,6 +85,7 @@ private:
 						value = p.string();
 					} else {
 						value = core->expand_path(value);
+						p = value;
 					}
 					target.options[_T("certificate")] = value;
 				}

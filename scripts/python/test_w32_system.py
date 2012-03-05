@@ -109,7 +109,7 @@ class Win32SystemTest(BasicTest):
 		
 	def run_test(self):
 		result = TestResult('Testing W32 systems')
-		#result.add(self.run_test_proc())
+		result.add(self.run_test_proc())
 		result.add(self.run_test_counters())
 		return result
 
@@ -144,4 +144,4 @@ def init(plugin_id, plugin_alias, script_alias):
 
 def shutdown():
 	shutdown_testcases()
-
+
