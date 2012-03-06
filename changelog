@@ -4,6 +4,18 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+ 
+2012-03-06 MickeM
+ * Added "back" WMI Query command line exec like so:
+    nscp wmi --exec wmi-query
+	CheckWMI Command line syntax:
+	Allowed options:
+	  -h [ --help ]                        Show help screen
+	  -w [ --wmi-query ] arg               Query to execute
+	  -l [ --limit ] arg                   Limit number of rows
+	  -n [ --namespace ] arg (=root\cimv2) Namespace
+	nscp wmi --exec wmi-query --query="Select * from Win32_Process" --limit 2
+
 2012-03-05 MickeM
  * Fixed so time/date comparissons are actually done in UTC (fixed for real this time!)
  * Added a series of testcases for CheckFiles (test_w32_file)

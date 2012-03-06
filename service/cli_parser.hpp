@@ -128,6 +128,8 @@ public:
 		aliases["py"] = "PythonScript";
 		aliases["lua"] = "LuaScript";
 		aliases["syslog"] = "SyslogClient";
+		aliases["sys"] = "CheckSystem";
+		aliases["wmi"] = "CheckWMI";
 		return aliases;
 	}
 

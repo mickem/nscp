@@ -125,7 +125,7 @@ WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query, std
 	BSTR strQL = _T("WQL");
 
 	CComPtr< IEnumWbemClassObject > enumerator;
-	hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY|WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &enumerator );
+	hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator );
 	if (FAILED(hr))
 		throw WMIException(_T("ExecQuery of '") + query + _T("' failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
 
@@ -146,33 +146,37 @@ WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query, std
 				begin = arr.GetLowerBound();
 				end = arr.GetUpperBound();
 				for ( index = begin; index <= end; index++ ) {
-					USES_CONVERSION;
-					CComBSTR bColumn = arr.GetAt(index);
-					std::wstring column = OLE2T(bColumn);
-					CComVariant vValue;
-					hr = row->Get(bColumn, 0, &vValue, 0, 0);
-					if (FAILED(hr))
-						throw WMIException(_T("Failed to get value for ") + column + _T(" in query: ") + query, hr);
-					WMIResult value;
+					try {
+						USES_CONVERSION;
+						CComBSTR bColumn = arr.GetAt(index);
+						std::wstring column = OLE2T(bColumn);
+						CComVariant vValue;
+						hr = row->Get(bColumn, 0, &vValue, 0, 0);
+						if (FAILED(hr))
+							throw WMIException(_T("Failed to get value for ") + column + _T(" in query: ") + query, hr);
+						WMIResult value;
 
-					if (vValue.vt == VT_INT) {
-						value.setNumeric(column, vValue.intVal);
-					} else if (vValue.vt == VT_I4) {
-						value.setNumeric(column, vValue.lVal);
-					} else if (vValue.vt == VT_UI1) {
-						value.setNumeric(column, vValue.uintVal);
-					} else if (vValue.vt == VT_UINT) {
-						value.setNumeric(column, vValue.uintVal);
-					} else if (vValue.vt == VT_BSTR) {
-						value.setString(column, OLE2T(vValue.bstrVal));
-					} else if (vValue.vt == VT_NULL) {
-						value.setString(column, _T("NULL"));
-					} else if (vValue.vt == VT_BOOL) {
-						value.setBoth(column, vValue.iVal, vValue.iVal?_T("TRUE"):_T("FALSE"));
-					} else {
-						NSC_LOG_ERROR_STD(column + _T(" is not supported (type-id: ") + strEx::itos(vValue.vt) + _T(")"));
+						if (vValue.vt == VT_INT) {
+							value.setNumeric(column, vValue.intVal);
+						} else if (vValue.vt == VT_I4) {
+							value.setNumeric(column, vValue.lVal);
+						} else if (vValue.vt == VT_UI1) {
+							value.setNumeric(column, vValue.uintVal);
+						} else if (vValue.vt == VT_UINT) {
+							value.setNumeric(column, vValue.uintVal);
+						} else if (vValue.vt == VT_BSTR) {
+							value.setString(column, OLE2T(vValue.bstrVal));
+						} else if (vValue.vt == VT_NULL) {
+							value.setString(column, _T("NULL"));
+						} else if (vValue.vt == VT_BOOL) {
+							value.setBoth(column, vValue.iVal, vValue.iVal?_T("TRUE"):_T("FALSE"));
+						} else {
+							NSC_LOG_ERROR_STD(column + _T(" is not supported (type-id: ") + strEx::itos(vValue.vt) + _T(")"));
+						}
+						returnRow.addValue(column, value);
+					} catch (const std::exception &e) {
+						throw WMIException(_T("Failed to convert data: ") + utf8::cvt<std::wstring>(e.what()));
 					}
-					returnRow.addValue(column, value);
 				}
 				ret.push_back(returnRow);
 			}

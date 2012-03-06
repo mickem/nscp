@@ -87,7 +87,7 @@ struct target_helper {
 };
 
 
-class CheckWMI : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
+class CheckWMI : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 public:
 	CheckWMI();
 	virtual ~CheckWMI();
@@ -110,7 +110,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	int CheckWMI::commandLineExec(const wchar_t* command,const unsigned int argLen,wchar_t** args);
+	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 
 	// Check commands
 	NSCAPI::nagiosReturn CheckSimpleWMI(const std::wstring &target, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);

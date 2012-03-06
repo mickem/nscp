@@ -57,25 +57,29 @@ public:
 		}
 	}
 	static std::wstring getComError(std::wstring inDesc = _T("")) {
-		USES_CONVERSION;
-		CComPtr<IErrorInfo> errorInfo;
-		HRESULT hr = GetErrorInfo(NULL, &errorInfo);
-		if (FAILED(hr) || hr == S_FALSE)
-			return _T("unknown error: ") + error::format::from_system(hr);
-		CComBSTR bDesc, bSource;
 		std::wstring src = _T("unknown");
-		hr = errorInfo->GetSource(&bSource);
-		if (SUCCEEDED(hr))
-			src = OLE2T(bSource);
 		std::wstring desc;
-		hr = errorInfo->GetDescription(&bDesc);
-		if (SUCCEEDED(hr))
-			desc = OLE2T(bDesc);
-		if (desc.empty() && !inDesc.empty())
-			desc = inDesc;
-		else if (desc.empty())
-			desc = _T("unknown error: ") + error::format::from_system(hr);
-		return src + _T(" - ") + desc;
+		try {
+			USES_CONVERSION;
+			CComPtr<IErrorInfo> errorInfo;
+			HRESULT hr = GetErrorInfo(NULL, &errorInfo);
+			if (FAILED(hr) || hr == S_FALSE)
+				return _T("unknown error: ") + error::format::from_system(hr);
+			CComBSTR bDesc, bSource;
+			hr = errorInfo->GetSource(&bSource);
+			if (SUCCEEDED(hr))
+				src = OLE2T(bSource);
+			hr = errorInfo->GetDescription(&bDesc);
+			if (SUCCEEDED(hr))
+				desc = OLE2T(bDesc);
+			if (desc.empty() && !inDesc.empty())
+				desc = inDesc;
+			else if (desc.empty())
+				desc = _T("unknown error: ") + error::format::from_system(hr);
+			return src + _T(" - ") + desc;
+		} catch (...) {
+			return src + _T(" - ") + desc;
+		}
 	}
 };
 
@@ -103,7 +107,11 @@ public:
 		WMIResult() : isNumeric(false), numeric(0) {}
 		void setString(std::wstring a, std::wstring s) {
 			string = s;
-			numeric = boost::lexical_cast<long long>(s);
+			try {
+				numeric = boost::lexical_cast<long long>(s);
+			} catch (...) {
+				numeric = 0;
+			}
 			alias = a;
 		}
 		void setNumeric(std::wstring a, long long n) {

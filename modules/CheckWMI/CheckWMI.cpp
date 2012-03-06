@@ -25,6 +25,7 @@
 #include <vector>
 
 #include <boost/optional.hpp>
+#include <boost/program_options.hpp>
 
 #include "CheckWMI.h"
 #include <strEx.h>
@@ -376,66 +377,115 @@ NSCAPI::nagiosReturn CheckWMI::handleCommand(const std::wstring &target, const s
 	}	
 	return NSCAPI::returnIgnored;
 }
-int CheckWMI::commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t** char_args) {
-	//WMIQuery wmiQuery;
-	std::wstring query = command;
-	std::wstring ns = _T("root\\cimv2");
-	query += _T(" ") + array_buffer::arrayBuffer2string(char_args, argLen, _T(" "));
-	WMIQuery::result_type rows;
+NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
 	try {
-		WMIQuery wmiQuery;
-		NSC_DEBUG_MSG_STD(_T("Running query: '") + query + _T("' on: ") + ns);
-		rows = wmiQuery.execute(ns, query);
-	} catch (WMIException e) {
-		NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
-		return -1;
-	}
-	if (rows.empty()) {
-		NSC_LOG_MESSAGE(_T("Query returned no rows."));
-	} else {
-		NSC_DEBUG_MSG_STD(_T("Query returned: ") + strEx::itos(rows.size()) + _T(" rows."));
-		std::vector<std::wstring::size_type> widths;
-		for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
-			const WMIQuery::wmi_row vals = *citRow;
-			if (citRow == rows.begin()) {
-				for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol) {
-					widths.push_back( (*citCol).first.length()+1 );
-				}
-			}
-			int i=0;
-			for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
-				widths[i] = max(widths[i], (*citCol).second.string.length()+1);
-			}
-		}
-		std::wstring row2 = _T("|");
-		for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
-			const WMIQuery::wmi_row vals = *citRow;
-			if (citRow == rows.begin()) {
-				int i=0;
-				std::wstring row1 = _T("|");
-				for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
-					std::wstring::size_type w = widths[i]-(*citCol).first.length();
-					if (w<0) w=0;
-					row1 += std::wstring(w, ' ') + (*citCol).first + _T(" |");
-					row2 += std::wstring(widths[i], '-') + _T("-+");
+		if (command == _T("wmi-query") || command == _T("help") || command == _T("query")) {
 
+			namespace po = boost::program_options;
+
+			std::wstring query, ns;
+			int limit = -1;
+			po::options_description desc("Allowed options");
+			desc.add_options()
+				("help,h", "Show help screen")
+				("wmi-query,w", po::wvalue<std::wstring>(&query), "Query to execute")
+				("limit,l", po::value<int>(&limit), "Limit number of rows")
+				("namespace,n", po::wvalue<std::wstring>(&ns)->default_value(_T("root\\cimv2")), "Namespace")
+				;
+
+			boost::program_options::variables_map vm;
+
+			if (command == _T("help")) {
+				std::stringstream ss;
+				ss << "CheckWMI Command line syntax:" << std::endl;
+				ss << desc;
+				result = utf8::cvt<std::wstring>(ss.str());
+				return NSCAPI::isSuccess;
+			}
+
+			std::vector<std::wstring> args(arguments.begin(), arguments.end());
+			po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(args).options(desc).run();
+			po::store(parsed, vm);
+			po::notify(vm);
+
+			if (vm.count("help") || query.empty()) {
+				std::stringstream ss;
+				ss << "CheckWMI Command line syntax:" << std::endl;
+				ss << desc;
+				result = utf8::cvt<std::wstring>(ss.str());
+				return NSCAPI::isSuccess;
+			}
+
+			WMIQuery::result_type rows;
+			try {
+				WMIQuery wmiQuery;
+				NSC_DEBUG_MSG_STD(_T("Running query: '") + query + _T("' on: ") + ns);
+				rows = wmiQuery.execute(ns, query);
+			} catch (WMIException e) {
+				NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
+				result += _T("ERROR: ") + e.getMessage();
+				return NSCAPI::hasFailed;
+			}
+			if (rows.empty()) {
+				result += _T("No result");
+				return NSCAPI::isSuccess;
+			} else {
+				NSC_DEBUG_MSG_STD(_T("Query returned: ") + strEx::itos(rows.size()) + _T(" rows."));
+				std::vector<std::wstring::size_type> widths;
+				int rownum=0;
+				for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+					if (limit != -1 && rownum++ > limit)
+						break;
+					const WMIQuery::wmi_row vals = *citRow;
+					if (citRow == rows.begin()) {
+						for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol) {
+							widths.push_back( (*citCol).first.length()+1 );
+						}
+					}
+					int i=0;
+					for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
+						widths[i] = max(widths[i], (*citCol).second.string.length()+1);
+					}
 				}
-				NSC_LOG_MESSAGE(row2);
-				NSC_LOG_MESSAGE(row1);
-				NSC_LOG_MESSAGE(row2);
+				std::wstring row2 = _T("|");
+				rownum=0;
+				for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
+					if (limit != -1 && rownum++ > limit)
+						break;
+					const WMIQuery::wmi_row vals = *citRow;
+					if (citRow == rows.begin()) {
+						int i=0;
+						std::wstring row1 = _T("|");
+						for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
+							std::wstring::size_type w = widths[i]-(*citCol).first.length();
+							if (w<0) w=0;
+							row1 += std::wstring(w, ' ') + (*citCol).first + _T(" |");
+							row2 += std::wstring(widths[i], '-') + _T("-+");
+
+						}
+						result += row2;
+						result += row1;
+						result += row2;
+					}
+					int i=0;
+					std::wstring row = _T("|");
+					for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
+						std::wstring::size_type w = widths[i]-(*citCol).second.string.length();
+						if (w<0) w=0;
+						row += std::wstring(w, ' ') + (*citCol).second.string + _T(" |");
+					}
+					result += row;
+				}
+				result += row2;
 			}
-			int i=0;
-			std::wstring row = _T("|");
-			for (WMIQuery::wmi_row::list_type::const_iterator citCol = vals.results.begin(); citCol != vals.results.end(); ++citCol, i++) {
-				std::wstring::size_type w = widths[i]-(*citCol).second.string.length();
-				if (w<0) w=0;
-				row += std::wstring(w, ' ') + (*citCol).second.string + _T(" |");
-			}
-			NSC_LOG_MESSAGE(row);
 		}
-		NSC_LOG_MESSAGE(row2);
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		result += _T("ERROR: Failed to parse command line: ") + utf8::cvt<std::wstring>(e.what());
+		NSC_LOG_ERROR_STD(_T("Failed to parse command line: ") + utf8::cvt<std::wstring>(e.what()));
+		return NSCAPI::hasFailed;
 	}
-	return 0;
+	return NSCAPI::returnIgnored;
 }
 
 
@@ -443,4 +493,4 @@ NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(CheckWMI);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
-//NSC_WRAPPERS_CLI_DEF(gCheckWMI);
+NSC_WRAPPERS_CLI_DEF();
