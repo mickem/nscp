@@ -27,6 +27,7 @@
 
 #include <objidl.h>
 #include <Wbemidl.h>
+#include <WMIUtils.h>
 
 
 std::wstring WMIQuery::sanitize_string(LPTSTR in) {
@@ -81,22 +82,28 @@ private:
 
 };
 
-boost::optional<identidy_container> get_identity(std::wstring &username, std::wstring &password, std::wstring &error) {
-	boost::optional<identidy_container> ret;
-
+identidy_container get_identity(const std::wstring &username, const std::wstring &password) {
 	std::wstring::size_type pos = username.find('\\');
 	if(pos == std::string::npos) {
-		error = _T("Could not create Auth identity. No domain specified\n");
-		return boost::optional<identidy_container>();
+		return identidy_container(_T(""), username, password);
 	}
-	return boost::optional<identidy_container>(identidy_container(username.substr(0, pos), username.substr(pos+1), password));
+	return identidy_container(username.substr(0, pos), username.substr(pos+1), password);
 }
-WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query, std::wstring user, std::wstring password)
-{
-	result_type ret;
 
-	CComPtr< IWbemLocator > locator;
-	HRESULT hr = CoCreateInstance( CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast< void** >( &locator ) );
+void set_proxy_blanket(IUnknown *pProxy, const std::wstring &user, const std::wstring &password) {
+	if (user.empty() || password.empty())
+		return;
+	identidy_container auth = get_identity(user, password);
+	HRESULT hr = CoSetProxyBlanket(pProxy, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT, 
+		RPC_C_IMP_LEVEL_IMPERSONATE, &auth.auth_identity, EOAC_NONE );
+	if (FAILED(hr))
+		throw WMIException(_T("CoSetProxyBlanket failed: ") + ComError::getComError(ComError::getWMIError(hr)));
+}
+
+
+CComPtr<IWbemServices> create_service(std::wstring ns, std::wstring user, std::wstring password) {
+	CComPtr<IWbemLocator> locator;
+	HRESULT hr = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast< void** >(&locator));
 	if (FAILED(hr))
 		throw WMIException(_T("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!"), hr);
 
@@ -106,82 +113,212 @@ WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query, std
 
 	CComPtr< IWbemServices > service;
 	// @todo: WBEM_FLAG_CONNECT_USE_MAX_WAIT
-	hr = locator->ConnectServer(strNamespace, user.empty()?NULL:strUser, password.empty()?NULL:strPassword, NULL, NULL, NULL, NULL, &service );
+	hr = locator->ConnectServer(strNamespace, user.empty()?NULL:strUser, password.empty()?NULL:strPassword, NULL, NULL, 0, NULL, &service );
 	if (FAILED(hr))
 		throw WMIException(_T("ConnectServer failed: namespace=") + ns + _T(", user=") + user, hr);
 
-	if (! (user.empty() && password.empty())) {
-		std::wstring error;
-		boost::optional<identidy_container> auth = get_identity(user, password, error);
-		if (!auth) 
-			throw WMIException(error);
-		hr = CoSetProxyBlanket(service, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, 
-			RPC_C_IMP_LEVEL_IMPERSONATE, &(*auth).auth_identity, EOAC_NONE );
-		if (FAILED(hr))
-			throw WMIException(_T("CoSetProxyBlanket failed: ") + ComError::getComError(ComError::getWMIError(hr)));
+	set_proxy_blanket(service, user, password);
+
+// 	if (! (user.empty() && password.empty())) {
+// 		std::wstring error;
+// 		boost::optional<identidy_container> auth = get_identity(user, password, error);
+// 		if (auth) {
+// 		//hr = CoSetProxyBlanket(service, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT, 
+// 		//	RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
+// 			hr = CoSetProxyBlanket(service, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT, 
+// 			RPC_C_IMP_LEVEL_IMPERSONATE, &(*auth).auth_identity, EOAC_NONE );
+// 			//hr = CoSetProxyBlanket(service, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_CALL, 
+// 			//	RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
+// 			if (FAILED(hr))
+// 				throw WMIException(_T("CoSetProxyBlanket failed: ") + ComError::getComError(ComError::getWMIError(hr)));
+// 		}
+// 	}
+	return service;
+}
+
+
+WMIQuery::WMIResult get_value(std::wstring tag, CComVariant &vValue) {
+	WMIQuery::WMIResult value;
+	if (vValue.vt == VT_INT) {
+		value.setNumeric(vValue.intVal);
+	}else if (vValue.vt == VT_I2) {
+		value.setNumeric(vValue.iVal);
+	} else if (vValue.vt == VT_I4) {
+		value.setNumeric(vValue.lVal);
+	} else if (vValue.vt == VT_UI1) {
+		value.setNumeric(vValue.uintVal);
+	} else if (vValue.vt == VT_UINT) {
+		value.setNumeric(vValue.uintVal);
+	} else if (vValue.vt == VT_BSTR) {
+		value.setString(OLE2T(vValue.bstrVal));
+	} else if (vValue.vt == VT_NULL) {
+		value.setString(_T("NULL"));
+	} else if (vValue.vt == VT_BOOL) {
+		value.setBoth(vValue.iVal, vValue.iVal?_T("TRUE"):_T("FALSE"));
+	} else {
+		value.setString(_T("UNKNOWN"));
+		NSC_LOG_ERROR_STD(tag + _T(" is not supported (type-id: ") + strEx::itos(vValue.vt) + _T(")"));
 	}
+	return value;
+}
+
+WMIQuery::result_type WMIQuery::get_classes(std::wstring ns, std::wstring superClass, std::wstring user, std::wstring password) {
+
+	result_type ret;
+	CComPtr<IWbemServices> service = create_service(ns, user, password);
+
+	CComBSTR strSuperClass = superClass.c_str();
+
+	CComPtr<IEnumWbemClassObject> enumerator;
+	HRESULT hr = service->CreateClassEnum(strSuperClass,WBEM_FLAG_DEEP| WBEM_FLAG_USE_AMENDED_QUALIFIERS|
+		WBEM_FLAG_RETURN_IMMEDIATELY|WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator);
+	if (FAILED(hr))
+		throw WMIException(_T("CreateClassEnum failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
+
+	CComPtr<IWbemClassObject> row = NULL;
+	ULONG retcnt;
+	while (hr = enumerator->Next( WBEM_INFINITE, 1L, &row, &retcnt ) == WBEM_S_NO_ERROR) {
+		if (SUCCEEDED(hr) && (retcnt > 0)) {
+			wmi_row returnRow;
+			WMIResult value;
+			CComBSTR classProp = _T("__CLASS");
+			CComVariant v;
+			hr = row->Get(classProp, 0, &v, 0, 0);
+
+			if (SUCCEEDED(hr) && (v.vt == VT_BSTR))	{
+				value.setString(std::wstring(OLE2T(v.bstrVal)));
+				returnRow.addValue(_T("__CLASS"), value);
+			} else {
+				value.setString(_T("Unknown"));
+				returnRow.addValue(_T("__CLASS"), value);
+			}
+			ret.push_back(returnRow);
+		}
+		row.Release();
+	}
+	return ret;
+}
+
+WMIQuery::result_type WMIQuery::get_instances(std::wstring ns, std::wstring superClass, std::wstring user, std::wstring password) {
+	result_type ret;
+	CComPtr<IWbemServices> service = create_service(ns, user, password);
+
+	CComBSTR strSuperClass = superClass.c_str();
+	CComPtr<IEnumWbemClassObject> enumerator;
+	HRESULT hr = service->CreateInstanceEnum(strSuperClass,WBEM_FLAG_SHALLOW|WBEM_FLAG_USE_AMENDED_QUALIFIERS|WBEM_FLAG_RETURN_IMMEDIATELY|WBEM_FLAG_FORWARD_ONLY, 
+		NULL, &enumerator);
+	if (FAILED(hr))
+		throw WMIException(_T("CreateInstanceEnum failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
+
+
+	set_proxy_blanket(enumerator, user, password);
+	ULONG retcnt;
+	CComPtr< IWbemClassObject > row = NULL;
+	hr = enumerator->Next(WBEM_INFINITE, 1L, &row, &retcnt);
+	if (FAILED(hr))
+		throw WMIException(_T("Enumeration of failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
+
+	while (hr == WBEM_S_NO_ERROR) {
+		if (retcnt > 0) {
+			wmi_row returnRow;
+			WMIResult value;
+			CComBSTR classProp = _T("Name");
+			CComVariant v;
+			hr = row->Get(classProp, 0, &v, 0, 0);
+
+			if (SUCCEEDED(hr) && (v.vt == VT_BSTR))	{
+				value.setString(std::wstring(OLE2T(v.bstrVal)));
+				returnRow.addValue(_T("Name"), value);
+			} else {
+				value.setString(_T("Unknown"));
+				returnRow.addValue(_T("Name"), value);
+			}
+
+
+			SAFEARRAY* pstrNames;
+			hr = row->GetNames(NULL,WBEM_FLAG_ALWAYS|WBEM_FLAG_NONSYSTEM_ONLY,NULL,&pstrNames);
+			if (FAILED(hr))
+				throw WMIException(_T("GetNames failed:"), hr);
+
+			long begin, end;
+			CComSafeArray<BSTR> arr = pstrNames;
+			begin = arr.GetLowerBound();
+			end = arr.GetUpperBound();
+			for (long index = begin; index <= end; index++ ) {
+				try {
+					CComBSTR bColumn = arr.GetAt(index);
+					std::wstring column = bColumn.m_str;
+					CComVariant vValue;
+					hr = row->Get(bColumn, 0, &vValue, 0, 0);
+					if (FAILED(hr))
+						throw WMIException(_T("Failed to get value for ") + column + _T(" in query: "), hr);
+					returnRow.addValue(column, get_value(column, vValue));
+				} catch (const std::exception &e) {
+					throw WMIException(_T("Failed to convert data: ") + utf8::cvt<std::wstring>(e.what()));
+				}
+			}
+
+			ret.push_back(returnRow);
+		}
+		row.Release();
+		hr = enumerator->Next(WBEM_INFINITE, 1L, &row, &retcnt);
+		if (FAILED(hr))
+			throw WMIException(_T("Enumeration of failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
+	}
+	return ret;
+}
+
+WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query, std::wstring user, std::wstring password)
+{
+	result_type ret;
+	CComPtr<IWbemServices> service = create_service(ns, user, password);
 
 	CComBSTR strQuery(query.c_str());
 	BSTR strQL = _T("WQL");
 
-	CComPtr< IEnumWbemClassObject > enumerator;
-	hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator );
+	CComPtr<IEnumWbemClassObject> enumerator;
+	HRESULT hr = service->ExecQuery( strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator );
 	if (FAILED(hr))
 		throw WMIException(_T("ExecQuery of '") + query + _T("' failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
 
-	CComPtr< IWbemClassObject > row = NULL;
+
+	set_proxy_blanket(enumerator, user, password);
 	ULONG retcnt;
-	int i=0;
-	while (hr = enumerator->Next( WBEM_INFINITE, 1L, &row, &retcnt ) == WBEM_S_NO_ERROR) {
-		if (SUCCEEDED(hr)) {
-			if (retcnt > 0) {
-				SAFEARRAY* pstrNames;
-				wmi_row returnRow;
-				hr = row->GetNames(NULL,WBEM_FLAG_ALWAYS|WBEM_FLAG_NONSYSTEM_ONLY,NULL,&pstrNames);
-				if (FAILED(hr))
-					throw WMIException(_T("GetNames failed:") + query, hr);
+	CComPtr< IWbemClassObject > row = NULL;
+	hr = enumerator->Next(WBEM_INFINITE, 1L, &row, &retcnt);
+	if (FAILED(hr))
+		throw WMIException(_T("Enumeration of '") + query + _T("' failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
+	while (hr == WBEM_S_NO_ERROR) {
+		if (retcnt > 0) {
+			SAFEARRAY* pstrNames;
+			wmi_row returnRow;
+			hr = row->GetNames(NULL,WBEM_FLAG_ALWAYS|WBEM_FLAG_NONSYSTEM_ONLY,NULL,&pstrNames);
+			if (FAILED(hr))
+				throw WMIException(_T("GetNames failed:") + query, hr);
 
-				long index = 0, begin, end;
-				CComSafeArray<BSTR> arr = pstrNames;
-				begin = arr.GetLowerBound();
-				end = arr.GetUpperBound();
-				for ( index = begin; index <= end; index++ ) {
-					try {
-						USES_CONVERSION;
-						CComBSTR bColumn = arr.GetAt(index);
-						std::wstring column = OLE2T(bColumn);
-						CComVariant vValue;
-						hr = row->Get(bColumn, 0, &vValue, 0, 0);
-						if (FAILED(hr))
-							throw WMIException(_T("Failed to get value for ") + column + _T(" in query: ") + query, hr);
-						WMIResult value;
-
-						if (vValue.vt == VT_INT) {
-							value.setNumeric(column, vValue.intVal);
-						} else if (vValue.vt == VT_I4) {
-							value.setNumeric(column, vValue.lVal);
-						} else if (vValue.vt == VT_UI1) {
-							value.setNumeric(column, vValue.uintVal);
-						} else if (vValue.vt == VT_UINT) {
-							value.setNumeric(column, vValue.uintVal);
-						} else if (vValue.vt == VT_BSTR) {
-							value.setString(column, OLE2T(vValue.bstrVal));
-						} else if (vValue.vt == VT_NULL) {
-							value.setString(column, _T("NULL"));
-						} else if (vValue.vt == VT_BOOL) {
-							value.setBoth(column, vValue.iVal, vValue.iVal?_T("TRUE"):_T("FALSE"));
-						} else {
-							NSC_LOG_ERROR_STD(column + _T(" is not supported (type-id: ") + strEx::itos(vValue.vt) + _T(")"));
-						}
-						returnRow.addValue(column, value);
-					} catch (const std::exception &e) {
-						throw WMIException(_T("Failed to convert data: ") + utf8::cvt<std::wstring>(e.what()));
-					}
+			long begin, end;
+			CComSafeArray<BSTR> arr = pstrNames;
+			begin = arr.GetLowerBound();
+			end = arr.GetUpperBound();
+			for (long index = begin; index <= end; index++ ) {
+				try {
+					CComBSTR bColumn = arr.GetAt(index);
+					std::wstring column = bColumn.m_str;
+					CComVariant vValue;
+					hr = row->Get(bColumn, 0, &vValue, 0, 0);
+					if (FAILED(hr))
+						throw WMIException(_T("Failed to get value for ") + column + _T(" in query: ") + query, hr);
+					returnRow.addValue(column, get_value(column, vValue));
+				} catch (const std::exception &e) {
+					throw WMIException(_T("Failed to convert data: ") + utf8::cvt<std::wstring>(e.what()));
 				}
-				ret.push_back(returnRow);
 			}
+			ret.push_back(returnRow);
 		}
 		row.Release();
+		hr = enumerator->Next(WBEM_INFINITE, 1L, &row, &retcnt);
+		if (FAILED(hr))
+			throw WMIException(_T("Enumeration of '") + query + _T("' failed: ") + ComError::getComError(ComError::getWMIError(hr)) + _T(")"));
 	}
 	return ret;
 }

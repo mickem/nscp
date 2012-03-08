@@ -100,29 +100,36 @@ class WMIQuery
 {
 public:
 	struct WMIResult {
-		std::wstring alias;
+	public:
 		std::wstring string;
 		long long numeric;
 		bool isNumeric;
 		WMIResult() : isNumeric(false), numeric(0) {}
-		void setString(std::wstring a, std::wstring s) {
-			string = s;
+		void set_raw_str(std::wstring str) {
+			if (!str.empty()) {
+				std::string::size_type pos = str.find_last_not_of(_T(" "));
+				if (pos != std::string::npos)
+					str.erase(pos+1);
+				else
+					str.erase(str.begin(), str.end());
+			}
+			string = str;
+		}
+		void setString(std::wstring s) {
+			set_raw_str(s);
 			try {
 				numeric = boost::lexical_cast<long long>(s);
 			} catch (...) {
 				numeric = 0;
 			}
-			alias = a;
 		}
-		void setNumeric(std::wstring a, long long n) {
+		void setNumeric(long long n) {
 			numeric = n;
-			string = boost::lexical_cast<std::wstring>(n);
-			alias = a;
+			set_raw_str(boost::lexical_cast<std::wstring>(n));
 		}
-		void setBoth(std::wstring a, long long n, std::wstring s) {
+		void setBoth(long long n, std::wstring s) {
 			numeric = n;
-			string = s;
-			alias = a;
+			set_raw_str(s);
 		}
 	};
 	struct wmi_row {
@@ -200,4 +207,6 @@ public:
 
 	result_type  execute(std::wstring ns, std::wstring query, std::wstring user = _T(""), std::wstring password = _T(""));
 	std::wstring sanitize_string(LPTSTR in);
+	WMIQuery::result_type WMIQuery::get_classes(std::wstring ns, std::wstring superClass, std::wstring user, std::wstring password);
+	WMIQuery::result_type WMIQuery::get_instances(std::wstring ns, std::wstring superClass, std::wstring user, std::wstring password);
 };

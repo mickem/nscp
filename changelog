@@ -4,7 +4,12 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
- 
+2012-03-08 MickeM
+ * Major improvments to the WMI command line syntax.
+   You can now: list namespaces, list classes, list instances as well as run queries.
+   Means you can use NSCLient++ as a almost full featured WMI command line client.
+   For details use: nscp wmi --help
+	
 2012-03-06 MickeM
  * Added "back" WMI Query command line exec like so:
     nscp wmi --exec wmi-query
