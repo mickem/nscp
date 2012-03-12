@@ -156,7 +156,7 @@ class Win32FileTest(BasicTest):
 
 	def install(self, arguments):
 		conf = Settings.get()
-		conf.set_string('/modules', 'test_system', 'CheckDisk')
+		conf.set_string('/modules', 'test_disk', 'CheckDisk')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
 		conf.set_string('/settings/pytest/scripts', 'test_w32sys', 'test_w32_file.py')
 		conf.save()

@@ -312,7 +312,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			write_key(data, 1, modpath, _T("CheckNSCP"), modval);
 		}
 
-		std::wstring defpath = _T("/settings/default/");
+		std::wstring defpath = _T("/settings/default");
 		write_changed_key(h, data, _T("ALLOWED_HOSTS"), defpath, _T("allowed hosts"));
 		write_changed_key(h, data, _T("NSCLIENT_PWD"), defpath, _T("password"));
 

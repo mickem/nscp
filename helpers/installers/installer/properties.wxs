@@ -18,7 +18,7 @@
 	<Property Id="ALLOWED_HOSTS_DEFAULT"></Property>
 	<Property Id="NSCLIENT_PWD_DEFAULT"></Property>
    -->
-	<Property Id="CONFIGURATION_TYPE_DEFAULT">ini://${shared-path}/nsclient.ini</Property>
+	<Property Id="CONFIGURATION_TYPE_DEFAULT">ini://${exe-path}/nsclient.ini</Property>
 
 	<!-- CONFIGURE INITAL VALUES IN CONFIG UI -->
 	<!--
@@ -29,8 +29,10 @@
 	<Property Id="CONF_WMI">0</Property>
 	<Property Id="ALLOWED_HOSTS"></Property>
 	<Property Id="NSCLIENT_PWD"></Property>
-   -->
 	<Property Id="CONFIGURATION_TYPE">ini://${shared-path}/nsclient.ini</Property>
+   -->
+	<Property Id="CONFIGURATION_TYPE">ini://${exe-path}/nsclient.ini</Property>
+	<Property Id="INSTALL_SAMPLE_CONFIG">1</Property>
 
 	<!-- CONFIGURE THE INSTALLER -->
 	<Property Id="ALLOW_CONFIGURATION">1</Property>

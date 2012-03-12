@@ -404,11 +404,10 @@ struct pad_handler {
 	}
 
 };
-void print_results(WMIQuery::result_type &rows, int limit, std::wstring & result) 
+void print_pretty_results(WMIQuery::result_type &rows, int limit, std::wstring & result) 
 {
 	pad_handler padder;
 	NSC_DEBUG_MSG_STD(_T("Query returned: ") + strEx::itos(rows.size()) + _T(" rows."));
-	std::vector<std::wstring::size_type> widths;
 	int rownum=0;
 	BOOST_FOREACH(const WMIQuery::wmi_row &row, rows) {
 		if (rownum++ == 0) {
@@ -440,7 +439,6 @@ void print_results(WMIQuery::result_type &rows, int limit, std::wstring & result
 
 		if (limit != -1 && rownum > limit)
 			break;
-		int i=0;
 		std::wstring row1 = _T("|");
 		padder.reset_index();
 		BOOST_FOREACH(const WMIQuery::wmi_row::list_type::value_type &val, row.results) {
@@ -449,6 +447,31 @@ void print_results(WMIQuery::result_type &rows, int limit, std::wstring & result
 		result += row1 + _T("\n");
 	}
 }
+
+void print_simple_results(WMIQuery::result_type &rows, int limit, std::wstring & result) 
+{
+	int rownum=0;
+	BOOST_FOREACH(const WMIQuery::wmi_row &row, rows) {
+		if (limit != -1 && rownum > limit)
+			break;
+		bool first = true;
+		BOOST_FOREACH(const WMIQuery::wmi_row::list_type::value_type &val, row.results) {
+			if (first) 
+				first = false;
+			else
+				result += _T(",");
+			result += val.second.string;
+		}
+		result += _T("\n");
+	}
+}
+void print_results(WMIQuery::result_type &rows, int limit, std::wstring & result, bool simple)  {
+	if (simple)
+		print_simple_results(rows, limit, result);
+	else
+		print_pretty_results(rows, limit, result);
+}
+
 
 NSCAPI::nagiosReturn CheckWMI::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
 	if (command == _T("checkwmi")) {
@@ -484,11 +507,13 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 			namespace po = boost::program_options;
 
 			std::wstring query, ns, computer, user, password, list_cls, list_inst;
+			bool simple;
 			int limit = -1;
 			po::options_description desc("Allowed options");
 			desc.add_options()
 				("help,h", "Show help screen")
 				("select,s", po::wvalue<std::wstring>(&query), "Execute a query")
+				("simple", "Use simple format")
 				("list-classes", po::wvalue<std::wstring>(&list_cls)->implicit_value(_T("")), "list all classes of a given type")
 				("list-instances", po::wvalue<std::wstring>(&list_inst)->implicit_value(_T("")), "list all instances of a given type")
 				("list-ns", "list all name spaces")
@@ -522,6 +547,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 				result = utf8::cvt<std::wstring>(ss.str());
 				return NSCAPI::isSuccess;
 			}
+			simple = vm.count("simple") > 0;
 
 			ns = build_namespace(ns, computer);
 
@@ -540,13 +566,13 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					result += _T("No result");
 					return NSCAPI::isSuccess;
 				} else {
-					print_results(rows, limit, result);
+					print_results(rows, limit, result, simple);
 				}
 			} else if (vm.count("list-classes")) {
 				try {
 					WMIQuery wmiQuery;
 					rows = wmiQuery.get_classes(ns, list_cls, user, password);
-					print_results(rows, limit, result);
+					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
 					result += _T("ERROR: ") + e.getMessage();
@@ -556,7 +582,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 				try {
 					WMIQuery wmiQuery;
 					rows = wmiQuery.get_instances(ns, list_inst, user, password);
-					print_results(rows, limit, result);
+					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
 					result += _T("ERROR: ") + e.getMessage();
@@ -566,7 +592,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 				try {
 					WMIQuery wmiQuery;
 					rows = wmiQuery.get_instances(ns, _T("__Namespace"), user, password);
-					print_results(rows, limit, result);
+					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
 					result += _T("ERROR: ") + e.getMessage();

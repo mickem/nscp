@@ -119,20 +119,6 @@ CComPtr<IWbemServices> create_service(std::wstring ns, std::wstring user, std::w
 
 	set_proxy_blanket(service, user, password);
 
-// 	if (! (user.empty() && password.empty())) {
-// 		std::wstring error;
-// 		boost::optional<identidy_container> auth = get_identity(user, password, error);
-// 		if (auth) {
-// 		//hr = CoSetProxyBlanket(service, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT, 
-// 		//	RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
-// 			hr = CoSetProxyBlanket(service, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT, 
-// 			RPC_C_IMP_LEVEL_IMPERSONATE, &(*auth).auth_identity, EOAC_NONE );
-// 			//hr = CoSetProxyBlanket(service, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_CALL, 
-// 			//	RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
-// 			if (FAILED(hr))
-// 				throw WMIException(_T("CoSetProxyBlanket failed: ") + ComError::getComError(ComError::getWMIError(hr)));
-// 		}
-// 	}
 	return service;
 }
 

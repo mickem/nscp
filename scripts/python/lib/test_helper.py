@@ -263,6 +263,14 @@ class TestResult(TestResultCollection):
 		else:
 			self.add_message(s1 in s2 or s2 in s1, msg, '"%s" (contains) "%s"'%(s1, s2))
 
+	def assert_not_contains(self, s1, s2, msg):
+		if s1 == s2:
+			self.add_message(False, msg, '"%s" (equals) "%s"'%(s1, s2))
+		elif s1 == None or s2 == None:
+			self.add_message(True, msg, '"%s" (is null?) "%s"'%(s1, s2))
+		else:
+			self.add_message(not (s1 in s2 or s2 in s1), msg, '"%s" (does not contains) "%s"'%(s1, s2))
+
 	def add_entry(self, e):
 		self.append(e)
 

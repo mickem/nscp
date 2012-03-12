@@ -124,6 +124,8 @@ bool python_script::callFunction(const std::string& functionName) {
 	try {
 		script_wrapper::thread_locker locker;
 		try	{
+			if (!localDict.has_key(functionName))
+				return true;
 			object scriptFunction = extract<object>(localDict[functionName]);
 			if( scriptFunction )
 				scriptFunction();
@@ -141,6 +143,8 @@ bool python_script::callFunction(const std::string& functionName, unsigned int i
 	try {
 		script_wrapper::thread_locker locker;
 		try	{
+			if (!localDict.has_key(functionName))
+				return true;
 			object scriptFunction = extract<object>(localDict[functionName]);
 			if(scriptFunction)
 				scriptFunction(i1, s1, s2);

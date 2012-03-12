@@ -4,11 +4,19 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-03-11 MickeM
+ * Fixed a lot of issues with the installer
+ * Added so the installer can generate a config file for you
+ * Fixed so installer uses the correct path for password and allowed hosts
+
 2012-03-08 MickeM
  * Major improvments to the WMI command line syntax.
    You can now: list namespaces, list classes, list instances as well as run queries.
    Means you can use NSCLient++ as a almost full featured WMI command line client.
    For details use: nscp wmi --help
+ * Added sample python WMI script to list all classes in all namespaces
+ * Fixed so if python scripts does not expose init and shutdown they will not be called
+ * Added new option --simple to CheckWMI wmi commands to return a simple list without formatting.
 	
 2012-03-06 MickeM
  * Added "back" WMI Query command line exec like so:
