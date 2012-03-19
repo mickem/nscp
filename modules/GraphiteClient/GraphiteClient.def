@@ -1,4 +1,4 @@
-LIBRARY	NSCAClient
+LIBRARY	GraphiteClient
 
 EXPORTS
 	NSModuleHelperInit

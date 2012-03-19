@@ -24,25 +24,64 @@
 
 #include <client/command_line_parser.hpp>
 #include <nscapi/targets.hpp>
-
-#include <nsca/nsca_packet.hpp>
+#include <nscapi/nscapi_protobuf_types.hpp>
 
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
 
 namespace po = boost::program_options;
+namespace sh = nscapi::settings_helper;
 
-class NSCAAgent : public nscapi::impl::simple_plugin {
+class GraphiteClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::wstring channel_;
 	std::wstring target_path;
+	const static std::wstring command_prefix;
 	std::string hostname_;
 	bool cacheNscaHost_;
 	long time_delta_;
 
-	nscapi::target_handler targets;
+	struct g_data {
+		std::string path;
+		std::string value;
+	};
+
+	struct custom_reader {
+		typedef nscapi::targets::target_object object_type;
+		typedef nscapi::targets::target_object target_object;
+
+		static void init_default(target_object &target) {
+			target.set_property_int(_T("timeout"), 30);
+			target.set_property_string(_T("encryption"), _T("ase"));
+			target.set_property_int(_T("payload length"), 512);
+		}
+
+		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+			settings.path(object.path).add_key()
+
+				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
+				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+
+				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 512),
+				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
+
+				(_T("encryption"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("encryption"), _1), _T("aes")),
+				_T("ENCRYPTION METHOD"), _T("Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all."))
+
+				(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("password"), _1), _T("")),
+				_T("PASSWORD"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
+
+				(_T("time offset"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("delay"), _1), _T("0")),
+				_T("TIME OFFSET"), _T("Time offset."))
+				;
+		}
+		static void post_process_target(target_object &target) {
+		}
+	};
+
+	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
 
 	struct connection_data {
@@ -54,19 +93,22 @@ private:
 		int buffer_length;
 		int time_delta;
 
-		connection_data(nscapi::functions::destination_container recipient, nscapi::functions::destination_container sender) {
+		connection_data(nscapi::protobuf::types::destination_container recipient, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
+			recipient.import(target);
 			timeout = recipient.get_int_data("timeout", 30);
 			buffer_length = recipient.get_int_data("payload length", 512);
 			password = recipient.get_string_data("password");
 			encryption = recipient.get_string_data("encryption");
+			std::string tmp = recipient.get_string_data("time offset");
+			if (!tmp.empty())
 			time_delta = strEx::stol_as_time_sec(recipient.get_string_data("time offset"));
-			net::url url = recipient.get_url(5667);
-			host = url.host;
-			port = url.get_port();
+			else
+				time_delta = 0;
+			host = recipient.address.get_host();
+			port = strEx::s::itos(recipient.address.get_port(5667));
+			sender_hostname = sender.address.host;
+			if (sender.has_data("host"))
 			sender_hostname = sender.get_string_data("host");
-		}
-		unsigned int get_encryption() {
-			return nsca::nsca_encrypt::helpers::encryption_to_int(encryption);
 		}
 
 		std::wstring to_wstring() {
@@ -84,37 +126,26 @@ private:
 
 	struct clp_handler_impl : public client::clp_handler, client::target_lookup_interface {
 
-		NSCAAgent *instance;
-		clp_handler_impl(NSCAAgent *instance) : instance(instance) {}
+		GraphiteClient *instance;
+		clp_handler_impl(GraphiteClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int submit(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
-		int exec(client::configuration::data_type data, ::Plugin::Common_Header* header, const std::string &request, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
 
-		virtual nscapi::functions::destination_container lookup_target(std::wstring &id) {
-			nscapi::functions::destination_container ret;
-			nscapi::target_handler::optarget t = instance->targets.find_target(id);
-			if (t) {
-				if (!t->alias.empty())
-					ret.id = utf8::cvt<std::string>(t->alias);
-				if (!t->host.empty())
-					ret.host = utf8::cvt<std::string>(t->host);
-				if (t->has_option("address"))
-					ret.address = utf8::cvt<std::string>(t->options[_T("address")]);
-				else 
-					ret.address = utf8::cvt<std::string>(t->host);
-				BOOST_FOREACH(const nscapi::target_handler::target::options_type::value_type &kvp, t->options) {
-					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
-				}
-			}
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
+			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
+			if (opt)
+				return opt->to_destination_container();
+			nscapi::protobuf::types::destination_container ret;
 			return ret;
 		}
 	};
 
 
 public:
-	NSCAAgent();
-	virtual ~NSCAAgent();
+	GraphiteClient();
+	virtual ~GraphiteClient();
 	// Module calls
 	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
@@ -140,7 +171,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
+		return std::wstring(_T("Graphite client"));
 	}
 
 	bool hasCommandHandler() { return true; };
@@ -151,13 +182,13 @@ public:
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 
 private:
-	boost::tuple<int,std::wstring> send(connection_data data, const std::list<nsca::packet> packets);
+	boost::tuple<int,std::wstring> send(connection_data data, const std::list<g_data> payload);
 	void add_options(po::options_description &desc, connection_data &command_data);
-	static connection_data parse_header(const ::Plugin::Common_Header &header);
+	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config);
+	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 

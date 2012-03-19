@@ -64,8 +64,7 @@ namespace nscapi {
 					t_object_type parent;
 					optional_object tmp = find_object(object.parent);
 					if (!tmp) {
-						parent = add(proxy, path, object.parent, _T(""));
-						add_template(parent);
+						parent = add(proxy, path, object.parent, _T(""), true);
 					} else {
 						parent = *tmp;
 					}

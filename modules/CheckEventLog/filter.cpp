@@ -47,8 +47,16 @@ eventlog_filter::filter_obj_handler::filter_obj_handler() {
 	insert(types)
 		(_T("id"), (type_int))
 		(_T("source"), (type_string))
+		(_T("file"), (type_string))
+		(_T("log"), (type_string))
 		(_T("type"), (type_custom_type))
+		(_T("level"), (type_custom_type))
 		(_T("severity"), (type_custom_severity))
+		(_T("category"), (type_int))
+		(_T("qualifier"), (type_int))
+		(_T("facility"), (type_int))
+		(_T("customer"), (type_int))
+		(_T("rawid"), (type_int))
 		(_T("message"), (type_string))
 		(_T("strings"), (type_string))
 		(_T("computer"), (type_string))
@@ -82,6 +90,10 @@ eventlog_filter::filter_obj_handler::base_handler::bound_string_type eventlog_fi
 		ret = &filter_obj::get_strings;
 	else if (key == _T("computer"))
 		ret = &filter_obj::get_computer;
+	else if (key == _T("log"))
+		ret = &filter_obj::get_log;
+	else if (key == _T("file"))
+		ret = &filter_obj::get_log;
 	else
 		NSC_DEBUG_MSG_STD(_T("Failed to bind (string): ") + key);
 	return ret;
@@ -92,12 +104,24 @@ eventlog_filter::filter_obj_handler::base_handler::bound_int_type eventlog_filte
 		ret = &filter_obj::get_id;
 	else if (key == _T("type"))
 		ret = &filter_obj::get_el_type;
+	else if (key == _T("level"))
+		ret = &filter_obj::get_el_type;
 	else if (key == _T("severity"))
 		ret = &filter_obj::get_severity;
 	else if (key == _T("generated"))
 		ret = &filter_obj::get_generated;
 	else if (key == _T("written"))
 		ret = &filter_obj::get_written;
+	else if (key == _T("category"))
+		ret = &filter_obj::get_category;
+	else if (key == _T("qualifier"))
+		ret = &filter_obj::get_facility;
+	else if (key == _T("facility"))
+		ret = &filter_obj::get_facility;
+	else if (key == _T("customer"))
+		ret = &filter_obj::get_customer;
+	else if (key == _T("rawid"))
+		ret = &filter_obj::get_raw_id;
 	else
 		NSC_DEBUG_MSG_STD(_T("Failed to bind (int): ") + key);
 	return ret;

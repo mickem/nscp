@@ -23,6 +23,9 @@ public:
 	inline __int64 written() const {
 		return pevlr_->TimeWritten;
 	}
+	inline WORD category() const {
+		return pevlr_->EventCategory;
+	}
 	inline std::wstring get_source() const {
 		return reinterpret_cast<const WCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + sizeof(EVENTLOGRECORD));
 	}
@@ -34,7 +37,16 @@ public:
 		return (pevlr_->EventID&0xffff);
 	}
 	inline DWORD severity() const {
-		return (pevlr_->EventID>>30);
+		return (pevlr_->EventID>>30) & 0x3;
+	}
+	inline DWORD facility() const {
+		return (pevlr_->EventID>>16) & 0xfff;
+	}
+	inline WORD customer() const {
+		return (pevlr_->EventID>>29) & 0x1;
+	}
+	inline DWORD raw_id() const {
+		return pevlr_->EventID;
 	}
 
 	inline DWORD eventType() const {
@@ -273,6 +285,9 @@ public:
 	SYSTEMTIME get_time_written() const {
 		return get_time(pevlr_->TimeWritten);
 	}
+	inline std::wstring get_log() {
+		return file_;
+	}
 
 	std::wstring render(bool propper, std::wstring syntax, std::wstring date_format = DATE_FORMAT, DWORD langId = 0) const {
 		if (propper) {
@@ -289,8 +304,15 @@ public:
 		strEx::replace(syntax, _T("%generated-raw%"), strEx::itos(pevlr_->TimeGenerated));
 		strEx::replace(syntax, _T("%written-raw%"), strEx::itos(pevlr_->TimeWritten));
 		strEx::replace(syntax, _T("%type%"), translateType(eventType()));
+		strEx::replace(syntax, _T("%category%"), strEx::itos(pevlr_->EventCategory));
+		strEx::replace(syntax, _T("%facility%"), strEx::itos(facility()));
+		strEx::replace(syntax, _T("%qualifier%"), strEx::itos(facility()));
+		strEx::replace(syntax, _T("%customer%"), strEx::itos(customer()));
+		strEx::replace(syntax, _T("%rawid%"), strEx::itos(raw_id()));
 		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
 		strEx::replace(syntax, _T("%strings%"), enumStrings());
+		strEx::replace(syntax, _T("%log%"), file_);
+		strEx::replace(syntax, _T("%file%"), file_);
 		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));
 		strEx::replace(syntax, _T("%user%"), userSID());
 		return syntax;

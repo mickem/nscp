@@ -52,8 +52,13 @@ struct real_time_thread {
 	boost::shared_ptr<boost::thread> thread_;
 	HANDLE stop_event_;
 	std::list<std::wstring> lists_;
+	std::list<std::wstring> hit_cache_;
+	boost::timed_mutex cache_mutex_;
 
-	real_time_thread() : enabled_(false), start_age_(0), max_age_(0) {
+	bool cache_;
+	bool debug_;
+
+	real_time_thread() : enabled_(false), start_age_(0), max_age_(0), debug_(false), cache_(false) {
 		set_start_age(_T("30m"));
 		set_max_age(_T("5m"));
 	}
@@ -76,8 +81,7 @@ struct real_time_thread {
 
 	void set_language(std::string lang);
 	void set_filter(std::wstring flt) {
-		if (!flt.empty())
-			add_realtime_filter(_T("filter"), flt);
+		add_realtime_filter(_T("filter"), flt);
 	}
 	bool has_filters() {
 		return !filters_.empty();
@@ -85,10 +89,13 @@ struct real_time_thread {
 	bool start();
 	bool stop();
 
+	bool check_cache(unsigned long &count, std::wstring &messages);
+
 	void thread_proc();
 //	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
 	void process_no_events();
 	void process_record(const EventLogRecord &record);
+	void debug_miss(const EventLogRecord &record);
 //	void process_event(eventlog_filter::filter_engine engine, const EVENTLOGRECORD* record);
 };
 
@@ -124,6 +131,7 @@ public:
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
+	NSCAPI::nagiosReturn checkCache(std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 	NSCAPI::nagiosReturn insert_eventlog(std::vector<std::wstring> arguments, std::wstring &message);
 

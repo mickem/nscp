@@ -49,8 +49,23 @@ namespace eventlog_filter {
 		std::wstring get_strings() {
 			return record.enumStrings(); 
 		}
+		std::wstring get_log() {
+			return record.get_log(); 
+		}
 		long long get_written() {
 			return record.written(); 
+		}
+		long long get_category() {
+			return record.category(); 
+		}
+		long long get_facility() {
+			return record.facility(); 
+		}
+		long long get_customer() {
+			return record.customer(); 
+		}
+		long long get_raw_id() {
+			return record.raw_id(); 
 		}
 		long long get_generated() {
 			return record.generated(); 

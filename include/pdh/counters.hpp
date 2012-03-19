@@ -106,9 +106,10 @@ namespace PDH {
 				return;
 			if (!listener_)
 				return;
-			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhGetFormattedCounterValue(hCounter_, listener_->getFormat(), NULL, &data_);
+			DWORD format = listener_->getFormat();
+			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhGetFormattedCounterValue(hCounter_, format, NULL, &data_);
 			if (status.is_error()) {
-				throw PDHException(name_, _T("PdhGetFormattedCounterValue failed"), status);
+				throw PDHException(name_, _T("PdhGetFormattedCounterValue failed {format: ") + strEx::itos(format) + _T("}"), status);
 			}
 			listener_->collect(*this);
 		}

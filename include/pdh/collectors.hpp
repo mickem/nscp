@@ -298,7 +298,7 @@ namespace PDHCollectors {
 	public:
 		DWORD extra_format;
 		RoundINTPDHBufferListenerImpl() : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL), extra_format(0) {}
-		RoundINTPDHBufferListenerImpl(int length_) : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL) {
+		RoundINTPDHBufferListenerImpl(int length_) : buffer(NULL), length(0), current(0), hasValue_(false), parent_(NULL), extra_format(0) {
 			resize(length_);
 		}
 		virtual ~RoundINTPDHBufferListenerImpl() {

@@ -49,7 +49,9 @@
 							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
 							Description="Monitoring agent for nagios (and others) used to respond to status queries"
 							Arguments="service --run --name [SERVICE_NAME]">
+              <!--
 				      <ServiceDependency Id="Tcpip" />
+                  -->
 			      </ServiceInstall>
             <ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
             <RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
@@ -80,7 +82,7 @@
           </Component>
           <Component Id="SampleConfigUser" Guid="AA636DB0-A0B9-4dd2-B74C-$(var.Postfix.GUID)" Win64="$(var.Win64)">
             <File Id="NSClientINIUser" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes">
-              <Permission User="Everyone" GenericRead="yes" Read="yes" GenericWrite="yes" Write="yes"/>
+              <Permission User="[USERGROUP_USERS]" GenericRead="yes" Read="yes" GenericWrite="yes" Write="yes"/>
             </File>
             <RemoveFile Id="PurgeConfigFilesUser" Name="*.ini" On="uninstall" />
             <Condition>INSTALL_SAMPLE_CONFIG AND USER_WRITABLE_CONFIG</Condition>
@@ -299,7 +301,11 @@
     <CustomAction Id="GenConfig.Command" Property="GenConfig" Value="&quot;[#NSClientEXE]&quot; settings --generate ini"/>
     <CustomAction Id="GenConfig" BinaryKey="WixCA" DllEntry="CAQuietExec" Impersonate="no" Return="ignore" Execute="deferred"/>
 
-		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/main_dll.dll' />
+    <CustomAction Id="SetUserGroupUsers" Property="TRANSLATE_SID" Value="S-1-5-32-545" Return="check" />
+    <CustomAction Id="SetUserGroupUsersProp" Property="TRANSLATE_SID_PROPERTY" Value="USERGROUP_USERS" Return="check" />
+    <CustomAction Id="TranslateUserGroupUsers" BinaryKey="InstallerHelper" DllEntry="TranslateSid"/>
+
+    <Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/main_dll.dll' />
 
     <InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>
@@ -307,7 +313,12 @@
       <Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT REMOVE</Custom>
       <Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT REMOVE AND INSTALL_SAMPLE_CONFIG = 1</Custom>
       <Custom Action="GenConfig" After="GenConfig.Command">NOT REMOVE AND INSTALL_SAMPLE_CONFIG = 1</Custom>
-		</InstallExecuteSequence>
+
+      <Custom Action="SetUserGroupUsers" After="LaunchConditions">NOT Installed</Custom>
+      <Custom Action="SetUserGroupUsersProp" After="SetUserGroupUsers">NOT Installed</Custom>
+      <Custom Action="TranslateUserGroupUsers" After="SetUserGroupUsersProp">NOT Installed</Custom>
+
+    </InstallExecuteSequence>
 
 		<InstallUISequence>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>

@@ -4,6 +4,20 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-03-19 MickeM
+ * Fixed issue in installer and "Make file writable" by everyone now uses Users SID.
+ * Fixed issue in installer and "Default plugins" now correctly sets them to 1.
+ 
+2012-03-18 MickeM
+ * Removed dependency on tcpip from the service and the installer
+ * Added new command to EventLog CheckEventlogCached which checks result caught by the real-time process.
+   CheckEventLogCACHE warn=gt:1 crit=gt:5
+   Requires a configured real-time checker to work.
+ * Added a series of keywords to EventLog check to facilitate better checking
+ * Added a set of aliases to make EventLog behave more like Wdinwos Eventlog viewer.
+ * Added a lot of unit test cases to the Eventlog checker.
+ * Fixed issue with default schedule beeing added as an item and not a template
+
 2012-03-11 MickeM
  * Fixed a lot of issues with the installer
  * Added so the installer can generate a config file for you

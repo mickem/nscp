@@ -1,3 +1,4 @@
+#define _WIN32_WINNT 0x0500
 #include <windows.h>
 #include <msi.h>
 #include <msiquery.h>
@@ -9,6 +10,7 @@
 #include <char_buffer.hpp>
 #include <file_helpers.hpp>
 #include "installer_helper.hpp"
+#include <Sddl.h>
 #include "../../settings_manager/settings_manager_impl.h"
 
 const UINT COST_SERVICE_INSTALL = 2000;
@@ -304,6 +306,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		write_changed_key(h, data, _T("CONF_WMI"), modpath, _T("CheckWMI"), modval);
 
 		if (h.propertyTouched(_T("CONF_CHECKS"))) {
+			modval = h.getPropery(_T("CONF_CHECKS"));
 			write_key(data, 1, modpath, _T("CheckSystem"), modval);
 			write_key(data, 1, modpath, _T("CheckDisk"), modval);
 			write_key(data, 1, modpath, _T("CheckEventLog"), modval);
@@ -458,3 +461,55 @@ extern "C" UINT __stdcall NeedUninstall (MSIHANDLE hInstall) {
 	}
 	return ERROR_SUCCESS;
 };
+
+
+extern "C" UINT __stdcall TranslateSid (MSIHANDLE hInstall) {
+	TCHAR szSid[MAX_PATH] = {0};
+	TCHAR szSidProperty[MAX_PATH] = {0};
+	TCHAR szName[MAX_PATH] = {0};
+	DWORD size = MAX_PATH;
+	UINT ret = 0;
+	ret = MsiGetProperty (hInstall, _T("TRANSLATE_SID"), szSid, &size);
+
+	if(ret != ERROR_SUCCESS) {
+		return 4444;
+	}
+
+	size = MAX_PATH;
+	ret = MsiGetProperty (hInstall, _T("TRANSLATE_SID_PROPERTY"), szSidProperty, &size);
+
+	if(ret != ERROR_SUCCESS) {
+		return 4445;
+	}
+
+	PSID pSID = NULL;
+
+	if(!ConvertStringSidToSid(szSid, &pSID)) {
+		return 4446;
+	}
+
+	size = MAX_PATH;
+	TCHAR szRefDomain[MAX_PATH] = {0};
+	SID_NAME_USE nameUse;
+	DWORD refSize = MAX_PATH;
+	if(!LookupAccountSid(NULL, pSID, szName, &size, szRefDomain, &refSize, &nameUse)) {
+		if(pSID != NULL) {
+			LocalFree(pSID);
+		}
+		return 4447;
+	}
+
+	ret = MsiSetProperty (hInstall, szSidProperty, szName);
+	if(!ConvertStringSidToSid(szSid, &pSID)) {
+		if(pSID != NULL) {
+			LocalFree(pSID);
+		}
+		return 4448;
+	}
+
+	if(pSID != NULL) {
+		LocalFree(pSID);
+	}
+	return ERROR_SUCCESS;
+}
+
