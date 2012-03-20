@@ -140,6 +140,11 @@
             <Component Id="PythonScript" Guid="8820A304-C696-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
               <File Id="PythonScript" Name="PythonScript.dll" DiskId="1" Source="$(var.Source)/modules/PythonScript.dll" Vital="no" />
             </Component>
+            <Component Id="ExtraClients" Guid="8820A304-C696-4393-A72F-$(var.Postfix.GUID)" Win64="$(var.Win64)">
+              <File Id="GraphiteClient" Name="GraphiteClient.dll" DiskId="1" Source="$(var.Source)/modules/GraphiteClient.dll" Vital="no" />
+              <File Id="SMTPClient" Name="SMTPClient.dll" DiskId="1" Source="$(var.Source)/modules/SMTPClient.dll" Vital="no" />
+              <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
+            </Component>
             <Component Id="Plugins" Guid="9B490E67-5472-4266-96DC-$(var.Postfix.GUID)" Win64="$(var.Win64)">
               <File Id="ModCheckEventLog.dll" Name="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
               <File Id="ModCheckExternalScripts.dll" Name="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
@@ -268,6 +273,9 @@
 				</Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
           <ComponentRef Id="NSCA" />
+        </Feature>
+        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="disallow">
+          <ComponentRef Id="ExtraClients" />
         </Feature>
         <Feature Id="NSCPPlugin" Title="NSCP plugin (experimental)" Description="Plugin to submit passive results to an NSCP server" Level="1" Absent="disallow">
           <ComponentRef Id="NSCP" />

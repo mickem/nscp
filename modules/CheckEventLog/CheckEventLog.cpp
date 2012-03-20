@@ -146,17 +146,21 @@ void real_time_thread::set_language(std::string lang) {
 		info.dwLang = MAKELANGID(wLang, SUBLANG_NEUTRAL);
 }
 
-void real_time_thread::process_no_events() {
+void real_time_thread::process_no_events(std::wstring alias) {
 	std::wstring response;
-	if (!nscapi::core_helper::submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, info.ok_msg, info.perf_msg, response)) {
+	if (alias.empty())
+		alias = info.alias;
+	if (!nscapi::core_helper::submit_simple_message(info.target, alias, NSCAPI::returnCRIT, info.ok_msg, info.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 }
 
-void real_time_thread::process_record(const EventLogRecord &record) {
+void real_time_thread::process_record(std::wstring alias, const EventLogRecord &record) {
 	std::wstring response;
 	std::wstring message = record.render(true, info.syntax, DATE_FORMAT, info.dwLang);
-	if (!nscapi::core_helper::submit_simple_message(info.target, info.alias, NSCAPI::returnCRIT, message, info.perf_msg, response)) {
+	if (alias.empty())
+		alias = info.alias;
+	if (!nscapi::core_helper::submit_simple_message(info.target, alias, NSCAPI::returnCRIT, message, info.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 
@@ -198,19 +202,20 @@ void real_time_thread::debug_miss(const EventLogRecord &record) {
 void real_time_thread::thread_proc() {
 
 	std::list<eventlog_filter::filter_engine> filters;
-	BOOST_FOREACH(std::wstring filter, filters_) {
+	BOOST_FOREACH(const filter_container &filter, filters_) {
 		eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(info.syntax, DATE_FORMAT);
-		fargs->filter = filter;
-		fargs->debug = true;
+		fargs->filter = filter.filter;
+		fargs->debug = debug_;
+		fargs->alias = filter.alias;
 		eventlog_filter::filter_engine engine = eventlog_filter::factories::create_engine(fargs);
 
 		if (!engine) {
-			NSC_LOG_ERROR_STD(_T("Invalid filter: ") + filter);
+			NSC_LOG_ERROR_STD(_T("Invalid filter: ") + filter.filter);
 			continue;
 		}
 
 		if (!engine->boot()) {
-			NSC_LOG_ERROR_STD(_T("Error booting filter: ") + filter);
+			NSC_LOG_ERROR_STD(_T("Error booting filter: ") + filter.filter);
 			continue;
 		}
 
@@ -252,7 +257,9 @@ void real_time_thread::thread_proc() {
 	while (true) {
 		DWORD dwWaitReason = WaitForMultipleObjects(list.size()+1, handles, FALSE, dwWaitTime==0?INFINITE:dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
-			process_no_events();
+			BOOST_FOREACH(eventlog_filter::filter_engine engine, filters) {
+				process_no_events(engine->data->alias);
+			}
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
 			delete [] handles;
 			return;
@@ -276,7 +283,7 @@ void real_time_thread::thread_proc() {
 
 				BOOST_FOREACH(eventlog_filter::filter_engine engine, filters) {
 					if (engine->match(arg)) {
-						process_record(elr);
+						process_record(engine->data->alias, elr);
 						matched = true;
 					}
 				}
@@ -319,10 +326,15 @@ bool real_time_thread::stop() {
 }
 
 void real_time_thread::add_realtime_filter(std::wstring key, std::wstring query) {
-	if (!key.empty() && query.empty())
-		filters_.push_back(key);
-	else
-		filters_.push_back(query);
+	filter_container c;
+	if (!key.empty() && query.empty()) {
+		c.filter = key;
+		filters_.push_back(c);
+	} else {
+		c.alias = key;
+		c.filter = query;
+		filters_.push_back(c);
+	}
 }
 
 
@@ -373,7 +385,7 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
 
 			(_T("maximum age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_max_age, &thread_, _1), _T("5m")),
-			_T("MAGIMUM AGE"), _T("How long befor reporting \"ok\" (if this is set to off no ok will be reported only errors)"))
+			_T("MAGIMUM AGE"), _T("How long before reporting \"ok\" (if this is set to off no ok will be reported only errors)"))
 
 			(_T("filter"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_filter, &thread_, _1), _T("")),
 			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
@@ -393,6 +405,11 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 			(_T("enable active"), sh::bool_key(&thread_.cache_, false),
 			_T("ENABLE ACTIVE MONITORING"), _T("This will store all matches so you can use real-time filters from active monitoring (use CheckEventlogCache)."))
 
+			(_T("ok message"), sh::wstring_key(&thread_.info.ok_msg, _T("eventlog found no records")),
+			_T("OK MESSAGE"), _T("This is the message sent periodically whenever no error is discovered."))
+
+			(_T("alias"), sh::wstring_key(&thread_.info.alias, _T("eventlog")),
+			_T("ALIAS"), _T("The alias to use for this event (in NSCA this constitutes the service name)."))
 			;
 
 		settings.register_all();

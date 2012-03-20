@@ -36,10 +36,15 @@ struct real_time_thread {
 		std::wstring alias;
 		std::wstring syntax;
 		std::wstring ok_msg;
-		std::wstring perf_msg;
-		bool perf;
+		std::wstring perf_msg; //
+		//bool perf;
 		DWORD dwLang;
 
+	};
+
+	struct filter_container {
+		std::wstring filter;
+		std::wstring alias;
 	};
 
 	target_information info;
@@ -48,7 +53,7 @@ struct real_time_thread {
 	unsigned long long start_age_;
 	unsigned long long max_age_;
 	//std::wstring syntax_;
-	std::list<std::wstring> filters_;
+	std::list<filter_container> filters_;
 	boost::shared_ptr<boost::thread> thread_;
 	HANDLE stop_event_;
 	std::list<std::wstring> lists_;
@@ -93,8 +98,8 @@ struct real_time_thread {
 
 	void thread_proc();
 //	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
-	void process_no_events();
-	void process_record(const EventLogRecord &record);
+	void process_no_events(std::wstring alias);
+	void process_record(std::wstring alias, const EventLogRecord &record);
 	void debug_miss(const EventLogRecord &record);
 //	void process_event(eventlog_filter::filter_engine engine, const EVENTLOGRECORD* record);
 };

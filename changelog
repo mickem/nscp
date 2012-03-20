@@ -4,6 +4,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-03-20 MickeM
+ * Fixed alias/service name for real-time event log filters
+ * Added smtp/syslog and graphite clients to installer
+ * Fixed so eventlog wont crahs on invalid messages
+
 2012-03-19 MickeM
  * Fixed issue in installer and "Make file writable" by everyone now uses Users SID.
  * Fixed issue in installer and "Default plugins" now correctly sets them to 1.

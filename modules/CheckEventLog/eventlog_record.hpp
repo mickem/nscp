@@ -187,34 +187,25 @@ public:
 
 	};
 
-	boost::tuple<DWORD,std::wstring> wrapped_format(HMODULE hDLL, DWORD dwLang, DWORD id, tchar_array &buffer) const {
+	boost::tuple<DWORD,std::wstring> safe_format(HMODULE hDLL, DWORD dwLang) const {
 		LPVOID lpMsgBuf;
 		unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY|FORMAT_MESSAGE_IGNORE_INSERTS,hDLL,
-			id,dwLang,(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(buffer.get_buffer_unsafe()));
+			pevlr_->EventID,dwLang,(LPTSTR)&lpMsgBuf,0,NULL);
 		if (dwRet == 0) {
 			return boost::tuple<DWORD,std::wstring>(GetLastError(), _T(""));
 		}
-		LocalFree(lpMsgBuf);
-		dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY,hDLL,
-			id,dwLang,(LPTSTR)&lpMsgBuf,0,reinterpret_cast<va_list*>(buffer.get_buffer_unsafe()));
-		if (dwRet == 0)
-			return boost::make_tuple(GetLastError(), _T(""));
 		std::wstring msg = reinterpret_cast<wchar_t*>(lpMsgBuf);
 		LocalFree(lpMsgBuf);
+		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
+		for (unsigned int i = 0;i<pevlr_->NumStrings;i++) {
+			strEx::replace(msg, _T("%")+strEx::itos(i+1), std::wstring(p));
+			unsigned int len = wcslen(p);
+			p = &(p[len+1]);
+		}
 		return boost::make_tuple(0, msg);
 	}
 	std::wstring render_message(DWORD dwLang = 0) const {
 		std::vector<std::wstring> args;
-		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
-
-		tchar_array buffer(pevlr_->NumStrings+10);
-		for (unsigned int i = 0;i<pevlr_->NumStrings;i++) {
-			unsigned int len = buffer.set(i, p);
-			p = &(p[len+1]);
-		}
-		for (unsigned int i = pevlr_->NumStrings;i<pevlr_->NumStrings+10;i++) {
-			unsigned int len = buffer.set(i, _T(""));
-		}
 		std::wstring ret;
 		strEx::splitList dlls = strEx::splitEx(get_dll(), _T(";"));
 		for (strEx::splitList::const_iterator cit = dlls.begin(); cit != dlls.end(); ++cit) {
@@ -228,7 +219,7 @@ public:
 				}
 				if (dwLang == 0)
 					dwLang = MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT);
-				boost::tuple<DWORD,std::wstring> formated_data = wrapped_format(hDLL, dwLang, pevlr_->EventID, buffer);
+				boost::tuple<DWORD,std::wstring> formated_data = safe_format(hDLL, dwLang);
 				if (formated_data.get<0>() != 0) {
 					FreeLibrary(hDLL);
 					if (formated_data.get<0>() == 15100) {

@@ -139,6 +139,7 @@ namespace eventlog_filter {
 		bool bFilterIn;
 		bool bShowDescriptions;
 		unsigned long long now;
+		std::wstring alias;
 
 		data_arguments(parent_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax)
 		{}
