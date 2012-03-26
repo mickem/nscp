@@ -4,6 +4,19 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+
+2012-03-26 MickeM
+ * Fixed perfoamcen data parsing issue
+ * Fixed external scripts perfoamcen data issue
+ * Fixed boolen flag handling in settings (default generated as false regardless of actual state)
+ * Fixed so "advanced properties" are not generated with --update-defalts
+ * Added some "advanced properties" here and there
+ * Fixed path handling for object
+
+2012-03-25 MickeM
+ * Added last few features to the GraphitePlugin (which is now usable)
+ * Tweaked nscp settings command line syntax a bit to be more flexible and usable...
+
 2012-03-20 MickeM
  * Fixed alias/service name for real-time event log filters
  * Added smtp/syslog and graphite clients to installer

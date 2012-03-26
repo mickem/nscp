@@ -260,6 +260,11 @@ namespace strEx {
 			ss << i;
 			return ss.str();
 		}
+		inline std::string itos(double i) {
+			std::stringstream ss;
+			ss << i;
+			return ss.str();
+		}
 		inline std::string itos(int i) {
 			std::stringstream ss;
 			ss << i;

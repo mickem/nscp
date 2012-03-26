@@ -54,27 +54,15 @@ private:
 
 		static void init_default(target_object &target) {
 			target.set_property_int(_T("timeout"), 30);
-			target.set_property_string(_T("encryption"), _T("ase"));
-			target.set_property_int(_T("payload length"), 512);
+			target.set_property_string(_T("path"), _T("/nsclient++"));
 		}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
 
-				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
-				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+				(_T("path"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("path"), _1), _T("system.${hostname}.${check_alias}.${perf_alias}")),
+				_T("PATH FOR VALUES"), _T(""))
 
-				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 512),
-				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
-
-				(_T("encryption"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("encryption"), _1), _T("aes")),
-				_T("ENCRYPTION METHOD"), _T("Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all."))
-
-				(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("password"), _1), _T("")),
-				_T("PASSWORD"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
-
-				(_T("time offset"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("delay"), _1), _T("0")),
-				_T("TIME OFFSET"), _T("Time offset."))
 				;
 		}
 		static void post_process_target(target_object &target) {
@@ -85,30 +73,19 @@ private:
 	client::command_manager commands;
 
 	struct connection_data {
-		std::string password;
-		std::string encryption;
-		std::string host, port;
-		std::string sender_hostname;
+		std::string path;
+		std::string host, port, sender_hostname;
 		int timeout;
-		int buffer_length;
-		int time_delta;
 
 		connection_data(nscapi::protobuf::types::destination_container recipient, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
 			recipient.import(target);
 			timeout = recipient.get_int_data("timeout", 30);
-			buffer_length = recipient.get_int_data("payload length", 512);
-			password = recipient.get_string_data("password");
-			encryption = recipient.get_string_data("encryption");
-			std::string tmp = recipient.get_string_data("time offset");
-			if (!tmp.empty())
-			time_delta = strEx::stol_as_time_sec(recipient.get_string_data("time offset"));
-			else
-				time_delta = 0;
+			path = recipient.get_string_data("path");
 			host = recipient.address.get_host();
-			port = strEx::s::itos(recipient.address.get_port(5667));
+			port = strEx::s::itos(recipient.address.get_port(2003));
 			sender_hostname = sender.address.host;
 			if (sender.has_data("host"))
-			sender_hostname = sender.get_string_data("host");
+				sender_hostname = sender.get_string_data("host");
 		}
 
 		std::wstring to_wstring() {
@@ -116,10 +93,7 @@ private:
 			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
 			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
 			ss << _T(", timeout: ") << timeout;
-			ss << _T(", buffer_length: ") << buffer_length;
-			ss << _T(", time_delta: ") << time_delta;
-			ss << _T(", password: ") << utf8::cvt<std::wstring>(password);
-			ss << _T(", encryption: ") << utf8::cvt<std::wstring>(encryption);
+			ss << _T(", path: ") << utf8::cvt<std::wstring>(path);
 			return ss.str();
 		}
 	};

@@ -118,7 +118,7 @@ namespace nscapi {
 
 				object_type::options_type options;
 				settings.path(object.path).add_path()
-					(object.alias, nscapi::settings_helper::wstring_map_path(&options), 
+					(nscapi::settings_helper::wstring_map_path(&options), 
 					_T("TARGET DEFENITION"), _T("Target definition for: ") + object.alias)
 
 					;
@@ -129,19 +129,19 @@ namespace nscapi {
 					_T("TARGET ADDRESS"), _T("Target host address"))
 
 					(_T("host"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_host, &object, _1)),
-					_T("TARGET HOST"), _T("The target server to report results to."))
+					_T("TARGET HOST"), _T("The target server to report results to."), true)
 
 					(_T("port"), sh::int_fun_key<int>(boost::bind(&object_type::set_port, &object, _1)),
-					_T("TARGET PORT"), _T("The target server port"))
+					_T("TARGET PORT"), _T("The target server port"), true)
 
 					(_T("alias"), nscapi::settings_helper::wstring_key(&object.alias, object.alias),
-					_T("TARGET ALIAS"), _T("The alias for the target"))
+					_T("TARGET ALIAS"), _T("The alias for the target"), true)
 
 					(_T("parent"), nscapi::settings_helper::wstring_key(&object.parent, _T("default")),
-					_T("TARGET PARENT"), _T("The parent the target inherits from"))
+					_T("TARGET PARENT"), _T("The parent the target inherits from"), true)
 
 					(_T("is template"), nscapi::settings_helper::bool_key(&object.is_template, false),
-					_T("IS TEMPLATE"), _T("Declare this object as a template (this means it will not be avalible as a separate object)"))
+					_T("IS TEMPLATE"), _T("Declare this object as a template (this means it will not be avalible as a separate object)"), true)
 
 					;
 				custom_reader::add_custom_keys(settings, proxy, object);

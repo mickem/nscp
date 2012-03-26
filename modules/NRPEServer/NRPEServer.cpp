@@ -39,14 +39,6 @@ bool NRPEListener::loadModule() {
 }
 
 bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-
-/*
-DEFINE_SETTING_S(ALLOWED_HOSTS, NRPE_SECTION_PROTOCOL, GENERIC_KEY_ALLOWED_HOSTS, "");
-DESCRIBE_SETTING(ALLOWED_HOSTS, "ALLOWED HOST ADDRESSES", "This is a comma-delimited list of IP address of hosts that are allowed to talk to NSClient deamon. If you leave this blank the global version will be used instead.");
-
-DEFINE_SETTING_B(CACHE_ALLOWED, NRPE_SECTION_PROTOCOL, GENERIC_KEY_SOCK_CACHE_ALLOWED, false);
-DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache looked up hosts if you check dynamic/changing hosts set this to false.");
-*/
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
@@ -61,7 +53,7 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 			_T("PORT NUMBER"), _T("Port to use for NRPE."))
 
 			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nrpe::server::handler::set_payload_length, info_.request_handler, _1), 1024),
-			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
+			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."), true)
 
 			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_arguments, info_.request_handler, _1), false),
 			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
@@ -70,20 +62,20 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
 
 			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_perf_data, info_.request_handler, _1), true),
-			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
+			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."), true)
 
 			;
 
 		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
 			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
-			_T("THREAD POOL"), _T(""))
+			_T("THREAD POOL"), _T(""), true)
 
 			(_T("bind to"), sh::string_key(&info_.address),
-			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
+			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."), true)
 
 			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
-			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
+			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
 
 			(_T("allowed hosts"), sh::string_fun_key<std::wstring>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), _T("127.0.0.1")),
 			_T("ALLOWED HOSTS"), _T("A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges."))
@@ -98,7 +90,7 @@ DESCRIBE_SETTING_ADVANCED(CACHE_ALLOWED, "ALLOWED HOSTS CACHING", "Used to cache
 			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
 
 			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
-			_T("SSL CERTIFICATE"), _T(""))
+			_T("SSL CERTIFICATE"), _T("Configure which SSL certificate to use (DH key)"))
 
 			;
 

@@ -79,6 +79,7 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 
 		commands_path = settings.alias().get_settings_path(_T("scripts"));
 		aliases_path = settings.alias().get_settings_path(_T("alias"));
+		std::wstring wrappings_path = settings.alias().get_settings_path(_T("wrappings"));
 
 		settings.alias().add_path_to_settings()
 
@@ -90,6 +91,18 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 		settings.register_all();
 		settings.notify();
 		settings.clear();
+
+		NSC_DEBUG_MSG(_T("===> ") + strEx::itos(wrappings_.size()));
+
+		if (wrappings_.empty()) {
+			NSC_DEBUG_MSG(_T("No wrappings found (adding default: vbs, ps1 and bat)"));
+			wrappings_[_T("vbs")] = _T("cscript.exe //T:30 //NoLogo scripts\\lib\\wrapper.vbs %SCRIPT% %ARGS%");
+			wrappings_[_T("ps1")] = _T("cmd /c echo scripts\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -");
+			wrappings_[_T("bat")] = _T("scripts\\%SCRIPT% %ARGS%");
+			get_core()->settings_register_key(wrappings_path, _T("vbs"), NSCAPI::key_string, _T("VISUAL BASIC WRAPPING"), _T(""), wrappings_[_T("vbs")], false);
+			get_core()->settings_register_key(wrappings_path, _T("ps1"), NSCAPI::key_string, _T("POWERSHELL WRAPPING"), _T(""), wrappings_[_T("ps1")], false);
+			get_core()->settings_register_key(wrappings_path, _T("bat"), NSCAPI::key_string, _T("BATCH FILE WRAPPING"), _T(""), wrappings_[_T("bat")], false);
+		}
 
 		settings.alias().add_path_to_settings()
 			(_T("EXTERNAL SCRIPT SECTION"), _T("Section for external scripts configuration options (CheckExternalScripts)."))
@@ -121,6 +134,7 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 
 		settings.register_all();
 		settings.notify();
+
 
 		if (!scriptDirectory_.empty()) {
 			addAllScriptsFrom(scriptDirectory_);

@@ -120,18 +120,18 @@ namespace process {
 				msg = _T("Command (") + args.command + _T(") didn't terminate within the timeout period (") + strEx::itos(args.timeout) + _T("s)!");
 				result = NSCAPI::returnUNKNOWN;
 			} else {
+				std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
+				if (pos != std::wstring::npos) {
+					if (pos == msg.size())
+						msg = msg.substr(0,pos);
+					else
+						msg = msg.substr(0,pos+1);
+				}
 				if (msg.empty()) {
 					msg = _T("No output available from command (") + args.command + _T(").");
 				} else {
 					strEx::token t = strEx::getToken(msg, '|');
 					msg = t.first;
-					std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
-					if (pos != std::wstring::npos) {
-						if (pos == msg.size())
-							msg = msg.substr(0,pos);
-						else
-							msg = msg.substr(0,pos+1);
-					}
 					perf = t.second;
 				}
 				if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {

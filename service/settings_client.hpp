@@ -89,10 +89,11 @@ namespace nsclient {
 		}
 
 
-		int generate(std::wstring target) {
+		int generate(bool load_all, std::wstring target) {
 			try {
-				core_->load_all_plugins(NSCAPI::dontStart);
-				settings_manager::get_core()->update_defaults();
+				if (load_all)
+					core_->load_all_plugins(NSCAPI::dontStart);
+				//settings_manager::get_core()->update_defaults();
 				if (target == _T("settings") || target.empty()) {
 					settings_manager::get_core()->get()->save();
 				} else if (target == _T("trac")) {
@@ -129,7 +130,7 @@ namespace nsclient {
 						}
 					}
 				} else {
-					settings_manager::get_core()->update_defaults();
+					//settings_manager::get_core()->update_defaults();
 					settings_manager::get_core()->get()->save_to(target);
 				}
 				return 1;

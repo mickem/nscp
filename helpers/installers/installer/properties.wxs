@@ -32,16 +32,17 @@
 	<Property Id="CONFIGURATION_TYPE">ini://${shared-path}/nsclient.ini</Property>
    -->
 	<Property Id="CONFIGURATION_TYPE">ini://${exe-path}/nsclient.ini</Property>
-	<Property Id="INSTALL_SAMPLE_CONFIG">1</Property>
+  <Property Id="GENERATE_SAMPLE_CONFIG">1</Property>
+  <Property Id="INSTALL_SAMPLE_CONFIG">1</Property>
 
-	<!-- CONFIGURE THE INSTALLER -->
-	<Property Id="ALLOW_CONFIGURATION">1</Property>
-	<Property Id="MAIN_CONFIGURATION_FILE">nsclient.ini</Property>
-	<Property Id="CUSTOM_CONFIGURATION_FILE">nsclient.ini</Property>
-	<WixVariable Id="WixUIBannerBmp" Value="Bitmaps\bannrbmp.bmp" />
-	<WixVariable Id="WixUIDialogBmp" Value="Bitmaps\dlgbmp.bmp" />
+  <!-- CONFIGURE THE INSTALLER -->
+  <Property Id="ALLOW_CONFIGURATION">1</Property>
+  <Property Id="MAIN_CONFIGURATION_FILE">nsclient.ini</Property>
+  <Property Id="CUSTOM_CONFIGURATION_FILE">nsclient.ini</Property>
+  <WixVariable Id="WixUIBannerBmp" Value="Bitmaps\bannrbmp.bmp" />
+  <WixVariable Id="WixUIDialogBmp" Value="Bitmaps\dlgbmp.bmp" />
 
-	<!-- CONFIGURE THE PROGRAM -->
+  <!-- CONFIGURE THE PROGRAM -->
 	<Property Id="HELP_LINK">http://nsclient.org/nscp/</Property>
 	<Property Id="SERVICE_NAME">nscp</Property>
 

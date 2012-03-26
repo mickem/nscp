@@ -144,7 +144,7 @@ namespace nscapi {
 			static int parse_simple_query_response(const std::string &response, std::wstring &msg, std::wstring &perf);
 			static void create_simple_exec_request(const std::wstring &command, const std::list<std::wstring> & args, std::string &request);
 			static void create_simple_exec_request(const std::wstring &command, const std::vector<std::wstring> & args, std::string &request);
-			static void parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result);
+			static int parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result);
 			static void parse_simple_exec_result(const std::string &response, std::wstring &result);
 
 			template<class T>

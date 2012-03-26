@@ -435,13 +435,18 @@ namespace nscapi {
 
 			message.SerializeToString(&request);
 		}
-		void functions::parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result) {
+		int functions::parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result) {
+			int ret = 0;
 			Plugin::ExecuteResponseMessage message;
 			message.ParseFromString(response);
 
 			for (int i=0;i<message.payload_size(); i++) {
 				result.push_back(utf8::cvt<std::wstring>(message.payload(i).message()));
+				int r=gbp_to_nagios_status(message.payload(i).result());
+				if (r > ret)
+					ret = r;
 			}
+			return ret;
 		}
 		void functions::parse_simple_exec_result(const std::string &response, std::wstring &result) {
 			Plugin::ExecuteResponseMessage message;
@@ -529,16 +534,25 @@ namespace nscapi {
 					break;
 				}
 
-				Plugin::Common::PerformanceData* perfData = payload->add_perf();
-				perfData->set_type(Plugin::Common_DataType_FLOAT);
 				std::pair<T,T> fitem = strEx::split(items[0], tokenizer_data.perf_equal_sign);
 				T alias = fitem.first;
 				if (alias.size() > 0 && alias[0] == tokenizer_data.perf_lable_enclosure[0] && alias[alias.size()-1] == tokenizer_data.perf_lable_enclosure[0])
 					alias = alias.substr(1, alias.size()-2);
 
+				if (alias.empty())
+					continue;
+				Plugin::Common::PerformanceData* perfData = payload->add_perf();
+				perfData->set_type(Plugin::Common_DataType_FLOAT);
 				perfData->set_alias(utf8::cvt<std::string>(alias));
 				Plugin::Common_PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
 
+				typename T::size_type pstart = fitem.second.find_first_of(tokenizer_data.perf_valid_number);
+				if (pstart == T::npos) {
+					floatPerfData->set_value(0);
+					continue;
+				}
+				if (pstart != 0)
+					fitem.second = fitem.second.substr(pstart);
 				typename T::size_type pend = fitem.second.find_first_not_of(tokenizer_data.perf_valid_number);
 				if (pend == T::npos) {
 					floatPerfData->set_value(trim_to_double(fitem.second));

@@ -89,18 +89,11 @@ private:
 			type = tok.first.substr(pos+1);
 
 		std::wstring tpl = wrappings_[type];
-		if (tpl.empty() && type == _T("vbs"))
-			tpl = _T("cscript.exe //T:30 //NoLogo scripts\\lib\\wrapper.vbs %SCRIPT% %ARGS%");
-		else if (tpl.empty() && type == _T("ps1"))
-			tpl = _T("cmd /c echo scripts\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -");
-		else if (tpl.empty() && type == _T("bat"))
-			tpl = _T("scripts\\%SCRIPT% %ARGS%");
 		if (tpl.empty()) {
 			NSC_LOG_ERROR(_T("Failed to find wrapping for type: ") + type);
 		} else {
 			strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
 			strEx::replace(tpl, _T("%ARGS%"), tok.second);
-
 			add_command(key,tpl);
 		}
 	}

@@ -150,7 +150,7 @@ void real_time_thread::process_no_events(std::wstring alias) {
 	std::wstring response;
 	if (alias.empty())
 		alias = info.alias;
-	if (!nscapi::core_helper::submit_simple_message(info.target, alias, NSCAPI::returnCRIT, info.ok_msg, info.perf_msg, response)) {
+	if (!nscapi::core_helper::submit_simple_message(info.target, alias, NSCAPI::returnOK, info.ok_msg, info.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 }
@@ -207,6 +207,7 @@ void real_time_thread::thread_proc() {
 		fargs->filter = filter.filter;
 		fargs->debug = debug_;
 		fargs->alias = filter.alias;
+		fargs->bShowDescriptions = true;
 		eventlog_filter::filter_engine engine = eventlog_filter::factories::create_engine(fargs);
 
 		if (!engine) {

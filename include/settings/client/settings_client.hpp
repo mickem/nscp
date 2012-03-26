@@ -492,16 +492,16 @@ namespace nscapi {
 			settings_keys_easy_init(std::wstring path, settings_registry* owner_) : owner(owner_), path_(path) {}
 			settings_keys_easy_init(std::wstring path, std::wstring parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent) {}
 
-			settings_keys_easy_init& operator()(std::wstring path, std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description) {
-				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description)));
+			settings_keys_easy_init& operator()(std::wstring path, std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description, bool advanced = false) {
+				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description, advanced)));
 				if (!parent_.empty())
 					d->set_parent(parent_);
 				add(d);
 				return *this;
 			}
 
-			settings_keys_easy_init& operator()(std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description) {
-				boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description)));
+			settings_keys_easy_init& operator()(std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description, bool advanced = false) {
+				boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
 				if (!parent_.empty())
 					d->set_parent(parent_);
 				add(d);

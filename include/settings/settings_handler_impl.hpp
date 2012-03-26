@@ -134,7 +134,6 @@ namespace settings {
 		///
 		/// @author mickem
 		void update_defaults() {
-			get_logger()->warn(__FILE__, __LINE__, _T("Updating settings with default values!"));
 			BOOST_FOREACH(std::wstring path, get_reg_sections()) {
 				get()->add_path(path);
 				BOOST_FOREACH(std::wstring key, get_reg_keys(path)) {
@@ -145,7 +144,7 @@ namespace settings {
 							if (desc.type == key_string)
 								get()->set_string(path, key, desc.defValue);
 							else if (desc.type == key_bool)
-								get()->set_bool(path, key, desc.defValue==_T("true"));
+								get()->set_bool(path, key, settings::settings_interface::string_to_bool(desc.defValue));
 							else if (desc.type == key_integer)
 								get()->set_int(path, key, strEx::stoi(desc.defValue));
 							else
@@ -156,7 +155,7 @@ namespace settings {
 							if (desc.type == key_string)
 								get()->set_string(path, key, val);
 							else if (desc.type == key_bool)
-								get()->set_bool(path, key, val==_T("true"));
+								get()->set_bool(path, key, settings::settings_interface::string_to_bool(val));
 							else if (desc.type == key_integer)
 								get()->set_int(path, key, strEx::stoi(val));
 							else

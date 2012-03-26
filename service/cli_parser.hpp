@@ -49,6 +49,7 @@ public:
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
 			("add-defaults", "Add all default (if missing) values.")
+			("load-all", "Load all plugins (currently only used with generate).")
 			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
 			("key", po::value<std::wstring>()->default_value(_T("")), "Key to work with.")
 			("set", po::value<std::wstring>()->implicit_value(_T("")), "Set a key and path to a given value.")
@@ -223,6 +224,7 @@ public:
 				return 1;
 
 			bool def = vm.count("add-defaults")==1;
+			bool load_all = vm.count("load-all")==1;
 
 			nsclient::settings_client client(core_);
 
@@ -232,40 +234,33 @@ public:
 			client.set_current(current);
 			client.set_update_defaults(def);
 
-			if (vm.count("generate")) {
-				core_->set_settings_context(vm["generate"].as<std::wstring>());
-				client.boot();
-				int ret = client.generate(vm["generate"].as<std::wstring>());
-				client.exit();
-				return ret;
-			}
 			client.boot();
-
-
 			int ret = -1;
 
-			if (vm.count("migrate-to")) {
+			if (vm.count("generate")) {
+				//core_->set_settings_context(vm["generate"].as<std::wstring>());
+				int ret = client.generate(load_all, vm["generate"].as<std::wstring>());
+				client.exit();
+				return ret;
+			} else if (vm.count("migrate-to")) {
 				ret = client.migrate_to(vm["migrate-to"].as<std::wstring>());
-			}
-			if (vm.count("migrate-from")) {
+			} else if (vm.count("migrate-from")) {
 				ret = client.migrate_from(vm["migrate-from"].as<std::wstring>());
-			}
-			if (vm.count("set")) {
+			} else if (vm.count("set")) {
 				ret = client.set(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>(), vm["set"].as<std::wstring>());
-			}
-			if (vm.count("list")) {
+			} else if (vm.count("list")) {
 				ret = client.list(vm["path"].as<std::wstring>());
-			}
-			if (vm.count("show")) {
+			} else if (vm.count("show")) {
 				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
-			}
-			if (vm.count("switch")) {
+			} else if (vm.count("switch")) {
 				client.switch_context(vm["switch"].as<std::wstring>());
 				ret = 0;
-			}
-			if (vm.count("settings")) {
+			} else if (vm.count("settings")) {
 				client.set_current(vm["settings"].as<std::wstring>());
 				ret = 0;
+			} else {
+				std::cout << all << std::endl;
+				return 1;
 			}
 			client.exit();
 

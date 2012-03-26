@@ -38,6 +38,6 @@ ENDFOREACH(file ${scripts_PYT})
 
 FOREACH(file ${scripts_LUA})
 	get_filename_component(filename ${file} NAME)
-	#MESSAGE(STATUS " + lib - ${filename}")
-	copy_single_file("script lua" lua/${filename} lua/python)
+	#MESSAGE(STATUS " + lua - ${filename}")
+	copy_single_file("script lua" lua/${filename} scripts/lua)
 ENDFOREACH(file ${scripts_LUA})
