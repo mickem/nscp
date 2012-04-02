@@ -97,6 +97,7 @@ public:
 		file_ = base_path() + file;
 	}
 	std::string base_path() {
+#ifdef WIN32
 		unsigned int buf_len = 4096;
 		char* buffer = new char[buf_len+1];
 		GetModuleFileNameA(NULL, buffer, buf_len);
@@ -105,6 +106,9 @@ public:
 		path = path.substr(0, pos+1);
 		delete [] buffer;
 		return path;
+#else
+		return "";
+#endif
 	}
 
 
