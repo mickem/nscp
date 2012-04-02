@@ -1,6 +1,6 @@
 #pragma once
 #include <nscapi/nscapi_helper.hpp>
-
+#include <nsclient/logger.hpp>
 class NSClientT;
 namespace nsclient {
 	class simple_client {
@@ -8,29 +8,28 @@ namespace nsclient {
 	public:
 		simple_client(NSClient *core) : core_(core) {}
 
-		void log(std::wstring msg) {
-			std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg); 
-			core_->reportMessage(s);
+		inline nsclient::logging::logger_interface* get_logger() const {
+			return nsclient::logging::logger::get_logger(); 
 		}
-		void start() {
-			if (!core_->boot_init()) {
-				core_->log_error(__FILE__, __LINE__, _T("Service failed to init"));
+		void start(std::wstring log) {
+			if (!core_->boot_init(log)) {
+				get_logger()->error(__FILE__, __LINE__, _T("Service failed to init"));
 				return;
 			}
 			if (!core_->boot_load_all_plugins()) {
-				core_->log_error(__FILE__, __LINE__, _T("Service failed to load plugins"));
+				get_logger()->error(__FILE__, __LINE__, _T("Service failed to load plugins"));
 				return;
 			}
 			if (!core_->boot_start_plugins(true)) {
-				core_->log_error(__FILE__, __LINE__, _T("Service failed to start plugins"));
+				get_logger()->error(__FILE__, __LINE__, _T("Service failed to start plugins"));
 				return;
 			}
 
 			if (core_->get_service_control().is_started())
-				core_->log_info(__FILE__, __LINE__, _T("Service seems to be started (Sockets and such will probably not work)..."));
+				get_logger()->info(__FILE__, __LINE__, _T("Service seems to be started (Sockets and such will probably not work)..."));
 
 			//std::wcout << _T("Using settings from: ") << settings_manager::get_core()->get_settings_type_desc() << std::endl;
-			core_->log_info(__FILE__, __LINE__, _T("Enter command to inject or exit to terminate..."));
+			get_logger()->info(__FILE__, __LINE__, _T("Enter command to inject or exit to terminate..."));
 /*
 			Settings::get_settings()->clear_cache();
 			LOG_MESSAGE_STD( _T("test 001: ") + SETTINGS_GET_STRING(NSCLIENT_TEST1) );
@@ -46,21 +45,21 @@ namespace nsclient {
 				std::wstring s;
 				std::getline(std::wcin, s);
 				if (s == _T("exit")) {
-					log(_T("Exiting..."));
+					get_logger()->info(__FILE__, __LINE__, _T("Exiting..."));
 					break;
 				} else if (s == _T("plugins")) {
-					log(_T("Plugins: "));
+					get_logger()->info(__FILE__, __LINE__, _T("Plugins: "));
 					core_->listPlugins();
 				} else if (s == _T("list") || s == _T("commands")) {
-					log(_T("Commands:"));
+					get_logger()->info(__FILE__, __LINE__, _T("Commands:"));
 					std::list<std::wstring> lst = core_->list_commands();
 					for (std::list<std::wstring>::const_iterator cit = lst.begin(); cit!=lst.end();++cit)
-						log(_T("| ") + *cit + _T(": ") + core_->describeCommand(*cit));
+						get_logger()->info(__FILE__, __LINE__, _T("| ") + *cit + _T(": ") + core_->describeCommand(*cit));
 				} else if (s.size() > 4 && s.substr(0,3) == _T("log")) {
-					log(_T("Setting log to: ") + s.substr(4));
-					core_->set_loglevel(s.substr(4));
+					get_logger()->info(__FILE__, __LINE__, _T("Setting log to: ") + s.substr(4));
+					nsclient::logging::logger::set_log_level(s.substr(4));
 				} else if (s == _T("reattach")) {
-					log(_T("Reattaching to session 0"));
+					get_logger()->info(__FILE__, __LINE__, _T("Reattaching to session 0"));
 					core_->startTrayIcon(0);
 				} else if (s == _T("assert")) {
 					int *foo = 0;
@@ -72,28 +71,27 @@ namespace nsclient {
 						std::wstring msg, perf;
 						NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, msg, perf);
 						if (ret == NSCAPI::returnIgnored) {
-							log(_T("No handler for command: ") + t.first);
+							get_logger()->info(__FILE__, __LINE__, _T("No handler for command: ") + t.first);
 						} else {
 							if (msg.size() > 4096) {
-								log(_T("Command returned: ") + strEx::itos(msg.size()) + _T(" bytes of data will only display first 4k."));
+								get_logger()->info(__FILE__, __LINE__, _T("Command returned: ") + strEx::itos(msg.size()) + _T(" bytes of data will only display first 4k."));
 								msg = msg.substr(0, 4096);
 							}
-							log(nscapi::plugin_helper::translateReturn(ret) + _T(":") + msg);
+							get_logger()->info(__FILE__, __LINE__, nscapi::plugin_helper::translateReturn(ret) + _T(":") + msg);
 							if (!perf.empty())
-								log(_T(" Performance data: ") + perf);
+								get_logger()->info(__FILE__, __LINE__, _T(" Performance data: ") + perf);
 						}
 					} catch (const nscapi::nscapi_exception &e) {
-						log(_T("NSCAPI Exception: ") + utf8::cvt<std::wstring>(e.what()));
+						get_logger()->error(__FILE__, __LINE__, _T("NSCAPI Exception: ") + utf8::cvt<std::wstring>(e.what()));
 					} catch (const std::exception &e) {
-						log(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+						get_logger()->error(__FILE__, __LINE__, _T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
 					} catch (...) {
-						log(_T("Unknown exception"));
+						get_logger()->error(__FILE__, __LINE__, _T("Unknown exception"));
 					}
 				}
 			}
 			core_->stop_unload_plugins_pre();
 			core_->stop_exit_pre();
-			core_->stop_unload_plugins_post();
 			core_->stop_exit_post();
 		}
 	};

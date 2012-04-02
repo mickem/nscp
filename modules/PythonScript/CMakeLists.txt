@@ -30,6 +30,8 @@ add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${Boost_THREAD_LIBRARY}
 	${Boost_PYTHON_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${PYTHON_LIBRARIES}

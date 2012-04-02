@@ -2,6 +2,7 @@
 
 #include <boost/program_options.hpp>
 #include "settings_client.hpp"
+#include <nsclient/logger.hpp>
 
 namespace po = boost::program_options;
 class cli_parser {
@@ -19,6 +20,10 @@ class cli_parser {
 	bool version;
 	std::wstring log_level;
 	std::wstring settings_store;
+
+	static nsclient::logging::logger_interface* get_logger() {
+		return nsclient::logging::logger::get_logger(); 
+	}
 
 public:
 	cli_parser(NSClient* core) 
@@ -89,7 +94,7 @@ public:
 	bool process_common_options(std::string context, po::options_description &desc) {
 		core_->set_console_log();
 		if (!log_level.empty())
-			core_->set_loglevel(log_level);
+			nsclient::logging::logger::set_log_level(log_level);
 		if (!settings_store.empty())
 			core_->set_settings_context(settings_store);
 
@@ -186,11 +191,10 @@ public:
 
 	int parse_test(int argc, wchar_t* argv[]) {
 		bool server = false;
+		if (log_level.empty())
+			log_level  = _T("debug");
 
 		core_->set_console_log();
-		core_->set_loglevel(_T("debug"));
-
-
 		try {
 			po::options_description all("Allowed options (settings)");
 			all.add(common).add(settings);
@@ -203,10 +207,10 @@ public:
 				return 1;
 
 			nsclient::simple_client client(core_);
-			client.start();
+			client.start(log_level);
 			return 0;
 		} catch(std::exception & e) {
-			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
+			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unable to parse command line (settings): ")) + utf8::to_unicode(e.what()));
 			return 1;
 		}
 	}
@@ -233,15 +237,13 @@ public:
 
 			client.set_current(current);
 			client.set_update_defaults(def);
+			client.set_load_all_files(load_all);
 
-			client.boot();
+			client.boot(log_level);
 			int ret = -1;
 
 			if (vm.count("generate")) {
-				//core_->set_settings_context(vm["generate"].as<std::wstring>());
-				int ret = client.generate(load_all, vm["generate"].as<std::wstring>());
-				client.exit();
-				return ret;
+				ret = client.generate(vm["generate"].as<std::wstring>());
 			} else if (vm.count("migrate-to")) {
 				ret = client.migrate_to(vm["migrate-to"].as<std::wstring>());
 			} else if (vm.count("migrate-from")) {
@@ -266,7 +268,7 @@ public:
 
 			return ret;
 		} catch(std::exception & e) {
-			mainClient.log_error(__FILE__, __LINE__, std::string("Unable to parse command line (settings): ") + e.what());
+			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unable to parse command line (settings): ")) + utf8::to_unicode(e.what()));
 			return 1;
 		}
 	}
@@ -288,24 +290,24 @@ public:
 			if (vm.count("name")) {
 				name = vm["name"].as<std::wstring>();
 			} else {
-				mainClient.log_info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
+				get_logger()->info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
 			}
 			std::wstring desc;
 			if (vm.count("description")) {
 				desc = vm["description"].as<std::wstring>();
 			} else {
-				mainClient.log_info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
+				get_logger()->info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
 			}
-			if (mainClient.should_log(NSCAPI::log_level::debug)) {
-				mainClient.log_info(__FILE__, __LINE__, _T("Service name: ") + name);
-				mainClient.log_info(__FILE__, __LINE__, _T("Service description: ") + desc);
+			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
+				get_logger()->info(__FILE__, __LINE__, _T("Service name: ") + name);
+				get_logger()->info(__FILE__, __LINE__, _T("Service description: ") + desc);
 			}
 
 			if (vm.count("run")) {
 				try {
 					mainClient.start_and_wait(name);
 				} catch (...) {
-					mainClient.log_error(__FILE__, __LINE__, _T("Unknown exception in service"));
+					get_logger()->error(__FILE__, __LINE__, _T("Unknown exception in service"));
 				}
 			} else {
 				nsclient::client::service_manager service_manager(name);
@@ -341,18 +343,18 @@ public:
 		client_arguments() : mode(none), boot(false) {}
 
 		void debug() {
-			if (mainClient.should_log(NSCAPI::log_level::debug)) {
-				mainClient.log_info(__FILE__, __LINE__, _T("Module: ") + module);
-				mainClient.log_info(__FILE__, __LINE__, _T("Command: ") + command);
-				mainClient.log_info(__FILE__, __LINE__, _T("Extra Query: ") + combined_query);
-				mainClient.log_info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
-				mainClient.log_info(__FILE__, __LINE__, _T("Boot: ") + strEx::itos(boot));
+			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
+				get_logger()->info(__FILE__, __LINE__, _T("Module: ") + module);
+				get_logger()->info(__FILE__, __LINE__, _T("Command: ") + command);
+				get_logger()->info(__FILE__, __LINE__, _T("Extra Query: ") + combined_query);
+				get_logger()->info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
+				get_logger()->info(__FILE__, __LINE__, _T("Boot: ") + strEx::itos(boot));
 				if (!module.empty() && boot)
-					mainClient.log_info(__FILE__, __LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
+					get_logger()->info(__FILE__, __LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
 				std::wstring args;
 				BOOST_FOREACH(std::wstring s, arguments)
 					strEx::append_list(args, s, _T(", "));
-				mainClient.log_info(__FILE__, __LINE__, _T("Arguments: ") + args);
+				get_logger()->info(__FILE__, __LINE__, _T("Arguments: ") + args);
 			}
 
 		}
@@ -515,7 +517,7 @@ public:
 		try {
 			args.debug();
 
-			core_->boot_init();
+			core_->boot_init(log_level);
 			if (args.module.empty())
 				core_->boot_load_all_plugins();
 			else
@@ -551,7 +553,6 @@ public:
 			}
 			mainClient.stop_unload_plugins_pre();
 			mainClient.stop_exit_pre();
-			mainClient.stop_unload_plugins_post();
 			mainClient.stop_exit_post();
 
 			BOOST_FOREACH(std::wstring r, resp) {

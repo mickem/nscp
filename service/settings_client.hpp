@@ -1,6 +1,6 @@
 #pragma once
 #include <settings/settings_core.hpp>
-#include "logger.hpp"
+#include <nsclient/logger.hpp>
 
 class NSClientT;
 namespace nsclient {
@@ -8,23 +8,27 @@ namespace nsclient {
 		NSClient* core_;
 		std::wstring current_;
 		bool default_;
+		bool load_all_;
 
 
 	public:
-		settings_client(NSClient* core) : core_(core), default_(false) {}
+		settings_client(NSClient* core) : core_(core), default_(false), load_all_(false) {}
 
 		std::wstring get_source() {
 			settings_manager::get_core()->get()->get_context();
 		}
 
-		void boot() {
+		void boot(std::wstring log) {
 			core_->set_console_log();
 			if (!current_.empty())
 				core_->set_settings_context(current_);
-			if (!core_->boot_init()) {
+			if (!core_->boot_init(log)) {
 				std::wcout << _T("boot::init failed") << std::endl;
 				return;
 			}
+			if (load_all_)
+				core_->preboot_load_all_plugin_files();
+
 			if (!core_->boot_load_all_plugins()) {
 				std::wcout << _T("boot::load_all_plugins failed!") << std::endl;
 				return;
@@ -42,17 +46,16 @@ namespace nsclient {
 		void exit() {
 			core_->stop_unload_plugins_pre();
 			core_->stop_exit_pre();
-			core_->stop_unload_plugins_post();
 			core_->stop_exit_post();
 		}
 
 		void set_current(std::wstring current) { current_ = current; }
 		void set_update_defaults(bool def) { default_ = def; }
+		void set_load_all_files(bool def) { load_all_ = def; }
 
 		int migrate_from(std::wstring src) {
 			try {
 				debug_msg(_T("Migrating from: ") + src);
-				core_->load_all_plugins(NSCAPI::dontStart);
 				settings_manager::get_core()->migrate_from(src);
 				return 1;
 			} catch (settings::settings_exception e) {
@@ -65,7 +68,6 @@ namespace nsclient {
 		int migrate_to(std::wstring target) {
 			try {
 				debug_msg(_T("Migrating to: ") + target);
-				core_->load_all_plugins(NSCAPI::dontStart);
 				settings_manager::get_core()->migrate_to(target);
 				return 1;
 			} catch (settings::settings_exception e) {
@@ -89,11 +91,8 @@ namespace nsclient {
 		}
 
 
-		int generate(bool load_all, std::wstring target) {
+		int generate(std::wstring target) {
 			try {
-				if (load_all)
-					core_->load_all_plugins(NSCAPI::dontStart);
-				//settings_manager::get_core()->update_defaults();
 				if (target == _T("settings") || target.empty()) {
 					settings_manager::get_core()->get()->save();
 				} else if (target == _T("trac")) {
@@ -152,7 +151,6 @@ namespace nsclient {
 		}
 
 		int set(std::wstring path, std::wstring key, std::wstring val) {
-			core_->load_all_plugins(NSCAPI::dontStart);
 			settings::settings_core::key_type type = settings_manager::get_core()->get()->get_key_type(path, key);
 			if (type == settings::settings_core::key_string) {
 				settings_manager::get_core()->get()->set_string(path, key, val);
@@ -186,12 +184,10 @@ namespace nsclient {
 		}
 
 		void error_msg(std::wstring msg) {
-			std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg.c_str());
-			core_->reportMessage(s.c_str());
+			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg.c_str());
 		}
 		void debug_msg(std::wstring msg) {
-			std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg.c_str());
-			core_->reportMessage(s.c_str());
+			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, msg.c_str());
 		}
 	};
 }

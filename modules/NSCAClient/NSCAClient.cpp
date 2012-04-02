@@ -81,7 +81,7 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			_T("CHANNEL"), _T("The channel to listen to."))
 
 			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAAgent::set_delay, this, _1), _T("0")),
-			_T("DELAY"), _T(""))
+			_T("DELAY"), _T(""), true)
 			;
 
 		settings.register_all();
@@ -272,7 +272,6 @@ void NSCAAgent::setup(client::configuration &config, const ::Plugin::Common_Head
 	config.data->recipient.id = header.recipient_id();
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
-		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
 		recipient = _T("default");
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);

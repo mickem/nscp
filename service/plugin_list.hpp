@@ -6,7 +6,7 @@
 #include <boost/foreach.hpp>
 
 #include "NSCPlugin.h"
-#include "logger.hpp"
+#include <nsclient/logger.hpp>
 
 using namespace nscp::helpers;
 
@@ -30,11 +30,10 @@ namespace nsclient {
 	template<class parent>
 	struct plugins_list : boost::noncopyable, public parent {
 
-		nsclient::logger *logger_;
 		plugin_list_type plugins_;
 		boost::shared_mutex mutex_;
 
-		plugins_list(nsclient::logger *logger) : logger_(logger) {}
+		plugins_list() {}
 
 		bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::wstring key) {
 			if (!lock.owns_lock()) {
@@ -120,9 +119,8 @@ namespace nsclient {
 		inline std::wstring make_key(std::wstring key) {
 			return boost::algorithm::to_lower_copy(key);
 		}
-		void log_error(std::string file, int line, std::wstring error) {
-			if (logger_ != NULL)
-				logger_->nsclient_log_error(file, line, error);
+		void log_error(const char *file, int line, std::wstring error) {
+			nsclient::logging::logger::get_logger()->error(file, line, error);
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {
@@ -180,7 +178,7 @@ namespace nsclient {
 	struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
 		typedef plugins_list<plugins_list_listeners_impl> parent_type;
 
-		plugins_list_with_listener(nsclient::logger *logger) : parent_type(logger) {}
+		plugins_list_with_listener() : parent_type() {}
 
 		void register_listener(unsigned long plugin_id, std::wstring channel) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));

@@ -127,7 +127,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void err(std::string file, int line, std::wstring message) = 0;
+			virtual void err(const char* file, int line, std::wstring message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an WARNING message.
 			///
@@ -136,7 +136,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void warn(std::string file, int line, std::wstring message) = 0;
+			virtual void warn(const char* file, int line, std::wstring message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an INFO message.
 			///
@@ -145,7 +145,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void info(std::string file, int line, std::wstring message) = 0;
+			virtual void info(const char* file, int line, std::wstring message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an DEBUG message.
 			///
@@ -154,7 +154,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void debug(std::string file, int line, std::wstring message) = 0;
+			virtual void debug(const char* file, int line, std::wstring message) = 0;
 		};
 	}
 }

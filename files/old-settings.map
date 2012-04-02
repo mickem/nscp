@@ -1,6 +1,5 @@
 # Modules section
 
-modules/FileLogger.dll=/modules/FileLogger
 modules/CheckSystem.dll=/modules/CheckSystem
 modules/CheckDisk.dll=/modules/CheckDisk
 modules/NSClientListener.dll=/modules/NSClientServer
@@ -35,9 +34,9 @@ Settings/shared_session=/settings/shared session/enabled
 
 # Log section
 
-log/file=/settings/log/file
+log/file=/settings/log/file name
 log/date_mask=/settings/log/date mask
-log/debug=/settings/log/level
+# log/debug=/settings/log/level
 # log/debug
 # log/root_folder
 
@@ -76,16 +75,16 @@ Wrapped Scripts/*=/settings/external scripts/wrapped scripts
 
 includes/*=/includes
 
-NSCA Agent/interval=/settings/scheduler/default/interval
-NSCA Agent/hostname=/settings/NSCA/agent/hostname
+NSCA Agent/interval=/settings/scheduler/schedules/default/interval
+NSCA Agent/hostname=/settings/NSCA/client/hostname
 NSCA Commands/*=/settings/scheduler/schedules
 
 
-NSCA Agent/encryption_method=/settings/NSCA/agent/server/encryption method
-NSCA Agent/nsca_host=/settings/NSCA/agent/server/host
-NSCA Agent/password=/settings/NSCA/agent/server/password
-NSCA Agent/nsca_port=/settings/NSCA/agent/server/port
-NSCA Agent/time_delay=/settings/NSCA/agent/delay
+NSCA Agent/encryption_method=/settings/NSCA/client/targets/default/encryption method
+NSCA Agent/nsca_host=/settings/NSCA/client/targets/default/host
+NSCA Agent/password=/settings/NSCA/client/targets/default/password
+NSCA Agent/nsca_port=/settings/NSCA/client/targets/default/port
+NSCA Agent/time_delay=/settings/NSCA/client/targets/default/delay
 #NSCA Agent/bind_to_address=
 
 

@@ -20,23 +20,16 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#ifdef WIN32
-#include <com_helpers.hpp>
-#endif
 
 
 #include <types.hpp>
-#include <config.h>
 #include <service/system_service.hpp>
 
 #include "NSCPlugin.h"
 #include "commands.hpp"
 #include "channels.hpp"
 #include "routers.hpp"
-#include "logger.hpp"
-
-//#include <nsclient_session.hpp>
-
+#include <nsclient/logger.hpp>
 
 class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;
@@ -66,7 +59,7 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
  * @bug 
  *
  */
-class NSClientT : public nsclient::logger /*: public nsclient_session::session_handler_interface*/ {
+class NSClientT {
 
 public:
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
@@ -77,7 +70,6 @@ public:
 		std::wstring description;
 	};
 	typedef std::list<plugin_info_type> plugin_info_list;
-	nsclient::logging_queue::master logger_master_;
 private:
 
 	class NSException {
@@ -96,19 +88,7 @@ private:
 	boost::timed_mutex internalVariables;
 	boost::shared_mutex m_mutexRW;
 
-	//boost::shared_mutex m_mutexRWcmdDescriptions;
-	//cmdMap cmdDescriptions_;
-	enum log_status {log_state_unknown, log_state_looking, log_state_set };
-	log_status log_status_;
-	NSCAPI::log_level::level log_level_;
 	std::wstring context_;
-#ifdef WIN32
-	com_helper::initialize_com com_helper_;
-#endif
-	/*
-	std::auto_ptr<nsclient_session::shared_client_session> shared_client_;
-	std::auto_ptr<nsclient_session::shared_server_session> shared_server_;
-	*/
 
 	bool enable_shared_session_;
 	nsclient::commands commands_;
@@ -121,15 +101,11 @@ private:
 public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
-	NSClientT(void) : log_status_(log_state_unknown), log_level_(NSCAPI::log_level::log), enable_shared_session_(false), commands_(this), channels_(this), routers_(this), next_plugin_id_(0), service_name_(DEFAULT_SERVICE_NAME) {
-		logger_master_.start_slave();
-	}
-	virtual ~NSClientT(void) {}
-	NSCAPI::log_level::level get_loglevel();
-	void set_loglevel(std::wstring level);
+	NSClientT();
+	virtual ~NSClientT() {}
 
 	// Service helper functions
-	bool boot_init();
+	bool boot_init(std::wstring log_level = _T(""));
 	bool boot_load_all_plugins();
 	bool boot_load_plugin(std::wstring plugin);
 	bool boot_start_plugins(bool boot);
@@ -137,28 +113,11 @@ public:
 	bool stop_unload_plugins_pre();
 	bool stop_exit_pre();
 	bool stop_exit_post();
-	bool stop_unload_plugins_post();
-	//bool exitCore();
 	void set_settings_context(std::wstring context) { context_ = context; }
-#ifdef WIN32x
-	static void WINAPI service_main_dispatch(DWORD dwArgc, LPTSTR *lpszArgv);
-	static void WINAPI service_ctrl_dispatch(DWORD dwCtrlCode);
-	static DWORD WINAPI service_ctrl_dispatch_ex(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext);
-#endif
 	void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
-
-
-	// Logger impl
-	void nsclient_log_error(std::string file, int line, std::wstring error);
 
 	// Service API
 	static NSClient* get_global_instance();
-	/*
-	void handle_error(unsigned int line, const char *file, std::wstring message) {
-		std::string s = nsclient::logger_helper::create_error(file, line, message);
-		reportMessage(s.c_str());
-	}
-	*/
 	void handle_startup(std::wstring service_name);
 	void handle_shutdown(std::wstring service_name);
 #ifdef _WIN32
@@ -174,9 +133,7 @@ public:
 	NSCAPI::errorReturn send_notification(const wchar_t* channel, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
-//	std::wstring inject(const std::wstring buffer);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-	void reportMessage(std::string data);
 	int simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
 	int simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
 	NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* raw_command, std::string &request, std::string &response);
@@ -205,53 +162,29 @@ public:
 
 	//plugin_type loadPlugin(const boost::filesystem::wpath plugin, std::wstring alias);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
-	void unloadPlugins(bool unloadLoggers);
+	void unloadPlugins();
 	std::wstring describeCommand(std::wstring command);
 	std::list<std::wstring> getAllCommandNames();
 	void registerCommand(unsigned int id, std::wstring cmd, std::wstring desc);
 	void startTrayIcons();
 	void startTrayIcon(DWORD dwSessionId);
 
-	bool should_log(NSCAPI::nagiosReturn level);
 	void listPlugins();
 	plugin_info_list get_all_plugins();
 	plugin_alias_list_type find_all_plugins(bool active);
 	std::list<std::wstring> list_commands();
 
-	// Shared session interface:
-	void session_error(std::string file, unsigned int line, std::wstring msg);
-	void session_info(std::string file, unsigned int line, std::wstring msg);
-	void session_log_message(int msgType, const char* file, const int line, std::wstring message) {
-		std::string s = nsclient::logger_helper::create_info(file, line, message);
-		reportMessage(s.c_str());
-	}
-	int session_inject(std::wstring command, std::wstring arguments, wchar_t splitter, bool escape, std::wstring &msg, std::wstring & perf) {
-		return 0; // TODO: Readd this!!! inject(command, arguments, splitter, escape, msg, perf);
-	}
-// 	std::pair<std::wstring,std::wstring> session_get_name() {
-// 		return std::pair<std::wstring,std::wstring>(SZAPPNAME,SZVERSION);
-// 	}
-
+	std::wstring getFolder(std::wstring key);
 	std::wstring expand_path(std::wstring file);
 	void set_console_log() {
-		logger_master_.set_console_log();
+		nsclient::logging::logger::get_logger()->set_console_log(true);
 	}
-
 
 	typedef boost::function<int(plugin_type)> run_function;
 	int load_and_run(std::wstring module, run_function fun, std::list<std::wstring> &errors);
 
-
 	public:
-		void load_all_plugins(int mode);
-
-		static void log_debug(const char* file, const int line, std::wstring message);
-		static void log_error(const char* file, const int line, std::wstring message);
-		static void log_error(const char* file, const int line, std::string message);
-		static void log_info(const char* file, const int line, std::wstring message);
-		static void log_any(int loglevel, const char* file, const int line, std::wstring message);
-
-
+		void preboot_load_all_plugin_files();
 
 	private:
 		plugin_type addPlugin(boost::filesystem::wpath file, std::wstring alias);
@@ -259,7 +192,3 @@ public:
 
 
 extern NSClient mainClient;	// Global core instance forward declaration.
-
-
-std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
-std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);

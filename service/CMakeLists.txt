@@ -5,17 +5,17 @@ SET(TARGET nscp)
 PROJECT(service)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
-#INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
 
 SET(service_SRCS
 	StdAfx.cpp
 	NSClient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
-	settings_logger_impl.cpp
+	logger_impl.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
+	${NSCP_INCLUDEDIR}/nsclient/base_logger_impl.cpp
 
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDEDIR}/b64/b64.c
@@ -42,9 +42,8 @@ IF(WIN32)
 		commands.hpp
 		channels.hpp
 		routers.hpp
-		logger.hpp
+		logger_impl.hpp
 		service_manager.hpp
-		settings_logger_impl.hpp
 
 		${NSCP_INCLUDEDIR}/charEx.h
 		${NSCP_INCLUDEDIR}/config.h
@@ -57,6 +56,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/service/system_service.hpp
 		${NSCP_INCLUDEDIR}/service/win32_service.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
+		${NSCP_INCLUDEDIR}/nsclient/base_logger_impl.hpp
+		${NSCP_INCLUDEDIR}/nsclient/logger.hpp
 
 	)
 	SET(service_SRCS ${service_SRCS}
@@ -95,6 +96,8 @@ MESSAGE(STATUS "All libraries: ${Boost_FILESYSTEM_LIBRARY}, ${NSCP_DEF_PLUGIN_LI
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${Boost_THREAD_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
 	settings_manager

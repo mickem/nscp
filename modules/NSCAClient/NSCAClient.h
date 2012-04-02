@@ -62,7 +62,7 @@ private:
 				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
 
 				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 512),
-				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
+				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."), true)
 
 				(_T("encryption"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("encryption"), _1), _T("aes")),
 				_T("ENCRYPTION METHOD"), _T("Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all."))
@@ -71,7 +71,7 @@ private:
 				_T("PASSWORD"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
 
 				(_T("time offset"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("delay"), _1), _T("0")),
-				_T("TIME OFFSET"), _T("Time offset."))
+				_T("TIME OFFSET"), _T("Time offset."), true)
 				;
 		}
 		static void post_process_target(target_object &target) {

@@ -50,16 +50,16 @@ namespace nscapi {
 			return core_->expand_path(key);
 		}
 
-		virtual void err(std::string file, int line, std::wstring message) {
+		virtual void err(const char* file, int line, std::wstring message) {
 			core_->log(NSCAPI::log_level::error, file, line, message);
 		}
-		virtual void warn(std::string file, int line, std::wstring message) {
+		virtual void warn(const char* file, int line, std::wstring message) {
 			core_->log(NSCAPI::log_level::warning, file, line, message);
 		}
-		virtual void info(std::string file, int line, std::wstring message)  {
+		virtual void info(const char* file, int line, std::wstring message)  {
 			core_->log(NSCAPI::log_level::log, file, line, message);
 		}
-		virtual void debug(std::string file, int line, std::wstring message)  {
+		virtual void debug(const char* file, int line, std::wstring message)  {
 			core_->log(NSCAPI::log_level::debug, file, line, message);
 		}
 	};

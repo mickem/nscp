@@ -104,6 +104,7 @@ namespace NSCAPI {
 		const int info = 150;	// information
 		const int debug = 500;	// Debug messages	<<< Default for test
 		const int trace = 1000;	// Trace messages
+		const int ignore = 5000;// Ignored level (used for controlling states)
 	}
 
 	typedef log_level::level messageTypes;		// Message type

@@ -209,7 +209,6 @@ void SMTPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 	config.data->recipient.id = header.recipient_id();
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
-		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
 		recipient = _T("default");
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);

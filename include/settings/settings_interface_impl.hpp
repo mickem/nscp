@@ -32,6 +32,7 @@
 #include <strEx.h>
 #include <settings/settings_core.hpp>
 #include <net/net.hpp>
+#include <nsclient/logger.hpp>
 
 #define MUTEX_GUARD() \
 	boost::unique_lock<boost::timed_mutex> mutex(mutex_, boost::get_system_time() + boost::posix_time::seconds(5)); \
@@ -124,10 +125,8 @@ namespace settings {
 				throw settings_exception(_T("FATAL ERROR: Settings subsystem not initialized"));
 			return core_;
 		}
-		logger_interface* get_logger() const {
-			if (core_ == NULL)
-				throw settings_exception(_T("FATAL ERROR: Settings subsystem not initialized"));
-			return core_->get_logger();
+		const nsclient::logging::logger_interface* get_logger() const {
+			return nsclient::logging::logger::get_logger();
 		}
 
 		void add_child(std::wstring context) {
@@ -388,7 +387,7 @@ namespace settings {
 		/// @author mickem
 		virtual string_list get_sections(std::wstring path) {
 			MUTEX_GUARD();
-			get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
+			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			string_list ret;
 			get_cached_sections_unsafe(path, ret);
 			get_real_sections(path, ret);

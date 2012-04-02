@@ -112,7 +112,6 @@ class Win32FileTest(BasicTest):
 		args = ['path=%s'%self.work_path, 'filter=%s'%filter, 'syntax=%filename%: %size% %write%', 'warn=gt:1', 'crit=gt:3']
 		args.extend(extra_args)
 		(ret, msg, perf) = core.simple_query('CheckFiles', args)
-		#log('===> %s | %s'%(msg, perf))
 		count = self.get_count(perf)
 		result.add_message(count == expected, 'Check that we get correct number of files', 'Invalid result: got %s expected %s'%(count, expected))
 		if expected > 3:

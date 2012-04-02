@@ -6,6 +6,7 @@
 #include <map>
 #include <settings/settings_core.hpp>
 #include <simpleini/SimpleIni.h>
+#include <nsclient/logger.hpp>
 //#include <settings/macros.h>
 
 #include <strEx.h>
@@ -20,6 +21,10 @@ namespace settings {
 		std::wstring filename_;
 		typedef std::pair<std::wstring,std::wstring> section_key_type;
 
+		inline nsclient::logging::logger_interface* get_logger() const {
+			return nsclient::logging::logger::get_logger();
+		}
+
 		class settings_map : boost::noncopyable {
 		public:
 
@@ -28,14 +33,13 @@ namespace settings {
 			typedef std::pair<std::wstring,std::wstring> section_key_type;
 			typedef std::pair<settings_core::key_path_type,settings_core::key_path_type> keys_key_type;
 
-			logger_interface *logger;
 			path_map sections_;
 			key_map keys_;
 
-			settings_map(logger_interface *logger) : logger(logger) {}
+			settings_map() {}
 
-			inline logger_interface* get_logger() {
-				return logger;
+			inline nsclient::logging::logger_interface* get_logger() const {
+				return nsclient::logging::logger::get_logger();
 			}
 
 			void read_map_file(std::wstring file) {
@@ -43,7 +47,7 @@ namespace settings {
 
 				std::ifstream in(strEx::wstring_to_string(file).c_str());
 				if(!in) {
-					get_logger()->err(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
+					get_logger()->error(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
 					return;
 				}
 				in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
@@ -78,7 +82,7 @@ namespace settings {
 				line = line.substr(pos);
 				pos = line.find('=');
 				if (pos == -1) {
-					get_logger()->err(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
+					get_logger()->error(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
 					return;
 				}
 				std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
@@ -115,7 +119,7 @@ namespace settings {
 			settings_core::key_path_type key(settings_core::key_path_type new_key) {
 				key_map::iterator it1 = keys_.find(new_key);
 				if (it1 != keys_.end()) {
-					get_logger()->quick_debug(new_key.first + _T(".") + new_key.second + _T(" found in alias list"));
+					get_logger()->debug(__FILE__, __LINE__, new_key.first + _T(".") + new_key.second + _T(" found in alias list"));
 					return (*it1).second;
 				}
 				path_map::iterator it2 = sections_.find(new_key.first);
@@ -131,7 +135,7 @@ namespace settings {
 			}
 
 			void get_sections(std::wstring path, string_list &list) {
-				unsigned int path_length = path.length();
+				std::wstring::size_type path_length = path.length();
 				BOOST_FOREACH(section_key_type key, sections_) {
 					if (path_length == 0 || path == _T("/")) {
 						std::wstring::size_type pos = key.first.find(L'/', 1);
@@ -166,7 +170,7 @@ namespace settings {
 		public:
 
 
-		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context), map(core->get_logger()) {
+		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
 			get_logger()->debug(__FILE__, __LINE__, _T("Loading OLD: ") + context + _T(" for ") + context);
 			std::wstring mapfile = core->get_boot_string(_T("settings"), _T("old_settings_map_file"), _T("old-settings.map"));
 			std::wstring file = core->find_file(_T("${exe-path}/") + mapfile, mapfile);
@@ -181,7 +185,7 @@ namespace settings {
 				map.read_map_data(mapdata);
 			}
 			if (!readmap) {
-				core->get_logger()->err(__FILE__, __LINE__,_T("Failed to read map file: ") + mapfile);
+				get_logger()->error(__FILE__, __LINE__,_T("Failed to read map file: ") + mapfile);
 			}
 
 			string_list list = get_keys(_T("/includes"));
@@ -320,9 +324,9 @@ namespace settings {
 				key = map.key(key);
 				WritePrivateProfileString(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), get_file_name().c_str());
 			} catch (settings_exception e) {
-				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
+				get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {
-				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
+				get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
 
@@ -385,7 +389,7 @@ namespace settings {
 		virtual void get_real_keys(std::wstring path, string_list &list) {
 			std::wstring keyy = path + _T(" - ") + get_file_name();
 			if (path.empty() || path == _T("/")) {
-				get_core()->get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Loose leaves not supported: TODO")));
+				get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Loose leaves not supported: TODO")));
 				return;
 			}
 			// @todo: this will NOT work for "nodes in paths"
@@ -474,7 +478,7 @@ namespace settings {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				//filename_ = (get_core()->get_base() / get_core()->get_boot_string(get_context(), _T("file"), _T("nsc.ini"))).string();
-				get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading old settings from: ") + filename_);
+				get_logger()->debug(__FILE__, __LINE__, _T("Reading old settings from: ") + filename_);
 			}
 			return filename_;
 		}

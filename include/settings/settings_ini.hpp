@@ -123,9 +123,9 @@ namespace settings {
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), _T("; Undocumented key"));
 			} catch (settings_exception e) {
-				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
+				nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {
-				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
+				nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
 
@@ -139,9 +139,9 @@ namespace settings {
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(path.c_str(), NULL, NULL, _T("; Undocumented section"));
 			} catch (settings_exception e) {
-				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Failed to write section: ") + e.getError()));
+				nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Failed to write section: ") + e.getError()));
 			} catch (...) {
-				get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing section: ") + path));
+				nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing section: ") + path));
 			}
 		}
 
@@ -231,7 +231,7 @@ namespace settings {
 			}
 			std::wstring f = get_file_name();
 			ini.SetUnicode();
-			get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
+			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));
@@ -265,7 +265,7 @@ namespace settings {
 						filename_ = filename_.substr(1);
 					}
 				}
-				get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + filename_);
+				nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + filename_);
 			}
 			return filename_;
 		}

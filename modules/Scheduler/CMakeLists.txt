@@ -29,6 +29,7 @@ add_library(Scheduler MODULE ${SRCS})
 
 target_link_libraries(Scheduler
 	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_THREAD_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

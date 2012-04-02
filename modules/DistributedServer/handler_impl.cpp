@@ -161,7 +161,13 @@ NSCAPI::nagiosReturn handler_impl::process_single_exec_request_payload(std::wstr
 			std::string tmpBuffer;
 			Plugin::ExecuteResponseMessage tmp;
 			tmp.mutable_header()->CopyFrom(hdr);
-			tmp.add_payload()->CopyFrom(payload);
+			::Plugin::ExecuteResponseMessage::Response* np = tmp.add_payload();
+			if (payload.has_command())
+				np->set_command(payload.command());
+			np->mutable_arguments()->CopyFrom(payload.arguments());
+			//np->set_arguments(payload.arguments());
+			if (payload.has_id())
+				np->set_id(payload.id());
 			tmp.SerializeToString(&tmpBuffer);
 			NSCAPI::nagiosReturn returncode = nscapi::plugin_singleton->get_core()->exec_command(_T("*"), command, tmpBuffer, outBuffer);
 			if (returncode == NSCAPI::returnIgnored) {

@@ -211,7 +211,8 @@ namespace service_helper_impl {
 			OutputDebugString(s);
 		}
 		static void handle_error(const int line, const char* file, std::wstring message) {
-			TBase::get_global_instance()->log_error(file, line, message);
+			OutputDebugString(message.c_str());
+			nsclient::logging::logger::get_logger()->error(file, line, message);
 		}
 
 		boolean StartServiceCtrlDispatcher() {

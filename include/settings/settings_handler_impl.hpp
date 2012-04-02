@@ -31,16 +31,11 @@
 #include <boost/regex.hpp>
 #include <strEx.h>
 #include <settings/settings_core.hpp>
+#include <nsclient/logger.hpp>
 
 namespace settings {
 	class settings_handler_impl : public settings_core {
 	private:
-		class dummy_logger : public logger_interface {
-			void err(std::string file, int line, std::wstring message) {}
-			void warn(std::string file, int line, std::wstring message) {}
-			void info(std::string file, int line, std::wstring message) {}
-			void debug(std::string file, int line, std::wstring message) {}
-		};
 		typedef std::map<std::wstring, std::wstring> path_map;
 		typedef std::map<std::wstring,settings_core::path_description> reg_paths_type;
 		typedef std::map<key_path_type,key_path_type> mapped_paths_type;
@@ -49,14 +44,12 @@ namespace settings {
 		instance_raw_ptr instance_;
 		boost::timed_mutex instance_mutex_;
 		boost::filesystem::wpath base_path_;
-		logger_interface *logger_;
 		reg_paths_type registred_paths_;
 
 	public:
-		settings_handler_impl() : logger_(new dummy_logger()) {}
+		settings_handler_impl() {}
 		~settings_handler_impl() {
 			destroy_all_instances();
-			set_logger(NULL);
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -71,27 +64,13 @@ namespace settings {
 		}
 
 		//////////////////////////////////////////////////////////////////////////
-		/// Set the logging interface (will receive log messages)
-		///
-		/// @param logger the new logger to use
-		///
-		/// @author mickem
-		void set_logger(logger_interface *logger) {
-			logger_interface *old_logger = logger_;
-			logger_ = logger;
-			delete old_logger;
-		}
-
-		//////////////////////////////////////////////////////////////////////////
 		/// Get the logging interface (will receive log messages)
 		///
 		/// @return the logger to use
 		///
 		/// @author mickem
-		logger_interface* get_logger() {
-			if (!logger_)
-				throw settings_exception(_T("Failed to log message, no logger defined!"));
-			return logger_;
+		nsclient::logging::logger_interface* get_logger() {
+			return nsclient::logging::logger::get_logger();
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -148,7 +127,7 @@ namespace settings {
 							else if (desc.type == key_integer)
 								get()->set_int(path, key, strEx::stoi(desc.defValue));
 							else
-								get_logger()->err(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+								get_logger()->error(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						} else {
 							std::wstring val = get()->get_string(path, key);
 							get_logger()->debug(__FILE__, __LINE__, _T("Setting old (already exists): ") + path + _T(".") + key + _T(" = ") + val);
@@ -159,7 +138,7 @@ namespace settings {
 							else if (desc.type == key_integer)
 								get()->set_int(path, key, strEx::stoi(val));
 							else
-								get_logger()->err(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+								get_logger()->error(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						}
 					} else {
 						get_logger()->debug(__FILE__, __LINE__, _T("Skipping (advanced): ") + path + _T(".") + key);

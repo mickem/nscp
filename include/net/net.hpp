@@ -34,7 +34,10 @@ namespace net {
 
 		string_type to_string() const {
 			stream ss;
-			ss << protocol << traits::protocol_suffix() << host << traits::port_prefix() << port << path;
+			ss << protocol << traits::protocol_suffix() << host;
+			if (port != 0)
+				ss << traits::port_prefix() << port;
+			ss << path;
 			return ss.str();
 		}
 
@@ -115,7 +118,7 @@ namespace net {
 	}
 
 
-	inline wurl parse(const std::wstring& url_s, unsigned int default_port = 80) {
+	inline wurl parse(const std::wstring& url_s, unsigned int default_port = 0) {
 		wurl ret;
 		const std::wstring prot_end(_T("://"));
 		std::wstring::const_iterator prot_i = std::search(url_s.begin(), url_s.end(), prot_end.begin(), prot_end.end());
@@ -145,7 +148,7 @@ namespace net {
 		ret.query.assign(query_i, url_s.end());
 		return ret;
 	}
-	inline url parse(const std::string& url_s, unsigned int default_port = 80) {
+	inline url parse(const std::string& url_s, unsigned int default_port = 0) {
 		url ret;
 		const std::string prot_end("://");
 		std::string::const_iterator prot_i = std::search(url_s.begin(), url_s.end(), prot_end.begin(), prot_end.end());

@@ -16,17 +16,14 @@
 #include "NSClient++.h"
 #include "core_api.h"
 #include <charEx.h>
-#include <config.h>
-#include "../version.hpp"
 #include <arrayBuffer.h>
 #include <settings/settings_core.hpp>
 #include "../helpers/settings_manager/settings_manager_impl.h"
-#include <b64/b64.h>
 #include <nscapi/nscapi_helper.hpp>
 #ifdef _WIN32
 #include <ServiceCmd.h>
 #endif
-#include "logger.hpp"
+#include <nsclient/logger.hpp>
 
 using namespace nscp::helpers;
 
@@ -35,10 +32,10 @@ using namespace nscp::helpers;
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
 
-#define LOG_ERROR(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
-#define LOG_CRITICAL(msg) { std::string s = nsclient::logger_helper::create_error(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
-#define LOG_MESSAGE(msg) { std::string s = nsclient::logger_helper::create_info(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
-#define LOG_DEBUG(msg) { std::string s = nsclient::logger_helper::create_debug(__FILE__, __LINE__, msg); mainClient.reportMessage(s); }
+#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg); }
+#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg); }
+#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info(__FILE__, __LINE__, msg); }
+#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, msg); }
 
 NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned int bufLen) {
 	try {
@@ -101,10 +98,11 @@ NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int b
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, CURRENT_SERVICE_VERSION, NSCAPI::isSuccess);
 }
 void NSAPISimpleMessage(int loglevel, const char* file, int line, const wchar_t* message) {
-	mainClient.log_any(loglevel, file, line, message);
+	nsclient::logging::logger::get_logger()->log(loglevel, file, line, message);
 }
 void NSAPIMessage(const char* data, unsigned int count) {
-	mainClient.reportMessage(std::string(data, count));
+	std::string message(data, count);
+	nsclient::logging::logger::get_logger()->raw(message);
 }
 void NSAPIStopServer(void) {
 	mainClient.get_service_control().stop();
@@ -171,7 +169,7 @@ NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsign
 }
 
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
-	return mainClient.should_log(messageType);
+	return nsclient::logging::logger::get_logger()->should_log(messageType);
 }
 
 NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
@@ -547,5 +545,5 @@ void NSAPIDestroyBuffer(char**buffer) {
 }
 
 NSCAPI::log_level::level NSAPIGetLoglevel() {
-	return mainClient.get_loglevel();
+	return nsclient::logging::logger::get_logger()->get_log_level();
 }

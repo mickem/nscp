@@ -19,9 +19,13 @@ namespace settings {
 	private:
 		std::wstring url_;
 
+		inline nsclient::logging::logger_interface* get_logger() const {
+			return nsclient::logging::logger::get_logger();
+		}
+
 	public:
 		settings_http(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			net::url url = net::parse(utf8::cvt<std::string>(context));
+			net::url url = net::parse(utf8::cvt<std::string>(context), 80);
 			std::wstring path = core->expand_path(DEFAULT_CACHE_PATH);
 			if (!file_helpers::checks::is_directory(path)) {
 				if (file_helpers::checks::exists(path)) 
@@ -37,7 +41,7 @@ namespace settings {
 			std::string error;
 			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
 				os.close();
-				get_logger()->err(__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
+				get_logger()->error(__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
 			}
 			os.close();
 			if (!file_helpers::checks::exists(wp.string())) {
@@ -107,11 +111,11 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
-			get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + key.first + _T(".") + key.second));
+			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + key.first + _T(".") + key.second));
 		}
 
 		virtual void set_real_path(std::wstring path) {
-			get_core()->get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + path));
+			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + path));
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -147,7 +151,7 @@ namespace settings {
 		std::wstring get_file_name() {
 			if (url_.empty()) {
 				url_ = get_file_from_context();
-				get_core()->get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + url_);
+				get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + url_);
 			}
 			return url_;
 		}
@@ -155,7 +159,7 @@ namespace settings {
 			return boost::filesystem::is_regular(get_file_name());
 		}
 		virtual std::wstring get_info() {
-			return _T("INI settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
+			return _T("HTTP settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
 		}
 
 	};

@@ -8,7 +8,7 @@ using namespace nscp::helpers;
 namespace nsclient {
 	struct channels : public plugins_list_with_listener {
 
-		channels(nsclient::logger *logger) : plugins_list_with_listener(logger) {}
+		channels() : plugins_list_with_listener() {}
 
 		void add_plugin(plugin_type plugin) {
 			if (!plugin || !plugin->hasNotificationHandler())

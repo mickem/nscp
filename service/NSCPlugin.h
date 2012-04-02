@@ -21,10 +21,8 @@
 #pragma once
 
 #include <NSCAPI.h>
-//#include <NSCHelper.h>
-#include <sstream>
 #include <dll/dll.hpp>
-#include <boost/noncopyable.hpp>
+#include <nsclient/logger.hpp>
 
 /**
  * @ingroup NSClient++
@@ -101,7 +99,7 @@ public:
  * @bug 
  *
  */
-class NSCPlugin : boost::noncopyable {
+class NSCPlugin : public boost::noncopyable, public nsclient::logging::raw_subscriber {
 private:
 	//bool bLoaded_;			// Status of plug in
 	dll::dll module_;
@@ -197,6 +195,11 @@ public:
 	}
 	unsigned int get_id() const { return plugin_id_; }
 	static boost::filesystem::wpath get_filename(boost::filesystem::wpath folder, std::wstring module);
+
+public:
+	void on_raw_log_message(std::string &payload) {
+		handleMessage(payload.c_str(), payload.size());
+	}
 
 private:
 	bool lastIsMsgPlugin_;

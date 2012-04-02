@@ -3,7 +3,7 @@
 #include <boost/foreach.hpp>
 
 #include "NSCPlugin.h"
-#include "logger.hpp"
+#include <nsclient/logger.hpp>
 #include <strEx.h>
 
 using namespace nscp::helpers;
@@ -31,7 +31,6 @@ namespace nsclient {
 
 
 	private:
-		nsclient::logger *logger_;
 		plugin_list_type plugins_;
 		description_list_type descriptions_;
 		command_list_type commands_;
@@ -39,7 +38,7 @@ namespace nsclient {
 
 	public:
 
-		commands(nsclient::logger *logger) : logger_(logger) {}
+		commands() {}
 
 		void add_plugin(plugin_type plugin) {
 			if (!plugin || !plugin->hasCommandHandler()) {
@@ -185,9 +184,8 @@ public:
 		static std::wstring make_key(std::wstring key) {
 			return boost::algorithm::to_lower_copy(key);
 		}
-		void log_error(std::string file, int line, std::wstring error) {
-			if (logger_ != NULL)
-				logger_->nsclient_log_error(file, line, error);
+		void log_error(const char* file, int line, std::wstring error) {
+			nsclient::logging::logger::get_logger()->error(file, line, error);
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {

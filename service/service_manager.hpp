@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/program_options.hpp>
 #ifdef _WIN32
 #include <ServiceCmd.h>
 #endif

@@ -198,7 +198,7 @@ namespace settings_manager {
 			set_instance(tgt);
 			return;
 		}
-		get_logger()->err(__FILE__, __LINE__, std::wstring(_T("Settings contexts exausted, will create a new ")) + DEFAULT_CONF_INI_LOCATION);
+		get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Settings contexts exausted, will create a new ")) + DEFAULT_CONF_INI_LOCATION);
 		set_instance(DEFAULT_CONF_INI_LOCATION);
 	}
 
@@ -225,10 +225,10 @@ namespace settings_manager {
 		try {
 			change_context(key);
 		} catch (settings::settings_exception e) {
-			provider_->log_fatal_error(_T("Failed to initialize settings: ") + e.getError());
+			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, _T("Failed to initialize settings: ") + e.getError());
 			return false;
 		} catch (...) {
-			provider_->log_fatal_error(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			return false;
 		}
 		return true;
@@ -240,23 +240,22 @@ namespace settings_manager {
 			set_primary(context);
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
-			provider_->log_fatal_error(_T("Failed to initialize settings: ") + e.getError());
+			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, _T("Failed to initialize settings: ") + e.getError());
 		} catch (...) {
-			provider_->log_fatal_error(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 		}
 	}
 
 	bool init_settings(provider_interface *provider, std::wstring context) {
 		try {
 			settings_impl = new NSCSettingsImpl(provider);
-			get_core()->set_logger(provider->create_logger());
 			get_core()->set_base(provider->expand_path(_T("${base-path}")));
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
-			provider->log_fatal_error(_T("Failed to initialize settings: ") + e.getError());
+			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, _T("Failed to initialize settings: ") + e.getError());
 			return false;
 		} catch (...) {
-			provider->log_fatal_error(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			return false;
 		}
 		return true;

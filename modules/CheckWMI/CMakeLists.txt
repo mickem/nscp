@@ -28,6 +28,7 @@ add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
+	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	Wbemuuid.lib
 
 )

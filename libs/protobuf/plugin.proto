@@ -1,5 +1,7 @@
 package Plugin;
 
+option optimize_for = LITE_RUNTIME;
+
 message Common {
 
 	enum ResultCode {

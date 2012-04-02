@@ -5,6 +5,21 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 
+2012-04-01 MickeM
+ * Fixed issue with default port for NSCA/NRPE/* clients
+
+2012-03-31 MickeM
+ * Rewritten log implementation from ground up without using crappy boost library which requires DNS :(
+
+2012-03-27 MickeM
+ * Removed some annoying "error" messages
+ * Tweaked FGileLogger a bit to be more "modern"
+ * Changed so file-name expansion is more efficient
+ * Changed so modules are defaulted to 0 in config.
+ * Log levels are case sensetive
+ * Fixed so log level is not read from ini file
+ * improved plugin processing from ini files
+
 2012-03-26 MickeM
  * Fixed perfoamcen data parsing issue
  * Fixed external scripts perfoamcen data issue

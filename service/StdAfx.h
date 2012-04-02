@@ -28,6 +28,7 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <queue>
 
 #include "config.h"
 #include <Singleton.h>
@@ -39,6 +40,9 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/condition_variable.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
+#include <boost/noncopyable.hpp>
+

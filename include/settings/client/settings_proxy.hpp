@@ -61,17 +61,17 @@ namespace settings_client {
 			return get_handler()->expand_path(key);
 		}
 
-		virtual void err(std::string file, int line, std::wstring message) {
-			get_core()->get_logger()->err(file, line, message);
+		virtual void err(const char* file, int line, std::wstring message) {
+			nsclient::logging::logger::get_logger()->error(file, line, message);
 		}
-		virtual void warn(std::string file, int line, std::wstring message) {
-			get_core()->get_logger()->warn(file, line, message);
+		virtual void warn(const char* file, int line, std::wstring message) {
+			nsclient::logging::logger::get_logger()->warning(file, line, message);
 		}
-		virtual void info(std::string file, int line, std::wstring message)  {
-			get_core()->get_logger()->info(file, line, message);
+		virtual void info(const char* file, int line, std::wstring message)  {
+			nsclient::logging::logger::get_logger()->info(file, line, message);
 		}
-		virtual void debug(std::string file, int line, std::wstring message)  {
-			get_core()->get_logger()->debug(file, line, message);
+		virtual void debug(const char* file, int line, std::wstring message)  {
+			nsclient::logging::logger::get_logger()->debug(file, line, message);
 		}
 	};
 }

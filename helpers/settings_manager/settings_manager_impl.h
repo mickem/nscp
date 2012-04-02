@@ -8,8 +8,6 @@ namespace settings_manager {
 
 	struct provider_interface {
 		virtual std::wstring expand_path(std::wstring file) = 0;
-		virtual void log_fatal_error(std::wstring error) = 0;
-		virtual settings::logger_interface* create_logger() = 0;
 		virtual std::wstring get_data(std::wstring key) = 0;
 	};
 

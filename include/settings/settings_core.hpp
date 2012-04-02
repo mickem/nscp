@@ -68,50 +68,6 @@ namespace settings {
 		KeyNotFoundException(std::pair<std::wstring,std::wstring> key) : settings_exception(_T("Key not found: ")+ key.first + _T(" ") + key.second) {}
 	};
 
-	class logger_interface {
-		public:
-			//////////////////////////////////////////////////////////////////////////
-			/// Log an ERROR message.
-			///
-			/// @param file the file where the event happened
-			/// @param line the line where the event happened
-			/// @param message the message to log
-			///
-			/// @author mickem
-			virtual void err(std::string file, int line, std::wstring message) = 0;
-			//////////////////////////////////////////////////////////////////////////
-			/// Log an WARNING message.
-			///
-			/// @param file the file where the event happened
-			/// @param line the line where the event happened
-			/// @param message the message to log
-			///
-			/// @author mickem
-			virtual void warn(std::string file, int line, std::wstring message) = 0;
-			//////////////////////////////////////////////////////////////////////////
-			/// Log an INFO message.
-			///
-			/// @param file the file where the event happened
-			/// @param line the line where the event happened
-			/// @param message the message to log
-			///
-			/// @author mickem
-			virtual void info(std::string file, int line, std::wstring message) = 0;
-			//////////////////////////////////////////////////////////////////////////
-			/// Log an DEBUG message.
-			///
-			/// @param file the file where the event happened
-			/// @param line the line where the event happened
-			/// @param message the message to log
-			///
-			/// @author mickem
-			virtual void debug(std::string file, int line, std::wstring message) = 0;
-
-			void quick_debug(std::wstring message) {
-				//debug(__FILE__, __LINE__, message);
-			}
-	};
-
 	class settings_interface;
 	typedef boost::shared_ptr<settings_interface> instance_ptr;
 	typedef boost::shared_ptr<settings_interface> instance_raw_ptr;
@@ -288,30 +244,6 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_base(boost::filesystem::wpath path) = 0;
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Get the basepath for the settings subsystem.
-		/// In other words get where the settings files reside
-		///
-		/// @return the path to the settings files
-		///
-		/// @author mickem
-		//virtual boost::filesystem::wpath get_base() = 0;
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Set the logging interface (will receive log messages)
-		///
-		/// @param logger the new logger to use
-		///
-		/// @author mickem
-		virtual void set_logger(logger_interface *logger) = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Get the logging interface (will receive log messages)
-		///
-		/// @return the logger to use
-		///
-		/// @author mickem
-		virtual logger_interface* get_logger() = 0;
 
 		virtual std::wstring to_string() = 0;
 

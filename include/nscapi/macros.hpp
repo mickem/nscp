@@ -79,7 +79,7 @@
 		return ret; } \
 	extern void NSDeleteBuffer(char**buffer) { nscapi::basic_wrapper_static<plugin_impl_class>::NSDeleteBuffer(buffer); }
 
-#define NSC_WRAPPERS_HANDLE_MSG_DEF(toObject) \
+#define NSC_WRAPPERS_HANDLE_MSG_DEF() \
 	extern void NSHandleMessage(unsigned int id, const char* request_buffer, unsigned int request_buffer_len) { \
 		nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
 		return wrapper.NSHandleMessage(request_buffer, request_buffer_len); } \

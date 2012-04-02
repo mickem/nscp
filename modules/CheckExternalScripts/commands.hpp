@@ -86,7 +86,7 @@ namespace commands {
 			try {
 				strEx::parse_command(str, command, arguments);
 			} catch (const std::exception &e) {
-				NSC_LOG_ERROR(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()));
+				NSC_LOG_ERROR(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
 				strEx::splitList list = strEx::splitEx(str, _T(" "));
 				if (list.size() > 0) {
 					command = list.front();
@@ -145,19 +145,19 @@ namespace commands {
 				_T("ALIAS"), _T("The alias (service name) to report to server"))
 
 				(_T("parent"), nscapi::settings_helper::wstring_key(&object.parent, _T("default")),
-				_T("PARENT"), _T("The parent the target inherits from"))
+				_T("PARENT"), _T("The parent the target inherits from"), true)
 
 				(_T("is template"), nscapi::settings_helper::bool_key(&object.is_template, false),
-				_T("IS TEMPLATE"), _T("Declare this object as a template (this means it will not be available as a separate object)"))
+				_T("IS TEMPLATE"), _T("Declare this object as a template (this means it will not be available as a separate object)"), true)
 
 				(_T("user"), nscapi::settings_helper::wstring_key(&object.user),
-				_T("USER"), _T("The user to run the command as"))
+				_T("USER"), _T("The user to run the command as"), true)
 
 				(_T("domain"), nscapi::settings_helper::wstring_key(&object.domain),
-				_T("DOMAIN"), _T("The user to run the command as"))
+				_T("DOMAIN"), _T("The user to run the command as"), true)
 
 				(_T("password"), nscapi::settings_helper::wstring_key(&object.password),
-				_T("PASSWORD"), _T("The user to run the command as"))
+				_T("PASSWORD"), _T("The user to run the command as"), true)
 
 				;
 
