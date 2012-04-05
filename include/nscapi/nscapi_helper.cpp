@@ -89,10 +89,6 @@ NSCAPI::log_level::level nscapi::logging::parse(std::wstring str) {
 	for (strEx::splitList::const_iterator key = lst.begin(); key != lst.end(); ++key) {
 		PARSE_LOGLEVEL_BEGIN()
 			PARSE_LOGLEVEL("all",		NSCAPI::log_level::trace)
-			PARSE_LOGLEVEL("normal",	NSCAPI::log_level::info)
-			PARSE_LOGLEVEL("service",	NSCAPI::log_level::log)
-			PARSE_LOGLEVEL("log",		NSCAPI::log_level::log)
-			PARSE_LOGLEVEL("message",	NSCAPI::log_level::info)
 			PARSE_LOGLEVEL("error",		NSCAPI::log_level::error)
 			PARSE_LOGLEVEL("critical",	NSCAPI::log_level::critical)
 			PARSE_LOGLEVEL("debug",		NSCAPI::log_level::debug)
@@ -114,9 +110,6 @@ bool nscapi::logging::matches(NSCAPI::log_level::level level, NSCAPI::nagiosRetu
 std::wstring nscapi::logging::to_string(NSCAPI::log_level::level level) {
 	RENDER_LOGLEVEL_BEGIN()
 		RENDER_LOGLEVEL("all",		NSCAPI::log_level::trace)
-		RENDER_LOGLEVEL("normal",	NSCAPI::log_level::info)
-		RENDER_LOGLEVEL("log",		NSCAPI::log_level::log)
-		RENDER_LOGLEVEL("message",	NSCAPI::log_level::info)
 		RENDER_LOGLEVEL("error",		NSCAPI::log_level::error)
 		RENDER_LOGLEVEL("critical",	NSCAPI::log_level::critical)
 		RENDER_LOGLEVEL("debug",		NSCAPI::log_level::debug)
@@ -181,8 +174,10 @@ std::wstring nscapi::plugin_helper::translateMessageType(NSCAPI::messageTypes ms
 			return _T("critical");
 		case NSCAPI::log_level::warning:
 			return _T("warning");
-		case NSCAPI::log_level::log:
-			return _T("message");
+		case NSCAPI::log_level::info:
+			return _T("info");
+		case NSCAPI::log_level::trace:
+			return _T("trace");
 		case NSCAPI::log_level::debug:
 			return _T("debug");
 	}

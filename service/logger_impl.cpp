@@ -211,6 +211,50 @@ public:
 
 
 
+class simple_console_logger : public nsclient::logging::logging_interface_impl {
+	std::string format_;
+public:
+	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S") {
+	}
+
+	void do_log(const std::string &data) {
+		if (get_console_log()) {
+			std::wcout << render_console_message(data) << std::endl;
+		}
+	}
+	void configure() {
+		try {
+			std::wstring file;
+
+			sh::settings_registry settings(settings_manager::get_proxy());
+			settings.set_alias(_T("log/file"));
+
+			settings.add_path_to_settings()
+				(_T("log"),_T("LOG SECTION"), _T("Configure log properties."))
+				;
+
+			settings.add_key_to_settings(_T("log"))
+				(_T("date format"), sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
+				_T("DATEMASK"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+
+				;
+
+			settings.register_all();
+			settings.notify();
+
+		} catch (nscapi::nscapi_exception &e) {
+			log_fatal(std::string("Failed to register command: ") + e.what());
+		} catch (std::exception &e) {
+			log_fatal(std::string("Exception caught: ") + e.what());
+		} catch (...) {
+			log_fatal("Failed to register command.");
+		}
+	}
+	bool startup() { return true; }
+	bool shutdown() { return true; }
+};
+
+
 
 
 const static std::string QUIT_MESSAGE = "$$QUIT$$";
@@ -282,12 +326,41 @@ public:
 	}
 };
 
-static nsclient::logging::logging_interface_impl *impl = NULL;
+static nsclient::logging::logging_interface_impl *logger_impl_ = NULL;
 
+#define CONSOLE_BACKEND "console"
+#define THREADED_FILE_BACKEND "threaded-file"
+#define FILE_BACKEND "file"
+
+
+void nsclient::logging::logger::set_backend(std::string backend) {
+	nsclient::logging::logging_interface_impl *tmp = NULL;
+	if (backend == CONSOLE_BACKEND) {
+		tmp = new simple_console_logger();
+	} else if (backend == THREADED_FILE_BACKEND) {
+		tmp = new threaded_logger(log_impl_type(new simple_file_logger("nsclient.log")));
+	} else if (backend == FILE_BACKEND) {
+		tmp = new simple_file_logger("nsclient.log");
+	} else {
+		tmp = new simple_console_logger();
+	}
+	nsclient::logging::logging_interface_impl *old = logger_impl_ ;
+	logger_impl_  = tmp;
+	delete old;
+	old = NULL;
+}
+
+
+#define DEFAULT_BACKEND THREADED_FILE_BACKEND
 nsclient::logging::logging_interface_impl* get_impl() {
-	if (impl == NULL)
-		impl = new threaded_logger(log_impl_type(new simple_file_logger("nsclient.log")));
-	return impl;
+	if (logger_impl_  == NULL)
+		nsclient::logging::logger::set_backend(DEFAULT_BACKEND);
+	return logger_impl_ ;
+}
+void nsclient::logging::logger::destroy() {
+	nsclient::logging::logging_interface_impl* old = logger_impl_;
+	logger_impl_ = NULL;
+	delete old;
 }
 
 

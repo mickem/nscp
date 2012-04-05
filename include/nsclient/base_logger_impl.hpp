@@ -16,7 +16,7 @@ namespace nsclient {
 			NSCAPI::log_level::level level_;
 			bool console_log_;
 		public:
-			logging_interface_impl() : level_(NSCAPI::log_level::trace), console_log_(false) {}
+			logging_interface_impl() : level_(NSCAPI::log_level::info), console_log_(false) {}
 
 
 

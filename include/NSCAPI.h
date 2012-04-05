@@ -100,7 +100,7 @@ namespace NSCAPI {
 		const int critical = 1;	// Critical error
 		const int error = 10;	// Error
 		const int warning = 50;	// Warning			<<< Default for command line interface
-		const int log = 100;	// Log message		<<< Default for service
+		//const int log = 100;	// Log message		<<< Default for service
 		const int info = 150;	// information
 		const int debug = 500;	// Debug messages	<<< Default for test
 		const int trace = 1000;	// Trace messages

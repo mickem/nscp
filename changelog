@@ -4,6 +4,15 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-04-04 MickeM
+ * Fixed issue with empty filters in active eventlog
+
+2012-04-04 MickeM
+ * Resolved some issues with loggingin default set to debug.
+ * Fixed so --debug actually works
+ * Added --log-to-file and set "nscp test" to not log to file.
+ * Fixed typo related to allow arguments option
+ * Added levels to comment for log level in config.
 
 2012-04-01 MickeM
  * Fixed issue with default port for NSCA/NRPE/* clients

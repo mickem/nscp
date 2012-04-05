@@ -19,7 +19,6 @@ namespace nsclient {
 		}
 
 		void boot(std::wstring log) {
-			core_->set_console_log();
 			if (!current_.empty())
 				core_->set_settings_context(current_);
 			if (!core_->boot_init(log)) {

@@ -86,7 +86,8 @@ struct real_time_thread {
 
 	void set_language(std::string lang);
 	void set_filter(std::wstring flt) {
-		add_realtime_filter(_T("filter"), flt);
+		if (!flt.empty())
+			add_realtime_filter(_T("filter"), flt);
 	}
 	bool has_filters() {
 		return !filters_.empty();

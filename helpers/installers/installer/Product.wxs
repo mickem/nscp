@@ -121,10 +121,6 @@
 							<File Id="NSCAServerDLL" Name="NSCAServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCAServer.dll" Vital="no" />
 							<File Id="SchedulerDLL" Name="Scheduler.dll" DiskId="1" Source="$(var.Source)/modules/Scheduler.dll" Vital="no" />
 						</Component>
-						<Component Id="NSCP" Guid="B185B8F1-3718-4e8e-ADA4-38049A0721EA" Win64="$(var.Win64)">
-							<File Id="NSCPClientDLL" Name="NSCPClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCPClient.dll" Vital="no" />
-							<File Id="NSCPServerDLL" Name="NSCPServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCPServer.dll" Vital="no" />
-						</Component>
 						<Component Id="PythonScript" Guid="49C2120D-634D-48ef-B82E-F2E9B219A768" Win64="$(var.Win64)">
 							<File Id="PythonScript" Name="PythonScript.dll" DiskId="1" Source="$(var.Source)/modules/PythonScript.dll" Vital="no" />
 						</Component>
@@ -266,9 +262,6 @@
 				</Feature>
 				<Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="disallow">
 					<ComponentRef Id="ExtraClients" />
-				</Feature>
-				<Feature Id="NSCPPlugin" Title="NSCP plugin (experimental)" Description="Plugin to submit passive results to an NSCP server" Level="1" Absent="disallow">
-					<ComponentRef Id="NSCP" />
 				</Feature>
 				<Feature Id="PythonScript" Title="Python Scripting" Description="Python scripting requires python to be installed)" Level="1" Absent="disallow">
 					<ComponentRef Id="PythonScript" />

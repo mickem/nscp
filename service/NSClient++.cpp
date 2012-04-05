@@ -333,7 +333,11 @@ void NSClientT::preboot_load_all_plugin_files() {
 			try {
 				addPlugin(pluginPath / v.second, v.first);
 			} catch (const NSPluginException &e) {
-				LOG_CRITICAL_CORE_STD(_T("Failed to register plugin: ") + e.wwhat());
+				if (e.file_.find(_T("FileLogger")) != std::wstring::npos) {
+					LOG_DEBUG_CORE_STD(_T("Failed to register plugin: ") + e.wwhat());
+				} else {
+					LOG_ERROR_CORE(_T("Failed to register plugin: ") + e.wwhat());
+				}
 			} catch (...) {
 				LOG_CRITICAL_CORE_STD(_T("Failed to register plugin key: ") + v.second);
 			}
@@ -401,7 +405,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 
 		settings.add_key_to_settings(_T("log"))
 			(_T("level"), sh::wstring_key(&log_level, _T("info")),
-			_T("LOG LEVEL"), _T("Log level to use"))
+			_T("LOG LEVEL"), _T("Log level to use. Avalible levels are error,warning,info,debug,trace"))
 			;
 
 		settings.add_key_to_settings(_T("shared session"))
@@ -541,7 +545,11 @@ bool NSClientT::boot_load_all_plugins() {
 			try {
 				addPlugin(pluginPath / boost::filesystem::wpath(file), alias);
 			} catch(const NSPluginException& e) {
-				LOG_ERROR_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
+				if (e.file_.find(_T("FileLogger")) != std::wstring::npos) {
+					LOG_DEBUG_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
+				} else {
+					LOG_ERROR_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
+				}
 			} catch (std::exception e) {
 				LOG_ERROR_CORE_STD(_T("exception loading plugin: ") + file + strEx::string_to_wstring(e.what()));
 				return false;

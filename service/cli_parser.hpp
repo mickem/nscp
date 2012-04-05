@@ -15,11 +15,13 @@ class cli_parser {
 	po::options_description client;
 	po::options_description common;
 	po::options_description unittest;
+	po::options_description test;
 
 	bool help;
 	bool version;
 	std::wstring log_level;
 	std::wstring settings_store;
+	bool log_debug;
 
 	static nsclient::logging::logger_interface* get_logger() {
 		return nsclient::logging::logger::get_logger(); 
@@ -33,18 +35,21 @@ public:
 		, settings("Settings options")
 		, service("Service Options")
 		, client("Client Options")
-		, unittest("Unittest Options")
+		, unittest("Unit-test Options")
+		, test("Test Options")
 		, help(false)
 		, version(false)
+		, log_debug(false)
 	{
 		root.add_options()
 			("help", po::bool_switch(&help), "produce help message")
 			("version", po::bool_switch(&version), "Show version information")
 			;
+
 		common.add_options()
 			("settings", po::value<std::wstring>(&settings_store), "Override (temporarily) settings subsystem to use")
 			("help", po::bool_switch(&help), "produce help message")
-			("debug", "Set log level to debug (and show debug information)")
+			("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
 			("log", po::value<std::wstring>(&log_level), "The log level to use")
 			("version", po::bool_switch(&version), "Show version information")
 			;
@@ -83,16 +88,24 @@ public:
 			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
 			;
+
 		unittest.add_options()
 			("language,l", po::value<std::wstring>()->implicit_value(_T("")), "Language tests are written in")
 			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
 			;
 
+		test.add_options()
+			("log-to-file", "Enable file logger (defaults is console only)")
+			;
+
 	}
 
 	bool process_common_options(std::string context, po::options_description &desc) {
-		core_->set_console_log();
+		nsclient::logging::logger::get_logger()->set_console_log(true);
+		if (log_debug) {
+			log_level = _T("debug");
+		}
 		if (!log_level.empty())
 			nsclient::logging::logger::set_log_level(log_level);
 		if (!settings_store.empty())
@@ -190,11 +203,24 @@ public:
 	}
 
 	int parse_test(int argc, wchar_t* argv[]) {
-		bool server = false;
+
+		po::options_description all("Allowed options (test)");
+		all.add(common).add(test);
+
+		po::variables_map vm;
+		po::store(po::parse_command_line(argc, argv, all), vm);
+		po::notify(vm);
+
 		if (log_level.empty())
 			log_level  = _T("debug");
 
-		core_->set_console_log();
+		if (process_common_options("test", all))
+			return 1;
+
+		if (vm.count("log-to-file") == 0) {
+			nsclient::logging::logger::set_backend("console");
+		}
+
 		try {
 			po::options_description all("Allowed options (settings)");
 			all.add(common).add(settings);
@@ -299,8 +325,8 @@ public:
 				get_logger()->info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
 			}
 			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
-				get_logger()->info(__FILE__, __LINE__, _T("Service name: ") + name);
-				get_logger()->info(__FILE__, __LINE__, _T("Service description: ") + desc);
+				get_logger()->debug(__FILE__, __LINE__, _T("Service name: ") + name);
+				get_logger()->debug(__FILE__, __LINE__, _T("Service description: ") + desc);
 			}
 
 			if (vm.count("run")) {

@@ -176,9 +176,6 @@ public:
 
 	std::wstring getFolder(std::wstring key);
 	std::wstring expand_path(std::wstring file);
-	void set_console_log() {
-		nsclient::logging::logger::get_logger()->set_console_log(true);
-	}
 
 	typedef boost::function<int(plugin_type)> run_function;
 	int load_and_run(std::wstring module, run_function fun, std::list<std::wstring> &errors);

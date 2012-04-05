@@ -14,8 +14,8 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 
 	if (!allowArgs_) {
 		if (!cmd.second.empty()) {
-			NSC_LOG_ERROR(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
-			throw nrpe::nrpe_exception(_T("Request contained arguments (not currently allowed, check the allow_arguments option)."));
+			NSC_LOG_ERROR(_T("Request contained arguments (not currently allowed, check the allow arguments option)."));
+			throw nrpe::nrpe_exception(_T("Request contained arguments (not currently allowed, check the allow arguments option)."));
 		}
 	}
 	if (!allowNasty_) {

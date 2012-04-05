@@ -40,7 +40,7 @@
 
 bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) {
 	enum log_status {unknown, set };
-	static NSCAPI::log_level::level level = NSCAPI::log_level::log;
+	static NSCAPI::log_level::level level = NSCAPI::log_level::info;
 	static log_status status = unknown;
 	if (status == unknown) {
 		level = get_loglevel();

@@ -84,8 +84,6 @@ namespace nscapi {
 					return Plugin::LogEntry_Entry_Level_LOG_DEBUG;
 				if (ret == NSCAPI::log_level::error)
 					return Plugin::LogEntry_Entry_Level_LOG_ERROR;
-				if (ret == NSCAPI::log_level::log)
-					return Plugin::LogEntry_Entry_Level_LOG_INFO;
 				if (ret == NSCAPI::log_level::info)
 					return Plugin::LogEntry_Entry_Level_LOG_INFO;
 				if (ret == NSCAPI::log_level::warning)

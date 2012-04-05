@@ -77,7 +77,7 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
 
-			(_T("use ssl"), sh::bool_key(&info_.use_ssl, true),
+			(_T("use ssl"), sh::bool_key(&info_.use_ssl, false),
 			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
 
 			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),

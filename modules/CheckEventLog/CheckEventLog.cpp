@@ -331,6 +331,8 @@ void real_time_thread::add_realtime_filter(std::wstring key, std::wstring query)
 	if (!key.empty() && query.empty()) {
 		c.filter = key;
 		filters_.push_back(c);
+	} else if (key.empty() && query.empty()) {
+		return;
 	} else {
 		c.alias = key;
 		c.filter = query;

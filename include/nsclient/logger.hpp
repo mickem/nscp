@@ -40,6 +40,9 @@ namespace nsclient {
 			static void set_log_level(NSCAPI::log_level::level level);
 			static void set_log_level(std::wstring level);
 
+			static void set_backend(std::string backend);
+			static void destroy();
+
 		};
 	}
 };

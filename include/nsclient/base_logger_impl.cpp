@@ -10,8 +10,6 @@ std::wstring nsclient::logging::logger_helper::render_log_level_short(NSCAPI::lo
 			return _T("w");
 		case NSCAPI::log_level::error:
 			return _T("e");
-		case NSCAPI::log_level::log:
-			return _T("l");
 		case NSCAPI::log_level::info:
 			return _T("l");
 		case NSCAPI::log_level::debug:
@@ -29,8 +27,6 @@ std::wstring nsclient::logging::logger_helper::render_log_level_long(NSCAPI::log
 			return _T("critical");
 		case NSCAPI::log_level::warning:
 			return _T("warning");
-		case NSCAPI::log_level::log:
-			return _T("message");
 		case NSCAPI::log_level::info:
 			return _T("message");
 		case NSCAPI::log_level::debug:
