@@ -119,7 +119,7 @@ namespace settings {
 			settings_core::key_path_type key(settings_core::key_path_type new_key) {
 				key_map::iterator it1 = keys_.find(new_key);
 				if (it1 != keys_.end()) {
-					get_logger()->debug(__FILE__, __LINE__, new_key.first + _T(".") + new_key.second + _T(" found in alias list"));
+					//get_logger()->debug(__FILE__, __LINE__, new_key.first + _T(".") + new_key.second + _T(" found in alias list"));
 					return (*it1).second;
 				}
 				path_map::iterator it2 = sections_.find(new_key.first);

@@ -52,7 +52,7 @@ NRPE/socket_timeout=/settings/NRPE/server/socket timeout
 NRPE/command_timeout=/settings/NRPE/server/command timeout
 NRPE/allow_arguments=/settings/NRPE/server/allow arguments
 NRPE/allow_nasty_meta_chars=/settings/NRPE/server/allow nasty characters
-NRPE/use_ssl=/settings/NRPE/server/ssl
+NRPE/use_ssl=/settings/NRPE/server/use ssl
 # NRPE/script_dir
 
 #Check System/CPUBufferSize=/settings/check/system/windows/CPUBufferSize

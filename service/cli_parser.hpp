@@ -177,7 +177,7 @@ public:
 		try {
 
 			po::options_description all("Allowed options");
-			all.add(root).add(common).add(service).add(settings).add(client);
+			all.add(root).add(common).add(service).add(settings).add(client).add(test).add(unittest);
 			std::cout << all << std::endl;
 
 			std::cerr << "First argument has to be one of the following: ";
@@ -203,34 +203,24 @@ public:
 	}
 
 	int parse_test(int argc, wchar_t* argv[]) {
-
-		po::options_description all("Allowed options (test)");
-		all.add(common).add(test);
-
-		po::variables_map vm;
-		po::store(po::parse_command_line(argc, argv, all), vm);
-		po::notify(vm);
-
-		if (log_level.empty())
-			log_level  = _T("debug");
-
-		if (process_common_options("test", all))
-			return 1;
-
-		if (vm.count("log-to-file") == 0) {
-			nsclient::logging::logger::set_backend("console");
-		}
-
 		try {
-			po::options_description all("Allowed options (settings)");
-			all.add(common).add(settings);
+
+			po::options_description all("Allowed options (test)");
+			all.add(common).add(test);
 
 			po::variables_map vm;
 			po::store(po::parse_command_line(argc, argv, all), vm);
 			po::notify(vm);
 
-			if (process_common_options("settings", all))
+			if (log_level.empty())
+				log_level  = _T("debug");
+
+			if (process_common_options("test", all))
 				return 1;
+
+			if (vm.count("log-to-file") == 0) {
+				nsclient::logging::logger::set_backend("console");
+			}
 
 			nsclient::simple_client client(core_);
 			client.start(log_level);

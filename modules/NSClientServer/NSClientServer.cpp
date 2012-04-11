@@ -57,16 +57,28 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 
 			;
 
-		settings.alias().add_parent(_T("/settings/default/socket")).add_key_to_settings()
 
+		settings.alias().add_key_to_settings()
 			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
-			_T("THREAD POOL"), _T(""))
+			_T("THREAD POOL"), _T(""), true)
+
+			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
+			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
+
+			(_T("use ssl"), sh::bool_key(&info_.use_ssl, false),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), true)
+
+			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
+			_T("SSL CERTIFICATE"), _T(""), true)
+
+			;
+
+
+
+		settings.alias().add_parent(_T("/settings/default/socket")).add_key_to_settings()
 
 			(_T("bind to"), sh::string_key(&info_.address),
 			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
-
-			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
-			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
 
 			(_T("allowed hosts"), sh::string_fun_key<std::wstring>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), _T("127.0.0.1")),
 			_T("ALLOWED HOSTS"), _T("A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges."))
@@ -77,18 +89,13 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
 
-			(_T("use ssl"), sh::bool_key(&info_.use_ssl, false),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
-
-			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
-			_T("SSL CERTIFICATE"), _T(""))
-
 			;
 
 		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
 			(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&check_nt::server::handler::set_password, info_.request_handler, _1), _T("")),
 			_T("PASSWORD"), _T("Password used to authenticate againast server"))
+
 			;
 
 		settings.register_all();

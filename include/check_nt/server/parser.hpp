@@ -20,11 +20,10 @@ namespace check_nt {
 				for (;begin != end; ++begin) {
 					buffer_.push_back(*begin);
 					if (*begin == '\n') {
-						found = true;
 						break;
 					}
 				}
-				return boost::make_tuple(found, begin);
+				return boost::make_tuple(true, begin);
 			}
 
 			check_nt::packet parse() {

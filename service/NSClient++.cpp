@@ -430,7 +430,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 			_T("SUBMISSION URL"), _T("The url to submit crash reports to"))
 
 			(_T("archive folder"), sh::wpath_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
-			CRASH_ARCHIVE_FOLDER_KEY, _T("The folder to archive crash dumps in"))
+			_T("CRASH ARCHIVE LOCATION"), _T("The folder to archive crash dumps in"))
 			;
 
 		settings.register_all();
@@ -537,11 +537,11 @@ bool NSClientT::boot_load_all_plugins() {
 		BOOST_FOREACH(v, plugins) {
 			std::wstring file = NSCPlugin::get_plugin_file(v.second);
 			std::wstring alias = v.first;
-			if (!alias.empty()) {
-				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file + _T(" as ") + alias);
-			} else {
-				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file);
-			}
+// 			if (!alias.empty()) {
+// 				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file + _T(" as ") + alias);
+// 			} else {
+// 				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file);
+// 			}
 			try {
 				addPlugin(pluginPath / boost::filesystem::wpath(file), alias);
 			} catch(const NSPluginException& e) {
@@ -1409,7 +1409,7 @@ std::wstring NSClientT::expand_path(std::wstring file) {
 		std::wstring::size_type pstart = file.find('{', pos);
 		std::wstring::size_type pend = file.find('}', pstart);
 		std::wstring key = file.substr(pstart+1, pend-2);
-		LOG_DEBUG_CORE(_T("Found key: ") + key);
+		//LOG_DEBUG_CORE(_T("Found key: ") + key);
 
 		std::wstring tmp = file;
 		strEx::replace(file, _T("${") + key + _T("}"), getFolder(key));

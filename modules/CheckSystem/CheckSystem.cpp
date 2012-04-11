@@ -89,52 +89,36 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			(_T("pdh/counters"), sh::wstring_map_path(&counters)
 			, _T("PDH COUNTERS"), _T(""))
 
-
 			;
-
 
  		settings.alias().add_key_to_settings()
 			(_T("default"), sh::bool_key(&default_counters, true),
 			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
 
-			(_T("default"), sh::bool_key(&default_counters, true),
-			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
-
 			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
 			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
-// 
-// 			(_T("hostname cache"), sh::bool_key(&cacheNscaHost_),
-// 			_T("CACHE HOSTNAME"), _T(""))
-// 
-// 			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAAgent::set_delay, this, _1), 0),
-// 			_T("DELAY"), _T(""))
-// 
-// 			(_T("payload length"), sh::uint_key(&payload_length_, 512),
-// 			_T("PAYLOAD LENGTH"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
 
 			;
 
-		//std::map<DWORD,std::wstring>::key_type
-
-		settings.alias().add_key_to_settings()
+		settings.alias().add_key_to_settings(_T("service mapping"))
 
 			(_T("BOOT_START"), sh::wstring_vector_key(&lookups_, SERVICE_BOOT_START, _T("ignored")),
-			_T("SERVICE_BOOT_START"), _T("TODO"))
+			_T("SERVICE_BOOT_START"), _T("TODO"), true)
 
 			(_T("SYSTEM_START"), sh::wstring_vector_key(&lookups_, SERVICE_SYSTEM_START, _T("ignored")),
-			_T("SERVICE_SYSTEM_START"), _T("TODO"))
+			_T("SERVICE_SYSTEM_START"), _T("TODO"), true)
 
 			(_T("AUTO_START"), sh::wstring_vector_key(&lookups_, SERVICE_AUTO_START, _T("started")),
-			_T("SERVICE_AUTO_START"), _T("TODO"))
+			_T("SERVICE_AUTO_START"), _T("TODO"), true)
 
 			(_T("DEMAND_START"), sh::wstring_vector_key(&lookups_, SERVICE_DEMAND_START, _T("ignored")),
-			_T("SERVICE_DEMAND_START"), _T("TODO"))
+			_T("SERVICE_DEMAND_START"), _T("TODO"), true)
 
 			(_T("DISABLED"), sh::wstring_vector_key(&lookups_, SERVICE_DISABLED, _T("stopped")),
-			_T("SERVICE_DISABLED"), _T("TODO"))
+			_T("SERVICE_DISABLED"), _T("TODO"), true)
 
 			(_T("DELAYED"), sh::wstring_vector_key(&lookups_, NSCP_SERVICE_DELAYED, _T("ignored")),
-			_T("SERVICE_DELAYED"), _T("TODO"))
+			_T("SERVICE_DELAYED"), _T("TODO"), true)
 
 			;
 

@@ -268,10 +268,14 @@ class threaded_logger : public nsclient::logging::logging_interface_impl {
 	boost::thread thread_;
 
 	log_impl_type background_logger_;
+	bool running_;
 
 public:
 
-	threaded_logger(log_impl_type background_logger) : background_logger_(background_logger) {}
+	threaded_logger(log_impl_type background_logger) : background_logger_(background_logger), running_(false) {}
+	~threaded_logger() {
+		shutdown();
+	}
 
 	void do_log(const std::string &data) {
 		if (get_console_log()) {
@@ -286,16 +290,22 @@ public:
 	void thread_proc() {
 		std::string data;
 		while (true) {
-			log_queue_.wait_and_pop(data);
-			if (data == QUIT_MESSAGE) {
-				break;
-			} else if (data == CONFIGURE_MESSAGE) {
-				if (background_logger_)
-					background_logger_->configure();
-			} else {
-				if (background_logger_)
-					background_logger_->do_log(data);
-				subscribers_.notify(data);
+			try {
+				log_queue_.wait_and_pop(data);
+				if (data == QUIT_MESSAGE) {
+					break;
+				} else if (data == CONFIGURE_MESSAGE) {
+					if (background_logger_)
+						background_logger_->configure();
+				} else {
+					if (background_logger_)
+						background_logger_->do_log(data);
+					subscribers_.notify(data);
+				}
+			} catch (const std::exception &e) {
+				log_fatal(std::string("Failed to process log message: ") + e.what());
+			} catch (...) {
+				log_fatal("Failed to process log message");
 			}
 		}
 	}
@@ -305,14 +315,18 @@ public:
 	}
 	bool startup() {
 		thread_ = boost::thread(boost::bind(&threaded_logger::thread_proc, this));
+		running_ = true;
 		return true;
 	}
 	bool shutdown() {
+		if (!running_)
+			return true;
 		push(QUIT_MESSAGE);
 		if (!thread_.timed_join(boost::posix_time::seconds(5))) {
 			log_fatal("Failed to exit log slave!");
 			return false;
 		}
+		running_ = false;
 		return true;
 	}
 
@@ -345,7 +359,11 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 		tmp = new simple_console_logger();
 	}
 	nsclient::logging::logging_interface_impl *old = logger_impl_ ;
-	logger_impl_  = tmp;
+	if (old != NULL && tmp != NULL) {
+		tmp->set_console_log(old->get_console_log());
+		tmp->set_log_level(old->get_log_level());
+	}
+	logger_impl_ = tmp;
 	delete old;
 	old = NULL;
 }

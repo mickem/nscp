@@ -4,6 +4,15 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-04-10 MickeM
+ * Fixed crash in new logger
+ * Fixed a few command line parsing issues (most notably test and --log-to-file)
+ * Changed default location for process dumps to be a non-elevated location (under common-appdata).
+ * Fixed (ish) check_nt issue (check_nt really really is broken... this will probably cause problems with people sending large payloads though)
+ 
+2012-04-06 MickeM
+ * Easter break!
+
 2012-04-04 MickeM
  * Fixed issue with empty filters in active eventlog
 
@@ -22,16 +31,16 @@ TODO:
 
 2012-03-27 MickeM
  * Removed some annoying "error" messages
- * Tweaked FGileLogger a bit to be more "modern"
+ * Tweaked FileLogger a bit to be more "modern"
  * Changed so file-name expansion is more efficient
  * Changed so modules are defaulted to 0 in config.
- * Log levels are case sensetive
+ * Log levels are case sensitive
  * Fixed so log level is not read from ini file
  * improved plugin processing from ini files
 
 2012-03-26 MickeM
  * Fixed perfoamcen data parsing issue
- * Fixed external scripts perfoamcen data issue
+ * Fixed external scripts performance data issue
  * Fixed boolen flag handling in settings (default generated as false regardless of actual state)
  * Fixed so "advanced properties" are not generated with --update-defalts
  * Added some "advanced properties" here and there

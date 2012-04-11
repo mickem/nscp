@@ -41,8 +41,10 @@ public:
 			condition_.wait(lock);
 		}
 
-		popped_value=queue_.front();
-		queue_.pop();
+		if (!queue_.empty()) {
+			popped_value=queue_.front();
+			queue_.pop();
+		}
 	}
 
 };
