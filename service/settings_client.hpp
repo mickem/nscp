@@ -6,22 +6,25 @@ class NSClientT;
 namespace nsclient {
 	class settings_client {
 		NSClient* core_;
-		std::wstring current_;
 		bool default_;
 		bool load_all_;
-
+		bool started_;
+		std::wstring log_;
 
 	public:
-		settings_client(NSClient* core) : core_(core), default_(false), load_all_(false) {}
-
-		std::wstring get_source() {
-			settings_manager::get_core()->get()->get_context();
+		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool load_all) : started_(false), core_(core), log_(log), default_(update_defaults), load_all_(load_all) {
+			startup();
 		}
 
-		void boot(std::wstring log) {
-			if (!current_.empty())
-				core_->set_settings_context(current_);
-			if (!core_->boot_init(log)) {
+
+		~settings_client() {
+			terminate();
+		}
+
+		void startup() {
+			if (started_)
+				return;
+			if (!core_->boot_init(log_)) {
 				std::wcout << _T("boot::init failed") << std::endl;
 				return;
 			}
@@ -40,17 +43,17 @@ namespace nsclient {
 				std::wcout << _T("Adding default values") << std::endl;
 				settings_manager::get_core()->update_defaults();
 			}
+			started_ = true;
 		}
 
-		void exit() {
+		void terminate() {
+			if (!started_)
+				return;
 			core_->stop_unload_plugins_pre();
 			core_->stop_exit_pre();
 			core_->stop_exit_post();
+			started_ = false;
 		}
-
-		void set_current(std::wstring current) { current_ = current; }
-		void set_update_defaults(bool def) { default_ = def; }
-		void set_load_all_files(bool def) { load_all_ = def; }
 
 		int migrate_from(std::wstring src) {
 			try {
@@ -165,12 +168,10 @@ namespace nsclient {
 			return 0;
 		}
 		int show(std::wstring path, std::wstring key) {
-			//core_->load_all_plugins(NSCAPI::dontStart);
 			std::wcout << settings_manager::get_core()->get()->get_string(path, key);
 			return 0;
 		}
 		int list(std::wstring path) {
-
 			try {
 				dump_path(path);
 			} catch (settings::settings_exception e) {

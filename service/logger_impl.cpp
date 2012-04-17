@@ -72,9 +72,10 @@ std::wstring render_console_message(const std::string &data) {
 			if (i > 0)
 				ss << _T(" -- ");
 			ss << render_log_level_short(msg.level())
-				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.file()), 40)
+				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.file()), 20)
 				<< _T(":") << lpad(utf8::cvt<std::wstring>(strEx::itos(msg.line())),4) 
-				<< _T(" ") + utf8::cvt<std::wstring>(msg.message());
+				<< _T(" ") + utf8::cvt<std::wstring>(msg.message())
+				<< std::endl;
 		}
 		return ss.str();
 	} catch (std::exception &e) {
@@ -205,8 +206,6 @@ public:
 			log_fatal("Failed to register command.");
 		}
 	}
-	bool startup() { return true; }
-	bool shutdown() { return true; }
 };
 
 
@@ -214,12 +213,11 @@ public:
 class simple_console_logger : public nsclient::logging::logging_interface_impl {
 	std::string format_;
 public:
-	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S") {
-	}
+	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S") {}
 
 	void do_log(const std::string &data) {
 		if (get_console_log()) {
-			std::wcout << render_console_message(data) << std::endl;
+			std::wcout << render_console_message(data);
 		}
 	}
 	void configure() {
@@ -250,8 +248,6 @@ public:
 			log_fatal("Failed to register command.");
 		}
 	}
-	bool startup() { return true; }
-	bool shutdown() { return true; }
 };
 
 
@@ -268,18 +264,17 @@ class threaded_logger : public nsclient::logging::logging_interface_impl {
 	boost::thread thread_;
 
 	log_impl_type background_logger_;
-	bool running_;
 
 public:
 
-	threaded_logger(log_impl_type background_logger) : background_logger_(background_logger), running_(false) {}
+	threaded_logger(log_impl_type background_logger) : background_logger_(background_logger) {}
 	~threaded_logger() {
 		shutdown();
 	}
 
 	void do_log(const std::string &data) {
 		if (get_console_log()) {
-			std::wcout << render_console_message(data) << std::endl;
+			std::wcout << render_console_message(data);
 		}
 		push(data);
 	}
@@ -314,20 +309,27 @@ public:
 		push(CONFIGURE_MESSAGE);
 	}
 	bool startup() {
+		if (nsclient::logging::logging_interface_impl::is_started())
+			return true;
 		thread_ = boost::thread(boost::bind(&threaded_logger::thread_proc, this));
-		running_ = true;
-		return true;
+		return nsclient::logging::logging_interface_impl::startup();
 	}
 	bool shutdown() {
-		if (!running_)
+		if (!nsclient::logging::logging_interface_impl::is_started())
 			return true;
-		push(QUIT_MESSAGE);
-		if (!thread_.timed_join(boost::posix_time::seconds(5))) {
-			log_fatal("Failed to exit log slave!");
-			return false;
+		try {
+			push(QUIT_MESSAGE);
+			if (!thread_.timed_join(boost::posix_time::seconds(5))) {
+				log_fatal("Failed to exit log slave!");
+				return false;
+			}
+			return nsclient::logging::logging_interface_impl::shutdown();
+		} catch (const std::exception &e) {
+			log_fatal(std::string("Failed to exit log slave: ") + e.what());
+		} catch (...) {
+			log_fatal("Failed to exit log slave");
 		}
-		running_ = false;
-		return true;
+		return false;
 	}
 
 	virtual void set_log_level(NSCAPI::log_level::level level) {
@@ -362,8 +364,11 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 	if (old != NULL && tmp != NULL) {
 		tmp->set_console_log(old->get_console_log());
 		tmp->set_log_level(old->get_log_level());
+		if (old->is_started())
+			tmp->startup();
 	}
 	logger_impl_ = tmp;
+	logger_impl_->debug(__FILE__, __LINE__, _T("Creating logger: ") + utf8::to_unicode(backend));
 	delete old;
 	old = NULL;
 }

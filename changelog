@@ -4,6 +4,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-04-12 MickeM
+ * Fixed so keys with parents are advanced (in favour of the parent)
+ * Fixed so NSClientServer uses the correct default path for its parents (ie. /settings/default)
+
 2012-04-10 MickeM
  * Fixed crash in new logger
  * Fixed a few command line parsing issues (most notably test and --log-to-file)

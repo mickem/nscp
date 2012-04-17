@@ -64,8 +64,12 @@ namespace nscapi {
 					dummy = typed_key<T>::default_value_as_text_;
 				std::wstring data = core_->get_string(path, key, dummy);
 				if (typed_key<T>::has_default_ || data != dummy) {
-					T value = boost::lexical_cast<T>(data);
-					update_target(&value);
+					try {
+						T value = boost::lexical_cast<T>(data);
+						update_target(&value);
+					} catch (const std::exception &e) {
+						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+					}
 				}
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
@@ -77,8 +81,12 @@ namespace nscapi {
 					dummy = data;
 				data = core_->get_string(path, key, dummy);
 				if (typed_key<T>::has_default_ || data != dummy) {
-					T value = boost::lexical_cast<T>(data);
-					update_target(&value);
+					try {
+						T value = boost::lexical_cast<T>(data);
+						update_target(&value);
+					} catch (const std::exception &e) {
+						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+					}
 				}
 			}
 		};
@@ -95,8 +103,12 @@ namespace nscapi {
 					dummy = typed_key<T>::default_value_as_text_;
 				std::wstring data = core_->get_string(path, key, dummy);
 				if (typed_key<T>::has_default_ || data != dummy) {
-					T value = boost::lexical_cast<T>(core_->expand_path(data));
-					update_target(&value);
+					try {
+						T value = boost::lexical_cast<T>(core_->expand_path(data));
+						update_target(&value);
+					} catch (const std::exception &e) {
+						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+					}
 				}
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
@@ -108,8 +120,12 @@ namespace nscapi {
 					dummy = data;
 				data = core_->get_string(path, key, dummy);
 				if (typed_key<T>::has_default_ || data != dummy) {
-					T value = boost::lexical_cast<T>(core_->expand_path(data));
-					update_target(&value);
+					try {
+						T value = boost::lexical_cast<T>(core_->expand_path(data));
+						update_target(&value);
+					} catch (const std::exception &e) {
+						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+					}
 				}
 			}
 		};
@@ -675,12 +691,13 @@ namespace nscapi {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
 					if (v->key) {
 						//std::wcout << _T("Setting: ") << v->key_name << _T(" ===> ") << v->parent << std::endl;
-						std::wstring desc = v->description.description;
 						if (v->has_parent()) {
-							desc += _T(" Parent element can be found under: ") + v->parent;
-							core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), v->description.advanced);
+							core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced);
+							std::wstring desc = v->description.description + _T(" parent for this key is found under: ") + v->parent + _T(" this is marked as advanced in favour of the parent.");
+							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), true);
+						} else {
+							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced);
 						}
-						core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), v->description.advanced);
 					}
 				}
 				BOOST_FOREACH(path_list::value_type v, paths_) {

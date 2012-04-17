@@ -225,8 +225,8 @@ public:
 			nsclient::simple_client client(core_);
 			client.start(log_level);
 			return 0;
-		} catch(std::exception & e) {
-			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unable to parse command line (settings): ")) + utf8::to_unicode(e.what()));
+		} catch(const std::exception & e) {
+			std::cerr << std::string("Unable to parse command line (test): ") << e.what() << "\n";
 			return 1;
 		}
 	}
@@ -246,16 +246,7 @@ public:
 			bool def = vm.count("add-defaults")==1;
 			bool load_all = vm.count("load-all")==1;
 
-			nsclient::settings_client client(core_);
-
-			std::wstring current = _T(""); //client.get_source();
-
-
-			client.set_current(current);
-			client.set_update_defaults(def);
-			client.set_load_all_files(load_all);
-
-			client.boot(log_level);
+			nsclient::settings_client client(core_, log_level, def, load_all);
 			int ret = -1;
 
 			if (vm.count("generate")) {
@@ -273,18 +264,14 @@ public:
 			} else if (vm.count("switch")) {
 				client.switch_context(vm["switch"].as<std::wstring>());
 				ret = 0;
-			} else if (vm.count("settings")) {
-				client.set_current(vm["settings"].as<std::wstring>());
-				ret = 0;
 			} else {
 				std::cout << all << std::endl;
 				return 1;
 			}
-			client.exit();
 
 			return ret;
-		} catch(std::exception & e) {
-			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unable to parse command line (settings): ")) + utf8::to_unicode(e.what()));
+		} catch(const std::exception & e) {
+			std::cerr << std::string("Unable to parse command line (settings): ") << e.what() << "\n";
 			return 1;
 		}
 	}

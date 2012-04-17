@@ -346,7 +346,7 @@ boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list
 
 		boost::asio::io_service io_service;
 		ip::udp::resolver resolver(io_service);
-		ip::udp::resolver::query query(ip::udp::v4(), con.host, con.port);
+		ip::udp::resolver::query query(ip::udp::v4(), con.host, strEx::s::itos(con.port));
 		ip::udp::endpoint receiver_endpoint = *resolver.resolve(query);
 
 		ip::udp::socket socket(io_service);

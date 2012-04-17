@@ -75,7 +75,7 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 
 
 
-		settings.alias().add_parent(_T("/settings/default/socket")).add_key_to_settings()
+		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
 			(_T("bind to"), sh::string_key(&info_.address),
 			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
@@ -88,10 +88,6 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
-
-			;
-
-		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
 			(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&check_nt::server::handler::set_password, info_.request_handler, _1), _T("")),
 			_T("PASSWORD"), _T("Password used to authenticate againast server"))

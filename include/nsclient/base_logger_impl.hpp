@@ -15,8 +15,10 @@ namespace nsclient {
 		class logging_interface_impl : public nsclient::logging::logger_interface, boost::noncopyable {
 			NSCAPI::log_level::level level_;
 			bool console_log_;
+			bool is_running_;
 		public:
-			logging_interface_impl() : level_(NSCAPI::log_level::info), console_log_(false) {}
+			logging_interface_impl() : level_(NSCAPI::log_level::info), console_log_(false), is_running_(false) {}
+			virtual ~logging_interface_impl() {}
 
 
 
@@ -65,8 +67,19 @@ namespace nsclient {
 
 			virtual void do_log(const std::string &data) = 0;
 			virtual void configure() = 0;
-			virtual bool shutdown() = 0;
-			virtual bool startup() = 0;
+			virtual bool shutdown() {
+				is_running_ = false;
+				return true;
+			}
+			virtual bool startup() {
+				is_running_ = true;
+				return true;
+			}
+
+			bool is_started() const {
+				return is_running_;
+			}
+			
 		};
 		typedef boost::shared_ptr<nsclient::logging::logging_interface_impl> log_impl_type;
 	}

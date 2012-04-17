@@ -102,7 +102,7 @@ private:
 		std::string tag_syntax;
 		std::string message_syntax;
 		std::string host;
-		std::string port;
+		int port;
 		std::string ok_severity, warn_severity, crit_severity, unknown_severity;
 
 		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target) {
@@ -124,7 +124,7 @@ private:
 		std::wstring to_wstring() const {
 			std::wstringstream ss;
 			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
-			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
+			ss << _T(", port: ") << port;
 			ss << _T(", severity: ") << utf8::cvt<std::wstring>(severity);
 			ss << _T(", facility: ") << utf8::cvt<std::wstring>(facility);
 			ss << _T(", tag_syntax: ") << utf8::cvt<std::wstring>(tag_syntax);

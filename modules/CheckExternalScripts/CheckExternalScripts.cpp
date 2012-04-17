@@ -239,7 +239,6 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 			return nscapi::core_helper::simple_query(cd.command, args, response);
 		}
 	} else {
-		NSC_DEBUG_MSG(_T("---> ") + cd.to_wstring());
 		std::wstring message, perf;
 		process::exec_arguments args(root_, cd.command + _T(" ") + xargs, timeout);
 		if (!cd.user.empty()) {

@@ -124,9 +124,13 @@ namespace settings {
 								get()->set_string(path, key, desc.defValue);
 							else if (desc.type == key_bool)
 								get()->set_bool(path, key, settings::settings_interface::string_to_bool(desc.defValue));
-							else if (desc.type == key_integer)
-								get()->set_int(path, key, strEx::stoi(desc.defValue));
-							else
+							else if (desc.type == key_integer) {
+								try {
+									get()->set_int(path, key, strEx::stoi(desc.defValue));
+								} catch (const std::exception &e) {
+									get_logger()->error(__FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
+								}
+							} else
 								get_logger()->error(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						} else {
 							std::wstring val = get()->get_string(path, key);

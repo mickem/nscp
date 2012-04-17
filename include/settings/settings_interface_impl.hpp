@@ -67,13 +67,17 @@ namespace settings {
 				return _T("UNKNOWN TYPE");
 			}
 			int get_int() const {
-				if (type==settings_core::key_string)
-					return strEx::stoi(string_val);
-				if (type==settings_core::key_integer)
-					return int_val;
-				if (type==settings_core::key_bool)
-					return int_val==1?1:0;
-				return -1;
+				try {
+					if (type==settings_core::key_string)
+						return strEx::stoi(string_val);
+					if (type==settings_core::key_integer)
+						return int_val;
+					if (type==settings_core::key_bool)
+						return int_val==1?1:0;
+					return -1;
+				} catch (std::exception &e) {
+					return -1;
+				}
 			}
 			bool get_bool() const {
 				if (type==settings_core::key_string)
@@ -387,7 +391,7 @@ namespace settings {
 		/// @author mickem
 		virtual string_list get_sections(std::wstring path) {
 			MUTEX_GUARD();
-			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
+			//nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			string_list ret;
 			get_cached_sections_unsafe(path, ret);
 			get_real_sections(path, ret);
