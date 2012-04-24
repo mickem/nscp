@@ -334,11 +334,14 @@ int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, c
 
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		nsca::packet packet(con.sender_hostname, con.buffer_length, con.time_delta);
-		std::wstring alias, msg;
-		packet.code = nscapi::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg);
+		std::wstring alias, msg, perf;
+		packet.code = nscapi::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
 		if (alias != _T("host_check"))
 			packet.service = utf8::cvt<std::string>(alias);
-		packet.result = utf8::cvt<std::string>(msg);
+		if (perf.empty())
+			packet.result = utf8::cvt<std::string>(msg);
+		else
+			packet.result = utf8::cvt<std::string>(msg + _T("|") + perf);
 		list.push_back(packet);
 	}
 

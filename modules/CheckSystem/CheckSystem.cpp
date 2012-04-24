@@ -96,6 +96,9 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
 
 			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
+			_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
+
+			(_T("default intervall"), sh::uint_key(&data->check_intervall, 10),
 			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
 
 			;

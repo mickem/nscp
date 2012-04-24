@@ -132,8 +132,9 @@ namespace net {
 		}
 		std::wstring k(_T("/:"));
 		std::wstring::const_iterator path_i = std::find_first_of(prot_i, url_s.end(), k.begin(), k.end());
-		ret.host.reserve(std::distance(prot_i, path_i));
-		std::transform(prot_i, path_i, std::back_inserter(ret.host), std::ptr_fun<int,int>(std::tolower)); // host is icase
+		//ret.host.reserve(std::distance(prot_i, path_i));
+		ret.host = std::wstring(prot_i, path_i);
+		//std::transform(prot_i, path_i, std::back_inserter(ret.host), std::ptr_fun<int,int>(std::tolower)); // host is icase
 		if ((path_i != url_s.end()) && (*path_i == L':')) {
 			std::wstring::const_iterator port_b = path_i; ++port_b;
 			path_i = std::find(path_i, url_s.end(), L'/');
@@ -162,8 +163,9 @@ namespace net {
 		}
 		std::string k("/:");
 		std::string::const_iterator path_i = std::find_first_of(prot_i, url_s.end(), k.begin(), k.end());
-		ret.host.reserve(std::distance(prot_i, path_i));
-		std::transform(prot_i, path_i, std::back_inserter(ret.host), std::ptr_fun<int,int>(std::tolower)); // host is icase
+		ret.host = std::string(prot_i, path_i);
+		//ret.host.reserve(std::distance(prot_i, path_i));
+		//std::transform(prot_i, path_i, std::back_inserter(ret.host), std::ptr_fun<int,int>(std::tolower)); // host is icase
 		if ((path_i != url_s.end()) && (*path_i == ':')) {
 			std::string::const_iterator port_b = path_i; ++port_b;
 			path_i = std::find(path_i, url_s.end(), '/');

@@ -120,6 +120,8 @@ namespace nscapi {
 			static void create_simple_submit_request(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
 			static void create_simple_submit_response(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer);
 			static NSCAPI::errorReturn parse_simple_submit_request(const std::string &request, std::wstring &source, std::wstring &command, std::wstring &msg, std::wstring &perf);
+
+			static int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);
 			static int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message);
 			static void parse_simple_query_request_payload(const Plugin::QueryRequestMessage::Request &payload, std::wstring &alias, std::wstring &command);
 			static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::wstring &response);

@@ -249,6 +249,14 @@ namespace nscapi {
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
 			return gbp_to_nagios_status(payload.result());
 		}
+		int functions::parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf) {
+			alias = utf8::cvt<std::wstring>(payload.alias());
+			if (alias.empty())
+				alias = utf8::cvt<std::wstring>(payload.command());
+			message = utf8::cvt<std::wstring>(payload.message());
+			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
+			return gbp_to_nagios_status(payload.result());
+		}
 		int functions::parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message) {
 			alias = utf8::cvt<std::wstring>(payload.alias());
 			if (alias.empty())
