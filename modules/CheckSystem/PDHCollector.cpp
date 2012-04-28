@@ -226,7 +226,7 @@ int PDHCollector::getCPUAvrage(std::wstring time) {
 
 	}
 	try {
-		unsigned int mseconds = strEx::stoui_as_time(time, frequency);
+		unsigned int mseconds = strEx::stoui_as_time(time);
 		return static_cast<int>(get_avg_value(PDH_SYSTEM_KEY_CPU, mseconds/frequency));
 	} catch (PDHCollectors::PDHException &e) {
 		NSC_LOG_ERROR(_T("Failed to get CPU value: ") + e.getError());

@@ -1,0 +1,9 @@
+# Custom installers
+helpers/installers/op5
+helpers/installers/opsera
+
+# Generated config
+include/config.h
+
+# Python
+*.pyc

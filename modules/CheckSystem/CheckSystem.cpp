@@ -70,7 +70,7 @@ bool CheckSystem::loadModule() {
 
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
-	data->check_intervall = 100;
+	data->check_intervall = 1;
 	try {
 		typedef std::map<std::wstring,std::wstring> counter_map_type;
 		std::map<std::wstring,std::wstring> counters;
@@ -98,8 +98,8 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
 			_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
 
-			(_T("default intervall"), sh::uint_key(&data->check_intervall, 10),
-			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
+			(_T("default intervall"), sh::uint_key(&data->check_intervall, 1),
+			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."), true)
 
 			;
 

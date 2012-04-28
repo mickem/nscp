@@ -4,6 +4,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-04-26 MickeM
+ * Fixed issue with check-cpu sampling interval being 10seconds and not 1/10 second.
+
 2012-04-23 MickeM
  * Fixed issue with missing performance data via NSCA
  * Fixed issue with hostnames beeing lowercase
