@@ -17,6 +17,9 @@ TODO:
  * Fixed issue with missing performance data via NSCA
  * Fixed issue with hostnames beeing lowercase
 
+2012-04-28 MickeM
+ * Changed how files are generated to reduce number of projcts
+
 2012-04-12 MickeM
  * Fixed so keys with parents are advanced (in favour of the parent)
  * Fixed so NSClientServer uses the correct default path for its parents (ie. /settings/default)
