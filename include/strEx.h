@@ -688,22 +688,23 @@ namespace strEx {
 		return itos(static_cast<unsigned int>(time));
 	}
 
-	inline long long stoi64_as_BKMG(std::wstring s) {
-		std::wstring::size_type p = s.find_first_of(_T("BMKGT"));
-		if (p == std::wstring::npos)
-			return boost::lexical_cast<long long>(s.c_str());
-		else if (s[p] == 'B') 
-			return boost::lexical_cast<long long>(s.c_str());
+	inline long long stoi64_as_BKMG(const std::wstring &s) {
+		std::wstring::size_type p = s.find_first_not_of(_T("0123456789"));
+		if (p == std::wstring::npos || p == 0)
+			return boost::lexical_cast<long long>(s);
+		std::wstring numbers = s.substr(0, p);
+		if (s[p] == 'B') 
+			return boost::lexical_cast<long long>(numbers);
 		else if (s[p] == 'K') 
-			return boost::lexical_cast<long long>(s.c_str())*1024;
+			return boost::lexical_cast<long long>(numbers)*1024;
 		else if (s[p] == 'M') 
-			return boost::lexical_cast<long long>(s.c_str())*1024*1024;
+			return boost::lexical_cast<long long>(numbers)*1024*1024;
 		else if (s[p] == 'G') 
-			return boost::lexical_cast<long long>(s.c_str())*1024*1024*1024;
+			return boost::lexical_cast<long long>(numbers)*1024*1024*1024;
 		else if (s[p] == 'T') 
-			return boost::lexical_cast<long long>(s.c_str())*1024*1024*1024*1024;
+			return boost::lexical_cast<long long>(numbers)*1024*1024*1024*1024;
 		else
-			return boost::lexical_cast<long long>(s.c_str());
+			return boost::lexical_cast<long long>(numbers);
 	}
 #define BKMG_RANGE _T("BKMGTP")
 #define BKMG_SIZE 5
