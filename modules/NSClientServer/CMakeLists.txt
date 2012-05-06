@@ -10,11 +10,6 @@ SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
-	"handler_impl.cpp"
-	${NSCP_INCLUDEDIR}/check_nt/server/server.cpp
-	${NSCP_INCLUDEDIR}/check_nt/server/connection.cpp
-	${NSCP_INCLUDEDIR}/check_nt/server/tcp_connection.cpp
-	${NSCP_INCLUDEDIR}/check_nt/server/ssl_connection.cpp
 	${NSCP_INCLUDEDIR}/check_nt/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
@@ -32,15 +27,14 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		"handler_impl.hpp"
-		${NSCP_INCLUDEDIR}/check_nt/server/server.hpp
-		${NSCP_INCLUDEDIR}/check_nt/server/connection.hpp
-		${NSCP_INCLUDEDIR}/check_nt/server/tcp_connection.hpp
-		${NSCP_INCLUDEDIR}/check_nt/server/ssl_connection.hpp
-		${NSCP_INCLUDEDIR}/check_nt/server/handler.hpp
+		${NSCP_INCLUDEDIR}/check_nt/server/protocol.hpp
 		${NSCP_INCLUDEDIR}/check_nt/server/parser.hpp
 		${NSCP_INCLUDEDIR}/check_nt/packet.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
+
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/socket/connection.hpp
+		${NSCP_INCLUDEDIR}/socket/server.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -56,3 +50,5 @@ target_link_libraries(${TARGET}
 	${OPENSSL_LIBRARIES}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/check_nt/.*)
+SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)

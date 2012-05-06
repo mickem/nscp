@@ -20,27 +20,15 @@
 ***************************************************************************/
 
 #include <socket_helpers.hpp>
-#include <nrpe/server/server.hpp>
+#include <nrpe/server/protocol.hpp>
+#include "handler_impl.hpp"
 
 NSC_WRAPPERS_MAIN();
 
-class NRPEListener : public nscapi::impl::simple_plugin {
-private:
-	typedef enum {
-		inject, script, script_dir,
-	} command_type;
-	struct command_data {
-		command_data() : type(inject) {}
-		command_data(command_type type_, std::wstring arguments_) : type(type_), arguments(arguments_) {}
-		command_type type;
-		std::wstring arguments;
-	};
-
-	nrpe::server::server::connection_info info_;
-
+class NRPEServer : public nscapi::impl::simple_plugin {
 public:
-	NRPEListener();
-	virtual ~NRPEListener();
+	NRPEServer();
+	virtual ~NRPEServer();
 	// Module calls
 	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
@@ -66,9 +54,13 @@ public:
 	bool hasMessageHandler();
 	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
-	boost::shared_ptr<nrpe::server::server> server_;
-
+	
 private:
+	socket_helpers::connection_info info_;
+	boost::shared_ptr<nrpe::server::server> server_;
+	boost::shared_ptr<handler_impl> handler_;
+
+
 	class NRPEException {
 		std::wstring error_;
 	public:

@@ -28,7 +28,7 @@
 namespace sh = nscapi::settings_helper;
 namespace str = nscp::helpers;
 
-NSCAServer::NSCAServer() : info_(boost::shared_ptr<nsca::server::handler>(new handler_impl(1024))) {}
+NSCAServer::NSCAServer() : handler_(new nsca_handler_impl(1024)) {}
 
 bool NSCAServer::loadModule() {
 	return false;
@@ -49,16 +49,16 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("port"), sh::uint_key(&info_.port, 5667),
 			_T("PORT NUMBER"), _T("Port to use for NSCA."))
 
-			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nsca::server::handler::set_payload_length, info_.request_handler, _1), 512),
+			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nsca::server::handler::set_payload_length, handler_, _1), 512),
 			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA agent to use the same value for it to work."))
 
-			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nsca::server::handler::set_perf_data, info_.request_handler, _1), true),
+			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nsca::server::handler::set_perf_data, handler_, _1), true),
 			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
 
-			(_T("encryption"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_encryption, info_.request_handler, _1), "aes"),
+			(_T("encryption"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_encryption, handler_, _1), "aes"),
 			_T("ENCRYPTION"), _T("Encryption to use"))
 
-			(_T("password"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_password, info_.request_handler, _1), ""),
+			(_T("password"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_password, handler_, _1), ""),
 			_T("PASSWORD"), _T("Password to use"))
 
 
@@ -84,7 +84,7 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
 
-			(_T("inbox"), sh::string_fun_key<std::wstring>(boost::bind(&nsca::server::handler::set_channel, info_.request_handler, _1), _T("inbox")),
+			(_T("inbox"), sh::string_fun_key<std::wstring>(boost::bind(&nsca::server::handler::set_channel, handler_, _1), _T("inbox")),
 			_T("INBOX"), _T("The default channel to post incoming messages on"))
 
 			;
@@ -92,8 +92,8 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
-		if (info_.request_handler->get_payload_length() != 512)
-			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(info_.request_handler->get_payload_length()));
+		if (handler_->get_payload_length() != 512)
+			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(handler_->get_payload_length()));
 
 		std::list<std::string> errors;
 		info_.allowed_hosts.refresh(errors);
@@ -103,12 +103,18 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		NSC_DEBUG_MSG_STD(_T("Allowed hosts definition: ") + info_.allowed_hosts.to_wstring());
 
 		if (mode == NSCAPI::normalStart) {
-			server_.reset(new nsca::server::nsca_server(info_));
+#ifndef USE_SSL
+			if (info_.use_ssl) {
+				NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
+				return false;
+			}
+#endif
+			server_.reset(new nsca::server::server(boost::shared_ptr<nsca::read_protocol>(new nsca::read_protocol(info_, handler_))));
 			if (!server_) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 				return false;
 			}
-			server_->setup();
+			//server_->setup();
 			server_->start();
 		}
 	} catch (std::exception &e) {

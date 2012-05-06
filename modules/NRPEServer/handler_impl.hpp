@@ -34,15 +34,15 @@ public:
 	virtual void set_perf_data(bool v) {
 		noPerfData_ = !v;
 		if (noPerfData_)
-			log_debug(__FILE__, __LINE__, _T("Performance data disabled!"));
+			log_debug("nrpe", __FILE__, __LINE__, "Performance data disabled!");
 	}
 
-	void log_debug(std::string file, int line, std::wstring msg) {
+	void log_debug(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
-	void log_error(std::string file, int line, std::wstring msg) {
+	void log_error(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
 			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}

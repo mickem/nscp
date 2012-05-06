@@ -20,13 +20,13 @@
 ***************************************************************************/
 
 #include <socket_helpers.hpp>
-#include <nsca/server/server.hpp>
+#include <nsca/server/protocol.hpp>
 
 NSC_WRAPPERS_MAIN();
 
 class NSCAServer : public nscapi::impl::simple_plugin {
 private:
-	nsca::server::nsca_connection_info info_;
+	socket_helpers::connection_info info_;
 
 public:
 	NSCAServer();
@@ -54,6 +54,7 @@ public:
 
 	static std::wstring getCryptos();
 
-	boost::shared_ptr<nsca::server::nsca_server> server_;
+	boost::shared_ptr<nsca::server::server> server_;
+	boost::shared_ptr<nsca::server::handler> handler_;
 };
 

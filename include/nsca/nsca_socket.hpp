@@ -91,7 +91,7 @@ namespace nsca {
 			nsca::iv_packet iv_packet(std::string(buf.begin(), buf.end()));
 			std::string iv = iv_packet.get_iv();
 			time = iv_packet.get_time();
-			NSC_DEBUG_MSG(_T("Encrypting using when sending: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(encryption_method)) + _T(" and ") + utf8::cvt<std::wstring>(password));
+			NSC_DEBUG_MSG(_T("Encrypting using: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(encryption_method)) + _T(", password '") + utf8::cvt<std::wstring>(password) + _T("'"));
 			crypt_inst.encrypt_init(password, encryption_method, iv);
 			return true;
 		}

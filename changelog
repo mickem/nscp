@@ -4,6 +4,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-05-06 MickeM
+ * Refactored server internals to be more uniform (This is the first step to adding more protocols like NRDP and unittests for check_nt)
+ 
 2012-05-03 MickeM
  * Fixed issue with parsing size-type (usch as MinCritFree=10G)
 

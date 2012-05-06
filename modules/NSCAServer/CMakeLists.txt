@@ -8,10 +8,8 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	"handler_impl.cpp"
-	${NSCP_INCLUDEDIR}/nsca/server/server.cpp
-	${NSCP_INCLUDEDIR}/nsca/server/connection.cpp
-	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/nsca/nsca_packet.cpp
+	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -24,6 +22,10 @@ ELSE(HAVE_CRYPTOPP)
 	message(STATUS "WARNING: No libCrypto++ in NSCA Module")
 ENDIF(HAVE_CRYPTOPP)
 
+#IF(OPENSSL_FOUND)
+#	ADD_DEFINITIONS(-DUSE_SSL)
+#ENDIF(OPENSSL_FOUND)
+
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 IF(WIN32)
@@ -32,14 +34,14 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		"handler_impl.hpp"
-		${NSCP_INCLUDEDIR}/nsca/server/server.hpp
-		${NSCP_INCLUDEDIR}/nsca/server/connection.hpp
+		${NSCP_INCLUDEDIR}/nsca/server/protocol.hpp
 		${NSCP_INCLUDEDIR}/nsca/server/handler.hpp
 		${NSCP_INCLUDEDIR}/nsca/server/parser.hpp
 		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
-		${NSCP_INCLUDEDIR}/socket/server.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/socket/server.hpp
+		${NSCP_INCLUDEDIR}/socket/connection.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -53,7 +55,9 @@ target_link_libraries(${TARGET}
 	${Boost_THREAD_LIBRARY}
 	${Boost_THREAD_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
+#	${OPENSSL_LIBRARIES}
 	${CRYPTOPP_LIB}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
 SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nsca/.*)
+SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)

@@ -12,10 +12,8 @@ namespace nrpe {
 			std::vector<char> buffer_;
 			unsigned int packet_length_;
 			unsigned int payload_length_;
-			boost::shared_ptr<nrpe::server::handler> handler_;
 		public:
-			parser(boost::shared_ptr<nrpe::server::handler> handler) : handler_(handler) {
-				set_payload_length(handler->get_payload_length());
+			parser(unsigned int payload_length) : payload_length_(payload_length), packet_length_(nrpe::length::get_packet_length(payload_length)) {
 			}
 
 			template <typename InputIterator>
@@ -31,6 +29,7 @@ namespace nrpe {
 				buffer_.clear();
 				return packet;
 			}
+			/*
 			void set_payload_length(unsigned int length) {
 				payload_length_ = length;
 				packet_length_ = nrpe::length::get_packet_length(length);
@@ -38,6 +37,7 @@ namespace nrpe {
 			unsigned int get_payload_length() const {
 				return payload_length_;
 			}
+			*/
 		};
 
 	}// namespace server

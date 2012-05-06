@@ -5,7 +5,7 @@
 #include "handler_impl.hpp"
 #include <config.h>
 
-void handler_impl::handle(nsca::packet p) {
+void nsca_handler_impl::handle(nsca::packet p) {
 	std::wstring response;
 	std::string::size_type pos = p.result.find('|');
 	if (pos != std::string::npos) {

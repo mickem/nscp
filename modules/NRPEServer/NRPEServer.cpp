@@ -30,38 +30,38 @@
 namespace sh = nscapi::settings_helper;
 
 
-NRPEListener::NRPEListener() : info_(boost::shared_ptr<nrpe::server::handler>(new handler_impl(1024))) {
+NRPEServer::NRPEServer() : handler_(new handler_impl(1024)) {
 }
-NRPEListener::~NRPEListener() {}
+NRPEServer::~NRPEServer() {}
 
-bool NRPEListener::loadModule() {
+bool NRPEServer::loadModule() {
 	return false;
 }
 
-bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));
 
 		settings.alias().add_path_to_settings()
-			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options."))
+			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options."))
 			;
 
 		settings.alias().add_key_to_settings()
 			(_T("port"), sh::uint_key(&info_.port, 5666),
 			_T("PORT NUMBER"), _T("Port to use for NRPE."))
 
-			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nrpe::server::handler::set_payload_length, info_.request_handler, _1), 1024),
+			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nrpe::server::handler::set_payload_length, handler_, _1), 1024),
 			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."), true)
 
-			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_arguments, info_.request_handler, _1), false),
+			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_arguments, handler_, _1), false),
 			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
 
-			(_T("allow nasty characters"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_nasty_arguments, info_.request_handler, _1), false),
+			(_T("allow nasty characters"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_nasty_arguments, handler_, _1), false),
 			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
 
-			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_perf_data, info_.request_handler, _1), true),
+			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_perf_data, handler_, _1), true),
 			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."), true)
 
 			;
@@ -103,8 +103,8 @@ bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
 		}
 #endif
-		if (info_.request_handler->get_payload_length() != 1024)
-			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(info_.request_handler->get_payload_length()));
+		if (handler_->get_payload_length() != 1024)
+			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(handler_->get_payload_length()));
 		if (!boost::filesystem::is_regular(info_.certificate))
 			NSC_LOG_ERROR_STD(_T("Certificate not found: ") + info_.certificate);
 
@@ -119,25 +119,19 @@ bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		boost::asio::io_service io_service_;
 
 		if (mode == NSCAPI::normalStart) {
+#ifndef USE_SSL
 			if (info_.use_ssl) {
-#ifdef USE_SSL
-				server_.reset(new nrpe::server::server(info_));
-#else
 				NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
 				return false;
-#endif
-			} else {
-				server_.reset(new nrpe::server::server(info_));
 			}
+#endif
+			server_.reset(new nrpe::server::server(boost::shared_ptr<nrpe::read_protocol>(new nrpe::read_protocol(info_, handler_))));
 			if (!server_) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 				return false;
 			}
 			server_->start();
 		}
-	} catch (nrpe::server::nrpe_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
-		return false;
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
 		return false;
@@ -150,7 +144,7 @@ bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 	return true;
 }
 
-bool NRPEListener::unloadModule() {
+bool NRPEServer::unloadModule() {
 	try {
 		if (server_) {
 			server_->stop();
@@ -164,14 +158,14 @@ bool NRPEListener::unloadModule() {
 }
 
 
-bool NRPEListener::hasCommandHandler() {
+bool NRPEServer::hasCommandHandler() {
 	return false;
 }
-bool NRPEListener::hasMessageHandler() {
+bool NRPEServer::hasMessageHandler() {
 	return false;
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(NRPEListener);
+NSC_WRAPPERS_MAIN_DEF(NRPEServer);
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_IGNORE_CMD_DEF();
