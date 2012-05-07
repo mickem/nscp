@@ -4,6 +4,10 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-05-07 MickeM
+ * Fixed parsin of empty sections (CheckExternalScripts) - #524
+ * Fixed so duplicate command are not created when both sections and shorthands are used (CheckExternalScripts)
+
 2012-05-03 MickeM
  * Fixed issue with parsing size-type (usch as MinCritFree=10G)
 

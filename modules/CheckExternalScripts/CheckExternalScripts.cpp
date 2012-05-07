@@ -248,7 +248,7 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 		}
 		int result = process::executeProcess(args, message, perf);
 		if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-			nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + cd.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
+			nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + args.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
 			return NSCAPI::returnUNKNOWN;
 		}
 		nscapi::functions::create_simple_query_response(data.command, nscapi::plugin_helper::int2nagios(result), message, perf, response);

@@ -83,6 +83,8 @@ namespace commands {
 		}
 
 		void set_command(std::wstring str) {
+			if (str.empty())
+				return;
 			try {
 				strEx::parse_command(str, command, arguments);
 			} catch (const std::exception &e) {
