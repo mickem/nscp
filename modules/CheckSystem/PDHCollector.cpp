@@ -92,11 +92,16 @@ DWORD PDHCollector::threadProc(LPVOID lpParameter) {
 			BOOST_FOREACH(system_counter_data::counter c, data->counters) {
 				try {
 					NSC_DEBUG_MSG_STD(_T("Loading counter: ") + c.alias + _T(" = ") + c.path);
+
 					c.set_default_buffer_size(default_buffer_length);
 					collector_ptr collector = c.create(check_intervall_);
 					if (collector) {
 						counters_[c.alias] = collector;
-						pdh.addCounter(c.path, collector);
+						PDH::PDHQuery::counter_ptr counter = pdh.addCounter(c.path, collector);
+						PDH::PDHError status = counter->validate();
+						if (status.is_error()) {
+							NSC_DEBUG_MSG_STD(_T("Counter status: ") + status.to_wstring());
+						}
 					} else {
 						NSC_LOG_ERROR_STD(_T("Failed to load counter: ") + c.alias + _T(" = ") + c.path);
 					}
