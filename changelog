@@ -4,6 +4,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-05-07 MickeM
+ * Fixed parsin of empty sections (CheckExternalScripts) - #524
+ * Fixed so duplicate command are not created when both sections and shorthands are used (CheckExternalScripts)
+ * Added a test to see if I can resolve the negative denominator issue.
+
 2012-05-06 MickeM
  * Refactored server internals to be more uniform (This is the first step to adding more protocols like NRDP and unittests for check_nt)
  

@@ -30,7 +30,7 @@
 
 namespace PDH {
 	class PDHQuery : public PDH::PDHImplSubscriber {
-	private:
+	public:
 		typedef boost::shared_ptr<PDHCounter> counter_ptr;
 		typedef boost::shared_ptr<PDHCounterListener> listener_ptr;
 		typedef std::list<counter_ptr> CounterList;

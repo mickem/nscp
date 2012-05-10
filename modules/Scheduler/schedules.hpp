@@ -74,7 +74,9 @@ namespace schedules {
 			duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(str, 1));
 		}
 		void set_command(std::wstring str) {
-			strEx::parse_command(str, command, arguments);
+			if (!str.empty()) {
+				strEx::parse_command(str, command, arguments);
+			}
 		}
 
 		std::wstring to_wstring() const {

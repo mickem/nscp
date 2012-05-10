@@ -130,9 +130,9 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 		typedef PDHCollector::system_counter_data::counter cnt;
 		if (default_counters) {
+			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCL, _T("\\4\\30"), cnt::type_int64, cnt::format_large, cnt::value));
 			data->counters.push_back(cnt(PDH_SYSTEM_KEY_CPU, _T("\\238(_total)\\6"), cnt::type_int64, cnt::format_large, cnt::rrd));
 			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCB, _T("\\4\\26"), cnt::type_int64, cnt::format_large, cnt::value));
-			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCL, _T("\\4\\30"), cnt::type_int64, cnt::format_large, cnt::value));
 			data->counters.push_back(cnt(PDH_SYSTEM_KEY_UPT, _T("\\2\\674"), cnt::type_int64, cnt::format_large, cnt::value));
 		}
 		BOOST_FOREACH(counter_map_type::value_type c, counters) {

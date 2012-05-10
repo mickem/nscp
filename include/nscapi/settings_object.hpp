@@ -51,6 +51,11 @@ namespace nscapi {
 			}
 
 			t_object_type add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring value, bool is_template = false) {
+				optional_object previous = find_object(alias);
+				if (previous) {
+					t_object_type p = *previous;
+					return p;
+				}
 				t_object_type object;
 				object.alias = alias;
 				object.value = value;
