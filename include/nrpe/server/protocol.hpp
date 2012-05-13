@@ -16,6 +16,12 @@
 namespace nrpe {
 	using boost::asio::ip::tcp;
 
+	//
+	// Connection states:
+	// on_accept
+	// on_connect	-> connected	wants_data = true
+	// on_read		-> got_req.		has_data = true
+	// on_write		-> done
 
 	static const int socket_bufer_size = 8096;
 	struct read_protocol : public boost::noncopyable {
@@ -23,7 +29,7 @@ namespace nrpe {
 		typedef std::vector<char> outbound_buffer_type;
 
 		typedef boost::shared_ptr<nrpe::server::handler> handler_type;
-		std::vector<char> data_;
+		outbound_buffer_type data_;
 		nrpe::server::parser parser_;
 		handler_type handler_;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;

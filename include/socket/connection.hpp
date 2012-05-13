@@ -15,7 +15,7 @@ namespace socket_helpers {
 	namespace server {
 
 		using boost::asio::ip::tcp;
-		static const bool debug_trace = true;
+		static const bool debug_trace = false;
 
 		//
 		// The socket statemachine:
@@ -123,15 +123,15 @@ namespace socket_helpers {
 						stop();
 					}
 				} else {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to read data");
+					protocol_->log_error(__FILE__, __LINE__, "Failed to read data: " + e.message());
 				}
 			}
 
 			virtual void start_write_request(const boost::asio::const_buffer& response) {
-				std::size_t s1 = boost::asio::buffer_size(response);
-				trace("start_write_request(" + strEx::s::itos((int)s1) + ")");
+				std::size_t data_size = boost::asio::buffer_size(response);
+				trace("start_write_request(" + strEx::s::itos((int)data_size) + ")");
 				boost::asio::async_write(socket_, boost::asio::const_buffers_1(response), strand_.wrap(
-					boost::bind(&connection::handle_write_response, shared_from_this(),boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+					boost::bind(&connection::handle_write_response, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					));
 			}
 
@@ -141,7 +141,7 @@ namespace socket_helpers {
 					protocol_->on_write();
 					do_process();
 				} else {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to send data");
+					protocol_->log_error(__FILE__, __LINE__, "Failed to send data: " + e.message());
 				}
 			}
 
@@ -187,17 +187,16 @@ namespace socket_helpers {
 			virtual void start() {
 				trace("ssl::start_read_request()");
 				boost::shared_ptr<my_type> self = boost::shared_dynamic_cast<my_type>(shared_from_this());
-				//boost::shared_ptr<ssl_connection<protocol_type, N>> self = static_cast<boost::shared_ptr<ssl_connection<protocol_type, N> > >(shared_from_this());
 				ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server,strand_.wrap(
 					boost::bind(&ssl_connection::handle_handshake, self, boost::asio::placeholders::error)
 					));
 			}
 			
-			virtual void handle_handshake(const boost::system::error_code& error) {
-				if (!error)
+			virtual void handle_handshake(const boost::system::error_code& e) {
+				if (!e)
 					parent_type::start();
 				else {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + error.message());
+					protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + e.message());
 				}
 			}
 
@@ -210,9 +209,10 @@ namespace socket_helpers {
 					);
 			}
 
-			virtual void start_write_request(const std::vector<boost::asio::const_buffer>& response) {
-				trace("ssl::start_write_request(" + strEx::s::itos((int)response.size()) + ")");
-				boost::asio::async_write(ssl_socket_, response,
+			virtual void start_write_request(const boost::asio::const_buffer& response) {
+				std::size_t data_size = boost::asio::buffer_size(response);
+				trace("ssl::start_write_request(" + strEx::s::itos((int)data_size) + ")");
+				boost::asio::async_write(ssl_socket_, boost::asio::const_buffers_1(response),
 					strand_.wrap(
 					boost::bind(&connection::handle_write_response, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					)

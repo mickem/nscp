@@ -121,6 +121,15 @@ namespace nsca {
 		}
 		packet(unsigned int payload_length) : payload_length_(payload_length) {}
 		packet() : payload_length_(nsca::length::get_payload_length()) {}
+		packet operator =(const packet &other) {
+			service = other.service;
+			result = other.result;
+			host = other.host;
+			code = other.code;
+			time = other.time;
+			payload_length_ = other.payload_length_;
+			return *this;
+		}
 
 		std::string to_string() const {
 			return "host: " + host + ", " + 

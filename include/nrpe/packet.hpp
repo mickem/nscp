@@ -111,7 +111,7 @@ namespace nrpe {
 			readFrom(tmp, buffer.size());
 			delete [] tmp;
 		};
-		packet(const char *buffer, unsigned int buffer_length, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
+		packet(const char *buffer, unsigned int buffer_length) : tmpBuffer(NULL), payload_length_(length::get_payload_length(buffer_length)) {
 			readFrom(buffer, buffer_length);
 		};
 		packet(short type, short version, int result, std::wstring payLoad, unsigned int payload_length) 
@@ -150,6 +150,10 @@ namespace nrpe {
 			calculatedCRC32_ = other.calculatedCRC32_;
 			payload_length_ = other.payload_length_;
 			return *this;
+		}
+
+		static packet unknown_response(std::wstring message) {
+			return packet(nrpe::data::responsePacket, nrpe::data::version2, 3, message, 0);
 		}
 
 		~packet() {

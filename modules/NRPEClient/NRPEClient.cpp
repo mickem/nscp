@@ -25,7 +25,6 @@
 #include <strEx.h>
 
 #include <strEx.h>
-#include <nrpe/client/socket.hpp>
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -294,21 +293,39 @@ int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, co
 //////////////////////////////////////////////////////////////////////////
 // Protocol implementations
 //
+struct client_handler : public socket_helpers::client::client_handler {
+	client_handler(NRPEClient::connection_data &con) 
+		: socket_helpers::client::client_handler(con.host, con.port, con.timeout, con.use_ssl, con.cert)
+	{
+
+	}
+	void log_debug(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
+		}
+	}
+	void log_error(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::to_unicode(msg));
+		}
+	}
+};
 
 boost::tuple<int,std::wstring> NRPEClient::send(connection_data con, const std::string data) {
 	try {
 		NSC_DEBUG_MSG_STD(_T("NRPE Connection details: ") + con.to_wstring());
 		NSC_DEBUG_MSG_STD(_T("NRPE data: ") + utf8::cvt<std::wstring>(data));
-		nrpe::packet packet;
 		if (con.use_ssl) {
-#ifdef USE_SSL
-			packet = send_ssl(con.cert, con.host, con.port, con.timeout, nrpe::packet::make_request(utf8::cvt<std::wstring>(data), con.buffer_length));
-#else
+#ifndef USE_SSL
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
 			return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)"));
 #endif
-		} else
-			packet = send_nossl(con.host, con.port, con.timeout, nrpe::packet::make_request(utf8::cvt<std::wstring>(data), con.buffer_length));
+		}
+		nrpe::packet packet = nrpe::packet::make_request(utf8::cvt<std::wstring>(data), con.buffer_length);
+		socket_helpers::client::client<nrpe::client::protocol> client(boost::shared_ptr<client_handler>(new client_handler(con)));
+		client.connect();
+		packet = client.process_request(packet);
+		client.shutdown();
 		return boost::make_tuple(static_cast<int>(packet.getResult()), packet.getPayload());
 	} catch (nrpe::nrpe_packet_exception &e) {
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.wwhat());
@@ -321,27 +338,6 @@ boost::tuple<int,std::wstring> NRPEClient::send(connection_data con, const std::
 	} catch (...) {
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
-}
-
-
-#ifdef USE_SSL
-nrpe::packet NRPEClient::send_ssl(std::string cert, std::string host, std::string port, int timeout, nrpe::packet packet) {
-	boost::asio::io_service io_service;
-	boost::asio::ssl::context ctx(io_service, boost::asio::ssl::context::sslv23);
-	SSL_CTX_set_cipher_list(ctx.impl(), "ADH");
-	ctx.use_tmp_dh_file(to_string(cert));
-	ctx.set_verify_mode(boost::asio::ssl::context::verify_none);
-	nrpe::client::ssl_socket socket(io_service, ctx, host, port);
-	socket.send(packet, boost::posix_time::seconds(timeout));
-	return socket.recv(packet, boost::posix_time::seconds(timeout));
-}
-#endif
-
-nrpe::packet NRPEClient::send_nossl(std::string host, std::string port, int timeout, nrpe::packet packet) {
-	boost::asio::io_service io_service;
-	nrpe::client::socket socket(io_service, host, port);
-	socket.send(packet, boost::posix_time::seconds(timeout));
-	return socket.recv(packet, boost::posix_time::seconds(timeout));
 }
 
 NSC_WRAP_DLL();

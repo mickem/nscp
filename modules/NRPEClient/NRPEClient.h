@@ -28,6 +28,10 @@
 
 #include <nrpe/packet.hpp>
 
+#include <socket/client.hpp>
+#include <nrpe/client/nrpe_client_protocol.hpp>
+
+
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
@@ -101,7 +105,7 @@ private:
 
 	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
-
+public:
 	struct connection_data {
 		std::string cert;
 		std::string host;

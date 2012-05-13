@@ -81,6 +81,7 @@ private:
 	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
 
+public:
 	struct connection_data {
 		std::string password;
 		std::string encryption;

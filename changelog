@@ -4,6 +4,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-05-13 MickeM
+ * Refactored (same as with server) client internals to be more uniform (Again, next up are NSClient Server and NRDP)
+
 2012-05-07 MickeM
  * Fixed parsin of empty sections (CheckExternalScripts) - #524
  * Fixed so duplicate command are not created when both sections and shorthands are used (CheckExternalScripts)

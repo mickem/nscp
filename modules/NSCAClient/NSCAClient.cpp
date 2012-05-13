@@ -28,6 +28,9 @@
 #include <nsca/nsca_packet.hpp>
 #include <nsca/nsca_socket.hpp>
 
+#include <nsca/client/nsca_client_protocol.hpp>
+#include <socket/client.hpp>
+
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
@@ -377,10 +380,46 @@ int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, con
 //////////////////////////////////////////////////////////////////////////
 // Protocol implementations
 //
+struct client_handler : public socket_helpers::client::client_handler {
+	unsigned int encryption_;
+	std::string password_;
+	client_handler(NSCAAgent::connection_data &con) 
+		: socket_helpers::client::client_handler(con.host, con.port, con.timeout, false, "")
+		, encryption_(con.get_encryption())
+		, password_(con.password)
+	{
 
+	}
+	void log_debug(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
+		}
+	}
+	void log_error(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::to_unicode(msg));
+		}
+	}
+	unsigned int get_encryption() {
+		return encryption_;
+	}
+	std::string get_password() {
+		return password_;
+	}
+};
 boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::list<nsca::packet> packets) {
 	try {
 		NSC_DEBUG_MSG_STD(_T("Connection details: ") + data.to_wstring());
+
+		socket_helpers::client::client<nsca::client::protocol<client_handler> > client(boost::shared_ptr<client_handler>(new client_handler(data)));
+		client.connect();
+
+		BOOST_FOREACH(const nsca::packet &packet, packets) {
+			NSC_DEBUG_MSG_STD(_T("Sending (data): ") + utf8::cvt<std::wstring>(packet.to_string()));
+			bool ret = client.process_request(packet);
+		}
+		client.shutdown();
+/*
 		boost::asio::io_service io_service;
 		nsca::socket socket(io_service);
 		socket.connect(data.host, data.port);
@@ -394,6 +433,7 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 			socket.send_nsca(packet, boost::posix_time::seconds(data.timeout));
 		}
 		socket.shutdown();
+		*/
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
 	} catch (const nsca::nsca_encrypt::encryption_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSCA Error: ") + utf8::to_unicode(e.what()));
