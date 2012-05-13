@@ -4,6 +4,9 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-05-13 MickeM
+ * Take 2 on fixing the empty command parsing.
+
 2012-05-07 MickeM
  * Fixed parsin of empty sections (CheckExternalScripts) - #524
  * Fixed so duplicate command are not created when both sections and shorthands are used (CheckExternalScripts)
