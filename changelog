@@ -4,6 +4,11 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-05-19 MickeM
+ * Fixed issue with checking rate counters (such as disk idle %)
+ * Fixed (I think) the negative denominator counter issue
+ * Fixed so indexes are only converted on \\123\\ and not also \\123 hello world\\ which caused some issues with numeric counter variables.
+
 2012-05-13 MickeM
  * Take 2 on fixing the empty command parsing.
 

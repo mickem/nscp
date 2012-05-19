@@ -88,7 +88,7 @@ namespace commands {
 			try {
 				strEx::parse_command(str, command, arguments);
 			} catch (const std::exception &e) {
-				NSC_LOG_ERROR(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
+				NSC_LOG_MESSAGE(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
 				strEx::splitList list = strEx::splitEx(str, _T(" "));
 				if (list.size() > 0) {
 					command = list.front();

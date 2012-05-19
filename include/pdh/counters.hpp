@@ -104,21 +104,18 @@ namespace PDH {
 				throw PDHException(name_, _T("PdhRemoveCounter failed"), status);
 			hCounter_ = NULL;
 		}
-		void collect() {
+		PDH::PDHError collect() {
+			PDH::PDHError status;
 			if (hCounter_ == NULL)
-				return;
+				return status;
 			if (!listener_)
-				return;
+				return status;
 			DWORD format = listener_->getFormat();
-			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhGetFormattedCounterValue(hCounter_, format, NULL, &data_);
-			if (status.is_negative_denominator()) {
-				Sleep(500);
-				status = PDH::PDHFactory::get_impl()->PdhGetFormattedCounterValue(hCounter_, format, NULL, &data_);
+			status = PDH::PDHFactory::get_impl()->PdhGetFormattedCounterValue(hCounter_, format, NULL, &data_);
+			if (!status.is_error()) {
+				listener_->collect(*this);
 			}
-			if (status.is_error()) {
-				throw PDHException(name_, _T("PdhGetFormattedCounterValue failed {format: ") + strEx::itos(format) + _T("}"), status);
-			}
-			listener_->collect(*this);
+			return status;
 		}
 		double getDoubleValue() const {
 			return data_.doubleValue;

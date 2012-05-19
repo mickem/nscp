@@ -1345,7 +1345,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 				pdh.collect();
 				Sleep(1000);
 			}
-			pdh.collect();
 			pdh.gatherData();
 			pdh.close();
 		} catch (const PDH::PDHException e) {
