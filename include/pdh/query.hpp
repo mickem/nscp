@@ -99,7 +99,15 @@ namespace PDH {
 		void gatherData() {
 			collect();
 			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
-				(*it)->collect();
+				PDH::PDHError status = (*it)->collect();
+				if (status.is_negative_denominator()) {
+					Sleep(500);
+					collect();
+					status = (*it)->collect();
+				}
+				if (status.is_error()) {
+					throw PDHException(_T("Failed to poll counter: "), status);
+				}
 			}
 		}
 		inline void collect() {

@@ -75,6 +75,9 @@ namespace PDH {
 				error = status.to_wstring();
 			return status.is_ok();
 		}
+		static bool is_speacial_char(wchar_t c) {
+			return c == L'\\' || c == L'(' || c == L')';
+		}
 
 		static bool PDHResolver::expand_index(std::wstring &counter) {
 			std::wstring::size_type pos = 0;
@@ -87,6 +90,18 @@ namespace PDH {
 					p2 = counter.size();
 				if (p2 <= p1)
 					return false;
+				if (p1 > 0) {
+					if (!is_speacial_char(counter[p1-1])) {
+						pos = p2;
+						continue;
+					}
+				}
+				if (p2 < counter.size()) {
+					if (!is_speacial_char(counter[p2+1])) {
+						pos = p2;
+						continue;
+					}
+				}
 				unsigned int index = strEx::stoi(counter.substr(p1, p2-p1));
 				std::wstring sindex = PDH::PDHResolver::lookupIndex(index);
 				counter.replace(p1, p2-p1, sindex);

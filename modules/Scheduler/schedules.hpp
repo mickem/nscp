@@ -116,6 +116,7 @@ namespace schedules {
 				object.set_report(_T("all"));
 				object.channel = _T("NSCA");
 			}
+			std::wstring alias;
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 
@@ -128,7 +129,7 @@ namespace schedules {
 				(_T("command"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_command, &object, _1)),
 				_T("SCHEDULE COMMAND"), _T("Command to execute"), object.alias == _T("default"))
 
-				(_T("alias"), sh::wstring_key(&object.alias),
+				(_T("alias"), sh::wstring_key(&alias),
 				_T("SCHEDULE ALIAS"), _T("The alias (service name) to report to server"), object.alias == _T("default"))
 
 				(_T("target"), sh::wstring_key(&object.target_id),
@@ -172,6 +173,8 @@ namespace schedules {
 			settings.register_all();
 			settings.notify();
 
+			if (!alias.empty())
+				object.alias = alias;
 			/*
 			BOOST_FOREACH(const object_type::options_type::value_type &kvp, options) {
 				if (!object.has_option(kvp.first))

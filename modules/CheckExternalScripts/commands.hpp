@@ -88,7 +88,7 @@ namespace commands {
 			try {
 				strEx::parse_command(str, command, arguments);
 			} catch (const std::exception &e) {
-				NSC_LOG_ERROR(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
+				NSC_LOG_MESSAGE(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
 				strEx::splitList list = strEx::splitEx(str, _T(" "));
 				if (list.size() > 0) {
 					command = list.front();
@@ -119,6 +119,7 @@ namespace commands {
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			object.set_command(object.value);
+			std::wstring alias;
 			//if (object.alias == _T("default"))
 			// Pupulate default template!
 
@@ -143,8 +144,8 @@ namespace commands {
 				(_T("command"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_command, &object, _1)),
 				_T("COMMAND"), _T("Command to execute"))
 
-				(_T("alias"), sh::wstring_key(&object.alias),
-				_T("ALIAS"), _T("The alias (service name) to report to server"))
+				(_T("alias"), sh::wstring_key(&alias),
+				_T("ALIAS"), _T("The alias (service name) to report to server"), true)
 
 				(_T("parent"), nscapi::settings_helper::wstring_key(&object.parent, _T("default")),
 				_T("PARENT"), _T("The parent the target inherits from"), true)
@@ -165,6 +166,8 @@ namespace commands {
 
 			settings.register_all();
 			settings.notify();
+			if (!alias.empty())
+				object.alias = alias;
 
 			/*
 			BOOST_FOREACH(const object_type::options_type::value_type &kvp, options) {
