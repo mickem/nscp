@@ -15,6 +15,7 @@ class EventLogTest(BasicTest):
 	last_status = None
 	last_message = None
 	last_perfdata = None
+	last_tag = []
 	got_simple_response = None
 	message_count = 0
 	
@@ -36,14 +37,20 @@ class EventLogTest(BasicTest):
 	def setup(self, plugin_id, prefix):
 		self.key = '_%stest_command'%prefix
 		self.reg = Registry.get(plugin_id)
-		self.reg.simple_subscription('pytest_evlog', EventLogTest.simple_inbox_handler)
+		self.reg.simple_subscription('pytest_evlog_01', EventLogTest.simple_inbox_handler_01)
+		self.reg.simple_subscription('pytest_evlog_02', EventLogTest.simple_inbox_handler_02)
 
-	def simple_inbox_handler(channel, source, command, code, message, perf):
+	def simple_inbox_handler_01(channel, source, command, code, message, perf):
 		instance = EventLogTest.getInstance()
-		return instance.simple_inbox_handler_wrapped(channel, source, command, code, message, perf)
-	simple_inbox_handler = Callable(simple_inbox_handler)
+		return instance.simple_inbox_handler_wrapped(channel, source, command, code, message, perf, '001')
+	simple_inbox_handler_01 = Callable(simple_inbox_handler_01)
 
-	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
+	def simple_inbox_handler_02(channel, source, command, code, message, perf):
+		instance = EventLogTest.getInstance()
+		return instance.simple_inbox_handler_wrapped(channel, source, command, code, message, perf, '002')
+	simple_inbox_handler_02 = Callable(simple_inbox_handler_02)
+	
+	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf, tag):
 		message = unicodedata.normalize('NFKD', message).encode('ascii','ignore')
 		log('Got simple message %s on %s'%(command, channel))
 		self.got_simple_response = True
@@ -51,6 +58,10 @@ class EventLogTest(BasicTest):
 		self.last_command = command
 		self.last_status = status
 		self.last_message = message
+		if self.last_tag:
+			self.last_tag.append(tag)
+		else:
+			self.last_tag = [ tag ]
 		self.message_count = self.message_count + 1
 		self.last_perfdata = perf
 		return True
@@ -104,7 +115,8 @@ class EventLogTest(BasicTest):
 		result.add_message(self.test_create('Application Error', 1000, 'error', 0, 0, 0, a_list), 'Testing to create a log message')
 		sleep(500)
 		result.assert_equals(self.last_message, 'error Application Error: ', 'Verify that message is sent through')
-		result.assert_equals(self.message_count, 1, 'Verify that onlyt one message is sent through')
+		result.assert_equals(self.message_count, 1, 'Verify that only one message is sent through')
+		log('Got tags: %s'%self.last_tag)
 
 		result.add_message(self.test_create('Application Error', 1000, 'info', 2, 1, 5, a_list), 'Testing to create a log message')
 		sleep(500)
@@ -112,7 +124,7 @@ class EventLogTest(BasicTest):
 		result.assert_equals(self.message_count, 1, 'Verify that onlyt one message is sent through')
 
 		(res, msg, perf) = Core.get().simple_query('CheckEventLogCACHE', ['warn=eq:1', 'crit=eq:2'])
-		cache.assert_equals(res, status.CRITICAL, "Validate cache has items")
+		cache.assert_equals(res, status.CRITICAL, "Validate cache has items: %s"%msg)
 		cache.assert_equals(msg, 'error Application Error: , info Application Error: , eventlog: 2 = critical', "Validate cache is ok: %s"%msg)
 		cache.assert_equals(perf, "'eventlog'=2;1;2", "Validate cache is ok: %s"%msg)
 		(res, msg, perf) = Core.get().simple_query('CheckEventLogCACHE', ['warn=eq:1', 'crit=eq:2'])
@@ -144,6 +156,13 @@ class EventLogTest(BasicTest):
 
 		return result
 
+	def install_filter(self, conf, path, target, filter):
+		conf.set_string(path, 'filter', filter)
+		conf.set_string(path, 'maximum age', '5s')
+		conf.set_string(path, 'destination', target)
+		conf.set_string(path, 'language', 'english')
+		conf.set_string(path, 'debug', 'true')
+	
 	def install(self, arguments):
 		conf = Settings.get()
 		conf.set_string('/modules', 'pytest_eventlog', 'CheckEventLog')
@@ -152,11 +171,11 @@ class EventLogTest(BasicTest):
 		conf.set_string('/settings/pytest/scripts', 'test_eventlog', 'test_eventlog.py')
 		
 		conf.set_string('/settings/pytest_eventlog/real-time', 'enabled', 'true')
-		conf.set_string('/settings/pytest_eventlog/real-time', 'filter', 'id = 1000 and category = 0')
-		conf.set_string('/settings/pytest_eventlog/real-time/filters', 'test', 'id = 1000 and category = 1')
+		
+		self.install_filter(conf, '/settings/pytest_eventlog/real-time/filters/py_test_001', 'pytest_evlog_01', 'id = 1000 and category = 0')
+		self.install_filter(conf, '/settings/pytest_eventlog/real-time/filters/py_test_002', 'pytest_evlog_02', 'id = 1000 and category = 1')
+		
 		conf.set_string('/settings/pytest_eventlog/real-time', 'maximum age', '5s')
-		conf.set_string('/settings/pytest_eventlog/real-time', 'destination', 'pytest_evlog')
-		conf.set_string('/settings/pytest_eventlog/real-time', 'language', 'english')
 		conf.set_string('/settings/pytest_eventlog/real-time', 'debug', 'true')
 		conf.set_string('/settings/pytest_eventlog/real-time', 'enable active', 'true')
 		

@@ -3,12 +3,14 @@
 #include <nscp/packet.hpp>
 #include <nscp/handler.hpp>
 
-class handler_impl : public nscp::handler, private boost::noncopyable {
+class handler_impl : public nscp::server::handler, private boost::noncopyable {
 	bool allowArgs_;
 	bool allowNasty_;
 	bool noPerfData_;
 public:
 	handler_impl() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
+
+	nscp::packet process(const nscp::packet &packet);
 
 	NSCAPI::nagiosReturn handle_query_request(const std::string &request, Plugin::QueryRequestMessage &msg, std::string &reply);
 	NSCAPI::nagiosReturn handle_submission_request(const std::string &request, Plugin::SubmitRequestMessage &msg, std::string &reply);

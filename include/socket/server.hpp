@@ -76,11 +76,14 @@ namespace socket_helpers {
 					protocol_->log_error(__FILE__, __LINE__, "Failed to lookup: " + protocol_->get_info().get_endpoint_string());
 					return;
 				}
-				if (protocol_->get_info().use_ssl) {
+				if (protocol_->get_info().ssl.enabled) {
 #ifdef USE_SSL
-					SSL_CTX_set_cipher_list(context_.impl(), "ADH");
-					protocol_->log_debug(__FILE__, __LINE__, "Using certificate: " + utf8::cvt<std::string>(protocol_->get_info().certificate));
-					context_.use_tmp_dh_file(to_string(protocol_->get_info().certificate));
+					protocol_->log_debug(__FILE__, __LINE__, "Using SSL: " + protocol_->get_info().ssl.to_string());
+					//context_.use_certificate_file(protocol_->get_info().ssl.certificate);
+					//context_.use_private_key_file(protocol_->get_info().ssl.certificate_key);
+					//context_.set_verify_mode(protocol_->get_info().ssl.get_verify_mode());
+					SSL_CTX_set_cipher_list(context_.impl(), protocol_->get_info().ssl.allowed_ciphers.c_str());
+					context_.use_tmp_dh_file(protocol_->get_info().ssl.dh_key);
 					context_.set_verify_mode(boost::asio::ssl::context::verify_none);
 #else
 					protocol_->log_error(__FILE__, __LINE__, "Not compiled with SSL");
@@ -137,7 +140,7 @@ namespace socket_helpers {
 
 			typename connection_type* create_connection() {
 #ifdef USE_SSL
-				if (protocol_->get_info().use_ssl) {
+				if (protocol_->get_info().ssl.enabled) {
 					return new ssl_connection_type(io_service_, context_, protocol_);
 				}
 #endif

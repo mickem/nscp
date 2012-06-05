@@ -70,11 +70,29 @@ bool NSClientServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
 			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
 
-			(_T("use ssl"), sh::bool_key(&info_.use_ssl, false),
+			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, false),
 			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), true)
 
-			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
+			(_T("certificate"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+			_T("DH KEY"), _T(""), true)
+
+			(_T("certificate"), sh::path_key(&info_.ssl.certificate, "${certificate-path}/certificate.pem"),
 			_T("SSL CERTIFICATE"), _T(""), true)
+
+			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key, "${certificate-path}/certificate_key.pem"),
+			_T("SSL CERTIFICATE"), _T(""), true)
+
+			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
+			_T("CERTIFICATE FORMAT"), _T(""), true)
+
+			(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
+			_T("CA"), _T(""), true)
+
+			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
+			_T("ALLOWED CIPHERS"), _T(""), true)
+
+			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
+			_T("VERIFY MODE"), _T(""), true)
 
 			;
 
@@ -108,9 +126,7 @@ bool NSClientServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
 	}
 #endif
-	if (!boost::filesystem::is_regular(info_.certificate))
-		NSC_LOG_ERROR_STD(_T("Certificate not found: ") + info_.certificate);
-
+	NSC_LOG_ERROR_LISTW(info_.validate());
 
 	std::list<std::string> errors;
 	info_.allowed_hosts.refresh(errors);

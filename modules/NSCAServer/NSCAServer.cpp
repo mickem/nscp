@@ -101,14 +101,10 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(e));
 		}
 		NSC_DEBUG_MSG_STD(_T("Allowed hosts definition: ") + info_.allowed_hosts.to_wstring());
+		NSC_LOG_ERROR_LISTW(info_.validate());
 
 		if (mode == NSCAPI::normalStart) {
-#ifndef USE_SSL
-			if (info_.use_ssl) {
-				NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
-				return false;
-			}
-#endif
+
 			server_.reset(new nsca::server::server(boost::shared_ptr<nsca::read_protocol>(new nsca::read_protocol(info_, handler_))));
 			if (!server_) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));

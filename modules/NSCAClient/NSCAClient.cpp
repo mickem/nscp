@@ -26,7 +26,6 @@
 
 #include <nsca/nsca_enrypt.hpp>
 #include <nsca/nsca_packet.hpp>
-#include <nsca/nsca_socket.hpp>
 
 #include <nsca/client/nsca_client_protocol.hpp>
 #include <socket/client.hpp>

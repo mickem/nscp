@@ -202,8 +202,8 @@ namespace nscp {
 
 		//////////////////////////////////////////////////////////////////////////
 		// Write to string
-		std::string write_string() const {
-			std::string ret;
+		std::vector<char> write_string() const {
+			std::vector<char> ret;
 			write_signature(ret);
 			write_header(ret);
 			write_payload(ret);
@@ -227,16 +227,20 @@ namespace nscp {
 			sig.set_cookie(signature.cookie);
 			sig.AppendToString(&buffer);
 		}
-		void write_signature(std::string &buffer) const {
+		template<class T>
+		void write_signature(T &buffer) const {
 			nscp::data::tcp_signature_data data = signature;
-			buffer.append(reinterpret_cast<char*>(&data), length::get_signature_size());
+			char * begin = reinterpret_cast<char*>(&data);
+			char *end = &begin[length::get_signature_size()];
+			buffer.insert(buffer.end(), begin, end);
 		}
 		std::string write_header() const {
 			std::string buffer;
 			write_header(buffer);
 			return buffer;
 		}
-		inline void write_header(std::string &buffer) const {
+		template<class T>
+		inline void write_header(T &buffer) const {
 			if (!header.empty())
 				buffer.insert(buffer.end(), header.begin(), header.end());
 		}
@@ -245,7 +249,8 @@ namespace nscp {
 			write_payload(buffer);
 			return buffer;
 		}
-		inline void write_payload(std::string &buffer) const {
+		template<class T>
+		inline void write_payload(T &buffer) const {
 			if (!payload.empty())
 				buffer.insert(buffer.end(), payload.begin(), payload.end());
 		}

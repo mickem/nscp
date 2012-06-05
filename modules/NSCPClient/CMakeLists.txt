@@ -8,7 +8,6 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/nscp/packet.cpp
-	${NSCP_INCLUDEDIR}/nscp/handler.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
@@ -16,6 +15,9 @@ SET(SRCS
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+IF(OPENSSL_FOUND)
+	ADD_DEFINITIONS(-DUSE_SSL)
+ENDIF(OPENSSL_FOUND)
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
@@ -23,10 +25,10 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/nscp/packet.hpp
-		${NSCP_INCLUDEDIR}/nscp/handler.hpp
-		${NSCP_INCLUDEDIR}/nscp/client/socket.hpp
+		${NSCP_INCLUDEDIR}/nscp/client/nscp_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/socket/client.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
@@ -43,4 +45,5 @@ target_link_libraries(${TARGET}
 	${OPENSSL_LIBRARIES}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
-SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nscp/.*)
+SOURCE_GROUP("Client" REGULAR_EXPRESSION .*include/nscp/.*)
+SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)

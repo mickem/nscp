@@ -255,6 +255,7 @@ namespace strEx {
 		virtual ~string_exception() throw();
 	};
 	namespace s {
+		/*
 		inline std::string itos(float i) {
 			std::stringstream ss;
 			ss << i;
@@ -270,7 +271,9 @@ namespace strEx {
 			ss << i;
 			return ss.str();
 		}
-		inline std::string itos(unsigned int i) {
+		*/
+		template<typename T>
+		inline std::string itos(T i) {
 			std::stringstream ss;
 			ss << i;
 			return ss.str();

@@ -24,8 +24,6 @@
 #include <time.h>
 #include <strEx.h>
 
-#include <strEx.h>
-
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 

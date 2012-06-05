@@ -26,6 +26,14 @@ namespace nscapi {
 			boost::shared_ptr<wpath_key_type> r(new wpath_key_type(val, _T(""), false));
 			return r;
 		}
+		boost::shared_ptr<path_key_type> path_key(std::string *val, std::string def) {
+			boost::shared_ptr<path_key_type> r(new path_key_type(val, def, true));
+			return r;
+		}
+		boost::shared_ptr<path_key_type> path_key(std::string *val) {
+			boost::shared_ptr<path_key_type> r(new path_key_type(val, "", false));
+			return r;
+		}
 		boost::shared_ptr<string_key_type> string_key(std::string *val, std::string def) {
 			boost::shared_ptr<string_key_type> r(new string_key_type(val, def, true));
 			return r;

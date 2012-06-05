@@ -25,9 +25,10 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
-		${NSCP_INCLUDEDIR}/nrpe/client/socket.hpp
+		${NSCP_INCLUDEDIR}/nrpe/client/nrpe_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/socket/client.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
@@ -44,4 +45,5 @@ target_link_libraries(${TARGET}
 	${OPENSSL_LIBRARIES}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
-SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nrpe/.*)
+SOURCE_GROUP("Client" REGULAR_EXPRESSION .*include/nrpe/.*)
+SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)

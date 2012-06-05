@@ -9,13 +9,10 @@
 
 namespace nscp {
 	namespace server {
+
 		class parser : public boost::noncopyable {
 			std::vector<char> buffer_;
-			boost::shared_ptr<nscp::server::server_handler> handler_;
 		public:
-			parser(boost::shared_ptr<nscp::server::server_handler> handler) : handler_(handler) {}
-
-			typedef boost::function<boost::tuple<bool, char*>(parser*, char*, char*)> digest_function;
 
 			template <typename InputIterator>
 			boost::tuple<bool, InputIterator> digest_anything(InputIterator begin, InputIterator end, unsigned long wanted) {
@@ -25,28 +22,29 @@ namespace nscp {
 				return boost::make_tuple(buffer_.size() >= wanted, begin);
 			}
 
-			boost::tuple<bool, char*> digest_signature(char* begin, char* end) {
+			template <typename InputIterator>
+			boost::tuple<bool, InputIterator> digest_signature(InputIterator begin, InputIterator end) {
 				return digest_anything(begin, end, nscp::length::get_signature_size());
 			}
 
 			template <typename InputIterator>
-			InputIterator digest_header(InputIterator begin, InputIterator end, const nscp::data::tcp_signature_data &signature) {
+			boost::tuple<bool, InputIterator> digest_header(InputIterator begin, InputIterator end, const nscp::data::tcp_signature_data &signature) {
 				return digest_anything(begin, end, nscp::length::get_header_size(signature));
 			}
 
-			boost::tuple<bool, char*> digest_payload(char* begin, char* end, const nscp::data::tcp_signature_data &signature) {
+			template <typename InputIterator>
+			boost::tuple<bool, InputIterator> digest_payload(InputIterator begin, InputIterator end, const nscp::data::tcp_signature_data &signature) {
 				return digest_anything(begin, end, nscp::length::get_payload_size(signature));
 			}
 
-			nscp::data::tcp_signature_data parse_signature() {
+			void parse_signature(nscp::packet &packet) {
 				assert(buffer_.size() >= nscp::length::get_signature_size());
 				nscp::data::tcp_signature_data *tmp = reinterpret_cast<nscp::data::tcp_signature_data*>(&(*buffer_.begin()));
-				nscp::data::tcp_signature_data signature = *tmp;
+				packet.read_signature(tmp);
 				buffer_.clear();
-				return signature;
 			}
-			void parse_header(const nscp::data::tcp_signature_data &signature) {
-				unsigned long wanted = nscp::length::get_header_size(signature);
+			void parse_header(nscp::packet &packet) {
+				unsigned long wanted = nscp::length::get_header_size(packet.signature);
 				if (wanted == 0)
 					return;
 				// @todo parse header and such here
@@ -61,6 +59,66 @@ namespace nscp {
 			unsigned int get_size() {
 				return buffer_.size();
 			}
+		};
+
+
+		struct digester : public boost::noncopyable {
+			enum state {
+				need_signature,
+				need_header,
+				need_payload,
+			};
+
+			parser parser_;
+			state current_state_;
+			nscp::packet packet_;
+
+
+			void reset() {
+				current_state_ = need_signature;
+			}
+
+			unsigned long long get_next_size() {
+				if (current_state_ == need_signature) {
+					return nscp::length::get_signature_size();
+				} else if (current_state_ == need_header) {
+					return nscp::length::get_header_size(packet_.signature);
+				} else if (current_state_ == need_payload) {
+					return nscp::length::get_payload_size(packet_.signature);
+				}
+				return 0;
+			}
+
+			template<typename iterator_type>
+			boost::tuple<bool, iterator_type> digest(iterator_type begin, iterator_type end) {
+				bool result = false;
+				if (current_state_ == need_signature) {
+					boost::tie(result, begin) = parser_.digest_signature(begin, end);
+					if (result) {
+						parser_.parse_signature(packet_);
+						current_state_ = need_header;
+					} else 
+						return boost::make_tuple(false, begin);
+				}
+				if (current_state_ == need_header) {
+					boost::tie(result, begin) = parser_.digest_header(begin, end, packet_.signature);
+					if (result) {
+						parser_.parse_header(packet_);
+						current_state_ = need_payload;
+					} else
+						return boost::make_tuple(false, begin);
+				}
+				if (current_state_ == need_payload) {
+					boost::tie(result, begin) = parser_.digest_payload(begin, end, packet_.signature);
+					if (result) {
+						parser_.parse_payload(packet_);
+						current_state_ = need_signature;
+					}
+					return boost::make_tuple(result, begin);
+				}
+				return boost::make_tuple(result, begin);
+			}
+			nscp::packet get_packet() const { return packet_; }
 		};
 	}// namespace server
 } // namespace nscp

@@ -29,6 +29,10 @@
 
 #include <nscp/packet.hpp>
 
+#include <socket/client.hpp>
+#include <nscp/client/nscp_client_protocol.hpp>
+
+
 NSC_WRAPPERS_MAIN();
 NSC_WRAPPERS_CLI();
 NSC_WRAPPERS_CHANNELS();
@@ -100,13 +104,13 @@ private:
 
 	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
-
+public:
 	struct connection_data {
 		std::string cert;
-		connection_data() : use_ssl(true) {}
-		bool use_ssl;
-		std::string host, port;
+		std::string host;
+		std::string port;
 		int timeout;
+		bool use_ssl;
 
 		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target) {
 			arguments.import(target);
@@ -119,7 +123,7 @@ private:
 				use_ssl = arguments.get_bool_data("use ssl");
 
 			host = arguments.address.host;
-			port = arguments.address.get_port(5668);
+			port = arguments.address.get_port_string("5668");
 		}
 
 		std::wstring to_wstring() const {
@@ -196,8 +200,6 @@ public:
 
 private:
 	std::list<nscp::packet> send(connection_data con, std::list<nscp::packet> &chunks);
-	std::list<nscp::packet> send_nossl(std::string host, std::string port, int timeout, const std::list<nscp::packet> &chunks);
-	std::list<nscp::packet> send_ssl(std::string host, std::string port, std::wstring cert, int timeout, const std::list<nscp::packet> &chunks);
 
 
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);

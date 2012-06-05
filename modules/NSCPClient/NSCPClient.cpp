@@ -20,12 +20,9 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "NSCPClient.h"
-#include <time.h>
-#include <boost/filesystem.hpp>
 
+#include <time.h>
 #include <strEx.h>
-#include <net/net.hpp>
-#include <nscp/client/socket.hpp>
 
 #include <protobuf/plugin.pb.h>
 
@@ -63,7 +60,7 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("NSCP"), alias, _T("client"));
+		settings.set_alias(_T("nscp"), alias, _T("client"));
 		target_path = settings.alias().get_settings_path(_T("targets"));
 
 		settings.alias().add_path_to_settings()
@@ -74,7 +71,6 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 			(_T("targets"), sh::fun_values_path(boost::bind(&NSCPClient::add_target, this, _1, _2)), 
 			_T("REMOTE TARGET DEFINITIONS"), _T(""))
-
 			;
 
 		settings.alias().add_key_to_settings()
@@ -95,7 +91,6 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		register_command(_T("nscp_submit"), _T("Submit a query to a remote host via NSCP"));
 		register_command(_T("nscp_exec"), _T("Execute remote command on a remote host via NSCP"));
 		register_command(_T("nscp_help"), _T("Help on using NSCP Client"));
-
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -192,12 +187,10 @@ NSCAPI::nagiosReturn NSCPClient::handleRAWNotification(const wchar_t* channel, s
 void NSCPClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
 		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
-			"Length of payload (has to be same as on the server)")
-/*
-		("no-ssl,n", po::value<bool>(&command_data.no_ssl)->zero_tokens()->default_value(false), "Do not initial an ssl handshake with the server, talk in plain text.")
+		"Length of payload (has to be same as on the server)")
 
-		("cert,c", po::value<std::wstring>(&command_data.cert)->default_value(cert_), "Certificate to use.")
-		*/
+		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
+		"Do not initial an ssl handshake with the server, talk in plaintext.")
 		;
 }
 
@@ -208,7 +201,6 @@ void NSCPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 	config.data->recipient.id = header.recipient_id();
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
-		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
 		recipient = _T("default");
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
@@ -254,7 +246,6 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, c
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
-	chunks.push_back(nscp::factory::create_envelope_request(1));
 	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request_message.SerializeAsString(), 0));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
@@ -310,7 +301,6 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
-	chunks.push_back(nscp::factory::create_envelope_request(1));
 	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request_message.SerializeAsString(), 0));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
@@ -333,50 +323,51 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 //////////////////////////////////////////////////////////////////////////
 // Protocol implementations
 //
+struct client_handler : public socket_helpers::client::client_handler {
+	client_handler(NSCPClient::connection_data &con) 
+		: socket_helpers::client::client_handler(con.host, con.port, con.timeout, con.use_ssl, con.cert)
+	{
 
-std::list<nscp::packet> NSCPClient::send(connection_data con, std::list<nscp::packet> &chunks) {
-	NSC_DEBUG_MSG_STD(_T("NRPE Connection details: ") + con.to_wstring());
-	chunks.push_front(nscp::factory::create_envelope_request(1));
-	std::list<nscp::packet> tmp, result;
-	if (con.use_ssl) {
-#ifdef USE_SSL
-		tmp = send_ssl(con.host, con.port, con.cert, con.timeout, chunks);
-#else
-		NSC_LOG_ERROR_STD(_T("SSL not avalible (not compiled with USE_SSL)"));
-		result.push_back(nscp::factory::create_error(_T("SSL support not available (compiled without USE_SSL)!")));
-#endif
-	} else {
-		tmp = send_nossl(con.host, con.port, con.timeout, chunks);
 	}
-	BOOST_FOREACH(nscp::packet &p, tmp) {
-		if (nscp::checks::is_envelope_response(p)) {
-		} else {
-			result.push_back(p);
+	void log_debug(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
 		}
 	}
-	return result;
-}
+	void log_error(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::to_unicode(msg));
+		}
+	}
+};
 
-#ifdef USE_SSL
-std::list<nscp::packet> NSCPClient::send_ssl(std::string host, std::string port, std::wstring cert, int timeout, const std::list<nscp::packet> &chunks) {
-	NSC_DEBUG_MSG_STD(_T("Connecting SSL to: ") + utf8::cvt<std::wstring>(host + ":" + port));
-	boost::asio::io_service io_service;
-	boost::asio::ssl::context ctx(io_service, boost::asio::ssl::context::sslv23);
-	SSL_CTX_set_cipher_list(ctx.impl(), "ADH");
-	ctx.use_tmp_dh_file(to_string(cert));
-	ctx.set_verify_mode(boost::asio::ssl::context::verify_none);
-	nscp::client::ssl_socket socket(io_service, ctx, host, port);
-	socket.send(chunks, boost::posix_time::seconds(timeout));
-	return socket.recv(boost::posix_time::seconds(timeout));
-}
+std::list<nscp::packet> NSCPClient::send(connection_data con, std::list<nscp::packet> &chunks) {
+	std::list<nscp::packet> response;
+	try {
+		NSC_DEBUG_MSG_STD(_T("NSCP Connection details: ") + con.to_wstring());
+		//NSC_DEBUG_MSG_STD(_T("NSCP data: ") + utf8::cvt<std::wstring>(data));
+		if (con.use_ssl) {
+#ifndef USE_SSL
+			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
+			return response;
 #endif
-
-std::list<nscp::packet> NSCPClient::send_nossl(std::string host, std::string port, int timeout, const std::list<nscp::packet> &chunks) {
-	NSC_DEBUG_MSG_STD(_T("Connecting to: ") + utf8::cvt<std::wstring>(host + ":" + port));
-	boost::asio::io_service io_service;
-	nscp::client::socket socket(io_service, host, port);
-	socket.send(chunks, boost::posix_time::seconds(timeout));
-	return socket.recv(boost::posix_time::seconds(timeout));
+		}
+		socket_helpers::client::client<nscp::client::protocol> client(boost::shared_ptr<client_handler>(new client_handler(con)));
+		client.connect();
+		BOOST_FOREACH(nscp::packet packet, chunks) {
+			response.push_back(client.process_request(packet));
+		}
+		client.shutdown();
+		return response;
+	} catch (std::runtime_error &e) {
+		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
+		return response;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
+		return response;
+	} catch (...) {
+		return response;
+	}
 }
 
 NSC_WRAP_DLL();

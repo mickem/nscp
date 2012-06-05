@@ -7,8 +7,8 @@ PROJECT(${TARGET})
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/nsca/nsca_packet.cpp
+	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
@@ -30,16 +30,15 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
-		${NSCP_INCLUDEDIR}/nsca/nsca_socket.hpp
 		${NSCP_INCLUDEDIR}/nsca/nsca_enrypt.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/socket/client.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
-
 
 add_library(${TARGET} MODULE ${SRCS})
 

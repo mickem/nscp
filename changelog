@@ -5,6 +5,19 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2012-05-19 MickeM
+ * Tweaked all servers to use the new internals and added first testcase for NSCP socket
+
+2012-05-24 MickeM
+ * Reworked real time event log support to be a lot more flexible
+   You can now specify all options on a "filter" level.
+ * WARNING*
+   Old syntax NOT supported (and will not upgrade) but hopefully not to many will be affected.
+ * Added support for ipv6 allowed hosts validation
+
+2012-05-21 MickeM
+ * Sofia Born (My second daughter)
+
+2012-05-19 MickeM
  * Fixed issue with checking rate counters (such as disk idle %)
  * Fixed (I think) the negative denominator counter issue
  * Fixed so indexes are only converted on \\123\\ and not also \\123 hello world\\ which caused some issues with numeric counter variables.

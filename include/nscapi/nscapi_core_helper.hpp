@@ -30,6 +30,6 @@ namespace nscapi {
 		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf);
 
 		NSCAPI::nagiosReturn exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
-		bool submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response);
+		bool submit_simple_message(const std::wstring channel, const std::wstring command, const NSCAPI::nagiosReturn code, const std::wstring & message, const std::wstring & perf, std::wstring & response);
 	};
 };

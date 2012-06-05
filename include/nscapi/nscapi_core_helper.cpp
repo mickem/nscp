@@ -39,7 +39,7 @@ nscapi::core_wrapper* get_core() {
 	return nscapi::plugin_singleton->get_core();
 }
 
-bool nscapi::core_helper::submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response) {
+bool nscapi::core_helper::submit_simple_message(const std::wstring channel, const std::wstring command, const NSCAPI::nagiosReturn code, const std::wstring & message, const std::wstring & perf, std::wstring & response) {
 	std::string request, buffer;
 	nscapi::functions::create_simple_submit_request(channel, command, code, message, perf, request);
 	NSCAPI::nagiosReturn ret = get_core()->submit_message(channel, request, buffer);

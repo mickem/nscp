@@ -254,6 +254,7 @@ namespace nscapi {
 		typedef typed_key_value<std::wstring, typed_string_value<std::wstring> > wstring_key_type;
 		typedef typed_key_value<std::string, typed_string_value<std::string> > string_key_type;
 		typedef typed_key_value<std::wstring, typed_path_value<std::wstring> > wpath_key_type;
+		typedef typed_key_value<std::string, typed_path_value<std::string> > path_key_type;
 		typedef typed_key_value<unsigned int, typed_int_value<unsigned int> > uint_key_type;
 		typedef typed_key_value<int, typed_int_value<int> > int_key_type;
 		typedef typed_key_value<bool, typed_bool_value<bool> > bool_key_type;
@@ -272,6 +273,8 @@ namespace nscapi {
 		boost::shared_ptr<bool_key_type> bool_key(bool *val);
 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val, std::wstring def);
 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val);
+		boost::shared_ptr<path_key_type> path_key(std::string *val, std::string def);
+		boost::shared_ptr<path_key_type> path_key(std::string *val);
 
 		template<class T>
 		boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > int_fun_key(boost::function<void (T)> fun, T def) {

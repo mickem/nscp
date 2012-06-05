@@ -50,6 +50,24 @@ namespace nscapi {
 				add(proxy, path, alias, value, is_template);
 			}
 
+			std::list<std::wstring> get_object_key_list() const {
+				std::list<std::wstring> ret;
+				BOOST_FOREACH(const typename object_list_type::value_type &t, object_list) {
+					ret.push_back(t.first);
+				}
+				return ret;
+			}
+			std::list<t_object_type> get_object_list() const {
+				std::list<t_object_type> ret;
+				BOOST_FOREACH(const typename object_list_type::value_type &t, object_list) {
+					ret.push_back(t.second);
+				}
+				return ret;
+			}
+			bool has_objects() const {
+				return !object_list.empty();
+			}
+
 			t_object_type add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring value, bool is_template = false) {
 				optional_object previous = find_object(alias);
 				if (previous) {

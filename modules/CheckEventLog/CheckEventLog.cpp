@@ -36,6 +36,7 @@
 #include <boost/program_options.hpp>
 
 #include "filter.hpp"
+#include "filters.hpp"
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -66,101 +67,18 @@ bool CheckEventLog::loadModule() {
 	return false;
 }
 
-WORD get_language(std::string lang) {
-	if (lang == "neutral") return LANG_NEUTRAL;
-	if (lang == "arabic") return LANG_ARABIC;
-	if (lang == "bulgarian") return LANG_BULGARIAN;
-	if (lang == "catalan") return LANG_CATALAN;
-	if (lang == "chinese") return LANG_CHINESE;
-	if (lang == "czech") return LANG_CZECH;
-	if (lang == "danish") return LANG_DANISH;
-	if (lang == "german") return LANG_GERMAN;
-	if (lang == "greek") return LANG_GREEK;
-	if (lang == "english") return LANG_ENGLISH;
-	if (lang == "spanish") return LANG_SPANISH;
-	if (lang == "finnish") return LANG_FINNISH;
-	if (lang == "french") return LANG_FRENCH;
-	if (lang == "hebrew") return LANG_HEBREW;
-	if (lang == "hungarian") return LANG_HUNGARIAN;
-	if (lang == "icelandic") return LANG_ICELANDIC;
-	if (lang == "italian") return LANG_ITALIAN;
-	if (lang == "japanese") return LANG_JAPANESE;
-	if (lang == "korean") return LANG_KOREAN;
-	if (lang == "dutch") return LANG_DUTCH;
-	if (lang == "norwegian") return LANG_NORWEGIAN;
-	if (lang == "polish") return LANG_POLISH;
-	if (lang == "portuguese") return LANG_PORTUGUESE;
-	if (lang == "romanian") return LANG_ROMANIAN;
-	if (lang == "russian") return LANG_RUSSIAN;
-	if (lang == "croatian") return LANG_CROATIAN;
-	if (lang == "serbian") return LANG_SERBIAN;
-	if (lang == "slovak") return LANG_SLOVAK;
-	if (lang == "albanian") return LANG_ALBANIAN;
-	if (lang == "swedish") return LANG_SWEDISH;
-	if (lang == "thai") return LANG_THAI;
-	if (lang == "turkish") return LANG_TURKISH;
-	if (lang == "urdu") return LANG_URDU;
-	if (lang == "indonesian") return LANG_INDONESIAN;
-	if (lang == "ukrainian") return LANG_UKRAINIAN;
-	if (lang == "belarusian") return LANG_BELARUSIAN;
-	if (lang == "slovenian") return LANG_SLOVENIAN;
-	if (lang == "estonian") return LANG_ESTONIAN;
-	if (lang == "latvian") return LANG_LATVIAN;
-	if (lang == "lithuanian") return LANG_LITHUANIAN;
-	if (lang == "farsi") return LANG_FARSI;
-	if (lang == "vietnamese") return LANG_VIETNAMESE;
-	if (lang == "armenian") return LANG_ARMENIAN;
-	if (lang == "azeri") return LANG_AZERI;
-	if (lang == "basque") return LANG_BASQUE;
-	if (lang == "macedonian") return LANG_MACEDONIAN;
-	if (lang == "afrikaans") return LANG_AFRIKAANS;
-	if (lang == "georgian") return LANG_GEORGIAN;
-	if (lang == "faeroese") return LANG_FAEROESE;
-	if (lang == "hindi") return LANG_HINDI;
-	if (lang == "malay") return LANG_MALAY;
-	if (lang == "kazak") return LANG_KAZAK;
-	if (lang == "kyrgyz") return LANG_KYRGYZ;
-	if (lang == "swahili") return LANG_SWAHILI;
-	if (lang == "uzbek") return LANG_UZBEK;
-	if (lang == "tatar") return LANG_TATAR;
-	if (lang == "punjabi") return LANG_PUNJABI;
-	if (lang == "gujarati") return LANG_GUJARATI;
-	if (lang == "tamil") return LANG_TAMIL;
-	if (lang == "telugu") return LANG_TELUGU;
-	if (lang == "kannada") return LANG_KANNADA;
-	if (lang == "marathi") return LANG_MARATHI;
-	if (lang == "sanskrit") return LANG_SANSKRIT;
-	if (lang == "mongolian") return LANG_MONGOLIAN;
-	if (lang == "galician") return LANG_GALICIAN;
-	if (lang == "konkani") return LANG_KONKANI;
-	if (lang == "syriac") return LANG_SYRIAC;
-	if (lang == "divehi") return LANG_DIVEHI;
-	return LANG_NEUTRAL;
-}
 
-void real_time_thread::set_language(std::string lang) {
-	WORD wLang = get_language(lang);
-	if (wLang == LANG_NEUTRAL)
-		info.dwLang = MAKELANGID(wLang, SUBLANG_DEFAULT);
-	else
-		info.dwLang = MAKELANGID(wLang, SUBLANG_NEUTRAL);
-}
-
-void real_time_thread::process_no_events(std::wstring alias) {
+void real_time_thread::process_no_events(const filters::filter_config_object &object) {
 	std::wstring response;
-	if (alias.empty())
-		alias = info.alias;
-	if (!nscapi::core_helper::submit_simple_message(info.target, alias, NSCAPI::returnOK, info.ok_msg, info.perf_msg, response)) {
+	if (!nscapi::core_helper::submit_simple_message(object.target, object.alias, NSCAPI::returnOK, object.ok_msg, object.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 }
 
-void real_time_thread::process_record(std::wstring alias, const EventLogRecord &record) {
+void real_time_thread::process_record(const filters::filter_config_object &object, const EventLogRecord &record) {
 	std::wstring response;
-	std::wstring message = record.render(true, info.syntax, DATE_FORMAT, info.dwLang);
-	if (alias.empty())
-		alias = info.alias;
-	if (!nscapi::core_helper::submit_simple_message(info.target, alias, NSCAPI::returnCRIT, message, info.perf_msg, response)) {
+	std::wstring message = record.render(true, object.syntax, object.date_format, object.dwLang);
+	if (!nscapi::core_helper::submit_simple_message(object.target, object.alias, object.severity, message, object.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 
@@ -195,37 +113,38 @@ bool real_time_thread::check_cache(unsigned long &count, std::wstring &messages)
 	return true;
 }
 void real_time_thread::debug_miss(const EventLogRecord &record) {
-	std::wstring message = record.render(true, info.syntax, DATE_FORMAT, info.dwLang);
+	std::wstring message = record.render(true, _T("%type% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
 	NSC_DEBUG_MSG_STD(_T("No filter matched: ") + message);
 }
 
 void real_time_thread::thread_proc() {
 
-	std::list<eventlog_filter::filter_engine> filters;
-	BOOST_FOREACH(const filter_container &filter, filters_) {
-		eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(info.syntax, DATE_FORMAT);
-		fargs->filter = filter.filter;
-		fargs->debug = debug_;
-		fargs->alias = filter.alias;
+	std::list<filters::filter_config_object> filters;
+	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
+		eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(object.syntax, object.date_format);
+		fargs->filter = object.filter;
+		fargs->debug = object.debug;
+		fargs->alias = object.alias;
 		fargs->bShowDescriptions = true;
-		eventlog_filter::filter_engine engine = eventlog_filter::factories::create_engine(fargs);
+		// eventlog_filter::filter_engine 
+		object.engine = eventlog_filter::factories::create_engine(fargs);
 
-		if (!engine) {
-			NSC_LOG_ERROR_STD(_T("Invalid filter: ") + filter.filter);
+		if (!object.engine) {
+			NSC_LOG_ERROR_STD(_T("Invalid filter: ") + object.filter);
 			continue;
 		}
 
-		if (!engine->boot()) {
-			NSC_LOG_ERROR_STD(_T("Error booting filter: ") + filter.filter);
+		if (!object.engine->boot()) {
+			NSC_LOG_ERROR_STD(_T("Error booting filter: ") + object.filter);
 			continue;
 		}
 
 		std::wstring message;
-		if (!engine->validate(message)) {
+		if (!object.engine->validate(message)) {
 			NSC_LOG_ERROR_STD(_T("Error validating filter: ") + message);
 			continue;
 		}
-		filters.push_back(engine);
+		filters.push_back(object);
 	}
 
 
@@ -258,8 +177,8 @@ void real_time_thread::thread_proc() {
 	while (true) {
 		DWORD dwWaitReason = WaitForMultipleObjects(list.size()+1, handles, FALSE, dwWaitTime==0?INFINITE:dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
-			BOOST_FOREACH(eventlog_filter::filter_engine engine, filters) {
-				process_no_events(engine->data->alias);
+			BOOST_FOREACH(const filters::filter_config_object &object, filters) {
+				process_no_events(object);
 			}
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
 			delete [] handles;
@@ -282,9 +201,9 @@ void real_time_thread::thread_proc() {
 				boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(elr));
 				bool matched = false;
 
-				BOOST_FOREACH(eventlog_filter::filter_engine engine, filters) {
-					if (engine->match(arg)) {
-						process_record(engine->data->alias, elr);
+				BOOST_FOREACH(const filters::filter_config_object &object, filters) {
+					if (object.engine->match(arg)) {
+						process_record(object, elr);
 						matched = true;
 					}
 				}
@@ -310,11 +229,8 @@ void real_time_thread::thread_proc() {
 bool real_time_thread::start() {
 	if (!enabled_)
 		return true;
-	if (!has_filters()) {
-		add_realtime_filter(_T("default"), _T("type NOT IN ('success', 'info', 'auditSuccess')"));
-	}
 
-	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EVentLogShutdown"));
+	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
 
 	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
 	return true;
@@ -326,17 +242,13 @@ bool real_time_thread::stop() {
 	return true;
 }
 
-void real_time_thread::add_realtime_filter(std::wstring key, std::wstring query) {
-	filter_container c;
-	if (!key.empty() && query.empty()) {
-		c.filter = key;
-		filters_.push_back(c);
-	} else if (key.empty() && query.empty()) {
-		return;
-	} else {
-		c.alias = key;
-		c.filter = query;
-		filters_.push_back(c);
+void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query) {
+	try {
+		filters_.add(proxy, filters_path_, key, query, key == _T("default"));
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key);
 	}
 }
 
@@ -351,13 +263,15 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, _T("eventlog"));
 		
+		thread_.filters_path_ = settings.alias().get_settings_path(_T("real-time/filters"));
+
 
 		settings.alias().add_path_to_settings()
 			(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CheckEventLog.dll)."))
 
 			(_T("real-time"), _T("CONFIGURE REALTIME CHECKING"), _T("A set of options to configure the real time checks"))
 
-			(_T("real-time/filters"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, &thread_, _1, _2)),  
+			(_T("real-time/filters"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, &thread_, get_settings_proxy(), _1, _2)),  
 			_T("REALTIME FILTERS"), _T("A set of filters to use in real-time mode"))
 			;
 
@@ -381,23 +295,11 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 			(_T("enabled"), sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, &thread_, _1), false),
 			_T("REAL TIME CHECKING"), _T("Spawns a backgrounnd thread which detects issues and reports them back instantly."))
 
-			(_T("destination"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_destination, &thread_, _1), _T("NSCA")),
-			_T("DESTINATION"), _T("The destination for intercepted messages"))
-
 			(_T("startup age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_start_age, &thread_, _1), _T("30m")),
 			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
 
 			(_T("maximum age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_max_age, &thread_, _1), _T("5m")),
 			_T("MAGIMUM AGE"), _T("How long before reporting \"ok\" (if this is set to off no ok will be reported only errors)"))
-
-			(_T("filter"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_filter, &thread_, _1), _T("")),
-			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
-
-			(_T("syntax"), sh::wstring_key(&thread_.info.syntax, _T("%type% %source%: %message%")),
-			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
-
-			(_T("language"), sh::string_fun_key<std::string>(boost::bind(&real_time_thread::set_language, &thread_, _1), ""),
-			_T("MESSAGE LANGUAGE"), _T("The language to use for rendering message (mainly used fror testing)"))
 
 			(_T("log"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_eventlog, &thread_, _1), _T("application")),
 			_T("LOGS TO CHECK"), _T("Coma separated list of logs to check"))
@@ -407,12 +309,6 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 
 			(_T("enable active"), sh::bool_key(&thread_.cache_, false),
 			_T("ENABLE ACTIVE MONITORING"), _T("This will store all matches so you can use real-time filters from active monitoring (use CheckEventlogCache)."))
-
-			(_T("ok message"), sh::wstring_key(&thread_.info.ok_msg, _T("eventlog found no records")),
-			_T("OK MESSAGE"), _T("This is the message sent periodically whenever no error is discovered."))
-
-			(_T("alias"), sh::wstring_key(&thread_.info.alias, _T("eventlog")),
-			_T("ALIAS"), _T("The alias to use for this event (in NSCA this constitutes the service name)."))
 			;
 
 		settings.register_all();

@@ -15,7 +15,6 @@ namespace socket_helpers {
 		template<class protocol_type>
 		class connection : public boost::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
 		private:
-			tcp::socket socket_;
 			protocol_type protocol_;
 			boost::asio::io_service &io_service_;
 			boost::asio::deadline_timer timer_;
@@ -27,7 +26,6 @@ namespace socket_helpers {
 		public:
 			connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler) 
 				: io_service_(io_service)
-				, socket_(io_service) 
 				, timer_(io_service)
 				, timeout_(timeout)
 				, handler_(handler)
@@ -35,8 +33,13 @@ namespace socket_helpers {
 			{}
 
 			virtual ~connection() {
-				stop_timer();
-				close();
+				try {
+					stop_timer();
+				} catch (const std::exception &e) {
+					handler_->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+				} catch (...) {
+					handler_->log_error(__FILE__, __LINE__, "Failed to close connection");
+				}
 			}
 
 			typedef boost::asio::basic_socket<tcp,boost::asio::stream_socket_service<tcp> >  basic_socket_type;
@@ -62,7 +65,7 @@ namespace socket_helpers {
 			//////////////////////////////////////////////////////////////////////////
 			// External API functions
 			//
-			virtual void connect(std::string host, std::string port) {
+			virtual boost::system::error_code connect(std::string host, std::string port) {
 				tcp::resolver resolver(io_service_);
 				tcp::resolver::query query(host, port);
 
@@ -75,9 +78,11 @@ namespace socket_helpers {
 					get_socket().close();
 					get_socket().lowest_layer().connect(*endpoint_iterator++, error);
 				}
-				if (error)
-					throw boost::system::system_error(error);
+				if (error) {
+					return error;
+				}
 				protocol_.on_connect();
+				return error;
 			}
 
 			virtual typename protocol_type::response_type process_request(typename protocol_type::request_type &packet) {
@@ -104,10 +109,10 @@ namespace socket_helpers {
 
 			virtual void close() {
 				trace("close()");
-				if (!get_socket().is_open())
-					return;
-				get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-				get_socket().close();
+				boost::system::error_code ignored_ec;
+				if (get_socket().is_open())
+					get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+				get_socket().close(ignored_ec);
 			}
 
 			//////////////////////////////////////////////////////////////////////////
@@ -125,12 +130,7 @@ namespace socket_helpers {
 				}
 			}
 
-			virtual void start_read_request(boost::asio::mutable_buffers_1 &buffer) {
-				trace("start_read_request()");
-				async_read(socket_, buffer, 
-					boost::bind(&connection::handle_read_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
-				);
-			}
+			virtual void start_read_request(boost::asio::mutable_buffers_1 &buffer) = 0;
 
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
 				trace("handle_read_request(" + strEx::s::itos((int)bytes_transferred) + ")");
@@ -142,12 +142,7 @@ namespace socket_helpers {
 				}
 			}
 
-			virtual void start_write_request(boost::asio::mutable_buffers_1 &buffer) {
-				trace("start_write_request()");
-				async_write(socket_, buffer, 
-					boost::bind(&connection::handle_write_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
-					);
-			}
+			virtual void start_write_request(boost::asio::mutable_buffers_1 &buffer) = 0;
 
 			virtual void handle_write_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
 				trace("handle_write_request(" + strEx::s::itos((int)bytes_transferred) + ")");
@@ -174,16 +169,60 @@ namespace socket_helpers {
 				}
 				return false;
 			}
-			virtual basic_socket_type& get_socket() {
-				return socket_;
-			}
-
 			//////////////////////////////////////////////////////////////////////////
 			// Internal helper functions
 			//
 			inline void trace(std::string msg) const {
-				if (debug_trace) 
+				if (debug_trace && handler_) 
 					handler_->log_debug(__FILE__, __LINE__, msg);
+			}
+			inline void log_error(std::string file, int line, std::string msg) const {
+				if (handler_) 
+					handler_->log_error(__FILE__, __LINE__, msg);
+			}
+
+			virtual basic_socket_type& get_socket() = 0;
+
+		};
+
+		template<class protocol_type>
+		class tcp_connection : public connection<protocol_type> {
+			typedef connection<protocol_type> connection_type;
+			tcp::socket socket_;
+
+		public:
+			tcp_connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler) 
+				: connection_type(io_service, timeout, handler) 
+				, socket_(io_service)
+			{}
+			virtual ~tcp_connection() {
+				try {
+					close();
+				} catch (const std::exception &e) {
+					log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+				} catch (...) {
+					log_error(__FILE__, __LINE__, "Failed to close connection");
+				}
+			}
+
+			virtual void start_read_request(boost::asio::mutable_buffers_1 &buffer) {
+				std::size_t data_size = boost::asio::buffer_size(buffer);
+				trace("tcp::start_read_request(" + strEx::s::itos((int)data_size) + ")");
+				async_read(socket_, buffer, 
+					boost::bind(&connection::handle_read_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+					);
+			}
+
+			virtual void start_write_request(boost::asio::mutable_buffers_1 &buffer) {
+				std::size_t data_size = boost::asio::buffer_size(buffer);
+				trace("tcp::start_write_request(" + strEx::s::itos((int)data_size) + ")");
+				async_write(socket_, buffer, 
+					boost::bind(&connection::handle_write_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+					);
+			}
+
+			virtual basic_socket_type& get_socket() {
+				return socket_;
 			}
 		};
 
@@ -200,12 +239,20 @@ namespace socket_helpers {
 				, ssl_socket_(io_service, context)
 			{}
 			virtual ~ssl_connection() {
+				try {
+					close();
+				} catch (const std::exception &e) {
+					log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+				} catch (...) {
+					log_error(__FILE__, __LINE__, "Failed to close connection");
+				}
 			}
 
-
-			virtual void connect(std::string host, std::string port) {
-				connection_type::connect(host, port);
-				ssl_socket_.handshake(boost::asio::ssl::stream_base::client);
+			virtual boost::system::error_code connect(std::string host, std::string port) {
+				boost::system::error_code error = connection_type::connect(host, port);
+				if (!error)
+					ssl_socket_.handshake(boost::asio::ssl::stream_base::client);
+				return error;
 			}
 
 			virtual void start_read_request(boost::asio::mutable_buffers_1 &buffer) {
@@ -234,6 +281,7 @@ namespace socket_helpers {
 			boost::shared_ptr<typename protocol_type::client_handler> handler_;
 
 			typedef connection<protocol_type> connection_type;
+			typedef tcp_connection<protocol_type> tcp_connection_type;
 #ifdef USE_SSL
 			boost::asio::ssl::context context_;
 			typedef ssl_connection<protocol_type> ssl_connection_type;
@@ -247,10 +295,23 @@ namespace socket_helpers {
 #endif
 			{
 			}
+			~client() {
+				try {
+					if (connection_)
+						connection_->shutdown();
+				} catch (...) {
+					handler_->log_error(__FILE__, __LINE__, "Failed to close socket on disconnect");
+				}
+				connection_.reset();
+			}
 
 			void connect() {
 				connection_.reset(create_connection());
-				connection_->connect(handler_->get_host(), handler_->get_port());
+				boost::system::error_code error = connection_->connect(handler_->get_host(), handler_->get_port());
+				if (error) {
+					connection_.reset();
+					throw std::exception(error.message().c_str());
+				}
 			}
 
 			typename connection_type* create_connection() {
@@ -261,7 +322,7 @@ namespace socket_helpers {
 					return ptr;
 				}
 #endif
-				return new connection_type(io_service_, handler_->get_timeout(), handler_);
+				return new tcp_connection_type(io_service_, handler_->get_timeout(), handler_);
 			}
 
 			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet) {

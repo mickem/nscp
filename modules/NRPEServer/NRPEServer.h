@@ -61,10 +61,10 @@ private:
 	boost::shared_ptr<handler_impl> handler_;
 
 
-	class NRPEException {
+	class NRPEExceptionn {
 		std::wstring error_;
 	public:
-		NRPEException(std::wstring s) {
+		NRPEExceptionn(std::wstring s) {
 			error_ = s;
 		}
 		std::wstring getMessage() {
