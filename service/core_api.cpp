@@ -347,11 +347,11 @@ NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,con
 NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {
 	try {
 		if (type == NSCAPI::key_string)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_string, title, description, defVal, advanced);
+			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_string, title, description, defVal, advanced==1);
 		if (type == NSCAPI::key_bool)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_bool, title, description, defVal, advanced);
+			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_bool, title, description, defVal, advanced==1);
 		if (type == NSCAPI::key_integer)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_integer, title, description, defVal, advanced);
+			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_integer, title, description, defVal, advanced==1);
 		return NSCAPI::hasFailed;
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed register key: ") + e.getMessage());

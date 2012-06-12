@@ -4,7 +4,7 @@
 #include <check_nt/server/handler.hpp>
 #include <boost/tuple/tuple.hpp>
 
-class handler_impl : public check_nt::server::handler, private boost::noncopyable {
+class handler_impl : public check_nt::server::handler {
 	bool allowArgs_;
 	bool allowNasty_;
 	bool noPerfData_;

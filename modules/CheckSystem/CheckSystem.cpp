@@ -1536,7 +1536,7 @@ struct regkey_info {
 		strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
 		strEx::replace(syntax, _T("%write-raw%"), strEx::itos(ullLastWriteTime));
 		strEx::replace(syntax, _T("%now-raw%"), strEx::itos(ullNow));
-		strEx::replace(syntax, _T("%type%"), strEx::itos_as_BKMG(iType));
+		strEx::replace(syntax, _T("%type%"), format::format_byte_units(iType));
 		strEx::replace(syntax, _T("%child-count%"), strEx::itos(ullChildCount));
 		strEx::replace(syntax, _T("%exists%"), strEx::itos(uiExists));
 		strEx::replace(syntax, _T("%int%"), strEx::itos(info.iValue));

@@ -20,7 +20,7 @@ namespace nsca {
 			typedef std::vector<char> write_buffer_type;
 			typedef const nsca::packet request_type;
 			typedef bool response_type;
-			typedef typename handler_type client_handler;
+			typedef handler_type client_handler;
 
 		private:
 			std::vector<char> iv_buffer_;

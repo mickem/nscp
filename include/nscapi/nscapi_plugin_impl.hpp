@@ -52,9 +52,5 @@ namespace nscapi {
 			void handleMessageRAW(std::string data);
 			virtual void handleMessage(int msgType, const std::string file, int line, std::string message) = 0;
 		};
-
-	};
-
-
-
-};
+	}
+}

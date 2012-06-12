@@ -118,7 +118,7 @@ namespace NSCAPI {
 	typedef plugin_info* plugin_info_list;
 
 
-};
+}
 
 namespace nscapi {
 

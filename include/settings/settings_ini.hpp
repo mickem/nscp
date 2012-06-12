@@ -15,12 +15,12 @@
 namespace settings {
 	class INISettings : public settings::SettingsInterfaceImpl {
 	private:
-		std::wstring filename_;
-		bool is_loaded_;
 		CSimpleIni ini;
+		bool is_loaded_;
+		std::wstring filename_;
 
 	public:
-		INISettings(settings::settings_core *core, std::wstring context) : ini(false, false, false), is_loaded_(false), settings::SettingsInterfaceImpl(core, context) {
+		INISettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context), ini(false, false, false), is_loaded_(false) {
 			load_data();
 		}
 		//////////////////////////////////////////////////////////////////////////

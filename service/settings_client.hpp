@@ -5,11 +5,11 @@
 class NSClientT;
 namespace nsclient {
 	class settings_client {
+		bool started_;
 		NSClient* core_;
+		std::wstring log_;
 		bool default_;
 		bool load_all_;
-		bool started_;
-		std::wstring log_;
 
 	public:
 		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool load_all) : started_(false), core_(core), log_(log), default_(update_defaults), load_all_(load_all) {

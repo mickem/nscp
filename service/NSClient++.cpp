@@ -796,7 +796,6 @@ NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
 }
 
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
-	bool hasBroken = false;
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
@@ -1089,7 +1088,6 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_target, const wc
 	std::wstring target = raw_target;
 	bool match_any = false;
 	bool match_all = false;
-	bool has_match = false;
 	if (target == _T("any"))
 		match_any = true;
 	else if (target == _T("all") || target == _T("*"))
@@ -1249,8 +1247,8 @@ boost::filesystem::wpath NSClientT::getBasePath(void) {
 	}
 	if (!basePath.empty())
 		return basePath;
-	unsigned int buf_len = 4096;
 #ifdef WIN32
+	unsigned int buf_len = 4096;
 	wchar_t* buffer = new wchar_t[buf_len+1];
 	GetModuleFileName(NULL, buffer, buf_len);
 	std::wstring path = buffer;
@@ -1281,8 +1279,8 @@ boost::filesystem::wpath NSClientT::getTempPath() {
 	}
 	if (!tempPath.empty())
 		return tempPath;
-	unsigned int buf_len = 4096;
 #ifdef WIN32
+	unsigned int buf_len = 4096;
 	HMODULE hKernel = ::LoadLibrary(_TEXT("kernel32"));
 	if (hKernel)  
 	{

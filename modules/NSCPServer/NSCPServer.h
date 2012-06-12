@@ -36,11 +36,7 @@ public:
 
 
 	static std::wstring getModuleName() {
-#ifdef USE_SSL
 		return _T("NSCP server");
-#else
-		return _T("NSCP server (no SSL)");
-#endif
 	}
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
@@ -49,11 +45,6 @@ public:
 	static std::wstring getModuleDescription() {
 		return _T("A simple server that listens for incoming NSCP connection and handles them.");
 	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
-	std::wstring getConfigurationMeta();
 	
 private:
 	socket_helpers::connection_info info_;

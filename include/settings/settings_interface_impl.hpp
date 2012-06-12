@@ -415,7 +415,6 @@ namespace settings {
 			} else {
 				std::wstring::size_type path_len = path.length();
 				BOOST_FOREACH(std::wstring s, path_cache_) {
-					std::wstring::size_type len = s.length();
 					if (s.length() > (path_len+1) && s.substr(0,path_len) == path) {
 						std::wstring::size_type pos = s.find(L'/', path_len+1);
 						if (pos != std::wstring::npos)

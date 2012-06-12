@@ -302,7 +302,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 				continue;
 			}
 			strEx::replace(d.path, " ", "_");
-			d.value = strEx::s::itos(value);
+			d.value = strEx::s::xtos(value);
 			list.push_back(d);
 		}
 	}

@@ -62,6 +62,7 @@ struct variable;
 		};
 
 		struct filter_handler_interface {
+			typedef std::size_t index_type;
 
 			// Get information about "object"
 			virtual bool has_variable(std::wstring) = 0;
@@ -69,9 +70,9 @@ struct variable;
 			virtual bool can_convert(value_type from, value_type to) = 0;
 
 			// Bind various functions
-			virtual unsigned int bind_string(std::wstring key) = 0;
-			virtual unsigned int bind_int(std::wstring key) = 0;
-			virtual unsigned int bind_function(value_type to, std::wstring name, expression_ast *subject) = 0;
+			virtual index_type bind_string(std::wstring key) = 0;
+			virtual index_type bind_int(std::wstring key) = 0;
+			virtual index_type bind_function(value_type to, std::wstring name, expression_ast *subject) = 0;
 
 			virtual bool has_function(value_type to, std::wstring name, expression_ast *subject) = 0;
 			//virtual filter_object get_static_object() = 0;
@@ -82,9 +83,9 @@ struct variable;
 			virtual void error(std::wstring) = 0;
 
 			// Execute various functions
-			virtual long long execute_int(unsigned int id) = 0;
-			virtual std::wstring execute_string(unsigned int id) = 0;
-			virtual expression_ast execute_function(unsigned int id, value_type type, boost::shared_ptr<filter_handler_interface> handler, const expression_ast *arguments) = 0;
+			virtual long long execute_int(index_type id) = 0;
+			virtual std::wstring execute_string(index_type id) = 0;
+			virtual expression_ast execute_function(index_type id, value_type type, boost::shared_ptr<filter_handler_interface> handler, const expression_ast *arguments) = 0;
 		};
 
 

@@ -12,10 +12,30 @@
 
 namespace socket_helpers {
 
+	class socket_exception : public std::exception {
+		std::string error;
+	public:
+		//////////////////////////////////////////////////////////////////////////
+		/// Constructor takes an error message.
+		/// @param error the error message
+		///
+		/// @author mickem
+		socket_exception(std::string error) : error(error) {}
+		~socket_exception() throw() {}
+
+		//////////////////////////////////////////////////////////////////////////
+		/// Retrieve the error message from the exception.
+		/// @return the error message
+		///
+		/// @author mickem
+		const char* what() const throw() { return error.c_str(); }
+
+	};
+
 	struct allowed_hosts_manager {
-		template<class addr_type>
+		template<class addr_type_t>
 		struct host_record {
-			host_record(std::string host, typename addr_type addr, typename addr_type mask) 
+			host_record(std::string host, addr_type_t addr, addr_type_t mask) 
 				: addr(addr)
 				, mask(mask)
 				, host(host) {}
@@ -30,8 +50,8 @@ namespace socket_helpers {
 				return *this;
 			}
 			std::string host;
-			typename addr_type addr;
-			typename addr_type mask;
+			addr_type_t addr;
+			addr_type_t mask;
 		};
 		typedef boost::asio::ip::address_v4::bytes_type addr_v4;
 		typedef boost::asio::ip::address_v6::bytes_type addr_v6;

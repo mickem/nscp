@@ -77,7 +77,7 @@ namespace nsca {
 					(encryption.size() == 1 && std::isdigit(encryption[0])) 
 					|| (encryption.size() > 1 && std::isdigit(encryption[0]) && std::isdigit(encryption[1])) 
 				){
-					int enc = strEx::stoi(encryption);
+					int enc = strEx::s::stox<int>(encryption);
 					if (enc == ENCRYPT_XOR 
 #ifdef HAVE_LIBCRYPTOPP
 						|| enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH || enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128 || enc == ENCRYPT_SERPENT || enc == ENCRYPT_GOST
@@ -215,10 +215,10 @@ namespace nsca {
 			void encrypt(std::string &buffer) {
 				encrypt((unsigned char*)&*buffer.begin(), buffer.size());
 			}
-			void encrypt(unsigned char *buffer, int buffer_size) {
+			void encrypt(unsigned char *buffer, std::size_t buffer_size) {
 				/* encrypt each byte of buffer, one byte at a time (CFB mode) */
 				try {
-					for(int x=0;x<buffer_size;x++)
+					for(std::size_t x=0;x<buffer_size;x++)
 						crypto_.ProcessData(&buffer[x], &buffer[x], 1);
 				} catch (...) {
 					throw encryption_exception("Unknown exception when trying to setup crypto");
@@ -227,9 +227,9 @@ namespace nsca {
 			void decrypt(std::string &buffer) {
 				decrypt((unsigned char*)&*buffer.begin(), buffer.size());
 			}
-			void decrypt(unsigned char *buffer, int buffer_size) {
+			void decrypt(unsigned char *buffer, std::size_t buffer_size) {
 				try {
-					for(int x=0;x<buffer_size;x++)
+					for(std::size_t x=0;x<buffer_size;x++)
 						decrypto_.ProcessData(&buffer[x], &buffer[x], 1);
 				} catch (...) {
 					throw encryption_exception("Unknown exception when trying to setup crypto");
@@ -275,10 +275,10 @@ namespace nsca {
 			}
 			void encrypt(std::string &buffer) {
 				/* rotate over IV we received from the server... */
-				unsigned int buf_len =  buffer.size();
-				unsigned int iv_len = iv_.size();
-				unsigned int pwd_len = password_.size();
-				for (int y=0,x=0,z=0;y<buf_len;y++,x++,z++) {
+				std::size_t buf_len =  buffer.size();
+				std::size_t iv_len = iv_.size();
+				std::size_t pwd_len = password_.size();
+				for (std::size_t y=0,x=0,z=0;y<buf_len;y++,x++,z++) {
 					/* keep rotating over IV */
 					if (x >= iv_len)
 						x = 0;
@@ -291,10 +291,10 @@ namespace nsca {
 			}
 			void decrypt(std::string &buffer) {
 				/* rotate over IV we received from the server... */
-				unsigned int buf_len =  buffer.size();
-				unsigned int iv_len = iv_.size();
-				unsigned int pwd_len = password_.size();
-				for (int y=0,x=0,z=0;y<buf_len;y++,x++,z++) {
+				std::size_t buf_len =  buffer.size();
+				std::size_t iv_len = iv_.size();
+				std::size_t pwd_len = password_.size();
+				for (std::size_t y=0,x=0,z=0;y<buf_len;y++,x++,z++) {
 					/* keep rotating over Password */
 					if (z >= pwd_len)
 						z = 0;

@@ -103,7 +103,7 @@ public:
 			else
 				time_delta = 0;
 			host = recipient.address.get_host();
-			port = strEx::s::itos(recipient.address.get_port(5667));
+			port = strEx::s::xtos(recipient.address.get_port(5667));
 			sender_hostname = sender.address.host;
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");

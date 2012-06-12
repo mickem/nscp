@@ -122,8 +122,8 @@ NSCAPI::nagiosReturn DotnetPlugin::handleRAWCommand(const wchar_t* char_command,
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + command + _T(": ") + to_nstring(e->ToString()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + command + _T(": ") + utf8::to_unicode(e.what()));
-		return NSCAPI::returnIgnored;
 	}
+	return NSCAPI::returnIgnored;
 }
 
 NSCAPI::nagiosReturn DotnetPlugin::handleRAWNotification(const std::wstring &channel, std::string &request, std::string &response) {
@@ -136,8 +136,8 @@ NSCAPI::nagiosReturn DotnetPlugin::handleRAWNotification(const std::wstring &cha
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + channel + _T(": ") + to_nstring(e->ToString()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + channel + _T(": ") + utf8::to_unicode(e.what()));
-		return NSCAPI::returnIgnored;
 	}
+	return NSCAPI::returnIgnored;
 }
 
 NSCAPI::nagiosReturn DotnetPlugin::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {

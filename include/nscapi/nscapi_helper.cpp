@@ -83,7 +83,7 @@ std::wstring nscapi::report::to_string(unsigned int report) {
 #define PARSE_LOGLEVEL_END() 
 
 NSCAPI::log_level::level nscapi::logging::parse(std::wstring str) {
-	unsigned int level = 0;
+	int level = 0;
 	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 	strEx::splitList lst = strEx::splitEx(str, _T(","));
 	for (strEx::splitList::const_iterator key = lst.begin(); key != lst.end(); ++key) {

@@ -47,7 +47,7 @@ namespace scheduler {
 		if (!running_)
 			return;
 		stop_requested_ = false;
-		int missing_threads = thread_count_ - threads_.size();
+		std::size_t missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
 			for (int i=0;i<missing_threads;i++) {
 				//std::wcout << _T("***START_THREAD: ") << threads_.size() << std::endl;

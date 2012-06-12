@@ -15,8 +15,8 @@ namespace nscp {
 		public:
 
 			template <typename InputIterator>
-			boost::tuple<bool, InputIterator> digest_anything(InputIterator begin, InputIterator end, unsigned long wanted) {
-				int count = wanted - buffer_.size();
+			boost::tuple<bool, InputIterator> digest_anything(InputIterator begin, InputIterator end, std::size_t wanted) {
+				std::size_t count = wanted - buffer_.size();
 				for (; count > 0&& begin != end; ++begin, --count)
 					buffer_.push_back(*begin);
 				return boost::make_tuple(buffer_.size() >= wanted, begin);

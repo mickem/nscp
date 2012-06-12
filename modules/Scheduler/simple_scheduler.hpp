@@ -126,7 +126,7 @@ namespace scheduler {
 		target_list_type targets_;
 		unsigned int schedule_id_;
 		schedule_queue_type queue_;
-		unsigned int thread_count_;
+		std::size_t thread_count_;
 		boost::mutex idle_thread_mutex_;
 		boost::condition_variable idle_thread_cond_;
 

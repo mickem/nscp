@@ -4,7 +4,15 @@ TODO:
  * Fixa dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2012-05-19 MickeM
+2012-06-11 MickeM
+ * Fixed some gcc compile issues
+ * Fixed a lot of gcc -Wall warnings
+
+2012-06-08 MickeM
+ * Fixed some issues with real time eventlog.
+ * Extended the event log unit tests to encompass the new real-time checks.
+
+2012-06-01 MickeM
  * Tweaked all servers to use the new internals and added first testcase for NSCP socket
 
 2012-05-24 MickeM

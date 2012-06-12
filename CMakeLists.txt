@@ -176,6 +176,18 @@ SET(CMAKE_LIBRARY_PATH "${CMAKE_LIBRARY_PATH};${OPENSSL_LIBRARY_DIR};${NSCP_LIBR
 
 SET_MULTITHREAD()
 
+if(MSVC)
+  # Force to always compile with W4
+  if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+    string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+  endif()
+elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+  # Update if necessary
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-long-long -pedantic")
+endif()
+
 IF(NOT SHARED_LIBS)
   IF(WIN32)
     OPTION(SHARED_LIBS "Compile shared libraries" OFF)
@@ -347,6 +359,8 @@ ENDIF(NOT CMAKE_BUILD_TYPE)
 SET(NSCP_DEF_PLUGIN_CPP)
 
 SET(NSCP_DEF_PLUGIN_HPP
+	${NSCP_INCLUDEDIR}/utf8.hpp
+	${NSCP_INCLUDEDIR}/format.hpp
 	${NSCP_INCLUDEDIR}/strEx.h
 	${NSCP_INCLUDEDIR}/config.h
 	${NSCP_INCLUDEDIR}/utils.h

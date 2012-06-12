@@ -8,7 +8,7 @@
 
 #include <unicode_char.hpp>
 
-class nsca_handler_impl : public nsca::server::handler, private boost::noncopyable {
+class nsca_handler_impl : public nsca::server::handler {
 	unsigned int payload_length_;
 	bool allowArgs_;
 	bool allowNasty_;

@@ -246,7 +246,7 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, c
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
-	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request_message.SerializeAsString(), 0));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request_message.SerializeAsString()));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_query_response(chunk)) {
@@ -273,7 +273,7 @@ int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
-	chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request_message.SerializeAsString(), 0));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request_message.SerializeAsString()));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_submit_response(chunk)) {
@@ -301,7 +301,7 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
-	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request_message.SerializeAsString(), 0));
+	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request_message.SerializeAsString()));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_exec_response(chunk)) {

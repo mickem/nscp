@@ -50,7 +50,7 @@ namespace socket_helpers {
 			void start_timer() {
 				timer_result_.reset();
 				timer_.expires_from_now(timeout_);
-				timer_.async_wait(boost::bind(&connection::on_timeout, shared_from_this(),  boost::asio::placeholders::error));
+				timer_.async_wait(boost::bind(&connection::on_timeout, this->shared_from_this(),  boost::asio::placeholders::error));
 			}
 			void stop_timer() {
 				timer_.cancel();
@@ -66,19 +66,20 @@ namespace socket_helpers {
 			// External API functions
 			//
 			virtual boost::system::error_code connect(std::string host, std::string port) {
+				trace("connect(" + host + ", " + port +")");
 				tcp::resolver resolver(io_service_);
-				tcp::resolver::query query(host, port);
+				tcp::resolver::query query(host, port, boost::asio::ip::resolver_query_base::numeric_service);
 
 				tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 				tcp::resolver::iterator end;
 
 				boost::system::error_code error = boost::asio::error::host_not_found;
 				while (error && endpoint_iterator != end) {
-					tcp::resolver::endpoint_type ep = *endpoint_iterator;
 					get_socket().close();
 					get_socket().lowest_layer().connect(*endpoint_iterator++, error);
 				}
 				if (error) {
+					trace("Failed to connect to: " + host + ":" + port);
 					return error;
 				}
 				protocol_.on_connect();
@@ -118,22 +119,22 @@ namespace socket_helpers {
 			//////////////////////////////////////////////////////////////////////////
 			// Internal socket functions
 			//
-			virtual void do_process() {
+			void do_process() {
 				trace("do_process()");
 				if (protocol_.wants_data()) {
-					start_read_request(boost::asio::buffer(protocol_.get_inbound()));
+					this->start_read_request(boost::asio::buffer(protocol_.get_inbound()));
 				} else if (protocol_.has_data()) {
-					start_write_request(boost::asio::buffer(protocol_.get_outbound()));
+					this->start_write_request(boost::asio::buffer(protocol_.get_outbound()));
 				} else {
 					trace("do_process(done)");
 					data_result_.reset(true);
 				}
 			}
 
-			virtual void start_read_request(boost::asio::mutable_buffers_1 &buffer) = 0;
+			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_read_request(" + strEx::s::itos((int)bytes_transferred) + ")");
+				trace("handle_read_request(" + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_read(bytes_transferred);
 					do_process();
@@ -142,10 +143,10 @@ namespace socket_helpers {
 				}
 			}
 
-			virtual void start_write_request(boost::asio::mutable_buffers_1 &buffer) = 0;
+			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_write_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_write_request(" + strEx::s::itos((int)bytes_transferred) + ")");
+				trace("handle_write_request(" + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_write(bytes_transferred);
 					do_process();
@@ -197,31 +198,29 @@ namespace socket_helpers {
 			{}
 			virtual ~tcp_connection() {
 				try {
-					close();
+					this->close();
 				} catch (const std::exception &e) {
-					log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
 				} catch (...) {
-					log_error(__FILE__, __LINE__, "Failed to close connection");
+					this->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}
 			}
 
-			virtual void start_read_request(boost::asio::mutable_buffers_1 &buffer) {
-				std::size_t data_size = boost::asio::buffer_size(buffer);
-				trace("tcp::start_read_request(" + strEx::s::itos((int)data_size) + ")");
+			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
+				this->trace("tcp::start_read_request(" + strEx::s::xtos(boost::asio::buffer_size(buffer)) + ")");
 				async_read(socket_, buffer, 
-					boost::bind(&connection::handle_read_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+					boost::bind(&connection_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
 
-			virtual void start_write_request(boost::asio::mutable_buffers_1 &buffer) {
-				std::size_t data_size = boost::asio::buffer_size(buffer);
-				trace("tcp::start_write_request(" + strEx::s::itos((int)data_size) + ")");
+			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
+				this->trace("tcp::start_write_request(" + strEx::s::xtos(boost::asio::buffer_size(buffer)) + ")");
 				async_write(socket_, buffer, 
-					boost::bind(&connection::handle_write_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+					boost::bind(&connection_type::handle_write_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
 
-			virtual basic_socket_type& get_socket() {
+			virtual typename connection_type::basic_socket_type& get_socket() {
 				return socket_;
 			}
 		};
@@ -240,11 +239,11 @@ namespace socket_helpers {
 			{}
 			virtual ~ssl_connection() {
 				try {
-					close();
+					this->close();
 				} catch (const std::exception &e) {
-					log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
 				} catch (...) {
-					log_error(__FILE__, __LINE__, "Failed to close connection");
+					this->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}
 			}
 
@@ -255,20 +254,20 @@ namespace socket_helpers {
 				return error;
 			}
 
-			virtual void start_read_request(boost::asio::mutable_buffers_1 &buffer) {
-				trace("ssl::start_read_request()");
+			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
+				this->trace("ssl::start_read_request()");
 				async_read(ssl_socket_, buffer, 
-					boost::bind(&connection::handle_read_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+					boost::bind(&connection_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
 
-			virtual void start_write_request(boost::asio::mutable_buffers_1 &buffer) {
-				trace("ssl::start_write_request()");
+			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
+				this->trace("ssl::start_write_request()");
 				async_write(ssl_socket_, buffer, 
-					boost::bind(&connection::handle_write_request, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+					boost::bind(&connection_type::handle_write_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
-			virtual basic_socket_type& get_socket() {
+			virtual typename connection_type::basic_socket_type& get_socket() {
 				return ssl_socket_.lowest_layer();
 			}
 		};
@@ -310,11 +309,11 @@ namespace socket_helpers {
 				boost::system::error_code error = connection_->connect(handler_->get_host(), handler_->get_port());
 				if (error) {
 					connection_.reset();
-					throw std::exception(error.message().c_str());
+					throw socket_helpers::socket_exception(error.message());
 				}
 			}
 
-			typename connection_type* create_connection() {
+			connection_type* create_connection() {
 #ifdef USE_SSL
 				if (handler_->use_ssl()) {
 					connection_type* ptr = new ssl_connection_type(io_service_, context_, handler_->get_timeout(), handler_);

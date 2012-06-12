@@ -22,6 +22,7 @@
 
 #include <string>
 #include <strEx.h>
+#include <format.hpp>
 #include <math.h>
 
 #define MAKE_PERFDATA_SIMPLE(alias, value, unit) _T("'") + alias + _T("'=") + value + unit
@@ -160,7 +161,7 @@ namespace checkHolders {
 		bool hasBounds() {
 			return warn.hasBounds() || crit.hasBounds();
 		}
-		void runCheck(typename TContents::TValueType &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
+		void runCheck(typename TContents::TValueType value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			std::wstring tstr;
 			if (crit.check(value, getAlias(), tstr, critical)) {
 				//std::wcout << _T("crit") << std::endl;
@@ -355,7 +356,7 @@ namespace checkHolders {
 			}
 			return false;
 		}
-		void runCheck(value_type &value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
+		void runCheck(value_type value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
 			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
 				(*cit)->set_showall(show);
 				(*cit)->runCheck(value, returnCode, message, perf);
@@ -369,16 +370,16 @@ namespace checkHolders {
 	class disk_size_handler {
 	public:
 		static std::wstring print(TType value) {
-			return strEx::itos_as_BKMG(value);
+			return format::format_byte_units(value);
 		}
 		static std::wstring get_perf_unit(TType value) {
-			return strEx::find_proper_unit_BKMG(value);
+			return format::find_proper_unit_BKMG(value);
 		}
 		static std::wstring print_perf(TType value, std::wstring unit) {
-			return strEx::format_BKMG(value, unit);
+			return format::format_byte_units(value, unit);
 		}
 		static TType parse(std::wstring s) {
-			TType val = strEx::stoi64_as_BKMG(s);
+			TType val = format::decode_byte_units(s);
 			if (val == 0 && s.length() > 1 && s[0] != L'0')
 				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = ") + strEx::itos(val));
 			return val;
@@ -809,10 +810,12 @@ namespace checkHolders {
 			magic = magic_;
 		}
 
-		double evaluate_percentage_to_value(double total, double threshold_percentage) {
+		template<class T>
+		T evaluate_percentage_to_value(T total, T threshold_percentage) {
 			return total*threshold_percentage/100.0;
 		}
-		double evaluate_value_to_percentage(double total, double threshold_percentage) {
+		template<class T>
+		T evaluate_value_to_percentage(T total, T threshold_percentage) {
 			return 100-(threshold_percentage*100.0/total);
 		}
 

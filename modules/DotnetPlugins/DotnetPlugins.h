@@ -23,7 +23,7 @@
 
 NSC_WRAPPERS_MAIN();
 
-#include "plugin_instance.hpp";
+#include "plugin_instance.hpp"
 
 class DotnetPlugin : public plugin_manager {
 private:

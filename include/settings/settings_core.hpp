@@ -78,7 +78,7 @@ namespace settings {
 		typedef enum {
 			key_string = 100,
 			key_integer = 200,
-			key_bool = 300,
+			key_bool = 300
 		} key_type;
 		typedef std::pair<std::wstring,std::wstring> key_path_type;
 		struct key_description {
@@ -89,7 +89,7 @@ namespace settings {
 			bool advanced;
 			key_description(std::wstring title_, std::wstring description_, settings_core::key_type type_, std::wstring defValue_, bool advanced_) 
 				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) {}
-			key_description() : advanced(false), type(settings_core::key_string) {}
+			key_description() : type(settings_core::key_string), advanced(false) {}
 		};
 		struct path_description {
 			std::wstring title;

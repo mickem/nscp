@@ -30,28 +30,29 @@
  * @param file The file (DLL) to load as a NSC plug in.
  */
 NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file, std::wstring alias)
-	: module_(file.string())
+ 	: module_(file.string())
+	,loaded_(false)
+	,broken_(false)
+	,plugin_id_(id)
+	,alias_(alias)
+	,lastIsMsgPlugin_(false)
+	,fModuleHelperInit(NULL)
 	,fLoadModule(NULL)
 	,fGetName(NULL)
+	,fGetVersion(NULL)
+	,fGetDescription(NULL)
 	,fHasCommandHandler(NULL)
-	,fUnLoadModule(NULL)
 	,fHasMessageHandler(NULL)
+	,fHandleCommand(NULL)
 	,fHandleMessage(NULL)
 	,fDeleteBuffer(NULL)
-	,fGetDescription(NULL)
-	,fGetVersion(NULL)
+	,fUnLoadModule(NULL)
 	,fCommandLineExec(NULL)
 	,fHasNotificationHandler(NULL)
 	,fHandleNotification(NULL)
 	,fHasRoutingHandler(NULL)
 	,fRouteMessage(NULL)
-	,loaded_(false)
-	,lastIsMsgPlugin_(false)
-	,broken_(false)
-	,plugin_id_(id)
-	,alias_(alias)
 {
-
 }
 /**
  * Default d-tor

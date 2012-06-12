@@ -419,10 +419,10 @@ namespace nscapi {
 		struct key_info {
 			std::wstring path;
 			std::wstring key_name;
-			std::wstring parent;
-
 			boost::shared_ptr<key_interface> key;
 			description_container description;
+			std::wstring parent;
+
 
 			key_info(std::wstring path_, std::wstring key_name_, boost::shared_ptr<key_interface> key, description_container description_) 
 				: path(path_)
@@ -451,13 +451,13 @@ namespace nscapi {
 		};
 		struct path_info {
 			std::wstring path_name;
-			description_container description;
 			boost::shared_ptr<path_interface> path;
+			description_container description;
 
 			path_info(std::wstring path_name, description_container description_) : path_name(path_name), description(description_) {}
 			path_info(std::wstring path_name, boost::shared_ptr<path_interface> path, description_container description_) : path_name(path_name), path(path), description(description_) {}
 
-			path_info(const path_info& obj) : path_name(obj.path_name), description(obj.description), path(obj.path) {}
+			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description) {}
 			virtual path_info& operator=(const path_info& obj) {
 				path_name = obj.path_name;
 				path = obj.path;
@@ -501,8 +501,8 @@ namespace nscapi {
 			void add(boost::shared_ptr<path_info> d);
 
 		private:
-			settings_registry* owner;
 			std::wstring path_;
+			settings_registry* owner;
 		};	
 
 		class settings_keys_easy_init {
@@ -556,8 +556,8 @@ namespace nscapi {
 			}
 
 		private:
-			std::wstring path_;
 			settings_registry * owner_;
+			std::wstring path_;
 		};
 		class alias_extension {
 		public:
@@ -626,8 +626,8 @@ namespace nscapi {
 			}
 
 		private:
-			std::wstring alias_;
 			settings_registry * owner_;
+			std::wstring alias_;
 			std::wstring parent_;
 		};
 

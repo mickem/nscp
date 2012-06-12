@@ -10,18 +10,18 @@ class cli_parser {
 
 	NSClient* core_;
 	po::options_description root;
+	po::options_description common;
 	po::options_description settings;
 	po::options_description service;
 	po::options_description client;
-	po::options_description common;
 	po::options_description unittest;
 	po::options_description test;
 
 	bool help;
 	bool version;
+	bool log_debug;
 	std::wstring log_level;
 	std::wstring settings_store;
-	bool log_debug;
 
 	static nsclient::logging::logger_interface* get_logger() {
 		return nsclient::logging::logger::get_logger(); 

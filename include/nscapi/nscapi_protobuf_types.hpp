@@ -54,7 +54,7 @@ namespace nscapi {
 					address = net::parse(value);
 				}
 				void set_port(std::string value) {
-					address.port = strEx::stoi(value);
+					address.port = strEx::s::stox<unsigned int>(value);
 				}
 				std::string get_protocol() const {
 					return address.protocol;
@@ -116,7 +116,6 @@ namespace nscapi {
 				void import(const destination_container &other);
 				void apply(const destination_container &other);
 			};
-		};
-
-	};
+		}
+	}
 }

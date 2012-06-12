@@ -164,14 +164,6 @@ bool NRPEServer::unloadModule() {
 	return true;
 }
 
-
-bool NRPEServer::hasCommandHandler() {
-	return false;
-}
-bool NRPEServer::hasMessageHandler() {
-	return false;
-}
-
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(NRPEServer);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

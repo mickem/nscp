@@ -4,7 +4,7 @@
 #include <nrpe/server/handler.hpp>
 #include <boost/tuple/tuple.hpp>
 
-class handler_impl : public nrpe::server::handler, private boost::noncopyable {
+class handler_impl : public nrpe::server::handler {
 	unsigned int payload_length_;
 	bool allowArgs_;
 	bool allowNasty_;

@@ -171,7 +171,6 @@ namespace settings_manager {
 			order.push_back(DEFAULT_CONF_OLD_LOCATION);
 			order.push_back(DEFAULT_CONF_INI_LOCATION);
 		}
-		int i=0;
 		std::wstring boot_order;
 		BOOST_FOREACH(std::wstring k, order) {
 			strEx::append_list(boot_order, k, _T(", "));

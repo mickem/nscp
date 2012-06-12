@@ -196,7 +196,7 @@ namespace nrpe {
 			return buf;
 		}
 
-		void readFrom(const char *buffer, unsigned int length) {
+		void readFrom(const char *buffer, std::size_t length) {
 // 			std::wcout << _T("Just read: ") 
 // 				<< _T("") << strEx::ihextos(buffer[0]) 
 // 				<< _T(", ") << strEx::ihextos(buffer[1]) 

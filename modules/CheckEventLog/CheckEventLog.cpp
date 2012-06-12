@@ -77,8 +77,16 @@ void real_time_thread::process_no_events(const filters::filter_config_object &ob
 
 void real_time_thread::process_record(const filters::filter_config_object &object, const EventLogRecord &record) {
 	std::wstring response;
+	int severity = object.severity;
+	std::wstring command = object.alias;
+	if (severity == -1) {
+		NSC_LOG_ERROR(_T("Severity not defined for: ") + object.alias);
+		severity = NSCAPI::returnUNKNOWN;
+	}
+	if (!object.command.empty())
+		command = object.command;
 	std::wstring message = record.render(true, object.syntax, object.date_format, object.dwLang);
-	if (!nscapi::core_helper::submit_simple_message(object.target, object.alias, object.severity, message, object.perf_msg, response)) {
+	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.severity, message, object.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 
@@ -91,7 +99,7 @@ void real_time_thread::process_record(const filters::filter_config_object &objec
 		hit_cache_.push_back(message);
 	}
 }
-bool real_time_thread::check_cache(unsigned long &count, std::wstring &messages) {
+bool real_time_thread::check_cache(std::size_t &count, std::wstring &messages) {
 	if (!cache_) {
 		messages = _T("ERROR: Cache is not enabled!");
 		NSC_LOG_ERROR(messages);
@@ -403,7 +411,7 @@ NSCAPI::nagiosReturn CheckEventLog::checkCache(std::list<std::wstring> &argument
 		return NSCAPI::returnUNKNOWN;
 	}
 
-	unsigned long count = 0;
+	std::size_t count = 0;
 	if (!thread_.check_cache(count, message)) {
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -682,7 +690,7 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 			return NSCAPI::isSuccess;
 		} else {
 			event_source source(source_name);
-			WORD dwType = EventLogRecord::translateType(type);
+			WORD wType = EventLogRecord::translateType(type);
 			WORD wSeverity = EventLogRecord::translateSeverity(severity);
 			DWORD tID = (wEventID&0xffff) | ((facility&0xfff)<<16) | ((customer&0x1)<<29) | ((wSeverity&0x3)<<30);
 
@@ -696,7 +704,7 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 				string_data[i++] = s.c_str();
 			}
 
-			if (!ReportEvent(source, dwType, category, tID, NULL, strings.size(), 0, string_data, NULL)) {
+			if (!ReportEvent(source, wType, category, tID, NULL, strings.size(), 0, string_data, NULL)) {
 				message = _T("Could not report the event"); 
 				return NSCAPI::hasFailed;
 			} else {

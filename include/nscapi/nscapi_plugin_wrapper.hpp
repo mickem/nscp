@@ -60,7 +60,7 @@ namespace nscapi {
 #else
 		//void* hModule_;
 #endif
-		int wrapModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);;
+		int wrapModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);
 		NSCAPI::errorReturn wrapGetModuleName(wchar_t* buf, unsigned int buflen, std::wstring str);
 		int wrapLoadModule(bool success);
 		NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
@@ -118,9 +118,9 @@ namespace nscapi {
 			memcpy(*buffer, string.c_str(), buf_len+1);
 			(*buffer)[buf_len] = 0;
 			(*buffer)[buf_len+1] = 0;
-			*buffer_len = buf_len;
+			*buffer_len = static_cast<unsigned int>(buf_len);
 		}
-		int static wrap_string(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
+		int static wrap_string(wchar_t *buffer, std::size_t bufLen, std::wstring str, int defaultReturnCode ) {
 			// @todo deprecate this
 			if (str.length() >= bufLen) {
 				std::wstring sstr = str.substr(0, bufLen-2);
@@ -337,4 +337,4 @@ namespace nscapi {
 			return NSCAPI::hasFailed; 
 		} 
 	};
-};
+}

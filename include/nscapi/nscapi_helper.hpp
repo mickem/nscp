@@ -51,4 +51,4 @@ namespace nscapi {
 		bool matches(NSCAPI::log_level::level level, NSCAPI::nagiosReturn code);
 		std::wstring to_string(NSCAPI::log_level::level level);
 	}
-};
+}

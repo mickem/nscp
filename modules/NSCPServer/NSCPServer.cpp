@@ -154,14 +154,6 @@ bool NSCPListener::unloadModule() {
 	return true;
 }
 
-
-bool NSCPListener::hasCommandHandler() {
-	return false;
-}
-bool NSCPListener::hasMessageHandler() {
-	return false;
-}
-
 NSC_WRAP_DLL();
 NSC_WRAPPERS_MAIN_DEF(NSCPListener);
 NSC_WRAPPERS_IGNORE_MSG_DEF();

@@ -31,5 +31,5 @@ namespace nscapi {
 
 		NSCAPI::nagiosReturn exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
 		bool submit_simple_message(const std::wstring channel, const std::wstring command, const NSCAPI::nagiosReturn code, const std::wstring & message, const std::wstring & perf, std::wstring & response);
-	};
-};
+	}
+}

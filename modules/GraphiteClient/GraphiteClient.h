@@ -82,7 +82,7 @@ private:
 			timeout = recipient.get_int_data("timeout", 30);
 			path = recipient.get_string_data("path");
 			host = recipient.address.get_host();
-			port = strEx::s::itos(recipient.address.get_port(2003));
+			port = strEx::s::xtos(recipient.address.get_port(2003));
 			sender_hostname = sender.address.host;
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");

@@ -119,7 +119,7 @@ int CheckNSCP::get_crashes(std::wstring &last_crash) {
 #endif
 }
 
-int CheckNSCP::get_errors(std::wstring &last_error) {
+std::size_t CheckNSCP::get_errors(std::wstring &last_error) {
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock())
 		return 1;

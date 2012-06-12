@@ -80,7 +80,7 @@ struct real_time_thread {
 	bool start();
 	bool stop();
 
-	bool check_cache(unsigned long &count, std::wstring &messages);
+	bool check_cache(std::size_t &count, std::wstring &messages);
 
 	void thread_proc();
 //	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);

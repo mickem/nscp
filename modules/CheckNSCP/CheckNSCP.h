@@ -64,5 +64,5 @@ public:
 	std::string render(int msgType, const std::string file, int line, std::string message);
 	NSCAPI::nagiosReturn check_nscp( std::list<std::wstring> arguments, std::wstring & msg, std::wstring & perf );
 	int get_crashes(std::wstring &last_crash);
-	int get_errors(std::wstring &last_error);
+	std::size_t get_errors(std::wstring &last_error);
 };

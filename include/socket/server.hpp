@@ -44,6 +44,7 @@ namespace socket_helpers {
 		class server : private boost::noncopyable {
 
 			typedef socket_helpers::server::connection<protocol_type, N> connection_type;
+			typedef socket_helpers::server::tcp_connection<protocol_type, N> tcp_connection_type;
 #ifdef USE_SSL
 			typedef socket_helpers::server::ssl_connection<protocol_type, N> ssl_connection_type;
 #endif
@@ -138,13 +139,13 @@ namespace socket_helpers {
 				}
 			}
 
-			typename connection_type* create_connection() {
+			connection_type* create_connection() {
 #ifdef USE_SSL
 				if (protocol_->get_info().ssl.enabled) {
 					return new ssl_connection_type(io_service_, context_, protocol_);
 				}
 #endif
-				return new connection_type(io_service_, protocol_);
+				return new tcp_connection_type(io_service_, protocol_);
 			}
 
 			boost::asio::io_service io_service_;

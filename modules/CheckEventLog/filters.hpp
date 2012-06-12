@@ -94,7 +94,7 @@ namespace filters {
 
 	struct filter_config_object {
 
-		filter_config_object() : is_template(false), debug(false) {}
+		filter_config_object() : is_template(false), debug(false), severity(-1), dwLang(0) {}
 		filter_config_object(const filter_config_object &other) 
 			: path(other.path)
 			, alias(other.alias)
@@ -111,6 +111,7 @@ namespace filters {
 			, perf_msg(other.perf_msg)
 			, severity(other.severity)
 			, dwLang(other.dwLang)
+			, command(other.command)
 
 		{}
 		const filter_config_object& operator =(const filter_config_object &other) {
@@ -129,6 +130,7 @@ namespace filters {
 			perf_msg = other.perf_msg;
 			severity = other.severity;
 			dwLang = other.dwLang;
+			command = other.command;
 
 			return *this;
 		}
@@ -146,13 +148,12 @@ namespace filters {
 		std::wstring date_format;
 		std::wstring filter;
 		bool debug;
-		// TODO:
-
 		std::wstring target;
 		std::wstring ok_msg;
 		std::wstring perf_msg;
 		NSCAPI::nagiosReturn severity;
 		DWORD dwLang;
+		std::wstring command;
 
 
 		std::wstring to_wstring() const {
@@ -179,8 +180,8 @@ namespace filters {
 			else
 				dwLang = MAKELANGID(wLang, SUBLANG_NEUTRAL);
 		}
-		void set_severity(std::wstring severity) {
-			severity = nscapi::plugin_helper::translateReturn(severity);
+		void set_severity(std::wstring severity_) {
+			severity = nscapi::plugin_helper::translateReturn(severity_);
 		}
 
 
@@ -255,6 +256,9 @@ namespace filters {
 				(_T("severity"), nscapi::settings_helper::string_fun_key<std::wstring>(boost::bind(&object_type::set_severity, &object, _1)),
 				_T("SEVERITY"), _T("THe severity of this message (OK, WARNING, CRITICAL, UNKNOWN)"), !is_default)
 
+				(_T("command"), nscapi::settings_helper::wstring_key(&object.command), 
+				_T("COMMAND NAME"), _T("The name of the command (think nagios service name) to report up stream (defaults to alias if not set)"), !is_default)
+
 				;
 
 			settings.register_all();
@@ -270,13 +274,20 @@ namespace filters {
 			*/
 
 		}
-
 		static void apply_parent(object_type &object, object_type &parent) {
-			import_string(object.date_format, parent.date_format);
 			import_string(object.syntax, parent.syntax);
+			import_string(object.date_format, parent.date_format);
 			import_string(object.filter, parent.filter);
 			if (parent.debug)
 				object.debug = parent.debug;
+			import_string(object.target, parent.target);
+			import_string(object.ok_msg, parent.ok_msg);
+			import_string(object.perf_msg, parent.perf_msg);
+			if (parent.severity != -1 && object.severity == -1)
+				object.severity = parent.severity;
+			if (parent.dwLang != 0 && object.dwLang != 0)
+				object.dwLang = parent.dwLang;
+			import_string(object.command, parent.command);
 		}
 
 	};

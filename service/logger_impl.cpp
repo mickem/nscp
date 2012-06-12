@@ -2,6 +2,7 @@
 
 #include <nsclient/logger.hpp>
 #include <nsclient/base_logger_impl.hpp>
+#include <format.hpp>
 #include "logger_impl.hpp"
 
 #include <concurrent_queue.hpp>
@@ -48,12 +49,12 @@ std::wstring render_log_level_short(Plugin::LogEntry::Entry::Level l) {
 std::wstring render_log_level_long(Plugin::LogEntry::Entry::Level l) {
 	return nsclient::logging::logger_helper::render_log_level_short(nscapi::functions::gpb_to_log(l));
 }
-std::wstring rpad(std::wstring str, int len) {
+std::wstring rpad(std::wstring str, std::size_t len) {
 	if (str.length() > len)
 		return str.substr(str.length()-len);
 	return std::wstring(len-str.length(), L' ') + str;
 }
-std::wstring lpad(std::wstring str, int len) {
+std::wstring lpad(std::wstring str, std::size_t len) {
 	if (str.length() > len)
 		return str.substr(0, len);
 	return str + std::wstring(len-str.length(), L' ');
@@ -63,7 +64,7 @@ std::wstring render_console_message(const std::string &data) {
 	try {
 		Plugin::LogEntry message;
 		if (!message.ParseFromString(data)) {
-			log_fatal("Failed to parse message: " + strEx::strip_hex(data));
+			log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
 			return ss.str();
 		}
 
@@ -79,9 +80,9 @@ std::wstring render_console_message(const std::string &data) {
 		}
 		return ss.str();
 	} catch (std::exception &e) {
-		log_fatal("Failed to parse data from: " + strEx::strip_hex(data) + ": " + e.what());
+		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
 	} catch (...) {
-		log_fatal("Failed to parse data from: " + strEx::strip_hex(data));
+		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
 	}
 	return ss.str();
 }
@@ -134,13 +135,13 @@ public:
 			}
 			std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
 			if (!stream) {
-				log_fatal("File could not be opened, Discarding: " + strEx::strip_hex(data));
+				log_fatal("File could not be opened, Discarding: " + format::strip_ctrl_chars(data));
 			}
 			std::string date = nsclient::logging::logger_helper::get_formated_date(format_);
 
 			Plugin::LogEntry message;
 			if (!message.ParseFromString(data)) {
-				log_fatal("Failed to parse message: " + strEx::strip_hex(data));
+				log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
 			} else {
 				for (int i=0;i<message.entry_size();i++) {
 					Plugin::LogEntry::Entry msg = message.entry(i);
@@ -152,9 +153,9 @@ public:
 				}
 			}
 		} catch (std::exception &e) {
-			log_fatal("Failed to parse data from: " + strEx::strip_hex(data) + ": " + e.what());
+			log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
 		} catch (...) {
-			log_fatal("Failed to parse data from: " + strEx::strip_hex(data));
+			log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
 		}
 	}
 	void configure() {

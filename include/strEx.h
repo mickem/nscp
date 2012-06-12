@@ -33,6 +33,9 @@
 #include <locale>
 #include <iostream>
 
+#include <format.hpp>
+#include <utf8.hpp>
+
 #include <cctype>
 
 #ifdef __GNUC__
@@ -60,190 +63,6 @@
 #include <locale>
 
 
-namespace utf8 {
-	/** Converts a std::wstring into a std::string with UTF-8 encoding. */
-	template<typename StringT>
-	StringT cvt(std::wstring const & string);
-
-	/** Converts a std::String with UTF-8 encoding into a std::wstring.	*/
-	template<typename StringT>
-	StringT cvt(std::string const & string );
-
-	/** Nop specialization for std::string. */
-	template <>
-	inline std::string cvt(std::string const & string) {
-		return string;
-	}
-
-	/** Nop specialization for std::wstring. */
-	template<>
-	inline std::wstring cvt(std::wstring const & rc_string) {
-		return rc_string;
-	}
-
-	inline std::wstring to_unicode(std::string const & str) {
-#ifdef WIN32
-		int len = static_cast<int>(str.length());
-		int nChars = MultiByteToWideChar(CP_ACP, 0, str.c_str(), len, NULL, 0);
-		if (nChars == 0)
-			return L"";
-		wchar_t *buffer = new wchar_t[nChars+1];
-		if (buffer == NULL)
-			return L"";
-		MultiByteToWideChar(CP_ACP, 0, str.c_str(), len, buffer, nChars);
-		buffer[nChars] = 0;
-		std::wstring buf(buffer, nChars);
-		delete [] buffer;
-		return buf;
-#else
-		size_t utf8Length = str.length();
-		size_t outbytesLeft = utf8Length*sizeof(wchar_t);
-
-		//Copy the instring
-		char *inString = new char[str.length()+1];
-		strcpy(inString, str.c_str());
-
-		//Create buffer for output
-		char *outString = (char*)new wchar_t[utf8Length+1];
-		memset(outString, 0, sizeof(wchar_t)*(utf8Length+1));
-
-		char *inPointer = inString;
-		char *outPointer = outString;
-
-		iconv_t convDesc = iconv_open("WCHAR_T", "");
-		iconv(convDesc, &inPointer, &utf8Length, &outPointer, &outbytesLeft);
-		iconv_close(convDesc);
-
-		std::wstring retval( (wchar_t *)outString );
-
-		//Cleanup
-		delete[] inString;
-		delete[] outString;
-
-		return retval;
-#endif	
-	}
-	/*
-	inline std::wstring to_unicode(std::wstring const & str) {
-#ifdef WIN32
-		// figure out how many narrow characters we are going to get 
-		int nChars = WideCharToMultiByte(CP_OEMCP, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
-		if (nChars == 0)
-			return "";
-
-		// convert the wide string to a narrow string
-		// nb: slightly naughty to write directly into the string like this
-		std::string buf;
-		buf.resize(nChars);
-		WideCharToMultiByte(CP_OEMCP, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
-		return buf;
-#else
-		return str;
-#endif
-	}
-*/
-
-	template<>
-	inline std::string cvt(std::wstring const & str) {
-#ifdef WIN32
-		// figure out how many narrow characters we are going to get 
-		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
-		if (nChars == 0)
-			return "";
-
-		// convert the wide string to a narrow string
-		// nb: slightly naughty to write directly into the string like this
-		std::string buf;
-		buf.resize(nChars);
-		WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char*>(buf.c_str()), nChars, NULL, NULL);
-		return buf;
-#else
-		size_t wideSize = sizeof(wchar_t)*str.length();
-		size_t outbytesLeft = wideSize+sizeof(char); //We cannot know how many wide character there is yet
-
-		//Copy the instring
-		char *inString = (char*)new wchar_t[str.length()+1];
-		memcpy(inString, str.c_str(), wideSize+sizeof(wchar_t));
-
-		//Create buffer for output
-		char *outString = new char[outbytesLeft];
-		memset(outString, 0, sizeof(char)*(outbytesLeft));
-
-		char *inPointer = inString;
-		char *outPointer = outString;
-
-		iconv_t convDesc = iconv_open("UTF-8", "WCHAR_T");
-		iconv(convDesc, &inPointer, &wideSize, &outPointer, &outbytesLeft);
-		iconv_close(convDesc);
-
-		std::string retval(outString);
-
-		//Cleanup
-		delete[] inString;
-		delete[] outString;
-
-		return retval;
-#endif
-	}
-
-	template<>
-	inline std::wstring cvt(std::string const & str) {
-#ifdef WIN32
-		int len = static_cast<int>(str.length());
-		int nChars = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), len, NULL, 0);
-		if (nChars == 0)
-			return L"";
-		wchar_t *buffer = new wchar_t[nChars+1];
-		if (buffer == NULL)
-			return L"";
-		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), len, buffer, nChars);
-		buffer[nChars] = 0;
-		std::wstring buf(buffer, nChars);
-		delete [] buffer;
-		return buf;
-#else
-		size_t utf8Length = str.length();
-		size_t outbytesLeft = utf8Length*sizeof(wchar_t);
-
-		//Copy the instring
-		char *inString = new char[str.length()+1];
-		strcpy(inString, str.c_str());
-
-		//Create buffer for output
-		char *outString = (char*)new wchar_t[utf8Length+1];
-		memset(outString, 0, sizeof(wchar_t)*(utf8Length+1));
-
-		char *inPointer = inString;
-		char *outPointer = outString;
-
-		iconv_t convDesc = iconv_open("WCHAR_T", "UTF-8");
-		iconv(convDesc, &inPointer, &utf8Length, &outPointer, &outbytesLeft);
-		iconv_close(convDesc);
-
-		std::wstring retval( (wchar_t *)outString );
-
-		//Cleanup
-		delete[] inString;
-		delete[] outString;
-
-		return retval;
-#endif
-	}
-}
-
-namespace boost
-{
-	template<>
-	inline std::wstring lexical_cast<std::wstring, std::string>(const std::string& arg) {
-		return utf8::cvt<std::wstring>(arg);
-	}
-
-	template<>
-	inline std::string lexical_cast<std::string, std::wstring>(const std::wstring& arg) {
-		return utf8::cvt<std::string>(arg);
-	}
-}
-
 namespace strEx {
 	class string_exception : public std::exception {
 		std::wstring _what;
@@ -255,25 +74,13 @@ namespace strEx {
 		virtual ~string_exception() throw();
 	};
 	namespace s {
-		/*
-		inline std::string itos(float i) {
-			std::stringstream ss;
-			ss << i;
-			return ss.str();
+		template<class T>
+		inline T stox(std::string s) {
+			return boost::lexical_cast<T>(s.c_str());
 		}
-		inline std::string itos(double i) {
-			std::stringstream ss;
-			ss << i;
-			return ss.str();
-		}
-		inline std::string itos(int i) {
-			std::stringstream ss;
-			ss << i;
-			return ss.str();
-		}
-		*/
+		
 		template<typename T>
-		inline std::string itos(T i) {
+		inline std::string xtos(T i) {
 			std::stringstream ss;
 			ss << i;
 			return ss.str();
@@ -291,41 +98,6 @@ namespace strEx {
 				pos++;
 			return s.substr(0, pos);
 		}
-	}
-
-	inline std::wstring strip_hex(std::wstring str) {
-		std::wstring ret; ret.reserve(str.size());
-		BOOST_FOREACH(wchar_t c, str)
-		{
-			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
-				ret.push_back(L'?');
-			else
-				ret.push_back(c);
-		}
-		return ret;
-	}
-	inline std::string strip_hex(std::string str) {
-		std::string ret; ret.reserve(str.size());
-		BOOST_FOREACH(char c, str)
-		{
-			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
-				ret.push_back('?');
-			else
-				ret.push_back(c);
-		}
-		return ret;
-	}
-
-	inline std::string strip_hex(std::vector<char> str) {
-		std::string ret; ret.reserve(str.size());
-		BOOST_FOREACH(char c, str)
-		{
-			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
-				ret.push_back('?');
-			else
-				ret.push_back(c);
-		}
-		return ret;
 	}
 
 	inline void append_list(std::wstring &lst, std::wstring &append, std::wstring sep = _T(", ")) {
@@ -368,55 +140,7 @@ namespace strEx {
 		ss << chars;
 		return ss.str();
 	}
-	inline std::string format_buffer(const char* buf, std::string::size_type len) {
-		std::stringstream ss;
-		std::string chars;
-		for (std::string::size_type i=0;i<len;i++) {
-			if (i%32==0) {
-				if (i > 0) {
-					ss << chars;
-					ss << "\n";
-				}
-				chars = "";
-				ss << std::hex << std::setw(8) << std::setfill('0') << i;
-				ss << ": ";
-			}
-			ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(buf[i]));
-			ss << ", ";
-			if (buf[i] < 30 || buf[i] == 127)
-				chars += '?';
-			else
-				chars += buf[i];
-		}
-		ss << chars;
-		return ss.str();
-	}
-	inline std::string format_buffer(const std::string &buf) {
-		return format_buffer(buf.c_str(), buf.size());
-	}
-	inline std::string format_buffer(const std::vector<char> &buf) {
-		std::stringstream ss;
-		std::string chars;
-		for (unsigned int i=0;i<buf.size();i++) {
-			if (i%32==0) {
-				if (i > 0) {
-					ss << chars;
-					ss << "\n";
-				}
-				chars = "";
-				ss << std::hex << std::setw(8) << std::setfill('0') << i;
-				ss << ": ";
-			}
-			ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(buf[i]));
-			ss << ", ";
-			if (buf[i] < 30 || buf[i] == 127)
-				chars += '?';
-			else
-				chars += buf[i];
-		}
-		ss << chars;
-		return ss.str();
-	}
+	
 	inline std::wstring format_date(boost::posix_time::ptime date, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
 		std::locale locale_local ("");
 
@@ -502,39 +226,8 @@ namespace strEx {
 			return L' ';
 		return str[0];
 	}
-	inline std::wstring itos(unsigned int i) {
-		std::wstringstream ss;
-		ss << i;
-		return ss.str();
-	}
-	inline std::wstring itos(int i) {
-		std::wstringstream ss;
-		ss << i;
-		return ss.str();
-	}
-	inline std::wstring itos(unsigned long long i) {
-		std::wstringstream ss;
-		ss << i;
-		return ss.str();
-	}
-	inline std::wstring itos(long long i) {
-		std::wstringstream ss;
-		ss << i;
-		return ss.str();
-	}
-	/*
-	inline std::wstring itos(__int64 i) {
-		std::wstringstream ss;
-		ss << i;
-		return ss.str();
-	}
-	*/
-	inline std::wstring itos(unsigned long i) {
-		std::wstringstream ss;
-		ss << i;
-		return ss.str();
-	}
-	inline std::wstring itos(double i) {
+	template<class T>
+	inline std::wstring itos(T i) {
 		std::wstringstream ss;
 		ss << i;
 		return ss.str();
@@ -552,20 +245,12 @@ namespace strEx {
 			pos++;
 		return s.substr(0, pos);
 	}
-	inline std::wstring itos(float i) {
-		std::wstringstream ss;
-		ss << i;
-		return ss.str();
-	}
 	inline std::wstring ihextos(unsigned int i) {
 		std::wstringstream ss;
 		ss << std::hex << i;
 		return ss.str();
 	}
 	inline int stoi(std::wstring s) {
-		return boost::lexical_cast<int>(s.c_str());
-	}
-	inline int stoi(std::string s) {
 		return boost::lexical_cast<int>(s.c_str());
 	}
 	template<class T>
@@ -617,7 +302,8 @@ namespace strEx {
 		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::string::npos?time:time.substr(0,pend).c_str());
 		if (p == std::string::npos)
 			return value * smallest_unit;
-		else if ( (time[p] == 's') || (time[p] == 'S') )
+		else if ( (time[p
+		] == 's') || (time[p] == 'S') )
 			return value;
 		else if ( (time[p] == 'm') || (time[p] == 'M') )
 			return value * 60;
@@ -630,13 +316,11 @@ namespace strEx {
 		return value * smallest_unit;
 	}
 	inline long stol_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
-		long neg = 1;
 		if (time.length() > 1 && time[0] == L'-')
 			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
 		return stoui_as_time_sec(time, smallest_unit);
 	}
 	inline long stol_as_time_sec(std::string time, unsigned int smallest_unit = 1) {
-		long neg = 1;
 		if (time.length() > 1 && time[0] == '-')
 			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
 		return stoui_as_time_sec(time, smallest_unit);
@@ -691,72 +375,6 @@ namespace strEx {
 		return itos(static_cast<unsigned int>(time));
 	}
 
-	inline long long stoi64_as_BKMG(const std::wstring &s) {
-		std::wstring::size_type p = s.find_first_not_of(_T("0123456789"));
-		if (p == std::wstring::npos || p == 0)
-			return boost::lexical_cast<long long>(s);
-		std::wstring numbers = s.substr(0, p);
-		if (s[p] == 'B') 
-			return boost::lexical_cast<long long>(numbers);
-		else if (s[p] == 'K') 
-			return boost::lexical_cast<long long>(numbers)*1024;
-		else if (s[p] == 'M') 
-			return boost::lexical_cast<long long>(numbers)*1024*1024;
-		else if (s[p] == 'G') 
-			return boost::lexical_cast<long long>(numbers)*1024*1024*1024;
-		else if (s[p] == 'T') 
-			return boost::lexical_cast<long long>(numbers)*1024*1024*1024*1024;
-		else
-			return boost::lexical_cast<long long>(numbers);
-	}
-#define BKMG_RANGE _T("BKMGTP")
-#define BKMG_SIZE 5
-
-	inline std::wstring itos_as_BKMG(unsigned long long i) {
-		double cpy = static_cast<double>(i);
-		wchar_t postfix[] = BKMG_RANGE;
-		int idx = 0;
-		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
-			cpy/=1024;
-			idx++;
-		}
-		std::wstringstream ss;
-		ss << std::setprecision(3);
-		ss << cpy;
-		std::wstring ret = ss.str(); // itos(cpy);
-		ret += postfix[idx];
-		return ret;
-	}
-	inline std::wstring format_BKMG(unsigned long long i, std::wstring unit) {
-		double cpy = static_cast<double>(i);
-		wchar_t postfix[] = BKMG_RANGE;
-		if (unit.length() != 1)
-			return itos(cpy);
-		for (int i=0;i<BKMG_SIZE;i++) {
-			if (unit[0] == postfix[i]) {
-				std::wstringstream ss;
-				ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
-				std::wstring s = ss.str();
-				std::wstring::size_type pos = s.find_last_not_of(_T("0"));
-				if (pos != std::string::npos) {
-					s = s.substr(0,pos);
-				}
-				return s;
-			}
-			cpy/=1024;
-		}
-		return itos(cpy);
-	}
-	inline std::wstring find_proper_unit_BKMG(unsigned long long i) {
-		double cpy = static_cast<double>(i);
-		wchar_t postfix[] = BKMG_RANGE;
-		int idx = 0;
-		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
-			cpy/=1024;
-			idx++;
-		}
-		return std::wstring(1, postfix[idx]);
-	}
 
 	typedef std::list<std::wstring> splitList;
 	inline splitList splitEx(const std::wstring str, const std::wstring key) {
@@ -835,127 +453,7 @@ namespace strEx {
 			return token(buffer, _T(""));
 		if (pos == buffer.length()-1)
 			return token(buffer.substr(0, pos), _T(""));
-		return token(buffer.substr(0, pos-1), buffer.substr(++pos));
-	}
-
-
-
-	template<class char_type>
-	struct ci_char_traits : public std::char_traits<char_type> {
-		static bool eq( char_type c1, char_type c2 ) {
-			return toupper(c1) == toupper(c2); 
-		}
-
-		static bool ne( char_type c1, char_type c2 ) { 
-			return toupper(c1) != toupper(c2); 
-		}
-
-		static bool lt( char_type c1, char_type c2 ) { 
-			return toupper(c1) <  toupper(c2); 
-		}
-
-		static int compare( const char_type* s1, const char_type* s2, size_t n ) {
-#ifdef WIN32
-			return memicmp( s1, s2, n );
-#else
-			while (n-- && eq(*s1, *s2))
-				++s1, ++s2;
-			return lt(*s2, *s1) - lt(*s1, *s2);
-#endif
-		}
-
-		static const char* find( const char_type* s, int n, char_type a ) {
-			while( n-- > 0 && toupper(*s) != toupper(a) ) {
-				++s;
-			}
-			return s;
-		}
-	};
-	typedef std::basic_string<wchar_t, ci_char_traits<wchar_t> > wci_string;
-
-	template<class _E>
-	struct blind_traits : public std::char_traits<_E>
-	{
-		
-		static bool eq(const _E& x, const _E& y) {
-			return boost::algorithm::iequals(x,y);
-		}
-		static bool lt(const _E& x, const _E& y) {
-			return ilexicographical_compare(x, y);
-		}
-/*
-		static int compare(const _E *x, const _E *y, size_t n) { 
-			return ilexicographical_compare(x, y);
-			return _wcsnicmp( x, y, n );
-		}
-
-		//  There's no memichr(), so we roll our own.  It ain't rocket science.
-		static const _E * / *__cdecl* / find(const _E *buf, size_t len, const _E& ch) {
-			//  Jerry says that x86s have special mojo for memchr(), so the 
-			//  memchr() calls end up being reasonably efficient in practice.
-			const _E *pu = (const _E *)memchr(buf, ch, len);
-			const _E *pl = (const _E *)memchr(buf, tolower( ch ), len);
-			if ( ! pu )
-				return pl;  //  Might be NULL; if so, NULL's the word.
-			else if ( ! pl )
-				return pu;
-			else
-				//  If either one was NULL, we return the other; if neither is 
-				//  NULL, we return the lesser of the two.
-				return ( pu < pl ) ? pu : pl;
-		}
-
-		//  I'm reasonably sure that this is eq() for wide characters.  Maybe.
-		static bool eq_int_type(const long& ch1, const long& ch2) { 
-			return std::char_traits<_E>::eq_int_type( tolower( ch1 ), tolower( ch2 ) ); 
-		}
-		*/
-	};
-
-	//  And here's our case-blind string class.
-	//typedef std::basic_string<char, blind_traits<char>, std::allocator<char> >  blindstr;
-	typedef std::basic_string<wchar_t, blind_traits<wchar_t>, std::allocator<wchar_t> >  blindstr;
-
-
-
-
-	class StrICmp
-	{
-	public:
-		StrICmp(const std::string &Lang = "english") : m_locE(Lang.c_str())
-		{
-		}
-		class CharLessI
-		{
-		public:
-			CharLessI(std::locale &locE) : m_locE(locE)
-			{
-			}
-			template<typename T>
-			bool operator()(T c1, T c2)
-			{
-				return std::tolower(c1, m_locE) < std::tolower(c2, m_locE);
-			}
-		private:
-			std::locale &m_locE;
-		};
-		template<typename T>
-		int operator()(const T &s1, const T &s2) const
-		{
-			if (std::lexicographical_compare(s1.begin(), s1.end(), s2.begin(), s2.end(), CharLessI(m_locE)))
-				return -1;
-			if (std::lexicographical_compare(s2.begin(), s2.end(), s1.begin(), s1.end(), CharLessI(m_locE)))
-				return 1;
-			return 0;
-		}
-	private:
-		std::locale m_locE;
-	};
-
-	template<typename T>
-	int StrCmpI(const T &s1, const T &s2, const std::string &Lang = "english")
-	{
-		return StrICmp(Lang)(s1, s2);
+		return token(buffer.substr(0, pos-1), buffer.substr(pos-1));
 	}
 
 #define MK_FORMAT_FTD(min, key, val) \

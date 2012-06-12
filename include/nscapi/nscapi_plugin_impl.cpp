@@ -8,6 +8,8 @@
 
 #include <protobuf/plugin.pb.h>
 
+#include <format.hpp>
+
 extern nscapi::helper_singleton* plugin_singleton;
 
 nscapi::core_wrapper* nscapi::impl::simple_plugin::get_core() {
@@ -24,9 +26,9 @@ void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
 			handleMessage(msg.level(), msg.file(), msg.line(), msg.message());
 		}
 	} catch (std::exception &e) {
-		std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << e.what() <<  std::endl;;
+		std::cout << "Failed to parse data from: " << format::strip_ctrl_chars(data) << e.what() <<  std::endl;;
 	} catch (...) {
-		std::cout << "Failed to parse data from: " << strEx::strip_hex(data) << std::endl;;
+		std::cout << "Failed to parse data from: " << format::strip_ctrl_chars(data) << std::endl;;
 	}
 }
 
@@ -58,9 +60,9 @@ NSCAPI::nagiosReturn nscapi::impl::simple_submission_handler::handleRAWNotificat
 			return NSCAPI::returnIgnored;
 		nscapi::functions::create_simple_submit_response(channel, command, ret, _T(""), response);
 	} catch (std::exception &e) {
-		nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(request) + ": " + e.what()));
+		nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + format::strip_ctrl_chars(request) + ": " + e.what()));
 	} catch (...) {
-		nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + strEx::strip_hex(request)));
+		nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + format::strip_ctrl_chars(request)));
 	}
 	return NSCAPI::returnIgnored;
 }

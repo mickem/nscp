@@ -35,7 +35,6 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIGetSettingsSections fNSAPIGetSettingsSections;
 		nscapi::core_api::lpNSAPIReleaseSettingsSectionBuffer fNSAPIReleaseSettingsSectionBuffer;
 		nscapi::core_api::lpNSAPIGetSettingsString fNSAPIGetSettingsString;
-		nscapi::core_api::lpNSAPIExpandPath fNSAPIExpandPath;
 		nscapi::core_api::lpNSAPIGetSettingsInt fNSAPIGetSettingsInt;
 		nscapi::core_api::lpNSAPIGetSettingsBool fNSAPIGetSettingsBool;
 		nscapi::core_api::lpNSAPIMessage fNSAPIMessage;
@@ -64,9 +63,10 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIGetPluginList fNSAPIGetPluginList;
 		nscapi::core_api::lpNSAPIReleasePluginList fNSAPIReleasePluginList;
 		nscapi::core_api::lpNSAPISettingsSave fNSAPISettingsSave;
+		nscapi::core_api::lpNSAPIExpandPath fNSAPIExpandPath;
+		nscapi::core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
 		nscapi::core_api::lpNSAPIRegisterSubmissionListener fNSAPIRegisterSubmissionListener;
 		nscapi::core_api::lpNSAPIRegisterRoutingListener fNSAPIRegisterRoutingListener;
-		nscapi::core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
 
 	public:
 
@@ -89,11 +89,14 @@ namespace nscapi {
 			, fNSAPIGetSettingsInt(NULL)
 			, fNSAPIGetSettingsBool(NULL)
 			, fNSAPIMessage(NULL)
+			, fNSAPISimpleMessage(NULL)
 			, fNSAPIStopServer(NULL)
 			, fNSAPIExit(NULL)
 			, fNSAPIInject(NULL)
+			, fNSAPIExecCommand(NULL)
 			, fNSAPIDestroyBuffer(NULL)
 			, fNSAPINotify(NULL)
+			, fNSAPIReload(NULL)
 			, fNSAPICheckLogMessages(NULL)
 			, fNSAPIEncrypt(NULL)
 			, fNSAPIDecrypt(NULL)
@@ -113,6 +116,8 @@ namespace nscapi {
 			, fNSAPISettingsSave(NULL)
 			, fNSAPIExpandPath(NULL)
 			, fNSAPIGetLoglevel(NULL)
+			, fNSAPIRegisterSubmissionListener(NULL)
+			, fNSAPIRegisterRoutingListener(NULL)
 		{}
 
 		// Helper functions for calling into the core
@@ -171,4 +176,4 @@ namespace nscapi {
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 
 	};
-};
+}

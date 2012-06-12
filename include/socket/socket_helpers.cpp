@@ -48,18 +48,18 @@ std::wstring socket_helpers::allowed_hosts_manager::to_wstring() {
 	return ret;
 }
 
-unsigned int extract_mask(std::string &mask, unsigned int masklen) {
+std::size_t extract_mask(std::string &mask, std::size_t masklen) {
 	if (!mask.empty()) {
 		std::string::size_type p1 = mask.find_first_of("0123456789");
 		if (p1 != std::wstring::npos) {
 			std::string::size_type p2 = mask.find_first_not_of("0123456789", p1);
 			if (p2 != std::wstring::npos)
-				masklen = strEx::stoi(mask.substr(p1, p2));
+				masklen = strEx::s::stox<std::size_t>(mask.substr(p1, p2));
 			else
-				masklen = strEx::stoi(mask.substr(p1));
+				masklen = strEx::s::stox<std::size_t>(mask.substr(p1));
 		}
 	}
-	return masklen;
+	return static_cast<unsigned int>(masklen);
 }
 
 template<class addr>
