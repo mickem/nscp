@@ -97,6 +97,7 @@ namespace NSCAPI {
 	// Various message Types
 	namespace log_level {
 		typedef int level;
+		const int off = 0;		// Used to disable logging
 		const int critical = 1;	// Critical error
 		const int error = 10;	// Error
 		const int warning = 50;	// Warning			<<< Default for command line interface

@@ -100,6 +100,9 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
+		} else if (hostname_ == "auto-lc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
 		} else {
 			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
 

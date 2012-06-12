@@ -78,45 +78,48 @@ std::wstring nscapi::report::to_string(unsigned int report) {
 	return ret;
 }
 
-#define PARSE_LOGLEVEL_BEGIN() if (false) {}
-#define PARSE_LOGLEVEL(key_str, value)  else if (*key == _T(key_str) && level < value) { level = value; }
-#define PARSE_LOGLEVEL_END() 
-
 NSCAPI::log_level::level nscapi::logging::parse(std::wstring str) {
-	unsigned int level = 0;
 	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-	strEx::splitList lst = strEx::splitEx(str, _T(","));
-	for (strEx::splitList::const_iterator key = lst.begin(); key != lst.end(); ++key) {
-		PARSE_LOGLEVEL_BEGIN()
-			PARSE_LOGLEVEL("all",		NSCAPI::log_level::trace)
-			PARSE_LOGLEVEL("error",		NSCAPI::log_level::error)
-			PARSE_LOGLEVEL("critical",	NSCAPI::log_level::critical)
-			PARSE_LOGLEVEL("debug",		NSCAPI::log_level::debug)
-			PARSE_LOGLEVEL("trace",		NSCAPI::log_level::trace)
-			PARSE_LOGLEVEL("info",		NSCAPI::log_level::info)
-			PARSE_LOGLEVEL("warning",	NSCAPI::log_level::warning)
-		PARSE_LOGLEVEL_END()
+	if (_T("all") == str) {
+		return NSCAPI::log_level::trace;
+	} else if (_T("error") == str) {
+		return NSCAPI::log_level::error;
+	} else if (_T("critical") == str) {
+		return NSCAPI::log_level::critical;
+	} else if (_T("debug") == str) {
+		return NSCAPI::log_level::debug;
+	} else if (_T("trace") == str) {
+		return NSCAPI::log_level::trace;
+	} else if (_T("info") == str) {
+		return NSCAPI::log_level::info;
+	} else if (_T("warning") == str) {
+		return NSCAPI::log_level::warning;
+	} else if (_T("off") == str) {
+		return NSCAPI::log_level::off;
 	}
-	return level;
+	return NSCAPI::log_level::error;
 }
 bool nscapi::logging::matches(NSCAPI::log_level::level level, NSCAPI::nagiosReturn code) {
 	return code <= level;
 }
 
-#define RENDER_LOGLEVEL_BEGIN() 
-#define RENDER_LOGLEVEL(key_str, value)  if (level == value) { return _T(key_str); }
-#define RENDER_LOGLEVEL_END() 
-
 std::wstring nscapi::logging::to_string(NSCAPI::log_level::level level) {
-	RENDER_LOGLEVEL_BEGIN()
-		RENDER_LOGLEVEL("all",		NSCAPI::log_level::trace)
-		RENDER_LOGLEVEL("error",		NSCAPI::log_level::error)
-		RENDER_LOGLEVEL("critical",	NSCAPI::log_level::critical)
-		RENDER_LOGLEVEL("debug",		NSCAPI::log_level::debug)
-		RENDER_LOGLEVEL("trace",		NSCAPI::log_level::trace)
-		RENDER_LOGLEVEL("info",		NSCAPI::log_level::info)
-		RENDER_LOGLEVEL("warning",	NSCAPI::log_level::warning)
-	RENDER_LOGLEVEL_END()
+	switch (level) {
+		case NSCAPI::log_level::trace:
+			return _T("trace");
+		case NSCAPI::log_level::error:
+			return _T("error");
+		case NSCAPI::log_level::critical:
+			return _T("critical");
+		case NSCAPI::log_level::debug:
+			return _T("debug");
+		case NSCAPI::log_level::info:
+			return _T("info");
+		case NSCAPI::log_level::warning:
+			return _T("warning");
+		case NSCAPI::log_level::off:
+			return _T("off");
+	}
 	return strEx::itos(level);
 }
 

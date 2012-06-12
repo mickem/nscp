@@ -616,16 +616,16 @@ namespace nscapi {
 						ss << fval.unit();
 					if (!fval.has_warning())
 						continue;
-					ss << ";" << fval.warning();
+					ss << ";" << strEx::s::itos_non_sci(fval.warning());
 					if (!fval.has_critical())	
 						continue;
-					ss << ";" << fval.critical();
+					ss << ";" << strEx::s::itos_non_sci(fval.critical());
 					if (!fval.has_minimum())
 						continue;
-					ss << ";" << fval.minimum();
+					ss << ";" << strEx::s::itos_non_sci(fval.minimum());
 					if (!fval.has_maximum())
 						continue;
-					ss << ";" << fval.maximum();
+					ss << ";" << strEx::s::itos_non_sci(fval.maximum());
 				}
 			}
 			return ss.str();

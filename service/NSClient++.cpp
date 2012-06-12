@@ -941,6 +941,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 			nsclient::commands::plugin_type plugin = commands_.get(cmd);
 			if (!plugin) {
 				LOG_ERROR_CORE(_T("No handler for command: ") + cmd + _T(" avalible commands: ") + commands_.to_wstring());
+				nscapi::functions::create_simple_query_response_unknown(cmd, _T("No handler for command: ") + cmd, response);
 				return NSCAPI::returnIgnored;
 			}
 			NSCAPI::nagiosReturn c = plugin->handleCommand(cmd.c_str(), request, response);
@@ -1064,7 +1065,8 @@ int NSClientT::simple_query(std::wstring module, std::wstring command, std::vect
 
 	nsclient::commands::plugin_type plugin = commands_.get(command);
 	if (!plugin) {
-		LOG_ERROR_CORE(_T("No handler for command: ") + command + _T(" avalible commands: ") + commands_.to_wstring());
+		LOG_ERROR_CORE(_T("No handler for command: ") + command + _T(" available commands: ") + commands_.to_wstring());
+		resp.push_back(_T("No handler for command: ") + command);
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::string response;

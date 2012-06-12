@@ -28,7 +28,7 @@ namespace nscapi {
 
 		template<class object_type>
 		class default_object_reader {
-			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {}
+			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {}
 			static void apply_parent(object_type &object, object_type &parent) {}
 			static void post_process_object(object_type &object) {}
 			static void init_default(object_type &object) {}
@@ -63,7 +63,9 @@ namespace nscapi {
 				object.parent = _T("default");
 				object.is_template = false;
 
-				object_reader::read_object(proxy, object);
+				std::list<std::wstring> keys = proxy->get_keys(object.path);
+				object_reader::read_object(proxy, object, keys.empty());
+
 
 				if (!object.parent.empty() && object.parent != alias & object.parent != object.alias) {
 					t_object_type parent;
@@ -107,7 +109,7 @@ namespace nscapi {
 				return optional_object();
 			}
 
-			bool has_object(std::wstring alias) {
+			bool has_object(std::wstring alias) const {
 				typename object_list_type::const_iterator cit = object_list.find(alias);
 				if (cit != object_list.end())
 					return true;
@@ -115,6 +117,10 @@ namespace nscapi {
 				if (cit != template_list.end())
 					return true;
 				return false;
+			}
+
+			bool empty() const {
+				return object_list.empty();
 			}
 
 

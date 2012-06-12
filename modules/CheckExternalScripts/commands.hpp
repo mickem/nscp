@@ -117,7 +117,7 @@ namespace commands {
 		static void post_process_object(object_type &object) {}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
 			object.set_command(object.value);
 			std::wstring alias;
 			//if (object.alias == _T("default"))
@@ -125,17 +125,16 @@ namespace commands {
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 
-			/*
-			object_type::options_type options;
-			*/
-			/*
-			settings.path(object.path).add_path()
-				(object.alias, nscapi::settings_helper::wstring_map_path(&options), 
-				_T("TARGET DEFENITION"), _T("Target definition for: ") + object.alias)
-
-				;
-				*/
-
+			if (oneliner) {
+				std::wstring::size_type pos = object.path.find_last_of(_T("/"));
+				if (pos != std::wstring::npos) {
+					std::wstring path = object.path.substr(0, pos);
+					std::wstring key = object.path.substr(pos+1);
+					proxy->register_key(path, key, NSCAPI::key_string, object.alias, _T("Alias for ") + object.alias + _T(". To configure this item add a section called: ") + object.path, _T(""), false);
+					proxy->set_string(path, key, object.value);
+					return;
+				}
+			}
 			settings.path(object.path).add_path()
 				(_T("COMMAND DEFENITION"), _T("Command definition for: ") + object.alias)
 				;
@@ -168,14 +167,6 @@ namespace commands {
 			settings.notify();
 			if (!alias.empty())
 				object.alias = alias;
-
-			/*
-			BOOST_FOREACH(const object_type::options_type::value_type &kvp, options) {
-				if (!object.has_option(kvp.first))
-					object.options[kvp.first] = kvp.second;
-			}
-			*/
-
 		}
 
 		static void apply_parent(object_type &object, object_type &parent) {
@@ -183,16 +174,8 @@ namespace commands {
 			import_string(object.domain, parent.domain);
 			import_string(object.password, parent.password);
 			import_string(object.command, parent.command);
-			//import_string(object.arguments, parent.arguments);
 			if (object.arguments.empty() && !parent.arguments.empty())
 				object.arguments = parent.arguments;
-			/*
-			object.address.import(parent.address);
-			BOOST_FOREACH(object_type::options_type::value_type i, parent.options) {
-				if (object.options.find(i.first) == object.options.end())
-					object.options[i.first] = i.second;
-			}
-			*/
 		}
 
 	};

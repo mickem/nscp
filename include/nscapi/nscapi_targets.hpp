@@ -91,7 +91,7 @@ namespace nscapi {
 
 		struct target_object_reader {
 			typedef target_object object_type;
-			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object);
+			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner);
 			static void apply_parent(object_type &object, object_type &parent);
 		};
 
@@ -109,7 +109,7 @@ namespace nscapi {
 				custom_reader::post_process_target(object);
 			}
 
-			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
 				object.address = net::parse(object.value, 0);
 				if (object.alias == _T("default"))
 					custom_reader::init_default(object);
