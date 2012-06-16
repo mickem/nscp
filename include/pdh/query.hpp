@@ -36,8 +36,9 @@ namespace PDH {
 		typedef std::list<counter_ptr> CounterList;
 		CounterList counters_;
 		PDH::PDH_HQUERY hQuery_;
+		bool hasDisplayedInvalidCOunter_;
 	public:
-		PDHQuery() : hQuery_(NULL) {
+		PDHQuery() : hQuery_(NULL), hasDisplayedInvalidCOunter_(false) {
 		}
 		virtual ~PDHQuery(void) {
 			removeAllCounters();
@@ -105,8 +106,13 @@ namespace PDH {
 					collect();
 					status = (*it)->collect();
 				}
-				if (status.is_error()) {
-					throw PDHException(_T("Failed to poll counter: "), status);
+				if (status.is_negative_denominator()) {
+					if (!hasDisplayedInvalidCOunter_) {
+						hasDisplayedInvalidCOunter_ = true;
+						throw PDHException(_T("Negative denominator issue (check FAQ for ways to solve this): ") + (*it)->getName(), status);
+					}
+				} else if (status.is_error()) {
+					throw PDHException(_T("Failed to poll counter: ") + (*it)->getName(), status);
 				}
 			}
 		}

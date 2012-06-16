@@ -1,8 +1,21 @@
 TODO: 
  * Process times and similar ?
  * Fix configuration GUI (low priority)
- * Fixa dependonservice LanManWorkStation (old win)
+ * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
+
+2012-06-12 MickeM
+ * Improved error handling in performance counters #436
+ * Improved parsing of "legacy command lines"
+
+2012-06-12 MickeM
+ * Added log level = off to disable logging.
+ * Added option in NSCAClient to hostname (auto-lc) to use lower case version of hostname. #533
+ * Reworked how commands are read.
+   If a command is defined without a section (default) no section will be added and instead a comment will be addded on how to add the section.
+   This should (I hope) resolve the "missing command" for good.
+ * Improved error messages for missing commands
+ * Fixed scientific notation on performance data (#)
 
 2012-06-11 MickeM
  * Fixed some gcc compile issues

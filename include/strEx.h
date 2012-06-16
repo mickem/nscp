@@ -91,7 +91,12 @@ namespace strEx {
 				ss.precision(20);
 			ss << std::noshowpoint << std::fixed << i;
 			std::string s = ss.str();
-			std::string::size_type pos = s.find_last_not_of('0');
+			std::string::size_type pos = s.find('.');
+			if (pos != std::string::npos && (s.length()-pos) > 6) {
+				s = s.substr(0, pos+6);
+			}
+			
+			pos = s.find_last_not_of('0');
 			if (pos == std::wstring::npos)
 				return s;
 			if (s[pos] != '.')

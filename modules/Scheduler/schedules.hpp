@@ -109,7 +109,7 @@ namespace schedules {
 		static void post_process_object(object_type &object) {}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
 			object.set_command(object.value);
 			if (object.alias == _T("default")) {
 				object.set_duration(_T("5m"));

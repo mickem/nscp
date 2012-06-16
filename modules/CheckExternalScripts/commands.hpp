@@ -71,14 +71,22 @@ namespace commands {
 		std::wstring to_wstring() const {
 			std::wstringstream ss;
 			ss << alias << _T("[") << alias << _T("] = ") 
-				<< _T("{command: ") << command 
-				<< _T(", arguments: ") << get_argument();
-				if (!user.empty()) {
-					ss << _T(", user: ") << user 
-					<< _T(", domain: ") << domain 
-					<< _T(", password: ") << password;
-				}
-				ss << _T("}");
+				<< _T("{command: ") << command
+				<< _T(", arguments: ");
+			bool first = true;
+			BOOST_FOREACH(const std::wstring &s, arguments) {
+				if (first)
+					first = false;
+				else 
+					ss << L', ';
+				ss << s;
+			}
+			if (!user.empty()) {
+				ss << _T(", user: ") << user 
+				<< _T(", domain: ") << domain 
+				<< _T(", password: ") << password;
+			}
+			ss << _T("}");
 			return ss.str();
 		}
 
@@ -95,8 +103,38 @@ namespace commands {
 					list.pop_front();
 				}
 				arguments.clear();
+				std::list<std::wstring> buffer;
 				BOOST_FOREACH(std::wstring s, list) {
-					arguments.push_back(s);
+					std::size_t len = s.length();
+					if (buffer.empty()) {
+						if (len > 2 && s[0] == L'\"' && s[len-1]  == L'\"') {
+							buffer.push_back(s.substr(1, len-2));
+						} else if (len > 1 && s[0] == L'\"') {
+							buffer.push_back(s);
+						} else {
+							arguments.push_back(s);
+						}
+					} else {
+						if (len > 1 && s[len-1] == L'\"') {
+							std::wstring tmp;
+							BOOST_FOREACH(const std::wstring &s2, buffer) {
+								if (tmp.empty()) {
+									tmp = s2.substr(1);
+								} else {
+									tmp += _T(" ") + s2;
+								}
+							}
+							arguments.push_back(tmp + _T(" ") + s.substr(0, len-1));
+							buffer.clear();
+						} else {
+							buffer.push_back(s);
+						}
+					}
+				}
+				if (!buffer.empty()) {
+					BOOST_FOREACH(const std::wstring &s, buffer) {
+						arguments.push_back(s);
+					}
 				}
 			}
 		}
@@ -117,7 +155,7 @@ namespace commands {
 		static void post_process_object(object_type &object) {}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
 			object.set_command(object.value);
 			std::wstring alias;
 			//if (object.alias == _T("default"))
@@ -125,17 +163,16 @@ namespace commands {
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 
-			/*
-			object_type::options_type options;
-			*/
-			/*
-			settings.path(object.path).add_path()
-				(object.alias, nscapi::settings_helper::wstring_map_path(&options), 
-				_T("TARGET DEFENITION"), _T("Target definition for: ") + object.alias)
-
-				;
-				*/
-
+			if (oneliner) {
+				std::wstring::size_type pos = object.path.find_last_of(_T("/"));
+				if (pos != std::wstring::npos) {
+					std::wstring path = object.path.substr(0, pos);
+					std::wstring key = object.path.substr(pos+1);
+					proxy->register_key(path, key, NSCAPI::key_string, object.alias, _T("Alias for ") + object.alias + _T(". To configure this item add a section called: ") + object.path, _T(""), false);
+					proxy->set_string(path, key, object.value);
+					return;
+				}
+			}
 			settings.path(object.path).add_path()
 				(_T("COMMAND DEFENITION"), _T("Command definition for: ") + object.alias)
 				;
@@ -168,14 +205,6 @@ namespace commands {
 			settings.notify();
 			if (!alias.empty())
 				object.alias = alias;
-
-			/*
-			BOOST_FOREACH(const object_type::options_type::value_type &kvp, options) {
-				if (!object.has_option(kvp.first))
-					object.options[kvp.first] = kvp.second;
-			}
-			*/
-
 		}
 
 		static void apply_parent(object_type &object, object_type &parent) {
@@ -183,16 +212,8 @@ namespace commands {
 			import_string(object.domain, parent.domain);
 			import_string(object.password, parent.password);
 			import_string(object.command, parent.command);
-			//import_string(object.arguments, parent.arguments);
 			if (object.arguments.empty() && !parent.arguments.empty())
 				object.arguments = parent.arguments;
-			/*
-			object.address.import(parent.address);
-			BOOST_FOREACH(object_type::options_type::value_type i, parent.options) {
-				if (object.options.find(i.first) == object.options.end())
-					object.options[i.first] = i.second;
-			}
-			*/
 		}
 
 	};

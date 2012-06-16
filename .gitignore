@@ -4,7 +4,7 @@ helpers/installers/opsera
 
 # Generated config
 include/config.h
-version.hpp
+#version.hpp
 
 # Python
 *.pyc
