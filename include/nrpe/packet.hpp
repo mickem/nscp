@@ -95,14 +95,14 @@ namespace nrpe {
 
 
 	private:
-		std::wstring payload_;
+		char *tmpBuffer;
+		unsigned int payload_length_;
 		short type_;
 		short version_;
 		int result_;
+		std::wstring payload_;
 		unsigned int crc32_;
 		unsigned int calculatedCRC32_;
-		char *tmpBuffer;
-		unsigned int payload_length_;
 	public:
 		packet(unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {};
 		packet(std::vector<char> buffer, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
@@ -116,19 +116,23 @@ namespace nrpe {
 		};
 		packet(short type, short version, int result, std::wstring payLoad, unsigned int payload_length) 
 			: tmpBuffer(NULL) 
-			,type_(type)
-			,version_(version)
-			,result_(result)
-			,payload_(payLoad)
-			,payload_length_(payload_length)
+			, payload_length_(payload_length)
+			, type_(type)
+			, version_(version)
+			, result_(result)
+			, payload_(payLoad)
+			, crc32_(0)
+			, calculatedCRC32_(0)
 		{
 		}
 		packet() 
 			: tmpBuffer(NULL) 
-			,type_(nrpe::data::unknownPacket)
-			,version_(nrpe::data::version2)
-			,result_(0)
-			,payload_length_(nrpe::length::get_payload_length())
+			, payload_length_(nrpe::length::get_payload_length())
+			, type_(nrpe::data::unknownPacket)
+			, version_(nrpe::data::version2)
+			, result_(0)
+			, crc32_(0)
+			, calculatedCRC32_(0)
 		{
 		}
 		packet(const packet &other) : tmpBuffer(NULL) {

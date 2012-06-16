@@ -18,9 +18,9 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
-NSC_WRAPPERS_CHANNELS();
+NSC_WRAPPERS_MAIN()
+NSC_WRAPPERS_CLI()
+NSC_WRAPPERS_CHANNELS()
 
 #include <config.h>
 #include <strEx.h>
@@ -33,8 +33,8 @@ NSC_WRAPPERS_CHANNELS();
 #include <scripts/functions.hpp>
 
 struct python_script : public boost::noncopyable {
-	unsigned int plugin_id;
 	std::string alias;
+	unsigned int plugin_id;
 	boost::python::dict localDict;
 	python_script(unsigned int plugin_id, const std::string alias, const script_container& script);
 	~python_script();

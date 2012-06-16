@@ -22,7 +22,7 @@
 #include <socket_helpers.hpp>
 #include <nsca/server/protocol.hpp>
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
 class NSCAServer : public nscapi::impl::simple_plugin {
 private:

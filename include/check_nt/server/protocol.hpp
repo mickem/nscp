@@ -21,19 +21,21 @@ namespace check_nt {
 	struct read_protocol : public boost::noncopyable {
 
 		typedef std::vector<char> outbound_buffer_type;
-
-		std::vector<char> data_;
-		check_nt::server::parser parser_;
-		check_nt::server::handler *handler_;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
 		enum state {
 			none,
 			connected,
 			got_request,
-			done,
+			done
 		};
+
+		socket_helpers::connection_info info_;
+		check_nt::server::handler *handler_;
 		state current_state_;
+
+		std::vector<char> data_;
+		check_nt::server::parser parser_;
 
 		read_protocol(socket_helpers::connection_info info, check_nt::server::handler *handler) 
 			: info_(info)
@@ -106,8 +108,6 @@ namespace check_nt {
 		std::vector<char> get_outbound() const {
 			return data_;
 		}
-
-		socket_helpers::connection_info info_;
 
 		socket_helpers::connection_info get_info() const {
 			return info_;

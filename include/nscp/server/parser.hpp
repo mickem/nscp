@@ -66,7 +66,7 @@ namespace nscp {
 			enum state {
 				need_signature,
 				need_header,
-				need_payload,
+				need_payload
 			};
 
 			parser parser_;

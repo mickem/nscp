@@ -9,12 +9,14 @@
 namespace nrpe {
 	namespace server {
 		class parser : public boost::noncopyable{
-			std::vector<char> buffer_;
-			unsigned int packet_length_;
 			unsigned int payload_length_;
+			unsigned int packet_length_;
+			std::vector<char> buffer_;
 		public:
-			parser(unsigned int payload_length) : payload_length_(payload_length), packet_length_(nrpe::length::get_packet_length(payload_length)) {
-			}
+			parser(unsigned int payload_length) 
+				: payload_length_(payload_length)
+				, packet_length_(nrpe::length::get_packet_length(payload_length)) 
+			{}
 
 			template <typename InputIterator>
 			boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
@@ -29,15 +31,6 @@ namespace nrpe {
 				buffer_.clear();
 				return packet;
 			}
-			/*
-			void set_payload_length(unsigned int length) {
-				payload_length_ = length;
-				packet_length_ = nrpe::length::get_packet_length(length);
-			}
-			unsigned int get_payload_length() const {
-				return payload_length_;
-			}
-			*/
 		};
 
 	}// namespace server

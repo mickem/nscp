@@ -21,24 +21,27 @@ namespace nscp {
 			typedef socket_helpers::client::client_handler client_handler;
 
 		private:
-			std::vector<char> buffer_;
-			boost::shared_ptr<client_handler> handler_;
-			nscp::server::digester digester_;
-
 			enum state {
 				none,
 				connected,
 				has_request,
 				sent_response,
-				done,
+				done
 			};
+
+			boost::shared_ptr<client_handler> handler_;
 			state current_state_;
+
+			std::vector<char> buffer_;
+			nscp::server::digester digester_;
 
 			inline void set_state(state new_state) {
 				current_state_ = new_state;
 			}
 		public:
-			protocol(boost::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) {}
+			protocol(boost::shared_ptr<client_handler> handler) 
+				: handler_(handler)
+				, current_state_(none) {}
 			virtual ~protocol() {}
 
 			void on_connect() {

@@ -15,7 +15,6 @@ namespace check_nt {
 
 			template <typename InputIterator>
 			boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
-				bool found = false;
 				for (;begin != end; ++begin) {
 					buffer_.push_back(*begin);
 					if (*begin == '\n') {

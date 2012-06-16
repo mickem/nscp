@@ -84,15 +84,21 @@ addr calculate_mask(std::string mask_s) {
 	return ret;
 }
 
+void socket_helpers::allowed_hosts_manager::set_source(std::wstring source) {
+	sources.clear();
+	BOOST_FOREACH(std::wstring s, strEx::splitEx(source, _T(","))) {
+		boost::trim(s);
+		if (!s.empty())
+			sources.push_back(utf8::cvt<std::string>(s));
+	}
+}
+
 void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &errors) {
 	boost::asio::io_service io_service;
 	ip::tcp::resolver resolver(io_service);
 	entries_v4.clear();
 	entries_v6.clear();
-	BOOST_FOREACH(std::string &record, sources) {
-		boost::trim(record);
-		if (record.empty())
-			continue;
+	BOOST_FOREACH(const std::string &record, sources) {
 		std::string::size_type pos = record.find('/');
 		std::string addr, mask;
 		if (pos == std::string::npos) {

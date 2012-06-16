@@ -46,6 +46,10 @@ namespace nscapi {
 			boost::shared_ptr<int_key_type> r(new int_key_type(val, def, true));
 			return r;
 		}
+		boost::shared_ptr<size_key_type> size_key(std::size_t *val, std::size_t def) {
+			boost::shared_ptr<size_key_type> r(new size_key_type(val, def, true));
+			return r;
+		}
 		boost::shared_ptr<int_key_type> int_key(int *val) {
 			boost::shared_ptr<int_key_type> r(new int_key_type(val, 0, false));
 			return r;

@@ -30,7 +30,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
 class CheckNSCP : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
 private:

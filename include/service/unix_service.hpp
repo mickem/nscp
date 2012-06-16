@@ -116,7 +116,7 @@ namespace service_helper_impl {
 			}
 			shutdown_condition_.notify_one();
 		}
-		static void handle_error(unsigned int line, wchar_t *file, std::wstring message) {
+		static void handle_error(unsigned int line, const wchar_t *file, std::wstring message) {
 			TBase::get_global_instance()->handle_error(line, file, message);
 		}
 	};

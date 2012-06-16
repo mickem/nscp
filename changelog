@@ -4,6 +4,10 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-06-16 MickeM
+ * Merged in master branch
+ * Fixed almost all -Wall warnings (the rest are probably not getting fixed in the near future due to their nature)
+ 
 2012-06-12 MickeM
  * Improved error handling in performance counters #436
  * Improved parsing of "legacy command lines"

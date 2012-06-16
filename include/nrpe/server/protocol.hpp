@@ -27,20 +27,21 @@ namespace nrpe {
 	struct read_protocol : public boost::noncopyable {
 
 		typedef std::vector<char> outbound_buffer_type;
-
 		typedef boost::shared_ptr<nrpe::server::handler> handler_type;
-		outbound_buffer_type data_;
-		nrpe::server::parser parser_;
-		handler_type handler_;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
 		enum state {
 			none,
 			connected,
 			got_request,
-			done,
+			done
 		};
+
+		socket_helpers::connection_info info_;
+		handler_type handler_;
+		nrpe::server::parser parser_;
 		state current_state_;
+		outbound_buffer_type data_;
 
 		read_protocol(socket_helpers::connection_info info, handler_type handler) 
 			: info_(info)
@@ -114,8 +115,6 @@ namespace nrpe {
 		std::vector<char> get_outbound() const {
 			return data_;
 		}
-
-		socket_helpers::connection_info info_;
 
 		socket_helpers::connection_info get_info() const {
 			return info_;

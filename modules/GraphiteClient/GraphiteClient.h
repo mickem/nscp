@@ -26,9 +26,9 @@
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
-NSC_WRAPPERS_CHANNELS();
+NSC_WRAPPERS_MAIN()
+NSC_WRAPPERS_CLI()
+NSC_WRAPPERS_CHANNELS()
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;

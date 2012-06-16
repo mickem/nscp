@@ -39,11 +39,11 @@ namespace client {
 		nscapi::protobuf::types::destination_container host_self;
 		nscapi::protobuf::types::destination_container recipient;
 
+		int timeout;
 		bool submit;
 		bool query;
 		bool exec;
 
-		int timeout;
 		nscp_cli_data() : timeout(10), submit(false), query(false), exec(false) {}
 		std::wstring to_wstring() {
 			std::wstringstream ss;
@@ -97,9 +97,9 @@ namespace client {
 
 	};
 	struct command_container {
-		std::list<std::wstring> arguments;
 		std::wstring command;
 		std::wstring key;
+		std::list<std::wstring> arguments;
 
 		command_container() {}
 		command_container(const command_container &other) : command(other.command), key(other.key), arguments(other.arguments) {}

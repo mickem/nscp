@@ -6,11 +6,15 @@
 
 class handler_impl : public nrpe::server::handler {
 	unsigned int payload_length_;
-	bool allowArgs_;
-	bool allowNasty_;
 	bool noPerfData_;
+	bool allowNasty_;
+	bool allowArgs_;
 public:
-	handler_impl(unsigned int payload_length) : payload_length_(payload_length), noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
+	handler_impl(unsigned int payload_length) 
+		: payload_length_(payload_length)
+		, noPerfData_(false)
+		, allowNasty_(false)
+		, allowArgs_(false) {}
 
 	unsigned int get_payload_length() {
 		return payload_length_;

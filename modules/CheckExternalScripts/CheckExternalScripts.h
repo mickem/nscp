@@ -19,7 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 #include <map>
 #include <error.hpp>
 #include <execute_process.hpp>

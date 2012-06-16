@@ -10,14 +10,19 @@
 
 class nsca_handler_impl : public nsca::server::handler {
 	unsigned int payload_length_;
-	bool allowArgs_;
-	bool allowNasty_;
 	bool noPerfData_;
+	bool allowNasty_;
+	bool allowArgs_;
+
 	std::wstring channel_;
 	int encryption_;
 	std::string password_;
 public:
-	nsca_handler_impl(unsigned int payload_length) : payload_length_(payload_length), noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
+	nsca_handler_impl(unsigned int payload_length) 
+		: payload_length_(payload_length)
+		, noPerfData_(false)
+		, allowNasty_(false)
+		, allowArgs_(false) {}
 
 	unsigned int get_payload_length() {
 		return payload_length_;

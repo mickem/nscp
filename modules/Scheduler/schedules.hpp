@@ -18,12 +18,13 @@ namespace sh = nscapi::settings_helper;
 namespace schedules {
 	struct schedule_object {
 
-		schedule_object() : id(0), report(0), is_template(false) {}
+		schedule_object() : is_template(false), report(0), id(0) {}
 		schedule_object(const schedule_object &other) 
 			: path(other.path)
 			, alias(other.alias)
 			, value(other.value)
 			, parent(other.parent)
+			, is_template(other.is_template)
 			, target_id(other.target_id)
 			, duration(other.duration)
 			, channel(other.channel)
@@ -31,7 +32,6 @@ namespace schedules {
 			, command(other.command)
 			, arguments(other.arguments)
 			, id(other.id)
-			, is_template(other.is_template)
 		{}
 		const schedule_object& operator =(const schedule_object &other) {
 			path = other.path;
@@ -91,8 +91,6 @@ namespace schedules {
 				<< _T("}");
 			return ss.str();
 		}
-		//std::wstring to_string() {
-
 	};
 	typedef boost::optional<schedule_object> optional_schedule_object;
 

@@ -48,4 +48,3 @@
 #include <types.hpp>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
-#include <nrpe/packet.hpp>

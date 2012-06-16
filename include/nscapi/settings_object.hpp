@@ -85,7 +85,7 @@ namespace nscapi {
 				object_reader::read_object(proxy, object, keys.empty());
 
 
-				if (!object.parent.empty() && object.parent != alias & object.parent != object.alias) {
+				if (!object.parent.empty() && object.parent != alias && object.parent != object.alias) {
 					t_object_type parent;
 					optional_object tmp = find_object(object.parent);
 					if (!tmp) {

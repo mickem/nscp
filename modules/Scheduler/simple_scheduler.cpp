@@ -80,7 +80,6 @@ namespace scheduler {
 
 	void simple_scheduler::thread_proc(int id) {
 		try {
-			int iteration = 0;
 			schedule_queue_type::value_type instance;
 			while (!stop_requested_) {
 				instance = queue_.pop();

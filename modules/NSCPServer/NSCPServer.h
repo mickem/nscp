@@ -23,7 +23,7 @@
 #include <nscp/server/protocol.hpp>
 #include "handler_impl.hpp"
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
 class NSCPListener : public nscapi::impl::simple_plugin {
 public:

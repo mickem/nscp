@@ -91,7 +91,7 @@ namespace sh = nscapi::settings_helper;
 
 class simple_file_logger : public nsclient::logging::logging_interface_impl {
 	std::string file_;
-	int max_size_;
+	std::size_t max_size_;
 	std::string format_;
 
 public:
@@ -182,7 +182,7 @@ public:
 				;
 
 			settings.add_key_to_settings(_T("log/file"))
-				(_T("max size"), sh::int_key(&max_size_, 0),
+				(_T("max size"), sh::size_key(&max_size_, 0),
 				_T("MAXIMUM FILE SIZE"), _T("When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled"))
 				;
 

@@ -107,7 +107,9 @@ BOOST_PYTHON_MODULE(NSCP)
 //	def("get_script_alias", script_wrapper::get_script_alias);
 }
 
-python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) : alias(alias), plugin_id(plugin_id) {
+python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) 
+	: alias(alias)
+	, plugin_id(plugin_id) {
 	NSC_DEBUG_MSG_STD(_T("Loading python script: ") + script.script.string());
 	std::wstring err;
 	if (!script.validate(err)) {
@@ -215,7 +217,7 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			PyEval_InitThreads();
 			//PyEval_ReleaseLock();
 
-			PyThreadState *state = PyEval_SaveThread();
+			PyEval_SaveThread();
 			do_init = true;
 		}
 
@@ -451,9 +453,9 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	return NSCAPI::returnIgnored;
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(PythonScript);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(PythonScript)
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

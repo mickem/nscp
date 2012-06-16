@@ -51,7 +51,7 @@ namespace script_wrapper {
 		OK = NSCAPI::returnOK, 
 		WARN = NSCAPI::returnWARN, 
 		CRIT = NSCAPI::returnCRIT, 
-		UNKNOWN = NSCAPI::returnUNKNOWN, 
+		UNKNOWN = NSCAPI::returnUNKNOWN
 	};
 
 	status nagios_return_to_py(int code);

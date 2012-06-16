@@ -418,7 +418,7 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 
 		BOOST_FOREACH(const nsca::packet &packet, packets) {
 			NSC_DEBUG_MSG_STD(_T("Sending (data): ") + utf8::cvt<std::wstring>(packet.to_string()));
-			bool ret = client.process_request(packet);
+			client.process_request(packet);
 		}
 		client.shutdown();
 /*
@@ -452,10 +452,10 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 	}
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(NSCAAgent);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(NSCAAgent)
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
 

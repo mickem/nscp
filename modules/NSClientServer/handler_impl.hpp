@@ -5,12 +5,16 @@
 #include <boost/tuple/tuple.hpp>
 
 class handler_impl : public check_nt::server::handler {
-	bool allowArgs_;
-	bool allowNasty_;
 	bool noPerfData_;
+	bool allowNasty_;
+	bool allowArgs_;
+
 	std::wstring password_;
 public:
-	handler_impl() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
+	handler_impl() 
+		: noPerfData_(false)
+		, allowNasty_(false)
+		, allowArgs_(false) {}
 
 	check_nt::packet handle(check_nt::packet packet);
 

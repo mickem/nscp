@@ -21,21 +21,23 @@ namespace nsca {
 	struct read_protocol : public boost::noncopyable {
 
 		typedef std::string outbound_buffer_type;
-
 		typedef boost::shared_ptr<nsca::server::handler> handler_type;
-		std::string data_;
-		nsca::server::parser parser_;
-		handler_type handler_;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
-		nsca::nsca_encrypt encryption_instance_;
 
 		enum state {
 			none,
 			connected,
 			sent_iv,
-			done,
+			done
 		};
+
+		socket_helpers::connection_info info_;
+		handler_type handler_;
+		nsca::server::parser parser_;
 		state current_state_;
+		
+		std::string data_;
+		nsca::nsca_encrypt encryption_instance_;
 
 		read_protocol(socket_helpers::connection_info info, handler_type handler) 
 			: info_(info)
@@ -117,8 +119,6 @@ namespace nsca {
 		std::string get_outbound() const {
 			return data_;
 		}
-
-		socket_helpers::connection_info info_;
 
 		socket_helpers::connection_info get_info() const {
 			return info_;

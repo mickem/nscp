@@ -287,8 +287,8 @@ NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_
 		return result;
 	}
 }
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckExternalScripts);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(CheckExternalScripts)
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
 

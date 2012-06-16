@@ -48,6 +48,17 @@ namespace socket_helpers {
 #ifdef USE_SSL
 			typedef socket_helpers::server::ssl_connection<protocol_type, N> ssl_connection_type;
 #endif
+
+			boost::asio::io_service io_service_;
+			boost::shared_ptr<protocol_type> protocol_;
+			boost::asio::ip::tcp::acceptor acceptor_;
+			boost::asio::strand accept_strand_;
+#ifdef USE_SSL
+			boost::asio::ssl::context context_;
+#endif
+
+			boost::shared_ptr<connection_type> new_connection_;
+			boost::thread_group thread_group_;
 		public:
 			server(boost::shared_ptr<protocol_type> protocol)
 				: protocol_(protocol)
@@ -147,17 +158,6 @@ namespace socket_helpers {
 #endif
 				return new tcp_connection_type(io_service_, protocol_);
 			}
-
-			boost::asio::io_service io_service_;
-			boost::asio::ip::tcp::acceptor acceptor_;
-			boost::shared_ptr<connection_type> new_connection_;
-			boost::thread_group thread_group_;
-#ifdef USE_SSL
-			boost::asio::ssl::context context_;
-#endif
-			boost::asio::strand accept_strand_;
-			boost::shared_ptr<protocol_type> protocol_;
-
 		};
 
 	} // namespace server

@@ -15,13 +15,14 @@ namespace socket_helpers {
 		template<class protocol_type>
 		class connection : public boost::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
 		private:
-			protocol_type protocol_;
 			boost::asio::io_service &io_service_;
 			boost::asio::deadline_timer timer_;
 			boost::posix_time::time_duration timeout_;
+			boost::shared_ptr<typename protocol_type::client_handler> handler_;
+			protocol_type protocol_;
+
 			boost::optional<boost::system::error_code> timer_result_;
 			boost::optional<bool> data_result_;
-			boost::shared_ptr<typename protocol_type::client_handler> handler_;
 
 		public:
 			connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler) 
@@ -335,11 +336,11 @@ namespace socket_helpers {
 
 		struct client_handler : private boost::noncopyable {
 
-			std::string dh_key_;
 			std::string host_;
 			std::string port_;
 			long timeout_;
 			bool ssl_;
+			std::string dh_key_;
 
 			client_handler(std::string host, std::string port, long timeout, bool ssl, std::string dh_key)
 				: host_(host)

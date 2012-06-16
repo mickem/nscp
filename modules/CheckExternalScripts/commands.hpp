@@ -78,7 +78,7 @@ namespace commands {
 				if (first)
 					first = false;
 				else 
-					ss << L', ';
+					ss << L',';
 				ss << s;
 			}
 			if (!user.empty()) {

@@ -30,7 +30,7 @@ nscp::packet handler_impl::process(const nscp::packet &packet) {
 		msg.ParseFromString(packet.payload);
 		try {
 			std::string reply;
-			NSCAPI::nagiosReturn returncode = handle_submission_request(packet.payload, msg, reply);
+			handle_submission_request(packet.payload, msg, reply);
 			return nscp::factory::create_submission_response(reply);
 		} catch (const nscp::nscp_exception &e) {
 			return nscp::factory::create_error(_T("Exception processing message: ") + to_wstring(e.what()));
@@ -42,7 +42,7 @@ nscp::packet handler_impl::process(const nscp::packet &packet) {
 		msg.ParseFromString(packet.payload);
 		try {
 			std::string reply;
-			NSCAPI::nagiosReturn returncode = handle_exec_request(packet.payload, msg, reply);
+			handle_exec_request(packet.payload, msg, reply);
 			return nscp::factory::create_submission_response(reply);
 		} catch (const nscp::nscp_exception &e) {
 			return nscp::factory::create_error(_T("Exception processing message: ") + to_wstring(e.what()));

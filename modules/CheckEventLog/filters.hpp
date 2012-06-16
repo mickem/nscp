@@ -201,7 +201,7 @@ namespace filters {
 		static void post_process_object(object_type &object) {}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
 			object.set_filter(object.value);
 			std::wstring alias;
 			bool is_default = object.alias == _T("default");
@@ -214,6 +214,17 @@ namespace filters {
 			}
 
 			nscapi::settings_helper::settings_registry settings(proxy);
+
+			if (oneliner) {
+				std::wstring::size_type pos = object.path.find_last_of(_T("/"));
+				if (pos != std::wstring::npos) {
+					std::wstring path = object.path.substr(0, pos);
+					std::wstring key = object.path.substr(pos+1);
+					proxy->register_key(path, key, NSCAPI::key_string, object.alias, _T("Filter for ") + object.alias + _T(". To configure this item add a section called: ") + object.path, _T(""), false);
+					proxy->set_string(path, key, object.value);
+					return;
+				}
+			}
 
 			settings.path(object.path).add_path()
 				(_T("REAL TIME FILTER DEFENITION"), _T("Definitation for real time filter: ") + object.alias)

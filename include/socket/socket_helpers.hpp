@@ -36,17 +36,19 @@ namespace socket_helpers {
 		template<class addr_type_t>
 		struct host_record {
 			host_record(std::string host, addr_type_t addr, addr_type_t mask) 
-				: addr(addr)
+				: host(host)
+				, addr(addr)
 				, mask(mask)
-				, host(host) {}
+				{}
 			host_record(const host_record &other) 
-				: addr(other.addr)
+				: host(other.host)
+				, addr(other.addr)
 				, mask(other.mask)
-				, host(other.host) {}
+				{}
 			const host_record& operator=(const host_record &other) {
+				host = other.host;
 				addr = other.addr;
 				mask = other.mask;
-				host = other.host;
 				return *this;
 			}
 			std::string host;
@@ -74,19 +76,14 @@ namespace socket_helpers {
 			return *this;
 		}
 
-		void set_source(std::wstring source) {
-			sources.clear();
-			BOOST_FOREACH(const std::wstring &s, strEx::splitEx(source, _T(","))) {
-				sources.push_back(utf8::cvt<std::string>(s));
-			}
-		}
+		void set_source(std::wstring source);
 		addr_v4 lookup_mask_v4(std::string mask);
 		addr_v6 lookup_mask_v6(std::string mask);
 		void refresh(std::list<std::string> &errors);
 
 		template<class T>
 		inline bool match_host(const T &allowed, const T &mask, const T &remote) const {
-			for (int i=0;i<allowed.size(); i++) {
+			for (std::size_t i=0;i<allowed.size(); i++) {
 				if ( (allowed[i]&mask[i]) != (remote[i]&mask[i]) )
 					return false;
 			}
@@ -127,11 +124,11 @@ namespace socket_helpers {
 
 		connection_info(const connection_info &other) 
 			: address(other.address)
+			, back_log(other.back_log)
 			, port(other.port)
 			, thread_pool_size(other.thread_pool_size)
-			, back_log(other.back_log)
-			, ssl(other.ssl)
 			, timeout(other.timeout)
+			, ssl(other.ssl)
 			, allowed_hosts(other.allowed_hosts)
 			{
 			}
@@ -151,9 +148,9 @@ namespace socket_helpers {
 		std::list<std::wstring> validate();
 
 		std::string address;
+		int back_log;
 		unsigned int port;
 		unsigned int thread_pool_size;
-		int back_log;
 		unsigned int timeout;
 
 		struct ssl_opts {
@@ -178,6 +175,7 @@ namespace socket_helpers {
 				allowed_ciphers = other.allowed_ciphers;
 				dh_key = other.dh_key;
 				verify_mode = other.verify_mode;
+				return *this;
 			}
 
 
@@ -204,7 +202,6 @@ namespace socket_helpers {
 			}
 		};
 		ssl_opts ssl;
-
 		allowed_hosts_manager allowed_hosts;
 
 		std::string get_port() { return utf8::cvt<std::string>(strEx::itos(port)); }

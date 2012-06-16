@@ -284,7 +284,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 		for (int j=0;j<r.perf_size();j++) {
 			g_data d;
 			::Plugin::Common::PerformanceData perf = r.perf(j);
-			double value;
+			double value = 0.0;
 			d.path = tmp_path;
 			strEx::replace(d.path, "${perf_alias}", perf.alias());
 			if (perf.has_float_value()) {
@@ -366,10 +366,9 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 	}
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(GraphiteClient);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
-
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(GraphiteClient)
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

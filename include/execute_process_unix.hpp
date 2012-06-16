@@ -22,7 +22,7 @@
 
 namespace process {
 	int executeProcess(process::exec_arguments arguments, std::wstring &msg, std::wstring &perf) {
-		NSCAPI::nagiosReturn result;
+		NSCAPI::nagiosReturn result = NSCAPI::returnUNKNOWN;
 		return result;
 	}
 }

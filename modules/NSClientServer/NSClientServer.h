@@ -21,7 +21,7 @@
 #include <socket_helpers.hpp>
 #include <check_nt/server/protocol.hpp>
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
 class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {
 public:
@@ -82,12 +82,12 @@ private:
 	bool isPasswordOk(std::wstring remotePassword);
 
 private:
+	bool noPerfData_;
+	bool allowNasty_;
+	bool allowArgs_;
+
 	socket_helpers::connection_info info_;
 	boost::shared_ptr<check_nt::server::server> server_;
-
-	bool allowArgs_;
-	bool allowNasty_;
-	bool noPerfData_;
 	std::wstring password_;
 
 };

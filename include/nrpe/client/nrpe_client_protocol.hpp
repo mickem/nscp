@@ -29,7 +29,7 @@ namespace nrpe {
 				connected,
 				has_request,
 				sent_response,
-				done,
+				done
 			};
 			state current_state_;
 

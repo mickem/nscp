@@ -87,7 +87,7 @@ namespace NSCAPI {
 	typedef int moduleLoadMode;
 //#endif
 
-	const int encryption_xor = 1;
+	const unsigned int encryption_xor = 1;
 
 	// Settings types
 	const int settings_default = 0;
