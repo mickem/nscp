@@ -71,14 +71,22 @@ namespace commands {
 		std::wstring to_wstring() const {
 			std::wstringstream ss;
 			ss << alias << _T("[") << alias << _T("] = ") 
-				<< _T("{command: ") << command 
-				<< _T(", arguments: ") << get_argument();
-				if (!user.empty()) {
-					ss << _T(", user: ") << user 
-					<< _T(", domain: ") << domain 
-					<< _T(", password: ") << password;
-				}
-				ss << _T("}");
+				<< _T("{command: ") << command
+				<< _T(", arguments: ");
+			bool first = true;
+			BOOST_FOREACH(const std::wstring &s, arguments) {
+				if (first)
+					first = false;
+				else 
+					ss << L', ';
+				ss << s;
+			}
+			if (!user.empty()) {
+				ss << _T(", user: ") << user 
+				<< _T(", domain: ") << domain 
+				<< _T(", password: ") << password;
+			}
+			ss << _T("}");
 			return ss.str();
 		}
 
@@ -95,8 +103,38 @@ namespace commands {
 					list.pop_front();
 				}
 				arguments.clear();
+				std::list<std::wstring> buffer;
 				BOOST_FOREACH(std::wstring s, list) {
-					arguments.push_back(s);
+					std::size_t len = s.length();
+					if (buffer.empty()) {
+						if (len > 2 && s[0] == L'\"' && s[len-1]  == L'\"') {
+							buffer.push_back(s.substr(1, len-2));
+						} else if (len > 1 && s[0] == L'\"') {
+							buffer.push_back(s);
+						} else {
+							arguments.push_back(s);
+						}
+					} else {
+						if (len > 1 && s[len-1] == L'\"') {
+							std::wstring tmp;
+							BOOST_FOREACH(const std::wstring &s2, buffer) {
+								if (tmp.empty()) {
+									tmp = s2.substr(1);
+								} else {
+									tmp += _T(" ") + s2;
+								}
+							}
+							arguments.push_back(tmp + _T(" ") + s.substr(0, len-1));
+							buffer.clear();
+						} else {
+							buffer.push_back(s);
+						}
+					}
+				}
+				if (!buffer.empty()) {
+					BOOST_FOREACH(const std::wstring &s, buffer) {
+						arguments.push_back(s);
+					}
 				}
 			}
 		}
