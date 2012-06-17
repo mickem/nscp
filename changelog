@@ -5,6 +5,9 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2012-06-16 MickeM
+ * Initial (rather crude) NRDP support.
+
+2012-06-16 MickeM
  * Merged in master branch
  * Fixed almost all -Wall warnings (the rest are probably not getting fixed in the near future due to their nature)
  

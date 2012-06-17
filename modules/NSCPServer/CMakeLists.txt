@@ -50,4 +50,5 @@ target_link_libraries(${TARGET}
 )
 
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)
 SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nscp/.*)

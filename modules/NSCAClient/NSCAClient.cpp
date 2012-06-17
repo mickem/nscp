@@ -421,21 +421,6 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 			client.process_request(packet);
 		}
 		client.shutdown();
-/*
-		boost::asio::io_service io_service;
-		nsca::socket socket(io_service);
-		socket.connect(data.host, data.port);
-		if (!socket.recv_iv(data.password, data.get_encryption(), boost::posix_time::seconds(data.timeout<5?30:data.timeout))) {
-			NSC_LOG_ERROR_STD(_T("Failed to read iv"));
-			return NSCAPI::hasFailed;
-		}
-		NSC_DEBUG_MSG_STD(_T("Got IV sending packets: ") + strEx::itos(packets.size()));
-		BOOST_FOREACH(const nsca::packet &packet, packets) {
-			NSC_DEBUG_MSG_STD(_T("Sending (data): ") + utf8::cvt<std::wstring>(packet.to_string()));
-			socket.send_nsca(packet, boost::posix_time::seconds(data.timeout));
-		}
-		socket.shutdown();
-		*/
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
 	} catch (const nsca::nsca_encrypt::encryption_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSCA Error: ") + utf8::to_unicode(e.what()));

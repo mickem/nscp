@@ -6,6 +6,7 @@ IF(WIN32)
 	SET(INC_NSCP_INCLUDEDIR D:/source/include)
 	SET(INC_PSDK_61 "C:/Program Files/Microsoft SDKs/Windows/v6.1/")
 	SET(INC_PSDK_2003 "C:/Program Files/Microsoft Platform SDK/")
+	SET(TINYXML2_DIR "D:/source/libraries/tinyxml2")
 
 	if(CMAKE_CL_64)
 		MESSAGE(STATUS "Detected x64")

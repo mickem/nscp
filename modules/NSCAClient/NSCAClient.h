@@ -85,25 +85,26 @@ public:
 	struct connection_data {
 		std::string password;
 		std::string encryption;
-		std::string host, port;
+		std::string host;
+		std::string port;
 		std::string sender_hostname;
 		int timeout;
 		int buffer_length;
 		int time_delta;
 
-		connection_data(nscapi::protobuf::types::destination_container recipient, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
-			recipient.import(target);
-			timeout = recipient.get_int_data("timeout", 30);
-			buffer_length = recipient.get_int_data("payload length", 512);
-			password = recipient.get_string_data("password");
-			encryption = recipient.get_string_data("encryption");
-			std::string tmp = recipient.get_string_data("time offset");
+		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
+			arguments.import(target);
+			timeout = arguments.get_int_data("timeout", 30);
+			buffer_length = arguments.get_int_data("payload length", 512);
+			password = arguments.get_string_data("password");
+			encryption = arguments.get_string_data("encryption");
+			std::string tmp = arguments.get_string_data("time offset");
 			if (!tmp.empty())
-				time_delta = strEx::stol_as_time_sec(recipient.get_string_data("time offset"));
+				time_delta = strEx::stol_as_time_sec(arguments.get_string_data("time offset"));
 			else
 				time_delta = 0;
-			host = recipient.address.get_host();
-			port = strEx::s::xtos(recipient.address.get_port(5667));
+			host = arguments.address.get_host();
+			port = strEx::s::xtos(arguments.address.get_port(5667));
 			sender_hostname = sender.address.host;
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
@@ -112,15 +113,19 @@ public:
 			return nsca::nsca_encrypt::helpers::encryption_to_int(encryption);
 		}
 
-		std::wstring to_wstring() {
-			std::wstringstream ss;
-			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
-			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
-			ss << _T(", timeout: ") << timeout;
-			ss << _T(", buffer_length: ") << buffer_length;
-			ss << _T(", time_delta: ") << time_delta;
-			ss << _T(", password: ") << utf8::cvt<std::wstring>(password);
-			ss << _T(", encryption: ") << utf8::cvt<std::wstring>(encryption);
+		std::wstring to_wstring() const {
+			return utf8::cvt<std::wstring>(to_string());
+		}
+
+		std::string to_string() const {
+			std::stringstream ss;
+			ss << "host: " << host;
+			ss << ", port: " << port;
+			ss << ", timeout: " << timeout;
+			ss << ", buffer_length: " << buffer_length;
+			ss << ", time_delta: " << time_delta;
+			ss << ", password: " << password;
+			ss << ", encryption: " << encryption;
 			return ss.str();
 		}
 	};
@@ -157,11 +162,7 @@ public:
 	* @return The module name
 	*/
 	static std::wstring getModuleName() {
-#ifdef HAVE_LIBCRYPTOPP
 		return _T("NSCAClient");
-#else
-		return _T("NSCAClient (without encryption support)");
-#endif
 	}
 	/**
 	* Module version
@@ -172,7 +173,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
+		return std::wstring(_T("Passive check support over NSCA.\nAvalible crypto are: ")) + getCryptos();
 	}
 
 	bool hasCommandHandler() { return true; };

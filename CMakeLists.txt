@@ -101,6 +101,11 @@ IF (PYTHONLIBSEX_FOUND)
 	MESSAGE(STATUS "Found python (lib) in: ${PYTHON_LIBRARY}")
 ENDIF (PYTHONLIBSEX_FOUND)
 
+FIND_PACKAGE(TINYXML2)
+IF (TINYXML2_FOUND)
+	MESSAGE(STATUS "Found tinyxml2 in: ${TINYXML2_INCLUDE_DIR}")
+ENDIF (TINYXML2_FOUND)
+
 
 FIND_PACKAGE(ZeroMQ)
 IF (ZEROMQ_FOUND)
@@ -185,7 +190,7 @@ if(MSVC)
   endif()
 elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
   # Update if necessary
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-long-long -pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-long-long -pedantic -Wno-unused-parameter")
 endif()
 
 IF(NOT SHARED_LIBS)
