@@ -126,6 +126,7 @@ public:
 			ss << ", time_delta: " << time_delta;
 			ss << ", password: " << password;
 			ss << ", encryption: " << encryption;
+			ss << ", hostname: " << sender_hostname;
 			return ss.str();
 		}
 	};

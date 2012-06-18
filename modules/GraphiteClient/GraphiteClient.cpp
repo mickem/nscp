@@ -345,7 +345,7 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 		boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
 		boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
 		boost::posix_time::time_duration diff = now - time_t_epoch;
-		int x = diff.total_milliseconds();
+		int x = diff.total_seconds();
 
 		BOOST_FOREACH(const g_data &d, payload) {
 			std::string msg = d.path + " " +d.value + " " + boost::lexical_cast<std::string>(x) + "\n";

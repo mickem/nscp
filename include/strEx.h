@@ -445,7 +445,7 @@ namespace strEx {
 	typedef std::pair<std::wstring,std::wstring> token;
 	// foo bar "foo \" bar" foo -> foo, bar "foo \" bar" foo -> bar, "foo \" bar" foo -> 
 	// 
-	inline token getToken(std::wstring buffer, char split, bool escape = false) {
+	inline token getToken(std::wstring buffer, wchar_t split, bool escape = false) {
 		std::wstring::size_type pos = std::wstring::npos;
 		if ((escape) && (buffer[0] == '\"')) {
 			do {
@@ -458,7 +458,7 @@ namespace strEx {
 			return token(buffer, _T(""));
 		if (pos == buffer.length()-1)
 			return token(buffer.substr(0, pos), _T(""));
-		return token(buffer.substr(0, pos-1), buffer.substr(pos-1));
+		return token(buffer.substr(0, pos), buffer.substr(pos+1));
 	}
 
 #define MK_FORMAT_FTD(min, key, val) \
