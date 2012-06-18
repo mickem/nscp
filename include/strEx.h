@@ -837,7 +837,7 @@ namespace strEx {
 			return token(buffer, _T(""));
 		if (pos == buffer.length()-1)
 			return token(buffer.substr(0, pos), _T(""));
-		return token(buffer.substr(0, pos-1), buffer.substr(++pos));
+		return token(buffer.substr(0, pos), buffer.substr(pos+1));
 	}
 
 

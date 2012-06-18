@@ -120,6 +120,7 @@ private:
 			ss << _T(", time_delta: ") << time_delta;
 			ss << _T(", password: ") << utf8::cvt<std::wstring>(password);
 			ss << _T(", encryption: ") << utf8::cvt<std::wstring>(encryption);
+			ss << _T(", hostname: ") << utf8::cvt<std::wstring>(sender_hostname);
 			return ss.str();
 		}
 	};

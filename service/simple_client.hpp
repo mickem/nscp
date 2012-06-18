@@ -67,7 +67,7 @@ namespace nsclient {
 					throw "test";
 				} else {
 					try {
-						strEx::token t = strEx::getToken(s, ' ');
+						strEx::token t = strEx::getToken(s, L' ');
 						std::wstring msg, perf;
 						NSCAPI::nagiosReturn ret = core_->inject(t.first, t.second, msg, perf);
 						if (ret == NSCAPI::returnIgnored) {
