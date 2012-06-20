@@ -184,10 +184,10 @@ namespace nsclient {
 		}
 
 		void error_msg(std::wstring msg) {
-			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg.c_str());
+			nsclient::logging::logger::get_logger()->error(_T("client"), __FILE__, __LINE__, msg.c_str());
 		}
 		void debug_msg(std::wstring msg) {
-			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, msg.c_str());
+			nsclient::logging::logger::get_logger()->debug(_T("client"), __FILE__, __LINE__, msg.c_str());
 		}
 	};
 }

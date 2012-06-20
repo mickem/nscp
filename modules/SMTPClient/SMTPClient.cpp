@@ -272,7 +272,7 @@ int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 //
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(SMTPClient)
+NSC_WRAPPERS_MAIN_DEF(SMTPClient, _T("smtp"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()

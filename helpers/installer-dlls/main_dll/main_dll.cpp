@@ -31,7 +31,7 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 
 }
 
-std::string nsclient::logging::logger_helper::create(NSCAPI::log_level::level level, const char* file, const int line, std::wstring message) {
+std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
 	if (level < NSCAPI::log_level::info)
 		return "E" + utf8::cvt<std::string>(message);
 	return "I" + utf8::cvt<std::string>(message);

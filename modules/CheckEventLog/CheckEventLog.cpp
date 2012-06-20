@@ -719,7 +719,7 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckEventLog);
+NSC_WRAPPERS_MAIN_DEF(CheckEventLog, _T("eventlog"));
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
 NSC_WRAPPERS_CLI_DEF();

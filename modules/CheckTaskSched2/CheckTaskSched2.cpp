@@ -197,7 +197,7 @@ int CheckTaskSched2::commandLineExec(const wchar_t* command, const unsigned int 
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckTaskSched2);
+NSC_WRAPPERS_MAIN_DEF(CheckTaskSched2, _T("tasksched2"));
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF(CheckTaskSched2);
 //NSC_WRAPPERS_CLI_DEF(gCheckTaskSched);

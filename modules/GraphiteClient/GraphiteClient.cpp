@@ -367,7 +367,7 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(GraphiteClient)
+NSC_WRAPPERS_MAIN_DEF(GraphiteClient, _T("graphite"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()

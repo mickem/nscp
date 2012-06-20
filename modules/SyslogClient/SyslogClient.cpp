@@ -370,7 +370,7 @@ boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list
 
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(SyslogClient)
+NSC_WRAPPERS_MAIN_DEF(SyslogClient, _T("syslog"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()

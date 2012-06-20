@@ -371,7 +371,7 @@ std::list<nscp::packet> NSCPClient::send(connection_data con, std::list<nscp::pa
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NSCPClient)
+NSC_WRAPPERS_MAIN_DEF(NSCPClient, _T("nscp"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()

@@ -24,31 +24,6 @@
 
 
 nscapi::helper_singleton::helper_singleton() : core_(new nscapi::core_wrapper()), plugin_(new nscapi::plugin_wrapper()) {}
-
-/**
- * Used to help store the module handle (and possibly other things in the future)
- * @param hModule cf. DllMain
- * @param ul_reason_for_call cf. DllMain
- * @return TRUE
- */
-#ifdef WIN32
-/*
-int nscapi::plugin_wrapper::wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call)
-{
-	switch (ul_reason_for_call)
-	{
-	case DLL_PROCESS_ATTACH:
-	case DLL_THREAD_ATTACH:
-		hModule_ = (HINSTANCE)hModule;
-		break;
-	case DLL_THREAD_DETACH:
-	case DLL_PROCESS_DETACH:
-		break;
-	}
-	return TRUE;
-}
-*/
-#endif
 /**
  * Wrapper function around the ModuleHelperInit call.
  * This wrapper retrieves all pointers and stores them for future use.

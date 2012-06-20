@@ -142,6 +142,9 @@ namespace nscapi {
 				return NSCAPI::hasFailed; 
 			} 
 		}
+		static void set_alias(const wchar_t *default_alias, const wchar_t *alias) {
+			nscapi::plugin_singleton->get_core()->set_alias(default_alias, alias);
+		}
 		static int NSLoadModule() { 
 			return NSCAPI::hasFailed; 
 		} 

@@ -66,20 +66,8 @@ void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, i
 		std::wcout << _T("NSCORE NOT LOADED Dumping log: ") << line << _T(": ") << std::endl << logMessage << std::endl;
 		return;
 	}
-	std::string str;
 	try {
-		/*
-		Plugin::LogEntry message;
-		Plugin::LogEntry::Entry *msg = message.add_entry();
-		msg->set_level(nscapi::functions::log_to_gpb(msgType));
-		msg->set_file(file);
-		msg->set_line(line);
-		msg->set_message(utf8::cvt<std::string>(logMessage));
-		if (!message.SerializeToString(&str)) {
-			std::wcout << _T("Failed to generate message: SERIALIZATION ERROR");
-		}
-		*/
-		return fNSAPISimpleMessage(msgType, file.c_str(), line, logMessage.c_str());
+		return fNSAPISimpleMessage(alias.c_str(), msgType, file.c_str(), line, logMessage.c_str());
 	} catch (const std::exception &e) {
 		std::wcout << _T("Failed to generate message: ") << utf8::to_unicode(e.what());
 	} catch (...) {
@@ -547,6 +535,12 @@ std::wstring nscapi::core_wrapper::getApplicationVersionString() {
 	return ret;
 }
 
+void nscapi::core_wrapper::set_alias(const std::wstring default_alias_, const std::wstring alias_) {
+	if (alias_.empty())
+		alias = default_alias_;
+	else
+		alias = alias_;
+}
 /**
  * Wrapper function around the ModuleHelperInit call.
  * This wrapper retrieves all pointers and stores them for future use.

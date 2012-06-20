@@ -43,11 +43,11 @@ namespace settings {
 			}
 
 			void read_map_file(std::wstring file) {
-				get_logger()->debug(__FILE__, __LINE__, _T("Reading MAP file: ") + file);
+				get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Reading MAP file: ") + file);
 
 				std::ifstream in(strEx::wstring_to_string(file).c_str());
 				if(!in) {
-					get_logger()->error(__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
+					get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Failed to read MAP file: ") + file);
 					return;
 				}
 				in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
@@ -82,7 +82,7 @@ namespace settings {
 				line = line.substr(pos);
 				pos = line.find('=');
 				if (pos == -1) {
-					get_logger()->error(__FILE__, __LINE__, _T("Invalid syntax: ") + line);
+					get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Invalid syntax: ") + line);
 					return;
 				}
 				std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
@@ -171,7 +171,7 @@ namespace settings {
 
 
 		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			get_logger()->debug(__FILE__, __LINE__, _T("Loading OLD: ") + context + _T(" for ") + context);
+			get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Loading OLD: ") + context + _T(" for ") + context);
 			std::wstring mapfile = core->get_boot_string(_T("settings"), _T("old_settings_map_file"), _T("old-settings.map"));
 			std::wstring file = core->find_file(_T("${exe-path}/") + mapfile, mapfile);
 			bool readmap = false;
@@ -185,7 +185,7 @@ namespace settings {
 				map.read_map_data(mapdata);
 			}
 			if (!readmap) {
-				get_logger()->error(__FILE__, __LINE__,_T("Failed to read map file: ") + mapfile);
+				get_logger()->error(_T("settings"),__FILE__, __LINE__,_T("Failed to read map file: ") + mapfile);
 			}
 
 			string_list list = get_keys(_T("/includes"));
@@ -324,9 +324,9 @@ namespace settings {
 				key = map.key(key);
 				WritePrivateProfileString(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), get_file_name().c_str());
 			} catch (settings_exception e) {
-				get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
+				get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
 			} catch (...) {
-				get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
+				get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
 		}
 
@@ -389,7 +389,7 @@ namespace settings {
 		virtual void get_real_keys(std::wstring path, string_list &list) {
 			std::wstring keyy = path + _T(" - ") + get_file_name();
 			if (path.empty() || path == _T("/")) {
-				get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Loose leaves not supported: TODO")));
+				get_logger()->debug(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Loose leaves not supported: TODO")));
 				return;
 			}
 			// @todo: this will NOT work for "nodes in paths"
@@ -478,7 +478,7 @@ namespace settings {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				//filename_ = (get_core()->get_base() / get_core()->get_boot_string(get_context(), _T("file"), _T("nsc.ini"))).string();
-				get_logger()->debug(__FILE__, __LINE__, _T("Reading old settings from: ") + filename_);
+				get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Reading old settings from: ") + filename_);
 			}
 			return filename_;
 		}

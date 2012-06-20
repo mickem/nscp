@@ -49,13 +49,13 @@ static ExceptionManager *g_exception_manager = NULL;
 
 NSClient mainClient;	// Global core instance.
 
-#define LOG_CRITICAL_CORE(msg) { nsclient::logging::logger::get_logger()->fatal(__FILE__, __LINE__, msg);}
+#define LOG_CRITICAL_CORE(msg) { nsclient::logging::logger::get_logger()->fatal(_T("core"), __FILE__, __LINE__, msg);}
 #define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::wstring(msg))
-#define LOG_ERROR_CORE(msg) { nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg);}
+#define LOG_ERROR_CORE(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg);}
 #define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::wstring(msg))
-#define LOG_INFO_CORE(msg) { nsclient::logging::logger::get_logger()->info(__FILE__, __LINE__, msg);}
+#define LOG_INFO_CORE(msg) { nsclient::logging::logger::get_logger()->info(_T("core"), __FILE__, __LINE__, msg);}
 #define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::wstring(msg))
-#define LOG_DEBUG_CORE(msg) { nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, msg);}
+#define LOG_DEBUG_CORE(msg) { nsclient::logging::logger::get_logger()->debug(_T("core"), __FILE__, __LINE__, msg);}
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::wstring(msg))
 
 /**

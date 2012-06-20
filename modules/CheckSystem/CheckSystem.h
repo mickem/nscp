@@ -30,7 +30,7 @@ NSC_WRAPPERS_CLI();
 class CheckSystem : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:
 	CheckMemory memoryChecker;
-	PDHCollectorThread pdhThread;
+	PDHCollector pdhThread;
 
 public:
 	typedef enum { started, stopped } states;

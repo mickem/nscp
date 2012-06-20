@@ -154,6 +154,6 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(Scheduler)
+NSC_WRAPPERS_MAIN_DEF(Scheduler, _T("scheduler"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_IGNORE_CMD_DEF()

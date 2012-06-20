@@ -26,6 +26,12 @@ class cli_parser {
 	static nsclient::logging::logger_interface* get_logger() {
 		return nsclient::logging::logger::get_logger(); 
 	}
+	static void error(unsigned int line, const std::wstring &message) {
+		get_logger()->error(_T("client"), __FILE__, line, message);
+	}
+	static void info(unsigned int line, const std::wstring &message) {
+		get_logger()->info(_T("client"), __FILE__, line, message);
+	}
 
 public:
 	cli_parser(NSClient* core) 
@@ -293,24 +299,24 @@ public:
 			if (vm.count("name")) {
 				name = vm["name"].as<std::wstring>();
 			} else {
-				get_logger()->info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
+				info(__LINE__, _T("TODO retrieve name from service here"));
 			}
 			std::wstring desc;
 			if (vm.count("description")) {
 				desc = vm["description"].as<std::wstring>();
 			} else {
-				get_logger()->info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
+				info(__LINE__, _T("TODO retrieve name from service here"));
 			}
 			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
-				get_logger()->debug(__FILE__, __LINE__, _T("Service name: ") + name);
-				get_logger()->debug(__FILE__, __LINE__, _T("Service description: ") + desc);
+				info(__LINE__, _T("Service name: ") + name);
+				info(__LINE__, _T("Service description: ") + desc);
 			}
 
 			if (vm.count("run")) {
 				try {
 					mainClient.start_and_wait(name);
 				} catch (...) {
-					get_logger()->error(__FILE__, __LINE__, _T("Unknown exception in service"));
+					error(__LINE__, _T("Unknown exception in service"));
 				}
 			} else {
 				nsclient::client::service_manager service_manager(name);
@@ -347,17 +353,17 @@ public:
 
 		void debug() {
 			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
-				get_logger()->info(__FILE__, __LINE__, _T("Module: ") + module);
-				get_logger()->info(__FILE__, __LINE__, _T("Command: ") + command);
-				get_logger()->info(__FILE__, __LINE__, _T("Extra Query: ") + combined_query);
-				get_logger()->info(__FILE__, __LINE__, _T("Mode: ") + strEx::itos(mode));
-				get_logger()->info(__FILE__, __LINE__, _T("Boot: ") + strEx::itos(boot));
+				info(__LINE__, _T("Module: ") + module);
+				info(__LINE__, _T("Command: ") + command);
+				info(__LINE__, _T("Extra Query: ") + combined_query);
+				info(__LINE__, _T("Mode: ") + strEx::itos(mode));
+				info(__LINE__, _T("Boot: ") + strEx::itos(boot));
 				if (!module.empty() && boot)
-					get_logger()->info(__FILE__, __LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
+					info(__LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
 				std::wstring args;
 				BOOST_FOREACH(std::wstring s, arguments)
 					strEx::append_list(args, s, _T(", "));
-				get_logger()->info(__FILE__, __LINE__, _T("Arguments: ") + args);
+				info(__LINE__, _T("Arguments: ") + args);
 			}
 
 		}

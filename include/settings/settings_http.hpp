@@ -41,7 +41,7 @@ namespace settings {
 			std::string error;
 			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
 				os.close();
-				get_logger()->error(__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
+				get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
 			}
 			os.close();
 			if (!file_helpers::checks::exists(wp.string())) {
@@ -111,11 +111,11 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
-			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + key.first + _T(".") + key.second));
+			get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + key.first + _T(".") + key.second));
 		}
 
 		virtual void set_real_path(std::wstring path) {
-			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + path));
+			get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + path));
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -151,7 +151,7 @@ namespace settings {
 		std::wstring get_file_name() {
 			if (url_.empty()) {
 				url_ = get_file_from_context();
-				get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + url_);
+				get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Reading INI settings from: ") + url_);
 			}
 			return url_;
 		}

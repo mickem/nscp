@@ -323,6 +323,6 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NSClientServer)
+NSC_WRAPPERS_MAIN_DEF(NSClientServer, _T("check_nt"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_IGNORE_CMD_DEF()

@@ -119,7 +119,6 @@ namespace settings {
 					settings_core::key_description desc = get_registred_key(path, key);
 					if (!desc.advanced) {
 						if (!get()->has_key(path, key)) {
-							get_logger()->debug(__FILE__, __LINE__, _T("Adding: ") + path + _T(".") + key);
 							if (desc.type == key_string)
 								get()->set_string(path, key, desc.defValue);
 							else if (desc.type == key_bool)
@@ -128,13 +127,12 @@ namespace settings {
 								try {
 									get()->set_int(path, key, strEx::stoi(desc.defValue));
 								} catch (const std::exception &e) {
-									get_logger()->error(__FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
+									get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
 								}
 							} else
-								get_logger()->error(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+								get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						} else {
 							std::wstring val = get()->get_string(path, key);
-							get_logger()->debug(__FILE__, __LINE__, _T("Setting old (already exists): ") + path + _T(".") + key + _T(" = ") + val);
 							if (desc.type == key_string)
 								get()->set_string(path, key, val);
 							else if (desc.type == key_bool)
@@ -142,14 +140,14 @@ namespace settings {
 							else if (desc.type == key_integer)
 								get()->set_int(path, key, strEx::stoi(val));
 							else
-								get_logger()->error(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+								get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 						}
 					} else {
-						get_logger()->debug(__FILE__, __LINE__, _T("Skipping (advanced): ") + path + _T(".") + key);
+						get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Skipping (advanced): ") + path + _T(".") + key);
 					}
 				}
 			}
-			get_logger()->info(__FILE__, __LINE__, _T("DONE Updating settings with default values!"));
+			get_logger()->info(_T("settings"),__FILE__, __LINE__, _T("DONE Updating settings with default values!"));
 		}
 		void migrate(instance_ptr from, instance_ptr to) {
 			if (!from || !to)

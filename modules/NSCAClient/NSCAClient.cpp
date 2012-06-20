@@ -438,7 +438,7 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NSCAAgent)
+NSC_WRAPPERS_MAIN_DEF(NSCAAgent, _T("nsca"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()

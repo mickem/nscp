@@ -161,6 +161,6 @@ NSCAPI::nagiosReturn CheckNSCP::handleCommand(const std::wstring &target, const 
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CheckNSCP)
+NSC_WRAPPERS_MAIN_DEF(CheckNSCP, _T("nscp"))
 NSC_WRAPPERS_HANDLE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()

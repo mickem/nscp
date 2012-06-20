@@ -21,11 +21,12 @@ void log_fatal(std::string message) {
 	std::cout << message << std::endl;
 }
 
-std::string create_message(Plugin::LogEntry::Entry::Level level, const char* file, const int line, std::wstring logMessage) {
+std::string create_message(const std::wstring &module, Plugin::LogEntry::Entry::Level level, const char* file, const int line, const std::wstring &logMessage) {
 	std::string str;
 	try {
 		Plugin::LogEntry message;
 		Plugin::LogEntry::Entry *msg = message.add_entry();
+		msg->set_sender(utf8::cvt<std::string>(module));
 		msg->set_level(level);
 		msg->set_file(file);
 		msg->set_line(line);
@@ -38,8 +39,8 @@ std::string create_message(Plugin::LogEntry::Entry::Level level, const char* fil
 	}
 	return str;
 }
-std::string nsclient::logging::logger_helper::create(NSCAPI::log_level::level level, const char* file, const int line, std::wstring message) {
-	return create_message(nscapi::functions::log_to_gpb(level), file, line, message);
+std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
+	return create_message(module, nscapi::functions::log_to_gpb(level), file, line, message);
 }
 
 std::wstring render_log_level_short(Plugin::LogEntry::Entry::Level l) {
@@ -47,7 +48,7 @@ std::wstring render_log_level_short(Plugin::LogEntry::Entry::Level l) {
 }
 
 std::wstring render_log_level_long(Plugin::LogEntry::Entry::Level l) {
-	return nsclient::logging::logger_helper::render_log_level_short(nscapi::functions::gpb_to_log(l));
+	return nsclient::logging::logger_helper::render_log_level_long(nscapi::functions::gpb_to_log(l));
 }
 std::wstring rpad(std::wstring str, std::size_t len) {
 	if (str.length() > len)
@@ -72,11 +73,19 @@ std::wstring render_console_message(const std::string &data) {
 			Plugin::LogEntry::Entry msg = message.entry(i);
 			if (i > 0)
 				ss << _T(" -- ");
-			ss << render_log_level_short(msg.level())
-				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.file()), 20)
-				<< _T(":") << lpad(utf8::cvt<std::wstring>(strEx::itos(msg.line())),4) 
+			std::string tmp = msg.message();
+			strEx::replace(tmp, "\n", "\n    -    ");
+			ss << lpad(render_log_level_long(msg.level()), 8)
+				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.sender()), 10)
 				<< _T(" ") + utf8::cvt<std::wstring>(msg.message())
 				<< std::endl;
+			if (msg.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR) {
+				ss << _T("                    ") 
+					<< utf8::cvt<std::wstring>(msg.file())
+					<< _T(":")
+					<< msg.line() << std::endl;
+
+			}
 		}
 		return ss.str();
 	} catch (std::exception &e) {
@@ -369,7 +378,7 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 			tmp->startup();
 	}
 	logger_impl_ = tmp;
-	logger_impl_->debug(__FILE__, __LINE__, _T("Creating logger: ") + utf8::to_unicode(backend));
+	logger_impl_->debug(_T("log"), __FILE__, __LINE__, _T("Creating logger: ") + utf8::to_unicode(backend));
 	delete old;
 	old = NULL;
 }

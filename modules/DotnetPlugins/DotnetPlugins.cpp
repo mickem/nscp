@@ -152,7 +152,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 #pragma managed(pop)
 nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 
-NSC_WRAPPERS_MAIN_DEF(DotnetPlugin);
+NSC_WRAPPERS_MAIN_DEF(DotnetPlugin, _T("dotnet"));
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
 NSC_WRAPPERS_CLI_DEF();

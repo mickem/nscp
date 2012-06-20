@@ -70,6 +70,6 @@ NSCAPI::nagiosReturn CauseCrashes::handleCommand(const std::wstring &target, con
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CauseCrashes)
+NSC_WRAPPERS_MAIN_DEF(CauseCrashes, _T("crash"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()

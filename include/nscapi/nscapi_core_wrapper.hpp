@@ -28,6 +28,7 @@
 namespace nscapi {
 	class core_wrapper {
 	private:
+		std::wstring alias;
 		nscapi::core_api::lpNSAPIGetBasePath fNSAPIGetBasePath;
 		nscapi::core_api::lpNSAPIGetApplicationName fNSAPIGetApplicationName;
 		nscapi::core_api::lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr;
@@ -174,6 +175,7 @@ namespace nscapi {
 		void registerRoutingListener(unsigned int id, std::wstring channel);
 
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
+		void set_alias(const std::wstring default_alias, const std::wstring alias);
 
 	};
 }

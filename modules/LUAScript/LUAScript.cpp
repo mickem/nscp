@@ -192,7 +192,7 @@ NSCAPI::nagiosReturn LUAScript::handleSimpleNotification(const std::wstring chan
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(LUAScript);
+NSC_WRAPPERS_MAIN_DEF(LUAScript, _T("lua"));
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
 NSC_WRAPPERS_CLI_DEF();

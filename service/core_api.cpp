@@ -32,10 +32,10 @@ using namespace nscp::helpers;
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
 
-#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg); }
-#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg); }
-#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info(__FILE__, __LINE__, msg); }
-#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, msg); }
+#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
+#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
+#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info(_T("core"), __FILE__, __LINE__, msg); }
+#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug(_T("core"), __FILE__, __LINE__, msg); }
 
 NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned int bufLen) {
 	try {
@@ -97,8 +97,8 @@ NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen)
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, CURRENT_SERVICE_VERSION, NSCAPI::isSuccess);
 }
-void NSAPISimpleMessage(int loglevel, const char* file, int line, const wchar_t* message) {
-	nsclient::logging::logger::get_logger()->log(loglevel, file, line, message);
+void NSAPISimpleMessage(const wchar_t* module, int loglevel, const char* file, int line, const wchar_t* message) {
+	nsclient::logging::logger::get_logger()->log(module, loglevel, file, line, message);
 }
 void NSAPIMessage(const char* data, unsigned int count) {
 	std::string message(data, count);

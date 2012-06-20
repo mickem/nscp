@@ -454,7 +454,7 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(PythonScript)
+NSC_WRAPPERS_MAIN_DEF(PythonScript, _T("python"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()

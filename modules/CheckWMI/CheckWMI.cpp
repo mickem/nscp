@@ -619,7 +619,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckWMI);
+NSC_WRAPPERS_MAIN_DEF(CheckWMI, _T("wmi"));
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
 NSC_WRAPPERS_CLI_DEF();

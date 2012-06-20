@@ -44,7 +44,7 @@
  * Default c-tor
  * @return 
  */
-CheckSystem::CheckSystem() : pdhThread(_T("pdhThread")) {}
+CheckSystem::CheckSystem() {}
 /**
  * Default d-tor
  * @return 
@@ -69,7 +69,7 @@ bool CheckSystem::loadModule() {
  */
 
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
+	boost::shared_ptr<PDHCollector::system_counter_data> data(new PDHCollector::system_counter_data);
 	data->check_intervall = 1;
 	try {
 		typedef std::map<std::wstring,std::wstring> counter_map_type;
@@ -98,8 +98,11 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
 			_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
 
-			(_T("default intervall"), sh::uint_key(&data->check_intervall, 1),
-			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."), true)
+			(_T("default intervall"), sh::wstring_key(&data->subsystem, _T("default")),
+			_T("PDH SUBSYSTEM"), _T("Set which pdh subsystem to use."), true)
+
+			(_T("subsystem"), sh::bool_key(&default_counters, true),
+			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
 
 			;
 
@@ -159,7 +162,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 	}
 
 	if (mode == NSCAPI::normalStart) {
-		pdhThread.createThread(data);
+		pdhThread.start(data);
 	}
 
 	return true;
@@ -170,9 +173,8 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
-	if (!pdhThread.exitThread(20000)) {
-		std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
-		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
+	if (!pdhThread.stop()) {
+		NSC_LOG_ERROR(_T("Could not stop the thread, memory leak and potential corruption may be the result..."));
 	}
 	return true;
 }
@@ -511,12 +513,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, st
 
 	for (std::list<CPULoadContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
 		CPULoadContainer load = (*it);
-		PDHCollector *pObject = pdhThread.getThread();
-		if (!pObject) {
-			msg = _T("ERROR: PDH Collection thread not running.");
-			return NSCAPI::returnUNKNOWN;
-		}
-		int value = pObject->getCPUAvrage(load.data + _T("m"));
+		int value = pdhThread.getCPUAvrage(load.data + _T("m"));
 		if (value == -1) {
 			msg = _T("ERROR: Could not get data for ") + load.getAlias() + _T(" perhaps we don't collect data this far back?");
 			return NSCAPI::returnUNKNOWN;
@@ -565,12 +562,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(std::list<std::wstring> arguments,
 		MAP_OPTIONS_END()
 
 
-	PDHCollector *pObject = pdhThread.getThread();
-	if (!pObject) {
-		msg = _T("ERROR: PDH Collection thread not running.");
-		return NSCAPI::returnUNKNOWN;
-	}
-	unsigned long long value = pObject->getUptime();
+	unsigned long long value = pdhThread.getUptime();
 	if (value == -1) {
 		msg = _T("ERROR: Could not get value");
 		return NSCAPI::returnUNKNOWN;
@@ -814,17 +806,12 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(std::list<std::wstring> arguments, st
 		checkHolders::PercentageValueType<unsigned long long, unsigned long long> value;
 		if (firstPaged && (check.data == _T("paged"))) {
 			firstPaged = false;
-			PDHCollector *pObject = pdhThread.getThread();
-			if (!pObject) {
-				msg = _T("ERROR: PDH Collection thread not running.");
-				return NSCAPI::returnUNKNOWN;
-			}
-			dataPaged.value = pObject->getMemCommit();
+			dataPaged.value = pdhThread.getMemCommit();
 			if (dataPaged.value == -1) {
 				msg = _T("ERROR: Failed to get PDH value.");
 				return NSCAPI::returnUNKNOWN;
 			}
-			dataPaged.total = pObject->getMemCommitLimit();
+			dataPaged.total = pdhThread.getMemCommitLimit();
 			if (dataPaged.total == -1) {
 				msg = _T("ERROR: Failed to get PDH value.");
 				return NSCAPI::returnUNKNOWN;
@@ -1360,12 +1347,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 		try {
 			double value = 0;
 			if (counter.data.find('\\') == std::wstring::npos) {
-				PDHCollector *pObject = pdhThread.getThread();
-				if (!pObject) {
-					msg = _T("ERROR: PDH Collection thread not running.");
-					return NSCAPI::returnUNKNOWN;
-				}
-				value = pObject->get_double(counter.data);
+				value = pdhThread.get_double(counter.data);
 				if (value == -1) {
 					msg = _T("ERROR: Failed to get counter value: ") + counter.data;
 					return NSCAPI::returnUNKNOWN;
@@ -1796,7 +1778,7 @@ NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(std::list<std::wstring> ar
 }
 
 NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckSystem);
+NSC_WRAPPERS_MAIN_DEF(CheckSystem, _T("w32system"));
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
 NSC_WRAPPERS_CLI_DEF();

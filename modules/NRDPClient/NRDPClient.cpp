@@ -350,7 +350,7 @@ boost::tuple<int,std::wstring> NRDPClient::send(connection_data data, const nrdp
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NRDPClient)
+NSC_WRAPPERS_MAIN_DEF(NRDPClient, _T("nrdp"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()
