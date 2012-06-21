@@ -25,11 +25,11 @@ namespace settings_client {
 			return core_;
 		}
 		virtual void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
-			get_core()->register_path(path, title, description, advanced);
+			get_core()->register_path(0xffff, path, title, description, advanced);
 		}
 
 		virtual void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced) {
-			get_core()->register_key(path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced);
+			get_core()->register_key(0xffff, path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced);
 		}
 
 		virtual std::wstring get_string(std::wstring path, std::wstring key, std::wstring def) {

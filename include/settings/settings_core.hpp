@@ -87,9 +87,14 @@ namespace settings {
 			key_type type;
 			std::wstring defValue;
 			bool advanced;
-			key_description(std::wstring title_, std::wstring description_, settings_core::key_type type_, std::wstring defValue_, bool advanced_) 
-				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) {}
-			key_description() : type(settings_core::key_string), advanced(false) {}
+			std::set<unsigned int> plugins;
+			key_description(unsigned int plugin_id, std::wstring title_, std::wstring description_, settings_core::key_type type_, std::wstring defValue_, bool advanced_) 
+				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) { append_plugin(plugin_id); }
+			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false) { append_plugin(plugin_id); }
+			key_description() : type(settings_core::key_string), advanced(false) { }
+			void append_plugin(unsigned int plugin_id) {
+				plugins.insert(plugin_id);
+			}
 		};
 		struct path_description {
 			std::wstring title;
@@ -97,12 +102,18 @@ namespace settings {
 			bool advanced;
 			typedef std::map<std::wstring,key_description> keys_type;
 			keys_type keys;
-			path_description(std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) {}
-			path_description() : advanced(false) {}
-			void update(std::wstring title_, std::wstring description_, bool advanced_) {
+			std::set<unsigned int> plugins;
+			path_description(unsigned int plugin_id, std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) { append_plugin(plugin_id); }
+			path_description(unsigned int plugin_id) : advanced(false) { append_plugin(plugin_id); }
+			path_description() : advanced(false) {  }
+			void update(unsigned int plugin_id, std::wstring title_, std::wstring description_, bool advanced_) {
 				title = title_;
 				description = description_;
 				advanced = advanced_;
+				append_plugin(plugin_id);
+			}
+			void append_plugin(unsigned int plugin_id) {
+				plugins.insert(plugin_id);
 			}
 		};
 
@@ -123,7 +134,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced = false) = 0;
+		virtual void register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced = false) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a key with the settings module.
@@ -138,7 +149,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_key(std::wstring path, std::wstring key, key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) = 0;
+		virtual void register_key(unsigned int plugin_id, std::wstring path, std::wstring key, key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get info about a registered key.
 		/// Used when writing settings files.

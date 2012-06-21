@@ -862,7 +862,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::wpath file, std::
 			nsclient::logging::logger::subscribe_raw(plugin);
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
-		settings_manager::get_core()->register_key(_T("/modules"), plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), _T("0"), false);
+		settings_manager::get_core()->register_key(0xffff, _T("/modules"), plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), _T("0"), false);
 	}
 	return plugin;
 }
@@ -1221,6 +1221,18 @@ NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, std::st
 	}
 }
 
+std::wstring NSClientT::get_plugin_module_name(unsigned int plugin_id) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	if (!readLock.owns_lock()) {
+		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (010)."));
+		return _T("");
+	}
+	BOOST_FOREACH(plugin_type plugin, plugins_) {
+		if (plugin->get_id() == plugin_id)
+			return plugin->getFilename();
+	}
+	return _T("");
+}
 void NSClientT::listPlugins() {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
@@ -1238,7 +1250,6 @@ void NSClientT::listPlugins() {
 			LOG_ERROR_CORE_STD(_T("Could not load plugin: ") + e.file_ + _T(": ") + e.error_);
 		}
 	}
-
 }
 
 boost::filesystem::wpath NSClientT::getBasePath(void) {

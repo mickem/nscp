@@ -85,6 +85,14 @@ void DotnetPlugin::load(std::wstring key, std::wstring val) {
 		NSC_LOG_ERROR_STD(_T("CLR failed to load!"));
 	}
 }
+bool DotnetPlugin::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
+	get_core()->settings_register_key(id_, path, key, type, title, description, defaultValue, advanced);
+	return true;
+}
+bool DotnetPlugin::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+	get_core()->settings_register_path(id_, path, title, description, advanced);
+	return true;
+}
 
 bool DotnetPlugin::register_command(std::wstring command, plugin_instance::plugin_type plugin, std::wstring description){
 	commands[command] = plugin;

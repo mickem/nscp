@@ -4,6 +4,12 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-06-21 MickeM
+ * Added plugin_id to settings API to allow generating documentation based on module names.
+ * Added option --filter <module name> to filter generation based on module name.
+   You can now do this to generate documentation for a given module.
+   nscp settings --settings dummy --generate trac --filter ExternalScripts --load-all --add-defaults --log error
+
 2012-06-20 MickeM
  * Removed some legacy settings API code
  * Changed logging API to allow settings "modules"

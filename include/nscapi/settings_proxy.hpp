@@ -6,19 +6,20 @@
 namespace nscapi {
 	class settings_proxy : public nscapi::settings_helper::settings_impl_interface {
 	private:
+		unsigned int plugin_id_;
 		nscapi::core_wrapper* core_;
 
 	public:
-		settings_proxy(nscapi::core_wrapper* core) : core_(core) {}
+		settings_proxy(unsigned int plugin_id, nscapi::core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
 
 		typedef std::list<std::wstring> string_list;
 
 		virtual void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
-			core_->settings_register_path(path, title, description, advanced);
+			core_->settings_register_path(plugin_id_, path, title, description, advanced);
 		}
 
 		virtual void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced) {
-			core_->settings_register_key(path, key, type, title, description, defValue, advanced);
+			core_->settings_register_key(plugin_id_, path, key, type, title, description, defValue, advanced);
 		}
 
 		virtual std::wstring get_string(std::wstring path, std::wstring key, std::wstring def) {

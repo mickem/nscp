@@ -154,11 +154,11 @@ public:
 		return true;
 	}
 	virtual bool registerPath(String^ path, String^ title, String^ description, bool advanced) {
-		get_core()->settings_register_path(to_nstring(path), to_nstring(title), to_nstring(description), advanced);
+		get_manager()->settings_register_path(to_nstring(path), to_nstring(title), to_nstring(description), advanced);
 		return true;
 	}
 	virtual bool register_key(String^ path, String^ key, int type, String^ title, String^ description, String^ defaultValue, bool advanced) {
-		get_core()->settings_register_key(to_nstring(path), to_nstring(key), type, to_nstring(title), to_nstring(description), to_nstring(defaultValue), advanced);
+		get_manager()->settings_register_key(to_nstring(path), to_nstring(key), type, to_nstring(title), to_nstring(description), to_nstring(defaultValue), advanced);
 		return true;
 	}
 

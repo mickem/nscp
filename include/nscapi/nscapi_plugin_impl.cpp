@@ -16,6 +16,17 @@ nscapi::core_wrapper* nscapi::impl::simple_plugin::get_core() {
 	return plugin_singleton->get_core();
 }
 
+void nscapi::impl::simple_plugin::register_command(std::wstring command, std::wstring description) {
+	get_core()->registerCommand(get_id(), command, description);
+}
+void nscapi::impl::simple_plugin::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
+	get_core()->settings_register_key(get_id(), path, key, type, title, description, defaultValue, advanced);
+}
+void nscapi::impl::simple_plugin::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+	get_core()->settings_register_path(get_id(), path, title, description, advanced);
+}
+
+
 void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
 	try {
 		Plugin::LogEntry message;

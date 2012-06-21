@@ -20,11 +20,11 @@ namespace nscapi {
 				id_ = id;
 			}
 			inline boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy() {
-				return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(get_core()));
+				return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(id_, get_core()));
 			}
-			void register_command(std::wstring command, std::wstring description) {
-				get_core()->registerCommand(get_id(), command, description);
-			}
+			void register_command(std::wstring command, std::wstring description);
+			void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
+			void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 
 		};
 

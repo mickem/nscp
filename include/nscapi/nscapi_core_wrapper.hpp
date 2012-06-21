@@ -28,7 +28,7 @@
 namespace nscapi {
 	class core_wrapper {
 	private:
-		std::wstring alias;
+		std::wstring alias;	// This is actually the wrong value if multiple modules are loaded!
 		nscapi::core_api::lpNSAPIGetBasePath fNSAPIGetBasePath;
 		nscapi::core_api::lpNSAPIGetApplicationName fNSAPIGetApplicationName;
 		nscapi::core_api::lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr;
@@ -130,8 +130,8 @@ namespace nscapi {
 		std::wstring expand_path(std::wstring value);
 		int getSettingsInt(std::wstring section, std::wstring key, int defaultValue);
 		bool getSettingsBool(std::wstring section, std::wstring key, bool defaultValue);
-		void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
-		void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
+		void settings_register_key(unsigned int plugin_id, std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
+		void settings_register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced);
 		void settings_save();
 
 		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::wstring message);
@@ -141,13 +141,6 @@ namespace nscapi {
 		void DestroyBuffer(char**buffer);
 		NSCAPI::nagiosReturn query(const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::nagiosReturn query(const std::wstring & command, const std::string & request, std::string & result);
-		/*
-		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & message, std::wstring & perf);
-		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::string & result);
-		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf);
-		NSCAPI::nagiosReturn exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);
-		bool submit_simple_message(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn code, std::wstring & message, std::wstring & perf, std::wstring & response);
-		*/
 
 		NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::nagiosReturn exec_command(const std::wstring target, const std::wstring command, std::string request, std::string & result);
@@ -176,6 +169,5 @@ namespace nscapi {
 
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 		void set_alias(const std::wstring default_alias, const std::wstring alias);
-
 	};
 }

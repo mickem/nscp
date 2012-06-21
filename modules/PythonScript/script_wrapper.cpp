@@ -616,8 +616,8 @@ NSCAPI::settings_type script_wrapper::settings_wrapper::get_type(std::string sty
 }
 void script_wrapper::settings_wrapper::settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue) {
 	NSCAPI::settings_type type = get_type(stype);
-	core->settings_register_key(utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(key), type, utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), utf8::cvt<std::wstring>(defaultValue), false);
+	core->settings_register_key(plugin_id, utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(key), type, utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), utf8::cvt<std::wstring>(defaultValue), false);
 }
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
-	core->settings_register_path(utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), false);
+	core->settings_register_path(plugin_id, utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), false);
 }

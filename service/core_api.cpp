@@ -344,14 +344,14 @@ NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,con
 	}
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {
+NSCAPI::errorReturn NSAPISettingsRegKey(unsigned int plugin_id, const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {
 	try {
 		if (type == NSCAPI::key_string)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_string, title, description, defVal, advanced==1);
+			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_string, title, description, defVal, advanced==1);
 		if (type == NSCAPI::key_bool)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_bool, title, description, defVal, advanced==1);
+			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_bool, title, description, defVal, advanced==1);
 		if (type == NSCAPI::key_integer)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_integer, title, description, defVal, advanced==1);
+			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_integer, title, description, defVal, advanced==1);
 		return NSCAPI::hasFailed;
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed register key: ") + e.getMessage());
@@ -364,9 +364,9 @@ NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key,
 }
 
 
-NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
+NSCAPI::errorReturn NSAPISettingsRegPath(unsigned int plugin_id, const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
 	try {
-		settings_manager::get_core()->register_path(path, title, description, advanced);
+		settings_manager::get_core()->register_path(plugin_id, path, title, description, advanced);
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed register path: ") + e.getMessage());
 		return NSCAPI::hasFailed;

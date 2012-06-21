@@ -72,6 +72,8 @@ public:
 
 	bool register_command(std::wstring command, plugin_instance::plugin_type plugin, std::wstring description);
 	bool register_channel(std::wstring channel, plugin_instance::plugin_type plugin);
+	bool settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
+	bool settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 	nscapi::core_wrapper* get_core();
 
 private:

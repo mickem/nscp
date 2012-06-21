@@ -171,6 +171,7 @@ public:
 
 	void listPlugins();
 	plugin_info_list get_all_plugins();
+	std::wstring get_plugin_module_name(unsigned int plugin_id);
 	plugin_alias_list_type find_all_plugins(bool active);
 	std::list<std::wstring> list_commands();
 

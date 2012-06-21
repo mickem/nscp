@@ -132,4 +132,3 @@
 	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { return NSCAPI::isfalse; }
 
 #define GET_CORE() nscapi::plugin_singleton->get_core()
-#define GET_PLUGIN() nscapi::plugin_singleton->get_plugin()

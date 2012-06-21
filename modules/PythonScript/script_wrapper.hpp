@@ -147,7 +147,7 @@ namespace script_wrapper {
 		command_wrapper(nscapi::core_wrapper* core) : core(core) {}
 
 	public:
-		static boost::shared_ptr<command_wrapper> create() {
+		static boost::shared_ptr<command_wrapper> create(unsigned int plugin_id) {
 			return boost::shared_ptr<command_wrapper>(new command_wrapper(nscapi::plugin_singleton->get_core()));
 		}
 
@@ -164,6 +164,7 @@ namespace script_wrapper {
 	struct settings_wrapper {
 	private:
 		nscapi::core_wrapper* core;
+		unsigned int plugin_id;
 	public:
 		settings_wrapper() : core(NULL) {}
 		settings_wrapper(const settings_wrapper &other) : core(other.core) {}
@@ -171,11 +172,11 @@ namespace script_wrapper {
 			core = other.core;
 			return *this;
 		}
-		settings_wrapper(nscapi::core_wrapper* core) : core(core) {}
+		settings_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
 
 	public:
-		static boost::shared_ptr<settings_wrapper> create() {
-			return boost::shared_ptr<settings_wrapper>(new settings_wrapper(nscapi::plugin_singleton->get_core()));
+		static boost::shared_ptr<settings_wrapper> create(unsigned int plugin_id) {
+			return boost::shared_ptr<settings_wrapper>(new settings_wrapper(nscapi::plugin_singleton->get_core(), plugin_id));
 		}
 		
 

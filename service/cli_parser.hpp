@@ -64,6 +64,7 @@ public:
 			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
+			("filter", po::value<std::wstring>(), "Filter what to update (only works with generate trac currently).")
 			("add-defaults", "Add all default (if missing) values.")
 			("load-all", "Load all plugins (currently only used with generate).")
 			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
@@ -251,8 +252,11 @@ public:
 
 			bool def = vm.count("add-defaults")==1;
 			bool load_all = vm.count("load-all")==1;
+			std::wstring filter;
+			if (vm.count("filter"))
+				filter = vm["filter"].as<std::wstring>();
 
-			nsclient::settings_client client(core_, log_level, def, load_all);
+			nsclient::settings_client client(core_, log_level, def, load_all, filter);
 			int ret = -1;
 
 			if (vm.count("generate")) {

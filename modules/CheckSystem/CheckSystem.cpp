@@ -98,11 +98,11 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
 			_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
 
-			(_T("default intervall"), sh::wstring_key(&data->subsystem, _T("default")),
-			_T("PDH SUBSYSTEM"), _T("Set which pdh subsystem to use."), true)
+			(_T("default intervall"), sh::uint_key(&data->check_intervall, 1),
+			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."), true)
 
-			(_T("subsystem"), sh::bool_key(&default_counters, true),
-			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
+			(_T("subsystem"), sh::wstring_key(&data->subsystem, _T("default")),
+			_T("PDH SUBSYSTEM"), _T("Set which pdh subsystem to use."), true)
 
 			;
 

@@ -27,9 +27,6 @@
 #include <strEx.h>
 #include <arrayBuffer.h>
 
-//#include <protobuf/plugin.pb.h>
-//#include <nscapi/nscapi_protobuf_functions.hpp>
-
 #define CORE_LOG_ERROR_STD(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, (std::wstring)msg); }
 #define CORE_LOG_ERROR(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, msg); }
 
@@ -320,15 +317,15 @@ bool nscapi::core_wrapper::getSettingsBool(std::wstring section, std::wstring ke
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIGetSettingsBool(section.c_str(), key.c_str(), defaultValue?1:0) == 1;
 }
-void nscapi::core_wrapper::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
+void nscapi::core_wrapper::settings_register_key(unsigned int plugin_id, std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
 	if (!fNSAPISettingsRegKey)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	fNSAPISettingsRegKey(path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
+	fNSAPISettingsRegKey(plugin_id, path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
 }
-void nscapi::core_wrapper::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+void nscapi::core_wrapper::settings_register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced) {
 	if (!fNSAPISettingsRegPath)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	fNSAPISettingsRegPath(path.c_str(), title.c_str(), description.c_str(), advanced);
+	fNSAPISettingsRegPath(plugin_id, path.c_str(), title.c_str(), description.c_str(), advanced);
 }
 
 
@@ -439,11 +436,7 @@ nscapi::core_wrapper::plugin_info_list nscapi::core_wrapper::getPluginList() {
 	
 	
 	int len = 0;
-	//NSCAPI::plugin_info_list **list2;
-	//NSCAPI::plugin_info_list *list[1];
 	NSCAPI::plugin_info *list[1];
-	//typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSAPI_plugin_info** list);
-	//typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSAPI_plugin_info** list);
 	NSCAPI::errorReturn err = fNSAPIGetPluginList(&len, list);
 	if (err != NSCAPI::isSuccess)
 		return ret;
@@ -536,11 +529,9 @@ std::wstring nscapi::core_wrapper::getApplicationVersionString() {
 }
 
 void nscapi::core_wrapper::set_alias(const std::wstring default_alias_, const std::wstring alias_) {
-	if (alias_.empty())
-		alias = default_alias_;
-	else
-		alias = alias_;
+	alias = default_alias_;
 }
+
 /**
  * Wrapper function around the ModuleHelperInit call.
  * This wrapper retrieves all pointers and stores them for future use.

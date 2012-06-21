@@ -10,9 +10,10 @@ namespace nsclient {
 		std::wstring log_;
 		bool default_;
 		bool load_all_;
+		std::wstring filter_;
 
 	public:
-		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool load_all) : started_(false), core_(core), log_(log), default_(update_defaults), load_all_(load_all) {
+		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool load_all, std::wstring filter) : started_(false), core_(core), log_(log), default_(update_defaults), load_all_(load_all), filter_(filter) {
 			startup();
 		}
 
@@ -40,7 +41,6 @@ namespace nsclient {
 				return;
 			}
 			if (default_) {
-				std::wcout << _T("Adding default values") << std::endl;
 				settings_manager::get_core()->update_defaults();
 			}
 			started_ = true;
@@ -100,10 +100,26 @@ namespace nsclient {
 				} else if (target == _T("trac")) {
 					settings::string_list s = settings_manager::get_core()->get_reg_sections();
 					BOOST_FOREACH(std::wstring path, s) {
-						std::wcout << _T("== ") << path << _T(" ==") << std::endl;
+
 						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+						std::wstring plugins;
+						bool include = filter_.empty();
+						BOOST_FOREACH(unsigned int i, desc.plugins) {
+							std::wstring name = core_->get_plugin_module_name(i);
+							if (name.find(filter_) != std::wstring::npos)
+								include = true;
+							if (!plugins.empty())
+								plugins += _T(", ");
+							plugins += name;
+						}
+
+						if (!include)
+							continue;
+
+						std::wcout << _T("== ") << path << _T(" ==") << std::endl;
 						if (!desc.description.empty())
 							std::wcout << desc.description << std::endl;
+						std::wcout << _T("'''Used by:''' ") << plugins << std::endl;
 						std::wcout << std::endl;
 						settings::string_list k = settings_manager::get_core()->get_reg_keys(path);
 						bool first = true;

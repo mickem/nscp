@@ -319,7 +319,7 @@ namespace script_wrapper {
 			std::wstring path = lua.wstring(1);
 			std::wstring title = lua.wstring(1);
 			std::wstring description = lua.wstring(1);
-			get_instance()->get_core()->settings_register_path(path, title, description, false);
+			get_instance()->get_core()->settings_register_path(get_instance()->get_plugin_id(), path, title, description, false);
 			return 0;
 		}
 		NSCAPI::settings_type script_wrapper::settings_wrapper::get_type(std::string stype) {
@@ -342,7 +342,7 @@ namespace script_wrapper {
 			std::wstring title = lua.wstring(1);
 			std::wstring description = lua.wstring(1);
 			std::wstring defaultValue = lua.wstring(1);
-			get_instance()->get_core()->settings_register_key(path, key, type, title, description, defaultValue, false);
+			get_instance()->get_core()->settings_register_key(get_instance()->get_plugin_id(), path, key, type, title, description, defaultValue, false);
 			return 0;
 		}
 		

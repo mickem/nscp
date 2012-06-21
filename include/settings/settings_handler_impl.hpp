@@ -187,12 +187,12 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced = false) {
+		void register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced = false) {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
-				registred_paths_[path] = path_description(title, description, advanced);
+				registred_paths_[path] = path_description(plugin_id, title, description, advanced);
 			} else {
-				(*it).second.update(title, description, advanced);
+				(*it).second.update(plugin_id, title, description, advanced);
 			}
 		}
 
@@ -208,13 +208,19 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_key(std::wstring path, std::wstring key, settings_core::key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) {
+		void register_key(unsigned int plugin_id, std::wstring path, std::wstring key, settings_core::key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
-				registred_paths_[path] = path_description();
-				registred_paths_[path].keys[key] = key_description(title, description, type, defValue, advanced);
+				registred_paths_[path] = path_description(plugin_id);
+				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, type, defValue, advanced);
 			} else {
-				(*it).second.keys[key] = key_description(title, description, type, defValue, advanced);
+				(*it).second.append_plugin(plugin_id);
+				path_description::keys_type::iterator kit = (*it).second.keys.find(path);
+				if (kit == (*it).second.keys.end()) {
+					(*it).second.keys[key] = key_description(plugin_id, title, description, type, defValue, advanced);
+				} else {
+					(*kit).second.append_plugin(plugin_id);
+				}
 			}
 		}
 		//////////////////////////////////////////////////////////////////////////
