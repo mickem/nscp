@@ -12,9 +12,10 @@ message Common {
 	};
 	enum DataType {
 		INT = 1;
-		STRING = 1;
-		FLOAT = 1;
-		BOOL = 1;
+		STRING = 2;
+		FLOAT = 3;
+		BOOL = 4;
+		LIST = 5;
 	};
 	
 	message AnyDataType {
@@ -23,6 +24,7 @@ message Common {
 		optional int64 int_data = 3;
 		optional double float_data = 4;
 		optional bool bool_data = 5;
+		repeated string list_data = 6;
 	}
 
 	message KeyValue {
@@ -114,11 +116,10 @@ message Common {
 	message Status {
 	
 		enum StatusType {
-			OK = 0;
-			WARNING = 1;
-			PROBLEM = 2;
-			CRITICAL = 3;
-			UNKNOWN = 10;
+			STATUS_OK = 0;
+			STATUS_WARNING = 1;
+			STATUS_ERROR = 2;
+			STATUS_DELAYED = 3;
 		};
 	
 		required StatusType status = 1;
@@ -249,6 +250,88 @@ message SubmitResponseMessage {
 	repeated Common.Attachment attachments = 3;
 }
 
+
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// plugins and registration
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+message Registry {
+	enum ItemType { 
+		QUERY = 1;
+		COMMAND = 2;
+		HANDLER = 3;
+		PLUGIN = 4;
+		ALL = 99;
+	};
+	message Query {
+		optional string expression = 1;
+	};
+	message Information {
+		optional string title = 1;
+		optional string description = 2;
+		
+		optional string minVersion = 5;
+		optional string maxVersion = 6;
+		
+		optional bool advanced = 8;
+		repeated string plugin = 9;
+	};
+};
+
+message RegistryRequestMessage {
+	message Request {
+		enum ActionType { 
+			REGISTRATION = 1;
+			INVENTORY = 2;
+		};
+		message Registration {
+			optional int32 plugin_id = 1;
+			required Registry.ItemType type = 2;
+			required string name = 3;
+			optional Registry.Information info = 4;
+			
+			repeated string alias = 9;
+		};
+		message Inventory {
+			optional string plugin = 1;
+			repeated Registry.ItemType type = 2;
+			optional string name = 3;
+			optional Registry.Information info = 4;
+
+			optional bool fetch_all = 6;
+			optional bool fetch_information = 7;
+		};
+		optional int64 id = 1;
+		required ActionType type = 2;
+		optional Registration registration = 3;
+		optional Inventory inventory = 4;
+	};
+	required Common.Header header = 1;
+	repeated Request payload = 2;
+};
+message RegistryResponseMessage {
+	message Response {
+		enum ActionType { 
+			INVENTORY = 2;
+		};
+		message Inventory {
+			repeated string plugin = 1;
+			required Registry.ItemType type = 2;
+			required string name = 3;
+			optional Registry.Information info = 4;
+		};
+		optional int64 id = 1;
+		required Common.Status result = 2;
+		required ActionType type = 3;
+		
+		repeated Inventory inventory = 4;
+	};
+
+	required Common.Header header = 1;
+	repeated Response payload = 2;
+};
+
 // // // // // // // // // // // // // // // // // // // // // // // // 
 //
 // Settings commands
@@ -257,49 +340,95 @@ message SubmitResponseMessage {
 // // // // // // // // // // // // // // // // // // // // // // // // 
 message Settings {
 	message Node {
-		message Path {
-			required string path = 1;
-			optional string key = 2;
-		}
-		optional Path path = 1;
-		optional string expression = 2;
+		required string path = 1;
+		optional string key = 2;
+	};
+	message Query {
+		optional string expression = 1;
+	};
+	message Value {
+		optional Common.AnyDataType value = 1;
+		optional Common.DataType type = 2;
+	};
+	message Information {
+		optional string title = 1;
+		optional string description = 2;
+		optional string default_value = 3;
+		optional string min_version = 4;
+		optional string max_version = 5;
+		optional bool advanced = 6;
+		optional string sample = 7;
+		repeated string plugin = 9;
 	};
 };
 
-message QuerySettingsRequestMessage {
+message SettingsRequestMessage {
 	message Request {
+		enum ActionType { 
+			REGISTRATION = 1; 
+			QUERY = 2; 
+			UPDATE = 3;
+			INVENTORY = 4; 
+		};
+		message Registration {
+			optional Settings.Node node = 1;
+			optional Settings.Information info = 2;
+		};
+		message Query {
+			optional Settings.Node node = 1;
+			optional Settings.Query query = 4;
+			optional bool recursive = 2;
+			optional Common.DataType type = 3;
+		};
+		message Inventory {
+			optional Settings.Node node = 1;
+			optional Settings.Query query = 10;
+			optional bool recursive_fetch = 2;
+			optional bool fetch_keys = 3;
+			optional bool fetch_paths = 4;
+			optional bool descriptions = 5;
+		};
+		message Update {
+			optional Settings.Node node = 1;
+			optional Settings.Value value = 2;
+		};
 		optional int64 id = 1;
-		required Settings node = 2;
+		required ActionType type = 2;
+		required int32 plugin_id = 3;
 		
-		optional string default = 3;
-		optional bool fetch_descriptions = 4;
-		
-		optional Common.DataType return_type = 17;
-		
+		optional Registration registration = 10;
+		optional Query query = 11;
+		optional Update update = 12;
+		optional Inventory inventory = 13;
 	};
 	required Common.Header header = 1;
 	repeated Request payload = 2;
-}
-message QuerySettingsResponseMessage {
+};
+message SettingsResponseMessage {
 	message Response {
-		message SectionKeys {
-			repeated string key = 1;
-		}
+		enum ActionType { 
+			QUERY = 2;
+			INVENTORY = 4;
+		};
+		message Query {
+			required Settings.Node node = 1;
+			required Settings.Value value = 2;
+		};
+		message Inventory {
+			required Settings.Node node = 1;
+			required Settings.Information info = 2;
+		};
 		optional int64 id = 1;
-		required Settings node = 2;
-
-		optional Common.AnyDataType value = 4;
-		optional SectionKeys keys = 5;
+		required Common.Status result = 2;
+		required ActionType type = 3;
 		
-		optional string title = 6;
-		optional string description = 7;
-		
-		optional Common.DataType required_type = 17;
-		
+		repeated Query query = 4;
+		repeated Inventory inventory = 5;
 	};
+
 	required Common.Header header = 1;
 	repeated Response payload = 2;
-}
+};
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // 

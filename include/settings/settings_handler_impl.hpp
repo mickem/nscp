@@ -243,7 +243,7 @@ namespace settings {
 			}
 			throw KeyNotFoundException(path, key);
 		}
-		settings_core::path_description get_registred_path(std::wstring path) {
+		settings_core::path_description get_registred_path(const std::wstring &path) {
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
 				return (*cit).second;

@@ -68,3 +68,5 @@ NSCAPI::errorReturn NSAPIRegisterSubmissionListener(unsigned int plugin_id, cons
 NSCAPI::errorReturn NSAPIRegisterRoutingListener(unsigned int plugin_id, const wchar_t* channel);
 NSCAPI::errorReturn NSAPIReload(const wchar_t*);
 NSCAPI::log_level::level NSAPIGetLoglevel();
+NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
+NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);

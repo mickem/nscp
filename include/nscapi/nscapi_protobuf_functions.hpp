@@ -58,23 +58,23 @@ namespace nscapi {
 			}
 			static Plugin::Common::Status::StatusType status_to_gpb(int ret) {
 				if (ret == NSCAPI::isSuccess)
-					return Plugin::Common_Status_StatusType_OK;
-				return Plugin::Common_Status_StatusType_PROBLEM;
+					return Plugin::Common_Status_StatusType_STATUS_OK;
+				return Plugin::Common_Status_StatusType_STATUS_ERROR;
 			}
 			static int gbp_to_status(Plugin::Common::Status::StatusType ret) {
-				if (ret == Plugin::Common_Status_StatusType_OK)
+				if (ret == Plugin::Common_Status_StatusType_STATUS_OK)
 					return NSCAPI::isSuccess;
 				return NSCAPI::hasFailed;
 			}
 			static Plugin::Common::ResultCode gbp_status_to_gbp_nagios(Plugin::Common::Status::StatusType ret) {
-				if (ret == Plugin::Common_Status_StatusType_OK)
+				if (ret == Plugin::Common_Status_StatusType_STATUS_OK)
 					return Plugin::Common_ResultCode_OK;
 				return Plugin::Common_ResultCode_UNKNOWN;
 			}
 			static Plugin::Common::Status::StatusType gbp_to_nagios_gbp_status(Plugin::Common::ResultCode ret) {
 				if (ret == Plugin::Common_ResultCode_UNKNOWN||ret == Plugin::Common_ResultCode_WARNING||ret == Plugin::Common_ResultCode_CRITCAL)
-					return Plugin::Common_Status_StatusType_CRITICAL;
-				return Plugin::Common_Status_StatusType_OK;
+					return Plugin::Common_Status_StatusType_STATUS_ERROR;
+				return Plugin::Common_Status_StatusType_STATUS_OK;
 			}
 			
 			static Plugin::LogEntry::Entry::Level log_to_gpb(NSCAPI::messageTypes ret) {

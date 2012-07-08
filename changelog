@@ -4,6 +4,12 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-03 MickeM
+ * Improved settings API with new protoclbuffers commad (avalible from python)
+ * Improved registration API with new protoclbuffers commad (avalible from python)
+ * Created new python documentation module docs.py
+ * Improved command line syntax so executable commands now take an optional module prefix
+
 2012-06-21 MickeM
  * Added plugin_id to settings API to allow generating documentation based on module names.
  * Added option --filter <module name> to filter generation based on module name.

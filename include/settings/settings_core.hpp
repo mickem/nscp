@@ -35,7 +35,7 @@
 namespace settings {
 
 
-	class settings_exception : std::exception {
+	class settings_exception : public std::exception {
 		std::string error_;
 	public:
 		//////////////////////////////////////////////////////////////////////////
@@ -161,7 +161,7 @@ namespace settings {
 		/// @author mickem
 		virtual key_description get_registred_key(std::wstring path, std::wstring key) = 0;
 
-		virtual settings_core::path_description get_registred_path(std::wstring path) = 0;
+		virtual settings_core::path_description get_registred_path(const std::wstring &path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all registered sections

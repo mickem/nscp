@@ -63,6 +63,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("save", &script_wrapper::settings_wrapper::save)
 		.def("register_path", &script_wrapper::settings_wrapper::settings_register_path)
 		.def("register_key", &script_wrapper::settings_wrapper::settings_register_key)
+		.def("query", &script_wrapper::settings_wrapper::query)
 		;
 	class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Registry", no_init)
 		.def("get",&script_wrapper::function_wrapper::create)
@@ -75,6 +76,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("simple_cmdline", &script_wrapper::function_wrapper::register_simple_cmdline)
 		.def("subscription", &script_wrapper::function_wrapper::subscribe_function)
 		.def("simple_subscription", &script_wrapper::function_wrapper::subscribe_simple_function)
+		.def("query", &script_wrapper::function_wrapper::query)
 		;
 	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", init<>())
 		.def("get",&script_wrapper::command_wrapper::create)
@@ -131,6 +133,25 @@ bool python_script::callFunction(const std::string& functionName) {
 			object scriptFunction = extract<object>(localDict[functionName]);
 			if( scriptFunction )
 				scriptFunction();
+			return true;
+		} catch( error_already_set e) {
+			script_wrapper::log_exception();
+			return false;
+		}
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Unknown exception"));
+		return false;
+	}
+}
+bool python_script::callFunction(const std::string& functionName, const std::vector<std::wstring> args) {
+	try {
+		script_wrapper::thread_locker locker;
+		try	{
+			if (!localDict.has_key(functionName))
+				return true;
+			object scriptFunction = extract<object>(localDict[functionName]);
+			if (scriptFunction)
+				scriptFunction(script_wrapper::convert(args));
 			return true;
 		} catch( error_already_set e) {
 			script_wrapper::log_exception();
@@ -285,7 +306,7 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 			;
 
 		std::vector<std::wstring> vargs(args.begin(), args.end());
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).allow_unregistered().run();
 		po::store(parsed, vm);
 		po::notify(vm);
 
@@ -295,13 +316,14 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 			message = utf8::to_unicode(ss.str());
 			return NSCAPI::returnUNKNOWN;
 		}
+		std::vector<std::wstring> py_args = po::collect_unrecognized(parsed.options, po::include_positional);
 
 		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
 		if (!ofile)
 			return false;
 		script_container sc(*ofile);
 		python_script script(get_id(), "", sc);
-		if (!script.callFunction("__main__")) {
+		if (!script.callFunction("__main__", py_args)) {
 			message = _T("Failed to execute script: __main__");
 			return NSCAPI::returnUNKNOWN;
 		}

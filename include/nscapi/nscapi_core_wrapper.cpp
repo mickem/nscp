@@ -327,12 +327,43 @@ void nscapi::core_wrapper::settings_register_path(unsigned int plugin_id, std::w
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	fNSAPISettingsRegPath(plugin_id, path.c_str(), title.c_str(), description.c_str(), advanced);
 }
-
+NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+	if (!fNSAPISettingsQuery)
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	fNSAPISettingsQuery(request, request_len, response, response_len);
+}
+NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const std::string request, std::string &response) {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::errorReturn retC = settings_query(request.c_str(), request.size(), &buffer, &buffer_size);
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+	DestroyBuffer(&buffer);
+	return retC;
+}
 
 void nscapi::core_wrapper::settings_save() {
 	if (!fNSAPISettingsSave)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	fNSAPISettingsSave();
+}
+
+
+NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+	if (!fNSAPIRegistryQuery)
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	fNSAPIRegistryQuery(request, request_len, response, response_len);
+}
+NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string request, std::string &response) {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::errorReturn retC = registry_query(request.c_str(), request.size(), &buffer, &buffer_size);
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+	DestroyBuffer(&buffer);
+	return retC;
 }
 
 /**
@@ -578,12 +609,14 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIReleasePluginList = (nscapi::core_api::lpNSAPIReleasePluginList)f(_T("NSAPIReleasePluginList"));
 
 	fNSAPISettingsSave = (nscapi::core_api::lpNSAPISettingsSave)f(_T("NSAPISettingsSave"));
+	fNSAPISettingsQuery = (nscapi::core_api::lpNSAPISettingsQuery)f(_T("NSAPISettingsQuery"));
 
 	fNSAPIExpandPath = (nscapi::core_api::lpNSAPIExpandPath)f(_T("NSAPIExpandPath"));
 	
 	fNSAPIRegisterSubmissionListener = (nscapi::core_api::lpNSAPIRegisterSubmissionListener)f(_T("NSAPIRegisterSubmissionListener"));
 	fNSAPIRegisterRoutingListener = (nscapi::core_api::lpNSAPIRegisterRoutingListener)f(_T("NSAPIRegisterRoutingListener"));
 	fNSAPIGetLoglevel = (nscapi::core_api::lpNSAPIGetLoglevel)f(_T("NSAPIGetLoglevel"));
+	fNSAPIRegistryQuery = (nscapi::core_api::lpNSAPIRegistryQuery)f(_T("NSAPIRegistryQuery"));
 
 	return true;
 }

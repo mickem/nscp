@@ -7,6 +7,7 @@ IF(WIN32)
 	SET(INC_PSDK_61 "C:/Program Files/Microsoft SDKs/Windows/v6.1/")
 	SET(INC_PSDK_2003 "C:/Program Files/Microsoft Platform SDK/")
 	SET(TINYXML2_DIR "D:/source/libraries/tinyxml2")
+	SET(JSON_SPRIT_DIR "D:/source/libraries/json_spirit_v4.05")
 
 	if(CMAKE_CL_64)
 		MESSAGE(STATUS "Detected x64")

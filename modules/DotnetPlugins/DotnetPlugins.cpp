@@ -42,11 +42,11 @@ bool DotnetPlugin::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 
 	try {
 		root_path = get_core()->expand_path(module_path);
-		get_core()->settings_register_path(settings_path, _T("DOTNET MODULES"), _T("List all dot net modules loaded by the DotNetplugins module here"), false);
+		get_core()->settings_register_path(get_id(), settings_path, _T("DOTNET MODULES"), _T("List all dot net modules loaded by the DotNetplugins module here"), false);
 
 		std::list<std::wstring> keys = get_core()->getSettingsSection(settings_path);
 		BOOST_FOREACH(std::wstring key, keys) {
-			get_core()->settings_register_key(settings_path + _T("/") + key, factory_key, NSCAPI::key_string, _T("DOTNET FACTORY"), _T("The class to instasitate in the dot-net plugin"), factory_default, true);
+			get_core()->settings_register_key(get_id(), settings_path + _T("/") + key, factory_key, NSCAPI::key_string, _T("DOTNET FACTORY"), _T("The class to instasitate in the dot-net plugin"), factory_default, true);
 		}
 		if (mode == NSCAPI::normalStart) {
 			BOOST_FOREACH(std::wstring key, keys) {

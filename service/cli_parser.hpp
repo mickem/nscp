@@ -87,6 +87,7 @@ public:
 			;
 
 		client.add_options()
+			("load-all", "Load all plugins.")
 			("exec,e", po::value<std::wstring>()->implicit_value(_T("")), "Run a command (execute)")
 			("boot,b", "Boot the client before executing command (similar as running the command from test)")
 			("query,q", po::value<std::wstring>(), "Run a query with a given name")
@@ -353,7 +354,8 @@ public:
 		enum modes { exec, query, submit, none, combined};
 		modes mode;
 		bool boot;
-		client_arguments() : mode(none), boot(false) {}
+		bool load_all;
+		client_arguments() : mode(none), boot(false), load_all(false) {}
 
 		void debug() {
 			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
@@ -362,6 +364,7 @@ public:
 				info(__LINE__, _T("Extra Query: ") + combined_query);
 				info(__LINE__, _T("Mode: ") + strEx::itos(mode));
 				info(__LINE__, _T("Boot: ") + strEx::itos(boot));
+				info(__LINE__, _T("Load All: ") + strEx::itos(load_all));
 				if (!module.empty() && boot)
 					info(__LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
 				std::wstring args;
@@ -407,6 +410,8 @@ public:
 				args.command = vm["submit"].as<std::wstring>();
 				args.mode = client_arguments::submit;
 			}
+
+			args.load_all = vm.count("load-all")==1;
 
 			if (vm.count("module"))
 				args.module = vm["module"].as<std::wstring>();
@@ -531,6 +536,8 @@ public:
 			args.debug();
 
 			core_->boot_init(log_level);
+			if (args.load_all)
+				core_->preboot_load_all_plugin_files();
 			if (args.module.empty())
 				core_->boot_load_all_plugins();
 			else
@@ -545,12 +552,12 @@ public:
 			if (args.mode == client_arguments::query) {
 				ret = mainClient.simple_query(args.module, args.command, args.arguments, resp);
 			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
-				ret = mainClient.simple_exec(args.module, args.command, args.arguments, resp);
+				ret = mainClient.simple_exec(args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
 					std::wcout << _T("Command not found (by module): ") << args.command << std::endl;
 					resp.push_back(_T("Command not found: ") + args.command);
-					mainClient.simple_exec(args.module, _T("help"), args.arguments, resp);
+					mainClient.simple_exec(_T("help"), args.arguments, resp);
 				} else if (args.mode == client_arguments::combined) {
 					if (ret == NSCAPI::returnOK) {
 						mainClient.reload(_T("service"));

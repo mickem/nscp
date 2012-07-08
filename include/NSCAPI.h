@@ -172,6 +172,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(unsigned int, const wchar_t*,const wchar_t*);
 		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(unsigned int, const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
 		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(unsigned int, const wchar_t*, const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsQuery)(const char *, const unsigned int, char **, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSCAPI::plugin_info *list[]);
 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
@@ -179,6 +180,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
 		typedef NSCAPI::errorReturn (*lpNSAPIReload)(const wchar_t* module);
 		typedef NSCAPI::log_level::level (*lpNSAPIGetLoglevel)();
+		typedef NSCAPI::errorReturn (*lpNSAPIRegistryQuery)(const char *, const unsigned int, char **, unsigned int *);
 
 	}
 

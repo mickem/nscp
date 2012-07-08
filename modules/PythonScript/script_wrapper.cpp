@@ -100,8 +100,15 @@ std::list<std::wstring> script_wrapper::convert(py::list lst) {
 }
 py::list script_wrapper::convert(std::list<std::wstring> lst) {
 	py::list ret;
-	BOOST_FOREACH(std::wstring s, lst) {
+	BOOST_FOREACH(const std::wstring &s, lst) {
 		ret.append(utf8::cvt<std::string>(s));
+	}
+	return ret;
+}
+py::list script_wrapper::convert(const std::vector<std::wstring> &lst) {
+	py::list ret;
+	BOOST_FOREACH(const std::wstring &s, lst) {
+		ret.append(s);
 	}
 	return ret;
 }
@@ -219,6 +226,21 @@ void script_wrapper::function_wrapper::register_cmdline(std::string name, PyObje
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(name));
 	}
 }
+
+tuple script_wrapper::function_wrapper::query(std::string request) {
+	try {
+		std::string response;
+		NSCAPI::errorReturn ret = core->registry_query(request, response);
+		return make_tuple(ret, response);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Query failed: ") + utf8::cvt<std::wstring>(e.what()));
+		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Query failed"));
+		return make_tuple(false,_T(""));
+	}
+}
+
 int script_wrapper::function_wrapper::handle_query(const std::string cmd, const std::string &request, std::string &response) const {
 	try {
 		functions::function_map_type::iterator it = functions::get()->normal_functions.find(cmd);
@@ -620,4 +642,17 @@ void script_wrapper::settings_wrapper::settings_register_key(std::string path, s
 }
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
 	core->settings_register_path(plugin_id, utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), false);
+}
+tuple script_wrapper::settings_wrapper::query(std::string request) {
+	try {
+		std::string response;
+		NSCAPI::errorReturn ret = core->settings_query(request, response);
+		return make_tuple(ret, response);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Query failed: ") + utf8::cvt<std::wstring>(e.what()));
+		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Query failed"));
+		return make_tuple(false,_T(""));
+	}
 }

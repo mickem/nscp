@@ -4,6 +4,7 @@ SET(TARGET nscp)
 
 PROJECT(service)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${JSON_SPIRIT_INCLUDE_DIR})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
 SET(service_SRCS
@@ -67,17 +68,6 @@ IF(WIN32)
 	ADD_DEFINITIONS(-D_WIN32_DCOM)
 
 	
-#	SET(
-#		CMAKE_LINKER_FLAGS 
-#		/MANIFEST 
-#		/MANIFESTFILE:"${CMAKE_CURRENT_SOURCE_DIR}/NSClient++.manifest"
-#	)
-#	SET(
-#		CMAKE_MODULE_LINKER_FLAG 
-#		/MANIFEST 
-#		/MANIFESTFILE:"${CMAKE_CURRENT_SOURCE_DIR}/NSClient++.manifest"
-#	)
-
 ENDIF(WIN32)
 IF(BREAKPAD_FOUND)
 	SET(service_SRCS ${service_SRCS} ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp)
@@ -100,6 +90,7 @@ target_link_libraries(${TARGET}
 	${Boost_THREAD_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
+	json_spirit_static
 	settings_manager
 )
 #IF(WIN32)

@@ -363,6 +363,13 @@ NSCAPI::errorReturn NSAPISettingsRegKey(unsigned int plugin_id, const wchar_t* p
 	return NSCAPI::isSuccess;
 }
 
+NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+	return mainClient.settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+}
+NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+	return mainClient.registry_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+}
+
 
 NSCAPI::errorReturn NSAPISettingsRegPath(unsigned int plugin_id, const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
 	try {
@@ -434,8 +441,6 @@ NSCAPI::errorReturn NSAPISettingsSave(void) {
 	}
 	return NSCAPI::isSuccess;
 }
-
-
 
 
 LPVOID NSAPILoader(const wchar_t*buffer) {
@@ -515,6 +520,10 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIReload);
 	if (wcscasecmp(buffer, _T("NSAPIGetLoglevel")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetLoglevel);
+	if (wcscasecmp(buffer, _T("NSAPISettingsQuery")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISettingsQuery);
+	if (wcscasecmp(buffer, _T("NSAPIRegistryQuery")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIRegistryQuery);
 
 	LOG_ERROR_STD(_T("Function not found: ") + buffer);
 	return NULL;

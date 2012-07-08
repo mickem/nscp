@@ -1,6 +1,7 @@
 #pragma once
 #include <settings/settings_core.hpp>
 #include <nsclient/logger.hpp>
+#include <json_spirit.h>
 
 class NSClientT;
 namespace nsclient {
@@ -92,6 +93,10 @@ namespace nsclient {
 			}
 		}
 
+		bool match_filter(std::wstring name) {
+			return filter_.empty() || name.find(filter_) != std::wstring::npos; 
+		}
+
 
 		int generate(std::wstring target) {
 			try {
@@ -106,7 +111,7 @@ namespace nsclient {
 						bool include = filter_.empty();
 						BOOST_FOREACH(unsigned int i, desc.plugins) {
 							std::wstring name = core_->get_plugin_module_name(i);
-							if (name.find(filter_) != std::wstring::npos)
+							if (match_filter(name))
 								include = true;
 							if (!plugins.empty())
 								plugins += _T(", ");
@@ -146,6 +151,98 @@ namespace nsclient {
 							}
 						}
 					}
+				} else if (target == _T("doc")) {
+					settings::string_list s = settings_manager::get_core()->get_reg_sections();
+					BOOST_FOREACH(std::wstring path, s) {
+
+						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+						std::wstring plugins;
+						bool include = filter_.empty();
+						BOOST_FOREACH(unsigned int i, desc.plugins) {
+							std::wstring name = core_->get_plugin_module_name(i);
+							if (match_filter(name))
+								include = true;
+							if (!plugins.empty())
+								plugins += _T(", ");
+							plugins += name;
+						}
+
+						if (!include)
+							continue;
+
+						std::wcout << path << std::endl;
+						strEx::replace(desc.description, _T("\n"), _T("\n\t"));
+						std::wcout << _T("\t") << desc.description << std::endl;
+						std::wcout << _T("\tUsed by: ") << plugins << std::endl;
+						std::wcout << std::endl;
+						settings::string_list k = settings_manager::get_core()->get_reg_keys(path);
+						bool first = true;
+						BOOST_FOREACH(std::wstring key, k) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+							if (!desc.advanced) {
+								if (first)
+									std::wcout << _T("\tKeys:") << std::endl;
+								first = false;
+								std::wcout << _T("\t") << key << _T(" (=") << desc.defValue << _T(")") << std::endl;
+								strEx::replace(desc.description, _T("\n"), _T("\n\t\t"));
+								std::wcout << _T("\t\t") << desc.title << std::endl;
+								std::wcout << _T("\t\t") << desc.description << std::endl;
+							}
+						}
+						first = true;
+						BOOST_FOREACH(std::wstring key, k) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+							if (desc.advanced) {
+								if (first)
+									std::wcout << _T("\tAdvanced keys:") << std::endl;
+								first = false;
+								std::wcout << _T("\t") << key << _T(" (=") << desc.defValue << _T(")") << std::endl;
+								strEx::replace(desc.description, _T("\n"), _T("\n\t\t"));
+								std::wcout << _T("\t\t") << desc.title << std::endl;
+								std::wcout << _T("\t\t") << desc.description << std::endl;
+							}
+						}
+					}
+				} else if (target == _T("json") || target == _T("json-compact")) {
+					json_spirit::wObject json_root;
+					settings::string_list s = settings_manager::get_core()->get_reg_sections();
+					BOOST_FOREACH(std::wstring path, s) {
+
+						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+						bool include = filter_.empty();
+						json_spirit::wObject json_plugins;
+						BOOST_FOREACH(unsigned int i, desc.plugins) {
+							std::wstring name = core_->get_plugin_module_name(i);
+							if (match_filter(name))
+								include = true;
+							json_plugins.push_back(json_spirit::wPair(strEx::itos(i), name));
+						}
+						if (!include)
+							continue;
+
+						json_spirit::wObject json_path;
+						json_path.push_back(json_spirit::wPair(_T("path"), path));
+						json_path.push_back(json_spirit::wPair(_T("title"), desc.title));
+						json_path.push_back(json_spirit::wPair(_T("description"), desc.description));
+						json_path.push_back(json_spirit::wPair(_T("plugins"), json_plugins));
+
+						json_spirit::wObject json_keys;
+						BOOST_FOREACH(std::wstring key, settings_manager::get_core()->get_reg_keys(path)) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+							json_spirit::wObject json_key;
+							json_key.push_back(json_spirit::wPair(_T("key"), key));
+							json_key.push_back(json_spirit::wPair(_T("title"), desc.title));
+							json_key.push_back(json_spirit::wPair(_T("description"), desc.description));
+							json_key.push_back(json_spirit::wPair(_T("default value"), desc.defValue));
+							json_keys.push_back(json_spirit::wPair(key, json_key));
+						}
+						json_path.push_back(json_spirit::wPair(_T("keys"), json_keys));
+						json_root.push_back(json_spirit::wPair(path, json_path));
+					}
+					if (target == _T("json-compact"))
+						write(json_root, std::wcout);
+					else
+						write(json_root, std::wcout, json_spirit::pretty_print);
 				} else {
 					//settings_manager::get_core()->update_defaults();
 					settings_manager::get_core()->get()->save_to(target);

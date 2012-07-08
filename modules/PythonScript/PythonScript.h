@@ -40,6 +40,7 @@ struct python_script : public boost::noncopyable {
 	~python_script();
 	bool callFunction(const std::string& functionName);
 	bool callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2);
+	bool callFunction(const std::string& functionName, const std::vector<std::wstring> args);
 	void _exec(const std::string &scriptfile);
 };
 

@@ -61,6 +61,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIRegisterCommand fNSAPIRegisterCommand;
 		nscapi::core_api::lpNSAPISettingsRegKey fNSAPISettingsRegKey;
 		nscapi::core_api::lpNSAPISettingsRegPath fNSAPISettingsRegPath;
+		nscapi::core_api::lpNSAPISettingsQuery fNSAPISettingsQuery;
 		nscapi::core_api::lpNSAPIGetPluginList fNSAPIGetPluginList;
 		nscapi::core_api::lpNSAPIReleasePluginList fNSAPIReleasePluginList;
 		nscapi::core_api::lpNSAPISettingsSave fNSAPISettingsSave;
@@ -68,6 +69,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
 		nscapi::core_api::lpNSAPIRegisterSubmissionListener fNSAPIRegisterSubmissionListener;
 		nscapi::core_api::lpNSAPIRegisterRoutingListener fNSAPIRegisterRoutingListener;
+		nscapi::core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
 
 	public:
 
@@ -112,6 +114,7 @@ namespace nscapi {
 			, fNSAPIRegisterCommand(NULL)
 			, fNSAPISettingsRegKey(NULL)
 			, fNSAPISettingsRegPath(NULL)
+			, fNSAPISettingsQuery(NULL)
 			, fNSAPIGetPluginList(NULL)
 			, fNSAPIReleasePluginList(NULL)
 			, fNSAPISettingsSave(NULL)
@@ -119,6 +122,7 @@ namespace nscapi {
 			, fNSAPIGetLoglevel(NULL)
 			, fNSAPIRegisterSubmissionListener(NULL)
 			, fNSAPIRegisterRoutingListener(NULL)
+			, fNSAPIRegistryQuery(NULL)
 		{}
 
 		// Helper functions for calling into the core
@@ -132,6 +136,8 @@ namespace nscapi {
 		bool getSettingsBool(std::wstring section, std::wstring key, bool defaultValue);
 		void settings_register_key(unsigned int plugin_id, std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
 		void settings_register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced);
+		NSCAPI::errorReturn settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+		NSCAPI::errorReturn settings_query(const std::string request, std::string &response);
 		void settings_save();
 
 		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::wstring message);
@@ -166,6 +172,9 @@ namespace nscapi {
 		void registerCommand(unsigned int id, std::wstring command, std::wstring description);
 		void registerSubmissionListener(unsigned int id, std::wstring channel);
 		void registerRoutingListener(unsigned int id, std::wstring channel);
+
+		NSCAPI::errorReturn registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
+		NSCAPI::errorReturn registry_query(const std::string request, std::string &response);
 
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 		void set_alias(const std::wstring default_alias, const std::wstring alias);
