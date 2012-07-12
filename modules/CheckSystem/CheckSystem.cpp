@@ -20,24 +20,25 @@
 ***************************************************************************/
 
 #include "stdafx.h"
+#include "CheckSystem.h"
+
+#include <map>
+#include <set>
 
 #include <boost/regex.hpp>
-#include <boost/lexical_cast.hpp>
+#include <boost/assign/list_of.hpp>
 
-#include "CheckSystem.h"
-#include <utils.h>
 #include <tlhelp32.h>
+
+
+#include <utils.h>
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
 #include <checkHelpers.hpp>
-#include <map>
-#include <set>
 #include <sysinfo.h>
 #include <filter_framework.hpp>
 #include <simple_registry.hpp>
 #include <settings/client/settings_client.hpp>
-#include <arrayBuffer.h>
-
 #include <config.h>
 
 /**
@@ -68,16 +69,44 @@ bool CheckSystem::loadModule() {
  * @return true
  */
 
+bool missing_system_counters(std::map<std::wstring,std::wstring> &counters) 
+{
+	wchar_t *keys[] = {PDH_SYSTEM_KEY_UPT, PDH_SYSTEM_KEY_MCL, PDH_SYSTEM_KEY_MCB, PDH_SYSTEM_KEY_CPU};
+	BOOST_FOREACH(const wchar_t *cnt, keys) {
+		if (counters.find(cnt) == counters.end())
+			return true;
+	}
+	return false;
+}
+
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
 	data->check_intervall = 1;
 	try {
 		typedef std::map<std::wstring,std::wstring> counter_map_type;
-		std::map<std::wstring,std::wstring> counters;
-		bool default_counters = true;
+		counter_map_type counters;
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("check"), alias, _T("system/windows"));
+
+		settings.alias().add_path_to_settings()
+			(_T("pdh/counters"), sh::wstring_map_path(&counters)
+			, _T("PDH COUNTERS"), _T("Define various PDH counters to check."))
+			;
+
+		settings.register_all();
+		settings.notify();
+		settings.clear();
+
+		if (counters.empty() || missing_system_counters(counters)) {
+			std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
+
+			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_UPT, NSCAPI::key_string, _T("UPTIME"), _T("PDH Key for system uptime."), _T("\\2\\674"), false);
+			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_MCL, NSCAPI::key_string, _T("Commit limit"), _T("PDH key for memory commit limit"), _T("\\4\\30"), false);
+			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_MCB, NSCAPI::key_string, _T("Commit bytes"), _T("PDH Key for system CPU load."), _T("\\4\\26"), false);
+			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_CPU, NSCAPI::key_string, _T("CPU Load"), _T("PDH Key for system CPU load."), _T("\\238(_total)\\6"), false);
+			get_core()->settings_register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPP is usually round robin."), _T("round robin"), false);
+		}
 
 		settings.alias().add_path_to_settings()
 			(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
@@ -86,15 +115,9 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 			(_T("pdh"), _T("PDH COUNTER INFORMATION"), _T(""))
 
-			(_T("pdh/counters"), sh::wstring_map_path(&counters)
-			, _T("PDH COUNTERS"), _T(""))
-
 			;
 
  		settings.alias().add_key_to_settings()
-			(_T("default"), sh::bool_key(&default_counters, true),
-			_T("DEFAULT COUNTERS"), _T("Load the default counters: ") PDH_SYSTEM_KEY_CPU _T(", ") PDH_SYSTEM_KEY_MCB _T(", ") PDH_SYSTEM_KEY_MCL _T(" and ") PDH_SYSTEM_KEY_UPT _T(" If not you need to specify these manually. ") )
-
 			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
 			_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
 
@@ -128,25 +151,37 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 		settings.register_all();
 		settings.notify();
 
+		
 		typedef PDHCollector::system_counter_data::counter cnt;
+		/*
 		if (default_counters) {
 			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCL, _T("\\4\\30"), cnt::type_int64, cnt::format_large, cnt::value));
 			data->counters.push_back(cnt(PDH_SYSTEM_KEY_CPU, _T("\\238(_total)\\6"), cnt::type_int64, cnt::format_large, cnt::rrd));
 			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCB, _T("\\4\\26"), cnt::type_int64, cnt::format_large, cnt::value));
 			data->counters.push_back(cnt(PDH_SYSTEM_KEY_UPT, _T("\\2\\674"), cnt::type_int64, cnt::format_large, cnt::value));
 		}
+		*/
 		BOOST_FOREACH(counter_map_type::value_type c, counters) {
 			data->counters.push_back(cnt(c.first, c.second, cnt::type_int64, cnt::format_large, cnt::value));
 		}
 
-		register_command(_T("checkCPU"), _T("Check the CPU load of the computer."));
-		register_command(_T("checkUpTime"), _T("Check the up-time of the computer."));
-		register_command(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
-		register_command(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
-		register_command(_T("checkMem"), _T("Check free/used memory on the system."));
-		register_command(_T("checkCounter"), _T("Check a PDH counter."));
-		register_command(_T("listCounterInstances"), _T("List all instances for a counter."));
-		register_command(_T("checkSingleRegEntry"), _T("Check registry key"));
+		register_command(_T("check_CPU"), _T("Check that the load of the CPU(s) are within bounds."), 
+			boost::assign::list_of(_T("checkCPU")));
+		register_command(_T("check_uptime"), _T("Check time since last server re-boot."), 
+			boost::assign::list_of(_T("checkUpTime")));
+		register_command(_T("check_service"), _T("Check the state of one or more of the computer services."), 
+			boost::assign::list_of(_T("checkServiceState")));
+		register_command(_T("check_process"), _T("Check the state of one or more of the processes running on the computer."), 
+			boost::assign::list_of(_T("checkProcState")));
+		register_command(_T("check_memory"), _T("Check free/used memory on the system."), 
+			boost::assign::list_of(_T("checkMem")));
+		register_command(_T("check_pdh"), _T("Check a PDH counter."), 
+			boost::assign::list_of(_T("checkCounter")));
+		register_command(_T("check_registry"), _T("Check values in the registry."), 
+			boost::assign::list_of(_T("checkSingleRegEntry")));
+
+		register_command(_T("listCounterInstances"), _T("*DEPRECATED* List all instances for a counter."));
+
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
 		return false;

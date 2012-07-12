@@ -134,7 +134,7 @@ public:
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-	int simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
+	int simple_exec(std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
 	int simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
 	NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* raw_command, std::string &request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const wchar_t* channel);

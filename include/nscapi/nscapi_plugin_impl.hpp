@@ -22,9 +22,11 @@ namespace nscapi {
 			inline boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy() {
 				return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(get_core()));
 			}
+			
 			void register_command(std::wstring command, std::wstring description) {
 				get_core()->registerCommand(get_id(), command, description);
 			}
+			void register_command(std::wstring command, std::wstring description, std::list<std::wstring> aliases);
 
 		};
 
@@ -32,7 +34,6 @@ namespace nscapi {
 		public:
 			NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
 			virtual NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) = 0;
-
 		};
 
 		class simple_command_handler {

@@ -4,6 +4,12 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-11 MickeM
+ * LUAScript: Improved lua scripting module a lot
+ * LUAScript: Added protocol buffer support to lua scripts
+ * tests: Rewrote (halfway there) test_nrpe python script as a lua script.
+ * CheckEventLog: Fixed command name when submitting real-time "no action checks"
+
 2012-06-18 MickeM
  * Fixed issue with parsing in test mode
  * Fixed Graphite client using wrong time for datestamp

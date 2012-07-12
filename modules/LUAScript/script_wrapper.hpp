@@ -1,14 +1,19 @@
 #pragma once
 
+#include <map>
+
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/shared_ptr.hpp>
-#include <map>
+#include <boost/optional.hpp>
 
 #include "lua_wrappers.hpp"
 
 #include <scripts/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
+#ifdef HAVE_LUA_PB
+#include <Plugin.pb-lua.h>
+#endif
 namespace script_wrapper {
 
 	typedef lua_wrappers::lua_wrapper lua_wrapper;
@@ -70,8 +75,20 @@ namespace script_wrapper {
 		}
 		int query(lua_State *L) {
 			lua_wrappers::lua_wrapper lua(L);
-			NSC_LOG_ERROR_STD(_T("Unsupported API called: query"));
-			return lua.error("Unsupported API called: query");
+			try {
+				int nargs = lua.size();
+				if (nargs != 2)
+					return lua.error("nscp.query requires 2 arguments!");
+				std::string data = utf8::cvt<std::string>(lua.pop_string());
+				std::wstring command = lua.pop_string();
+				std::string response;
+				NSCAPI::nagiosReturn ret = nscapi::plugin_singleton->get_core()->query(command, data, response);
+				lua.push_code(ret);
+				lua.push_raw_string(response);
+				return lua.size();
+			} catch (...) {
+				return lua.error("Unknown exception in: simple_query");
+			}
 		}
 		int simple_exec(lua_State *L) {
 			lua_wrappers::lua_wrapper lua(L);
@@ -151,33 +168,49 @@ namespace script_wrapper {
 		static const char className[];
 		static const Luna<registry_wrapper>::RegType methods[];
 
+		boost::optional<int> read_registration(lua_wrapper &lua, std::wstring &command, int &funref, std::wstring &description) {
+			std::wstring funname;
+			if (lua.size() != 2 && lua.size() != 3)
+				return lua.error("Invalid number of arguments: " + strEx::s::xtos(lua.size()) + " expected 2 or 3");
+			if (lua.size() > 2 && !lua.pop_string(description))
+				return lua.error("Invalid description");
+			if (lua.pop_string(funname)) {
+				lua.getglobal(funname);
+			}
+			if (!lua.pop_function(funref))
+				return lua.error("Invalid function");
+			if (!lua.pop_string(command))
+				return lua.error("Invalid command");
+			return boost::optional<int>();
+		}
 		int register_function(lua_State *L) {
-			lua_wrappers::lua_wrapper lua(L);
-			NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
-			return lua.error("Unsupported API called: exec");
+			// void = (cmd, function, desc)
+			std::wstring command, description;
+			int funref = 0;
+			lua_wrapper lua(L);
+			boost::optional<int> error = read_registration(lua, command, funref, description);
+			if (error)
+				return *error;
+
+			if (description.empty()) 
+				description = _T("Lua script: ") + command;
+			get_instance()->get_core()->registerCommand(get_instance()->get_plugin_id(), command, description);
+			get_instance()->get_registry()->register_query(command, get_instance(), funref, false);
+			return 0;
 		}
 		int register_simple_function(lua_State *L) {
+			// void = (cmd, function, desc)
+			std::wstring command, description;
+			int funref = 0;
 			lua_wrapper lua(L);
-			std::wstring description;
-			if (lua.size() > 2)
-				description = lua.pop_string();
-			std::wstring name;
-			if (lua.is_string()) {
-				name = lua.pop_string();
-				lua_getglobal(L, utf8::cvt<std::string>(name).c_str());
-			}
-			if (!lua.is_function())
-				return lua.error("Invalid argument not a function: " + utf8::cvt<std::string>(name));
+			boost::optional<int> error = read_registration(lua, command, funref, description);
+			if (error)
+				return *error;
 
-			int func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
-			if (func_ref == 0)
-				return lua.error("Invalid function: " + utf8::cvt<std::string>(name));
-			std::wstring script = lua.pop_string();
 			if (description.empty()) 
-				description = _T("Lua script: ") + script;
-			get_instance()->get_core()->registerCommand(get_instance()->get_plugin_id(), script, description);
-			get_instance()->get_registry()->register_query(script, get_instance(), func_ref);
+				description = _T("Lua script: ") + command;
+			get_instance()->get_core()->registerCommand(get_instance()->get_plugin_id(), command, description);
+			get_instance()->get_registry()->register_query(command, get_instance(), funref, true);
 			return 0;
 		}
 		int register_cmdline(lua_State *L) {
@@ -231,8 +264,8 @@ namespace script_wrapper {
 
 	const char registry_wrapper::className[] = "Registry";
 	const Luna<registry_wrapper>::RegType registry_wrapper::methods[] = {
-		{ "function", &registry_wrapper::register_function },
-		{ "simple_function", &registry_wrapper::register_simple_function },
+		{ "query", &registry_wrapper::register_function },
+		{ "simple_query", &registry_wrapper::register_simple_function },
 		{ "cmdline", &registry_wrapper::register_cmdline },
 		{ "simple_cmdline", &registry_wrapper::register_simple_cmdline },
 		{ "subscription", &registry_wrapper::subscription },
@@ -410,6 +443,10 @@ namespace script_wrapper {
 			Luna<core_wrapper>::Register(L);
 			Luna<registry_wrapper>::Register(L);
 			Luna<settings_wrapper>::Register(L);
+#ifdef HAVE_LUA_PB
+			GET_CORE()->log(NSCAPI::log_level::error, "test", 123, "Loading lua pb");
+			lua_protobuf_Plugin_open(L);
+#endif
 		}
 
 	};

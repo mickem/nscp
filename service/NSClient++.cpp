@@ -1022,11 +1022,17 @@ int exec_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector
 	return ret;
 }
 
-int NSClientT::simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
+int NSClientT::simple_exec(std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
 	std::string request;
 	std::list<std::string> responses;
 	std::list<std::wstring> errors;
 	nscapi::functions::create_simple_exec_request(command, arguments, request);
+	std::wstring module;
+	std::wstring::size_type pos = command.find(L'.');
+	if (pos != std::wstring::npos) {
+		module = command.substr(0, pos);
+		command = command.substr(pos+1);
+	}
 	int ret = load_and_run(module, boost::bind(&exec_helper, _1, command, arguments, request, &responses), errors);
 
 	BOOST_FOREACH(std::string &r, responses) {

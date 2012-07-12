@@ -16,6 +16,14 @@ nscapi::core_wrapper* nscapi::impl::simple_plugin::get_core() {
 	return plugin_singleton->get_core();
 }
 
+
+void nscapi::impl::simple_plugin::register_command(std::wstring command, std::wstring description, std::list<std::wstring> aliases) {
+	BOOST_FOREACH(const std::wstring alias, aliases) {
+		register_command(alias, description);
+	}
+	register_command(command, description);
+}
+
 void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
 	try {
 		Plugin::LogEntry message;
@@ -40,6 +48,8 @@ NSCAPI::nagiosReturn nscapi::impl::simple_command_handler::handleRAWCommand(cons
 	nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
 	return ret;
 }
+
+
 
 NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);

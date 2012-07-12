@@ -87,6 +87,7 @@ public:
 			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
 			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
+			("load-all", "Load all plugins.")
 			;
 
 		unittest.add_options()
@@ -343,7 +344,8 @@ public:
 		enum modes { exec, query, submit, none, combined};
 		modes mode;
 		bool boot;
-		client_arguments() : mode(none), boot(false) {}
+		bool load_all;
+		client_arguments() : mode(none), boot(false), load_all(false) {}
 
 		void debug() {
 			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
@@ -397,6 +399,7 @@ public:
 				args.command = vm["submit"].as<std::wstring>();
 				args.mode = client_arguments::submit;
 			}
+			args.load_all = vm.count("load-all")==1;
 
 			if (vm.count("module"))
 				args.module = vm["module"].as<std::wstring>();
@@ -468,6 +471,11 @@ public:
 					args.combined_query = _T("py_unittest");
 					args.mode = client_arguments::combined;
 					args.module = _T("PythonScript");
+				} else if (lang == _T("lua")) {
+						args.command = _T("LUAScript.run");
+						args.combined_query = _T("lua_unittest");
+						args.mode = client_arguments::combined;
+						args.module = _T("LuaScript");
 				} else {
 					std::wcerr << _T("Unknown language: ") << lang << std::endl;
 					return 1;
@@ -521,6 +529,8 @@ public:
 			args.debug();
 
 			core_->boot_init(log_level);
+			if (args.load_all)                                                                                                                                                    
+				core_->preboot_load_all_plugin_files();
 			if (args.module.empty())
 				core_->boot_load_all_plugins();
 			else
@@ -535,12 +545,12 @@ public:
 			if (args.mode == client_arguments::query) {
 				ret = mainClient.simple_query(args.module, args.command, args.arguments, resp);
 			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
-				ret = mainClient.simple_exec(args.module, args.command, args.arguments, resp);
+				ret = mainClient.simple_exec(args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
 					std::wcout << _T("Command not found (by module): ") << args.command << std::endl;
 					resp.push_back(_T("Command not found: ") + args.command);
-					mainClient.simple_exec(args.module, _T("help"), args.arguments, resp);
+					mainClient.simple_exec(_T("help"), args.arguments, resp);
 				} else if (args.mode == client_arguments::combined) {
 					if (ret == NSCAPI::returnOK) {
 						mainClient.reload(_T("service"));
