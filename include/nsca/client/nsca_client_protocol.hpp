@@ -26,7 +26,7 @@ namespace nsca {
 			std::vector<char> iv_buffer_;
 			std::vector<char> packet_buffer_;
 			boost::shared_ptr<client_handler> handler_;
-			nsca_encrypt crypto_;
+			nscp::encryption::engine crypto_;
 			int time_;
 			nsca::packet packet_;
 

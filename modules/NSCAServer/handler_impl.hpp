@@ -3,7 +3,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include <nsca/nsca_packet.hpp>
-#include <nsca/nsca_enrypt.hpp>
+#include <cryptopp/cryptopp.hpp>
 #include <nsca/server/handler.hpp>
 
 #include <unicode_char.hpp>
@@ -37,7 +37,7 @@ public:
 		return channel_;
 	}
 	void set_encryption(std::string enc) {
-		encryption_ = nsca::nsca_encrypt::helpers::encryption_to_int(enc);
+		encryption_ = nscp::encryption::helpers::encryption_to_int(enc);
 	}
 	int get_encryption() {
 		return encryption_;

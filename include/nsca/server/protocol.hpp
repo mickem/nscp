@@ -37,7 +37,7 @@ namespace nsca {
 		state current_state_;
 		
 		std::string data_;
-		nsca::nsca_encrypt encryption_instance_;
+		nscp::encryption::engine encryption_instance_;
 
 		read_protocol(socket_helpers::connection_info info, handler_type handler) 
 			: info_(info)
@@ -69,7 +69,7 @@ namespace nsca {
 			set_state(connected);
 			std::vector<boost::asio::const_buffer> buffers;
 
-			std::string iv = nsca::nsca_encrypt::generate_transmitted_iv();
+			std::string iv = nscp::encryption::engine::generate_transmitted_iv();
 			encryption_instance_.encrypt_init(handler_->get_password(), handler_->get_encryption(), iv);
 
 			nsca::iv_packet packet(iv, boost::posix_time::second_clock::local_time());
@@ -107,7 +107,7 @@ namespace nsca {
 						handler_->handle(request);
 					} catch (const std::exception &e) {
 						log_error(__FILE__, __LINE__, std::string("Exception processing request: ") + e.what());
-						log_debug(__FILE__, __LINE__, "Using: encryption = " + nsca::nsca_encrypt::helpers::encryption_to_string(handler_->get_encryption()) + ", password = '" + handler_->get_password() + "'");
+						log_debug(__FILE__, __LINE__, "Using: encryption = " + nscp::encryption::helpers::encryption_to_string(handler_->get_encryption()) + ", password = '" + handler_->get_password() + "'");
 					} catch (...) {
 						log_error(__FILE__, __LINE__, "Exception processing request");
 					}

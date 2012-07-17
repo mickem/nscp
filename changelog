@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-17 MickeM
+ * Performance enhancements to build time
+
 2012-07-11 MickeM
  * LUAScript: Improved lua scripting module a lot
  * LUAScript: Added protocol buffer support to lua scripts

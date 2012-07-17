@@ -29,15 +29,13 @@ MACRO(copy_single_file target, src destDir)
 	ENDIF(${destDir} STREQUAL ".")
 	#message(STATUS " - Copying ${source_file} to ${target_file}...")
 	ADD_CUSTOM_COMMAND(
-		TARGET ${target}
-		PRE_BUILD
 		OUTPUT ${target_file}
-		COMMAND cmake 
-		ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
 		OUTPUT ${target_file}
 		COMMENT Copying ${source_file} to ${target_file}
+		DEPENDS ${source_file}
 		)
-	SET(ALL_FILES ${ALL_FILES} ${target_file})
+	LIST(APPEND ALL_FILES ${target_file})
 ENDMACRO(copy_single_file)
 
 MACRO(add_nscp_py_test name script)

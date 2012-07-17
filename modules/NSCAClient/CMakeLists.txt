@@ -31,7 +31,7 @@ IF(WIN32)
 		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
 		${NSCP_INCLUDEDIR}/nsca/client/nsca_client_protocol.hpp
-		${NSCP_INCLUDEDIR}/nsca/nsca_enrypt.hpp
+		${NSCP_INCLUDEDIR}/cryptopp/cryptopp.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp

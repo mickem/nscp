@@ -12,7 +12,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 
 #ifdef HAVE_LUA_PB
-#include <Plugin.pb-lua.h>
+#include <plugin.pb-lua.h>
 #endif
 namespace script_wrapper {
 
