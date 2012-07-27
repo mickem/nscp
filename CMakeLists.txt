@@ -56,10 +56,17 @@ FIND_PATH(LUA_INCLUE_DIR lua.h
 	${LUA_DIR}
 	${LUA_DIR}/src
 	/usr/include/lua
+	/usr/include/lua5.1
 )
+FIND_PROGRAM(PROTOC_GEN_LUA_FOUND
+	NAMES protoc-gen-lua
+	PATHS 
+		/usr/local/bin/
+		/usr/bin/
+)
+
 IF (LUA_INCLUE_DIR)
 	message(STATUS "Found lua in ${LUA_INCLUE_DIR}")
-	SET(HAVE_LUA TRUE PARENT_SCOPE)
 	SET(HAVE_LUA TRUE)
 	SET(LUA_SOURCE_DIR ${LUA_INCLUE_DIR})
 ELSE (LUA_INCLUE_DIR)

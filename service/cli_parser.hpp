@@ -309,7 +309,7 @@ public:
 
 			if (vm.count("run")) {
 				try {
-					mainClient.start_and_wait(name);
+					core_->start_and_wait(name);
 				} catch (...) {
 					get_logger()->error(__FILE__, __LINE__, _T("Unknown exception in service"));
 				}
@@ -543,18 +543,18 @@ public:
 				std::wcerr << _T("Since no mode was specified assuming --exec (other options are --query and --submit)") << std::endl;
 			}
 			if (args.mode == client_arguments::query) {
-				ret = mainClient.simple_query(args.module, args.command, args.arguments, resp);
+				ret = core_->simple_query(args.module, args.command, args.arguments, resp);
 			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
 				ret = mainClient.simple_exec(args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
 					std::wcout << _T("Command not found (by module): ") << args.command << std::endl;
 					resp.push_back(_T("Command not found: ") + args.command);
-					mainClient.simple_exec(_T("help"), args.arguments, resp);
+					core_->simple_exec(_T("help"), args.arguments, resp);
 				} else if (args.mode == client_arguments::combined) {
 					if (ret == NSCAPI::returnOK) {
-						mainClient.reload(_T("service"));
-						ret = mainClient.simple_query(args.module, args.combined_query, args.arguments, resp);
+						core_->reload(_T("service"));
+						ret = core_->simple_query(args.module, args.combined_query, args.arguments, resp);
 					} else {
 						std::wcerr << _T("Failed to execute command, will not attempt query") << std::endl;
 					}
@@ -564,9 +564,9 @@ public:
 			} else {
 				std::wcerr << _T("Need to specify one of --exec, --query or --submit") << std::endl;
 			}
-			mainClient.stop_unload_plugins_pre();
-			mainClient.stop_exit_pre();
-			mainClient.stop_exit_post();
+			core_->stop_unload_plugins_pre();
+			core_->stop_exit_pre();
+			core_->stop_exit_post();
 
 			BOOST_FOREACH(std::wstring r, resp) {
 				std::wcout << r << std::endl;

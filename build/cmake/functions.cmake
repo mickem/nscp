@@ -19,7 +19,7 @@ MACRO(LOAD_SECTIONS _TARGET_LIST _path _title)
 ENDMACRO(LOAD_SECTIONS)
 
 
-MACRO(copy_single_file target, src destDir)
+MACRO(copy_single_file _TARGET_LIST src destDir)
 	GET_FILENAME_COMPONENT(TARGET ${src} NAME)
 	SET(source_file ${CMAKE_CURRENT_SOURCE_DIR}/${src})
 	IF(${destDir} STREQUAL ".")
@@ -27,7 +27,7 @@ MACRO(copy_single_file target, src destDir)
 	ELSE(${destDir} STREQUAL ".")
 		SET(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
 	ENDIF(${destDir} STREQUAL ".")
-	#message(STATUS " - Copying ${source_file} to ${target_file}...")
+	message(STATUS " - Copying ${source_file} to ${target_file}...")
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
 		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
@@ -35,7 +35,7 @@ MACRO(copy_single_file target, src destDir)
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
 		)
-	LIST(APPEND ALL_FILES ${target_file})
+	SET(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
 ENDMACRO(copy_single_file)
 
 MACRO(add_nscp_py_test name script)

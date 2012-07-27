@@ -25,14 +25,14 @@
 
 #include <strEx.h>
 #include <time.h>
-#include <filter_framework.hpp>
+//#include <filter_framework.hpp>
 #include <error.hpp>
 #include <file_helpers.hpp>
 
 #include <settings/client/settings_client.hpp>
 
 
-LUAScript::LUAScript() : registry(new lua_wrappers::lua_registry()) {
+LUAScript::LUAScript() {
 }
 LUAScript::~LUAScript() {
 }
@@ -44,6 +44,7 @@ bool LUAScript::loadModule() {
 	return false;
 }
 bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	registry.reset(new lua_wrappers::lua_registry());
 	//std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
 
@@ -71,7 +72,7 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		BOOST_FOREACH(script_container &script, scripts_) {
 			try {
-				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, script.script.string()));
+				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, root_.string(), script.script.string()));
 			} catch (const lua_wrappers::LUAException &e) {
 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
 			} catch (const std::exception &e) {
@@ -134,8 +135,20 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 
 
 bool LUAScript::unloadModule() {
+	BOOST_FOREACH(script_instance &i, instances_) {
+		try {
+			i->unload();
+		} catch (const lua_wrappers::LUAException &e) {
+			NSC_LOG_ERROR_STD(_T("Exception when unloading script: ") + i->get_wscript() + _T(": ") + e.getMessage());
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when unloading script: ") + i->get_wscript());
+		}
+	}
+	if (registry)
+		registry->clear();
 	instances_.clear();
 	scripts_.clear();
+	registry.reset();
 	return true;
 }
 
@@ -209,7 +222,7 @@ NSCAPI::nagiosReturn LUAScript::execute_and_load(std::list<std::wstring> args, s
 		}
 
 		try {
-			instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, _T("cmdline"), (*ofile).string()));
+			instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, _T("cmdline"), root_.string(), (*ofile).string()));
 		} catch (const lua_wrappers::LUAException &e) {
 			NSC_LOG_ERROR_STD(_T("Could not load script ") + _T(": ") + e.getMessage());
 		} catch (const std::exception &e) {
@@ -252,9 +265,9 @@ NSCAPI::nagiosReturn LUAScript::handleSimpleNotification(const std::wstring chan
 
 
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(LUAScript);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(LUAScript)
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

@@ -48,6 +48,11 @@ void lua_wrappers::lua_wrapper::log_stack() {
 	}
 }
 
+int lua_wrappers::lua_wrapper::gc(int what, int data)
+{
+	return lua_gc(L, what, data);
+}
+
 NSCAPI::nagiosReturn lua_wrappers::lua_registry::on_query(const wchar_t* command, const std::string &request, std::string &response) {
 	function_map::iterator it = functions.find(command);
 	if (it == functions.end())
@@ -55,11 +60,14 @@ NSCAPI::nagiosReturn lua_wrappers::lua_registry::on_query(const wchar_t* command
 	function_container c = it->second;
 	lua_wrapper lua(prep_function(c));
 	if (c.simple) {
+		int args = 2;
+		if (c.obj_ref != 0)
+			args = 3;
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(command, request);
 		lua.push_string(command);
 		lua.push_array(data.args);
 		std::wstring msg, perf;
-		if (lua.pcall(2, LUA_MULTRET, 0) != 0) {
+		if (lua.pcall(args, LUA_MULTRET, 0) != 0) {
 			NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
 			return NSCAPI::returnUNKNOWN;
 		}
@@ -71,18 +79,23 @@ NSCAPI::nagiosReturn lua_wrappers::lua_registry::on_query(const wchar_t* command
 			msg = lua.pop_string();
 		if (arg_count > 0)
 			ret = lua.pop_code();
+		lua.gc(LUA_GCCOLLECT, 0);
 		nscapi::functions::create_simple_query_response(command, ret, msg, perf, response);
 		return ret;
 	} else {
+		int args = 2;
+		if (c.obj_ref != 0)
+			args = 3;
 		lua.push_string(command);
 		lua.push_raw_string(request);
-		if (lua.pcall(2, LUA_MULTRET, 0) != 0) {
+		if (lua.pcall(args, LUA_MULTRET, 0) != 0) {
 			NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
 			return NSCAPI::returnUNKNOWN;
 		}
 		int arg_count = lua.size();
 		if (arg_count > 1)
 			response = utf8::cvt<std::string>(lua.pop_string());
+		lua.gc(LUA_GCCOLLECT, 0);
 		if (arg_count > 0)
 			return lua.pop_code();
 	}
@@ -105,6 +118,7 @@ NSCAPI::nagiosReturn lua_wrappers::lua_registry::on_exec(const std::wstring & co
 	int arg_count = lua.size();
 	if (arg_count > 1)
 		result = lua.pop_string();
+	lua.gc(LUA_GCCOLLECT, 0);
 	if (arg_count > 0)
 		return lua.pop_code();
 	NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
@@ -126,6 +140,7 @@ NSCAPI::nagiosReturn lua_wrappers::lua_registry::on_submission(const std::wstrin
 		NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
 		return NSCAPI::returnUNKNOWN;
 	}
+	lua.gc(LUA_GCCOLLECT, 0);
 	if (lua.size() > 0)
 		return lua.pop_code();
 	NSC_LOG_ERROR_STD(_T("No arguments returned from script."));

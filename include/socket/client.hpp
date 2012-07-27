@@ -349,6 +349,7 @@ namespace socket_helpers {
 				, ssl_(ssl)
 				, dh_key_(dh_key)
 			{}
+			virtual ~client_handler() {}
 
 			bool use_ssl() { return ssl_; }
 			std::string get_host() { return host_; }

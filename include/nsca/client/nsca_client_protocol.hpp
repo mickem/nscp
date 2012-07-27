@@ -36,7 +36,7 @@ namespace nsca {
 				got_iv,
 				sent_request,
 				has_request,
-				done,
+				done
 			};
 			state current_state_;
 

@@ -18,20 +18,18 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
-NSC_WRAPPERS_CHANNELS();
+NSC_WRAPPERS_MAIN()
+NSC_WRAPPERS_CLI()
+NSC_WRAPPERS_CHANNELS()
+
+#include <boost/optional.hpp>
 
 //#include <config.h>
 #include <strEx.h>
 #include <utils.h>
-#include <checkHelpers.hpp>
-#include "script_wrapper.hpp"
-
-#include <boost/optional.hpp>
-
 #include <scripts/functions.hpp>
 
+#include "script_wrapper.hpp"
 
 class LUAScript : public nscapi::impl::simple_command_line_exec, public nscapi::impl::simple_submission_handler, public nscapi::impl::simple_plugin {
 private:

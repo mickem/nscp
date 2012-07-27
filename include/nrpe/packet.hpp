@@ -171,6 +171,7 @@ namespace nrpe {
 			delete [] tmpBuffer;
 			unsigned int packet_length = nrpe::length::get_packet_length(payload_length_);
 			tmpBuffer = new char[packet_length+1];
+			memset(tmpBuffer, 0, packet_length+1);
 			//TODO readd this ZeroMemory(tmpBuffer, getBufferLength()+1);
 			nrpe::data::packet *p = reinterpret_cast<nrpe::data::packet*>(tmpBuffer);
 			p->result_code = swap_bytes::hton<int16_t>(result_);

@@ -30,12 +30,12 @@ IF (PROTOC_GEN_LUA_FOUND AND HAVE_LUA)
 	target_link_libraries(lua_pb
 		${PROTOBUF_LIBRARY}
 		protobuf
-		lua_static
+		${LUA_LIB}
 	)
 	target_link_libraries(lua_pb_static
 		${PROTOBUF_LIBRARY}
 		protobuf
-		lua_static
+		${LUA_LIB}
 	)
 	
 	IF(APPLE)
@@ -43,7 +43,7 @@ IF (PROTOC_GEN_LUA_FOUND AND HAVE_LUA)
 	   SET_TARGET_PROPERTIES(lua_pb_static PROPERTIES COMPILE_FLAGS "-w -DOSX  -DNDEBUG -finline-functions -O3)
 	ELSEIF(UNIX AND NOT APPLE)
 	  SET_TARGET_PROPERTIES(lua_pb PROPERTIES COMPILE_FLAGS "-fPIC -w -pipe -DNDEBUG -DLINUX -finline-functions -O3")
-	  SET_TARGET_PROPERTIES(lua_pb_static PROPERTIES COMPILE_FLAGS " -w -pipe -DNDEBUG -DLINUX -finline-functions -O3")
+	  SET_TARGET_PROPERTIES(lua_pb_static PROPERTIES COMPILE_FLAGS "-fPIC -w -pipe -DNDEBUG -DLINUX -finline-functions -O3")
 	ELSEIF(WIN32)
 	  IF(NOT MSVC)
 		SET_TARGET_PROPERTIES(lua_pb PROPERTIES COMPILE_FLAGS "-mthreads -w -finline-functions -O3 -DNDEBUG -D__MINGW__ -DWIN32 -D_WIN32_WINNT=0x0501 -D_WIN32")

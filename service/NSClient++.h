@@ -102,7 +102,7 @@ public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
 	NSClientT();
-	virtual ~NSClientT() {}
+	virtual ~NSClientT();
 
 	// Service helper functions
 	bool boot_init(std::wstring log_level = _T(""));

@@ -4,6 +4,18 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-26 MickeM
+ * Fixed some memoryelaks in LUAModule
+ * Extracted the test functions into a library
+ * Added lib folder as search path for lua scripts
+ * Tweaks and improvments all around
+ * Improved the build scripts a lot making files work on linux (still need to manually build the targets though)
+
+2012-07-23 MickeM
+ * Added support for LUAScripts to linux enviornments (still a few warnings to sort out)
+ * Improved lua unit test scripts
+ * Added support for using member functions as handlers in Lua scripts
+
 2012-07-17 MickeM
  * Performance enhancements to build time
 

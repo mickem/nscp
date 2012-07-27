@@ -262,6 +262,14 @@ NSClientT::NSClientT()
 		nsclient::logging::logger::startup();
 }
 
+NSClientT::~NSClientT() {
+	try {
+		nsclient::logging::logger::destroy();
+	} catch(...) {
+		std::wcerr << _T("UNknown exception raised: When destroying logger") << std::endl;
+	}
+}
+
 
 NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	plugin_alias_list_type ret;
@@ -751,6 +759,8 @@ void NSClientT::unloadPlugins() {
 			return;
 		}
 		commands_.remove_all();
+		channels_.remove_all();
+		routers_.remove_all();
 		plugins_.clear();
 	}
 }

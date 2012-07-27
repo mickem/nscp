@@ -65,7 +65,7 @@ namespace nsclient {
 					do_log(logger_helper::create(level, file, line, message));
 			}
 
-			virtual void do_log(const std::string &data) = 0;
+			virtual void do_log(const std::string data) = 0;
 			virtual void configure() = 0;
 			virtual bool shutdown() {
 				is_running_ = false;

@@ -297,6 +297,7 @@ struct client_handler : public socket_helpers::client::client_handler {
 	{
 
 	}
+	virtual ~client_handler() {}
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
@@ -322,9 +323,9 @@ boost::tuple<int,std::wstring> NRPEClient::send(connection_data con, const std::
 		nrpe::packet packet = nrpe::packet::make_request(utf8::cvt<std::wstring>(data), con.buffer_length);
 		socket_helpers::client::client<nrpe::client::protocol> client(boost::shared_ptr<client_handler>(new client_handler(con)));
 		client.connect();
-		packet = client.process_request(packet);
+		nrpe::packet response = client.process_request(packet);
 		client.shutdown();
-		return boost::make_tuple(static_cast<int>(packet.getResult()), packet.getPayload());
+		return boost::make_tuple(static_cast<int>(response.getResult()), response.getPayload());
 	} catch (nrpe::nrpe_packet_exception &e) {
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.wwhat());
 	} catch (std::runtime_error &e) {

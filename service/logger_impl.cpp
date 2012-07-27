@@ -114,7 +114,7 @@ public:
 	}
 
 
-	void do_log(const std::string &data) {
+	void do_log(const std::string data) {
 		if (file_.empty())
 			return;
 		try {
@@ -216,7 +216,7 @@ class simple_console_logger : public nsclient::logging::logging_interface_impl {
 public:
 	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S") {}
 
-	void do_log(const std::string &data) {
+	void do_log(const std::string data) {
 		if (get_console_log()) {
 			std::wcout << render_console_message(data);
 		}
@@ -273,7 +273,7 @@ public:
 		shutdown();
 	}
 
-	void do_log(const std::string &data) {
+	void do_log(const std::string data) {
 		if (get_console_log()) {
 			std::wcout << render_console_message(data);
 		}
@@ -324,6 +324,7 @@ public:
 				log_fatal("Failed to exit log slave!");
 				return false;
 			}
+			background_logger_->shutdown();
 			return nsclient::logging::logging_interface_impl::shutdown();
 		} catch (const std::exception &e) {
 			log_fatal(std::string("Failed to exit log slave: ") + e.what());

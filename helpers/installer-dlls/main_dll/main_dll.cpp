@@ -45,7 +45,7 @@ public:
 	msi_logger()  {}
 
 
-	void do_log(const std::string &data) {
+	void do_log(const std::string data) {
 		std::wstring str = utf8::cvt<std::wstring>(data);
 		if (str.empty())
 			return;
