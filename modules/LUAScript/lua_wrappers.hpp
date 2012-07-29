@@ -452,11 +452,9 @@ namespace lua_wrappers {
 			, alias(alias)
 			, script(script)
 		{
-			std::wcout << _T("+++");
 		}
 
 		virtual ~lua_script_instance() {
-			std::wcout << _T("---");
 		}
 
 		int get_plugin_id() const {

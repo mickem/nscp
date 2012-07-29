@@ -87,10 +87,6 @@ namespace nrpe {
 				bool result;
 				iterator_type old_begin = begin;
 				boost::tie(result, begin) = parser_.digest(begin, end);
-				if (begin == old_begin) {
-					log_error(__FILE__, __LINE__, "Digester failed to parse chunk, giving up.");
-					return false;
-				}
 				if (result) {
 					nrpe::packet response;
 					try {
@@ -105,6 +101,9 @@ namespace nrpe {
 					data_ = response.get_buffer();
 					set_state(got_request);
 					return true;
+				} else if (begin == old_begin) {
+					log_error(__FILE__, __LINE__, "Digester failed to parse chunk, giving up.");
+					return false;
 				}
 			}
 			return true;

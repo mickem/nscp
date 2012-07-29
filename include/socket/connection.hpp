@@ -48,7 +48,7 @@ namespace socket_helpers {
 					protocol_->log_debug(__FILE__, __LINE__, msg);
 			}
 
-			virtual boost::asio::ip::tcp::socket& socket() = 0;
+			virtual boost::asio::ip::tcp::socket& get_socket() = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			// High level connection start/stop
@@ -58,15 +58,27 @@ namespace socket_helpers {
 					set_timeout(protocol_->get_info().timeout);
 					do_process();
 				} else {
-					stop();
+					on_done(false);
+				}
+			}
+			void cancel_socket() {
+				trace("cancel_socket()");
+				boost::system::error_code ignored_ec;
+				if (get_socket().is_open()) {
+					trace("socket.shutdown()");
+					get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+					get_socket().close(ignored_ec);
 				}
 			}
 
-			virtual void stop() {
-				trace("stop()");
-				cancel_timer();
-				boost::system::error_code ignored_ec;
-				socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+			virtual void on_done(bool all_ok) {
+				trace(std::string("on_done(") + (all_ok?"true":"false") + ")");
+				try {
+					cancel_timer();
+					cancel_socket();
+				} catch (...) {
+					protocol_->log_error(__FILE__, __LINE__, "Failed to close connection");
+				}
 			}
 
 			//////////////////////////////////////////////////////////////////////////
@@ -77,14 +89,14 @@ namespace socket_helpers {
 			}
 
 			virtual void cancel_timer() {
+				trace("cancel_timer()");
 				timer_.cancel();
 			}
 
 			virtual void timeout(const boost::system::error_code& e) {
 				if (e != boost::asio::error::operation_aborted) {
 					trace("timeout()");
-					boost::system::error_code ignored_ec;
-					socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+					on_done(false);
 				}
 			}
 
@@ -99,32 +111,34 @@ namespace socket_helpers {
 					//buffers.push_back();
 					start_write_request(buf(protocol_->get_outbound()));
 				} else {
-					stop();
+					on_done(true);
 				}
 			}
 
 			virtual void start_read_request() = 0;
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_read_request(" + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_read_request(" + e.message() + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					if (protocol_->on_read(buffer_.begin(), buffer_.begin() + bytes_transferred)) {
 						do_process();
 					} else {
-						stop();
+						on_done(false);
 					}
 				} else {
 					protocol_->log_error(__FILE__, __LINE__, "Failed to read data: " + e.message());
+					on_done(false);
 				}
 			}
 
 			virtual void start_write_request(const boost::asio::const_buffer& response) = 0;
 			virtual void handle_write_response(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_write_response(" + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_write_response(" + e.message() + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_->on_write();
 					do_process();
 				} else {
 					protocol_->log_error(__FILE__, __LINE__, "Failed to send data: " + e.message());
+					on_done(false);
 				}
 			}
 
@@ -162,7 +176,7 @@ namespace socket_helpers {
 			virtual ~tcp_connection() {
 			}
 
-			virtual boost::asio::ip::tcp::socket& socket() {
+			virtual boost::asio::ip::tcp::socket& get_socket() {
 				return socket_;
 			}
 
@@ -196,7 +210,7 @@ namespace socket_helpers {
 			}
 
 
-			virtual boost::asio::ip::tcp::socket& socket() {
+			virtual boost::asio::ip::tcp::socket& get_socket() {
 				return ssl_socket_.next_layer();
 			}
 
@@ -214,6 +228,7 @@ namespace socket_helpers {
 					parent_type::start();
 				else {
 					parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + e.message());
+					parent_type::on_done(false);
 				}
 			}
 

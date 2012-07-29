@@ -113,7 +113,7 @@ namespace socket_helpers {
 				else
 					acceptor_.listen(protocol_->get_info().back_log);
 
-				acceptor_.async_accept(new_connection_->socket(),accept_strand_.wrap(
+				acceptor_.async_accept(new_connection_->get_socket(),accept_strand_.wrap(
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					));
 				protocol_->log_debug(__FILE__, __LINE__, "Bound to: " + protocol_->get_info().get_endpoint_string());
@@ -132,15 +132,15 @@ namespace socket_helpers {
 			void handle_accept(const boost::system::error_code& e) {
 				if (!e) {
 					std::list<std::string> errors;
-					if (protocol_->on_accept(new_connection_->socket())) {
+					if (protocol_->on_accept(new_connection_->get_socket())) {
 						new_connection_->start();
 					} else {
-						new_connection_->stop();
+						new_connection_->on_done(false);
 					}
 
 					new_connection_.reset(create_connection());
 
-					acceptor_.async_accept(new_connection_->socket(),
+					acceptor_.async_accept(new_connection_->get_socket(),
 						accept_strand_.wrap(
 						boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 						)

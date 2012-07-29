@@ -108,7 +108,12 @@ namespace nrpe {
 		packet(std::vector<char> buffer, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
 			char *tmp = new char[buffer.size()+1];
 			copy( buffer.begin(), buffer.end(), tmp);
-			readFrom(tmp, buffer.size());
+			try {
+				readFrom(tmp, buffer.size());
+			} catch (nrpe::nrpe_packet_exception &e) {
+				delete [] tmp;
+				throw e;
+			}
 			delete [] tmp;
 		};
 		packet(const char *buffer, unsigned int buffer_length) : tmpBuffer(NULL), payload_length_(length::get_payload_length(buffer_length)) {

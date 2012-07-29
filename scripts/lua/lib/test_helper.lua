@@ -79,7 +79,7 @@ end
 
 function TestResult:print(indent)
 	indent = indent or 0
-	pad = string.rep(' ', indent)
+	local pad = string.rep(' ', indent)
 	if self.status then
 		core:log("info", pad .. "[OK ] - " .. self.message)
 	else
@@ -92,12 +92,12 @@ end
 
 function TestResult:print_failed(indent)
 	indent = indent or 0
-	pad = string.rep(' ', indent)
+	local pad = string.rep(' ', indent)
 	if not self.status then
 		core:log("error", pad .. "[ERR] - " .. self.message)
 	end
 	if # self.children > 0 then
-		for i,v in ipairs(self.children) do v:print(indent+2) end
+		for i,v in ipairs(self.children) do v:print_failed(indent+2) end
 	end
 end
 

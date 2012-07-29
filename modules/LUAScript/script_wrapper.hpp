@@ -515,11 +515,9 @@ namespace script_wrapper {
 		std::string base_path_;
 		lua_script(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua_wrappers::lua_registry> registry, const std::string alias, const std::string base_path, const std::string script) 
 			: script_instance(core, plugin_id, registry, alias, script), base_path_(base_path) {
-				std::wcout << _T("AAA");
 		}
 	public:
 		virtual ~lua_script() {
-			std::wcout << _T("XXX");
 		}
 
 		static boost::shared_ptr<lua_script> create_instance(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua_wrappers::lua_registry> registry, const std::wstring alias, const std::wstring base_path, const std::wstring script) {
@@ -531,7 +529,6 @@ namespace script_wrapper {
 		}
 
 		void load() {
-			std::wcout << _T("lll");
 			lua_wrappers::lua_instance_manager::set_script(get_lua_state(), shared_from_this());
 			lua_wrappers::lua_wrapper lua(get_lua_state());
 			lua.openlibs();
@@ -541,18 +538,14 @@ namespace script_wrapper {
 				throw lua_wrappers::LUAException(_T("Failed to load script: ") + get_wscript() + _T(": ") + lua.pop_string());
 			if (lua.pcall(0, 0, 0) != 0)
 				throw lua_wrappers::LUAException(_T("Failed to execute script: ") + get_wscript() + _T(": ") + lua.pop_string());
-			std::wcout << _T("LLL");
 		}
 		std::wstring get_wscript() const {
 			return utf8::cvt<std::wstring>(get_script());
 		}
 		void unload() {
-			std::wcout << _T("uuu");
 			lua_wrappers::lua_wrapper lua(get_lua_state());
 			lua.gc(LUA_GCCOLLECT, 0);
 			lua_wrappers::lua_instance_manager::remove_script(shared_from_this());
-			std::wcout << _T("UUU");
-			std::wcout << shared_from_this().use_count();
 		}
 		void reload() {
 			unload();

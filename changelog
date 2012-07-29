@@ -4,6 +4,11 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-29 MickeM
+ * Tracked down a few memoryleaks when connections time-out.
+ * Added testcases for connection timeouts in lua NRPE test suite
+ * Improved the LUA module a bit
+
 2012-07-26 MickeM
  * Fixed some memoryelaks in LUAModule
  * Extracted the test functions into a library

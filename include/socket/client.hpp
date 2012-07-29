@@ -35,7 +35,7 @@ namespace socket_helpers {
 
 			virtual ~connection() {
 				try {
-					stop_timer();
+					cancel_timer();
 				} catch (const std::exception &e) {
 					handler_->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
 				} catch (...) {
@@ -53,7 +53,8 @@ namespace socket_helpers {
 				timer_.expires_from_now(timeout_);
 				timer_.async_wait(boost::bind(&connection::on_timeout, this->shared_from_this(),  boost::asio::placeholders::error));
 			}
-			void stop_timer() {
+			void cancel_timer() {
+				trace("cancel_timer()");
 				timer_.cancel();
 			}
 			virtual void on_timeout(boost::system::error_code ec) {
@@ -93,28 +94,29 @@ namespace socket_helpers {
 				protocol_.prepare_request(packet);
 				do_process();
 				if (!wait()) {
-					stop_timer();
-					close();
+					close_socket();
+					timer_result_.reset();
+					wait();
 					return protocol_.get_timeout_response();
 				}
-				stop_timer();
+				cancel_timer();
 				return protocol_.get_response();
 			}
 
 			virtual void shutdown() {
 				trace("shutdown()");
-				boost::system::error_code ignored_ec;
-				if (get_socket().is_open())
-					get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+				cancel_timer();
+				close_socket();
 			};
 
 
-			virtual void close() {
-				trace("close()");
+			virtual void close_socket() {
+				trace("close_socket()");
 				boost::system::error_code ignored_ec;
-				if (get_socket().is_open())
+				if (get_socket().is_open()) {
 					get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-				get_socket().close(ignored_ec);
+					get_socket().close(ignored_ec);
+				}
 			}
 
 			//////////////////////////////////////////////////////////////////////////
@@ -141,6 +143,7 @@ namespace socket_helpers {
 					do_process();
 				} else {
 					handler_->log_error(__FILE__, __LINE__, "Failed to read data: " + e.message());
+					cancel_timer();
 				}
 			}
 
@@ -153,6 +156,7 @@ namespace socket_helpers {
 					do_process();
 				} else {
 					handler_->log_error(__FILE__, __LINE__, "Failed to send data: " + e.message());
+					cancel_timer();
 				}
 			}
 
@@ -199,7 +203,7 @@ namespace socket_helpers {
 			{}
 			virtual ~tcp_connection() {
 				try {
-					this->close();
+					this->close_socket();
 				} catch (const std::exception &e) {
 					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
 				} catch (...) {
@@ -240,7 +244,7 @@ namespace socket_helpers {
 			{}
 			virtual ~ssl_connection() {
 				try {
-					this->close();
+					this->close_socket();
 				} catch (const std::exception &e) {
 					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
 				} catch (...) {
@@ -275,7 +279,7 @@ namespace socket_helpers {
 #endif
 
 		template<class protocol_type>
-		class client {
+		class client : boost::noncopyable {
 			boost::shared_ptr<connection<protocol_type> > connection_;
 			boost::asio::io_service io_service_;
 			boost::shared_ptr<typename protocol_type::client_handler> handler_;
@@ -330,6 +334,7 @@ namespace socket_helpers {
 			}
 			void shutdown() {
 				connection_->shutdown();
+				connection_.reset();
 			};
 
 		};
