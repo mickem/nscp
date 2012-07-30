@@ -4,6 +4,11 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-30 MickeM
+ * Restructured settings a bit removing dead code
+ * Added nscp settings --validate to validate a given settings file listing all invalid (unregistered) keys.
+ * Added SamplePluginSimple which currently is not very rich but at least has some comments to explain some of the things.
+
 2012-07-29 MickeM
  * Tracked down a few memoryleaks when connections time-out.
  * Added testcases for connection timeouts in lua NRPE test suite

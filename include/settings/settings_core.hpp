@@ -71,6 +71,7 @@ namespace settings {
 	class settings_interface;
 	typedef boost::shared_ptr<settings_interface> instance_ptr;
 	typedef boost::shared_ptr<settings_interface> instance_raw_ptr;
+	typedef std::list<std::wstring> error_list;
 
 	class settings_core {
 	public:
@@ -194,6 +195,12 @@ namespace settings {
 		virtual void migrate_from(std::wstring from) = 0;
 
 		virtual void set_primary(std::wstring context) = 0;
+
+		//////////////////////////////////////////////////////////////////////////
+		/// Validate the settings store and report all missing/invalid and superflous keys.
+		///
+		/// @author mickem
+		virtual settings::error_list validate() = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Overwrite the (current) settings store with default values.
@@ -454,6 +461,12 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void load() = 0;
+
+		//////////////////////////////////////////////////////////////////////////
+		/// Validate the settings store and report all missing/invalid and superflous keys.
+		///
+		/// @author mickem
+		virtual settings::error_list validate() = 0;
 
 		virtual std::wstring to_string() = 0;
 

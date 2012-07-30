@@ -704,6 +704,7 @@ bool NSClientT::stop_exit_pre() {
 bool NSClientT::stop_exit_post() {
 	try {
 		nsclient::logging::logger::shutdown();
+		google::protobuf::ShutdownProtobufLibrary();
 	} catch(...) {
 		LOG_ERROR_CORE_STD(_T("UNknown exception raised: When closing shared session"));
 	}

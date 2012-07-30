@@ -14,8 +14,6 @@ FILE (GLOB_RECURSE scripts_LUA "lua/*.lua")
 SET(script_ALL ${scripts_BAT} ${scripts_VBS} ${scripts_PS1})
 SET(ALL_FILES)
 
-
-
 FOREACH(file ${script_ALL})
 	get_filename_component(filename ${file} NAME)
 	#MESSAGE(STATUS " + ${filename} (${file})")

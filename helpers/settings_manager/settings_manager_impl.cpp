@@ -2,12 +2,12 @@
 
 #include "settings_manager_impl.h"
 
-#include <settings/settings_ini.hpp>
-#include <settings/settings_dummy.hpp>
-#include <settings/settings_http.hpp>
+#include <settings/impl/settings_ini.hpp>
+#include <settings/impl/settings_dummy.hpp>
+#include <settings/impl/settings_http.hpp>
 #ifdef WIN32
-#include <settings/settings_old.hpp>
-#include <settings/settings_registry.hpp>
+#include <settings/impl/settings_old.hpp>
+#include <settings/impl/settings_registry.hpp>
 #endif
 
 #include <settings/client/settings_proxy.hpp>

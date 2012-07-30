@@ -182,6 +182,13 @@ namespace nsclient {
 
 			return 0;
 		}
+		int validate() {
+			settings::error_list errors = settings_manager::get_core()->validate();
+			BOOST_FOREACH(const std::wstring &e, errors) {
+				std::wcerr << e << std::endl;
+			}
+			return 0;
+		}
 
 		void error_msg(std::wstring msg) {
 			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg.c_str());

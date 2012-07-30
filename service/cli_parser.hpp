@@ -59,6 +59,7 @@ public:
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
 			("add-defaults", "Add all default (if missing) values.")
+			("validate", "Validate the current configuration (or a given configuration).")
 			("load-all", "Load all plugins (currently only used with generate).")
 			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
 			("key", po::value<std::wstring>()->default_value(_T("")), "Key to work with.")
@@ -262,6 +263,8 @@ public:
 				ret = client.list(vm["path"].as<std::wstring>());
 			} else if (vm.count("show")) {
 				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
+			} else if (vm.count("validate")) {
+				ret = client.validate();
 			} else if (vm.count("switch")) {
 				client.switch_context(vm["switch"].as<std::wstring>());
 				ret = 0;
