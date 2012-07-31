@@ -4,6 +4,10 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-31 MickeM
+ * Fixed issue with files not copied by default build
+ * Swapped graphite client to use UTC instead of local time
+
 2012-07-30 MickeM
  * Restructured settings a bit removing dead code
  * Added nscp settings --validate to validate a given settings file listing all invalid (unregistered) keys.

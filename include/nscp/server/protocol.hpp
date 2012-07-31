@@ -38,7 +38,7 @@ namespace nscp {
 			none,
 			connected,
 			got_request,
-			done,
+			done
 		};
 
 		state current_state_;

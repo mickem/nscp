@@ -27,11 +27,10 @@ MACRO(copy_single_file _TARGET_LIST src destDir)
 	ELSE(${destDir} STREQUAL ".")
 		SET(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
 	ENDIF(${destDir} STREQUAL ".")
-	message(STATUS " - Copying ${source_file} to ${target_file}...")
+	#MESSAGE(STATUS " - Copying ${source_file} to ${target_file}...")
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
 		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
-		OUTPUT ${target_file}
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
 		)

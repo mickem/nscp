@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
+PROJECT(copy_scripts)
+
 FILE (GLOB scripts_BAT "*.bat")
 FILE (GLOB scripts_VBS "*.vbs")
 FILE (GLOB scripts_PS1 "*.ps1")
@@ -47,6 +49,6 @@ FOREACH(file ${scripts_LUA})
 	copy_single_file(ALL_FILES ${relpath}/${filename} scripts/${relpath})
 ENDFOREACH(file ${scripts_LUA})
 
-ADD_CUSTOM_TARGET(copy_scripts DEPENDS ${ALL_FILES})
+ADD_CUSTOM_TARGET(copy_scripts ALL DEPENDS ${ALL_FILES})
 SET_TARGET_PROPERTIES(copy_scripts PROPERTIES FOLDER "files")
 #INSTALL(CODE "FILE(INSTALL DESTINATION \${CMAKE_INSTALL_PREFIX}/${destDir} TYPE EXECUTABLE FILES \"${source_file}\")")
