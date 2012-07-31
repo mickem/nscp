@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-07-31 MickeM
+ * Fixed som build related issues (such as missing nsclient.dist and order of scripts)
+
 2012-06-18 MickeM
  * Fixed issue with parsing in test mode
  * Fixed Graphite client using wrong time for datestamp
