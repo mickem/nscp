@@ -476,7 +476,7 @@ namespace settings {
 			return str == _T("true")||str == _T("1");
 		}
 
-
+		virtual std::list<boost::shared_ptr<settings_interface> > get_children() = 0;
 	};
 
 }

@@ -129,13 +129,24 @@ namespace settings {
 				throw settings_exception(_T("FATAL ERROR: Settings subsystem not initialized"));
 			return core_;
 		}
-		const nsclient::logging::logger_interface* get_logger() const {
+		nsclient::logging::logger_interface* get_logger() const {
 			return nsclient::logging::logger::get_logger();
 		}
 
 		void add_child(std::wstring context) {
-			MUTEX_GUARD();
-			children_.push_back(get_core()->create_instance(context));
+			try {
+				instance_raw_ptr child = get_core()->create_instance(context);
+				{
+					MUTEX_GUARD();
+					children_.push_back(child);
+				}
+			} catch (const std::exception &e) {
+				get_logger()->error(__FILE__, __LINE__, _T("Failed to load child: ") + utf8::to_unicode(e.what()));
+			}
+		}
+
+		virtual std::list<boost::shared_ptr<settings_interface> > get_children() {
+			return children_;
 		}
 
 		//////////////////////////////////////////////////////////////////////////

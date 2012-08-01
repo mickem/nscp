@@ -41,7 +41,7 @@ namespace settings {
 			std::string error;
 			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
 				os.close();
-				get_logger()->error(__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
+				get_logger()->error(__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::to_unicode(error));
 			}
 			os.close();
 			if (!file_helpers::checks::exists(wp.string())) {

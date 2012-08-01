@@ -270,6 +270,7 @@ public:
 				ret = 0;
 			} else {
 				std::cout << all << std::endl;
+				client.list_settings_info();
 				return 1;
 			}
 

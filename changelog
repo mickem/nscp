@@ -6,6 +6,8 @@ TODO:
 
 2012-08-01 MickeM
  * Resolved issue with crypto++ on linux (introduced by buildspeedups)
+ * Added so running "nscp settings" will list all loaded settins context (as a tree).
+   Quick way to see where your settings are stored.
 
 2012-07-31 MickeM
  * Fixed issue with files not copied by default build
