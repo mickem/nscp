@@ -490,9 +490,13 @@ tuple script_wrapper::command_wrapper::submit(std::string channel, std::string r
 	std::wstring wchannel = utf8::cvt<std::wstring>(channel);
 	std::string response;
 	int ret = 0;
-	{
+	try {
 		thread_unlocker unlocker;
 		ret = core->submit_message(wchannel, request, response);
+	} catch (const std::exception &e) {
+		return make_tuple(false,std::string(e.what()));
+	} catch (...) {
+		return make_tuple(false,std::string("Failed to submit message"));
 	}
 	std::wstring err;
 	nscapi::functions::parse_simple_submit_response(response, err);

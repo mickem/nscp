@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-01 MickeM
+ * Resolved issue with crypto++ on linux (introduced by buildspeedups)
+
 2012-07-31 MickeM
  * Fixed issue with files not copied by default build
  * Swapped graphite client to use UTC instead of local time
