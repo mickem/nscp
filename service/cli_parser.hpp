@@ -22,6 +22,7 @@ class cli_parser {
 	bool log_debug;
 	std::wstring log_level;
 	std::wstring settings_store;
+	std::vector<std::wstring> unknown_options;
 
 	static nsclient::logging::logger_interface* get_logger() {
 		return nsclient::logging::logger::get_logger(); 
@@ -110,6 +111,12 @@ public:
 		}
 		if (!log_level.empty())
 			nsclient::logging::logger::set_log_level(log_level);
+		if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
+			BOOST_FOREACH(const std::wstring & a, unknown_options) {
+				get_logger()->info(__FILE__, __LINE__, _T("Extra options: ") + a);
+			}
+		}
+
 		if (!settings_store.empty())
 			core_->set_settings_context(settings_store);
 
@@ -175,6 +182,21 @@ public:
 		}
 		return parse_help(argc, argv);
 	}
+
+	po::basic_parsed_options<wchar_t> do_parse(int argc, wchar_t* argv[], po::options_description &desc) {
+		int pos = 0;
+		for (;pos<argc;pos++) {
+			if (wcscmp(argv[pos], _T("..")) == 0)
+				break;
+		}
+		po::basic_parsed_options<wchar_t> parsed = po::wcommand_line_parser(pos, argv).options(desc).allow_unregistered().run();
+		unknown_options = po::collect_unrecognized(parsed.options, po::include_positional);
+		for (int i=pos+1;i<argc;i++) {
+			unknown_options.push_back(argv[i]);
+		}
+		return parsed;
+	}
+
 	int parse_help(int argc, wchar_t* argv[]) {
 		try {
 
@@ -211,7 +233,7 @@ public:
 			all.add(common).add(test);
 
 			po::variables_map vm;
-			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (log_level.empty())
@@ -239,7 +261,7 @@ public:
 			all.add(common).add(settings);
 
 			po::variables_map vm;
-			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("settings", all))
@@ -288,7 +310,7 @@ public:
 			all.add(common).add(service);
 
 			po::variables_map vm;
-			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("service", all))
@@ -380,9 +402,7 @@ public:
 			p.add("arguments", -1);
 
 			po::variables_map vm;
-			po::wparsed_options parsed = 
-				po::wcommand_line_parser(argc, argv).options(all).allow_unregistered().run();
-			po::store(parsed, vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("client", all))
@@ -415,7 +435,7 @@ public:
 			if (vm.count("argument"))
 				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
 
-			args.arguments = po::collect_unrecognized(parsed.options, po::include_positional);
+			args.arguments = unknown_options;
 
 			BOOST_FOREACH(std::wstring s, kvp_args) {
 				std::wstring::size_type pos = s.find(L'=');
@@ -459,9 +479,7 @@ public:
 			p.add("arguments", -1);
 
 			po::variables_map vm;
-			po::wparsed_options parsed = 
-				po::wcommand_line_parser(argc, argv).options(all).allow_unregistered().run();
-			po::store(parsed, vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("unitest", all))
@@ -495,7 +513,7 @@ public:
 			if (vm.count("argument"))
 				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
 
-			args.arguments = po::collect_unrecognized(parsed.options, po::include_positional);
+			args.arguments = unknown_options;
 
 			BOOST_FOREACH(std::wstring s, kvp_args) {
 				std::wstring::size_type pos = s.find(L'=');

@@ -4,6 +4,14 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-02 MickeM
+ * Added so commandline parser will stop at .. and pass along all extra options to the module.
+    So now you can do: (Notice the double --log where the first is a log arg and the second is a module arg)
+      nscp lua --log debug .. --script foo.lua --log this-is-a-lua-argument
+    But perhaps more importantly you can do:
+      nscp lua .. --help
+    Which previously would always give you "command line help" and not lua help.
+
 2012-08-01 MickeM
  * Resolved issue with crypto++ on linux (introduced by buildspeedups)
  * Added so running "nscp settings" will list all loaded settins context (as a tree).
