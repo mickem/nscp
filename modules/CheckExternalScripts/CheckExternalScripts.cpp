@@ -100,9 +100,9 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 			wrappings_[_T("vbs")] = _T("cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%");
 			wrappings_[_T("ps1")] = _T("cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -");
 			wrappings_[_T("bat")] = _T("scripts\\\\%SCRIPT% %ARGS%");
-			get_core()->settings_register_key(wrappings_path, _T("vbs"), NSCAPI::key_string, _T("VISUAL BASIC WRAPPING"), _T(""), wrappings_[_T("vbs")], false);
-			get_core()->settings_register_key(wrappings_path, _T("ps1"), NSCAPI::key_string, _T("POWERSHELL WRAPPING"), _T(""), wrappings_[_T("ps1")], false);
-			get_core()->settings_register_key(wrappings_path, _T("bat"), NSCAPI::key_string, _T("BATCH FILE WRAPPING"), _T(""), wrappings_[_T("bat")], false);
+			settings.register_key(wrappings_path, _T("vbs"), NSCAPI::key_string, _T("VISUAL BASIC WRAPPING"), _T(""), wrappings_[_T("vbs")], false);
+			settings.register_key(wrappings_path, _T("ps1"), NSCAPI::key_string, _T("POWERSHELL WRAPPING"), _T(""), wrappings_[_T("ps1")], false);
+			settings.register_key(wrappings_path, _T("bat"), NSCAPI::key_string, _T("BATCH FILE WRAPPING"), _T(""), wrappings_[_T("bat")], false);
 		}
 
 		if (aliases_.empty()) {

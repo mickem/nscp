@@ -105,7 +105,11 @@ namespace socket_helpers {
 
 				ip::tcp::endpoint endpoint = *endpoint_iterator;
 				acceptor_.open(endpoint.protocol());
-				acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
+				boost::system::error_code er;
+				acceptor_.set_option(ip::tcp::acceptor::reuse_address(true), er);
+				if (er) {
+					protocol_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
+				}
 				protocol_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + protocol_->get_info().get_endpoint_string());
 				acceptor_.bind(endpoint);
 				if (protocol_->get_info().back_log == connection_info::backlog_default)

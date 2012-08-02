@@ -32,6 +32,9 @@ private:
 	CheckMemory memoryChecker;
 	PDHCollectorThread pdhThread;
 
+	typedef std::map<std::wstring,std::wstring> counter_map_type;
+	counter_map_type counters;
+
 public:
 	typedef enum { started, stopped } states;
 	typedef struct rB {

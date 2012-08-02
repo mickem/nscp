@@ -5,6 +5,12 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2012-08-02 MickeM
+ * major improvments to the CheckSystem command line syntax:
+   Run: "nscp sys" to get help.
+   A good way to validate your CheckSystem issues are running the following:
+     nscp sys --validate
+
+2012-08-02 MickeM
  * Added so commandline parser will stop at .. and pass along all extra options to the module.
     So now you can do: (Notice the double --log where the first is a log arg and the second is a module arg)
       nscp lua --log debug .. --script foo.lua --log this-is-a-lua-argument

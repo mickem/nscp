@@ -27,6 +27,7 @@
 
 #include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/program_options.hpp>
 
 #include <tlhelp32.h>
 
@@ -79,34 +80,38 @@ bool missing_system_counters(std::map<std::wstring,std::wstring> &counters)
 	return false;
 }
 
+void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_registry &settings) {
+	settings.alias().add_path_to_settings()
+		(_T("pdh/counters"), sh::wstring_map_path(&counters)
+		, _T("PDH COUNTERS"), _T("Define various PDH counters to check."))
+		;
+
+	settings.register_all();
+	settings.notify();
+	settings.clear();
+
+	if (counters.empty() || missing_system_counters(counters)) {
+		std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
+
+		counters[PDH_SYSTEM_KEY_UPT] = _T("\\2\\674");
+		counters[PDH_SYSTEM_KEY_MCL] = _T("\\4\\30");
+		counters[PDH_SYSTEM_KEY_MCB] = _T("\\4\\26");
+		counters[PDH_SYSTEM_KEY_CPU] = _T("\\238(_total)\\6");
+		settings.register_key(path, PDH_SYSTEM_KEY_UPT, NSCAPI::key_string, _T("UPTIME"), _T("PDH Key for system uptime."), _T("\\2\\674"), false);
+		settings.register_key(path, PDH_SYSTEM_KEY_MCL, NSCAPI::key_string, _T("Commit limit"), _T("PDH key for memory commit limit"), _T("\\4\\30"), false);
+		settings.register_key(path, PDH_SYSTEM_KEY_MCB, NSCAPI::key_string, _T("Commit bytes"), _T("PDH Key for system CPU load."), _T("\\4\\26"), false);
+		settings.register_key(path, PDH_SYSTEM_KEY_CPU, NSCAPI::key_string, _T("CPU Load"), _T("PDH Key for system CPU load."), _T("\\238(_total)\\6"), false);
+		settings.register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPP is usually round robin."), _T("round robin"), false);
+	}
+}
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
 	data->check_intervall = 1;
 	try {
-		typedef std::map<std::wstring,std::wstring> counter_map_type;
-		counter_map_type counters;
-
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("check"), alias, _T("system/windows"));
 
-		settings.alias().add_path_to_settings()
-			(_T("pdh/counters"), sh::wstring_map_path(&counters)
-			, _T("PDH COUNTERS"), _T("Define various PDH counters to check."))
-			;
-
-		settings.register_all();
-		settings.notify();
-		settings.clear();
-
-		if (counters.empty() || missing_system_counters(counters)) {
-			std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
-
-			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_UPT, NSCAPI::key_string, _T("UPTIME"), _T("PDH Key for system uptime."), _T("\\2\\674"), false);
-			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_MCL, NSCAPI::key_string, _T("Commit limit"), _T("PDH key for memory commit limit"), _T("\\4\\30"), false);
-			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_MCB, NSCAPI::key_string, _T("Commit bytes"), _T("PDH Key for system CPU load."), _T("\\4\\26"), false);
-			get_core()->settings_register_key(path, PDH_SYSTEM_KEY_CPU, NSCAPI::key_string, _T("CPU Load"), _T("PDH Key for system CPU load."), _T("\\238(_total)\\6"), false);
-			get_core()->settings_register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPP is usually round robin."), _T("round robin"), false);
-		}
+		load_counters(counters, settings);
 
 		settings.alias().add_path_to_settings()
 			(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
@@ -226,219 +231,222 @@ bool CheckSystem::hasMessageHandler() {
 	return false;
 }
 
-int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
-	if (command == _T("help")) {
-		std::wcerr << _T("Usage: ... CheckSystem <command>") << std::endl;
-		std::wcerr << _T("Commands: debugpdh, listpdh, pdhlookup, pdhmatch, pdhobject") << std::endl;
-		return -1;
+std::wstring validate_counter(std::wstring counter) {
+	std::wstring error;
+	if (!PDH::PDHResolver::validate(counter, error, false)) {
+		NSC_LOG_ERROR_STD(_T("not found: ") + error);
 	}
-	if (command == _T("debugpdh")) {
-		PDH::Enumerations::Objects lst;
+
+	typedef boost::shared_ptr<PDH::PDHCounter> counter_ptr;
+	counter_ptr pCounter;
+	PDH::PDHQuery pdh;
+	typedef PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> counter_type;
+	boost::shared_ptr<counter_type> collector(new counter_type());
+	try {
+		pdh.addCounter(counter, collector);
+		pdh.open();
+		pdh.gatherData();
+		pdh.close();
+		return _T("ok(") + strEx::itos(collector->getValue()) + _T(")");
+	} catch (const PDH::PDHException e) {
 		try {
-			lst = PDH::Enumerations::EnumObjects();
+			pdh.gatherData();
+			pdh.close();
+			return _T("ok-rate(") + strEx::itos(collector->getValue()) + _T(")");
 		} catch (const PDH::PDHException e) {
-			std::wcout << _T("Service enumeration failed: ") << e.getError();
-			return 0;
+			return _T("query failed: ") + e.getError();
 		}
-		for (PDH::Enumerations::Objects::iterator it = lst.begin();it!=lst.end();++it) {
-			if ((*it).instances.size() > 0) {
-				for (PDH::Enumerations::Instances::const_iterator it2 = (*it).instances.begin();it2!=(*it).instances.end();++it2) {
-					for (PDH::Enumerations::Counters::const_iterator it3 = (*it).counters.begin();it3!=(*it).counters.end();++it3) {
-						std::wstring counter = _T("\\") + (*it).name + _T("(") + (*it2).name + _T(")\\") + (*it3).name;
-						std::wcout << _T("testing: ") << counter << _T(": ");
-						std::list<std::wstring> errors;
-						std::list<std::wstring> status;
-						std::wstring error;
-						bool bStatus = true;
-						if (PDH::PDHResolver::validate(counter, error, false)) {
-							status.push_back(_T("open"));
-						} else {
-							errors.push_back(_T("NOT found: ") + error);
-							bStatus = false;
-						}
-						if (bStatus) {
-							
-							typedef boost::shared_ptr<PDH::PDHCounter> counter_ptr;
-							counter_ptr pCounter;
-							PDH::PDHQuery pdh;
-							try {
-								pdh.addCounter(counter);
-								pdh.open();
+	}
+}
 
-								if (pCounter != NULL) {
-									try {
-										PDH::PDHCounterInfo info = pCounter->getCounterInfo();
-										errors.push_back(_T("CounterName: ") + info.szCounterName);
-										errors.push_back(_T("ExplainText: ") + info.szExplainText);
-										errors.push_back(_T("FullPath: ") + info.szFullPath);
-										errors.push_back(_T("InstanceName: ") + info.szInstanceName);
-										errors.push_back(_T("MachineName: ") + info.szMachineName);
-										errors.push_back(_T("ObjectName: ") + info.szObjectName);
-										errors.push_back(_T("ParentInstance: ") + info.szParentInstance);
-										errors.push_back(_T("Type: ") + strEx::itos(info.dwType));
-										errors.push_back(_T("Scale: ") + strEx::itos(info.lScale));
-										errors.push_back(_T("Default Scale: ") + strEx::itos(info.lDefaultScale));
-										errors.push_back(_T("Status: ") + strEx::itos(info.CStatus));
-										status.push_back(_T("described"));
-									} catch (const PDH::PDHException e) {
-										errors.push_back(_T("Describe failed: ") + e.getError());
-										bStatus = false;
-									}
+int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+	if (command == _T("pdh") || command == _T("help") || command.empty()) {
+		namespace po = boost::program_options;
+
+		std::wstring lookup, counter, list_string;
+		po::options_description desc("Allowed options");
+		desc.add_options()
+			("help,h", "Show help screen")
+			("porcelain", "Computer parsable format")
+			("lookup-index", po::wvalue<std::wstring>(&lookup), "Lookup a numeric value in the PDH index table")
+			("lookup-name", po::wvalue<std::wstring>(&lookup), "Lookup a string value in the PDH index table")
+			("expand-path", po::wvalue<std::wstring>(&lookup), "Expand a counter path contaning wildcards into corresponding objects (for instance --expand-path \\System\\*)")
+			("check", "Check that performance counters are working")
+			("list", po::wvalue<std::wstring>(&list_string)->implicit_value(_T("")), "List counters and/or instances")
+			("validate", po::wvalue<std::wstring>(&list_string)->implicit_value(_T("")), "List counters and/or instances")
+			("all", "List/check all counters not configured counter")
+			("counter", po::wvalue<std::wstring>(&counter)->implicit_value(_T("")), "Specify which counter to work with")
+			("filter", po::wvalue<std::wstring>(&counter)->implicit_value(_T("")), "Specify a filter to match (substring matching)")
+			;
+		boost::program_options::variables_map vm;
+
+		if (command == _T("help")) {
+			std::stringstream ss;
+			ss << "pdh Command line syntax:" << std::endl;
+			ss << desc;
+			result = utf8::cvt<std::wstring>(ss.str());
+			return NSCAPI::isSuccess;
+		}
+
+		std::vector<std::wstring> args(arguments.begin(), arguments.end());
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(args).options(desc).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		bool porcelain = vm.count("porcelain");
+		bool all = vm.count("all");
+		bool validate = vm.count("validate");
+		bool list = vm.count("list") || (validate && counter.empty());
+		if (counter.empty())
+			counter = list_string;
+
+		if (vm.count("help") || (vm.count("check") == 0 && vm.count("list") == 0 && vm.count("validate") == 0 && lookup.empty())) {
+			std::stringstream ss;
+			ss << "pdh Command line syntax:" << std::endl;
+			ss << desc;
+			result = utf8::cvt<std::wstring>(ss.str());
+			return NSCAPI::isSuccess;
+		}
+
+
+		if (list) {
+			if (all) {
+				if (!porcelain) {
+					result += _T("Listing all counters\n");
+					result += _T("---------------------------\n");
+				}
+				try {
+					int total = 0, match = 0;
+					PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+					BOOST_FOREACH(PDH::Enumerations::Object &obj, lst) {
+						if (!obj.error.empty()) {
+							result += _T("error,") + obj.name + _T(",") + utf8::to_unicode(obj.error) + _T("\n");
+						} else if (obj.instances.size() > 0) {
+							BOOST_FOREACH(const PDH::Enumerations::Instance &inst, obj.instances) {
+								BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
+									std::wstring line = _T("\\") + obj.name + _T("(") + inst.name + _T(")\\") + count.name;
+									total++;
+									if (!counter.empty() && line.find(counter) == std::wstring::npos)
+										continue;
+									std::wstring status;
+									if (validate)
+										status = validate_counter(line);
+									if (porcelain) 
+										line = _T("counter,") + obj.name + _T(",") + inst.name + _T(",") + count.name + _T(", ") + status;
+									else if (validate)
+										line = line + _T(": ") + status;
+									result += line + _T("\n");
+									match++;
 								}
-
-								pdh.gatherData();
-								pdh.close();
-								status.push_back(_T("queried"));
-							} catch (const PDH::PDHException e) {
-								errors.push_back(_T("Query failed: ") + e.getError());
-								bStatus = false;
-								try {
-									pdh.gatherData();
-									pdh.close();
-									bStatus = true;
-								} catch (const PDH::PDHException e) {
-									errors.push_back(_T("Query failed (again!): ") + e.getError());
-								}
-							}
-
-						}
-						if (!bStatus) {
-							std::list<std::wstring>::const_iterator cit = status.begin();
-							for (;cit != status.end(); ++cit) {
-								std::wcout << *cit << _T(", ");
-							}
-							std::wcout << std::endl;
-							std::wcout << _T("  | Log") << std::endl;
-							std::wcout << _T("--+------  --    -") << std::endl;
-							cit = errors.begin();
-							for (;cit != errors.end(); ++cit) {
-								std::wcout << _T("  | ") << *cit << std::endl;
 							}
 						} else {
-							std::list<std::wstring>::const_iterator cit = status.begin();
-							for (;cit != status.end(); ++cit) {
-								std::wcout << *cit << _T(", ");;
+							BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
+								std::wstring line = _T("\\") + obj.name + _T("\\") + count.name;
+								total++;
+								if (!counter.empty() && line.find(counter) == std::wstring::npos)
+									continue;
+								std::wstring status;
+								if (validate)
+									status = validate_counter(line);
+
+								if (porcelain) 
+									line = _T("counter,") + obj.name + _T(",,") + _T(",") + count.name  + _T(", ") + status;
+								else if (validate)
+									line = line + _T(": ") + status;
+								result += line + _T("\n");
+								match++;
 							}
-							std::wcout << std::endl;
 						}
 					}
+					if (!porcelain) {
+						result += _T("---------------------------\n");
+						result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(total) + _T(" counters.");
+					}
+				} catch (const PDH::PDHException e) {
+					result = _T("ERROR: Service enumeration failed: ") + e.getError();
+					return NSCAPI::hasFailed;
 				}
 			} else {
-				if ((*it).counters.size() == 0) {
-					std::wcout << _T("empty counter: ") << (*it).name << std::endl;
+				int count = 0, match = 0;
+				if (counters.empty()) {
+					sh::settings_registry settings(get_settings_proxy());
+					settings.set_alias(_T("check"), _T("system/windows"), _T("system/windows"));
+
+					load_counters(counters, settings);
 				}
-				for (PDH::Enumerations::Counters::const_iterator it2 = (*it).counters.begin();it2!=(*it).counters.end();++it2) {
-					std::wstring counter = _T("\\") + (*it).name + _T("\\") + (*it2).name;
-					std::wcout << _T("testing: ") << counter << _T(": ");
-					std::wstring error;
-					if (PDH::PDHResolver::validate(counter, error, false)) {
-						std::wcout << _T(" found ");
-					} else {
-						std::wcout << _T(" *NOT* found (") << error << _T(") ") << std::endl;
-						break;
-					}
-					bool bOpend = false;
-					try {
-						PDH::PDHQuery pdh;
-						//PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> cDouble;
-						pdh.addCounter(counter);
-						pdh.open();
-						pdh.gatherData();
-						pdh.close();
-						bOpend = true;
-					} catch (const PDH::PDHException e) {
-						std::wcout << _T(" could *not* be open (") << e.getError() << _T(") ") << std::endl;
-						break;
-					}
-					std::wcout << _T(" open ");
-					std::wcout << std::endl;
-				}
-			}
-		}
-	} else if (command == _T("listpdh")) {
-		bool porcelain = arguments.size() > 0 && arguments.front() == _T("--porcelain");
-		PDH::Enumerations::Objects lst;
-		try {
-			lst = PDH::Enumerations::EnumObjects();
-		} catch (const PDH::PDHException e) {
-			result = _T("ERROR: Service enumeration failed: ") + e.getError();
-			return NSCAPI::returnUNKNOWN;
-		}
-		std::wstringstream ss;
-		BOOST_FOREACH(PDH::Enumerations::Object &obj, lst) {
-			if (!obj.error.empty()) {
-				ss << "error," << obj.name << "," << utf8::to_unicode(obj.error) << _T("\n");
-			} else if (obj.instances.size() > 0) {
-				BOOST_FOREACH(const PDH::Enumerations::Instance &inst, obj.instances) {
-					BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
-						if (porcelain) 
-							ss << "counter," << obj.name << _T(",") << inst.name << _T(",") << count.name << _T("\n");
-						else
-							ss << _T("\\") << obj.name << _T("(") << inst.name << _T(")\\") << count.name << _T("\n");
-					}
-				}
-			} else {
-				BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
+				if (!porcelain) {
+					result += _T("Listing configured counters\n");
+					result += _T("---------------------------\n");
+				} 
+				BOOST_FOREACH(const counter_map_type::value_type v, counters) {
+					std::wstring line = v.first + _T(" = ") + v.second;
+					std::wstring status;
+					count++;
+					if (!counter.empty() && line.find(counter) == std::wstring::npos)
+						continue;
+
+					if (validate)
+						status = validate_counter(v.second);
+
 					if (porcelain) 
-						ss << obj.name << _T(",") << count.name << _T("\n");
-					else
-						ss << _T("\\") << obj.name << _T("\\") << count.name << _T("\n");
+						line = v.first + _T(",") + v.second + _T(",") + status;
+					else if (validate)
+						line = v.first + _T(" = ") + v.second + _T(": ") + status;
+					else 
+						line = v.first + _T(" = ") + v.second;
+					result += line + _T("\n");
+					match++;
+				}
+				if (!porcelain) {
+					result += _T("---------------------------\n");
+					result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(count) + _T(" counters.");
 				}
 			}
-		}
-		result = ss.str();
-		return NSCAPI::returnOK;
-	} else if (command == _T("pdhlookup")) {
-		try {
-			if (arguments.size() == 0) {
-				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
-				return 0;
+			return NSCAPI::isSuccess;
+		} else if (vm.count("lookup-index")) {
+			try {
+				DWORD dw = PDH::PDHResolver::lookupIndex(lookup);
+				if (porcelain) {
+					result += strEx::itos(dw);
+				} else {
+					result += _T("--+--[ Lookup Result ]----------------------------------------\n");
+					result += _T("  | Index for '") + lookup + _T("' is ") + strEx::itos(dw) + _T("\n");
+					result += _T("--+-----------------------------------------------------------");
+				}
+			} catch (const PDH::PDHException e) {
+				result += _T("Index not found: ") + lookup + _T("\n");
+				return NSCAPI::hasFailed;
 			}
-			std::wstring name = arguments.front();
-			DWORD dw = PDH::PDHResolver::lookupIndex(name);
-			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
-			NSC_LOG_MESSAGE_STD(_T("  | Index for '") + name + _T("' is ") + strEx::itos(dw));
-			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
-		} catch (const PDH::PDHException e) {
-			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
-			return 0;
-		}
-	} else if (command == _T("pdhmatch")) {
-		try {
-			if (arguments.size() == 0) {
-				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
-				return 0;
+		} else if (vm.count("lookup-name")) {
+			try {
+				std::wstring name = PDH::PDHResolver::lookupIndex(strEx::stoi(lookup));
+				if (porcelain) {
+					result += name;
+				} else {
+					result += _T("--+--[ Lookup Result ]----------------------------------------\n");
+					result += _T("  | Index for '") + lookup + _T("' is ") + name + _T("\n");
+					result += _T("--+-----------------------------------------------------------");
+				}
+			} catch (const PDH::PDHException e) {
+				result += _T("Failed to lookup index: ") + e.getError();
+				return NSCAPI::hasFailed;
 			}
-			std::wstring name = arguments.front();
-			std::list<std::wstring> list = PDH::PDHResolver::PdhExpandCounterPath(name.c_str());
-			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
-			for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-				NSC_LOG_MESSAGE_STD(_T("  | Found '") + *cit);
+		} else if (vm.count("expand-path")) {
+			try {
+				if (porcelain) {
+					BOOST_FOREACH(const std::wstring &s, PDH::PDHResolver::PdhExpandCounterPath(lookup)) {
+						result += s + _T("\n");
+					}
+				} else {
+					result += _T("--+--[ Lookup Result ]----------------------------------------");
+					BOOST_FOREACH(const std::wstring &s, PDH::PDHResolver::PdhExpandCounterPath(lookup)) {
+						result += _T("  | Found '") + s + _T("\n");
+					}
+				}
+			} catch (const PDH::PDHException e) {
+				result += _T("Failed to lookup index: ") + e.getError();
+				return NSCAPI::hasFailed;
 			}
-			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
-		} catch (const PDH::PDHException e) {
-			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
-			return 0;
-		}
-	} else if (command == _T("pdhobject")) {
-		try {
-			if (arguments.size() == 0) {
-				NSC_LOG_ERROR_STD(_T("Need to specify counter index name!"));
-				return 0;
-			}
-			std::wstring name = arguments.front();
-			PDH::Enumerations::pdh_object_details list = PDH::Enumerations::EnumObjectInstances(name.c_str());
-			NSC_LOG_MESSAGE_STD(_T("--+--[ Lookup Result ]----------------------------------------"));
-			for (std::list<std::wstring>::const_iterator cit = list.counters.begin(); cit != list.counters.end(); ++cit) {
-				NSC_LOG_MESSAGE_STD(_T("  | Found Counter: ") + *cit);
-			}
-			for (std::list<std::wstring>::const_iterator cit = list.instances.begin(); cit != list.instances.end(); ++cit) {
-				NSC_LOG_MESSAGE_STD(_T("  | Found Instance: ") + *cit);
-			}
-			NSC_LOG_MESSAGE_STD(_T("--+-----------------------------------------------------------"));
-		} catch (const PDH::PDHException e) {
-			NSC_LOG_ERROR_STD(_T("Failed to lookup index: ") + e.getError());
-			return 0;
 		}
 	}
 	return 0;

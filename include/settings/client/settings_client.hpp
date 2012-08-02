@@ -694,6 +694,9 @@ namespace nscapi {
 			}
 			
 
+			void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced = false)  {
+				core_->register_key(path, key, type, title, description, defaultValue, advanced);
+			}
 			void register_all() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
 					if (v->key) {
