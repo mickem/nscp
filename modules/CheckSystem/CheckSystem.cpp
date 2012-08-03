@@ -90,16 +90,21 @@ void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_r
 	settings.notify();
 	settings.clear();
 
-	if (counters.empty() || missing_system_counters(counters)) {
-		std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
-
+	std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
+	if (counters[PDH_SYSTEM_KEY_UPT] == _T("")) {
 		counters[PDH_SYSTEM_KEY_UPT] = _T("\\2\\674");
-		counters[PDH_SYSTEM_KEY_MCL] = _T("\\4\\30");
-		counters[PDH_SYSTEM_KEY_MCB] = _T("\\4\\26");
-		counters[PDH_SYSTEM_KEY_CPU] = _T("\\238(_total)\\6");
 		settings.register_key(path, PDH_SYSTEM_KEY_UPT, NSCAPI::key_string, _T("UPTIME"), _T("PDH Key for system uptime."), _T("\\2\\674"), false);
+	}
+	if (counters[PDH_SYSTEM_KEY_MCL] == _T("")) {
+		counters[PDH_SYSTEM_KEY_MCL] = _T("\\4\\30");
 		settings.register_key(path, PDH_SYSTEM_KEY_MCL, NSCAPI::key_string, _T("Commit limit"), _T("PDH key for memory commit limit"), _T("\\4\\30"), false);
+	}
+	if (counters[PDH_SYSTEM_KEY_MCB] == _T("")) {
+		counters[PDH_SYSTEM_KEY_MCB] = _T("\\4\\26");
 		settings.register_key(path, PDH_SYSTEM_KEY_MCB, NSCAPI::key_string, _T("Commit bytes"), _T("PDH Key for system CPU load."), _T("\\4\\26"), false);
+	}
+	if (counters[PDH_SYSTEM_KEY_CPU] == _T("")) {
+		counters[PDH_SYSTEM_KEY_CPU] = _T("\\238(_total)\\6");
 		settings.register_key(path, PDH_SYSTEM_KEY_CPU, NSCAPI::key_string, _T("CPU Load"), _T("PDH Key for system CPU load."), _T("\\238(_total)\\6"), false);
 		settings.register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPP is usually round robin."), _T("round robin"), false);
 	}
