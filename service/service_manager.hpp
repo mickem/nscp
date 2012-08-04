@@ -79,15 +79,13 @@ namespace nsclient {
 				}
 				return 0;
 			}
-			int info() {
+			std::wstring info() {
 				try {
-					std::wstring exe = serviceControll::get_exe_path(service_name_);
-					print_error(_T("The Service uses: ") + exe);
+					return serviceControll::get_exe_path(service_name_);
 				} catch (const serviceControll::SCException& e) {
 					print_error(_T("Failed to find service: ") + e.error_);
-					return -1;
+					return _T("");
 				}
-				return 0;
 			}
 		};
 #else
@@ -110,8 +108,8 @@ namespace nsclient {
 			int stop() {
 				return unsupported();
 			}
-			int info() {
-				return unsupported();
+			std::wstring info() {
+				return _T("");
 			}
 		};
 #endif

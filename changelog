@@ -4,6 +4,12 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-04 MickeM
+ * Fixed exception with "nscp service"
+ * Improved nscp settings so help is displayed.
+ * Improved nscp settings so default action (no arguments) also lists all installed services.
+ * Improved nscp settings to default list service nscp as well as legcy nsclientpp
+
 2012-08-03 MickeM
  * Hopefully fixed the "cant load counter" issue by reowrking how counters are handled.
 

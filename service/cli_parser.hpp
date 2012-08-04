@@ -320,7 +320,7 @@ public:
 			if (vm.count("name")) {
 				name = vm["name"].as<std::wstring>();
 			} else {
-				get_logger()->info(__FILE__, __LINE__, _T("TODO retrieve name from service here"));
+				name = nsclient::client::service_manager::get_default_service_name();
 			}
 			std::wstring desc;
 			if (vm.count("description")) {
@@ -350,11 +350,22 @@ public:
 					service_manager.start();
 				} else if (vm.count("stop")) {
 					service_manager.stop();
-				} else if (vm.count("info")) {
-					service_manager.info();
 				} else {
-					std::cerr << "Missing argument" << std::endl;
-					return 1;
+					if (vm.count("info") == 0) {
+						std::cerr << all << std::endl;
+						std::wcerr << _T("Invalid syntax: missing argument") << std::endl;
+					}
+					std::wcout << _T("Installed services: ") << std::endl;;
+					std::wcout << name << _T(": ") << service_manager.info() << std::endl;
+					{
+						nsclient::client::service_manager lsm(_T("nsclientpp"));
+						std::wstring cmd = lsm.info();
+						if (!cmd.empty()) {
+							std::wcout << _T("nsclientpp (legacy): ") << cmd << std::endl;
+						}
+
+					}
+					return vm.count("info");
 				}
 			}
 			return 0;
