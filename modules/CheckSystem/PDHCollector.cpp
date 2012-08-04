@@ -22,21 +22,13 @@
 #include <sysinfo.h>
 #include "settings.hpp"
 
-PDHCollector::PDHCollector() : hStopEvent_(NULL)/*, data_(NULL)*/ {
-	std::wstring subsystem = SETTINGS_GET_STRING(check_system::PDH_SUBSYSTEM);
-	if (subsystem == setting_keys::check_system::PDH_SUBSYSTEM_FAST) {
-	} else if (subsystem == setting_keys::check_system::PDH_SUBSYSTEM_THREAD_SAFE) {
-		PDH::PDHFactory::set_threadSafe();
-	} else {
-		NSC_LOG_ERROR_STD(_T("Unknown PDH subsystem (") + subsystem + _T(") valid values are: fast and thread-safe"));
-	}
+PDHCollector::PDHCollector() : stop_event_(NULL) {
 }
 
 PDHCollector::~PDHCollector()
 {
-	if (hStopEvent_)
-		CloseHandle(hStopEvent_);
-//	delete data_;
+	if (stop_event_ != NULL)
+		CloseHandle(stop_event_);
 }
 
 boost::shared_ptr<PDHCollectors::PDHCollector> PDHCollector::system_counter_data::counter::create(int check_intervall) {
@@ -66,118 +58,108 @@ boost::shared_ptr<PDHCollectors::PDHCollector> PDHCollector::system_counter_data
 * @bug This whole concept needs work I think.
 *
 */
-DWORD PDHCollector::threadProc(LPVOID lpParameter) {
-	hStopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (!hStopEvent_) {
-		NSC_LOG_ERROR_STD(_T("Create StopEvent failed: ") + error::lookup::last_error());
-		return 0;
+void PDHCollector::thread_proc() {
+
+	if (!thread_data_) {
+		NSC_LOG_ERROR_STD(_T("No configuration for PDH thread: Exiting"));
+		return;
+
+	}
+	if (thread_data_->subsystem == _T("fast") || thread_data_->subsystem == _T("auto")) {
+	} else if (thread_data_->subsystem == _T("thread-safe")) {
+		PDH::PDHFactory::set_threadSafe();
+	} else {
+		NSC_LOG_ERROR_STD(_T("Unknown PDH subsystem (") + thread_data_->subsystem + _T(") valid values are: fast (auto) and thread-safe"));
 	}
 
-	system_counter_data *data = reinterpret_cast<system_counter_data*>(lpParameter);
-
-	check_intervall_ = data->check_intervall;
-	std::wstring default_buffer_length = data->buffer_length;
+	check_intervall_ = thread_data_->check_intervall;
+	std::wstring default_buffer_length = thread_data_->buffer_length;
 	PDH::PDHQuery pdh;
-	bool bInit = true;
+
+	if (thread_data_->counters.empty()) {
+		NSC_LOG_ERROR_STD(_T("No counters configure in PDH thread."));
+		return;
+	}
 
 	{
 		SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
-		WriteLock lock(&mutex_, true, 5000);
-		if (!lock.IsLocked()) {
-			NSC_LOG_ERROR_STD(_T("Failed to get mutex when trying to start thread... thread will now die..."));
-			bInit = false;
-		} else {
-			pdh.removeAllCounters();
-			NSC_DEBUG_MSG_STD(_T("Loading counters..."));
-			BOOST_FOREACH(system_counter_data::counter c, data->counters) {
-				try {
-					NSC_DEBUG_MSG_STD(_T("Loading counter: ") + c.alias + _T(" = ") + c.path);
-
-					c.set_default_buffer_size(default_buffer_length);
-					collector_ptr collector = c.create(check_intervall_);
-					if (collector) {
-						counters_[c.alias] = collector;
-						PDH::PDHQuery::counter_ptr counter = pdh.addCounter(c.path, collector);
-						PDH::PDHError status = counter->validate();
-						if (status.is_error()) {
-							NSC_DEBUG_MSG_STD(_T("Counter status: ") + status.to_wstring());
-						}
-					} else {
-						NSC_LOG_ERROR_STD(_T("Failed to load counter: ") + c.alias + _T(" = ") + c.path);
-					}
-				} catch (...) {
-					NSC_LOG_ERROR_STD(_T("EXCEPTION: Failed to load counter: ") + c.alias + _T(" = ") + c.path);
-				}
-			}
+		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+		if (!writeLock.owns_lock()) {
+			NSC_LOG_ERROR_STD(_T("Failed to get mutex when trying to start thread."));
+			return;
+		}
+		pdh.removeAllCounters();
+		BOOST_FOREACH(system_counter_data::counter c, thread_data_->counters) {
 			try {
-				pdh.open();
-			} catch (const PDH::PDHException &e) {
-				NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
-				bInit = false;
+				NSC_DEBUG_MSG_STD(_T("Loading counter: ") + c.alias + _T(" = ") + c.path);
+				c.set_default_buffer_size(default_buffer_length);
+				collector_ptr collector = c.create(check_intervall_);
+				if (collector) {
+					counters_[c.alias] = collector;
+					pdh.addCounter(c.path, collector);
+				} else {
+					NSC_LOG_ERROR_STD(_T("Failed to load counter: ") + c.alias + _T(" = ") + c.path);
+				}
+			} catch (...) {
+				NSC_LOG_ERROR_STD(_T("EXCEPTION: Failed to load counter: ") + c.alias + _T(" = ") + c.path);
 			}
 		}
+		try {
+			pdh.open();
+		} catch (const PDH::PDHException &e) {
+			NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
+			return;
+		}
 	}
-	data = NULL;
-	delete data;
 
 	DWORD waitStatus = 0;
-	if (bInit) {
-		bool first = true;
-		do {
-			std::list<std::wstring>	errors;
-			{
-				ReadLock lock(&mutex_, true, 5000);
-				if (!lock.IsLocked()) {
-					NSC_LOG_ERROR(_T("Failed to get Mutex!"));
-				} else {
-					try {
-						pdh.gatherData();
-					} catch (const PDH::PDHException &e) {
-						if (first) {	// If this is the first run an error will be thrown since the data is not yet available
-							// This is "ok" but perhaps another solution would be better, but this works :)
-							first = false;
-						} else {
-							errors.push_back(_T("Failed to query performance counters: ") + e.getError());
-						}
-					} catch (...) {
-						errors.push_back(_T("Failed to query performance counters: "));
+	bool first = true;
+	do {
+		std::list<std::wstring>	errors;
+		{
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!writeLock.owns_lock()) {
+				NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+			} else {
+				try {
+					pdh.gatherData();
+				} catch (const PDH::PDHException &e) {
+					if (first) {	// If this is the first run an error will be thrown since the data is not yet available
+						// This is "ok" but perhaps another solution would be better, but this works :)
+						first = false;
+					} else {
+						errors.push_back(_T("Failed to query performance counters: ") + e.getError());
 					}
-				} 
-			}
-			for (std::list<std::wstring>::const_iterator cit = errors.begin(); cit != errors.end(); ++cit) {
-				NSC_LOG_ERROR_STD(*cit);
-			}
-		} while (((waitStatus = WaitForSingleObject(hStopEvent_, check_intervall_*100)) == WAIT_TIMEOUT));
-	} else {
-		NSC_LOG_ERROR_STD(_T("No performance counters were found we will not wait for the end instead..."));
-		waitStatus = WaitForSingleObject(hStopEvent_, INFINITE);
-	}
+				} catch (...) {
+					errors.push_back(_T("Failed to query performance counters: "));
+				}
+			} 
+		}
+		for (std::list<std::wstring>::const_iterator cit = errors.begin(); cit != errors.end(); ++cit) {
+			NSC_LOG_ERROR_STD(*cit);
+		}
+	} while (((waitStatus = WaitForSingleObject(stop_event_, check_intervall_*100)) == WAIT_TIMEOUT));
 	if (waitStatus != WAIT_OBJECT_0) {
 		NSC_LOG_ERROR(_T("Something odd happened when terminating PDH collection thread!"));
+		return;
 	}
 
 	{
-		WriteLock lock(&mutex_, true, 5000);
-		if (!lock.IsLocked()) {
+		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!writeLock.owns_lock()) {
 			NSC_LOG_ERROR(_T("Failed to get Mute when closing thread!"));
 		}
-
-		if (!CloseHandle(hStopEvent_)) {
-			NSC_LOG_ERROR_STD(_T("Failed to close stopEvent handle: ") + error::lookup::last_error());
-		} else
-			hStopEvent_ = NULL;
 		try {
 			pdh.close();
 		} catch (const PDH::PDHException &e) {
 			NSC_LOG_ERROR_STD(_T("Failed to close performance counters: ") + e.getError());
 		}
 	}
-	return 0;
 }
 
 __int64 PDHCollector::get_int_value(std::wstring counter) {
-	ReadLock lock(&mutex_, true, 5000);
-	if (!lock.IsLocked())  {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex for: ") + counter);
 		return 0;
 	}
@@ -190,8 +172,8 @@ __int64 PDHCollector::get_int_value(std::wstring counter) {
 }
 
 double PDHCollector::get_avg_value(std::wstring counter, unsigned int delta) {
-	ReadLock lock(&mutex_, true, 5000);
-	if (!lock.IsLocked())  {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex for: ") + counter);
 		return 0;
 	}
@@ -205,16 +187,6 @@ double PDHCollector::get_avg_value(std::wstring counter, unsigned int delta) {
 
 
 /**
-* Request termination of the thread (waiting for thread termination is not handled)
-*/
-void PDHCollector::exitThread(void) {
-	if (hStopEvent_ == NULL) {
-		NSC_LOG_ERROR(_T("Stop event is not created!"));
-	} else if (!SetEvent(hStopEvent_)) {
-			NSC_LOG_ERROR_STD(_T("SetStopEvent failed"));
-	}
-}
-/**
 * Get the average CPU usage for "time"
 * @param time Time to check 
 * @return average CPU usage
@@ -222,8 +194,8 @@ void PDHCollector::exitThread(void) {
 int PDHCollector::getCPUAvrage(std::wstring time) {
 	int frequency;
 	{
-		ReadLock lock(&mutex_, true, 5000);
-		if (!lock.IsLocked()) {
+		boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!readLock.owns_lock()) {
 			NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 			return -1;
 		}
@@ -291,8 +263,8 @@ unsigned long long PDHCollector::getMemCommit() {
 }
 
 double PDHCollector::get_double(std::wstring counter) {
-	ReadLock lock(&mutex_, true, 5000);
-	if (!lock.IsLocked()) {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
 		return -1;
 	}
@@ -310,4 +282,21 @@ double PDHCollector::get_double(std::wstring counter) {
 		NSC_LOG_ERROR(_T("Failed to get double value"));
 		return -1;
 	}
+}
+
+void PDHCollector::start(boost::shared_ptr<system_counter_data> data)
+{
+	if (thread_)
+		return;
+	thread_data_ = data;
+	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("PDHCollectorShutdown"));
+	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&PDHCollector::thread_proc, this)));
+}
+
+bool PDHCollector::stop()
+{
+	SetEvent(stop_event_);
+	if (thread_)
+		return thread_->timed_join(boost::posix_time::seconds(5));
+	return true;
 }

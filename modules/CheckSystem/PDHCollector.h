@@ -20,9 +20,9 @@
 ***************************************************************************/
 #pragma once
 
+#include <boost/thread.hpp>
+
 #include <pdh.hpp>
-#include <thread.h>
-#include <MutexRW.h>
 #include <boost/unordered_map.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -104,24 +104,26 @@ public:
 
 		unsigned int check_intervall;
 		std::wstring buffer_length;
+		std::wstring subsystem;
 
 		std::list<counter> counters;
 	};
 
 private:
 
-	//system_counter_data *data_;
-	MutexRW mutex_;
-	HANDLE hStopEvent_;
+	boost::shared_mutex mutex_;
+	HANDLE stop_event_;
 	typedef boost::shared_ptr<PDHCollectors::PDHCollector> collector_ptr;
 	typedef boost::unordered_map<std::wstring,collector_ptr > counter_map;
 	counter_map counters_;
 	int check_intervall_;
+	boost::shared_ptr<boost::thread> thread_;
+	boost::shared_ptr<system_counter_data> thread_data_;
 
 public:
 	PDHCollector();
 	virtual ~PDHCollector();
-	DWORD threadProc(LPVOID lpParameter);
+	void thread_proc();
 	void exitThread(void);
 
 	// Retrieve values
@@ -134,7 +136,6 @@ public:
 	__int64 get_int_value(std::wstring counter);
 	double get_avg_value(std::wstring counter, unsigned int delta);
 	double get_double(std::wstring counter);
+	void start(boost::shared_ptr<system_counter_data> data);
+	bool stop();
 };
-
-
-typedef Thread<PDHCollector> PDHCollectorThread;

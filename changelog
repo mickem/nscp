@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-03 MickeM
+ * Hopefully fixed the "cant load counter" issue by reowrking how counters are handled.
+
 2012-08-02 MickeM
  * major improvments to the CheckSystem command line syntax:
    Run: "nscp sys" to get help.

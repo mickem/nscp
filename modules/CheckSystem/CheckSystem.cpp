@@ -46,7 +46,7 @@
  * Default c-tor
  * @return 
  */
-CheckSystem::CheckSystem() : pdhThread(_T("pdhThread")) {}
+CheckSystem::CheckSystem() {}
 /**
  * Default d-tor
  * @return 
@@ -64,21 +64,83 @@ bool CheckSystem::loadModule() {
 	return loadModuleEx(_T(""), NSCAPI::normalStart);
 }
 
-/**
- * New version of the load call.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-
-bool missing_system_counters(std::map<std::wstring,std::wstring> &counters) 
-{
-	wchar_t *keys[] = {PDH_SYSTEM_KEY_UPT, PDH_SYSTEM_KEY_MCL, PDH_SYSTEM_KEY_MCB, PDH_SYSTEM_KEY_CPU};
-	BOOST_FOREACH(const wchar_t *cnt, keys) {
-		if (counters.find(cnt) == counters.end())
-			return true;
+boost::tuple<bool,std::wstring> validate_counter(std::wstring counter) {
+	std::pair<bool,std::wstring> ret;
+	/*
+	std::wstring error;
+	if (!PDH::PDHResolver::validate(counter, error, false)) {
+		NSC_DEBUG_MSG(_T("not found (but due to bugs in pdh this is common): ") + error);
 	}
-	return false;
+	*/
+
+	typedef boost::shared_ptr<PDH::PDHCounter> counter_ptr;
+	counter_ptr pCounter;
+	PDH::PDHQuery pdh;
+	typedef PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> counter_type;
+	boost::shared_ptr<counter_type> collector(new counter_type());
+	try {
+		pdh.addCounter(counter, collector);
+		pdh.open();
+		pdh.gatherData();
+		pdh.close();
+		return boost::make_tuple(true, _T("ok(") + strEx::itos(collector->getValue()) + _T(")"));
+	} catch (const PDH::PDHException e) {
+		try {
+			pdh.gatherData();
+			pdh.close();
+			return boost::make_tuple(true, _T("ok-rate(") + strEx::itos(collector->getValue()) + _T(")"));
+		} catch (const PDH::PDHException e) {
+			return boost::make_tuple(false, _T("query failed: ") + e.getError());
+		}
+	}
 }
+std::wstring find_system_counter(std::wstring counter) {
+	if (counter == PDH_SYSTEM_KEY_UPT) {
+		wchar_t *keys[] = {_T("\\2\\674"), _T("\\System\\System Up Time"), _T("\\System\\Systembetriebszeit"), _T("\\Sistema\\Tempo di funzionamento sistema"), _T("\\Système\\Temps d'activité système")};
+		BOOST_FOREACH(const wchar_t *key, keys) {
+			boost::tuple<bool,std::wstring> result = validate_counter(key);
+			if (result.get<0>()) {
+				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+				return key;
+			}
+		}
+		return keys[0];
+	}
+	if (counter == PDH_SYSTEM_KEY_MCL) {
+		wchar_t *keys[] = {_T("\\4\\30"), _T("\\Memory\\Commit Limit"), _T("\\Speicher\\Zusagegrenze"), _T("\\Memoria\\Limite memoria vincolata"), _T("\\Mémoire\\Limite de mémoire dédiée")};
+		BOOST_FOREACH(const wchar_t *key, keys) {
+			boost::tuple<bool,std::wstring> result = validate_counter(key);
+			if (result.get<0>()) {
+				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+				return key;
+			}
+		}
+		return keys[0];
+	}
+	if (counter == PDH_SYSTEM_KEY_MCB) {
+		wchar_t *keys[] = {_T("\\4\\26"), _T("\\Memory\\Committed Bytes"), _T("\\Speicher\\Zugesicherte Bytes"), _T("\\Memoria\\Byte vincolati"), _T("\\Mémoire\\Octets dédiés")};
+		BOOST_FOREACH(const wchar_t *key, keys) {
+			boost::tuple<bool,std::wstring> result = validate_counter(key);
+			if (result.get<0>()) {
+				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+				return key;
+			}
+		}
+		return keys[0];
+	}
+	if (counter == PDH_SYSTEM_KEY_CPU) {
+		wchar_t *keys[] = {_T("\\238(_total)\\6"), _T("\\Processor(_total)\\% Processor Time"), _T("\\Prozessor(_Total)\\Prozessorzeit (%)"), _T("\\Processore(_total)\\% Tempo processore"), _T("\\Processeur(_Total)\\% Temps processeur")};
+		BOOST_FOREACH(const wchar_t *key, keys) {
+			boost::tuple<bool,std::wstring> result = validate_counter(key);
+			if (result.get<0>()) {
+				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+				return key;
+			}
+		}
+		return keys[0];
+	}
+}
+
 
 void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_registry &settings) {
 	settings.alias().add_path_to_settings()
@@ -91,32 +153,33 @@ void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_r
 	settings.clear();
 
 	std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
-	if (counters[PDH_SYSTEM_KEY_UPT] == _T("")) {
-		counters[PDH_SYSTEM_KEY_UPT] = _T("\\2\\674");
-		settings.register_key(path, PDH_SYSTEM_KEY_UPT, NSCAPI::key_string, _T("UPTIME"), _T("PDH Key for system uptime."), _T("\\2\\674"), false);
-	}
-	if (counters[PDH_SYSTEM_KEY_MCL] == _T("")) {
-		counters[PDH_SYSTEM_KEY_MCL] = _T("\\4\\30");
-		settings.register_key(path, PDH_SYSTEM_KEY_MCL, NSCAPI::key_string, _T("Commit limit"), _T("PDH key for memory commit limit"), _T("\\4\\30"), false);
-	}
-	if (counters[PDH_SYSTEM_KEY_MCB] == _T("")) {
-		counters[PDH_SYSTEM_KEY_MCB] = _T("\\4\\26");
-		settings.register_key(path, PDH_SYSTEM_KEY_MCB, NSCAPI::key_string, _T("Commit bytes"), _T("PDH Key for system CPU load."), _T("\\4\\26"), false);
-	}
 	if (counters[PDH_SYSTEM_KEY_CPU] == _T("")) {
-		counters[PDH_SYSTEM_KEY_CPU] = _T("\\238(_total)\\6");
-		settings.register_key(path, PDH_SYSTEM_KEY_CPU, NSCAPI::key_string, _T("CPU Load"), _T("PDH Key for system CPU load."), _T("\\238(_total)\\6"), false);
 		settings.register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPP is usually round robin."), _T("round robin"), false);
 	}
+	wchar_t *keys[] = {PDH_SYSTEM_KEY_UPT, PDH_SYSTEM_KEY_MCL, PDH_SYSTEM_KEY_MCB, PDH_SYSTEM_KEY_CPU};
+	BOOST_FOREACH(const wchar_t *key, keys) {
+		if (counters[key] == _T("")) {
+			counters[key] = find_system_counter(key);
+			settings.register_key(path, key, NSCAPI::key_string, key, _T("System counter for check_xx commands.."), counters[key], false);
+		}
+	}
 }
+
+/**
+ * New version of the load call.
+ * Start the background collector thread and let it run until unloadModule() is called.
+ * @return true
+ */
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	PDHCollector::system_counter_data *data = new PDHCollector::system_counter_data;
+	boost::shared_ptr<PDHCollector::system_counter_data> data(new PDHCollector::system_counter_data);
 	data->check_intervall = 1;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("check"), alias, _T("system/windows"));
 
-		load_counters(counters, settings);
+		if (mode == NSCAPI::normalStart) {
+			load_counters(counters, settings);
+		}
 
 		settings.alias().add_path_to_settings()
 			(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
@@ -134,6 +197,9 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			(_T("default intervall"), sh::uint_key(&data->check_intervall, 1),
 			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."), true)
 
+			(_T("subsystem"), sh::wstring_key(&data->subsystem, _T("default")),
+			_T("PDH SUBSYSTEM"), _T("Set which pdh subsystem to use."), true)
+			
 			;
 
 		settings.alias().add_key_to_settings(_T("service mapping"))
@@ -162,17 +228,17 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 		settings.notify();
 
 		
-		typedef PDHCollector::system_counter_data::counter cnt;
-		/*
-		if (default_counters) {
-			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCL, _T("\\4\\30"), cnt::type_int64, cnt::format_large, cnt::value));
-			data->counters.push_back(cnt(PDH_SYSTEM_KEY_CPU, _T("\\238(_total)\\6"), cnt::type_int64, cnt::format_large, cnt::rrd));
-			data->counters.push_back(cnt(PDH_SYSTEM_KEY_MCB, _T("\\4\\26"), cnt::type_int64, cnt::format_large, cnt::value));
-			data->counters.push_back(cnt(PDH_SYSTEM_KEY_UPT, _T("\\2\\674"), cnt::type_int64, cnt::format_large, cnt::value));
-		}
-		*/
-		BOOST_FOREACH(counter_map_type::value_type c, counters) {
-			data->counters.push_back(cnt(c.first, c.second, cnt::type_int64, cnt::format_large, cnt::value));
+		if (mode == NSCAPI::normalStart) {
+			typedef PDHCollector::system_counter_data::counter cnt;
+			BOOST_FOREACH(counter_map_type::value_type c, counters) {
+				std::wstring path = c.second;
+				boost::tuple<bool, std::wstring> result = validate_counter(path);
+				if (!result.get<0>()) {
+					NSC_LOG_ERROR(_T("Failed to load counter ") + c.first + _T("(") + path + _T(": ") + result.get<1>());
+				}
+				// TODO: parse coolection strategy here!
+				data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::value));
+			}
 		}
 
 		register_command(_T("check_CPU"), _T("Check that the load of the CPU(s) are within bounds."), 
@@ -204,7 +270,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 	}
 
 	if (mode == NSCAPI::normalStart) {
-		pdhThread.createThread(data);
+		pdh_collector.start(data);
 	}
 
 	return true;
@@ -215,8 +281,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
-	if (!pdhThread.exitThread(20000)) {
-		std::wcout << _T("MAJOR ERROR: Could not unload thread...") << std::endl;
+	if (!pdh_collector.stop()) {
 		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
 	}
 	return true;
@@ -234,34 +299,6 @@ bool CheckSystem::hasCommandHandler() {
  */
 bool CheckSystem::hasMessageHandler() {
 	return false;
-}
-
-std::wstring validate_counter(std::wstring counter) {
-	std::wstring error;
-	if (!PDH::PDHResolver::validate(counter, error, false)) {
-		NSC_LOG_ERROR_STD(_T("not found: ") + error);
-	}
-
-	typedef boost::shared_ptr<PDH::PDHCounter> counter_ptr;
-	counter_ptr pCounter;
-	PDH::PDHQuery pdh;
-	typedef PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> counter_type;
-	boost::shared_ptr<counter_type> collector(new counter_type());
-	try {
-		pdh.addCounter(counter, collector);
-		pdh.open();
-		pdh.gatherData();
-		pdh.close();
-		return _T("ok(") + strEx::itos(collector->getValue()) + _T(")");
-	} catch (const PDH::PDHException e) {
-		try {
-			pdh.gatherData();
-			pdh.close();
-			return _T("ok-rate(") + strEx::itos(collector->getValue()) + _T(")");
-		} catch (const PDH::PDHException e) {
-			return _T("query failed: ") + e.getError();
-		}
-	}
 }
 
 int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
@@ -333,13 +370,13 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 									total++;
 									if (!counter.empty() && line.find(counter) == std::wstring::npos)
 										continue;
-									std::wstring status;
+									boost::tuple<bool,std::wstring> status;
 									if (validate)
 										status = validate_counter(line);
 									if (porcelain) 
-										line = _T("counter,") + obj.name + _T(",") + inst.name + _T(",") + count.name + _T(", ") + status;
+										line = _T("counter,") + obj.name + _T(",") + inst.name + _T(",") + count.name + _T(", ") + status.get<1>();
 									else if (validate)
-										line = line + _T(": ") + status;
+										line = line + _T(": ") + status.get<1>();
 									result += line + _T("\n");
 									match++;
 								}
@@ -350,14 +387,14 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 								total++;
 								if (!counter.empty() && line.find(counter) == std::wstring::npos)
 									continue;
-								std::wstring status;
+								boost::tuple<bool,std::wstring> status;
 								if (validate)
 									status = validate_counter(line);
 
 								if (porcelain) 
-									line = _T("counter,") + obj.name + _T(",,") + _T(",") + count.name  + _T(", ") + status;
+									line = _T("counter,") + obj.name + _T(",,") + _T(",") + count.name  + _T(", ") + status.get<1>();
 								else if (validate)
-									line = line + _T(": ") + status;
+									line = line + _T(": ") + status.get<1>();
 								result += line + _T("\n");
 								match++;
 							}
@@ -385,7 +422,7 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 				} 
 				BOOST_FOREACH(const counter_map_type::value_type v, counters) {
 					std::wstring line = v.first + _T(" = ") + v.second;
-					std::wstring status;
+					boost::tuple<bool,std::wstring> status;
 					count++;
 					if (!counter.empty() && line.find(counter) == std::wstring::npos)
 						continue;
@@ -394,9 +431,9 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 						status = validate_counter(v.second);
 
 					if (porcelain) 
-						line = v.first + _T(",") + v.second + _T(",") + status;
+						line = v.first + _T(",") + v.second + _T(",") + status.get<1>();
 					else if (validate)
-						line = v.first + _T(" = ") + v.second + _T(": ") + status;
+						line = v.first + _T(" = ") + v.second + _T(": ") + status.get<1>();
 					else 
 						line = v.first + _T(" = ") + v.second;
 					result += line + _T("\n");
@@ -469,7 +506,6 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
  * @return 
  */
 NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	CheckSystem::returnBundle rb;
 	if (command == _T("checkcpu")) {
 		return checkCPU(arguments, message, perf);
 	} else if (command == _T("checkuptime")) {
@@ -559,12 +595,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, st
 
 	for (std::list<CPULoadContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
 		CPULoadContainer load = (*it);
-		PDHCollector *pObject = pdhThread.getThread();
-		if (!pObject) {
-			msg = _T("ERROR: PDH Collection thread not running.");
-			return NSCAPI::returnUNKNOWN;
-		}
-		int value = pObject->getCPUAvrage(load.data + _T("m"));
+		int value = pdh_collector.getCPUAvrage(load.data + _T("m"));
 		if (value == -1) {
 			msg = _T("ERROR: Could not get data for ") + load.getAlias() + _T(" perhaps we don't collect data this far back?");
 			return NSCAPI::returnUNKNOWN;
@@ -613,12 +644,7 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(std::list<std::wstring> arguments,
 		MAP_OPTIONS_END()
 
 
-	PDHCollector *pObject = pdhThread.getThread();
-	if (!pObject) {
-		msg = _T("ERROR: PDH Collection thread not running.");
-		return NSCAPI::returnUNKNOWN;
-	}
-	unsigned long long value = pObject->getUptime();
+	unsigned long long value = pdh_collector.getUptime();
 	if (value == -1) {
 		msg = _T("ERROR: Could not get value");
 		return NSCAPI::returnUNKNOWN;
@@ -862,17 +888,12 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(std::list<std::wstring> arguments, st
 		checkHolders::PercentageValueType<unsigned long long, unsigned long long> value;
 		if (firstPaged && (check.data == _T("paged"))) {
 			firstPaged = false;
-			PDHCollector *pObject = pdhThread.getThread();
-			if (!pObject) {
-				msg = _T("ERROR: PDH Collection thread not running.");
-				return NSCAPI::returnUNKNOWN;
-			}
-			dataPaged.value = pObject->getMemCommit();
+			dataPaged.value = pdh_collector.getMemCommit();
 			if (dataPaged.value == -1) {
 				msg = _T("ERROR: Failed to get PDH value.");
 				return NSCAPI::returnUNKNOWN;
 			}
-			dataPaged.total = pObject->getMemCommitLimit();
+			dataPaged.total = pdh_collector.getMemCommitLimit();
 			if (dataPaged.total == -1) {
 				msg = _T("ERROR: Failed to get PDH value.");
 				return NSCAPI::returnUNKNOWN;
@@ -1408,12 +1429,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 		try {
 			double value = 0;
 			if (counter.data.find('\\') == std::wstring::npos) {
-				PDHCollector *pObject = pdhThread.getThread();
-				if (!pObject) {
-					msg = _T("ERROR: PDH Collection thread not running.");
-					return NSCAPI::returnUNKNOWN;
-				}
-				value = pObject->get_double(counter.data);
+				value = pdh_collector.get_double(counter.data);
 				if (value == -1) {
 					msg = _T("ERROR: Failed to get counter value: ") + counter.data;
 					return NSCAPI::returnUNKNOWN;
