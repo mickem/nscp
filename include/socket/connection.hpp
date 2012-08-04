@@ -117,7 +117,9 @@ namespace socket_helpers {
 
 			virtual void start_read_request() = 0;
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_read_request(" + e.message() + ", " + strEx::s::xtos(bytes_transferred) + ")");
+				std::wstring tmp = utf8::to_unicode(e.message());
+				std::string tmp2 = utf8::cvt<std::string>(tmp);
+				trace("handle_read_request(" + utf8::utf8_from_native(e.message()) + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					if (protocol_->on_read(buffer_.begin(), buffer_.begin() + bytes_transferred)) {
 						do_process();
@@ -132,7 +134,7 @@ namespace socket_helpers {
 
 			virtual void start_write_request(const boost::asio::const_buffer& response) = 0;
 			virtual void handle_write_response(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_write_response(" + e.message() + ", " + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_write_response(" + utf8::utf8_from_native(e.message()) + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_->on_write();
 					do_process();

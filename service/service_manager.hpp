@@ -111,6 +111,9 @@ namespace nsclient {
 			std::wstring info() {
 				return _T("");
 			}
+			static std::wstring get_default_service_name() {
+				return DEFAULT_SERVICE_NAME;
+			}
 		};
 #endif
 	}

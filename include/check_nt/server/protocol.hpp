@@ -96,7 +96,7 @@ namespace check_nt {
 
 					data_ = response.get_buffer();
 					set_state(got_request);
-					return false;
+					return true;
 				}
 			}
 			return true;

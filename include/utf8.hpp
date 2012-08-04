@@ -181,6 +181,11 @@ namespace utf8 {
 		return retval;
 #endif
 	}
+	inline std::string utf8_from_native(std::string const & str) {
+		return cvt<std::string>(to_unicode(str));
+	}
+
+
 }
 
 namespace boost

@@ -88,7 +88,7 @@ namespace socket_helpers {
 				return error;
 			}
 
-			virtual typename protocol_type::response_type process_request(typename protocol_type::request_type &packet) {
+			virtual boost::optional<typename protocol_type::response_type> process_request(typename protocol_type::request_type &packet) {
 				start_timer();
 				data_result_.reset();
 				protocol_.prepare_request(packet);
@@ -97,10 +97,10 @@ namespace socket_helpers {
 					close_socket();
 					timer_result_.reset();
 					wait();
-					return protocol_.get_timeout_response();
+					return boost::optional<typename protocol_type::response_type>();
 				}
 				cancel_timer();
-				return protocol_.get_response();
+				return boost::optional<typename protocol_type::response_type>(protocol_.get_response());
 			}
 
 			virtual void shutdown() {
@@ -255,7 +255,7 @@ namespace socket_helpers {
 			virtual boost::system::error_code connect(std::string host, std::string port) {
 				boost::system::error_code error = connection_type::connect(host, port);
 				if (!error)
-					ssl_socket_.handshake(boost::asio::ssl::stream_base::client);
+					ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
 				return error;
 			}
 
@@ -329,8 +329,20 @@ namespace socket_helpers {
 				return new tcp_connection_type(io_service_, handler_->get_timeout(), handler_);
 			}
 
-			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet) {
-				return connection_->process_request(packet);
+			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet, int retries = 3) {
+				boost::optional<protocol_type::response_type> response = connection_->process_request(packet);
+				if (!response) {
+					for (int i=0;i<retries;i++) {
+						handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + strEx::s::xtos(i) + " of " + strEx::s::xtos(retries));
+						connect();
+						response = connection_->process_request(packet);
+						if (response)
+							return *response;
+					}
+					handler_->log_debug(__FILE__, __LINE__, "Retrying failed");
+					throw socket_helpers::socket_exception("Retry failed");
+				}
+				return *response;
 			}
 			void shutdown() {
 				connection_->shutdown();
@@ -370,7 +382,6 @@ namespace socket_helpers {
 
 			virtual void log_debug(std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string file, int line, std::string msg) const = 0;
-
 		};
 	
 	}

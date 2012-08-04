@@ -9,6 +9,8 @@ TODO:
  * Improved nscp settings so help is displayed.
  * Improved nscp settings so default action (no arguments) also lists all installed services.
  * Improved nscp settings to default list service nscp as well as legcy nsclientpp
+ * Added initial retry (default 3) when sending data.
+ * Fixed protocol issue in NSClientServer (should now work again)
 
 2012-08-03 MickeM
  * Hopefully fixed the "cant load counter" issue by reowrking how counters are handled.
