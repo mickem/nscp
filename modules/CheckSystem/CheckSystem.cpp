@@ -301,6 +301,69 @@ bool CheckSystem::hasMessageHandler() {
 	return false;
 }
 
+std::wstring qoute(const std::wstring &s) {
+	if (s.find(L',') == std::wstring::npos)
+		return s;
+	return _T("\"") + s + _T("\"");
+}
+bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, std::wstring filter, std::wstring &result) {
+	if (!porcelain) {
+		result += _T("Listing all counters\n");
+		result += _T("---------------------------\n");
+	}
+	try {
+		int total = 0, match = 0;
+		BOOST_FOREACH(const PDH::Enumerations::Object &obj, list) {
+			if (!obj.error.empty()) {
+				result += _T("error,") + obj.name + _T(",") + utf8::to_unicode(obj.error) + _T("\n");
+			} else if (obj.instances.size() > 0) {
+				BOOST_FOREACH(const std::wstring &inst, obj.instances) {
+					BOOST_FOREACH(const std::wstring &count, obj.counters) {
+						std::wstring line = _T("\\") + obj.name + _T("(") + inst + _T(")\\") + count;
+						total++;
+						if (!filter.empty() && line.find(filter) == std::wstring::npos)
+							continue;
+						boost::tuple<bool,std::wstring> status;
+						if (validate)
+							status = validate_counter(line);
+						if (porcelain) 
+							line = _T("counter,") + qoute(obj.name) + _T(",") + qoute(inst) + _T(",") + qoute(count) + _T(", ") + qoute(status.get<1>());
+						else if (validate)
+							line = line + _T(": ") + status.get<1>();
+						result += line + _T("\n");
+						match++;
+					}
+				}
+			} else {
+				BOOST_FOREACH(const std::wstring &count, obj.counters) {
+					std::wstring line = _T("\\") + obj.name + _T("\\") + count;
+					total++;
+					if (!filter.empty() && line.find(filter) == std::wstring::npos)
+						continue;
+					boost::tuple<bool,std::wstring> status;
+					if (validate)
+						status = validate_counter(line);
+
+					if (porcelain) 
+						line = _T("counter,") + qoute(obj.name) + _T(",,") + qoute(count)  + _T(", ") + qoute(status.get<1>());
+					else if (validate)
+						line = line + _T(": ") + status.get<1>();
+					result += line + _T("\n");
+					match++;
+				}
+			}
+		}
+		if (!porcelain) {
+			result += _T("---------------------------\n");
+			result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(total) + _T(" counters.");
+		}
+		return true;
+	} catch (const PDH::PDHException e) {
+		result = _T("ERROR: Service enumeration failed: ") + e.getError();
+		return false;
+	}
+}
+
 int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
 	if (command == _T("pdh") || command == _T("help") || command.empty()) {
 		namespace po = boost::program_options;
@@ -353,95 +416,50 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 
 		if (list) {
 			if (all) {
-				if (!porcelain) {
-					result += _T("Listing all counters\n");
-					result += _T("---------------------------\n");
-				}
-				try {
-					int total = 0, match = 0;
-					PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
-					BOOST_FOREACH(PDH::Enumerations::Object &obj, lst) {
-						if (!obj.error.empty()) {
-							result += _T("error,") + obj.name + _T(",") + utf8::to_unicode(obj.error) + _T("\n");
-						} else if (obj.instances.size() > 0) {
-							BOOST_FOREACH(const PDH::Enumerations::Instance &inst, obj.instances) {
-								BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
-									std::wstring line = _T("\\") + obj.name + _T("(") + inst.name + _T(")\\") + count.name;
-									total++;
-									if (!counter.empty() && line.find(counter) == std::wstring::npos)
-										continue;
-									boost::tuple<bool,std::wstring> status;
-									if (validate)
-										status = validate_counter(line);
-									if (porcelain) 
-										line = _T("counter,") + obj.name + _T(",") + inst.name + _T(",") + count.name + _T(", ") + status.get<1>();
-									else if (validate)
-										line = line + _T(": ") + status.get<1>();
-									result += line + _T("\n");
-									match++;
-								}
-							}
-						} else {
-							BOOST_FOREACH(const PDH::Enumerations::Counter &count, obj.counters) {
-								std::wstring line = _T("\\") + obj.name + _T("\\") + count.name;
-								total++;
-								if (!counter.empty() && line.find(counter) == std::wstring::npos)
-									continue;
-								boost::tuple<bool,std::wstring> status;
-								if (validate)
-									status = validate_counter(line);
+				// If we specified all list all counters
+				PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+				return render_list(lst, validate, porcelain, counter, result)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+			} else {
+				if (vm.count("counter")) {
+					// If we specify a counter object we will only list instances of that
+					PDH::Enumerations::Objects lst;
+					lst.push_back(PDH::Enumerations::EnumObject(counter));
+					return render_list(lst, validate, porcelain, counter, result)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+				} else {
+					// If we specify no query we will list all configured counters 
+					int count = 0, match = 0;
+					if (counters.empty()) {
+						sh::settings_registry settings(get_settings_proxy());
+						settings.set_alias(_T("check"), _T("system/windows"), _T("system/windows"));
+						load_counters(counters, settings);
+					}
+					if (!porcelain) {
+						result += _T("Listing configured counters\n");
+						result += _T("---------------------------\n");
+					} 
+					BOOST_FOREACH(const counter_map_type::value_type v, counters) {
+						std::wstring line = v.first + _T(" = ") + v.second;
+						boost::tuple<bool,std::wstring> status;
+						count++;
+						if (!counter.empty() && line.find(counter) == std::wstring::npos)
+							continue;
 
-								if (porcelain) 
-									line = _T("counter,") + obj.name + _T(",,") + _T(",") + count.name  + _T(", ") + status.get<1>();
-								else if (validate)
-									line = line + _T(": ") + status.get<1>();
-								result += line + _T("\n");
-								match++;
-							}
-						}
+						if (validate)
+							status = validate_counter(v.second);
+
+						if (porcelain) 
+							line = v.first + _T(",") + v.second + _T(",") + status.get<1>();
+						else if (validate)
+							line = v.first + _T(" = ") + v.second + _T(": ") + status.get<1>();
+						else 
+							line = v.first + _T(" = ") + v.second;
+						result += line + _T("\n");
+						match++;
 					}
 					if (!porcelain) {
 						result += _T("---------------------------\n");
-						result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(total) + _T(" counters.");
+						result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(count) + _T(" counters.");
 					}
-				} catch (const PDH::PDHException e) {
-					result = _T("ERROR: Service enumeration failed: ") + e.getError();
-					return NSCAPI::hasFailed;
-				}
-			} else {
-				int count = 0, match = 0;
-				if (counters.empty()) {
-					sh::settings_registry settings(get_settings_proxy());
-					settings.set_alias(_T("check"), _T("system/windows"), _T("system/windows"));
-
-					load_counters(counters, settings);
-				}
-				if (!porcelain) {
-					result += _T("Listing configured counters\n");
-					result += _T("---------------------------\n");
-				} 
-				BOOST_FOREACH(const counter_map_type::value_type v, counters) {
-					std::wstring line = v.first + _T(" = ") + v.second;
-					boost::tuple<bool,std::wstring> status;
-					count++;
-					if (!counter.empty() && line.find(counter) == std::wstring::npos)
-						continue;
-
-					if (validate)
-						status = validate_counter(v.second);
-
-					if (porcelain) 
-						line = v.first + _T(",") + v.second + _T(",") + status.get<1>();
-					else if (validate)
-						line = v.first + _T(" = ") + v.second + _T(": ") + status.get<1>();
-					else 
-						line = v.first + _T(" = ") + v.second;
-					result += line + _T("\n");
-					match++;
-				}
-				if (!porcelain) {
-					result += _T("---------------------------\n");
-					result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(count) + _T(" counters.");
 				}
 			}
 			return NSCAPI::isSuccess;
@@ -518,8 +536,6 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring &target, cons
 		return checkMem(arguments, message, perf);
 	} else if (command == _T("checkcounter")) {
 		return checkCounter(arguments, message, perf);
-	} else if (command == _T("listcounterinstances")) {
-		return listCounterInstances(arguments, message, perf);
 	} else if (command == _T("checksingleregentry")) {
 		return checkSingleRegEntry(arguments, message, perf);
 	}
@@ -1465,52 +1481,6 @@ NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments
 	}else if (!bNSClient)
 		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
 	return returnCode;
-}
-
-
-
-/**
- * List all instances for a given counter.
- *
- * @param command Command to execute
- * @param argLen The length of the argument buffer
- * @param **char_args The argument buffer
- * @param &msg String to put message in
- * @param &perf String to put performance data in 
- * @return The status of the command
- *
- * @todo add parsing support for NRPE
- */
-NSCAPI::nagiosReturn CheckSystem::listCounterInstances(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
-{
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
-
-	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	std::wstring counter;
-	BOOST_FOREACH(std::wstring s, arguments) { counter+= s + _T(" "); }
-	try {
-		PDH::Enumerations::pdh_object_details obj = PDH::Enumerations::EnumObjectInstances(counter);
-		for (PDH::Enumerations::pdh_object_details::list::const_iterator it = obj.instances.begin(); it!=obj.instances.end();++it) {
-			if (!msg.empty())
-				msg += _T(", ");
-			msg += (*it);
-		}
-		if (msg.empty()) {
-			msg = _T("ERROR: No instances found");
-			return NSCAPI::returnUNKNOWN;
-		}
-	} catch (const PDH::PDHException e) {
-		msg = _T("ERROR: Failed to enumerate counter instances: " + e.getError());
-		return NSCAPI::returnUNKNOWN;
-	} catch (...) {
-		msg = _T("ERROR: Failed to enumerate counter instances: <UNKNOWN EXCEPTION>");
-		return NSCAPI::returnUNKNOWN;
-	}
-	return NSCAPI::returnOK;
 }
 
 //////////////////////////////////////////////////////////////////////////

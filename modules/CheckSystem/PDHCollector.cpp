@@ -65,11 +65,11 @@ void PDHCollector::thread_proc() {
 		return;
 
 	}
-	if (thread_data_->subsystem == _T("fast") || thread_data_->subsystem == _T("auto")) {
+	if (thread_data_->subsystem == _T("fast") || thread_data_->subsystem == _T("auto") || thread_data_->subsystem == _T("default")) {
 	} else if (thread_data_->subsystem == _T("thread-safe")) {
 		PDH::PDHFactory::set_threadSafe();
 	} else {
-		NSC_LOG_ERROR_STD(_T("Unknown PDH subsystem (") + thread_data_->subsystem + _T(") valid values are: fast (auto) and thread-safe"));
+		NSC_LOG_ERROR_STD(_T("Unknown PDH subsystem (") + thread_data_->subsystem + _T(") valid values are: fast (default) and thread-safe"));
 	}
 
 	check_intervall_ = thread_data_->check_intervall;

@@ -31,20 +31,11 @@ namespace PDH {
 
 	class Enumerations {
 	public:
-
-		struct Counter {
-			std::wstring name;
-		};
-		typedef std::list<Counter> Counters;
-		struct Instance {
-			std::wstring name;
-		};
-		typedef std::list<Instance> Instances;
 		struct Object {
 			std::wstring name;
 			std::string error;
-			Instances instances;
-			Counters counters;
+			std::list<std::wstring> instances;
+			std::list<std::wstring> counters;
 		};
 
 		typedef std::list<Object> Objects;
@@ -92,18 +83,14 @@ namespace PDH {
 						if (dwCounterBufLen > 0) {
 							cp=szCounterBuffer;
 							while(*cp != '\0') {
-								Counter c;
-								c.name = cp;
-								o.counters.push_back(c);
+								o.counters.push_back(cp);
 								cp += lstrlen(cp)+1;
 							}
 						}
 						if (dwInstanceBufLen > 0) {
 							cp=szInstanceBuffer;
 							while(*cp != '\0') {
-								Instance i;
-								i.name = cp;
-								o.instances.push_back(i);
+								o.counters.push_back(cp);
 								cp += lstrlen(cp)+1;
 							}
 						}
@@ -119,29 +106,48 @@ namespace PDH {
 			return ret;
 		}
 
-		struct pdh_object_details {
-			typedef std::list<std::wstring> list;
-			list counters;
-			list instances;
-		};
-		static pdh_object_details EnumObjectInstances(std::wstring object, DWORD wanted_counter_len = PDH_INDEX_BUF_LEN, DWORD wanted_instance_len = PDH_INDEX_BUF_LEN) {
-			DWORD counter_len = wanted_counter_len;
-			DWORD instance_len = wanted_instance_len;
-			TCHAR *counter_buffer = new TCHAR[counter_len+1];
-			TCHAR *instance_buffer = new TCHAR[instance_len+1];
-			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.c_str(), counter_buffer, &counter_len, instance_buffer, &instance_len, PERF_DETAIL_WIZARD, 0);
-			if (status.is_error()) {
-				delete [] counter_buffer;
-				delete [] instance_buffer;
-				if (status.is_more_data() && wanted_counter_len == PDH_INDEX_BUF_LEN && wanted_instance_len == PDH_INDEX_BUF_LEN)
-					return EnumObjectInstances(object, counter_len+10, instance_len+10);
-				throw PDHException(_T("RESOLVER"), _T("EnumObjectInstances: Could not find index: ") + object, status);
+		static Object EnumObject(std::wstring object, DWORD dwDetailLevel = PERF_DETAIL_WIZARD) {
+			Object ret;
+			ret.name = object;
+			DWORD dwCounterBufLen = 0;
+			TCHAR* szCounterBuffer = NULL;
+			DWORD dwInstanceBufLen = 0;
+			TCHAR* szInstanceBuffer = NULL;
+			try {
+				PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+				if (status.is_more_data()) {
+					szCounterBuffer = new TCHAR[dwCounterBufLen+1024];
+					szInstanceBuffer = new TCHAR[dwInstanceBufLen+1024];
+
+					status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+					if (status.is_error()) {
+						delete [] szCounterBuffer;
+						delete [] szInstanceBuffer;
+						throw PDHException(_T("PdhEnumObjectItems failed when trying to retrieve buffer for ") + object, status);
+					}
+
+					if (dwCounterBufLen > 0) {
+						TCHAR *cp=szCounterBuffer;
+						while(*cp != '\0') {
+							ret.counters.push_back(cp);
+							cp += lstrlen(cp)+1;
+						}
+					}
+					if (dwInstanceBufLen > 0) {
+						TCHAR *cp=szInstanceBuffer;
+						while(*cp != '\0') {
+							ret.instances.push_back(cp);
+							cp += lstrlen(cp)+1;
+						}
+					}
+					delete [] szCounterBuffer;
+					delete [] szInstanceBuffer;
+				}
+			} catch (std::exception &e) {
+				ret.error = e.what();
+			} catch (...) {
+				ret.error = "Exception fetching data";
 			}
-			pdh_object_details ret;
-			ret.counters = PDHHelpers::build_list(counter_buffer, counter_len);
-			ret.instances = PDHHelpers::build_list(instance_buffer, instance_len);
-			delete [] counter_buffer;
-			delete [] instance_buffer;
 			return ret;
 		}
 	};

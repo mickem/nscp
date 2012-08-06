@@ -20,6 +20,9 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "NSClientServer.h"
+
+#include <boost/assign.hpp>
+
 #include <strEx.h>
 #include <time.h>
 #include <config.h>
@@ -203,6 +206,35 @@ void split_to_list(std::list<std::wstring> &list, std::wstring str) {
 	list.insert(list.begin(), add.begin(), add.end());
 }
 
+
+std::wstring list_instance(std::wstring counter) {
+	std::list<std::wstring> exeresult;
+	nscapi::core_helper::exec_simple_command(_T("*"), _T("pdh"), boost::assign::list_of(std::wstring(_T("--list")))(_T("--porcelain"))(_T("--counter"))(counter), exeresult);
+	std::wstring result;
+
+	typedef std::basic_istringstream<wchar_t> wistringstream;
+	typedef boost::tokenizer< boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > Tokenizer;
+	BOOST_FOREACH(std::wstring s, exeresult) {
+		wistringstream iss(s);
+		std::wstring line;
+		while(std::getline(iss, line, L'\n')) {
+			Tokenizer tok(line);
+			Tokenizer::const_iterator cit = tok.begin();
+			int i = 2;
+			while ((i-->0) && (cit != tok.end()))
+				++cit;
+			if (i <= 1) {
+				if (!result.empty())
+					result += _T(",");
+				result += *cit;
+			} else {
+				NSC_LOG_ERROR(_T("Invalid line: ") + line);
+			}
+		}
+	}
+	return result;
+}
+
 check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	std::wstring buffer = p.get_payload();
 	NSC_DEBUG_MSG_STD(_T("Data: ") + buffer);
@@ -281,9 +313,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			args.push_back(_T("path=") + cmd.second);
 			break;
 		case REQ_INSTANCES:
-			cmd.first = _T("listCounterInstances");
-			args.push_back(cmd.second);
-			break;
+			return list_instance(cmd.second);
 
 
 		default:
