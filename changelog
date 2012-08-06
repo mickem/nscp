@@ -6,7 +6,6 @@ TODO:
 
 2012-08-04 MickeM
  * Re implemented INSTANCES command via the new pdh exec subsystem.
-   Still has an unfixed isue as it return duplicates (one for each counter on the object) which will be fixed later today.
 
 2012-08-04 MickeM
  * Fixed exception with "nscp service"

@@ -209,7 +209,7 @@ void split_to_list(std::list<std::wstring> &list, std::wstring str) {
 
 std::wstring list_instance(std::wstring counter) {
 	std::list<std::wstring> exeresult;
-	nscapi::core_helper::exec_simple_command(_T("*"), _T("pdh"), boost::assign::list_of(std::wstring(_T("--list")))(_T("--porcelain"))(_T("--counter"))(counter), exeresult);
+	nscapi::core_helper::exec_simple_command(_T("*"), _T("pdh"), boost::assign::list_of(std::wstring(_T("--list")))(_T("--porcelain"))(_T("--counter"))(counter)(_T("--no-counters")), exeresult);
 	std::wstring result;
 
 	typedef std::basic_istringstream<wchar_t> wistringstream;
@@ -220,7 +220,7 @@ std::wstring list_instance(std::wstring counter) {
 		while(std::getline(iss, line, L'\n')) {
 			Tokenizer tok(line);
 			Tokenizer::const_iterator cit = tok.begin();
-			int i = 2;
+			int i = 1;
 			while ((i-->0) && (cit != tok.end()))
 				++cit;
 			if (i <= 1) {

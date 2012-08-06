@@ -330,7 +330,7 @@ namespace socket_helpers {
 			}
 
 			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet, int retries = 3) {
-				boost::optional<protocol_type::response_type> response = connection_->process_request(packet);
+				boost::optional<typename protocol_type::response_type> response = connection_->process_request(packet);
 				if (!response) {
 					for (int i=0;i<retries;i++) {
 						handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + strEx::s::xtos(i) + " of " + strEx::s::xtos(retries));

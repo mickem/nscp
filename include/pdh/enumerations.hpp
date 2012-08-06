@@ -39,7 +39,52 @@ namespace PDH {
 		};
 
 		typedef std::list<Object> Objects;
-		static Objects EnumObjects(DWORD dwDetailLevel = PERF_DETAIL_WIZARD) {
+
+
+		static void fetch_object_details(Object &object, bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD) {
+			DWORD dwCounterBufLen = 0;
+			TCHAR* szCounterBuffer = NULL;
+			DWORD dwInstanceBufLen = 0;
+			TCHAR* szInstanceBuffer = NULL;
+			try {
+				PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+				if (status.is_more_data()) {
+					szCounterBuffer = new TCHAR[dwCounterBufLen+1];
+					szInstanceBuffer = new TCHAR[dwInstanceBufLen+1];
+
+					status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+					if (status.is_error()) {
+						delete [] szCounterBuffer;
+						delete [] szInstanceBuffer;
+						object.error = "Failed to enumerate object: " + utf8::cvt<std::string>(object.name);
+					}
+
+					if (dwCounterBufLen > 0 && objects) {
+						TCHAR *cp=szCounterBuffer;
+						while(*cp != '\0') {
+							object.counters.push_back(cp);
+							cp += lstrlen(cp)+1;
+						}
+					}
+					if (dwInstanceBufLen > 0 && instances) {
+						TCHAR *cp=szInstanceBuffer;
+						while(*cp != '\0') {
+							object.instances.push_back(cp);
+							cp += lstrlen(cp)+1;
+						}
+					}
+					delete [] szCounterBuffer;
+					delete [] szInstanceBuffer;
+				} else {
+					object.error = "Failed to enumerate object: " + utf8::cvt<std::string>(object.name);
+				}
+			} catch (std::exception &e) {
+				object.error = e.what();
+			} catch (...) {
+				object.error = "Exception fetching data for: " + utf8::cvt<std::string>(object.name);
+			}
+		}
+		static Objects EnumObjects(bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD) {
 			Objects ret;
 
 			DWORD dwObjectBufLen = 0;
@@ -62,92 +107,18 @@ namespace PDH {
 			}
 			delete [] szObjectBuffer;
 
-			BOOST_FOREACH(Object &o, ret) {
-				DWORD dwCounterBufLen = 0;
-				TCHAR* szCounterBuffer = NULL;
-				DWORD dwInstanceBufLen = 0;
-				TCHAR* szInstanceBuffer = NULL;
-				try {
-					status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, o.name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-					if (status.is_more_data()) {
-						szCounterBuffer = new TCHAR[dwCounterBufLen+1024];
-						szInstanceBuffer = new TCHAR[dwInstanceBufLen+1024];
-
-						status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, o.name.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-						if (status.is_error()) {
-							delete [] szCounterBuffer;
-							delete [] szInstanceBuffer;
-							throw PDHException(_T("PdhEnumObjectItems failed when trying to retrieve buffer for ") + o.name, status);
-						}
-
-						if (dwCounterBufLen > 0) {
-							cp=szCounterBuffer;
-							while(*cp != '\0') {
-								o.counters.push_back(cp);
-								cp += lstrlen(cp)+1;
-							}
-						}
-						if (dwInstanceBufLen > 0) {
-							cp=szInstanceBuffer;
-							while(*cp != '\0') {
-								o.counters.push_back(cp);
-								cp += lstrlen(cp)+1;
-							}
-						}
-						delete [] szCounterBuffer;
-						delete [] szInstanceBuffer;
-					}
-				} catch (std::exception &e) {
-					o.error = e.what();
-				} catch (...) {
-					o.error = "Exception fetching data";
+			if (objects || instances) {
+				BOOST_FOREACH(Object &o, ret) {
+					fetch_object_details(o, instances, objects, dwDetailLevel);
 				}
 			}
 			return ret;
 		}
 
-		static Object EnumObject(std::wstring object, DWORD dwDetailLevel = PERF_DETAIL_WIZARD) {
+		static Object EnumObject(std::wstring object, bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD) {
 			Object ret;
 			ret.name = object;
-			DWORD dwCounterBufLen = 0;
-			TCHAR* szCounterBuffer = NULL;
-			DWORD dwInstanceBufLen = 0;
-			TCHAR* szInstanceBuffer = NULL;
-			try {
-				PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-				if (status.is_more_data()) {
-					szCounterBuffer = new TCHAR[dwCounterBufLen+1024];
-					szInstanceBuffer = new TCHAR[dwInstanceBufLen+1024];
-
-					status = PDH::PDHFactory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-					if (status.is_error()) {
-						delete [] szCounterBuffer;
-						delete [] szInstanceBuffer;
-						throw PDHException(_T("PdhEnumObjectItems failed when trying to retrieve buffer for ") + object, status);
-					}
-
-					if (dwCounterBufLen > 0) {
-						TCHAR *cp=szCounterBuffer;
-						while(*cp != '\0') {
-							ret.counters.push_back(cp);
-							cp += lstrlen(cp)+1;
-						}
-					}
-					if (dwInstanceBufLen > 0) {
-						TCHAR *cp=szInstanceBuffer;
-						while(*cp != '\0') {
-							ret.instances.push_back(cp);
-							cp += lstrlen(cp)+1;
-						}
-					}
-					delete [] szCounterBuffer;
-					delete [] szInstanceBuffer;
-				}
-			} catch (std::exception &e) {
-				ret.error = e.what();
-			} catch (...) {
-				ret.error = "Exception fetching data";
-			}
+			fetch_object_details(ret, instances, objects, dwDetailLevel);
 			return ret;
 		}
 	};

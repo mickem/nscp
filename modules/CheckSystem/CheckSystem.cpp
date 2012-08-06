@@ -308,14 +308,41 @@ std::wstring qoute(const std::wstring &s) {
 }
 bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, std::wstring filter, std::wstring &result) {
 	if (!porcelain) {
-		result += _T("Listing all counters\n");
+		result += _T("Listing counters\n");
 		result += _T("---------------------------\n");
 	}
 	try {
 		int total = 0, match = 0;
 		BOOST_FOREACH(const PDH::Enumerations::Object &obj, list) {
-			if (!obj.error.empty()) {
-				result += _T("error,") + obj.name + _T(",") + utf8::to_unicode(obj.error) + _T("\n");
+			if (porcelain) {
+				BOOST_FOREACH(const std::wstring &inst, obj.instances) {
+					std::wstring line = _T("\\") + obj.name + _T("(") + inst + _T(")\\") ;
+					total++;
+					if (!filter.empty() && line.find(filter) == std::wstring::npos)
+						continue;
+					result += _T("instance,") + qoute(obj.name) + _T(",") + qoute(inst) + _T("\n");
+					match++;
+				}
+				BOOST_FOREACH(const std::wstring &count, obj.counters) {
+					std::wstring line = _T("\\") + obj.name + _T("\\") + count;
+					total++;
+					if (!filter.empty() && line.find(filter) == std::wstring::npos)
+						continue;
+					result += _T("counter,") + qoute(obj.name) + _T(",") + qoute(count) + _T("\n");
+					match++;
+				}
+				if (obj.instances.empty() && obj.counters.empty()) {
+					std::wstring line = _T("\\") + obj.name + _T("\\");
+					total++;
+					if (!filter.empty() && line.find(filter) == std::wstring::npos)
+						continue;
+					result += _T("counter,") + qoute(obj.name) + _T(",") + _T(",\n");
+					match++;
+				} else if (!obj.error.empty()) {
+					result += _T("error,") + obj.name + _T(",") + utf8::to_unicode(obj.error) + _T("\n");
+				}
+			} else if (!obj.error.empty()) {
+				result += _T("Failed to enumerate counter ") + obj.name + _T(": ") + utf8::to_unicode(obj.error) + _T("\n");
 			} else if (obj.instances.size() > 0) {
 				BOOST_FOREACH(const std::wstring &inst, obj.instances) {
 					BOOST_FOREACH(const std::wstring &count, obj.counters) {
@@ -324,13 +351,11 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 						if (!filter.empty() && line.find(filter) == std::wstring::npos)
 							continue;
 						boost::tuple<bool,std::wstring> status;
-						if (validate)
+						if (validate) {
 							status = validate_counter(line);
-						if (porcelain) 
-							line = _T("counter,") + qoute(obj.name) + _T(",") + qoute(inst) + _T(",") + qoute(count) + _T(", ") + qoute(status.get<1>());
-						else if (validate)
-							line = line + _T(": ") + status.get<1>();
-						result += line + _T("\n");
+							result += line + _T(": ") + status.get<1>() + _T("\n");
+						} else
+							result += line + _T("\n");
 						match++;
 					}
 				}
@@ -341,14 +366,11 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 					if (!filter.empty() && line.find(filter) == std::wstring::npos)
 						continue;
 					boost::tuple<bool,std::wstring> status;
-					if (validate)
+					if (validate) {
 						status = validate_counter(line);
-
-					if (porcelain) 
-						line = _T("counter,") + qoute(obj.name) + _T(",,") + qoute(count)  + _T(", ") + qoute(status.get<1>());
-					else if (validate)
-						line = line + _T(": ") + status.get<1>();
-					result += line + _T("\n");
+						result += line + _T(": ") + status.get<1>() + _T("\n");
+					} else 
+						result += line + _T("\n");
 					match++;
 				}
 			}
@@ -380,6 +402,8 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 			("list", po::wvalue<std::wstring>(&list_string)->implicit_value(_T("")), "List counters and/or instances")
 			("validate", po::wvalue<std::wstring>(&list_string)->implicit_value(_T("")), "List counters and/or instances")
 			("all", "List/check all counters not configured counter")
+			("no-counters", "Do not recurse and list/validate counters for any matching items")
+			("no-instances", "Do not recurse and list/validate instances for any matching items")
 			("counter", po::wvalue<std::wstring>(&counter)->implicit_value(_T("")), "Specify which counter to work with")
 			("filter", po::wvalue<std::wstring>(&counter)->implicit_value(_T("")), "Specify a filter to match (substring matching)")
 			;
@@ -401,6 +425,8 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 		bool porcelain = vm.count("porcelain");
 		bool all = vm.count("all");
 		bool validate = vm.count("validate");
+		bool no_objects = vm.count("no-counters");
+		bool no_instances = vm.count("no-instances");
 		bool list = vm.count("list") || (validate && counter.empty());
 		if (counter.empty())
 			counter = list_string;
@@ -417,13 +443,13 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 		if (list) {
 			if (all) {
 				// If we specified all list all counters
-				PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects();
+				PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects(!no_instances, !no_objects);
 				return render_list(lst, validate, porcelain, counter, result)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 			} else {
 				if (vm.count("counter")) {
 					// If we specify a counter object we will only list instances of that
 					PDH::Enumerations::Objects lst;
-					lst.push_back(PDH::Enumerations::EnumObject(counter));
+					lst.push_back(PDH::Enumerations::EnumObject(counter, !no_instances, !no_objects));
 					return render_list(lst, validate, porcelain, counter, result)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 				} else {
 					// If we specify no query we will list all configured counters 
