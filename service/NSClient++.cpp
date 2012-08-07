@@ -392,6 +392,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 
 	LOG_INFO_CORE(SERVICE_NAME _T(" booting..."));
 	LOG_DEBUG_CORE(_T("Booted settings subsystem..."));
+	LOG_ERROR_CORE(_T("===> ") + strEx::itos_as_time(11171600000));
 
 	bool crash_submit = false;
 	bool crash_archive = false;
