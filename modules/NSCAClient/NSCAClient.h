@@ -110,7 +110,7 @@ public:
 				sender_hostname = sender.get_string_data("host");
 		}
 		unsigned int get_encryption() {
-			return nsca::nsca_encrypt::helpers::encryption_to_int(encryption);
+			return nscp::encryption::helpers::encryption_to_int(encryption);
 		}
 
 		std::wstring to_wstring() const {
@@ -174,7 +174,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support over NSCA.\nAvalible crypto are: ")) + getCryptos();
+		return std::wstring(_T("Passive check support over NSCA."));
 	}
 
 	bool hasCommandHandler() { return true; };
@@ -195,7 +195,6 @@ private:
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 
-	static std::wstring getCryptos();
 	void set_delay(std::wstring key) {
 		time_delta_ = strEx::stol_as_time_sec(key, 1);
 	}

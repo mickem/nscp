@@ -52,6 +52,8 @@ NSCAPI::nagiosReturn nscapi::impl::simple_command_handler::handleRAWCommand(cons
 	return ret;
 }
 
+
+
 NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 	std::wstring result;

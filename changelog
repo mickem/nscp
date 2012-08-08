@@ -4,6 +4,78 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-07 MickeM
+ * Fixed issue with perfoamnce data overflowing 32-bit integers (#550)
+ * Fixed issue with CheckUptime and time rendering beein wrong (#549)
+ 
+2012-08-04 MickeM
+ * Re implemented INSTANCES command via the new pdh exec subsystem.
+
+2012-08-04 MickeM
+ * Fixed exception with "nscp service"
+ * Improved nscp settings so help is displayed.
+ * Improved nscp settings so default action (no arguments) also lists all installed services.
+ * Improved nscp settings to default list service nscp as well as legcy nsclientpp
+ * Added initial retry (default 3) when sending data.
+ * Fixed protocol issue in NSClientServer (should now work again)
+
+2012-08-03 MickeM
+ * Hopefully fixed the "cant load counter" issue by reowrking how counters are handled.
+
+2012-08-02 MickeM
+ * major improvments to the CheckSystem command line syntax:
+   Run: "nscp sys" to get help.
+   A good way to validate your CheckSystem issues are running the following:
+     nscp sys --validate
+
+2012-08-02 MickeM
+ * Added so commandline parser will stop at .. and pass along all extra options to the module.
+    So now you can do: (Notice the double --log where the first is a log arg and the second is a module arg)
+      nscp lua --log debug .. --script foo.lua --log this-is-a-lua-argument
+    But perhaps more importantly you can do:
+      nscp lua .. --help
+    Which previously would always give you "command line help" and not lua help.
+
+2012-08-01 MickeM
+ * Resolved issue with crypto++ on linux (introduced by buildspeedups)
+ * Added so running "nscp settings" will list all loaded settins context (as a tree).
+   Quick way to see where your settings are stored.
+
+2012-07-31 MickeM
+ * Fixed issue with files not copied by default build
+ * Swapped graphite client to use UTC instead of local time
+
+2012-07-30 MickeM
+ * Restructured settings a bit removing dead code
+ * Added nscp settings --validate to validate a given settings file listing all invalid (unregistered) keys.
+ * Added SamplePluginSimple which currently is not very rich but at least has some comments to explain some of the things.
+
+2012-07-29 MickeM
+ * Tracked down a few memoryleaks when connections time-out.
+ * Added testcases for connection timeouts in lua NRPE test suite
+ * Improved the LUA module a bit
+
+2012-07-26 MickeM
+ * Fixed some memoryelaks in LUAModule
+ * Extracted the test functions into a library
+ * Added lib folder as search path for lua scripts
+ * Tweaks and improvments all around
+ * Improved the build scripts a lot making files work on linux (still need to manually build the targets though)
+
+2012-07-23 MickeM
+ * Added support for LUAScripts to linux enviornments (still a few warnings to sort out)
+ * Improved lua unit test scripts
+ * Added support for using member functions as handlers in Lua scripts
+
+2012-07-17 MickeM
+ * Performance enhancements to build time
+
+2012-07-11 MickeM
+ * LUAScript: Improved lua scripting module a lot
+ * LUAScript: Added protocol buffer support to lua scripts
+ * tests: Rewrote (halfway there) test_nrpe python script as a lua script.
+ * CheckEventLog: Fixed command name when submitting real-time "no action checks"
+
 2012-07-03 MickeM
  * Improved settings API with new protoclbuffers commad (avalible from python)
  * Improved registration API with new protoclbuffers commad (avalible from python)

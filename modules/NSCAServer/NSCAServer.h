@@ -49,10 +49,8 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NSCA connection and handles them.\nAvalible crypto are: ") + getCryptos();
+		return _T("A simple server that listens for incoming NSCA connection and handles them.");
 	}
-
-	static std::wstring getCryptos();
 
 	boost::shared_ptr<nsca::server::server> server_;
 	boost::shared_ptr<nsca::server::handler> handler_;

@@ -20,26 +20,31 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "LUAScript.h"
+
+#include <boost/program_options.hpp>
+
 #include <strEx.h>
 #include <time.h>
-#include <filter_framework.hpp>
+//#include <filter_framework.hpp>
 #include <error.hpp>
 #include <file_helpers.hpp>
 
 #include <settings/client/settings_client.hpp>
 
 
-LUAScript::LUAScript() : registry(new lua_wrappers::lua_registry()) {
+LUAScript::LUAScript() {
 }
 LUAScript::~LUAScript() {
 }
 
 namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
 bool LUAScript::loadModule() {
 	return false;
 }
 bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	registry.reset(new lua_wrappers::lua_registry());
 	//std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
 
@@ -67,7 +72,7 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		BOOST_FOREACH(script_container &script, scripts_) {
 			try {
-				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, script.script.string()));
+				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, root_.string(), script.script.string()));
 			} catch (const lua_wrappers::LUAException &e) {
 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
 			} catch (const std::exception &e) {
@@ -130,8 +135,20 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 
 
 bool LUAScript::unloadModule() {
+	BOOST_FOREACH(script_instance &i, instances_) {
+		try {
+			i->unload();
+		} catch (const lua_wrappers::LUAException &e) {
+			NSC_LOG_ERROR_STD(_T("Exception when unloading script: ") + i->get_wscript() + _T(": ") + e.getMessage());
+		} catch (...) {
+			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when unloading script: ") + i->get_wscript());
+		}
+	}
+	if (registry)
+		registry->clear();
 	instances_.clear();
 	scripts_.clear();
+	registry.reset();
 	return true;
 }
 
@@ -166,17 +183,74 @@ bool LUAScript::reload(std::wstring &message) {
 
 
 
-NSCAPI::nagiosReturn LUAScript::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("luareload")) {
-		return reload(message)?NSCAPI::returnOK:NSCAPI::returnCRIT;
-	}
-	if (!registry->has_command(command))
+NSCAPI::nagiosReturn LUAScript::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
+	if (!registry->has_command(char_command))
 		return NSCAPI::returnIgnored;
-	return registry->on_query(target, command, arguments, message, perf);
-		// const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf
+	return registry->on_query(char_command, request, response);
+}
+
+
+
+NSCAPI::nagiosReturn LUAScript::execute_and_load(std::list<std::wstring> args, std::wstring &message) {
+	try {
+		po::options_description desc("Options for the following commands: (exec, execute)");
+		boost::program_options::variables_map vm;
+		std::wstring file;
+		desc.add_options()
+			("help", "Display help")
+			("script", po::wvalue<std::wstring>(&file), "The script to run")
+			("file", po::wvalue<std::wstring>(&file), "The script to run")
+			;
+
+		std::vector<std::wstring> vargs(args.begin(), args.end());
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (vm.count("help") > 0) {
+			std::stringstream ss;
+			ss << desc;
+			message = utf8::to_unicode(ss.str());
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
+		if (!ofile) {
+			message = _T("Script not found: ") + file;
+			NSC_LOG_ERROR_STD(message);
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		try {
+			instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, _T("cmdline"), root_.string(), (*ofile).string()));
+		} catch (const lua_wrappers::LUAException &e) {
+			NSC_LOG_ERROR_STD(_T("Could not load script ") + _T(": ") + e.getMessage());
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR_STD(_T("Could not load script ") + _T(": ") + utf8::to_unicode(e.what()));
+		}
+		return NSCAPI::returnOK;
+	} catch (const std::exception &e) {
+		message = _T("Failed to execute script ") + utf8::to_unicode(e.what());
+		NSC_LOG_ERROR_STD(message);
+		return NSCAPI::returnUNKNOWN;
+	} catch (...) {
+		message = _T("Failed to execute script ");
+		NSC_LOG_ERROR_STD(message);
+		return NSCAPI::returnUNKNOWN;
+	}
 }
 
 NSCAPI::nagiosReturn LUAScript::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+	if (command == _T("help")) {
+		std::list<std::wstring> args;
+		args.push_back(_T("--help"));
+		std::wstring result;
+		int ret = execute_and_load(args, result);
+		return ret;
+	} else if (command == _T("lua-execute") || command == _T("lua-run")
+		|| command == _T("run") || command == _T("execute") || command == _T("exec") || command == _T("")) {
+			return execute_and_load(arguments, result);
+	}	
 	if (!registry->has_exec(command))
 		return NSCAPI::returnIgnored;
 	return registry->on_exec(command, arguments, result);
@@ -191,9 +265,9 @@ NSCAPI::nagiosReturn LUAScript::handleSimpleNotification(const std::wstring chan
 
 
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(LUAScript, _T("lua"));
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(LUAScript, _T("lua"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

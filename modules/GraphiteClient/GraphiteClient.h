@@ -130,11 +130,7 @@ public:
 	* @return The module name
 	*/
 	static std::wstring getModuleName() {
-#ifdef HAVE_LIBCRYPTOPP
-		return _T("NSCAClient");
-#else
-		return _T("NSCAClient (without encryption support)");
-#endif
+		return _T("GraphiteClient");
 	}
 	/**
 	* Module version
@@ -166,7 +162,6 @@ private:
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 
-	static std::wstring getCryptos();
 	void set_delay(std::wstring key) {
 		time_delta_ = strEx::stol_as_time_sec(key, 1);
 	}

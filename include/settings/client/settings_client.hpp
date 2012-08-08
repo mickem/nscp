@@ -512,6 +512,7 @@ namespace nscapi {
 			settings_keys_easy_init(settings_registry* owner_) : owner(owner_) {}
 			settings_keys_easy_init(std::wstring path, settings_registry* owner_) : owner(owner_), path_(path) {}
 			settings_keys_easy_init(std::wstring path, std::wstring parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent) {}
+			virtual ~settings_keys_easy_init() {}
 
 			settings_keys_easy_init& operator()(std::wstring path, std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description, bool advanced = false) {
 				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description, advanced)));
@@ -642,6 +643,7 @@ namespace nscapi {
 			std::wstring alias_;
 		public:
 			settings_registry(settings_impl_interface_ptr core) : core_(core) {}
+			virtual ~settings_registry() {}
 			void add(boost::shared_ptr<key_info> info) {
 				keys_.push_back(info);
 			}
@@ -692,6 +694,9 @@ namespace nscapi {
 			}
 			
 
+			void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced = false)  {
+				core_->register_key(path, key, type, title, description, defaultValue, advanced);
+			}
 			void register_all() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
 					if (v->key) {

@@ -18,22 +18,20 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
-NSC_WRAPPERS_CHANNELS();
+NSC_WRAPPERS_MAIN()
+NSC_WRAPPERS_CLI()
+NSC_WRAPPERS_CHANNELS()
+
+#include <boost/optional.hpp>
 
 //#include <config.h>
 #include <strEx.h>
 #include <utils.h>
-#include <checkHelpers.hpp>
-#include "script_wrapper.hpp"
-
-#include <boost/optional.hpp>
-
 #include <scripts/functions.hpp>
 
+#include "script_wrapper.hpp"
 
-class LUAScript : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_command_line_exec, public nscapi::impl::simple_submission_handler, public nscapi::impl::simple_plugin {
+class LUAScript : public nscapi::impl::simple_command_line_exec, public nscapi::impl::simple_submission_handler, public nscapi::impl::simple_plugin {
 private:
 
 	boost::shared_ptr<lua_wrappers::lua_registry> registry;
@@ -69,9 +67,10 @@ public:
 	bool hasNotificationHandler() { return true; }
 	boost::optional<boost::filesystem::wpath> find_file(std::wstring file);
 	bool loadScript(std::wstring alias, std::wstring file);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn execute_and_load(std::list<std::wstring> args, std::wstring &message);
 	NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
+	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 
 
 	//NSCAPI::nagiosReturn RunLUA(const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);

@@ -70,7 +70,10 @@ bool CheckEventLog::loadModule() {
 
 void real_time_thread::process_no_events(const filters::filter_config_object &object) {
 	std::wstring response;
-	if (!nscapi::core_helper::submit_simple_message(object.target, object.alias, NSCAPI::returnOK, object.ok_msg, object.perf_msg, response)) {
+	std::wstring command = object.alias;
+	if (!object.command.empty())
+		command = object.command;
+	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.ok_msg, object.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
 	}
 }

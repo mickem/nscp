@@ -7,7 +7,7 @@
 #include <boost/filesystem/operations.hpp>
 
 #include <settings/settings_core.hpp>
-#include <settings/settings_core_impl.hpp>
+#include <settings/settings_interface_impl.hpp>
 //#define SI_CONVERT_ICU
 #include <simpleini/simpleini.h>
 #include <error.hpp>
@@ -83,24 +83,6 @@ namespace settings {
 		virtual bool has_real_key(settings_core::key_path_type key) {
 			return ini.GetValue(key.first.c_str(), key.second.c_str()) != NULL;
 		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get the type this settings store represent.
-		///
-		/// @return the type of settings store
-		///
-		/// @author mickem
-// 		virtual settings_core::settings_type get_type() {
-// 			return settings_core::ini_file;
-// 		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Is this the active settings store
-		///
-		/// @return
-		///
-		/// @author mickem
-// 		virtual bool is_active() {
-// 			return true;
-// 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
 		///
@@ -213,6 +195,31 @@ namespace settings {
 // 			return SettingsInterfaceImpl::get_key_type(path, key);
 // 			return settings_core::key_string;
 // 		}
+
+
+		settings::error_list validate() {
+			settings::error_list ret;
+			CSimpleIni::TNamesDepend sections;
+			ini.GetAllSections(sections);
+			BOOST_FOREACH(const CSimpleIni::Entry &ePath, sections) {
+				try {
+					get_core()->get_registred_path(ePath.pItem);
+				} catch (const KeyNotFoundException &e) {
+					ret.push_back(std::wstring(_T("Invalid path: ")) + ePath.pItem);
+				}
+				CSimpleIni::TNamesDepend keys;
+				ini.GetAllKeys(ePath.pItem, keys);
+				BOOST_FOREACH(const CSimpleIni::Entry &eKey, keys) {
+					try {
+						get_core()->get_registred_key(ePath.pItem, eKey.pItem);
+					} catch (const KeyNotFoundException &e) {
+						ret.push_back(std::wstring(_T("Invalid key: ")) + ePath.pItem + _T(".") + eKey.pItem);
+					}
+				}
+			}
+
+			return ret;
+		}
 	private:
 		void load_data() {
 			if (is_loaded_)

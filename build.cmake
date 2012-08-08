@@ -19,6 +19,8 @@ IF(WIN32)
 		SET(PYTHON_ROOT c:/python/27)	
 	ENDIF()
 
+	SET(PROTOC_GEN_LUA_CMD "C:/Python/27x64/Scripts/protoc-gen-lua.cmd")
+	
 	SET(INC_GOOGLE_BREAKPAD_DIR "D:/source/libraries/google-breakpad-svn")
 		
 	SET(INC_BOOST_INCLUDEDIR "D:/source/include/boost-1_47")

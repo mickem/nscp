@@ -136,30 +136,6 @@ bool NSCAServer::unloadModule() {
 	return true;
 }
 
-
-std::wstring NSCAServer::getCryptos() {
-	std::wstring ret = _T("{");
-	for (int i=0;i<LAST_ENCRYPTION_ID;i++) {
-		if (nsca::nsca_encrypt::hasEncryption(i)) {
-			std::wstring name;
-			try {
-				nsca::nsca_encrypt::any_encryption *core = nsca::nsca_encrypt::get_encryption_core(i);
-				if (core == NULL)
-					name = _T("Broken<NULL>");
-				else
-					name = str::to_wstring(core->getName());
-			} catch (nsca::nsca_encrypt::encryption_exception &e) {
-				name = str::to_wstring(e.what());
-			}
-			if (ret.size() > 1)
-				ret += _T(", ");
-			ret += strEx::itos(i) + _T("=") + name;
-		}
-	}
-	return ret + _T("}");
-}
-
-
 NSC_WRAP_DLL()
 NSC_WRAPPERS_MAIN_DEF(NSCAServer, _T("nsca"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()

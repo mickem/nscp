@@ -30,18 +30,12 @@ NSC_WRAPPERS_CLI();
 class CheckSystem : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
 private:
 	CheckMemory memoryChecker;
-	PDHCollector pdhThread;
+	PDHCollector pdh_collector;
+
+	typedef std::map<std::wstring,std::wstring> counter_map_type;
+	counter_map_type counters;
 
 public:
-	typedef enum { started, stopped } states;
-	typedef struct rB {
-		NSCAPI::nagiosReturn code_;
-		std::wstring msg_;
-		std::wstring perf_;
-		rB(NSCAPI::nagiosReturn code, std::wstring msg) : code_(code), msg_(msg) {}
-		rB() : code_(NSCAPI::returnUNKNOWN) {}
-	} returnBundle;
-
 	std::map<DWORD,std::wstring> lookups_;
 
 
@@ -84,8 +78,6 @@ public:
 	NSCAPI::nagiosReturn checkMem(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn checkProcState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn checkCounter(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn listCounterInstances(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn checkSingleRegEntry(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-
 
 };

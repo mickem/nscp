@@ -32,7 +32,6 @@ namespace nscapi {
 		public:
 			NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
 			virtual NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) = 0;
-
 		};
 
 		class simple_command_handler {

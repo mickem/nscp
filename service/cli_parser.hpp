@@ -22,6 +22,7 @@ class cli_parser {
 	bool log_debug;
 	std::wstring log_level;
 	std::wstring settings_store;
+	std::vector<std::wstring> unknown_options;
 
 	static nsclient::logging::logger_interface* get_logger() {
 		return nsclient::logging::logger::get_logger(); 
@@ -66,6 +67,7 @@ public:
 			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
 			("filter", po::value<std::wstring>(), "Filter what to update (only works with generate trac currently).")
 			("add-defaults", "Add all default (if missing) values.")
+			("validate", "Validate the current configuration (or a given configuration).")
 			("load-all", "Load all plugins (currently only used with generate).")
 			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
 			("key", po::value<std::wstring>()->default_value(_T("")), "Key to work with.")
@@ -95,6 +97,7 @@ public:
 			("module,M", po::value<std::wstring>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
 			("argument,a", po::wvalue<std::vector<std::wstring> >(), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::wvalue<std::vector<std::wstring> >(), "List of arguments (does not get -- prefixed)")
+			("load-all", "Load all plugins.")
 			;
 
 		unittest.add_options()
@@ -116,6 +119,12 @@ public:
 		}
 		if (!log_level.empty())
 			nsclient::logging::logger::set_log_level(log_level);
+		if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
+			BOOST_FOREACH(const std::wstring & a, unknown_options) {
+				get_logger()->info(__FILE__, __LINE__, _T("Extra options: ") + a);
+			}
+		}
+
 		if (!settings_store.empty())
 			core_->set_settings_context(settings_store);
 
@@ -181,6 +190,21 @@ public:
 		}
 		return parse_help(argc, argv);
 	}
+
+	po::basic_parsed_options<wchar_t> do_parse(int argc, wchar_t* argv[], po::options_description &desc) {
+		int pos = 0;
+		for (;pos<argc;pos++) {
+			if (wcscmp(argv[pos], _T("..")) == 0)
+				break;
+		}
+		po::basic_parsed_options<wchar_t> parsed = po::wcommand_line_parser(pos, argv).options(desc).allow_unregistered().run();
+		unknown_options = po::collect_unrecognized(parsed.options, po::include_positional);
+		for (int i=pos+1;i<argc;i++) {
+			unknown_options.push_back(argv[i]);
+		}
+		return parsed;
+	}
+
 	int parse_help(int argc, wchar_t* argv[]) {
 		try {
 
@@ -217,7 +241,7 @@ public:
 			all.add(common).add(test);
 
 			po::variables_map vm;
-			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (log_level.empty())
@@ -245,7 +269,7 @@ public:
 			all.add(common).add(settings);
 
 			po::variables_map vm;
-			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("settings", all))
@@ -272,11 +296,14 @@ public:
 				ret = client.list(vm["path"].as<std::wstring>());
 			} else if (vm.count("show")) {
 				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
+			} else if (vm.count("validate")) {
+				ret = client.validate();
 			} else if (vm.count("switch")) {
 				client.switch_context(vm["switch"].as<std::wstring>());
 				ret = 0;
 			} else {
 				std::cout << all << std::endl;
+				client.list_settings_info();
 				return 1;
 			}
 
@@ -294,7 +321,7 @@ public:
 			all.add(common).add(service);
 
 			po::variables_map vm;
-			po::store(po::parse_command_line(argc, argv, all), vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("service", all))
@@ -304,7 +331,7 @@ public:
 			if (vm.count("name")) {
 				name = vm["name"].as<std::wstring>();
 			} else {
-				info(__LINE__, _T("TODO retrieve name from service here"));
+				name = nsclient::client::service_manager::get_default_service_name();
 			}
 			std::wstring desc;
 			if (vm.count("description")) {
@@ -319,7 +346,7 @@ public:
 
 			if (vm.count("run")) {
 				try {
-					mainClient.start_and_wait(name);
+					core_->start_and_wait(name);
 				} catch (...) {
 					error(__LINE__, _T("Unknown exception in service"));
 				}
@@ -334,11 +361,22 @@ public:
 					service_manager.start();
 				} else if (vm.count("stop")) {
 					service_manager.stop();
-				} else if (vm.count("info")) {
-					service_manager.info();
 				} else {
-					std::cerr << "Missing argument" << std::endl;
-					return 1;
+					if (vm.count("info") == 0) {
+						std::cerr << all << std::endl;
+						std::wcerr << _T("Invalid syntax: missing argument") << std::endl;
+					}
+					std::wcout << _T("Installed services: ") << std::endl;;
+					std::wcout << name << _T(": ") << service_manager.info() << std::endl;
+					{
+						nsclient::client::service_manager lsm(_T("nsclientpp"));
+						std::wstring cmd = lsm.info();
+						if (!cmd.empty()) {
+							std::wcout << _T("nsclientpp (legacy): ") << cmd << std::endl;
+						}
+
+					}
+					return vm.count("info");
 				}
 			}
 			return 0;
@@ -387,9 +425,7 @@ public:
 			p.add("arguments", -1);
 
 			po::variables_map vm;
-			po::wparsed_options parsed = 
-				po::wcommand_line_parser(argc, argv).options(all).allow_unregistered().run();
-			po::store(parsed, vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("client", all))
@@ -423,7 +459,7 @@ public:
 			if (vm.count("argument"))
 				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
 
-			args.arguments = po::collect_unrecognized(parsed.options, po::include_positional);
+			args.arguments = unknown_options;
 
 			BOOST_FOREACH(std::wstring s, kvp_args) {
 				std::wstring::size_type pos = s.find(L'=');
@@ -467,9 +503,7 @@ public:
 			p.add("arguments", -1);
 
 			po::variables_map vm;
-			po::wparsed_options parsed = 
-				po::wcommand_line_parser(argc, argv).options(all).allow_unregistered().run();
-			po::store(parsed, vm);
+			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
 			if (process_common_options("unitest", all))
@@ -483,6 +517,11 @@ public:
 					args.combined_query = _T("py_unittest");
 					args.mode = client_arguments::combined;
 					args.module = _T("PythonScript");
+				} else if (lang == _T("lua")) {
+						args.command = _T("LUAScript.run");
+						args.combined_query = _T("lua_unittest");
+						args.mode = client_arguments::combined;
+						args.module = _T("LuaScript");
 				} else {
 					std::wcerr << _T("Unknown language: ") << lang << std::endl;
 					return 1;
@@ -498,7 +537,7 @@ public:
 			if (vm.count("argument"))
 				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
 
-			args.arguments = po::collect_unrecognized(parsed.options, po::include_positional);
+			args.arguments = unknown_options;
 
 			BOOST_FOREACH(std::wstring s, kvp_args) {
 				std::wstring::size_type pos = s.find(L'=');
@@ -536,7 +575,7 @@ public:
 			args.debug();
 
 			core_->boot_init(log_level);
-			if (args.load_all)
+			if (args.load_all)                                                                                                                                                    
 				core_->preboot_load_all_plugin_files();
 			if (args.module.empty())
 				core_->boot_load_all_plugins();
@@ -550,18 +589,18 @@ public:
 				std::wcerr << _T("Since no mode was specified assuming --exec (other options are --query and --submit)") << std::endl;
 			}
 			if (args.mode == client_arguments::query) {
-				ret = mainClient.simple_query(args.module, args.command, args.arguments, resp);
+				ret = core_->simple_query(args.module, args.command, args.arguments, resp);
 			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
 				ret = mainClient.simple_exec(args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
 					std::wcout << _T("Command not found (by module): ") << args.command << std::endl;
 					resp.push_back(_T("Command not found: ") + args.command);
-					mainClient.simple_exec(_T("help"), args.arguments, resp);
+					mainClient.simple_exec(args.module, _T("help"), args.arguments, resp);
 				} else if (args.mode == client_arguments::combined) {
 					if (ret == NSCAPI::returnOK) {
-						mainClient.reload(_T("service"));
-						ret = mainClient.simple_query(args.module, args.combined_query, args.arguments, resp);
+						core_->reload(_T("service"));
+						ret = core_->simple_query(args.module, args.combined_query, args.arguments, resp);
 					} else {
 						std::wcerr << _T("Failed to execute command, will not attempt query") << std::endl;
 					}
@@ -571,9 +610,9 @@ public:
 			} else {
 				std::wcerr << _T("Need to specify one of --exec, --query or --submit") << std::endl;
 			}
-			mainClient.stop_unload_plugins_pre();
-			mainClient.stop_exit_pre();
-			mainClient.stop_exit_post();
+			core_->stop_unload_plugins_pre();
+			core_->stop_exit_pre();
+			core_->stop_exit_post();
 
 			BOOST_FOREACH(std::wstring r, resp) {
 				std::wcout << r << std::endl;

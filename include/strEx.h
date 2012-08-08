@@ -357,27 +357,27 @@ namespace strEx {
 #define SEC		(1000)
 	inline std::wstring itos_as_time(unsigned long long time) {
 		if (time > WEEK) {
-			unsigned int w = static_cast<unsigned int>(time/WEEK);
-			unsigned int d = static_cast<unsigned int>((time-(w*WEEK))/DAY);
-			unsigned int h = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY))/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN);
+			long long w = time/WEEK;
+			long long d = (time-(w*WEEK))/DAY;
+			long long h = (time-(w*WEEK)-(d*DAY))/HOUR;
+			long long m = (time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN;
 			return itos(w) + _T("w ") + itos(d) + _T("d ") + itos(h) + _T(":") + itos(m);
 		}
 		else if (time > DAY) {
-			unsigned int d = static_cast<unsigned int>((time)/DAY);
-			unsigned int h = static_cast<unsigned int>((time-(d*DAY))/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(d*DAY)-(h*HOUR))/MIN);
+			long long d = time/DAY;
+			long long h = (time-(d*DAY))/HOUR;
+			long long m = (time-(d*DAY)-(h*HOUR))/MIN;
 			return itos(d) + _T("d ") + itos(h) + _T(":") + itos(m);
 		}
 		else if (time > HOUR) {
-			unsigned int h = static_cast<unsigned int>((time)/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(h*HOUR))/MIN);
+			long long h = time/HOUR;
+			long long m = (time-(h*HOUR))/MIN;
 			return itos(h) + _T(":") + itos(m);
 		} else if (time > MIN) {
-			return _T("0:") + itos(static_cast<unsigned int>(time/(60 * 1000)));
+			return _T("0:") + itos(time/MIN);
 		} else if (time > SEC)
-			return itos(static_cast<unsigned int>(time/(1000))) + _T("s");
-		return itos(static_cast<unsigned int>(time));
+			return itos(time/SEC) + _T("s");
+		return itos(time);
 	}
 
 

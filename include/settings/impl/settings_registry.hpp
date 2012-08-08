@@ -316,6 +316,11 @@ namespace settings {
 				delete [] lpValueName;
 			}
 		}
+		settings::error_list validate() {
+			settings::error_list ret;
+			return ret;
+		}
+
 		virtual std::wstring get_info() {
 			return _T("Registry settings: (") + context_ + _T(",TODO)");
 		}

@@ -7,11 +7,17 @@ extern "C" {
 }
 #include "luna.h"
 
+#include <string>
+#include <list>
+
+
+#include <boost/weak_ptr.hpp>
+#include <NSCAPI.h>
+#include <nscapi/nscapi_core_wrapper.hpp>
+
+#include <strEx.h>
 
 namespace lua_wrappers {
-
-
-
 	class Lua_State {
 		lua_State *L;
 	public:
@@ -26,7 +32,7 @@ namespace lua_wrappers {
 			return L;
 		}
 		inline lua_State* get_state() const {
-			int i = lua_gettop(L);
+			lua_gettop(L);
 			return L;
 		}
 
@@ -41,6 +47,19 @@ namespace lua_wrappers {
 
 		lua_wrapper(lua_State *L) : L(L) {}
 
+
+		int append_path(const std::string &path) {
+			lua_getglobal(L, "package");
+			lua_getfield(L, -1, "path");
+			std::string cur_path = lua_tostring(L, -1);
+			cur_path.append(";");
+			cur_path.append(path);
+			lua_pop(L, 1);
+			lua_pushstring(L, cur_path.c_str());
+			lua_setfield(L, -2, "path");
+			lua_pop(L, 1);
+			return 0;
+		}
 		//////////////////////////////////////////////////////////////////////////
 		/// get_xxx
 		std::wstring get_string(int pos = -1) {
@@ -54,6 +73,43 @@ namespace lua_wrappers {
 				return strEx::itos(lua_tonumber(L, pos));
 			return _T("<NOT_A_STRING>");
 		}
+		std::string get_sstring(int pos = -1) {
+			if (pos == -1)
+				pos = lua_gettop(L);
+			if (pos == 0)
+				return "<EMPTY>";
+			if (is_string(pos))
+				return lua_tostring(L, pos);
+			if (is_number(pos))
+				return strEx::s::xtos(lua_tonumber(L, pos));
+			return "<NOT_A_STRING>";
+		}
+		bool get_string(std::wstring &str, int pos = -1) {
+			if (pos == -1)
+				pos = lua_gettop(L);
+			if (pos == 0)
+				return false;
+			if (is_string(pos))
+				str = utf8::cvt<std::wstring>(lua_tostring(L, pos));
+			else if (is_number(pos))
+				str = strEx::itos(lua_tonumber(L, pos));
+			else
+				return false;
+			return true;
+		}
+		bool get_string(std::string &str, int pos = -1) {
+			if (pos == -1)
+				pos = lua_gettop(L);
+			if (pos == 0)
+				return false;
+			if (is_string(pos))
+				str = lua_tostring(L, pos);
+			else if (is_number(pos))
+				str = strEx::s::xtos(lua_tonumber(L, pos));
+			else
+				return false;
+			return true;
+		}
 		int get_int(int pos = -1) {
 			if (pos == -1)
 				pos = lua_gettop(L);
@@ -65,7 +121,7 @@ namespace lua_wrappers {
 				return lua_tonumber(L, pos);
 			return 0;
 		}
-		boolean get_boolean(int pos = -1) {
+		bool get_boolean(int pos = -1) {
 			if (pos == -1)
 				pos = lua_gettop(L);
 			if (pos == 0)
@@ -76,23 +132,7 @@ namespace lua_wrappers {
 				return lua_tonumber(L, pos)==1;
 			return false;
 		}
-		NSCAPI::nagiosReturn get_code(int pos = -1) {
-			std::string str;
-			if (pos == -1)
-				pos = lua_gettop(L);
-			if (pos == 0)
-				return NSCAPI::returnUNKNOWN;
-			switch (lua_type(L, pos)) {
-				case LUA_TNUMBER: 
-					return static_cast<int>(lua_tonumber(L, pos));
-				case LUA_TSTRING:
-					return string_to_code(lua_tostring(L, pos));
-				case LUA_TBOOLEAN:
-					return lua_toboolean(L, pos)?NSCAPI::returnOK:NSCAPI::returnCRIT;
-			}
-			NSC_LOG_ERROR_STD(_T("Incorrect return from script: should be error, ok, warning or unknown"));
-			return NSCAPI::returnUNKNOWN;
-		}
+		NSCAPI::nagiosReturn get_code(int pos = -1);
 		std::list<std::wstring> get_array(const int pos = -1) {
 			std::list<std::wstring> ret;
 			const int len = lua_objlen(L, pos);
@@ -107,7 +147,7 @@ namespace lua_wrappers {
 
 		//////////////////////////////////////////////////////////////////////////
 		/// pop_xxx
-		boolean pop_boolean() {
+		bool pop_boolean() {
 			int pos = lua_gettop(L);
 			if (pos == 0)
 				return false;
@@ -123,6 +163,46 @@ namespace lua_wrappers {
 			ret = get_string(top);
 			pop();
 			return ret;
+		}
+		std::string pop_sstring() {
+			std::string ret;
+			int top = lua_gettop(L);
+			if (top == 0)
+				return "<EMPTY>";
+			ret = get_sstring(top);
+			pop();
+			return ret;
+		}
+		bool pop_string(std::wstring &str) {
+			int top = lua_gettop(L);
+			if (top == 0)
+				return false;
+			if (!get_string(str, top))
+				return false;
+			pop();
+			return true;
+		}
+		bool pop_function_ref(int &funref) {
+			int top = lua_gettop(L);
+			if (top == 0)
+				return false;
+			if (!is_function(top))
+				return false;
+			funref = luaL_ref(L, LUA_REGISTRYINDEX);
+			if (funref == 0)
+				return false;
+			return true;
+		}
+		bool pop_instance_ref(int &funref) {
+			int top = lua_gettop(L);
+			if (top == 0)
+				return false;
+//			if (!is_function(top))
+//				return false;
+			funref = luaL_ref(L, LUA_REGISTRYINDEX);
+			if (funref == 0)
+				return false;
+			return true;
 		}
 		int pop_int() {
 			int ret;
@@ -150,21 +230,15 @@ namespace lua_wrappers {
 			pop();
 			return ret;
 		}
+
+		void getglobal(const std::wstring &name) {
+			lua_getglobal(L, utf8::cvt<std::string>(name).c_str());
+		}
+
+
 		//////////////////////////////////////////////////////////////////////////
 		// Converters
-		NSCAPI::nagiosReturn string_to_code(std::string str) {
-			if ((str == "critical")||(str == "crit")||(str == "error")) {
-				return NSCAPI::returnCRIT;
-			} else if ((str == "warning")||(str == "warn")) {
-				return NSCAPI::returnWARN;
-			} else if (str == "ok") {
-				return NSCAPI::returnOK;
-			} else if (str == "unknown") {
-				return NSCAPI::returnUNKNOWN;
-			}
-			NSC_LOG_ERROR_STD(_T("Invalid code: ") + utf8::to_unicode(str));
-			return NSCAPI::returnUNKNOWN;
-		}
+		NSCAPI::nagiosReturn string_to_code(std::string str);
 
 
 		////////////////////////////////////////////////////////////////////////////
@@ -244,7 +318,10 @@ namespace lua_wrappers {
 		void push_string(std::string s) {
 			lua_pushstring(L, s.c_str());
 		}
-		void push_array(std::list<std::wstring> &arr) {
+		void push_raw_string(std::string s) {
+			lua_pushlstring(L, s.c_str(), s.size());
+		}
+		void push_array(const std::list<std::wstring> &arr) {
 			lua_createtable(L, 0, arr.size());
 			int i=0;
 			BOOST_FOREACH(const std::wstring &s, arr) {
@@ -259,13 +336,7 @@ namespace lua_wrappers {
 		inline bool empty() {
 			return size() == 0;
 		}
-		void log_stack() {
-			int args = size();
-			NSC_DEBUG_MSG_STD(_T("Invalid lua stack state, dumping stack"));
-			for (int i=1;i<args+1;i++) {
-				NSC_DEBUG_MSG_STD(get_type_as_string(i) +_T(": ") + get_string(i));
-			}
-		}
+		void log_stack();
 
 		int error(std::string s) {
 			return luaL_error(L, s.c_str());
@@ -318,16 +389,18 @@ namespace lua_wrappers {
 		std::string inline string(int pos) {
 			return luaL_checkstring(L, pos);
 		}
+		/*
 		std::wstring inline wstring(int pos) {
 			return utf8::cvt<std::wstring>(string(pos));
 		}
+		*/
 
 		std::list<std::wstring> inline checkarray(int pos) {
 			luaL_checktype(L, pos, LUA_TTABLE);
 			return get_array(pos);
 		}
 
-		boolean inline checkbool(int pos) {
+		bool inline checkbool(int pos) {
 			return lua_toboolean(L, pos);
 		}
 		int inline op_int(int pos, int def = 0) {
@@ -336,6 +409,7 @@ namespace lua_wrappers {
 		int inline checkint(int pos) {
 			return luaL_checkint(L, pos);
 		}
+		int gc(int what, int data);
 	};
 
 	class LUAException : std::exception {
@@ -377,7 +451,11 @@ namespace lua_wrappers {
 			, registry(registry)
 			, alias(alias)
 			, script(script)
-		{}
+		{
+		}
+
+		virtual ~lua_script_instance() {
+		}
 
 		int get_plugin_id() const {
 			return plugin_id;
@@ -399,10 +477,12 @@ namespace lua_wrappers {
 		}
 	};
 
-	class lua_registry {
+	class lua_registry : boost::noncopyable {
 		struct function_container {
 			boost::shared_ptr<lua_script_instance> instance;
 			int func_ref;
+			int obj_ref;
+			bool simple;
 		};
 
 		typedef std::map<std::wstring,function_container> function_map;
@@ -413,78 +493,25 @@ namespace lua_wrappers {
 		inline lua_State * prep_function(const function_container &c) {
 			lua_State *L = c.instance->get_lua_state();
 			lua_rawgeti(L, LUA_REGISTRYINDEX, c.func_ref);
+			if (c.obj_ref != 0)
+				lua_rawgeti(L, LUA_REGISTRYINDEX, c.obj_ref);
 			return L;
 		}
 	public:
+		lua_registry() {}
+		~lua_registry() {}
 
-		NSCAPI::nagiosReturn on_query(const std::wstring & target, const std::wstring & command, std::list<std::wstring> & arguments, std::wstring & message, std::wstring & perf) {
-			function_map::iterator it = functions.find(command);
-			if (it == functions.end())
-				throw LUAException(_T("Invalid function: ") + command);
-			function_container c = it->second;
-			lua_wrapper lua(prep_function(c));
-			lua.push_string(command);
-			lua.push_array(arguments);
-			if (lua.pcall(2, LUA_MULTRET, 0) != 0) {
-				NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
-				return NSCAPI::returnUNKNOWN;
-			}
-			int arg_count = lua.size();
-			if (arg_count > 2)
-				perf = lua.pop_string();
-			if (arg_count > 1)
-				message = lua.pop_string();
-			if (arg_count > 0)
-				return lua.pop_code();
-			NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
-			return NSCAPI::returnUNKNOWN;
-		}
 
-		NSCAPI::nagiosReturn on_exec(const std::wstring & command, std::list<std::wstring> & arguments, std::wstring & result) {
-			function_map::iterator it = execs.find(command);
-			if (it == execs.end())
-				throw LUAException(_T("Invalid function: ") + command);
-			function_container c = it->second;
-			lua_wrapper lua(prep_function(c));
-			lua.push_string(command);
-			lua.push_array(arguments);
-			if (lua.pcall(2, LUA_MULTRET, 0) != 0) {
-				NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
-				return NSCAPI::returnUNKNOWN;
-			}
-			int arg_count = lua.size();
-			if (arg_count > 1)
-				result = lua.pop_string();
-			if (arg_count > 0)
-				return lua.pop_code();
-			NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
-			return NSCAPI::returnUNKNOWN;
-		}
-		NSCAPI::nagiosReturn on_submission(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) {
-			function_map::iterator it = channels.find(channel);
-			if (it == channels.end())
-				throw LUAException(_T("Invalid function: ") + channel);
-			function_container c = it->second;
-			lua_wrapper lua(prep_function(c));
-			lua.push_string(source);
-			lua.push_string(command);
-			lua.push_code(code);
-			lua.push_string(msg);
-			lua.push_string(perf);
-			if (lua.pcall(5, LUA_MULTRET, 0) != 0) {
-				NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + command + _T(": ") + lua.pop_string());
-				return NSCAPI::returnUNKNOWN;
-			}
-			if (lua.size() > 0)
-				return lua.pop_code();
-			NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
-			return NSCAPI::returnUNKNOWN;
-		}
+		NSCAPI::nagiosReturn on_query(const wchar_t* command, const std::string &request, std::string &response);
+		NSCAPI::nagiosReturn on_exec(const std::wstring & command, std::list<std::wstring> & arguments, std::wstring & result);
+		NSCAPI::nagiosReturn on_submission(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
 
-		void register_query(const std::wstring &command, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
+		void register_query(const std::wstring &command, boost::shared_ptr<lua_script_instance> instance, int obj_ref, int func_ref, bool simple = true) {
 			function_container c;
 			c.func_ref = func_ref;
+			c.obj_ref = obj_ref;
 			c.instance = instance;
+			c.simple = simple;
 			functions[command] = c;
 		}
 		void register_subscription(const std::wstring &channel, boost::shared_ptr<lua_script_instance> instance, int func_ref) {
@@ -521,11 +548,18 @@ namespace lua_wrappers {
 
 	class lua_instance_manager {
 	public:
-		typedef boost::shared_ptr<lua_script_instance> script_instance_type;
+		typedef boost::weak_ptr<lua_script_instance> script_instance_type;
 		typedef std::vector<script_instance_type> script_map_type;
 	private:
 		static script_map_type scripts;
 	public:
+		static void remove_script(script_instance_type script) {
+// 			BOOST_FOREACH(script_instance_type &s, scripts) {
+// 				if (s == script) {
+// 					s.reset();
+// 				}
+// 			}
+		}
 		static void set_script(lua_State *L, script_instance_type script) {
 			int index = 0;
 			{
@@ -561,7 +595,6 @@ namespace lua_wrappers {
 		}
 	};
 
-	lua_instance_manager::script_map_type lua_instance_manager::scripts;
 
 
 

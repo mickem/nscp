@@ -126,6 +126,19 @@ message Common {
 		optional string message = 2;
 		optional string data = 3;
 	}
+	message ResponseData {
+		message ResponseDataCell {
+			required Common.AnyDataType data = 1;
+			optional string tag = 2;
+		}
+		message ResponseDataRow {
+			repeated ResponseDataCell cells = 1;
+		}
+		required string alias = 1;
+		optional ResponseDataRow headers = 2;
+		repeated ResponseDataRow rows = 3;
+
+	}
 	
 };
 
@@ -193,21 +206,6 @@ message ExecuteRequestMessage {
 }
 message ExecuteResponseMessage {
 	message Response {
-	
-		message ResponseData {
-			message ResponseDataCell {
-				required Common.AnyDataType data = 1;
-				optional string tag = 2;
-			}
-			message ResponseDataRow {
-				repeated ResponseDataCell cells = 1;
-			}
-			required string alias = 1;
-			optional ResponseDataRow headers = 2;
-			repeated ResponseDataRow rows = 3;
-
-		}
-
 		optional int32 id = 2;
 		required string command = 5;
 		repeated string arguments = 16;
@@ -215,7 +213,7 @@ message ExecuteResponseMessage {
 		required Common.ResultCode result = 9;
 		required string message = 10;
 		
-		optional ResponseData data = 11;
+		optional Common.ResponseData data = 11;
 		repeated Common.Attachment attachments = 17;
 		
 	}

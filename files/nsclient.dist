@@ -1,0 +1,3 @@
+# If you want to fill this file with all avalible options run the following command:
+# nscp settings --generate ini --add-defaults --load-all
+F For details run: nscp settings --help

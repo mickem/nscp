@@ -295,12 +295,31 @@ namespace nsclient {
 
 			return 0;
 		}
+		int validate() {
+			settings::error_list errors = settings_manager::get_core()->validate();
+			BOOST_FOREACH(const std::wstring &e, errors) {
+				std::wcerr << e << std::endl;
+			}
+			return 0;
+		}
 
 		void error_msg(std::wstring msg) {
 			nsclient::logging::logger::get_logger()->error(_T("client"), __FILE__, __LINE__, msg.c_str());
 		}
 		void debug_msg(std::wstring msg) {
 			nsclient::logging::logger::get_logger()->debug(_T("client"), __FILE__, __LINE__, msg.c_str());
+		}
+
+		void list_settings_context_info(int padding, settings::instance_ptr instance) {
+			std::wstring pad = std::wstring(padding, L' ');
+			std::wcout << pad << instance->get_info() << std::endl;
+			BOOST_FOREACH(settings::instance_ptr child, instance->get_children()) {
+				list_settings_context_info(padding+2, child);
+			}
+		}
+		void list_settings_info() {
+			std::wcout << _T("Current settings instance loaded: ") << std::endl;
+			list_settings_context_info(2, settings_manager::get_settings());
 		}
 	};
 }

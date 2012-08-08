@@ -719,17 +719,18 @@ namespace checkHolders {
 
 		};
 
-		checkTypes type_;
-		typename TType::TValueType value_;
 		typedef typename TType TValueType;
 		typedef THandler TFormatType;
 		typedef NumericPercentageBounds<TType, THandler> TMyType;
+
+		checkTypes type_;
+		typename TType::TValueType value_;
 		InternalValue upper;
 		InternalValue lower;
 		double normal_size;
 		double magic;
 
-		NumericPercentageBounds() : type_(none), upper(true), lower(false), magic(0), normal_size(20*1024*1024) {
+		NumericPercentageBounds() : type_(none), value_(0), upper(true), lower(false), normal_size(20*1024*1024), magic(0) {
 			upper.setParent(this);
 			lower.setParent(this);
 		}
@@ -737,10 +738,10 @@ namespace checkHolders {
 		NumericPercentageBounds(const NumericPercentageBounds &other) 
 			: type_(other.type_)
 			, value_(other.value_)
-			, magic(other.magic)
-			, normal_size(other.normal_size)
 			, upper(other.upper)
 			, lower(other.lower)
+			, normal_size(other.normal_size)
+			, magic(other.magic)
 		{
 			upper.setParent(this);
 			lower.setParent(this);
@@ -750,10 +751,10 @@ namespace checkHolders {
 		NumericPercentageBounds& operator =(const NumericPercentageBounds &other) {
 			type_ = other.type_;
 			value_ = other.value_;
-			magic = other.magic;
-			normal_size = other.normal_size;
 			upper = other.upper;
 			lower = other.lower;
+			normal_size = other.normal_size;
+			magic = other.magic;
 			upper.setParent(this);
 			lower.setParent(this);
 			return *this;
@@ -838,22 +839,35 @@ namespace checkHolders {
 				value_p = static_cast<unsigned int>(value.getUpperPercentage());
 				warn_p = evaluate_value_to_percentage(value.total, warn);
 				crit_p = evaluate_value_to_percentage(value.total, crit);
-				warn_v = static_cast<unsigned int>(warn);
-				crit_v = static_cast<unsigned int>(crit);
+				warn_v = warn;
+				crit_v = crit;
 			} else {
 				value_p = static_cast<unsigned int>(value.getLowerPercentage());
 				warn_p = evaluate_value_to_percentage(value.total, warn);
 				crit_p = evaluate_value_to_percentage(value.total, crit);
-				warn_v = static_cast<unsigned int>(warn);
-				crit_v = static_cast<unsigned int>(crit);
+				warn_v = warn;
+				crit_v = crit;
 			}
-			std::wstring unit = THandler::get_perf_unit(min(warn_v, min(crit_v, value.value)));
+			std::wstring unit = THandler::get_perf_unit(min_no_zero(warn_v, crit_v, value.value));
 			return 
 				MAKE_PERFDATA(alias + _T(" %"), THandler::print_unformated(value_p), _T("%"), THandler::print_unformated(warn_p), THandler::print_unformated(crit_p))
 				+ _T(" ") +
 				MAKE_PERFDATA_EX(alias, THandler::print_perf(value.value, unit), unit, THandler::print_perf(warn_v, unit), THandler::print_perf(crit_v, unit), 
 					THandler::print_perf(0, unit), THandler::print_perf(value.total, unit))
 				;
+		}
+		template<class T>
+		T min_no_zero(T v1, T v2, T v3) {
+			if (v1 == 0 && v2 == 0 && v3 == 0)
+				return 0;
+			T maximum = max(v1, max(v2, v3));
+			if (v1 == 0)
+				v1 = maximum;
+			if (v2 == 0)
+				v2 = maximum;
+			if (v3 == 0)
+				v3 = maximum;
+			return min(v1, min(v2, v3));
 		}
 		std::wstring gatherPerfData(std::wstring alias, TType &value) {
 			unsigned int value_p;
