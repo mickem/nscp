@@ -121,7 +121,7 @@ public:
 			nsclient::logging::logger::set_log_level(log_level);
 		if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
 			BOOST_FOREACH(const std::wstring & a, unknown_options) {
-				get_logger()->info(__FILE__, __LINE__, _T("Extra options: ") + a);
+				get_logger()->info(_T("client"), __FILE__, __LINE__, _T("Extra options: ") + a);
 			}
 		}
 
@@ -596,7 +596,7 @@ public:
 					ret = 1;
 					std::wcout << _T("Command not found (by module): ") << args.command << std::endl;
 					resp.push_back(_T("Command not found: ") + args.command);
-					mainClient.simple_exec(args.module, _T("help"), args.arguments, resp);
+					core_->simple_exec(_T("help"), args.arguments, resp);
 				} else if (args.mode == client_arguments::combined) {
 					if (ret == NSCAPI::returnOK) {
 						core_->reload(_T("service"));

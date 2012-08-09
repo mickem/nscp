@@ -23,6 +23,7 @@ namespace nscapi {
 				return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(id_, get_core()));
 			}
 			void register_command(std::wstring command, std::wstring description);
+			void register_command(std::wstring command, std::wstring description, std::list<std::wstring> aliases);
 			void settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
 			void settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 

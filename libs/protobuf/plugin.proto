@@ -269,8 +269,8 @@ message Registry {
 		optional string title = 1;
 		optional string description = 2;
 		
-		optional string minVersion = 5;
-		optional string maxVersion = 6;
+		optional string min_version = 5;
+		optional string max_version = 6;
 		
 		optional bool advanced = 8;
 		repeated string plugin = 9;

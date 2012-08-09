@@ -1,7 +1,9 @@
 #pragma once
 #include <settings/settings_core.hpp>
 #include <nsclient/logger.hpp>
+#ifdef JSON_SPIRIT
 #include <json_spirit.h>
+#endif
 
 class NSClientT;
 namespace nsclient {
@@ -203,6 +205,7 @@ namespace nsclient {
 							}
 						}
 					}
+#ifdef JSON_SPIRIT
 				} else if (target == _T("json") || target == _T("json-compact")) {
 					json_spirit::wObject json_root;
 					settings::string_list s = settings_manager::get_core()->get_reg_sections();
@@ -243,6 +246,7 @@ namespace nsclient {
 						write(json_root, std::wcout);
 					else
 						write(json_root, std::wcout, json_spirit::pretty_print);
+#endif
 				} else {
 					//settings_manager::get_core()->update_defaults();
 					settings_manager::get_core()->get()->save_to(target);

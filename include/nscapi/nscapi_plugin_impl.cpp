@@ -16,6 +16,13 @@ nscapi::core_wrapper* nscapi::impl::simple_plugin::get_core() {
 	return plugin_singleton->get_core();
 }
 
+
+void nscapi::impl::simple_plugin::register_command(std::wstring command, std::wstring description, std::list<std::wstring> aliases) {
+	BOOST_FOREACH(const std::wstring alias, aliases) {
+		register_command(alias, description);
+	}
+	register_command(command, description);
+}
 void nscapi::impl::simple_plugin::register_command(std::wstring command, std::wstring description) {
 	get_core()->registerCommand(get_id(), command, description);
 }

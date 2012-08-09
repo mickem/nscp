@@ -141,7 +141,7 @@ namespace settings {
 					children_.push_back(child);
 				}
 			} catch (const std::exception &e) {
-				get_logger()->error(__FILE__, __LINE__, _T("Failed to load child: ") + utf8::to_unicode(e.what()));
+				get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Failed to load child: ") + utf8::to_unicode(e.what()));
 			}
 		}
 

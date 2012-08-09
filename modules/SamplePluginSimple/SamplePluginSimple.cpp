@@ -75,6 +75,6 @@ NSCAPI::nagiosReturn SamplePluginSimple::handleCommand(const std::wstring &targe
 // If you want to implement more features you can add more "parts" of the API.
 // For instance NSC_WRAPPERS_ROUTING_DEF will add routing support and call routing handlers in your class.
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(SamplePluginSimple)
+NSC_WRAPPERS_MAIN_DEF(SamplePluginSimple, _T("sample"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
