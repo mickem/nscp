@@ -1,49 +1,63 @@
 IF(WIN32)
+	if(CMAKE_CL_64)
+		SET(LIBRARY_ROOT_FOLDER	"d:/source/x64")
+	ELSE(CMAKE_CL_64)
+		SET(LIBRARY_ROOT_FOLDER	"d:/source/w32")
+	ENDIF(CMAKE_CL_64)
+
+	# Setup boost
 	set(Boost_USE_STATIC_LIBS		ON)
 	set(Boost_USE_STATIC_RUNTIME	ON)
 	set(BOOST_USE_MULTITHREADED		ON)
-	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_ALL_NO_LIB)	# THis is used to disable "automatic linking on windows which seems to break since I dont know how to set link dir
-	SET(INC_NSCP_INCLUDEDIR D:/source/include)
-	SET(INC_PSDK_61 "C:/Program Files/Microsoft SDKs/Windows/v6.1/")
-	SET(INC_PSDK_2003 "C:/Program Files/Microsoft Platform SDK/")
-	SET(TINYXML2_DIR "D:/source/libraries/tinyxml2")
+	SET(BOOST_ROOT "${LIBRARY_ROOT_FOLDER}/boost_1_49_0")
+	SET(BOOST_LIBRARYDIR "${BOOST_ROOT}/stage/lib")
 
+	# Tiny XML
+	SET(TINYXML2_DIR "${LIBRARY_ROOT_FOLDER}/tinyxml2")
+
+	# Python (python requires two installations to build bith versions)
 	if(CMAKE_CL_64)
-		MESSAGE(STATUS "Detected x64")
-		SET(INC_NSCP_LIBRARYDIR D:/source/lib/x64)	
-		SET(PYTHON_ROOT c:/python/27x64)	
-	ELSE()
-		MESSAGE(STATUS "Detected w32")
-		SET(INC_NSCP_LIBRARYDIR D:/source/lib/x86)
-		SET(PYTHON_ROOT c:/python/27)	
-	ENDIF()
-
-	SET(PROTOC_GEN_LUA_CMD "C:/Python/27x64/Scripts/protoc-gen-lua.cmd")
+		SET(PYTHON_ROOT c:/python/27x64)
+	ELSE(CMAKE_CL_64)
+		SET(PYTHON_ROOT c:/python/27)
+	ENDIF(CMAKE_CL_64)
 	
-	SET(INC_GOOGLE_BREAKPAD_DIR "D:/source/libraries/google-breakpad-svn")
+	# Lua protocol buffers
+	SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
+	
+	# Google breakpad
+	SET(GOOGLE_BREAKPAD_DIR "${LIBRARY_ROOT_FOLDER}/google-breakpad-svn")
+	#SET(BREAKPAD_LIBRARY_PREFIX "google-breakpad-")
+	#SET(BREAKPAD_LIBRARY_PREFIX_DEBUG "debug-google-breakpad-")
+	#SET(BREAKPAD_INCLUDE_DIR "${GOOGLE_BREAKPAD_DIR}/src")
 		
-	SET(INC_BOOST_INCLUDEDIR "D:/source/include/boost-1_47")
-	SET(INC_BOOST_LIBRARYDIR "${INC_NSCP_LIBRARYDIR}")
-	SET(INC_PROTOBUF_LIBRARYDIR "${INC_NSCP_LIBRARYDIR}")
+	# Google protocol buffers
+	#SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
+	#SET(PROTOBUF_LIBRARY_SUFFIX_DEBUG "-lite")
+	SET(PROTOBUF_ROOT "${LIBRARY_ROOT_FOLDER}/protobuf-2.4.1")
 
-	SET(INC_OPENSSL_INCLUDEDIR "${INC_NSCP_INCLUDEDIR}")
+	# OpenSSL
+	#SET(OPENSSL_ROOT_DIR "${LIBRARY_ROOT_FOLDER}/openssl-1.0.1c")
+	# Due to crappy defaul openssl script we need to set these...
+	SET(OPENSSL_ROOT_DIR "${LIBRARY_ROOT_FOLDER}/openssl-1.0.1c/out32dll")
+	SET(_OPENSSL_INCLUDEDIR "${LIBRARY_ROOT_FOLDER}/openssl-1.0.1c/include")
 	
-	SET(ZEROMQ_INCLUDE_DIR "D:/source/libraries/zeromq-2.1.9/include")
+	# ZeroMQ
+	SET(ZEROMQ_ROOT "${LIBRARY_ROOT_FOLDER}/zeromq-2.2.0")
 
-	SET(INC_PROTOBUF_DIR "D:/source/libraries/protobuf-2.4.0a")
+	# Crypto++
+	SET(CRYPTOPP_DIR "${LIBRARY_ROOT_FOLDER}/crypto++-5.6.1")
 
-	SET(INC_CRYPTOPP_DIR "D:/source/libraries/crypto++-5.6.1")
+	# Lua
+	SET(LUA_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.2.1")
 
-	SET(INC_LUA_DIR "D:/source/libraries/lua-5.1.4")
+	# Archive generated binaries after build?
+	#SET(ARCHIVE_FOLDER "D:/archive")
 	
-	SET(ARCHIVE_FOLDER "D:/archive")
-	
-	SET(TARGET_SITE "nscp@nsclient.org:/var/nsclient/www/files/nightly/;op5=mickem@home.medin.name:/home/nscp-dist/op5/nscp/;opsera=mickem@home.medin.name:/home/nscp-dist/opsera/nscp/")
+	# Upload generated binaries after build?
+	#SET(TARGET_SITE "nscp@nsclient.org:/var/nsclient/www/files/nightly/;op5=mickem@home.medin.name:/home/nscp-dist/op5/nscp/;opsera=mickem@home.medin.name:/home/nscp-dist/opsera/nscp/")
 
 ELSE(WIN32)
-
-	SET(INC_OPENSSL_INCLUDEDIR "/usr/include/")
-	SET(PROTOBUF_INCLUDE_DIR "/usr/include/")
 
 ENDIF(WIN32)
 

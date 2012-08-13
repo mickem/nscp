@@ -42,8 +42,6 @@ IF(WIN32)
 ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-MESSAGE(STATUS "Libs: ${NSCP_DEF_PLUGIN_LIB}")
-MESSAGE(STATUS "Libs: ${CRYPTOPP_LIB}")
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

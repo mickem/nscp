@@ -300,12 +300,12 @@ struct client_handler : public socket_helpers::client::client_handler {
 	virtual ~client_handler() {}
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::cvt<std::wstring>(msg));
 		}
 	}
 	void log_error(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::to_unicode(msg));
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::cvt<std::wstring>(msg));
 		}
 	}
 };
