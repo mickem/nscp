@@ -4,6 +4,10 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-14 MickeM
+ * New experimental way to build things automagically as well as new cleanedup build scripts.
+   http://nsclient.org/nscp/wiki/build/04x#Automatic
+
 2012-08-07 MickeM
  * Fixed issue with perfoamnce data overflowing 32-bit integers (#550)
  * Fixed issue with CheckUptime and time rendering beein wrong (#549)

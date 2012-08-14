@@ -194,7 +194,7 @@ class build_instruction:
 		os.chdir(cwd)
 
 	def build_w32(self, folder, source):
-		self.exec_build(folder, source self.common_pre, self.specific_w32, self.common_post)
+		self.exec_build(folder, source, self.common_pre, self.specific_w32, self.common_post)
 
 	def build_x64(self, folder, source):
 		self.exec_build(folder, source, self.common_pre, self.specific_x64, self.common_post)
@@ -322,16 +322,17 @@ def write_config(root, target, defines):
 
 	with open(os.path.join(target, 'build.cmake'), "w") as conf:
 		conf.write(config)
-		for define in defines:
-			(key, value) = define.split('=')
-			conf.write('SET(%s "%s")'%(key, value))
+		if defines:
+			for define in defines:
+				(key, value) = define.split('=')
+				conf.write('SET(%s "%s")'%(key, value))
 	print 'OK   CMake config written to: %s'%target
 
 def post_build_source(root, target, source):
 	data = {}
 	data['root'] = root.replace('\\', '/')
 	data['target'] = target.replace('\\', '/')
-	data['source'] = target.replace('\\', '/')
+	data['source'] = source.replace('\\', '/')
 	for t in targets:
 		if t in sources:
 			data[t] = sources[t].find_rel_path(root)
@@ -349,12 +350,16 @@ parser.add_option("-d", "--directory", help="Folder to build in (defaults to cur
 parser.add_option("-t", "--target", help="Which target architecture to build (win32 or x64)")
 parser.add_option("-c", "--cmake-config", help="Folder to place cmake configuration file in")
 parser.add_option("-D", "--cmake-define", action="append", help="Set other variables in the cmake config file")
-parser.add_option("-s", "--source", default=nscp, help="Location of the nscp source folder")
+parser.add_option("-s", "--source", default='nscp', help="Location of the nscp source folder")
 
 (options, args) = parser.parse_args()
 
 if not options.directory:
 	options.directory = os.getcwd()
+
+if not os.path.exists(options.source):
+	print 'ERR  NSCP source folder was not found (strange, thats where this script should be right?) --source=%s'%options.source
+	sys.exit(1)
 
 fetch_sources(options.directory)
 decompress_sources(options.directory)
@@ -362,3 +367,5 @@ build_source(options.directory, options.target, options.source)
 if options.cmake_config:
 	write_config(options.directory, options.cmake_config, options.cmake_define)
 	post_build_source(options.directory, options.cmake_config, options.source)
+else:
+	print 'WARN Since you did not specify --cmake-config we will not write the cmake config file so most likely this was not very usefull...'
