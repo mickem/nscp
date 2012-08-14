@@ -73,7 +73,7 @@ targets = [
 	'protobuf',
 	'TinyXML2',
 	'ZeroMQ',
-	'google breakpad'
+	'breakpad'
 ]
 
 class source:
@@ -163,7 +163,7 @@ class build_instruction:
 		self.specific_x64 = specific_x64
 		self.common_post = common_post
 
-	def exec_chunk(self, tag, chunk):
+	def exec_chunk(self, tag, chunk, source):
 		lines = []
 		log = None
 		if os.path.exists('nscp.command.log'):
@@ -176,7 +176,7 @@ class build_instruction:
 					print('INFO found cached: %s (not running)'%cmd)
 				else:
 					print('INFO Running: %s'%cmd)
-					ret = os.system(cmd.replace('$$NSCP_SOURCE_ROOT$$', 'D:\\source\\nscp\\trunk\\'))
+					ret = os.system(cmd.replace('$$NSCP_SOURCE_ROOT$$', source))
 					if ret != 0:
 						print "ERR  Failed to execute: %s (%d)"%(cmd, ret)
 						log.close()
@@ -185,24 +185,26 @@ class build_instruction:
 					print('INFO DONE: %s'%cmd)
 					log.write(cached_name)
 
-	def exec_build(self, folder, pre, task, post):
+	def exec_build(self, folder, source, pre, task, post):
 		cwd = os.getcwd()
 		os.chdir(folder)
-		self.exec_chunk('pre', pre)
-		self.exec_chunk('task', task)
-		self.exec_chunk('post', post)
+		self.exec_chunk('pre', pre, source)
+		self.exec_chunk('task', task, source)
+		self.exec_chunk('post', post, source)
 		os.chdir(cwd)
 
-	def build_w32(self, folder):
-		self.exec_build(folder, self.common_pre, self.specific_w32, self.common_post)
+	def build_w32(self, folder, source):
+		self.exec_build(folder, source self.common_pre, self.specific_w32, self.common_post)
 
-	def build_x64(self, folder):
-		self.exec_build(folder, self.common_pre, self.specific_x64, self.common_post)
+	def build_x64(self, folder, source):
+		self.exec_build(folder, source, self.common_pre, self.specific_x64, self.common_post)
 
 sources = {}
 sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
 sources['cryptopp'].folder = 'cryptopp-5.6.1'
-sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
+# sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
+sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
+
 # sources['boost'] = source('boost_1_49_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.zip/download', 'e2e778a444e7ae7157b97f4f1fedf363cf87940c')
 sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
 sources['openssl'] = source('openssl-1.0.1c.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1c.tar.gz', '91b684de947cb021ac61b8c51027cc4b63d894ce')
@@ -211,11 +213,8 @@ sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethoma
 sources['ZeroMQ'] = source('zeromq-2.2.0.zip', 'http://download.zeromq.org/zeromq-2.2.0.zip')
 
 build = {}
-no_build = {}
+post_build = {}
 
-no_build['lua'] = True
-no_build['TinyXML2'] = True
-no_build['cryptopp'] = True
 
 build['boost'] = build_instruction(
 	['bootstrap.bat'], 
@@ -232,10 +231,10 @@ build['openssl'] = build_instruction(
 	)
 
 build['protobuf'] = build_instruction(
-	['cd', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-2005.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'], 
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-2005.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'], 
 	[],
-	['$$TODO: Apply x64 patch$$'],
-	['cd', 'msbuild vsprojects\\protobuf.sln /p:Configuration=Release', 'msbuild vsprojects\\protobuf.sln /p:Configuration=Debug']
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py'],
+	['msbuild vsprojects\\protobuf.sln /p:Configuration=Release', 'msbuild vsprojects\\protobuf.sln /p:Configuration=Debug']
 	)
 
 build['ZeroMQ'] = build_instruction(
@@ -243,9 +242,25 @@ build['ZeroMQ'] = build_instruction(
 #		,'$$TODO: Apply debug patch$$'
 		], 
 	[],
-	['$$TODO: Apply x64 patch$$'],
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py'],
 	['msbuild builds\\msvc\\msvc.sln /p:Configuration=Release', 'msbuild builds\\msvc\\msvc.sln /p:Configuration=Release']
 	)
+
+post_build['protobuf'] = """Be sure to install protocol buffers python library in your python installation (notice if you have multiple you need to do this for all of them):
+cd ${protobuf_abs}\python
+c:\path\of\python.exe setup.py install"""
+post_build['breakpad'] = """Google breakpad requires the plattform SDK to be able to build so you need to buildthat manually..."""
+post_build['global'] = """Validate your setup using the following command (notice boost will probably fail since it does not know which compiler you are using):
+cmake -D TARGET=${target} -D SOURCE=${source} -P ${source}\check_deps.cmake
+
+Then you need to build:
+cd ${target}
+cmake -G "Visual Studio 8 2005" ../${source}
+or
+cmake -G "Visual Studio 8 2005 Win64" ../${source}
+
+"""
+
 
 def fetch_sources(root):
 	for t in targets:
@@ -278,31 +293,29 @@ def decompress_sources(root):
 		else:
 			print 'ERR  %s has to be manually downloaded'%t
 
-def build_source(root, target):
+def build_source(root, target, source):
 	for t in targets:
-		if t in no_build:
-			print 'OK   %s does not require building'%t
-		elif t in build:
+		if t in build:
 			folder = root
 			if t in sources:
 				folder = sources[t].get_target_folder(root)
 			b = build[t]
 			if target == 'x64':
-				b.build_x64(folder)
+				b.build_x64(folder, source)
 			else:
-				b.build_w32(folder)
+				b.build_w32(folder, source)
 		else:
-			print 'ERR  %s has to be built manually'%t
-
+			print 'OK   %s does not require building'%t
 
 def write_config(root, target, defines):
+	data = {}
 	tpl = Template(CONFIG_TEMPLATE)
-	data = {'root': root.replace('\\', '/')}
+	data['root'] = root.replace('\\', '/')
+	data['target'] = target.replace('\\', '/')
 	for t in targets:
 		if t in sources:
 			data[t] = sources[t].find_rel_path(root)
 			data['%s_abs'%t] = sources[t].find_abs_path(root)
-	print data
 	config = tpl.safe_substitute(data)
 	if not os.path.exists(target):
 		os.mkdir(target)
@@ -314,11 +327,29 @@ def write_config(root, target, defines):
 			conf.write('SET(%s "%s")'%(key, value))
 	print 'OK   CMake config written to: %s'%target
 
+def post_build_source(root, target, source):
+	data = {}
+	data['root'] = root.replace('\\', '/')
+	data['target'] = target.replace('\\', '/')
+	data['source'] = target.replace('\\', '/')
+	for t in targets:
+		if t in sources:
+			data[t] = sources[t].find_rel_path(root)
+			data['%s_abs'%t] = sources[t].find_abs_path(root)
+	local_targets = targets
+	local_targets.append('global')
+	for t in local_targets:
+		if t in post_build:
+			tpl = Template(post_build[t])
+			print "---/// %s ///---"%t
+			print tpl.safe_substitute(data)
+
 parser = OptionParser()
 parser.add_option("-d", "--directory", help="Folder to build in (defaults to current)")
 parser.add_option("-t", "--target", help="Which target architecture to build (win32 or x64)")
 parser.add_option("-c", "--cmake-config", help="Folder to place cmake configuration file in")
 parser.add_option("-D", "--cmake-define", action="append", help="Set other variables in the cmake config file")
+parser.add_option("-s", "--source", default=nscp, help="Location of the nscp source folder")
 
 (options, args) = parser.parse_args()
 
@@ -327,6 +358,7 @@ if not options.directory:
 
 fetch_sources(options.directory)
 decompress_sources(options.directory)
-build_source(options.directory, options.target)
+build_source(options.directory, options.target, options.source)
 if options.cmake_config:
 	write_config(options.directory, options.cmake_config, options.cmake_define)
+	post_build_source(options.directory, options.cmake_config, options.source)
