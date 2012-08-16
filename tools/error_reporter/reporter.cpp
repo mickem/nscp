@@ -8,7 +8,9 @@
 #include <file_helpers.hpp>
 #include <strEx.h>
 
+#ifdef HAVE_BREAKPAD
 #include <client/windows/sender/crash_report_sender.cc>
+#endif
 
 
 bool SendMinidump(std::wstring file, std::wstring product, std::wstring version, std::wstring date, std::wstring url, std::wstring &err);
@@ -119,6 +121,7 @@ int send_dump(std::wstring file, std::wstring application, std::wstring version,
 
 
 bool SendMinidump(std::wstring file, std::wstring product, std::wstring version, std::wstring date, std::wstring url, std::wstring &err) {
+#ifdef HAVE_BREAKPAD
 	google_breakpad::CrashReportSender sender(_T(""));
 	//std::wstring url = _T("http://crash.nsclient.org/submit");
 	std::map<std::wstring,std::wstring> params;
@@ -131,4 +134,8 @@ bool SendMinidump(std::wstring file, std::wstring product, std::wstring version,
 	google_breakpad::ReportResult result = sender.SendCrashReport(url, params, file, &ret);
 	err = ret;
 	return result == google_breakpad::RESULT_SUCCEEDED;
+#else
+	std::wcerr << _T("Not compiled with protocol buffer support...\n");
+	return false;
+#endif
 }

@@ -18,7 +18,7 @@ SET(TINYXML2_DIR "$${LIBRARY_ROOT_FOLDER}/${TinyXML2}")
 #SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
 #SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf}")
-SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32dll")
+SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32")
 SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/include")
 SET(ZEROMQ_ROOT "$${LIBRARY_ROOT_FOLDER}/${ZeroMQ}")
 SET(CRYPTOPP_DIR "$${LIBRARY_ROOT_FOLDER}/${cryptopp}")
@@ -227,7 +227,7 @@ build['openssl'] = build_instruction(
 	[], 
 	['perl Configure VC-WIN32', 'ms\\do_ms'],
 	['perl Configure VC-WIN64A', 'ms\\do_win64a'],
-	['nmake -f ms\\ntdll.mak']
+	['nmake -f ms\\nt.mak']
 	)
 
 build['protobuf'] = build_instruction(
