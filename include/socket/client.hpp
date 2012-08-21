@@ -37,7 +37,7 @@ namespace socket_helpers {
 				try {
 					cancel_timer();
 				} catch (const std::exception &e) {
-					handler_->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					handler_->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + utf8::utf8_from_native(e.what()));
 				} catch (...) {
 					handler_->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}
@@ -58,7 +58,7 @@ namespace socket_helpers {
 				timer_.cancel();
 			}
 			virtual void on_timeout(boost::system::error_code ec) {
-				trace("on_timeout(" + ec.message() + ")");
+				trace("on_timeout(" + utf8::utf8_from_native(ec.message()) + ")");
 				if (!ec) {
 					timer_result_.reset(ec);
 				}
@@ -142,7 +142,7 @@ namespace socket_helpers {
 					protocol_.on_read(bytes_transferred);
 					do_process();
 				} else {
-					handler_->log_error(__FILE__, __LINE__, "Failed to read data: " + e.message());
+					handler_->log_error(__FILE__, __LINE__, "Failed to read data: " + utf8::utf8_from_native(e.message()));
 					cancel_timer();
 				}
 			}
@@ -155,7 +155,7 @@ namespace socket_helpers {
 					protocol_.on_write(bytes_transferred);
 					do_process();
 				} else {
-					handler_->log_error(__FILE__, __LINE__, "Failed to send data: " + e.message());
+					handler_->log_error(__FILE__, __LINE__, "Failed to send data: " + utf8::utf8_from_native(e.message()));
 					cancel_timer();
 				}
 			}
@@ -205,7 +205,7 @@ namespace socket_helpers {
 				try {
 					this->close_socket();
 				} catch (const std::exception &e) {
-					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + utf8::utf8_from_native(e.what()));
 				} catch (...) {
 					this->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}
@@ -246,7 +246,7 @@ namespace socket_helpers {
 				try {
 					this->close_socket();
 				} catch (const std::exception &e) {
-					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + utf8::utf8_from_native(e.what()));
 				} catch (...) {
 					this->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}

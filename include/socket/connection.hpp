@@ -117,8 +117,6 @@ namespace socket_helpers {
 
 			virtual void start_read_request() = 0;
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				std::wstring tmp = utf8::to_unicode(e.message());
-				std::string tmp2 = utf8::cvt<std::string>(tmp);
 				trace("handle_read_request(" + utf8::utf8_from_native(e.message()) + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					if (protocol_->on_read(buffer_.begin(), buffer_.begin() + bytes_transferred)) {
@@ -127,7 +125,7 @@ namespace socket_helpers {
 						on_done(false);
 					}
 				} else {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to read data: " + e.message());
+					protocol_->log_error(__FILE__, __LINE__, "Failed to read data: " + utf8::utf8_from_native(e.message()));
 					on_done(false);
 				}
 			}
@@ -139,7 +137,7 @@ namespace socket_helpers {
 					protocol_->on_write();
 					do_process();
 				} else {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to send data: " + e.message());
+					protocol_->log_error(__FILE__, __LINE__, "Failed to send data: " + utf8::utf8_from_native(e.message()));
 					on_done(false);
 				}
 			}
@@ -229,7 +227,7 @@ namespace socket_helpers {
 				if (!e)
 					parent_type::start();
 				else {
-					parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + e.message());
+					parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + utf8::utf8_from_native(e.message()));
 					parent_type::on_done(false);
 				}
 			}

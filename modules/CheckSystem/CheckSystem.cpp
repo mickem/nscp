@@ -550,19 +550,19 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
  * @return 
  */
 NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checkcpu")) {
+	if (command == _T("checkcpu") || command == _T("check_cpu")) {
 		return checkCPU(arguments, message, perf);
-	} else if (command == _T("checkuptime")) {
+	} else if (command == _T("checkuptime") || command == _T("check_uptime")) {
 		return checkUpTime(arguments, message, perf);
-	} else if (command == _T("checkservicestate")) {
+	} else if (command == _T("checkservicestate") || command == _T("check_service")) {
 		return checkServiceState(arguments, message, perf);
-	} else if (command == _T("checkprocstate")) {
+	} else if (command == _T("checkprocstate") || command == _T("check_process")) {
 		return checkProcState(arguments, message, perf);
-	} else if (command == _T("checkmem")) {
+	} else if (command == _T("checkmem") || command == _T("check_mem")) {
 		return checkMem(arguments, message, perf);
-	} else if (command == _T("checkcounter")) {
+	} else if (command == _T("checkcounter") || command == _T("check_counter")) {
 		return checkCounter(arguments, message, perf);
-	} else if (command == _T("checksingleregentry")) {
+	} else if (command == _T("checksingleregentry") || command == _T("check_registry")) {
 		return checkSingleRegEntry(arguments, message, perf);
 	}
 	return NSCAPI::returnIgnored;
@@ -604,7 +604,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, st
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, cpuload_handler> > > CPULoadContainer;
 
 	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
+		msg = _T("ERROR: Usage: check_cpu <threshold> <time1> [<time2>...] (check_cpu MaxWarn=80 time=5m)");
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<CPULoadContainer> list;

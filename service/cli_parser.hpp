@@ -9,7 +9,6 @@ class cli_parser {
 	
 
 	NSClient* core_;
-	po::options_description root;
 	po::options_description common;
 	po::options_description settings;
 	po::options_description service;
@@ -31,7 +30,6 @@ class cli_parser {
 public:
 	cli_parser(NSClient* core) 
 		: core_(core)
-		, root("Allowed first option (Mode of operation)")
 		, common("Common options")
 		, settings("Settings options")
 		, service("Service Options")
@@ -42,11 +40,6 @@ public:
 		, version(false)
 		, log_debug(false)
 	{
-		root.add_options()
-			("help", po::bool_switch(&help), "produce help message")
-			("version", po::bool_switch(&version), "Show version information")
-			;
-
 		common.add_options()
 			("settings", po::value<std::wstring>(&settings_store), "Override (temporarily) settings subsystem to use")
 			("help", po::bool_switch(&help), "produce help message")
@@ -58,8 +51,8 @@ public:
 		settings.add_options()
 			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
-			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
-			("add-defaults", "Add all default (if missing) values.")
+			("generate", po::value<std::wstring>()->implicit_value(_T("settings")), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
+			("add-missing", "Add all default (if missing) values.")
 			("validate", "Validate the current configuration (or a given configuration).")
 			("load-all", "Load all plugins (currently only used with generate).")
 			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
@@ -68,6 +61,8 @@ public:
 			("switch", po::value<std::wstring>(), "Set default context to use (similar to migrate but does NOT copy values)")
 			("show", "Set a value given a key and path.")
 			("list", "Set all keys below the path (or root).")
+			("add-defaults", "Old name for --add-missing")
+			("activate-module", po::value<std::wstring>()->implicit_value(_T("")), "Add a module (and its configuration options) to the configuration.")
 			;
 
 		service.add_options()
@@ -201,7 +196,7 @@ public:
 		try {
 
 			po::options_description all("Allowed options");
-			all.add(root).add(common).add(service).add(settings).add(client).add(test).add(unittest);
+			all.add(common).add(service).add(settings).add(client).add(test).add(unittest);
 			std::cout << all << std::endl;
 
 			std::cerr << "First argument has to be one of the following: ";
@@ -267,7 +262,7 @@ public:
 			if (process_common_options("settings", all))
 				return 1;
 
-			bool def = vm.count("add-defaults")==1;
+			bool def = vm.count("add-defaults")==1 || vm.count("add-missing")==1;
 			bool load_all = vm.count("load-all")==1;
 
 			nsclient::settings_client client(core_, log_level, def, load_all);
@@ -284,11 +279,19 @@ public:
 			} else if (vm.count("list")) {
 				ret = client.list(vm["path"].as<std::wstring>());
 			} else if (vm.count("show")) {
+				if (vm.count("path") > 0 && vm.count("key") > 0)
 				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
+				else {
+					std::cerr << "Invalid command line please use --path and --key with show" << std::endl;
+					ret = -1;
+				}
+			} else if (vm.count("activate-module")) {
+				client.activate(vm["activate-module"].as<std::wstring>());
 			} else if (vm.count("validate")) {
 				ret = client.validate();
 			} else if (vm.count("switch")) {
 				client.switch_context(vm["switch"].as<std::wstring>());
+				client.list_settings_info();
 				ret = 0;
 			} else {
 				std::cout << all << std::endl;

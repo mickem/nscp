@@ -36,7 +36,7 @@ end
 function TestNRPE:setup()
 	local reg = Registry(plugin_id)
 	reg:simple_query('check_py_nrpe_test_s', self, self.simple_handler, 'TODO')
-	reg:query('check_py_nrpe_test', self, self.handler, 'TODO')
+	--reg:query('check_py_nrpe_test', self, self.handler, 'TODO')
 end
 function TestNRPE:teardown()
 end
@@ -96,6 +96,7 @@ function TestNRPE:del_request(id)
 end
 
 function TestNRPE:simple_handler(command, args)
+	local core = Core()
 	msg = self:get_response(args[0])
 	msg.got_simple_response = true
 	self:set_response(msg)

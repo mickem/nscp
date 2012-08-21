@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-21 MickeM
+ * Refactoring and cleanup of the lua scripting wrappers
+
 2012-08-14 MickeM
  * New experimental way to build things automagically as well as new cleanedup build scripts.
    http://nsclient.org/nscp/wiki/build/04x#Automatic

@@ -2,17 +2,21 @@ cmake_minimum_required(VERSION 2.6)
 
 PROJECT(NSCP CXX C)
 
+IF(COMMAND CMAKE_POLICY)
+CMAKE_POLICY(SET CMP0011 NEW)
+ENDIF(COMMAND CMAKE_POLICY)
+
 #############################################################################
 #
 # Setup cmake enviornment and include custom config overrides
 #
 #############################################################################
-IF(EXISTS ${PROJECT_BINARY_DIR}/build.cmake)
-	MESSAGE(STATUS "Reading custom variables from: ${PROJECT_BINARY_DIR}/build.cmake")
-	INCLUDE(${PROJECT_BINARY_DIR}/build.cmake)
-ELSEIF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
+IF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
 	MESSAGE(STATUS "Reading custom variables from: ${CMAKE_SOURCE_DIR}/build.cmake")
 	INCLUDE(${CMAKE_SOURCE_DIR}/build.cmake)
+ELSEIF(EXISTS ${PROJECT_BINARY_DIR}/build.cmake)
+	MESSAGE(STATUS "Reading custom variables from: ${PROJECT_BINARY_DIR}/build.cmake")
+	INCLUDE(${PROJECT_BINARY_DIR}/build.cmake)
 ENDIF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/cmake;${CMAKE_MODULE_PATH}")

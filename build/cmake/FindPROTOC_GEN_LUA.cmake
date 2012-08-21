@@ -1,7 +1,11 @@
+IF (WINDOWS)
+	SET(EXE_NAME protoc-gen-lua.cmd)
+ELSE(WINDOWS)
+	SET(EXE_NAME protoc-gen-lua)
+ENDIF(WINDOWS)
 FIND_PROGRAM(PROTOC_GEN_LUA_BIN
 	NAMES
-		protoc-gen-lua.cmd
-		protoc-gen-lua
+		${EXE_NAME}
 	PATHS 
 		${PROTOC_GEN_LUA}
 		/usr/local/bin/

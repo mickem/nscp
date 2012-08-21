@@ -26,6 +26,8 @@
 #include <locale>
 #include <cctype>
 
+#include <boost/lexical_cast.hpp>
+
 #ifdef __GNUC__
 #include <iconv.h>
 #include <errno.h>

@@ -44,11 +44,12 @@ bool LUAScript::loadModule() {
 	return false;
 }
 bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	registry.reset(new lua_wrappers::lua_registry());
-	//std::wstring appRoot = file_helpers::folders::get_local_appdata_folder(SZAPPNAME);
 	try {
 
 		root_ = get_core()->getBasePath();
+		nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
+		lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
+		scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, _T("lua"));
@@ -69,16 +70,18 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 
 
+		scripts_->load_all();
 
-		BOOST_FOREACH(script_container &script, scripts_) {
-			try {
-				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, root_.string(), script.script.string()));
-			} catch (const lua_wrappers::LUAException &e) {
-				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
-			} catch (const std::exception &e) {
-				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + utf8::to_unicode(e.what()));
-			}
-		}
+// 		BOOST_FOREACH(script_container &script, scripts_) {
+// 			try {
+// 				manager.add_script()
+// 				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, root_.string(), script.script.string()));
+// 			} catch (const lua_wrappers::LUAException &e) {
+// 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
+// 			} catch (const std::exception &e) {
+// 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + utf8::to_unicode(e.what()));
+// 			}
+// 		}
 
 		// 	} catch (nrpe::server::nrpe_exception &e) {
 		// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
@@ -124,8 +127,9 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
 		if (!ofile)
 			return false;
-		script_container::push(scripts_, alias, *ofile);
+// 		script_container::push(scripts_, alias, *ofile);
 		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->string() + _T(" as ") + alias + _T(")"));
+		scripts_->add(utf8::cvt<std::string>(alias), utf8::cvt<std::string>(ofile->string()));
 		return true;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);
@@ -135,20 +139,10 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 
 
 bool LUAScript::unloadModule() {
-	BOOST_FOREACH(script_instance &i, instances_) {
-		try {
-			i->unload();
-		} catch (const lua_wrappers::LUAException &e) {
-			NSC_LOG_ERROR_STD(_T("Exception when unloading script: ") + i->get_wscript() + _T(": ") + e.getMessage());
-		} catch (...) {
-			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when unloading script: ") + i->get_wscript());
-		}
+	if (scripts_) {
+		scripts_->unload_all();
+		scripts_.reset();
 	}
-	if (registry)
-		registry->clear();
-	instances_.clear();
-	scripts_.clear();
-	registry.reset();
 	return true;
 }
 
@@ -159,34 +153,18 @@ bool LUAScript::hasMessageHandler() {
 	return false;
 }
 
-
-bool LUAScript::reload(std::wstring &message) {
-	bool error = false;
-	registry->clear();
-	BOOST_FOREACH(script_instance i, instances_) {
-		try {
-			i->reload();
-		} catch (const lua_wrappers::LUAException &e) {
-			error = true;
-			message += _T("Exception when reloading script: ") + i->get_wscript() + _T(": ") + e.getMessage();
-			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + i->get_wscript() + _T(": ") + e.getMessage());
-		} catch (...) {
-			error = true;
-			message += _T("Unhandeled Exception when reloading script: ") + i->get_wscript();
-			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when reloading script: ") + i->get_wscript());
-		}
-	}
-	if (!error)
-		message = _T("LUA scripts Reloaded...");
-	return !error;
-}
-
-
-
 NSCAPI::nagiosReturn LUAScript::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	if (!registry->has_command(char_command))
-		return NSCAPI::returnIgnored;
-	return registry->on_query(char_command, request, response);
+	std::string command = utf8::cvt<std::string>(char_command);
+	boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::query_tag, command);
+	if (!cmd) {
+		cmd = scripts_->find_command(scripts::nscp::tags::simple_query_tag, command);
+		if (!cmd) {
+			NSC_LOG_ERROR(std::wstring(_T("Failed to find command: ")) + char_command);
+			return NSCAPI::returnIgnored;
+		}
+		return lua_runtime_->on_query(command, cmd->information, cmd->function, true, request, response);
+	}
+	return lua_runtime_->on_query(command, cmd->information, cmd->function, false, request, response);
 }
 
 
@@ -221,6 +199,8 @@ NSCAPI::nagiosReturn LUAScript::execute_and_load(std::list<std::wstring> args, s
 			return NSCAPI::returnUNKNOWN;
 		}
 
+		scripts_->add_and_load("exec", utf8::cvt<std::string>((*ofile).string()));
+/*
 		try {
 			instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, _T("cmdline"), root_.string(), (*ofile).string()));
 		} catch (const lua_wrappers::LUAException &e) {
@@ -228,6 +208,7 @@ NSCAPI::nagiosReturn LUAScript::execute_and_load(std::list<std::wstring> args, s
 		} catch (const std::exception &e) {
 			NSC_LOG_ERROR_STD(_T("Could not load script ") + _T(": ") + utf8::to_unicode(e.what()));
 		}
+		*/
 		return NSCAPI::returnOK;
 	} catch (const std::exception &e) {
 		message = _T("Failed to execute script ") + utf8::to_unicode(e.what());
@@ -250,16 +231,14 @@ NSCAPI::nagiosReturn LUAScript::commandLineExec(const std::wstring &command, std
 	} else if (command == _T("lua-execute") || command == _T("lua-run")
 		|| command == _T("run") || command == _T("execute") || command == _T("exec") || command == _T("")) {
 			return execute_and_load(arguments, result);
-	}	
-	if (!registry->has_exec(command))
-		return NSCAPI::returnIgnored;
-	return registry->on_exec(command, arguments, result);
+	}
+	return NSCAPI::returnUNKNOWN;
+//	return scripts_.on_exec(command, request, result);
 }
 
 NSCAPI::nagiosReturn LUAScript::handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) {
-	if (!registry->has_submit(channel))
-		return NSCAPI::returnIgnored;
-	return registry->on_submission(channel, source, command, code, msg, perf);
+	return NSCAPI::returnUNKNOWN;
+//	return scripts_.on_submission(command, request, result);
 }
 
 

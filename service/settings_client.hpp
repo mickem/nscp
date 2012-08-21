@@ -208,5 +208,17 @@ namespace nsclient {
 			std::wcout << _T("Current settings instance loaded: ") << std::endl;
 			list_settings_context_info(2, settings_manager::get_settings());
 		}
+		void activate(const std::wstring &module) 
+		{
+			if (!core_->boot_load_plugin(module)) {
+				std::wcerr << _T("Failed to load module (Wont activate): ") << module << std::endl;
+			}
+			core_->boot_start_plugins(false);
+			settings_manager::get_core()->get()->set_string(_T("/modules"), module, _T("enabled"));
+			if (default_) {
+				settings_manager::get_core()->update_defaults();
+			}
+			settings_manager::get_core()->get()->save();
+		}
 	};
 }
