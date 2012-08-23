@@ -25,7 +25,6 @@
 
 #include <strEx.h>
 #include <time.h>
-//#include <filter_framework.hpp>
 #include <error.hpp>
 #include <file_helpers.hpp>
 
@@ -68,24 +67,7 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 // 			addAllScriptsFrom(scriptDirectory_);
 // 		}
 
-
-
 		scripts_->load_all();
-
-// 		BOOST_FOREACH(script_container &script, scripts_) {
-// 			try {
-// 				manager.add_script()
-// 				instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, script.alias, root_.string(), script.script.string()));
-// 			} catch (const lua_wrappers::LUAException &e) {
-// 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + e.getMessage());
-// 			} catch (const std::exception &e) {
-// 				NSC_LOG_ERROR_STD(_T("Could not load script ") + script.to_wstring() + _T(": ") + utf8::to_unicode(e.what()));
-// 			}
-// 		}
-
-		// 	} catch (nrpe::server::nrpe_exception &e) {
-		// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
-		// 		return false;
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -94,27 +76,7 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 
-// 	std::list<std::wstring>::const_iterator it;
-// 	for (it = commands.begin(); it != commands.end(); ++it) {
-// 		loadScript((*it));
-// 	}
 	return true;
-}
-
-boost::optional<boost::filesystem::wpath> LUAScript::find_file(std::wstring file) {
-	std::list<boost::filesystem::wpath> checks;
-	checks.push_back(file);
-	checks.push_back(root_ / _T("scripts") / _T("lua") / file);
-	checks.push_back(root_ / _T("scripts") / file);
-	checks.push_back(root_ / _T("lua") / file);
-	checks.push_back(root_ / file);
-	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
-		NSC_DEBUG_MSG_STD(_T("Looking for: ") + c.string());
-		if (boost::filesystem::exists(c))
-			return boost::optional<boost::filesystem::wpath>(c);
-	}
-	NSC_LOG_ERROR(_T("Script not found: ") + file);
-	return boost::optional<boost::filesystem::wpath>();
 }
 
 bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
@@ -124,10 +86,9 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 			alias = _T("");
 		}
 
-		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
+		boost::optional<boost::filesystem::wpath> ofile = lua::lua_script::find_script(root_, file);
 		if (!ofile)
 			return false;
-// 		script_container::push(scripts_, alias, *ofile);
 		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->string() + _T(" as ") + alias + _T(")"));
 		scripts_->add(utf8::cvt<std::string>(alias), utf8::cvt<std::string>(ofile->string()));
 		return true;
@@ -192,7 +153,7 @@ NSCAPI::nagiosReturn LUAScript::execute_and_load(std::list<std::wstring> args, s
 			return NSCAPI::returnUNKNOWN;
 		}
 
-		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
+		boost::optional<boost::filesystem::wpath> ofile = lua::lua_script::find_script(root_, file);
 		if (!ofile) {
 			message = _T("Script not found: ") + file;
 			NSC_LOG_ERROR_STD(message);
@@ -200,15 +161,6 @@ NSCAPI::nagiosReturn LUAScript::execute_and_load(std::list<std::wstring> args, s
 		}
 
 		scripts_->add_and_load("exec", utf8::cvt<std::string>((*ofile).string()));
-/*
-		try {
-			instances_.push_back(script_wrapper::lua_script::create_instance(get_core(), get_id(), registry, _T("cmdline"), root_.string(), (*ofile).string()));
-		} catch (const lua_wrappers::LUAException &e) {
-			NSC_LOG_ERROR_STD(_T("Could not load script ") + _T(": ") + e.getMessage());
-		} catch (const std::exception &e) {
-			NSC_LOG_ERROR_STD(_T("Could not load script ") + _T(": ") + utf8::to_unicode(e.what()));
-		}
-		*/
 		return NSCAPI::returnOK;
 	} catch (const std::exception &e) {
 		message = _T("Failed to execute script ") + utf8::to_unicode(e.what());

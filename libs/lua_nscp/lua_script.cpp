@@ -19,7 +19,7 @@ const std::string lua::lua_traits::user_data_tag = "nscp.userdata.info";
 
 //////////////////////////////////////////////////////////////////////////
 // Core Wrapper
-lua::core_wrapper::core_wrapper(lua_State *L) {
+lua::core_wrapper::core_wrapper(lua_State *L, bool fromLua) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }
@@ -147,7 +147,7 @@ boost::shared_ptr<lua::core_provider> lua::core_wrapper::get() {
 }
 
 const char lua::core_wrapper::className[] = "Core";
-const Luna<lua::core_wrapper>::RegType lua::core_wrapper::methods[] = {
+const Luna<lua::core_wrapper>::FunctionType lua::core_wrapper::Functions[] = {
 	{ "simple_query", &lua::core_wrapper::simple_query },
 	{ "query", &lua::core_wrapper::query },
 	{ "simple_exec", &lua::core_wrapper::simple_exec },
@@ -158,12 +158,13 @@ const Luna<lua::core_wrapper>::RegType lua::core_wrapper::methods[] = {
 	{ "log", &lua::core_wrapper::log },
 	{ 0 }
 };
+const Luna<lua::core_wrapper>::PropertyType lua::core_wrapper::Properties[] = {{0}};
 
 //////////////////////////////////////////////////////////////////////////
 // Registry wrapper
 
 
-lua::registry_wrapper::registry_wrapper(lua_State *L) {
+lua::registry_wrapper::registry_wrapper(lua_State *L, bool fromLua) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }
@@ -255,7 +256,7 @@ int lua::registry_wrapper::simple_subscription(lua_State *L) {
 }
 
 const char lua::registry_wrapper::className[] = "Registry";
-const Luna<lua::registry_wrapper>::RegType lua::registry_wrapper::methods[] = {
+const Luna<lua::registry_wrapper>::FunctionType lua::registry_wrapper::Functions[] = {
 	{ "query", &lua::registry_wrapper::register_function },
 	{ "simple_query", &lua::registry_wrapper::register_simple_function },
 	{ "cmdline", &lua::registry_wrapper::register_cmdline },
@@ -264,11 +265,12 @@ const Luna<lua::registry_wrapper>::RegType lua::registry_wrapper::methods[] = {
 	{ "simple_subscription", &lua::registry_wrapper::simple_subscription },
 	{ 0 }
 };
+const Luna<lua::registry_wrapper>::PropertyType lua::registry_wrapper::Properties[] = {{0}};
 
 //////////////////////////////////////////////////////////////////////////
 // Settings
 
-lua::settings_wrapper::settings_wrapper(lua_State *L) : info(NULL) {
+lua::settings_wrapper::settings_wrapper(lua_State *L, bool fromLua) : info(NULL) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }
@@ -451,7 +453,7 @@ boost::shared_ptr<lua::settings_provider> lua::settings_wrapper::get() {
 }
 
 const char lua::settings_wrapper::className[] = "Settings";
-const Luna<lua::settings_wrapper>::RegType lua::settings_wrapper::methods[] = {
+const Luna<lua::settings_wrapper>::FunctionType lua::settings_wrapper::Functions[] = {
 	{ "get_section", &lua::settings_wrapper::get_section },
 	{ "get_string", &lua::settings_wrapper::get_string },
 	{ "set_string", &lua::settings_wrapper::set_string },
@@ -464,6 +466,7 @@ const Luna<lua::settings_wrapper>::RegType lua::settings_wrapper::methods[] = {
 	{ "register_key", &lua::settings_wrapper::register_key },
 	{ 0 }
 };
+const Luna<lua::settings_wrapper>::PropertyType lua::settings_wrapper::Properties[] = {{0}};
 
 //////////////////////////////////////////////////////////////////////////
 // traits
@@ -497,11 +500,26 @@ const luaL_Reg my_funcs[] = {
 void lua::lua_script::luaopen(lua_State *L) {
 	luaL_register(L, "nscp", my_funcs);
 	lua_pop(L, 1);
-	Luna<core_wrapper>::Register(L);
-	Luna<registry_wrapper>::Register(L);
-	Luna<settings_wrapper>::Register(L);
+	Luna<core_wrapper>::Register(L, "nscp");
+	Luna<registry_wrapper>::Register(L, "nscp");
+	Luna<settings_wrapper>::Register(L, "nscp");
 #ifdef HAVE_LUA_PB
 	GET_CORE()->log(NSCAPI::log_level::error, "test", 123, "Loading lua pb");
 	lua_protobuf_Plugin_open(L);
 #endif
+}
+
+
+boost::optional<boost::filesystem::wpath> lua::lua_script::find_script(boost::filesystem::wpath root, std::wstring file) {
+	std::list<boost::filesystem::wpath> checks;
+	checks.push_back(file);
+	checks.push_back(root / _T("scripts") / _T("lua") / file);
+	checks.push_back(root / _T("scripts") / file);
+	checks.push_back(root / _T("lua") / file);
+	checks.push_back(root / file);
+	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
+		if (boost::filesystem::exists(c))
+			return boost::optional<boost::filesystem::wpath>(c);
+	}
+	return boost::optional<boost::filesystem::wpath>();
 }

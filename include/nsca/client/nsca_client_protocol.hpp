@@ -95,6 +95,9 @@ namespace nsca {
 				set_state(sent_request);
 				return true;
 			}
+			bool on_read_error(const boost::system::error_code& e) {
+				return false;
+			}
 		};
 	}
 }

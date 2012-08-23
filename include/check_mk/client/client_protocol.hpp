@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nrpe/packet.hpp>
+#include <check_mk/data.hpp>
+#include <check_mk/parser.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <socket/socket_helpers.hpp>
@@ -8,77 +9,84 @@
 
 using boost::asio::ip::tcp;
 
-namespace nrpe {
+namespace check_mk {
 	namespace client {
 		class protocol : public boost::noncopyable {
 		public:
 			// traits
 			typedef std::vector<char> read_buffer_type;
 			typedef std::vector<char> write_buffer_type;
-			typedef nrpe::packet request_type;
-			typedef nrpe::packet response_type;
+			typedef std::string request_type;
+			typedef check_mk::packet response_type;
 			typedef socket_helpers::client::client_handler client_handler;
 
 		private:
-			std::vector<char> buffer_;
-			unsigned int  payload_length_;
-			boost::shared_ptr<client_handler> handler_;
-
 			enum state {
 				none,
 				connected,
-				has_request,
-				sent_response,
+				wants_response,
 				done
 			};
+
+			boost::shared_ptr<client_handler> handler_;
 			state current_state_;
+
+			std::vector<char> read_buffer_;
+			std::string data_buffer_;
 
 			inline void set_state(state new_state) {
 				current_state_ = new_state;
 			}
 		public:
-			protocol(boost::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) {}
+			protocol(boost::shared_ptr<client_handler> handler) 
+				: handler_(handler)
+				, current_state_(none) {
+					read_buffer_.resize(40960);
+			}
 			virtual ~protocol() {}
 
 			void on_connect() {
 				set_state(connected);
 			}
 			void prepare_request(request_type &packet) {
-				set_state(has_request);
-				payload_length_ = packet.get_payload_length();
-				buffer_ =  packet.get_buffer();
+				set_state(wants_response);
 			}
 
 			write_buffer_type& get_outbound() {
-				return buffer_;
+				return read_buffer_;
 			}
 			read_buffer_type& get_inbound() {
-				return buffer_;
+				return read_buffer_;
 			}
 
 			response_type get_timeout_response() {
-				return nrpe::packet::unknown_response(_T("Failed to read data"));
+				return check_mk::packet();
 			}
 			response_type get_response() {
-				return nrpe::packet(&buffer_[0], buffer_.size());
+				check_mk::packet ret;
+				ret.read(data_buffer_);
+				return ret;
 			}
 			bool has_data() {
-				return current_state_ == has_request;
+				return false;
 			}
 			bool wants_data() {
-				return current_state_ == sent_response;
+				return current_state_ == wants_response;
 			}
 
+			bool on_read_error(const boost::system::error_code& e) {
+				handler_->log_debug(__FILE__, __LINE__, "*** GOT ERROR: " + e.message());
+				set_state(done);
+				return true;
+			}
 			bool on_read(std::size_t bytes_transferred) {
-				set_state(connected);
+				read_buffer_type::iterator begin = read_buffer_.begin();
+				read_buffer_type::iterator end = read_buffer_.begin() + bytes_transferred;
+				data_buffer_.insert(data_buffer_.end(), begin, end);
 				return true;
 			}
 			bool on_write(std::size_t bytes_transferred) {
-				set_state(sent_response);
 				return true;
-			}
-			bool on_read_error(const boost::system::error_code& e) {
-				return false;
 			}
 		};
 	}

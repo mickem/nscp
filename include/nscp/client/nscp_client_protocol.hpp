@@ -92,6 +92,9 @@ namespace nscp {
 				buffer_.resize(digester_.get_next_size());
 				return true;
 			}
+			bool on_read_error(const boost::system::error_code& e) {
+				return false;
+			}
 		};
 	}
 }

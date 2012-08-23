@@ -153,6 +153,8 @@ public:
 		aliases["syslog"] = "SyslogClient";
 		aliases["sys"] = "CheckSystem";
 		aliases["wmi"] = "CheckWMI";
+		aliases["check_mk"] = "CheckMKClient";
+		aliases["mk"] = "CheckMKClient";
 		return aliases;
 	}
 

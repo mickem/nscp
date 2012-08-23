@@ -2,6 +2,9 @@
 
 #include <map>
 
+#include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
+
 extern "C" {
 #include <lua.h>
 }
@@ -13,10 +16,6 @@ extern "C" {
 
 #include <lua/lua_cpp.hpp>
 #include <scripts/script_interface.hpp>
-
-//#include <scripts/functions.hpp>
-//#include <nscapi/nscapi_core_helper.hpp>
-
 
 
 namespace lua {
@@ -52,10 +51,13 @@ namespace lua {
 	private:
 		script_information *info;
 	public:
-		core_wrapper(lua_State *L);
+		core_wrapper(lua_State *L, bool fromLua);
 
 		static const char className[];
-		static const Luna<core_wrapper>::RegType methods[];
+		static const Luna<core_wrapper>::FunctionType Functions[];
+		static const Luna<core_wrapper>::PropertyType Properties[];
+		bool isExisting;
+		bool isPrecious() { return false; }
 
 		int simple_query(lua_State *L);
 		int query(lua_State *L);
@@ -73,10 +75,13 @@ namespace lua {
 	private:
 		script_information *info;
 	public:
-		registry_wrapper(lua_State *L);
+		registry_wrapper(lua_State *L, bool fromLua);
 
 		static const char className[];
-		static const Luna<registry_wrapper>::RegType methods[];
+		static const Luna<registry_wrapper>::FunctionType Functions[];
+		static const Luna<registry_wrapper>::PropertyType Properties[];
+		bool isExisting;
+		bool isPrecious() { return false; }
 
 		int register_function(lua_State *L);
 		int register_simple_function(lua_State *L);
@@ -92,10 +97,13 @@ namespace lua {
 	private:
 		script_information *info;
 	public:
-		settings_wrapper(lua_State *L);
+		settings_wrapper(lua_State *L, bool fromLua);
 
 		static const char className[];
-		static const Luna<settings_wrapper>::RegType methods[];
+		static const Luna<settings_wrapper>::FunctionType Functions[];
+		static const Luna<settings_wrapper>::PropertyType Properties[];
+		bool isExisting;
+		bool isPrecious() { return false; }
 
 		int get_section(lua_State *L);
 		int get_string(lua_State *L);
@@ -113,48 +121,6 @@ namespace lua {
 
 	struct lua_script {
 		static void luaopen(lua_State *L);
+		static boost::optional<boost::filesystem::wpath> find_script(boost::filesystem::wpath root, std::wstring file);
 	};
-/*
-	class lua_script : public script_instance, public boost::enable_shared_from_this<lua_script>  {
-		std::string base_path_;
-		lua_script(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua::lua_registry> registry, const std::string alias, const std::string base_path, const std::string script) 
-			: script_instance(core, plugin_id, registry, alias, script), base_path_(base_path) {
-		}
-	public:
-		virtual ~lua_script() {
-		}
-
-		static boost::shared_ptr<lua_script> create_instance(nscapi::core_wrapper* core, const int plugin_id, boost::shared_ptr<lua::lua_registry> registry, const std::wstring alias, const std::wstring base_path, const std::wstring script) {
-			boost::shared_ptr<lua_script> instance(new lua_script(core, plugin_id, registry, utf8::cvt<std::string>(alias), utf8::cvt<std::string>(base_path), utf8::cvt<std::string>(script)));
-			if (instance) {
-				instance->load();
-			}
-			return instance;
-		}
-
-		void load() {
-			lua::lua_instance_manager::set_script(get_lua_state(), shared_from_this());
-			lua::lua_wrapper lua(get_lua_state());
-			lua.openlibs();
-			nsclient_wrapper::luaopen(get_lua_state());
-			lua.append_path(base_path_ + "\\scripts\\lua\\lib\\?.lua;" + base_path_ + "scripts\\lua\\?;");
-			if (lua.loadfile(get_script()) != 0)
-				throw lua::LUAException(_T("Failed to load script: ") + get_wscript() + _T(": ") + lua.pop_string());
-			if (lua.pcall(0, 0, 0) != 0)
-				throw lua::LUAException(_T("Failed to execute script: ") + get_wscript() + _T(": ") + lua.pop_string());
-		}
-		std::wstring get_wscript() const {
-			return utf8::cvt<std::wstring>(get_script());
-		}
-		void unload() {
-			lua::lua_wrapper lua(get_lua_state());
-			lua.gc(LUA_GCCOLLECT, 0);
-			lua::lua_instance_manager::remove_script(shared_from_this());
-		}
-		void reload() {
-			unload();
-			load();
-		}
-	};
-	*/
 }

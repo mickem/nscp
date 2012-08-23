@@ -21,7 +21,9 @@ namespace lua {
 		inline operator lua_State*() const {
 			return L;
 		}
-		lua_State* get_state() const;
+		lua_State* get_state() const {
+			return L;
+		}
 	};
 
 	class lua_wrapper {
@@ -29,6 +31,12 @@ namespace lua {
 	public:
 
 		lua_wrapper(lua_State *L) : L(L) {}
+		inline operator lua_State*() const {
+			return L;
+		}
+		lua_State* get_state() const {
+			return L;
+		}
 
 		int append_path(const std::string &path);
 
@@ -130,7 +138,17 @@ namespace lua {
 		int gc(int what, int data);
 
 		void assert_lua_return(int expected_size);
+		/*
+		void newmetatable(const std::string &name);
+		void register(const std::string &name, const luaL_Reg *arraylib);
+		*/
 
+
+
+		template<class T>
+		T* newuserdata() {
+			return reinterpret_cast<T*>(lua_newuserdata(L, sizeof(T)));
+		}
 	};
 
 	class lua_exception : public std::exception {

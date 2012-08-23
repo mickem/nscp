@@ -10,8 +10,8 @@ extern "C" {
 #include <string>
 #include <list>
 
+#include <boost/shared_ptr.hpp>
 
-#include <boost/weak_ptr.hpp>
 #include <NSCAPI.h>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
@@ -23,8 +23,15 @@ namespace lua {
 
 	typedef scripts::script_information<lua_traits> script_information;
 
+	struct lua_runtime_plugin {
+		virtual void load(lua::lua_wrapper &instance) = 0;
+		virtual void unload(lua::lua_wrapper &instance) = 0;
+	};
+	typedef boost::shared_ptr<lua_runtime_plugin> lua_runtime_plugin_type;
+
 	struct lua_runtime : public scripts::script_runtime_interface<lua::lua_traits> {
 		std::string base_path;
+		std::list<lua_runtime_plugin_type> plugins;
 
 		lua_runtime(std::string base_path) : base_path(base_path) {}
 
@@ -38,7 +45,11 @@ namespace lua {
 		virtual void load(scripts::script_information<lua_traits> *info);
 		virtual void unload(scripts::script_information<lua_traits> *info);
 
-		inline lua_State * prep_function(const lua::script_information *information, const lua::lua_traits::function_type &c) {
+		void register_plugin(lua_runtime_plugin_type plugin) {
+			plugins.push_back(plugin);
+		}
+
+		static lua_State * prep_function(const lua::script_information *information, const lua::lua_traits::function_type &c) {
 			lua_State *L = information->user_data.L;
 			lua_rawgeti(L, LUA_REGISTRYINDEX, c.function_ref);
 			if (c.object_ref != 0)

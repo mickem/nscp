@@ -137,20 +137,27 @@ namespace socket_helpers {
 			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_read_request(" + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_read_request(" + utf8::utf8_from_native(e.message())  + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_read(bytes_transferred);
 					do_process();
 				} else {
-					handler_->log_error(__FILE__, __LINE__, "Failed to read data: " + utf8::utf8_from_native(e.message()));
-					cancel_timer();
+					if (bytes_transferred > 0) {
+						protocol_.on_read(bytes_transferred);
+					}
+					if (!protocol_.on_read_error(e)) {
+						handler_->log_error(__FILE__, __LINE__, "Failed to read data: " + utf8::utf8_from_native(e.message()));
+						cancel_timer();
+					} else {
+						do_process();
+					}
 				}
 			}
 
 			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_write_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_write_request(" + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_write_request(" + utf8::utf8_from_native(e.message())  + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_write(bytes_transferred);
 					do_process();

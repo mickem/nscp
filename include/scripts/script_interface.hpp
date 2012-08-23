@@ -231,7 +231,7 @@ namespace scripts {
 			nscp_runtime->register_command(type, command, description);
 		}
 
-		boost::optional<command_definition<script_trait> > find_command(std::string type, std::string &command) {
+		boost::optional<command_definition<script_trait> > find_command(std::string type, std::string command) {
 			// TODO: locked
 			typename command_list_type::const_iterator it = commands.find(type + "$$" + command);
 			if (it == commands.end()) {
@@ -247,5 +247,13 @@ namespace scripts {
 			nscp_runtime->execute(type, command, description);
 		}
 */
+		bool empty() const
+		{
+			return scripts_.empty();
+		}
+
 	};
+
+
+
 }

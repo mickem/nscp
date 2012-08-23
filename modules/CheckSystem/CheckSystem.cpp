@@ -485,6 +485,9 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 					if (!porcelain) {
 						result += _T("---------------------------\n");
 						result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(count) + _T(" counters.");
+						if (match == 0) {
+							result += _T("No counters was found (perhaps you wanted the --all option to make this a global query, the default is so only look in configured counters).");
+						}
 					}
 				}
 			}
@@ -533,6 +536,12 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 				result += _T("Failed to lookup index: ") + e.getError();
 				return NSCAPI::hasFailed;
 			}
+		} else {
+			std::stringstream ss;
+			ss << "pdh Command line syntax:" << std::endl;
+			ss << desc;
+			result = utf8::cvt<std::wstring>(ss.str());
+			return NSCAPI::isSuccess;
 		}
 	}
 	return 0;

@@ -14,11 +14,6 @@ lua::Lua_State::Lua_State() : L(lua_open()) { }
 lua::Lua_State::~Lua_State() {
 	lua_close(L);
 }
-lua_State* lua::Lua_State::get_state() const {
-	lua_gettop(L);
-	return L;
-}
-
 
 int lua::lua_wrapper::append_path(const std::string &path) {
 	lua_getglobal(L, "package");
@@ -396,3 +391,14 @@ void* lua::lua_wrapper::get_raw_userdata(std::string id) {
 	pop();
 	return ret;
 }
+/*
+void lua::lua_wrapper::newmetatable(const std::string &name)
+{
+	luaL_newmetatable(L, name.c_str());
+}
+
+void lua::lua_wrapper::register(const std::string &name, const luaL_Reg *arraylib)
+{
+	luaL_register(L, name.c_str(), arraylib);
+}
+*/
