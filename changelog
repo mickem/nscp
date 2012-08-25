@@ -4,6 +4,10 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-25 MickeM
+ * Added initial check_mk client CheckMKClient
+ * Added sample check_mk lua script
+
 2012-08-23 MickeM
  * Added initial proof of concept for the check_mk client
 

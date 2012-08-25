@@ -71,6 +71,19 @@ namespace check_mk {
 					return ret;
 				}
 
+				std::string get_item(int id) {
+					if (id < 0 || id >= items.size())
+						throw check_mk::check_mk_exception("Invalid line");
+					std::list<std::string>::const_iterator cit = items.begin();
+					for (int i=0;i<id;i++) {
+						cit++;
+					}
+					return *cit;
+				}
+
+				std::string get_line() {
+					return to_string();
+				}
 				std::list<std::string> items;
 
 			};
@@ -107,6 +120,17 @@ namespace check_mk {
 			bool empty() const {
 				return title.empty() && lines.empty();
 			}
+
+			check_mk::packet::section::line get_line(int id) {
+				if (id < 0 || id >= lines.size())
+					throw check_mk::check_mk_exception("Invalid line");
+				std::list<line>::const_iterator cit = lines.begin();
+				for (int i=0;i<id;i++) {
+					cit++;
+				}
+				return *cit;
+			}
+
 
 		};
 		std::list<section> section_list;
@@ -158,6 +182,18 @@ namespace check_mk {
 		std::string to_string() const {
 			return write();
 		}
+
+		section get_section(int id) {
+			if (id < 0 || id >= section_list.size())
+				throw check_mk::check_mk_exception("Invalid section");
+			std::list<section>::const_iterator cit = section_list.begin();
+			for (int i=0;i<id;i++) {
+				cit++;
+			}
+			return *cit;
+		}
+
+
 	};
 }
 

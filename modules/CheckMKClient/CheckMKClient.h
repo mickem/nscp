@@ -74,7 +74,7 @@ private:
 				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
 				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
 
-				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
+				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), false),
 				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
 
 				(_T("certificate"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
@@ -243,7 +243,8 @@ public:
 	bool isExisting;
 	bool isPrecious() { return false; }
 
-	int register_callback(lua_State *L);
+	int client_callback(lua_State *L);
+	int server_callback(lua_State *L);
 };
 
 class check_mk_packet_wrapper {
@@ -277,17 +278,22 @@ public:
 	int get_title(lua_State *L);
 	int size_line(lua_State *L);
 	int get_line(lua_State *L);
+
+	check_mk::packet::section section;
 };
-/*
 class check_mk_line_wrapper {
 public:
-	check_mk_line_wrapper(lua_State *L);
+	check_mk_line_wrapper(lua_State *L, bool fromLua) {}
 
 	static const char className[];
+	static const Luna<check_mk_line_wrapper>::PropertyType Properties[];
 	static const Luna<check_mk_line_wrapper>::FunctionType Functions[];
+	bool isExisting;
+	bool isPrecious() { return false; }
 
 	int get_line(lua_State *L);
 	int size_item(lua_State *L);
 	int get_item(lua_State *L);
+
+	check_mk::packet::section::line line;
 };
-*/

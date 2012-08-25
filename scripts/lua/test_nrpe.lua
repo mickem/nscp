@@ -16,7 +16,7 @@ TestNRPE = {
 	responses = {} 
 }
 function TestNRPE:install(arguments)
-	local conf = Settings()
+	local conf = nscp.Settings()
 	
 	conf:set_string('/modules', 'test_nrpe_server', 'NRPEServer')
 	conf:set_string('/modules', 'test_nrpe_client', 'NRPEClient')
@@ -34,7 +34,7 @@ function TestNRPE:install(arguments)
 end
 
 function TestNRPE:setup()
-	local reg = Registry(plugin_id)
+	local reg = nscp.Registry()
 	reg:simple_query('check_py_nrpe_test_s', self, self.simple_handler, 'TODO')
 	--reg:query('check_py_nrpe_test', self, self.handler, 'TODO')
 end
@@ -96,7 +96,7 @@ function TestNRPE:del_request(id)
 end
 
 function TestNRPE:simple_handler(command, args)
-	local core = Core()
+	local core = nscp.Core()
 	msg = self:get_response(args[0])
 	msg.got_simple_response = true
 	self:set_response(msg)
@@ -112,7 +112,7 @@ function TestNRPE:handler(req)
 end
 
 function TestNRPE:submit_payload(tag, ssl, length, source, status, message, perf, target)
-	local core = Core()
+	local core = nscp.Core()
 	local result = test.TestResult:new{message='Testing NRPE: '..tag..' for '..target}
 	
 	local msg = protobuf.Plugin.QueryRequestMessage.new()
@@ -188,8 +188,8 @@ function TestNRPE:do_one_test(ssl, length)
 	if ssl == nil then ssl = true end
 	length = length or 1024
 	
-	local conf = Settings()
-	local core = Core()
+	local conf = nscp.Settings()
+	local core = nscp.Core()
 	conf:set_int('/settings/NRPE/test_nrpe_server', 'payload length', length)
 	conf:set_bool('/settings/NRPE/test_nrpe_server', 'use ssl', ssl)
 	conf:set_bool('/settings/NRPE/test_nrpe_server', 'allow arguments', true)
@@ -218,8 +218,8 @@ end
 
 function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 
-	local conf = Settings()
-	local core = Core()
+	local conf = nscp.Settings()
+	local core = nscp.Core()
 	conf:set_bool('/settings/NRPE/test_nrpe_server', 'use ssl', ssl)
 	conf:set_int('/settings/NRPE/test_nrpe_server', 'timeout', server_timeout)
 	conf:set_bool('/settings/NRPE/test_nrpe_server', 'allow arguments', true)

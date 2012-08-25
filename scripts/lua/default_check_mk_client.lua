@@ -1,2 +1,0 @@
-
-nscp.print('hello')

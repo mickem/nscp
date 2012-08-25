@@ -30,6 +30,7 @@ namespace lua {
 		};
 
 		struct function {
+			function() : object_ref(0), function_ref(0) {}
 			//lua_State *L;
 			int object_ref;
 			int function_ref;

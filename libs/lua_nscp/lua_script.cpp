@@ -498,6 +498,7 @@ const luaL_Reg my_funcs[] = {
 };
 
 void lua::lua_script::luaopen(lua_State *L) {
+	int sz1 = lua_gettop(L);
 	luaL_register(L, "nscp", my_funcs);
 	lua_pop(L, 1);
 	Luna<core_wrapper>::Register(L, "nscp");
@@ -507,6 +508,7 @@ void lua::lua_script::luaopen(lua_State *L) {
 	GET_CORE()->log(NSCAPI::log_level::error, "test", 123, "Loading lua pb");
 	lua_protobuf_Plugin_open(L);
 #endif
+	int sz2 = lua_gettop(L);
 }
 
 

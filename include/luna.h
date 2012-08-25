@@ -119,6 +119,7 @@ public:
 		lua_pushstring(L, "__setindex");
 		lua_pushcfunction(L, &Luna < T >::property_setter);
 		lua_settable(L, metatable);
+		lua_pop(L, 1);
 
 	}
 
@@ -353,6 +354,8 @@ public:
 
 		T **obj = static_cast < T ** >(lua_touserdata(L, -1));
 		lua_pop(L, 1);
+
+		lua_remove(L, 1);
 		return ((*obj)->*(T::Functions[i].function)) (L);
 	}
 
@@ -365,7 +368,7 @@ public:
 		T **obj = static_cast < T ** >(luaL_checkudata(L, -1, T::className));
 		if (!(*obj)->isExisting && !(*obj)->isPrecious())
 		{
-			cout << "Cleaning up a " << T::className << "." << endl;
+			//cout << "Cleaning up a " << T::className << "." << endl;
 			delete(*obj);
 		}
 

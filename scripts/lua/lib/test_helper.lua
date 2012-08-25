@@ -13,7 +13,7 @@ local nscp = require('nscp')
 module("test_helper", package.seeall)
 local valid_chars = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 	"0","1","2","3","4","5","6","7","8","9","-"}
-local core = Core()
+local core = nscp.Core()
 
 math.randomseed(os.time())
 
@@ -136,7 +136,7 @@ function install_test_manager(cases)
 	for i=1,# test_cases do
 		test_cases[i]:install({})
 	end
-	local reg = Registry(plugin_id)
+	local reg = nscp.Registry()
 	reg:simple_query('lua_unittest', lua_unittest_handler, 'TODO')
 end
 
