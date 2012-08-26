@@ -52,171 +52,6 @@ CheckMKClient::~CheckMKClient() {}
 bool CheckMKClient::loadModule() {
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////
-check_mk_lua_wrapper::check_mk_lua_wrapper(lua_State *L, bool fromLua) {
-	lua::lua_wrapper instance(L);
-	info = instance.get_userdata<lua::script_information*>(lua::lua_traits::user_data_tag);
-}
-int check_mk_lua_wrapper::client_callback(lua_State *L) {
-	// void = (function)
-	lua::lua_traits::function fundata;
-	lua::lua_wrapper lua_instance(L);
-	int count = lua_instance.size();
-	if (count < 1)
-		return lua_instance.error("Invalid syntax: client(<function>);");
-	std::string funname;
-	if (lua_instance.pop_string(funname)) {
-		lua_instance.getglobal(funname);
-	}
-	if (!lua_instance.pop_function_ref(fundata.function_ref))
-		return lua_instance.error("Invalid function");
-	if (count > 1) {
-		if (!lua_instance.pop_instance_ref(fundata.object_ref))
-			return lua_instance.error("Invalid object");
-	}
-	info->register_command("check_mk", "c_callback", "", fundata);
-	lua_instance.assert_lua_return(0);
-	return lua_instance.size();
-}
-int check_mk_lua_wrapper::server_callback(lua_State *L) {
-	// void = (function)
-	lua::lua_traits::function fundata;
-	lua::lua_wrapper lua_instance(L);
-	int count = lua_instance.size();
-	if (count < 1)
-		return lua_instance.error("Invalid syntax: server(<function>);");
-	std::string funname;
-	if (lua_instance.pop_string(funname)) {
-		lua_instance.getglobal(funname);
-	}
-	if (!lua_instance.pop_function_ref(fundata.function_ref))
-		return lua_instance.error("Invalid function");
-	if (count > 1) {
-		if (!lua_instance.pop_instance_ref(fundata.object_ref))
-			return lua_instance.error("Invalid object");
-	}
-	info->register_command("check_mk", "s_callback", "", fundata);
-	lua_instance.assert_lua_return(0);
-	return lua_instance.size();
-}
-const char check_mk_lua_wrapper::className[] = "check_mk";
-const Luna<check_mk_lua_wrapper>::FunctionType check_mk_lua_wrapper::Functions[] = {
-	{ "client_callback", &check_mk_lua_wrapper::client_callback },
-	{ "client", &check_mk_lua_wrapper::client_callback },
-	{ "server_callback", &check_mk_lua_wrapper::server_callback },
-	{ "server", &check_mk_lua_wrapper::server_callback },
-	{ 0 }
-};
-const Luna<check_mk_lua_wrapper>::PropertyType check_mk_lua_wrapper::Properties[] = {{0}};
-
-//////////////////////////////////////////////////////////////////////////
-int check_mk_packet_wrapper::get_section(lua_State *L) {
-	lua::lua_wrapper lua_instance(L);
-	if (lua_instance.size() < 1)
-		return lua_instance.error("Invalid syntax: get_section(id)");
-	int id = lua_instance.pop_int()-1;
-	try {
-		check_mk::packet::section s = packet.get_section(id);
-		check_mk_section_wrapper* obj = Luna<check_mk_section_wrapper>::createNew(lua_instance);
-		obj->section = s;
-		return 1;
-	} catch (const std::exception &e) {
-		return lua_instance.error(std::string("Failed to get section: ") + e.what());
-	}
-}
-int check_mk_packet_wrapper::size_section(lua_State *L) {
-	lua::lua_wrapper instance(L);
-	instance.push_int(packet.section_list.size());
-	return 1;
-}
-const char check_mk_packet_wrapper::className[] = "packet";
-const Luna<check_mk_packet_wrapper>::FunctionType check_mk_packet_wrapper::Functions[] = {
-	{ "get_section", &check_mk_packet_wrapper::get_section },
-	{ "size_section", &check_mk_packet_wrapper::size_section },
-	{ 0 }
-};
-const Luna<check_mk_packet_wrapper>::PropertyType check_mk_packet_wrapper::Properties[] = {{0}};
-
-//////////////////////////////////////////////////////////////////////////
-int check_mk_section_wrapper::get_line(lua_State *L) {
-	lua::lua_wrapper lua_instance(L);
-	if (lua_instance.size() < 1)
-		return lua_instance.error("Invalid syntax: get_line(id)");
-	int id = lua_instance.pop_int()-1;
-	try {
-		check_mk::packet::section::line l = section.get_line(id);
-		check_mk_line_wrapper* obj = Luna<check_mk_line_wrapper>::createNew(lua_instance);
-		obj->line = l;
-		return 1;
-	} catch (const std::exception &e) {
-		return lua_instance.error(std::string("Failed to get section: ") + e.what());
-	}
-}
-int check_mk_section_wrapper::get_title(lua_State *L) {
-	lua::lua_wrapper lua_instance(L);
-	lua_instance.push_string(section.title);
-	return 1;
-}
-int check_mk_section_wrapper::size_line(lua_State *L) {
-	lua::lua_wrapper lua_instance(L);
-	lua_instance.push_int(section.lines.size());
-	return 1;
-}
-const char check_mk_section_wrapper::className[] = "section";
-const Luna<check_mk_section_wrapper>::FunctionType check_mk_section_wrapper::Functions[] = {
-	{ "get_line", &check_mk_section_wrapper::get_line },
-	{ "get_title", &check_mk_section_wrapper::get_title },
-	{ "size_line", &check_mk_section_wrapper::size_line },
-	{ 0 }
-};
-const Luna<check_mk_section_wrapper>::PropertyType check_mk_section_wrapper::Properties[] = {{0}};
-
-//////////////////////////////////////////////////////////////////////////
-int check_mk_line_wrapper::get_item(lua_State *L) {
-	lua::lua_wrapper lua_instance(L);
-	if (lua_instance.size() < 1)
-		return lua_instance.error("Invalid syntax: get_line(id)");
-	int id = lua_instance.pop_int()-1;
-	try {
-		std::string item = line.get_item(id);
-		lua_instance.push_string(item);
-		return 1;
-	} catch (const std::exception &e) {
-		return lua_instance.error(std::string("Failed to get item: ") + e.what());
-	}
-}
-int check_mk_line_wrapper::get_line(lua_State *L) {
-	lua::lua_wrapper lua_instance(L);
-	lua_instance.push_string(line.get_line());
-	return 1;
-}
-int check_mk_line_wrapper::size_item(lua_State *L) {
-	lua::lua_wrapper lua_instance(L);
-	lua_instance.push_int(line.items.size());
-	return 1;
-}
-const char check_mk_line_wrapper::className[] = "line";
-const Luna<check_mk_line_wrapper>::FunctionType check_mk_line_wrapper::Functions[] = {
-	{ "get_item", &check_mk_line_wrapper::get_item },
-	{ "get_line", &check_mk_line_wrapper::get_line },
-	{ "size_item", &check_mk_line_wrapper::size_item },
-	{ 0 }
-};
-const Luna<check_mk_line_wrapper>::PropertyType check_mk_line_wrapper::Properties[] = {{0}};
-
-//////////////////////////////////////////////////////////////////////////
-
-struct check_mk_plugin : public lua::lua_runtime_plugin {
-	void load(lua::lua_wrapper &instance) {
-		Luna<check_mk_lua_wrapper>::Register(instance, "nscp");
-		Luna<check_mk_packet_wrapper>::Register(instance, "nscp");
-		Luna<check_mk_section_wrapper>::Register(instance, "nscp");
-		Luna<check_mk_line_wrapper>::Register(instance, "nscp");
-	}
-	void unload(lua::lua_wrapper &instance) {
-
-	}
-};
 
 NSCAPI::nagiosReturn CheckMKClient::parse_data(lua::script_information *information, lua::lua_traits::function_type c, const check_mk::packet &packet)
 {
@@ -224,7 +59,7 @@ NSCAPI::nagiosReturn CheckMKClient::parse_data(lua::script_information *informat
 	int args = 1;
 	if (c.object_ref != 0)
 		args = 2;
-	check_mk_packet_wrapper* obj = Luna<check_mk_packet_wrapper>::createNew(instance);
+	check_mk::check_mk_packet_wrapper* obj = Luna<check_mk::check_mk_packet_wrapper>::createNew(instance);
 	obj->packet = packet;
 	if (instance.pcall(args, LUA_MULTRET, 0) != 0) {
 		NSC_LOG_ERROR_STD(_T("Failed to process check_mk result: ") + utf8::cvt<std::wstring>(instance.pop_string()));
@@ -244,7 +79,7 @@ bool CheckMKClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 		root_ = get_core()->getBasePath();
 		nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
 		lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
-		lua_runtime_->register_plugin(boost::shared_ptr<check_mk_plugin>(new check_mk_plugin()));
+		lua_runtime_->register_plugin(boost::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
 		scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
 
@@ -360,6 +195,9 @@ void CheckMKClient::add_command(std::wstring name, std::wstring args) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckMKClient::unloadModule() {
+	scripts_.reset();
+	lua_runtime_.reset();
+	nscp_runtime_.reset();
 	return true;
 }
 

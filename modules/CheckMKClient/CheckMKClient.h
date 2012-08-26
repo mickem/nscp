@@ -29,16 +29,10 @@
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
-#include <scripts/functions.hpp>
-#include <scripts/script_interface.hpp>
-#include <scripts/script_nscp.hpp>
-
-#include <lua/lua_script.hpp>
-#include <lua/lua_core.hpp>
 
 #include <socket/client.hpp>
 #include <check_mk/client/client_protocol.hpp>
-
+#include <check_mk/lua/lua_check_mk.hpp>
 
 NSC_WRAPPERS_MAIN()
 NSC_WRAPPERS_CLI()
@@ -230,70 +224,3 @@ private:
 };
 
 
-
-class check_mk_lua_wrapper {
-private:
-	lua::script_information *info;
-public:
-	check_mk_lua_wrapper(lua_State *L, bool fromLua);
-
-	static const char className[];
-	static const Luna<check_mk_lua_wrapper>::PropertyType Properties[];
-	static const Luna<check_mk_lua_wrapper>::FunctionType Functions[];
-	bool isExisting;
-	bool isPrecious() { return false; }
-
-	int client_callback(lua_State *L);
-	int server_callback(lua_State *L);
-};
-
-class check_mk_packet_wrapper {
-public:
-	check_mk_packet_wrapper(lua_State *L, bool fromLua) {}
-
-	static const char className[];
-	static const Luna<check_mk_packet_wrapper>::PropertyType Properties[];
-	static const Luna<check_mk_packet_wrapper>::FunctionType Functions[];
-	bool isExisting;
-	bool isPrecious() { return false; }
-
-	int size_section(lua_State *L);
-	int get_section(lua_State *L);
-
-
-	check_mk::packet packet;
-};
-
-
-class check_mk_section_wrapper {
-public:
-	check_mk_section_wrapper(lua_State *L, bool fromLua) {}
-
-	static const char className[];
-	static const Luna<check_mk_section_wrapper>::PropertyType Properties[];
-	static const Luna<check_mk_section_wrapper>::FunctionType Functions[];
-	bool isExisting;
-	bool isPrecious() { return false; }
-
-	int get_title(lua_State *L);
-	int size_line(lua_State *L);
-	int get_line(lua_State *L);
-
-	check_mk::packet::section section;
-};
-class check_mk_line_wrapper {
-public:
-	check_mk_line_wrapper(lua_State *L, bool fromLua) {}
-
-	static const char className[];
-	static const Luna<check_mk_line_wrapper>::PropertyType Properties[];
-	static const Luna<check_mk_line_wrapper>::FunctionType Functions[];
-	bool isExisting;
-	bool isPrecious() { return false; }
-
-	int get_line(lua_State *L);
-	int size_item(lua_State *L);
-	int get_item(lua_State *L);
-
-	check_mk::packet::section::line line;
-};

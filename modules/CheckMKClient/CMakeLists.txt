@@ -9,6 +9,7 @@ SET(SRCS
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
+	${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -28,6 +29,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/check_mk/data.hpp
 		${NSCP_INCLUDEDIR}/check_mk/parser.hpp
 		${NSCP_INCLUDEDIR}/check_mk/client/client_protocol.hpp
+		${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp

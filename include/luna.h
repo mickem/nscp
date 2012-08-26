@@ -27,6 +27,12 @@ public:
 		int             (T::*function) (lua_State *);
 	};
 
+	static void lua_gettablevalue (lua_State * luaVM, int tableindex, int valueindex)
+	{
+		lua_pushnumber (luaVM, valueindex);
+		lua_gettable (luaVM, tableindex);
+		// use lua_to<type>(-1); to get the value.
+	}
 	/*
 	@ check
 	Arguments:
@@ -42,16 +48,18 @@ public:
 		if (lua_istable(L,narg+1))
 		{
 			lua_gettablevalue(L,narg+1,0);
-			userdataType   *ud =
-				static_cast <userdataType * >(luaL_checkudata(L, -1, T::className));
-			if (!ud)
+			userdataType *ud = static_cast<userdataType*>(luaL_checkudata(L, -1, T::className));
+			if (!ud) {
 				luaL_typerror(L, narg+1, T::className);
+				return NULL;
+			}
 			lua_pop(L,1);
 			return ud->pT;		// pointer to T object
 		}
 		else
 		{
 			luaL_typerror(L, narg+1, T::className);
+			return NULL;
 		} 
 	}
 
@@ -347,11 +355,17 @@ public:
 	* L - Lua State
 	*/
 	static int function_dispatch(lua_State * L) {
+		if (!lua_istable(L, 1)) {
+			return luaL_error(L, "invalid data");
+		}
 		int i = (int) lua_tonumber(L, lua_upvalueindex(1));
 
 		lua_pushnumber(L, 0);
 		lua_rawget(L, 1);
 
+		if (!lua_isuserdata(L, -1)) {
+			return luaL_error(L, "invalid data");
+		}
 		T **obj = static_cast < T ** >(lua_touserdata(L, -1));
 		lua_pop(L, 1);
 

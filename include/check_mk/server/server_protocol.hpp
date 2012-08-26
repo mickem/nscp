@@ -10,27 +10,24 @@
 #include <socket/socket_helpers.hpp>
 #include <socket/server.hpp>
 
-#include "handler.hpp"
-#include "parser.hpp"
+#include "server_handler.hpp"
 
-namespace nscp {
+namespace check_mk {
 	using boost::asio::ip::tcp;
 
 	//
 	// Connection states:
 	// on_accept
-	// on_connect	-> connected	wants_data = true
-	// on_read		-> got_req.		has_data = true
-	// on_write		-> connected	wants_data = true
+	// on_connect	-> connected	has_data = true
+	// on_write		-> done
 
 	static const int socket_bufer_size = 8096;
 	struct read_protocol : public boost::noncopyable {
 
 		typedef std::vector<char> outbound_buffer_type;
 
-		typedef boost::shared_ptr<nscp::server::handler> handler_type;
+		typedef boost::shared_ptr<check_mk::server::handler> handler_type;
 		outbound_buffer_type data_;
-		nscp::server::digester parser_;
 		handler_type handler_;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
@@ -51,8 +48,6 @@ namespace nscp {
 
 		inline void set_state(state new_state) {
 			current_state_ = new_state;
-			if (new_state == connected)
-				parser_.reset();
 		}
 
 		bool on_accept(boost::asio::ip::tcp::socket& socket) {
@@ -72,40 +67,22 @@ namespace nscp {
 
 		bool on_connect() {
 			set_state(connected);
+			data_ = handler_->process().to_vector();
 			return true;
 		}
 
 		bool wants_data() {
-			return current_state_ == connected;
+			return false;
 		}
 		bool has_data() {
-			return current_state_ == got_request;
+			return current_state_ == connected;
 		}
 
 		bool on_read(char *begin, char *end) {
-			while (begin != end) {
-				bool result;
-				iterator_type old_begin = begin;
-				boost::tie(result, begin) = parser_.digest(begin, end);
-				if (result) {
-					nscp::packet response;
-					try {
-						response = handler_->process(parser_.get_packet());
-					} catch (const std::exception &e) {
-						response = handler_->create_error(_T("Exception processing request: ") + utf8::to_unicode(e.what()));
-					} catch (...) {
-						response = handler_->create_error(_T("Exception processing request"));
-					}
-
-					data_ = response.write_string();
-					set_state(got_request);
-					return true;
-				}
-			}
 			return true;
 		}
 		void on_write() {
-			set_state(connected);
+			set_state(done);
 		}
 		outbound_buffer_type get_outbound() const {
 			return data_;

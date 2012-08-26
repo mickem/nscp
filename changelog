@@ -5,6 +5,9 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2012-08-25 MickeM
+ * Added initial check_mk server CheckMKServer
+
+2012-08-25 MickeM
  * Added initial check_mk client CheckMKClient
  * Added sample check_mk lua script
 

@@ -52,6 +52,9 @@ namespace check_mk {
 			std::string title;
 			struct line {
 				line() {}
+				line(const std::string &data) {
+					set_line(data);
+				}
 				line(const line & other) : items(other.items) {}
 				const line& operator=(const line & other) {
 					items = other.items;
@@ -84,6 +87,17 @@ namespace check_mk {
 				std::string get_line() {
 					return to_string();
 				}
+
+				void set_line(const std::string &data) 
+				{
+					std::istringstream split(data);
+					std::string chunk;
+					while(std::getline(split, chunk, ' ')) {
+						items.push_back(chunk);
+					}
+				}
+
+
 				std::list<std::string> items;
 
 			};
@@ -98,13 +112,7 @@ namespace check_mk {
 			}
 
 			void push(std::string data) {
-				std::istringstream split(data);
-				std::string chunk;
-				line l;
-				while(std::getline(split, chunk, ' ')) {
-					l.items.push_back(chunk);
-				}
-				lines.push_back(l);
+				lines.push_back(line(data));
 			}
 
 			std::string to_string() const {
@@ -130,6 +138,12 @@ namespace check_mk {
 				}
 				return *cit;
 			}
+
+			void add_line(check_mk::packet::section::line line) 
+			{
+				lines.push_back(line);
+			}
+
 
 
 		};
@@ -192,6 +206,13 @@ namespace check_mk {
 			}
 			return *cit;
 		}
+
+		std::vector<char> to_vector() 
+		{
+			std::string s = to_string();
+			return std::vector<char>(s.begin(), s.end());
+		}
+
 
 
 	};

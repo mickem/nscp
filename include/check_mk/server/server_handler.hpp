@@ -1,19 +1,16 @@
 #pragma once
 
-#include <nscp/packet.hpp>
+#include <check_mk/data.hpp>
 #include <boost/tuple/tuple.hpp>
 
-namespace nscp {
+namespace check_mk {
 	namespace server {
 		class handler : public boost::noncopyable {
 		public:
-			virtual nscp::packet process(const nscp::packet &packet) = 0;
+			virtual check_mk::packet process() = 0;
 
 			virtual void log_debug(std::string module, std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string module, std::string file, int line, std::string msg) const = 0;
-			virtual nscp::packet create_error(std::wstring msg) = 0;
-
-
 		};
 	}// namespace server
-} // namespace nscp
+} // namespace check_mk

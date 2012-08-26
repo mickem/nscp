@@ -1,5 +1,5 @@
 
-function process(packet)
+function client_process(packet)
 	cnt = packet:size_section()
 	nscp.print('Got packets: ' .. cnt)
 	for i = 1, cnt do
@@ -14,7 +14,17 @@ function process(packet)
 	end
 end
 
+function server_process(packet)
+	s = nscp.section()
+	s:set_title("check_mk")
+	s:add_line("Version: 0.0.1")
+	s:add_line("Agent: nsclient++")
+	s:add_line("AgentOS: Windows")
+	packet:add_section(s)
+	return true
+end
 
 reg = nscp.check_mk()
-reg:client_callback(process)
+reg:client_callback(client_process)
+reg:server_callback(server_process)
 nscp.print('loaded check_mk processor')
