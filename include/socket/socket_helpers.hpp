@@ -6,7 +6,9 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
-
+#ifdef USE_SSL
+#include <boost/asio/ssl.hpp>
+#endif
 #include <unicode_char.hpp>
 #include <strEx.h>
 
@@ -183,6 +185,7 @@ namespace socket_helpers {
 			std::string certificate;
 			std::string certificate_format;
 			std::string certificate_key;
+			std::string certificate_key_format;
 
 			std::string ca_path;
 			std::string allowed_ciphers;
@@ -200,6 +203,11 @@ namespace socket_helpers {
 					ss << "ssl disabled";
 				return ss.str();
 			}
+#ifdef USE_SSL
+			boost::asio::ssl::context::verify_mode get_verify_mode();
+			boost::asio::ssl::context::file_format get_certificate_format();
+			boost::asio::ssl::context::file_format get_certificate_key_format();
+#endif
 		};
 		ssl_opts ssl;
 		allowed_hosts_manager allowed_hosts;

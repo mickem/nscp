@@ -4,6 +4,13 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-08-26 MickeM
+ * REMOVED global maximum age from real-time eventlog 
+ * Added per-filter maximum age option to real-time eventlog 
+ * Added per-filter log option to real-time eventlog (this can be set to "any" to make this match recoreds from all checked logs)
+ * Improved fetchdeps script which now takes an option (--msver) to set target visual studio version (currently 2005 and 2008)
+ * Added initial support for real certificates
+
 2012-08-25 MickeM
  * Added initial check_mk server CheckMKServer
 

@@ -2,7 +2,6 @@ import os
 import sys
 vcprojs = []
 def scan_folder(f):
-	print 'Looking in: %s'%f
 	for root, subFolders, files in os.walk(f):
 		for file in files:
 			if file.endswith('.vcproj'):
@@ -16,7 +15,7 @@ def replace_in_file(f, frm, to):
 	with open(f, "w") as sources:
 		for line in lines:
 			sources.write(line.replace(frm, to))
-	print "Replaced %s"%f
+	print "Replaced %s => %s in %s"%(frm, to, f)
 
 scan_folder(os.getcwd())
 for f in vcprojs:

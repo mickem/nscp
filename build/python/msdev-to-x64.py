@@ -18,6 +18,7 @@ def replace_in_file(f, frm, to):
 	with open(f, "w") as sources:
 		for line in lines:
 			sources.write(line.replace(frm, to))
+	print "Replaced %s => %s in %s"%(frm, to, f)
 
 scan_folder(os.getcwd())
 for f in vcprojs:

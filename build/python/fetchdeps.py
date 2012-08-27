@@ -7,6 +7,7 @@ import tarfile
 from optparse import OptionParser
 from string import Template
 
+msver = '2005'
 CONFIG_TEMPLATE = """
 SET(LIBRARY_ROOT_FOLDER	"${root}")
 set(Boost_USE_STATIC_LIBS		ON)
@@ -164,6 +165,7 @@ class build_instruction:
 		self.common_post = common_post
 
 	def exec_chunk(self, tag, chunk, source):
+		global msver
 		lines = []
 		log = None
 		if os.path.exists('nscp.command.log'):
@@ -176,7 +178,9 @@ class build_instruction:
 					print('INFO found cached: %s (not running)'%cmd)
 				else:
 					print('INFO Running: %s'%cmd)
-					ret = os.system(cmd.replace('$$NSCP_SOURCE_ROOT$$', source))
+					cmd = cmd.replace('$$NSCP_SOURCE_ROOT$$', source)
+					cmd = cmd.replace('$$MSVER$$', msver)
+					ret = os.system(cmd)
 					if ret != 0:
 						print "ERR  Failed to execute: %s (%d)"%(cmd, ret)
 						log.close()
@@ -231,14 +235,14 @@ build['openssl'] = build_instruction(
 	)
 
 build['protobuf'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-2005.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'], 
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'], 
 	[],
 	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py'],
 	['msbuild vsprojects\\protobuf.sln /p:Configuration=Release', 'msbuild vsprojects\\protobuf.sln /p:Configuration=Debug']
 	)
 
 build['ZeroMQ'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-2005.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'
 #		,'$$TODO: Apply debug patch$$'
 		], 
 	[],
@@ -351,11 +355,19 @@ parser.add_option("-t", "--target", help="Which target architecture to build (wi
 parser.add_option("-c", "--cmake-config", help="Folder to place cmake configuration file in")
 parser.add_option("-D", "--cmake-define", action="append", help="Set other variables in the cmake config file")
 parser.add_option("-s", "--source", default='nscp', help="Location of the nscp source folder")
+parser.add_option("--msver", default='2005', help="Which version of visual studio you have")
 
 (options, args) = parser.parse_args()
 
 if not options.directory:
 	options.directory = os.getcwd()
+else:
+	options.directory = os.path.abspath(options.directory)
+
+msver = options.msver
+
+if options.source:
+	options.source = os.path.abspath(options.source)
 
 if not os.path.exists(options.source):
 	print 'ERR  NSCP source folder was not found (strange, thats where this script should be right?) --source=%s'%options.source

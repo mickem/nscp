@@ -152,3 +152,29 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 // 		std::cout << "timer aborted incorrectly: " << b.message() << std::endl;
 	}
 }
+#ifdef USE_SSL
+boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode()
+{
+	if (verify_mode == "client-once")
+		return boost::asio::ssl::verify_client_once;
+	else if (verify_mode == "none")
+		return boost::asio::ssl::verify_none;
+	else if (verify_mode == "peer")
+		return boost::asio::ssl::verify_peer;
+	return boost::asio::ssl::verify_none;
+}
+
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format()
+{
+	if (certificate_format == "asn1")
+		return boost::asio::ssl::context::asn1;
+	return boost::asio::ssl::context::pem;
+}
+
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_key_format()
+{
+	if (certificate_key_format == "asn1")
+		return boost::asio::ssl::context::asn1;
+	return boost::asio::ssl::context::pem;
+}
+#endif
