@@ -92,16 +92,12 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
 	lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
 	lua_instance.openlibs();
 	lua::lua_script::luaopen(info->user_data.L);
-	int sz0 = lua_instance.size();
 	BOOST_FOREACH(lua::lua_runtime_plugin_type &plugin, plugins) {
 		plugin->load(lua_instance);
 	}
-	int sz1 = lua_instance.size();
 	lua_instance.append_path(base_path + "\\scripts\\lua\\lib\\?.lua;" + base_path + "scripts\\lua\\?;");
-	int sz2 = lua_instance.size();
 	if (lua_instance.loadfile(info->script) != 0)
 		throw lua::lua_exception("Failed to load script: " + info->script + ": " + lua_instance.pop_string());
-	int sz3 = lua_instance.size();
 	if (lua_instance.pcall(0, 0, 0) != 0)
 		throw lua::lua_exception("Failed to execute script: " + info->script + ": " + lua_instance.pop_string());
 }

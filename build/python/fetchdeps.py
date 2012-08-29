@@ -250,10 +250,18 @@ build['ZeroMQ'] = build_instruction(
 	['msbuild builds\\msvc\\msvc.sln /p:Configuration=Release', 'msbuild builds\\msvc\\msvc.sln /p:Configuration=Release']
 	)
 
+build['cryptopp'] = build_instruction(
+	[], 
+	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
+	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
+	[]
+	)
+
+
 post_build['protobuf'] = """Be sure to install protocol buffers python library in your python installation (notice if you have multiple you need to do this for all of them):
 cd ${protobuf_abs}\python
 c:\path\of\python.exe setup.py install"""
-post_build['breakpad'] = """Google breakpad requires the plattform SDK to be able to build so you need to buildthat manually..."""
+post_build['breakpad'] = """Google breakpad requires the plattform SDK to be able to build so you need to buildthat manually."""
 post_build['global'] = """Validate your setup using the following command (notice boost will probably fail since it does not know which compiler you are using):
 cmake -D TARGET=${target} -D SOURCE=${source} -P ${source}\check_deps.cmake
 

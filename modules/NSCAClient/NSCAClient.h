@@ -125,7 +125,7 @@ public:
 			ss << ", buffer_length: " << buffer_length;
 			ss << ", time_delta: " << time_delta;
 			ss << ", password: " << password;
-			ss << ", encryption: " << encryption;
+			ss << ", encryption: " << encryption << "(" << nscp::encryption::helpers::encryption_to_int(encryption) << ")";
 			ss << ", hostname: " << sender_hostname;
 			return ss.str();
 		}

@@ -10,21 +10,21 @@
 #include <cryptopp/cryptopp.hpp>
 
 #ifdef HAVE_LIBCRYPTOPP
-#include <cryptopp/cryptlib.h>
-#include <cryptopp/modes.h>
-#include <cryptopp/des.h>
-#include <cryptopp/aes.h>
-#include <cryptopp/cast.h>
-#include <cryptopp/tea.h>
-#include <cryptopp/3way.h>
-#include <cryptopp/blowfish.h>
-#include <cryptopp/twofish.h>
-#include <cryptopp/rc2.h>
-#include <cryptopp/arc4.h>
-#include <cryptopp/serpent.h>
-#include <cryptopp/gost.h>
-#include <cryptopp/filters.h>
-#include <cryptopp/osrng.h>
+#include <cryptlib.h>
+#include <modes.h>
+#include <des.h>
+#include <aes.h>
+#include <cast.h>
+#include <tea.h>
+#include <3way.h>
+#include <blowfish.h>
+#include <twofish.h>
+#include <rc2.h>
+#include <arc4.h>
+#include <serpent.h>
+#include <gost.h>
+#include <filters.h>
+#include <osrng.h>
 #endif
 
 #define TRANSMITTED_IV_SIZE     128     /* size of IV to transmit - must be as big as largest IV needed for any crypto algorithm */
@@ -124,7 +124,7 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
 			int enc = atoi(encryption.c_str());
 			if (enc == ENCRYPT_XOR 
 #ifdef HAVE_LIBCRYPTOPP
-				|| enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH || enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128 || enc == ENCRYPT_SERPENT || enc == ENCRYPT_GOST
+				|| enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH || enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128|| enc == ENCRYPT_RIJNDAEL192 || enc == ENCRYPT_RIJNDAEL256 || enc == ENCRYPT_SERPENT || enc == ENCRYPT_GOST
 #endif
 				)
 				return enc;
@@ -193,13 +193,13 @@ std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
 			virtual void init(std::string password, std::string iv) {
 				int blocksize = get_blockSize();
 				if(blocksize>iv.size())
-					throw encryption_exception("IV size for crypto algorithm exceeds limits");
+					throw nscp::encryption::encryption_exception("IV size for crypto algorithm exceeds limits");
 
 				// Generate key buffer
 				std::string::size_type keysize=get_keySize();
 				char *key = new char[keysize+1];
 				if (key == NULL)
-					throw encryption_exception("Could not allocate memory for encryption/decryption key");
+					throw nscp::encryption::encryption_exception("Could not allocate memory for encryption/decryption key");
 				memset(key, 0, keysize);
 				using namespace std;
 				memcpy(key,password.c_str(),min(keysize,password.length()));
@@ -211,7 +211,7 @@ std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
 					crypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
 					decrypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
 				} catch (...) {
-					throw encryption_exception("Unknown exception when trying to setup crypto");
+					throw nscp::encryption::encryption_exception("Unknown exception when trying to setup crypto");
 				}
 			}
 			void encrypt(std::string &buffer) {
@@ -223,7 +223,7 @@ std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
 					for(std::size_t x=0;x<buffer_size;x++)
 						crypto_.ProcessData(&buffer[x], &buffer[x], 1);
 				} catch (...) {
-					throw encryption_exception("Unknown exception when trying to setup crypto");
+					throw nscp::encryption::encryption_exception("Unknown exception when trying to setup crypto");
 				}
 			}
 			void decrypt(std::string &buffer) {
@@ -234,7 +234,7 @@ std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
 					for(std::size_t x=0;x<buffer_size;x++)
 						decrypto_.ProcessData(&buffer[x], &buffer[x], 1);
 				} catch (...) {
-					throw encryption_exception("Unknown exception when trying to setup crypto");
+					throw nscp::encryption::encryption_exception("Unknown exception when trying to setup crypto");
 				}
 			}
 			std::string getName() {
@@ -413,6 +413,7 @@ void nscp::encryption::engine::encrypt_init(std::string password, int encryption
 	if (core_ == NULL)
 		throw encryption_exception("Failed to get encryption module for: " + boost::lexical_cast<std::string>(encryption_method));
 
+	std::string name = core_->getName();
 	// server generates IV used for encryption 
 	if (received_iv.empty()) {
 		std::string iv = generate_transmitted_iv();

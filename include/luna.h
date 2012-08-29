@@ -101,10 +101,10 @@ public:
 	Registers your class with Lua.  Leave namespac "" if you want to load it into the global space.
 	*/
 	// REGISTER CLASS AS A GLOBAL TABLE 
-	static void Register(lua_State * L, const char *namespac) {
+	static void Register(lua_State * L, std::string namespac) {
 
-		if (strcmp(namespac, "") != 0) {
-			lua_getglobal(L, namespac);
+		if (namespac != "") {
+			lua_getglobal(L, namespac.c_str());
 			lua_pushcfunction(L, &Luna < T >::constructor);
 			lua_setfield(L, -2, T::className);
 			lua_pop(L, 1);
