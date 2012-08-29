@@ -6,7 +6,7 @@
 #include <socket/socket_helpers.hpp>
 
 #include <nsca/nsca_packet.hpp>
-#include <nsca/nsca_enrypt.hpp>
+#include <cryptopp/cryptopp.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -16,7 +16,7 @@ namespace nsca {
 	private:
 		boost::shared_ptr<tcp::socket> socket_;
 		boost::asio::io_service &io_service_;
-		nsca_encrypt crypt_inst;
+		nscp::encryption::engine crypt_inst;
 		int time;
 	public:
 		typedef boost::asio::basic_socket<tcp,boost::asio::stream_socket_service<tcp> >  basic_socket_type;
@@ -91,7 +91,7 @@ namespace nsca {
 			nsca::iv_packet iv_packet(std::string(buf.begin(), buf.end()));
 			std::string iv = iv_packet.get_iv();
 			time = iv_packet.get_time();
-			NSC_DEBUG_MSG(_T("Encrypting using when sending: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(encryption_method)) + _T(" and ") + utf8::cvt<std::wstring>(password));
+			NSC_DEBUG_MSG(_T("Encrypting using when sending: ") + utf8::cvt<std::wstring>(nscp::encryption::helpers::encryption_to_string(encryption_method)) + _T(" and ") + utf8::cvt<std::wstring>(password));
 			crypt_inst.encrypt_init(password, encryption_method, iv);
 			return true;
 		}

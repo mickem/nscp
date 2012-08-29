@@ -30,8 +30,8 @@ namespace nsca {
 			handler_->log_debug(__FILE__, __LINE__, _T("starting data connection..."));
 			std::vector<boost::asio::const_buffer> buffers;
 
-			std::string iv = nsca::nsca_encrypt::generate_transmitted_iv();
-			handler_->log_debug(__FILE__, __LINE__, _T("Encrypting using when receiving: ") + utf8::cvt<std::wstring>(nsca::nsca_encrypt::helpers::encryption_to_string(handler_->get_encryption())) + _T(" and ") + utf8::cvt<std::wstring>(handler_->get_password()));
+			std::string iv = nscp::encryption::engine::generate_transmitted_iv();
+			handler_->log_debug(__FILE__, __LINE__, _T("Encrypting using when receiving: ") + utf8::cvt<std::wstring>(nscp::encryption::helpers::encryption_to_string(handler_->get_encryption())) + _T(" and ") + utf8::cvt<std::wstring>(handler_->get_password()));
 			encryption_instance_.encrypt_init(handler_->get_password(), handler_->get_encryption(), iv);
 
 			nsca::iv_packet packet(iv, boost::posix_time::second_clock::local_time());

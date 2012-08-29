@@ -4,7 +4,7 @@
 
 #include <types.hpp>
 #include <swap_bytes.hpp>
-#include <nsca/nsca_enrypt.hpp>
+#include <cryptopp/cryptopp.hpp>
 
 #include <unicode_char.hpp>
 #include <utils.h>

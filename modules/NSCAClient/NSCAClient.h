@@ -108,7 +108,7 @@ private:
 				sender_hostname = sender.get_string_data("host");
 		}
 		unsigned int get_encryption() {
-			return nsca::nsca_encrypt::helpers::encryption_to_int(encryption);
+			return nscp::encryption::helpers::encryption_to_int(encryption);
 		}
 
 		std::wstring to_wstring() {
@@ -172,7 +172,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + getCryptos();
+		return std::wstring(_T("Passive check support (needs NSCA on nagios server).\nAvalible crypto are: ")) + utf8::cvt<std::wstring>(nscp::encryption::helpers::get_crypto_string());
 	}
 
 	bool hasCommandHandler() { return true; };

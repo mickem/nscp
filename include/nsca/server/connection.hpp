@@ -6,7 +6,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
-#include <nsca/nsca_enrypt.hpp>
+#include <cryptopp/cryptopp.hpp>
 
 #include "handler.hpp"
 #include "parser.hpp"
@@ -73,7 +73,7 @@ namespace nsca {
 
 			boost::asio::ip::tcp::socket socket_;
 
-			nsca::nsca_encrypt encryption_instance_;
+			nscp::encryption::engine encryption_instance_;
 
 		};
 

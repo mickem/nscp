@@ -7,9 +7,13 @@ MACRO(LOAD_SECTIONS _TARGET_LIST _path _title)
 		get_filename_component(CURRENT_MODULE_NAME ${CURRENT_MODULE_PATH} NAME)
 		SET(BUILD_MODULE 0)
 		SET(BUILD_MODULE_SKIP_REASON "")
+		SET(MODULE_NOTE "")
 		include(${_CURRENT_MODULE})
 		IF(BUILD_MODULE)
-			message(STATUS " + ${CURRENT_MODULE_NAME}")
+			IF(MODULE_NOTE)
+				SET(MODULE_NOTE " (${MODULE_NOTE})")
+			ENDIF(MODULE_NOTE)
+			message(STATUS " + ${CURRENT_MODULE_NAME}${MODULE_NOTE}")
 			ADD_SUBDIRECTORY("${CURRENT_MODULE_PATH}")
 			SET(${_TARGET_LIST} ${${_TARGET_LIST}} ${CURRENT_MODULE_NAME})
 		ELSE(BUILD_MODULE)
@@ -27,11 +31,10 @@ MACRO(copy_single_file _TARGET_LIST src destDir)
 	ELSE(${destDir} STREQUAL ".")
 		SET(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
 	ENDIF(${destDir} STREQUAL ".")
-	message(STATUS " - Copying ${source_file} to ${target_file}...")
+	#MESSAGE(STATUS " - Copying ${source_file} to ${target_file}...")
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
 		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
-		OUTPUT ${target_file}
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
 		)

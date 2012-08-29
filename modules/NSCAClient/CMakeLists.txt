@@ -14,13 +14,13 @@ SET(SRCS
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
-IF(HAVE_CRYPTOPP)
-	SET(CRYPTOPP_LIB cryptopp_static)
+IF(CRYPTOPP_FOUND)
+	SET(CRYPTOPP_LIB ${CRYPTOPP_LIBRARIES})
 	ADD_DEFINITIONS(-DHAVE_LIBCRYPTOPP)
-	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
-ELSE(HAVE_CRYPTOPP)
-	message(STATUS "WARNING: No libCrypto++ in NSCA Module")
-ENDIF(HAVE_CRYPTOPP)
+	INCLUDE_DIRECTORIES(${CRYPTOPP_INCLUDE_DIR})
+ELSE(CRYPTOPP_FOUND)
+	MESSAGE(STATUS "WARNING: Crypto++ was not found (encryption for NSCA will not be avalible)")
+ENDIF(CRYPTOPP_FOUND)
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
@@ -31,7 +31,7 @@ IF(WIN32)
 		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
 		${NSCP_INCLUDEDIR}/nsca/nsca_socket.hpp
-		${NSCP_INCLUDEDIR}/nsca/nsca_enrypt.hpp
+		${NSCP_INCLUDEDIR}/cryptopp/cryptopp.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
@@ -40,13 +40,13 @@ IF(WIN32)
 	)
 ENDIF(WIN32)
 
-
 add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
+	cryptopp
 	${CRYPTOPP_LIB}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

@@ -21,10 +21,11 @@
 #include "stdafx.h"
 #include "NSCAClient.h"
 
+#include <boost/tuple/tuple.hpp>
 #include <utils.h>
 #include <strEx.h>
 
-#include <nsca/nsca_enrypt.hpp>
+#include <cryptopp/cryptopp.hpp>
 #include <nsca/nsca_packet.hpp>
 #include <nsca/nsca_socket.hpp>
 
@@ -138,28 +139,6 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 	return true;
-}
-
-std::wstring NSCAAgent::getCryptos() {
-	std::wstring ret = _T("{");
-	for (int i=0;i<LAST_ENCRYPTION_ID;i++) {
-		if (nsca::nsca_encrypt::hasEncryption(i)) {
-			std::wstring name;
-			try {
-				boost::shared_ptr<nsca::nsca_encrypt::any_encryption> core(nsca::nsca_encrypt::get_encryption_core(i));
-				if (core == NULL)
-					name = _T("Broken<NULL>");
-				else
-					name = utf8::to_unicode(core->getName());
-			} catch (nsca::nsca_encrypt::encryption_exception &e) {
-				name = utf8::to_unicode(e.what());
-			}
-			if (ret.size() > 1)
-				ret += _T(", ");
-			ret += strEx::itos(i) + _T("=") + name;
-		}
-	}
-	return ret + _T("}");
 }
 
 std::string get_command(std::string alias, std::string command = "") {
@@ -398,7 +377,7 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 		}
 		socket.shutdown();
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
-	} catch (const nsca::nsca_encrypt::encryption_exception &e) {
+	} catch (const nscp::encryption::encryption_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSCA Error: ") + utf8::to_unicode(e.what()));
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NSCA error: ") + utf8::to_unicode(e.what()));
 	} catch (const std::runtime_error &e) {

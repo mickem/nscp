@@ -1,113 +1,86 @@
 cmake_minimum_required(VERSION 2.6)
 
-SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS On)
-
-SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/cmake;${CMAKE_MODULE_PATH}")
-	
 PROJECT(NSCP CXX C)
 
-# ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+IF(COMMAND CMAKE_POLICY)
+CMAKE_POLICY(SET CMP0011 NEW)
+ENDIF(COMMAND CMAKE_POLICY)
+
+#############################################################################
 #
-# Setup section
-# An option to override this is to set them in the build.cmake file
+# Setup cmake enviornment and include custom config overrides
 #
-# ### ### ### ###
-# Include local build enviornment
-include(build.cmake)
-# ### ### ### ###
-# Generic includes
-# TODO
-# ### ### ### ###
-# NSCP Includes
-SET(NSCP_LIBRARYDIR "${INC_NSCP_LIBRARYDIR}" CACHE PATH "Generic path to all libraries")
-SET(NSCP_INCLUDEDIR "${NSCP_SOURCE_DIR}/include" CACHE PATH "Generic include path (for NSCP include files amongst others)")
-# ### ### ### ###
-# Boost setup
-SET(BOOST_INCLUDEDIR "${INC_BOOST_INCLUDEDIR}" CACHE PATH "Path to boost includes")
-SET(BOOST_LIBRARYDIR "${NSCP_LIBRARYDIR}" CACHE PATH "Path to boost libraries")
-# ### ### ### ###
-# Open SSL
-SET(OPENSSL_INCLUDE_DIR "${INC_OPENSSL_INCLUDEDIR}" CACHE PATH "Path to openssl includes")
-SET(OPENSSL_LIBRARY_DIR "${NSCP_LIBRARYDIR}" CACHE PATH "Path to openssl libraries")
-# ### ### ### ###
-# Google Protocol buffer
-SET(PROTOBUF_DIR "${INC_PROTOBUF_DIR}" CACHE PATH "Path to google protocol buffer root")
-IF(WIN32 AND MSVC)
-	SET(PROTOBUF_INCLUDE_DIR "${PROTOBUF_DIR}/src")
-	SET(PROTOBUF_LIBRARYDIR "${INC_PROTOBUF_LIBRARYDIR}")
-	SET(PROTOBUF_LIBRARY_PREFIX "")
-	SET(PROTOBUF_LIBRARY_PREFIX_DEBUG "debug-")
-	SET(PROTOBUF_BINARYDIR "${PROTOBUF_DIR}/vsprojects/debug")
-ELSE(WIN32 AND MSVC)
-# TODO
-ENDIF(WIN32 AND MSVC)
-SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
-SET(PROTOBUF_LIBRARY_SUFFIX_DEBUG "-lite")
-
-
-# ### ### ### ###
-# Crypto++
-SET(CRYPTOPP_DIR "${INC_CRYPTOPP_DIR}" CACHE PATH "Path to crypto++ root folder")
-# ### ### ### ###
-# Lua
-FIND_PATH(LUA_INCLUE_DIR lua.h
-	${INC_LUA_DIR}
-	${INC_LUA_DIR}/src
-	${LUA_DIR}
-	${LUA_DIR}/src
-	/usr/include/lua
-)
-# ### ### ### ###
-# Google breakpad
-SET(GOOGLE_BREAKPAD_DIR "${INC_GOOGLE_BREAKPAD_DIR}" CACHE PATH "Path to google protocol breakpad root")
-IF(WIN32 AND MSVC)
-	SET(BREAKPAD_LIBRARY_PREFIX "google-breakpad-")
-	SET(BREAKPAD_LIBRARY_PREFIX_DEBUG "debug-google-breakpad-")
-	SET(BREAKPAD_INCLUDE_DIR "${GOOGLE_BREAKPAD_DIR}/src")
-ELSE(WIN32 AND MSVC)
-# TODO
-ENDIF(WIN32 AND MSVC)
-
-# ### ### ### ###
-# Build related paths
-SET(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/build/python")
-SET(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/build/cmake")
-
+#############################################################################
+IF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
+	MESSAGE(STATUS "Reading custom variables from: ${CMAKE_SOURCE_DIR}/build.cmake")
+	INCLUDE(${CMAKE_SOURCE_DIR}/build.cmake)
+ELSEIF(EXISTS ${PROJECT_BINARY_DIR}/build.cmake)
+	MESSAGE(STATUS "Reading custom variables from: ${PROJECT_BINARY_DIR}/build.cmake")
+	INCLUDE(${PROJECT_BINARY_DIR}/build.cmake)
+ENDIF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
+SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/cmake;${CMAKE_MODULE_PATH}")
 SET(MODULE_SUBFOLDER "modules")
 
+SET(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/build/python")
+SET(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/build/cmake")
 SET(BUILD_TARGET_EXE_PATH "${PROJECT_BINARY_DIR}")
 SET(BUILD_TARGET_LIB_PATH "${BUILD_TARGET_EXE_PATH}/${MODULE_SUBFOLDER}")
 SET(BUILD_TARGET_INSTLIB_PATH "${BUILD_TARGET_EXE_PATH}/installer-dlls")
+SET(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
 
-# ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
-
-if (WIN32)
-    include(${BUILD_CMAKE_FOLDER}/wix.cmake)
-endif(WIN32)
-
+IF(WIN32)
+    INCLUDE(${BUILD_CMAKE_FOLDER}/wix.cmake)
+ENDIF(WIN32)
 INCLUDE(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
-INCLUDE(${BUILD_CMAKE_FOLDER}/NSCPPBuffer.cmake)
+INCLUDE(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 INCLUDE(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
+#############################################################################
+#
+# Find all dependencies and report anything missing.
+#
+#############################################################################
+INCLUDE(${BUILD_CMAKE_FOLDER}/dependencies.cmake)
 
-FIND_PACKAGE(PythonInterpEx)
-FIND_PACKAGE(PythonLibsEx)
-IF (NOT PYTHONINTERP_FOUND)
-	MESSAGE(FATAL_ERROR "Could not find python which is required for building")
-ELSE (NOT PYTHONINTERP_FOUND)
-	message(STATUS "Found python in: ${PYTHON_EXECUTABLE}")
-ENDIF (NOT PYTHONINTERP_FOUND)
-IF (PYTHONLIBSEX_FOUND)
-	MESSAGE(STATUS "Found python (lib) in: ${PYTHON_LIBRARY}")
-ENDIF (PYTHONLIBSEX_FOUND)
+#############################################################################
+#
+# Validate all required dependencies and terminate on failures.
+#
+#############################################################################
+MESSAGE(STATUS "Validating required dependencies:")
+SET(HAVE_REQUIRED_DEPENDENCIES TRUE)
+IF(NOT PYTHONINTERP_FOUND)
+	SET(HAVE_REQUIRED_DEPENDENCIES FALSE)
+	MESSAGE(WARNING " - python(exe) not found! (Required by the build process)")
+ENDIF(NOT PYTHONINTERP_FOUND)
+IF(NOT PROTOBUF_FOUND)
+	SET(HAVE_REQUIRED_DEPENDENCIES FALSE)
+	MESSAGE(WARNING " - protocol buffers not found! XXX=${PROTOBUF_LIBRARYDIR}! (Required by nsclient++)")
+ENDIF(NOT PROTOBUF_FOUND)
+IF(NOT Boost_FOUND)
+	SET(HAVE_REQUIRED_DEPENDENCIES FALSE)
+	MESSAGE(WARNING " - boost libraries was not found: ${Boost_ERROR_REASON} (Required by nsclient++)")
+ENDIF(NOT Boost_FOUND)
+IF(NOT WIN32)
+	IF(NOT CMAKE_USE_PTHREADS_INIT)
+		SET(HAVE_REQUIRED_DEPENDENCIES FALSE)
+		MESSAGE(WARNING " - Could not find POSIX threads")
+	ENDIF(NOT CMAKE_USE_PTHREADS_INIT)
+ENDIF(NOT WIN32)
+
+IF(NOT HAVE_REQUIRED_DEPENDENCIES)
+	MESSAGE(FATAL_ERROR " - missing required dependencies found!")
+ELSE(NOT HAVE_REQUIRED_DEPENDENCIES)
+	MESSAGE(STATUS " - All required dependecies found! (some modules and features migh stil be missing though)")
+ENDIF(NOT HAVE_REQUIRED_DEPENDENCIES)
 
 
-FIND_PACKAGE(ZeroMQ)
-IF (ZEROMQ_FOUND)
-	MESSAGE(STATUS "Found zeromq (lib) in: ${ZEROMQ_LIBRARY}")
-ENDIF (ZEROMQ_FOUND)
-
-
+#############################################################################
+#
+# Bump version number (if requested) and set up variables with current version
+#
+#############################################################################
 SET(VERSION_TXT ${CMAKE_CURRENT_SOURCE_DIR}/version.txt)
 IF("${INCREASE_BUILD}" STREQUAL "1")
 EXECUTE_PROCESS(
@@ -148,7 +121,222 @@ ELSE(WIN32)
 	SET(VERSION_ARCH Unknown)
 ENDIF(WIN32)
 
+#############################################################################
+#
+# Setup c/C++ build enviornment and flags
+#
+#############################################################################
+SET(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/include)
+INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR} ${CMAKE_CURRENT_BINARY_DIR}/libs)
+SET(CMAKE_LIBRARY_PATH "${CMAKE_LIBRARY_PATH};${OPENSSL_LIBRARY_DIR};${NSCP_LIBRARYDIR};${BOOST_LIBRARYDIR}")
 
+# This is used to disable "automatic linking on windows which seems to break since I dont know how to set link dir
+SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_ALL_NO_LIB)
+
+SET_MULTITHREAD()
+
+if(MSVC)
+  # Force to always compile with W4
+  if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+    string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+  endif()
+elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+  # Update if necessary
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-long-long -pedantic -Wno-unused-parameter")
+endif()
+
+IF(NOT SHARED_LIBS)
+  IF(WIN32)
+    OPTION(SHARED_LIBS "Compile shared libraries" OFF)
+  ELSE(WIN32)
+    OPTION(SHARED_LIBS "Compile shared libraries" ON)
+  ENDIF(WIN32)
+ENDIF(NOT SHARED_LIBS)
+
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES("${PROTOBUF_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES("${PROJECT_BINARY_DIR}")
+add_definitions(-DUNICODE -D_UNICODE)
+
+IF(WIN32)
+  SET(LIB_INSTALL_DIR "lib" CACHE STRING "Default path for libraries within ${CMAKE_INSTALL_PREFIX}")
+  SET(RUNDIR "c:/nscp" CACHE PATH "Not really used in WIN32")
+ELSE(WIN32)
+  SET(USERLIB_ROOT /usr CACHE PATH "Other installation prefix for dependent libraries")
+  SET(LIB_INSTALL_DIR "lib" CACHE STRING "Default path for libraries within ${CMAKE_INSTALL_PREFIX}")
+  SET(RUNDIR "/usr/wt/run" CACHE PATH "Default path for wt session management (only used by FCGI connector; not relative to CMAKE_INSTALL_PREFIX)")
+  SET(CONFIGURATION /etc/nscp/boot.ini CACHE PATH "Path to the boot configuration file")
+  SET(MAIN_CONFIGURATION /etc/nscp/nscp.xml CACHE PATH "Path for the client configurtion file")
+  SET(DEPLOYROOT /usr/bin CACHE PATH "Path to deploy examples into)")
+ENDIF(WIN32)
+
+IF(CMAKE_COMPILER_IS_GNUCXX)
+	IF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+		SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC"  )
+		SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC"  )
+	ENDIF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+
+SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_FILESYSTEM_VERSION=2)
+SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DUNICODE -D_UNICODE)
+IF (WIN32)
+	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -D_CRT_SECURE_NO_WARNINGS  -D_WIN32_WINNT=0x0403)
+ENDIF (WIN32)
+
+IF(WIN32)
+  SET(EXTRA_LIBS ${EXTRA_LIBS} Userenv ole32)
+ENDIF(WIN32)
+
+IF(CMAKE_HOST_UNIX)
+	SET(UNIX_FLAVOUR LINUX CACHE STRING "Choose your unix flavour UNIX, AIX, HPUX" FORCE)
+	IF(UNIX_FLAVOUR STREQUAL LINUX)
+		SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DLINUX)
+	ENDIF(UNIX_FLAVOUR STREQUAL LINUX)
+	
+	SET(EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_DL_LIBS})
+ENDIF()
+
+IF(NOT CMAKE_BUILD_TYPE)
+  SET(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel." FORCE)
+ENDIF(NOT CMAKE_BUILD_TYPE)
+
+LINK_DIRECTORIES(${CMAKE_LIBRARY_PATH} ${OPENSSL_LIBRARY_DIR} ${NSCP_LIBRARYDIR} ${BOOST_LIBRARYDIR})
+
+# Compile time constants & make sure our build finds it
+CONFIGURE_FILE(
+  ${NSCP_INCLUDEDIR}/config.h.in
+  ${NSCP_INCLUDEDIR}/config.h
+  @ONLY
+)
+CONFIGURE_FILE(
+  ${BUILD_PYTHON_FOLDER}/postbuild.py
+  ${BUILD_TARGET_EXE_PATH}/postbuild.py
+)
+CONFIGURE_FILE(
+  ${BUILD_PYTHON_FOLDER}/config.py
+  ${BUILD_TARGET_EXE_PATH}/config.py
+)
+
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+INCLUDE_DIRECTORIES(${NSCP_LOCAL_INCLUDE_PATH})
+INSTALL_FILES(/include FILES ${WCONFIG_H_PATH})
+
+#############################################################################
+#
+# Build all included and required libraries
+#
+#############################################################################
+
+SET(ALL_LIB_NAMES)
+MESSAGE(STATUS "Adding libraries")
+FILE(GLOB ALL_LIB_PROJECTS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "libs/*/CMakeLists.txt")
+FOREACH(CURRENT_LIB ${ALL_LIB_PROJECTS})
+	GET_FILENAME_COMPONENT(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
+	GET_FILENAME_COMPONENT(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
+	MESSAGE(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
+	ADD_SUBDIRECTORY("${CURRENT_LIB_PATH}")
+	SET(ALL_LIB_NAMES ${ALL_LIB_NAMES} ${CURRENT_LIB_NAME})
+ENDFOREACH(CURRENT_LIB ${ALL_LIB_PROJECTS})
+ADD_SUBDIRECTORY("helpers/settings_manager")
+ADD_SUBDIRECTORY("helpers/where_filter")
+
+#############################################################################
+#
+# Construct the bases for plugins
+#
+#############################################################################
+
+SET(NSCP_DEF_PLUGIN_CPP)
+SET(NSCP_DEF_PLUGIN_HPP
+#	${NSCP_INCLUDEDIR}/utf8.hpp
+#	${NSCP_INCLUDEDIR}/format.hpp
+	${NSCP_INCLUDEDIR}/strEx.h
+	${NSCP_INCLUDEDIR}/config.h
+	${NSCP_INCLUDEDIR}/utils.h
+	${NSCP_INCLUDEDIR}/NSCAPI.h
+	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+)
+
+SET(NSCP_FILTER_CPP)
+SET(NSCP_FILTER_HPP
+	${NSCP_INCLUDEDIR}/parsers/where.hpp
+	${NSCP_INCLUDEDIR}/parsers/filter/where_filter.hpp
+	${NSCP_INCLUDEDIR}/parsers/filter/where_filter_impl.hpp
+)
+SET(NSCP_FILTER_LIB
+	where_filter
+)
+
+SET(NSCP_DEF_PLUGIN_LIB
+	${CMAKE_THREAD_LIBS_INIT}
+	${Boost_SYSTEM_LIBRARY}
+	${Boost_FILESYSTEM_LIBRARY}
+	${EXTRA_LIBS}
+	${PROTOBUF_LIBRARY}
+	protobuf
+	plugin_api
+)
+
+#############################################################################
+#
+# Build everything (not already built lik libraries)!
+#
+#############################################################################
+
+SET(MAIN_NSCP_TARGET "nscp")
+
+ADD_SUBDIRECTORY("service")
+ADD_SUBDIRECTORY("scripts")
+ADD_SUBDIRECTORY("files")
+ADD_SUBDIRECTORY("docs")
+
+LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
+LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
+LOAD_SECTIONS(ALL_INSTALLERS_DLLS_NAMES "helpers/installer-dlls/*/module.cmake" "Installer DLLs")
+IF(WIN32)
+	LOAD_SECTIONS(ALL_INSTALLERS_NAMES "helpers/installers/*/module.cmake" "Installers")
+ENDIF(WIN32)
+SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} PROPERTIES 
+        RUNTIME_OUTPUT_DIRECTORY "${BUILD_TARGET_EXE_PATH}"
+		LIBRARY_OUTPUT_DIRECTORY "${BUILD_TARGET_LIB_PATH}"
+        MODULE_OUTPUT_DIRECTORY  "${BUILD_TARGET_LIB_PATH}"
+        COMPILE_DEFINITIONS_DEBUG _DEBUG
+)
+
+SET_TARGET_PROPERTIES(${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES 
+        RUNTIME_OUTPUT_DIRECTORY "${BUILD_TARGET_EXE_PATH}"
+		LIBRARY_OUTPUT_DIRECTORY "${BUILD_TARGET_INSTLIB_PATH}"
+        MODULE_OUTPUT_DIRECTORY  "${BUILD_TARGET_INSTLIB_PATH}"
+        COMPILE_DEFINITIONS_DEBUG _DEBUG
+)
+
+IF(MSVC_IDE)
+    # hack to get around the "Debug" and "Release" directories cmake tries to add on Windows
+    SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES PREFIX "../")
+ENDIF(MSVC_IDE)
+
+ENABLE_TESTING()
+
+#############################################################################
+#
+# CTest setup and add testcases
+#
+#############################################################################
+add_nscp_py_test(nsca test_nsca)
+add_nscp_py_test(nrpe test_nrpe)
+add_nscp_py_test(python test_python)
+IF(WIN32)
+	add_nscp_py_test(eventlog test_eventlog)
+	add_nscp_py_test(w32_system test_w32_system)
+ENDIF(WIN32)
+
+#############################################################################
+#
+# CPacke setup (currently not used)
+#
+#############################################################################
 SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NSClient++")
 SET(CPACK_PACKAGE_VENDOR "nsclient.org")
 #SET(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/docs/readme.txt")
@@ -169,302 +357,3 @@ ELSE(WIN32 AND NOT UNIX)
 ENDIF(WIN32 AND NOT UNIX)
 INCLUDE(CPack)
 
-
-
-INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR} ${CMAKE_CURRENT_BINARY_DIR}/libs)
-SET(CMAKE_LIBRARY_PATH "${CMAKE_LIBRARY_PATH};${OPENSSL_LIBRARY_DIR};${NSCP_LIBRARYDIR};${BOOST_LIBRARYDIR}")
-
-SET_MULTITHREAD()
-
-IF(NOT SHARED_LIBS)
-  IF(WIN32)
-    OPTION(SHARED_LIBS "Compile shared libraries" OFF)
-  ELSE(WIN32)
-    OPTION(SHARED_LIBS "Compile shared libraries" ON)
-  ENDIF(WIN32)
-ENDIF(NOT SHARED_LIBS)
-
-IF(NOT SHARED_LIBS)
-  SET(NSCP_STATIC true)
-ENDIF(NOT SHARED_LIBS)
-
-IF(NOT MULTI_THREADED)
-  OPTION(MULTI_THREADED "Build multi-threaded httpd deamon (if possible)" ON)
-ENDIF(NOT MULTI_THREADED)
-
-
-IF(WIN32)
-  SET(LIB_INSTALL_DIR "lib" CACHE STRING "Default path for libraries within ${CMAKE_INSTALL_PREFIX}")
-  SET(RUNDIR "c:/nscp" CACHE PATH "Not really used in WIN32")
-ELSE(WIN32)
-  SET(USERLIB_ROOT /usr CACHE PATH "Other installation prefix for dependent libraries")
-  SET(LIB_INSTALL_DIR "lib" CACHE STRING "Default path for libraries within ${CMAKE_INSTALL_PREFIX}")
-  SET(RUNDIR "/usr/wt/run" CACHE PATH "Default path for wt session management (only used by FCGI connector; not relative to CMAKE_INSTALL_PREFIX)")
-  SET(CONFIGURATION /etc/nscp/boot.ini CACHE PATH "Path to the boot configuration file")
-  SET(MAIN_CONFIGURATION /etc/nscp/nscp.xml CACHE PATH "Path for the client configurtion file")
-  SET(DEPLOYROOT /usr/bin CACHE PATH "Path to deploy examples into)")
-ENDIF(WIN32)
-
-FIND_PACKAGE(GoogleBreakpad COMPONENTS common exception_handler crash_report_sender crash_generation_client)
-if(BREAKPAD_FOUND)
-	MESSAGE(STATUS "Found google breakpad")
-	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DUSE_BREAK_PAD)
-	INCLUDE_DIRECTORIES("${BREAKPAD_INCLUDE_DIR}")
-else(BREAKPAD_FOUND)
-	MESSAGE(WARNING "Breakpad was not found in: ${BREAKPAD_EXCEPTION_HANDLER_INCLUDE_DIR}/${BREAKPAD_EXCEPTION_HANDLER_LIBRARIES}")
-endif(BREAKPAD_FOUND)
-
-FIND_PACKAGE(OpenSSL)
-if(OPENSSL_FOUND)
-	MESSAGE(STATUS "Found OpenSSL: ${OPENSSL_INCLUDE_DIR}")
-else(OPENSSL_FOUND)
-	MESSAGE(WARNING " OpenSSL NOT found (no ssl support, ${OPENSSL_INCLUDE_DIR})")
-endif(OPENSSL_FOUND)
-
-FIND_PACKAGE(Boost COMPONENTS system filesystem thread regex date_time program_options python REQUIRED)
-if(Boost_FOUND)
-	MESSAGE(STATUS "Found boost in: ${Boost_INCLUDE_DIRS} / ${Boost_LIBRARY_DIRS}")
-	# Boost is used nearly everywhere, so we can put these here
-	INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-	#LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
-	IF(WIN32)
-	  #IF(BOOST_DYNAMIC)
-		#ADD_DEFINITIONS(-DBOOST_ALL_DYN_LINK)
-	  #ENDIF(BOOST_DYNAMIC)
-	  SET(EXTRA_LIBS ${EXTRA_LIBS} Userenv ole32)
-	ENDIF(WIN32)
-else(Boost_FOUND)
-	MESSAGE(FATAL_ERROR "boost NOT fround: ${Boost_ERROR_REASON}")
-endif(Boost_FOUND)
-
-if(PROTOBUF_FOUND)
-	message(STATUS "Found proto in: ${PROTOBUF_INCLUDE_DIR} / ${PROTOBUF_LIBRARY} (${PROTOBUF_PROTOC_EXECUTABLE})")
-	INCLUDE_DIRECTORIES("${PROTOBUF_INCLUDE_DIR}")
-else(PROTOBUF_FOUND)
-	message(FATAL_ERROR "Protocol buffers NOT found (${PROTOBUF_LIBRARYDIR})")
-endif(PROTOBUF_FOUND)
-
-IF(WIN32)
-	FIND_PATH(PSDK_61_INCLUDE_DIRS Windows.h
-		PATHS
-		${INC_PSDK_61}
-		${INC_PSDK_61}/include
-		"C:/Program Files/Microsoft SDKs/Windows/v6.1/include"
-		NO_DEFAULT_PATH
-	)
-	FIND_PATH(PSDK_2003_INCLUDE_DIRS Windows.h
-		PATHS
-		${INC_PSDK_2003}
-		${INC_PSDK_2003}/include
-		"C:/Program Files/Microsoft Platform SDK/include"
-		"C:/Program Files/Microsoft Platform SDK for Windows Server 2003 R2/include"
-		NO_DEFAULT_PATH
-	)
-
-	if(CMAKE_CL_64)
-		FIND_PATH(PSDK_61_LIBRARY_DIRS WSock32.Lib
-			PATHS
-			${INC_PSDK_61}/lib/x64
-			"C:/Program Files/Microsoft SDKs/Windows/v6.1/lib/x64"
-		)
-		FIND_PATH(PSDK_2003_LIBRARY_DIRS WSock32.Lib
-			PATHS
-			${INC_PSDK_2003}/lib/AMD64
-			"C:/Program Files/Microsoft Platform SDK/lib/AMD64"
-			"C:/Program Files/Microsoft Platform SDK for Windows Server 2003 R2/lib/AMD64"
-		)
-	else(CMAKE_CL_64)
-		FIND_PATH(PSDK_61_LIBRARY_DIRS WS2_32.Lib
-			PATHS
-			${INC_PSDK_61}/lib
-			"C:/Program Files/Microsoft SDKs/Windows/v6.1/lib"
-		)
-		FIND_PATH(PSDK_2003_LIBRARY_DIRS WS2_32.Lib
-			PATHS
-			${INC_PSDK_2003}/lib
-			"C:/Program Files/Microsoft Platform SDK/lib"
-			"C:/Program Files/Microsoft Platform SDK for Windows Server 2003 R2/lib"
-		)
-	endif(CMAKE_CL_64)
-	if(PSDK_61_INCLUDE_DIRS AND PSDK_61_LIBRARY_DIRS)
-		SET(PSDK_61_FOUND TRUE)
-		message(STATUS "Found PSDK 6.1: ${PSDK_61_INCLUDE_DIRS} (${PSDK_61_LIBRARY_DIRS}) <${INC_PSDK_61}>")
-	else()
-		SET(PSDK_61_FOUND FALSE)
-		message(STATUS "PSDK 6.1 NOT FOUND: ${PSDK_61_INCLUDE_DIRS} (${PSDK_61_LIBRARY_DIRS})")
-	endif()
-	if(PSDK_2003_INCLUDE_DIRS AND PSDK_2003_LIBRARY_DIRS)
-		SET(PSDK_2003_FOUND TRUE)
-		message(STATUS "Found PSDK 2003: ${PSDK_2003_INCLUDE_DIRS} (${PSDK_2003_LIBRARY_DIRS})")
-	else()
-		SET(PSDK_2003_FOUND FALSE)
-		message(STATUS "PSDK 2003 NOT FOUND: ${PSDK_2003_INCLUDE_DIRS} (${PSDK_2003_LIBRARY_DIRS})")
-	endif()
-endif(WIN32)
-
-#IF(NOT WIN32)
-#	FIND_PACKAGE(ICU REQUIRED)
-#	IF(NOT ICU_FOUND)
-#		MESSAGE(FATAL_ERROR "ICU package not found..")
-#	ELSE(NOT ICU_FOUND)
-#		ADD_DEFINITIONS( -DSI_CONVERT_ICU )
-#	ENDIF(NOT ICU_FOUND)
-#ENDIF(NOT WIN32)
-
-IF(NOT WIN32)
-	FIND_PACKAGE(Threads REQUIRED)
-	IF (NOT CMAKE_USE_PTHREADS_INIT)
-	  message(FATAL_ERROR "Could not find POSIX threads")
-	ELSE (NOT CMAKE_USE_PTHREADS_INIT)
-	  #add_definitions(-D_REENTRANT)
-	ENDIF (NOT CMAKE_USE_PTHREADS_INIT)
-	FIND_PACKAGE(Threads REQUIRED)
-ENDIF(NOT WIN32)
-
-SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_FILESYSTEM_VERSION=2)
-SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DUNICODE -D_UNICODE)
-# TODO: Fix this issue! (crypto++ and masm)
-IF (WIN32)
-	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DCRYPTOPP_DISABLE_ASM -D_CRT_SECURE_NO_WARNINGS  -D_WIN32_WINNT=0x0403)
-ENDIF (WIN32)
-
-
-IF(CMAKE_HOST_UNIX)
-	SET(UNIX_FLAVOUR LINUX CACHE STRING "Choose your unix flavour UNIX, AIX, HPUX" FORCE)
-	IF(UNIX_FLAVOUR STREQUAL LINUX)
-		SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DLINUX)
-	ENDIF(UNIX_FLAVOUR STREQUAL LINUX)
-	
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_DL_LIBS})
-ENDIF()
-
-IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING
-      "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
-      FORCE)
-ENDIF(NOT CMAKE_BUILD_TYPE)
-
-SET(NSCP_DEF_PLUGIN_CPP)
-
-SET(NSCP_DEF_PLUGIN_HPP
-	${NSCP_INCLUDEDIR}/strEx.h
-	${NSCP_INCLUDEDIR}/config.h
-	${NSCP_INCLUDEDIR}/utils.h
-	${NSCP_INCLUDEDIR}/NSCAPI.h
-	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
-)
-
-SET(NSCP_FILTER_CPP
-)
-
-SET(NSCP_FILTER_HPP
-	${NSCP_INCLUDEDIR}/parsers/where.hpp
-	${NSCP_INCLUDEDIR}/parsers/filter/where_filter.hpp
-	${NSCP_INCLUDEDIR}/parsers/filter/where_filter_impl.hpp
-)
-SET(NSCP_FILTER_LIB
-	where_filter
-)
-
-SET(NSCP_DEF_PLUGIN_LIB
-	${CMAKE_THREAD_LIBS_INIT}
-	${Boost_SYSTEM_LIBRARY}
-	${Boost_FILESYSTEM_LIBRARY}
-	${EXTRA_LIBS}
-	${PROTOBUF_LIBRARY}
-	protobuf
-	plugin_api
-)
-
-message(STATUS "NSCP PLUGIN LIB: ${NSCP_DEF_PLUGIN_LIB}")
-message(STATUS "NSCP PLUGIN CPP: ${NSCP_DEF_PLUGIN_CPP}")
-	
-LINK_DIRECTORIES(${CMAKE_LIBRARY_PATH} ${OPENSSL_LIBRARY_DIR} ${NSCP_LIBRARYDIR} ${BOOST_LIBRARYDIR})
-
-SET(ALL_LIB_NAMES)
-message(STATUS "Adding libraries")
-FILE(GLOB ALL_LIB_PROJECTS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "libs/*/CMakeLists.txt")
-foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
-	get_filename_component(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
-	get_filename_component(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
-	message(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
-	ADD_SUBDIRECTORY("${CURRENT_LIB_PATH}")
-	SET(ALL_LIB_NAMES ${ALL_LIB_NAMES} ${CURRENT_LIB_NAME})
-endforeach(CURRENT_LIB ${ALL_LIB_PROJECTS})
-
-# Compile time constants & make sure our build finds it
-CONFIGURE_FILE(
-  ${NSCP_INCLUDEDIR}/config.h.in
-  ${NSCP_INCLUDEDIR}/config.h
-  @ONLY
-)
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
-INCLUDE_DIRECTORIES(${NSCP_LOCAL_INCLUDE_PATH})
-INSTALL_FILES(/include FILES ${WCONFIG_H_PATH})
-
-add_definitions(-DUNICODE -D_UNICODE)
-
-include_directories("${PROJECT_BINARY_DIR}")
-
-MESSAGE(STATUS "Build path: ${PROJECT_BINARY_DIR}")
-SET(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
-ADD_SUBDIRECTORY("helpers/settings_manager")
-ADD_SUBDIRECTORY("helpers/where_filter")
-ADD_SUBDIRECTORY("service")
-SET(MAIN_NSCP_TARGET "nscp")
-MESSAGE(STATUS "NSCP Target: ${MAIN_NSCP_TARGET}")
-
-ADD_SUBDIRECTORY("scripts")
-ADD_SUBDIRECTORY("files")
-ADD_SUBDIRECTORY("docs")
-
-LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
-LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
-LOAD_SECTIONS(ALL_INSTALLERS_DLLS_NAMES "helpers/installer-dlls/*/module.cmake" "Installer DLLs")
-
-LOAD_SECTIONS(ALL_INSTALLERS_NAMES "helpers/installers/*/module.cmake" "Installers")
-
-SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} PROPERTIES 
-        RUNTIME_OUTPUT_DIRECTORY "${BUILD_TARGET_EXE_PATH}"
-		LIBRARY_OUTPUT_DIRECTORY "${BUILD_TARGET_LIB_PATH}"
-        MODULE_OUTPUT_DIRECTORY  "${BUILD_TARGET_LIB_PATH}"
-        COMPILE_DEFINITIONS_DEBUG _DEBUG
-)
-
-SET_TARGET_PROPERTIES(${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES 
-        RUNTIME_OUTPUT_DIRECTORY "${BUILD_TARGET_EXE_PATH}"
-		LIBRARY_OUTPUT_DIRECTORY "${BUILD_TARGET_INSTLIB_PATH}"
-        MODULE_OUTPUT_DIRECTORY  "${BUILD_TARGET_INSTLIB_PATH}"
-        COMPILE_DEFINITIONS_DEBUG _DEBUG
-)
-
-if (MSVC_IDE)
-    # hack to get around the "Debug" and "Release" directories cmake tries to add on Windows
-    set_target_properties(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES PREFIX "../")
-endif()
-
-IF(CMAKE_COMPILER_IS_GNUCXX)
-	IF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-		SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC"  )
-		SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC"  )
-	ENDIF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-ENDIF(CMAKE_COMPILER_IS_GNUCXX)
-
-CONFIGURE_FILE(
-  ${BUILD_PYTHON_FOLDER}/postbuild.py
-  ${BUILD_TARGET_EXE_PATH}/postbuild.py
-)
-CONFIGURE_FILE(
-  ${BUILD_PYTHON_FOLDER}/config.py
-  ${BUILD_TARGET_EXE_PATH}/config.py
-)
-
-ENABLE_TESTING()
-
-add_nscp_py_test(nsca test_nsca)
-add_nscp_py_test(nrpe test_nrpe)
-add_nscp_py_test(python test_python)
-IF(WIN32)
-	add_nscp_py_test(eventlog test_eventlog)
-	add_nscp_py_test(w32_system test_w32_system)
-ENDIF(WIN32)
