@@ -11,6 +11,11 @@ TODO:
  * Improved fetchdeps script which now takes an option (--msver) to set target visual studio version (currently 2005 and 2008)
  * Added initial support for real certificates
 
+2012-08-30 MickeM
+ * Fixed issue with NSCA and AES encryption (still broken, but broken the way it was before)
+ * Fixed issue with aliases in upperaase not working
+ * Fixed (yet more) performance data parsing issues.
+
 2012-08-25 MickeM
  * Added initial check_mk server CheckMKServer
 

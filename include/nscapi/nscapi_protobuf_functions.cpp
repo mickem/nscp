@@ -64,7 +64,14 @@ namespace nscapi {
 			if (pend != T::npos)
 				s = s.substr(0,pend);
 			strEx::replace(s, traits::perf_data_consts<T>::get_replace_perf_coma_src(), traits::perf_data_consts<T>::get_replace_perf_coma_tgt());
-			return strEx::stod(s);
+			if (s.empty()) {
+				return 0.0;
+			}
+			try {
+				return strEx::stod(s);
+			} catch (...) {
+				return 0.0;
+			}
 		}
 
 
