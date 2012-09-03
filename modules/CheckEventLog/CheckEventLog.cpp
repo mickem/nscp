@@ -92,37 +92,8 @@ void real_time_thread::process_record(const filters::filter_config_object &objec
 	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.severity, message, object.perf_msg, response)) {
 		NSC_LOG_ERROR(_T("Failed to submit eventlog result ") + object.alias + _T(": ") + response);
 	}
+}
 
-	if (cache_) {
-		boost::unique_lock<boost::timed_mutex> lock(cache_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-		if (!lock.owns_lock()) {
-			NSC_LOG_ERROR(_T("ERROR: Could not get CheckEventLogCache mutex."));
-			return;
-		}
-		hit_cache_.push_back(message);
-	}
-}
-bool real_time_thread::check_cache(std::size_t &count, std::wstring &messages) {
-	if (!cache_) {
-		messages = _T("ERROR: Cache is not enabled!");
-		NSC_LOG_ERROR(messages);
-		return false;
-	}
-	boost::unique_lock<boost::timed_mutex> lock(cache_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-	if (!lock.owns_lock()) {
-		messages = _T("ERROR: Could not get CheckEventLogCache mutex.");
-		NSC_LOG_ERROR(messages);
-		return false;
-	}
-	BOOST_FOREACH(const std::wstring &s, hit_cache_) {
-		if (!messages.empty())
-			messages += _T(", ");
-		messages += s;
-	}
-	count = hit_cache_.size();
-	hit_cache_.clear();
-	return true;
-}
 void real_time_thread::debug_miss(const EventLogRecord &record) {
 	std::wstring message = record.render(true, _T("%type% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
 	NSC_DEBUG_MSG_STD(_T("No filter matched: ") + message);
@@ -310,8 +281,6 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 	try {
 		register_command(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
 		register_command(_T("check_eventlog"), _T("Check for errors in the event logger!"));
-		register_command(_T("checkeventlogcache"), _T("Check for errors in the event logger!"));
-		register_command(_T("check_eventlog_cache"), _T("Check for errors in the event logger!"));
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, _T("eventlog"));
@@ -357,8 +326,6 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 			(_T("debug"), sh::bool_key(&thread_.debug_, false),
 			_T("DEBUG"), _T("Log missed records (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
 
-			(_T("enable active"), sh::bool_key(&thread_.cache_, false),
-			_T("ENABLE ACTIVE MONITORING"), _T("This will store all matches so you can use real-time filters from active monitoring (use CheckEventlogCache)."))
 			;
 
 		settings.register_all();
@@ -428,62 +395,7 @@ struct event_log_buffer {
 };
 typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
-
-NSCAPI::nagiosReturn CheckEventLog::checkCache(std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-
-	EventLogQuery1Container query1;
-	EventLogQuery2Container query2;
-	bool bPerfData = true;
-	unsigned int truncate = 0;
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-
-	try {
-		MAP_OPTIONS_BEGIN(arguments)
-			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
-			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
-			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
-			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
-		MAP_OPTIONS_END()
-	} catch (checkHolders::parse_exception e) {
-		message = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	} catch (...) {
-		message = _T("Invalid command line!");
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	std::size_t count = 0;
-	if (!thread_.check_cache(count, message)) {
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	if (!bPerfData) {
-		query1.perfData = false;
-		query2.perfData = false;
-	}
-	if (query1.alias.empty())
-		query1.alias = _T("eventlog");
-	if (query2.alias.empty())
-		query2.alias = _T("eventlog");
-	if (query1.hasBounds())
-		query1.runCheck(count, returnCode, message, perf);
-	else if (query2.hasBounds())
-		query2.runCheck(count, returnCode, message, perf);
-	else {
-		message = _T("No bounds specified!");
-		return NSCAPI::returnUNKNOWN;
-	}
-	if ((truncate > 0) && (message.length() > (truncate-4)))
-		message = message.substr(0, truncate-4) + _T("...");
-	if (message.empty())
-		message = _T("Eventlog check ok");
-	return returnCode;
-}
-
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checkeventlogcache") || command == _T("check_eventlog_cache"))
-		return checkCache(arguments, message, perf);
 	if (command != _T("checkeventlog") && command != _T("check_eventlog"))
 		return NSCAPI::returnIgnored;
 	simple_timer time;

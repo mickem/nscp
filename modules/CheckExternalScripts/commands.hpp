@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <algorithm>
 
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
@@ -153,7 +154,7 @@ namespace commands {
 		typedef command_object object_type;
 
 		static void post_process_object(object_type &object) {
-			std::transform(object.alias.begin(), object.alias.end(), object.alias.begin(), std::tolower);
+			std::transform(object.alias.begin(), object.alias.end(), object.alias.begin(), ::tolower);
 		}
 
 

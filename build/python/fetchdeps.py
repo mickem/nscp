@@ -19,6 +19,7 @@ SET(TINYXML2_DIR "$${LIBRARY_ROOT_FOLDER}/${TinyXML2}")
 #SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
 #SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf}")
+SET(GTEST_ROOT "$${LIBRARY_ROOT_FOLDER}/${gtest}")
 SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32")
 SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/include")
 SET(ZEROMQ_ROOT "$${LIBRARY_ROOT_FOLDER}/${ZeroMQ}")
@@ -74,7 +75,8 @@ targets = [
 	'protobuf',
 	'TinyXML2',
 	'ZeroMQ',
-	'breakpad'
+	'breakpad',
+	'gtest'
 ]
 
 class source:
@@ -215,6 +217,7 @@ sources['openssl'] = source('openssl-1.0.1c.tar.gz', 'http://www.openssl.org/sou
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
 sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethomason/tinyxml2/zipball/master')
 sources['ZeroMQ'] = source('zeromq-2.2.0.zip', 'http://download.zeromq.org/zeromq-2.2.0.zip')
+sources['gtest'] = source('gtest-1.6.0.zip', 'http://googletest.googlecode.com/files/gtest-1.6.0.zip', '00d6be170eb9fc3b2198ffdcb1f1d6ba7fc6e621')
 
 build = {}
 post_build = {}
@@ -255,6 +258,12 @@ build['cryptopp'] = build_instruction(
 	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
 	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
 	[]
+	)
+build['gtest'] = build_instruction(
+	[],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & cmake .. -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & exit /b0"'],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & cmake .. -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & exit /b0"'],
+	['msbuild gtest.sln /p:Configuration=Release', 'msbuild gtest.sln /p:Configuration=Debug']
 	)
 
 

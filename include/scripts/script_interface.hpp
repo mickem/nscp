@@ -6,6 +6,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/optional.hpp>
+#include <boost/foreach.hpp>
 
 #include <NSCAPI.h>
 
@@ -54,30 +55,7 @@ namespace scripts {
 		virtual NSCAPI::nagiosReturn reload(const std::string module) = 0;
 		virtual void log(NSCAPI::log_level::level, const std::string file, int line, const std::string message) = 0;
 	};
-/*
-	template<class script_trait>
-	struct regitration_provider {
-		/ *
-		virtual NSCAPI::nagiosReturn on_query(const wchar_t* command, const std::string &request, std::string &response) = 0;
-		virtual NSCAPI::nagiosReturn on_exec(const std::string & command, std::list<std::string> & arguments, std::string & result) = 0;
-		virtual NSCAPI::nagiosReturn on_submission(const std::string channel, const std::string source, const std::string command, NSCAPI::nagiosReturn code, std::string msg, std::string perf) = 0;
-		* /
 
-		virtual void register_command(script_information<script_trait> *information, const std::string type, const std::string &command, const std::string &description, typename script_trait::function_type function) = 0;
-/ *
-		virtual void register_query(script_information<script_trait> *information, const std::string &command, const std::string &description, typename script_trait::function_type function, bool simple) = 0;
-		virtual void register_subscription(script_information<script_trait> *information, const std::string &channel, const std::string &description, typename script_trait::function_type function, bool simple) = 0;
-		virtual void register_exec(script_information<script_trait> *information, const std::string &command, const std::string &description, typename script_trait::function_type function, bool simple) = 0;
-* /
-
-		//virtual void clear() = 0;
-/ *
-		virtual bool has_command(const std::string & command) = 0;
-		virtual bool has_exec(const std::string & command) = 0;
-		virtual bool has_submit(const std::string &command) = 0;
-		* /
-	};
-*/
 	struct settings_provider {
 		virtual std::list<std::string> get_section(std::string section) = 0;
 		virtual std::string get_string(std::string path, std::string key, std::string value) = 0;
@@ -207,14 +185,14 @@ namespace scripts {
 
 		void load_all() {
 			// TODO: locked
-			BOOST_FOREACH(const typename script_list_type::value_type &e, scripts_) {
-				script_runtime->load(e.second);
+			BOOST_FOREACH(typename script_list_type::value_type &entry, scripts_) {
+				script_runtime->load(entry.second);
 			}
 		}
 		void unload_all() {
 			// TODO: locked
-			BOOST_FOREACH(typename script_list_type::value_type &e, scripts_) {
-				script_information<script_trait> * info = e.second;
+			BOOST_FOREACH(typename script_list_type::value_type &entry, scripts_) {
+				script_information<script_trait> * info = entry.second;
 				script_runtime->unload(info);
 				delete info;
 			}

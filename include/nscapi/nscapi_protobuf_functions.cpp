@@ -20,6 +20,9 @@
 ***************************************************************************/
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#define THROW_INVALID_SIZE(size) \
+	throw nscapi_exception(std::string("Whoops, invalid payload size: ") + strEx::s::xtos(size) + " != 1 at line " + strEx::s::xtos(__LINE__));
+
 namespace nscapi {
 	namespace protobuf {
 
@@ -261,7 +264,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
 			source = utf8::cvt<std::wstring>(payload.source());
@@ -294,7 +297,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
 			response = utf8::cvt<std::wstring>(payload.mutable_status()->message());
@@ -305,7 +308,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
 			response = payload.mutable_status()->message();
@@ -422,7 +425,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
@@ -437,7 +440,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
@@ -453,7 +456,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
@@ -478,7 +481,7 @@ namespace nscapi {
 			if (message.payload_size() == 0) {
 				return NSCAPI::returnUNKNOWN;
 			} else if (message.payload_size() > 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
@@ -494,7 +497,7 @@ namespace nscapi {
 			if (message.payload_size() == 0) {
 				return NSCAPI::returnUNKNOWN;
 			} else if (message.payload_size() > 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
@@ -594,7 +597,7 @@ namespace nscapi {
 				data.target = utf8::cvt<std::wstring>(message.header().recipient_id());
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {

@@ -41,6 +41,7 @@ for f in vcprojs:
 	replace_in_file(f, 'Version="7.10"', 'Version="%s"'%target_vc)
 	
 for f in slns:
-	replace_in_file(f, 'Microsoft Visual Studio Solution File, Format Version 10.00', 'Microsoft Visual Studio Solution File, Format Version %s'%target_sln)
-	replace_in_file(f, 'Microsoft Visual Studio Solution File, Format Version 09.00', 'Microsoft Visual Studio Solution File, Format Version %s'%target_sln)
-	replace_in_file(f, 'Microsoft Visual Studio Solution File, Format Version 08.00', 'Microsoft Visual Studio Solution File, Format Version %s'%target_sln)
+	replace_in_file(f, 'Format Version 10.00', 'Format Version %s'%target_sln)
+	replace_in_file(f, 'Format Version 09.00', 'Format Version %s'%target_sln)
+	replace_in_file(f, 'Format Version 08.00', 'Format Version %s'%target_sln)
+	replace_in_file(f, 'Format Version 8.00', 'Format Version %s'%target_sln)
