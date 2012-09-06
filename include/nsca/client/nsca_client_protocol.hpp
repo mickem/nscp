@@ -10,8 +10,6 @@ using boost::asio::ip::tcp;
 
 namespace nsca {
 	namespace client {
-
-
 		template<class handler_type>
 		class protocol : public boost::noncopyable {
 		public:

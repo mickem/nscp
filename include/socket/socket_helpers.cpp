@@ -86,7 +86,7 @@ addr calculate_mask(std::string mask_s) {
 
 void socket_helpers::allowed_hosts_manager::set_source(std::wstring source) {
 	sources.clear();
-	BOOST_FOREACH(std::wstring s, strEx::splitEx(source, _T(","))) {
+	BOOST_FOREACH(std::wstring s, strEx::splitEx(source, std::wstring(_T(",")))) {
 		boost::trim(s);
 		if (!s.empty())
 			sources.push_back(utf8::cvt<std::string>(s));
@@ -155,13 +155,26 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 #ifdef USE_SSL
 boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode()
 {
-	if (verify_mode == "client-once")
-		return boost::asio::ssl::context_base::verify_client_once;
-	else if (verify_mode == "none")
-		return boost::asio::ssl::context_base::verify_none;
-	else if (verify_mode == "peer")
-		return boost::asio::ssl::context_base::verify_peer;
-	return boost::asio::ssl::context_base::verify_none;
+	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
+	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(verify_mode, std::string(","))) {
+		if (key == "client-once")
+			mode |= boost::asio::ssl::context_base::verify_client_once;
+		else if (key == "none")
+			mode |= boost::asio::ssl::context_base::verify_none;
+		else if (key == "peer")
+			mode |= boost::asio::ssl::context_base::verify_peer;
+		else if (key == "fail-if-no-cert")
+			mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
+		else if (key == "peer-cert") {
+			mode |= boost::asio::ssl::context_base::verify_peer;
+			mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
+		}
+		else if (key == "workarounds")
+			mode |= boost::asio::ssl::context_base::default_workarounds;
+		else if (key == "single")
+			mode |= boost::asio::ssl::context::single_dh_use;
+	}
+	return mode;
 }
 
 boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format()

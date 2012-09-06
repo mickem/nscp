@@ -46,7 +46,7 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("port"), sh::uint_key(&info_.port, 5667),
+			(_T("port"), sh::string_key(&info_.port_, "5667"),
 			_T("PORT NUMBER"), _T("Port to use for NSCA."))
 
 			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nsca::server::handler::set_payload_length, handler_, _1), 512),

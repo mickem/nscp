@@ -95,28 +95,50 @@ namespace socket_helpers {
 				if (info_.ssl.enabled) {
 #ifdef USE_SSL
 					protocol_->log_debug(__FILE__, __LINE__, "Using SSL: " + info_.ssl.to_string());
-					if (!info_.ssl.certificate.empty())
-						context_.use_certificate_file(info_.ssl.certificate.c_str(), info_.ssl.get_certificate_format(), er);
-					if (er) {
-						protocol_->log_error(__FILE__, __LINE__, "Failed to load certificate: " + utf8::utf8_from_native(er.message()));
+					if (!info_.ssl.certificate.empty()) {
+						context_.use_certificate_file(info_.ssl.certificate, info_.ssl.get_certificate_format(), er);
+						protocol_->log_debug(__FILE__, __LINE__, "Set SSL cert= " + info_.ssl.certificate +"/" + info_.ssl.certificate_format + ": " + utf8::utf8_from_native(er.message()));
+						if (er) {
+							protocol_->log_error(__FILE__, __LINE__, "Failed to load certificate: " + utf8::utf8_from_native(er.message()));
+						}
+						if (!info_.ssl.certificate_key.empty()) {
+							context_.use_private_key_file(info_.ssl.certificate_key, info_.ssl.get_certificate_key_format(), er);
+							protocol_->log_debug(__FILE__, __LINE__, "Set SSL key= " + info_.ssl.certificate_key + ": " + utf8::utf8_from_native(er.message()));
+							if (er) {
+								protocol_->log_error(__FILE__, __LINE__, "Failed to load key: " + utf8::utf8_from_native(er.message()));
+							}
+						} else {
+							context_.use_private_key_file(info_.ssl.certificate, info_.ssl.get_certificate_format(), er);
+							protocol_->log_debug(__FILE__, __LINE__, "Set SSL key= " + info_.ssl.certificate + ": " + utf8::utf8_from_native(er.message()));
+							if (er) {
+								protocol_->log_error(__FILE__, __LINE__, "Failed to load certificate: " + utf8::utf8_from_native(er.message()));
+							}
+						}
+					} 
+					if (!info_.ssl.allowed_ciphers.empty()) {
+						SSL_CTX_set_cipher_list(context_.impl(), info_.ssl.allowed_ciphers.c_str());
+						protocol_->log_debug(__FILE__, __LINE__, "Set cipher list= " + info_.ssl.allowed_ciphers + ": " + utf8::utf8_from_native(er.message()));
 					}
-					if (!info_.ssl.certificate_key.empty())
-						context_.use_private_key_file(info_.ssl.certificate_key, info_.ssl.get_certificate_key_format(), er);
-					if (er) {
-						protocol_->log_error(__FILE__, __LINE__, "Failed to load key: " + utf8::utf8_from_native(er.message()));
+					if (!info_.ssl.dh_key.empty() && info_.ssl.dh_key != "none") {
+						context_.use_tmp_dh_file(info_.ssl.dh_key, er);
+						protocol_->log_debug(__FILE__, __LINE__, "Load DH from= " + info_.ssl.dh_key + ": " + utf8::utf8_from_native(er.message()));
+						if (er) {
+							protocol_->log_error(__FILE__, __LINE__, "Failed to set dk pfs: " + utf8::utf8_from_native(er.message()));
+						}
+					}
+					if (!info_.ssl.ca_path.empty()) {
+						context_.load_verify_file(info_.ssl.ca_path, er);
+						protocol_->log_debug(__FILE__, __LINE__, "Load CA= " + info_.ssl.ca_path + ": " + utf8::utf8_from_native(er.message()));
+						if (er) {
+							protocol_->log_error(__FILE__, __LINE__, "Failed to set CA: " + utf8::utf8_from_native(er.message()));
+						}
 					}
 					context_.set_verify_mode(info_.ssl.get_verify_mode(), er);
+
+					protocol_->log_debug(__FILE__, __LINE__, "Set verify mode= " + info_.ssl.verify_mode + ", " + strEx::s::xtos(info_.ssl.get_verify_mode()) + ": " + utf8::utf8_from_native(er.message()));
 					if (er) {
 						protocol_->log_error(__FILE__, __LINE__, "Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
 					}
-					if (!info_.ssl.allowed_ciphers.empty())
-						SSL_CTX_set_cipher_list(context_.impl(), info_.ssl.allowed_ciphers.c_str());
-					if (!info_.ssl.dh_key.empty())
-						context_.use_tmp_dh_file(info_.ssl.dh_key, er);
-					if (er) {
-						protocol_->log_error(__FILE__, __LINE__, "Failed to set dk pfs: " + utf8::utf8_from_native(er.message()));
-					}
-					//context_.set_verify_mode(boost::asio::ssl::context::verify_none);
 #else
 					protocol_->log_error(__FILE__, __LINE__, "Not compiled with SSL");
 #endif
@@ -130,7 +152,10 @@ namespace socket_helpers {
 					protocol_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
 				}
 				protocol_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + info_.get_endpoint_string());
-				acceptor_.bind(endpoint);
+				acceptor_.bind(endpoint, er);
+				if (er) {
+					protocol_->log_error(__FILE__, __LINE__, "Failed to bind: " + er.message());
+				}
 				if (info_.back_log == connection_info::backlog_default)
 					acceptor_.listen();
 				else
@@ -146,6 +171,12 @@ namespace socket_helpers {
 				}
 			}
 
+
+			std::string get_password() const
+			{
+				protocol_->log_error(__FILE__, __LINE__, "Getting password...");
+				return "test";
+			}
 			void stop() {
 				io_service_.stop();
 				thread_group_.join_all();

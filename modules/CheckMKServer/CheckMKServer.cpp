@@ -58,7 +58,7 @@ bool CheckMKServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("port"), sh::uint_key(&info_.port, 6556),
+			(_T("port"), sh::string_key(&info_.port_, "6556"),
 			_T("PORT NUMBER"), _T("Port to use for NSCP."))
 
 			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&handler_impl::set_allow_arguments, handler_, _1), false),

@@ -123,12 +123,12 @@ namespace socket_helpers {
 
 	struct connection_info {
 		static const int backlog_default;
-		connection_info() : back_log(backlog_default), port(0), thread_pool_size(0), timeout(30) {}
+		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30) {}
 
 		connection_info(const connection_info &other) 
 			: address(other.address)
 			, back_log(other.back_log)
-			, port(other.port)
+			, port_(other.port_)
 			, thread_pool_size(other.thread_pool_size)
 			, timeout(other.timeout)
 			, ssl(other.ssl)
@@ -137,7 +137,7 @@ namespace socket_helpers {
 			}
 		connection_info& operator=(const connection_info &other) {
 			address = other.address;
-			port = other.port;
+			port_ = other.port_;
 			thread_pool_size = other.thread_pool_size;
 			back_log = other.back_log;
 			ssl = other.ssl;
@@ -152,7 +152,7 @@ namespace socket_helpers {
 
 		std::string address;
 		int back_log;
-		unsigned int port;
+		std::string port_;
 		unsigned int thread_pool_size;
 		unsigned int timeout;
 
@@ -194,7 +194,7 @@ namespace socket_helpers {
 
 			std::string verify_mode;
 
-			std::string to_string() {
+			std::string to_string() const {
 				std::stringstream ss;
 				if (enabled) {
 					ss << "ssl: " << verify_mode;
@@ -213,12 +213,12 @@ namespace socket_helpers {
 		ssl_opts ssl;
 		allowed_hosts_manager allowed_hosts;
 
-		std::string get_port() { return utf8::cvt<std::string>(strEx::itos(port)); }
-		std::string get_address() { return address; }
-		std::string get_endpoint_string() {
+		std::string get_port() const { return port_; }
+		std::string get_address() const { return address; }
+		std::string get_endpoint_string() const {
 			return address + ":" + get_port();
 		}
-		std::wstring get_endpoint_wstring() {
+		std::wstring get_endpoint_wstring() const {
 			return utf8::cvt<std::wstring>(get_endpoint_string());
 		}
 	};

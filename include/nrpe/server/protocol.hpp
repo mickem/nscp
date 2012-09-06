@@ -93,9 +93,9 @@ namespace nrpe {
 						nrpe::packet request = parser_.parse();
 						response = handler_->handle(request);
 					} catch (const std::exception &e) {
-						response = handler_->create_error(_T("Exception processing request: ") + utf8::to_unicode(e.what()));
+						response = handler_->create_error("Exception processing request: " + utf8::utf8_from_native(e.what()));
 					} catch (...) {
-						response = handler_->create_error(_T("Exception processing request"));
+						response = handler_->create_error("Exception processing request");
 					}
 
 					data_ = response.get_buffer();

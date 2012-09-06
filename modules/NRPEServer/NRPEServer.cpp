@@ -48,7 +48,7 @@ bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("port"), sh::uint_key(&info_.port, 5666),
+			(_T("port"), sh::string_key(&info_.port_, "5666"),
 			_T("PORT NUMBER"), _T("Port to use for NRPE."))
 
 			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nrpe::server::handler::set_payload_length, handler_, _1), 1024),
@@ -88,13 +88,13 @@ bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, true),
 			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
 
-			(_T("certificate"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+			(_T("pfs"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
 			_T("DH KEY"), _T(""), true)
 
-			(_T("certificate"), sh::path_key(&info_.ssl.certificate, "${certificate-path}/certificate.pem"),
-			_T("SSL CERTIFICATE"), _T(""), true)
+			(_T("certificate"), sh::path_key(&info_.ssl.certificate),
+			_T("SSL CERTIFICATE"), _T(""), false)
 
-			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key, "${certificate-path}/certificate_key.pem"),
+			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key),
 			_T("SSL CERTIFICATE"), _T(""), true)
 
 			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
@@ -104,10 +104,10 @@ bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			_T("CA"), _T(""), true)
 
 			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ADH"),
-			_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), true)
+			_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
 
 			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
-			_T("VERIFY MODE"), _T(""), true)
+			_T("VERIFY MODE"), _T(""), false)
 			;
 
 		settings.register_all();

@@ -57,7 +57,7 @@ bool NSClientServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("port"), sh::uint_key(&info_.port, 12489),
+			(_T("port"), sh::string_key(&info_.port_, "12489"),
 			_T("PORT NUMBER"), _T("Port to use for check_nt."))
 
 			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&NSClientServer::set_perf_data, this, _1), true),

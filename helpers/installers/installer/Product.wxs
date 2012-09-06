@@ -140,6 +140,7 @@
 							<File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
 							<File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
 							<File Id="ModCheckTaskSched2.dll" Name="CheckTaskSched2.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched2.dll" Vital="no" />
+							<File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
 						</Component>
 					</Directory>
 					<Directory Id="INSTALLLOCATION_SCRIPTS" Name="scripts">

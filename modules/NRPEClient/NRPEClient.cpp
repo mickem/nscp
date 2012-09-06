@@ -57,7 +57,6 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("client"));
-
 		target_path = settings.alias().get_settings_path(_T("targets"));
 
 		settings.alias().add_path_to_settings()
@@ -100,6 +99,7 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	}
 	return true;
 }
+
 std::string get_command(std::string alias, std::string command = "") {
 	if (!alias.empty())
 		return alias; 
@@ -183,14 +183,43 @@ NSCAPI::nagiosReturn NRPEClient::handleRAWNotification(const wchar_t* channel, s
 
 void NRPEClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
  	desc.add_options()
-		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
-			"Length of payload (has to be same as on the server)")
-
-		("buffer-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
-			"Length of payload (has to be same as on the server)")
-
  		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
 			"Do not initial an ssl handshake with the server, talk in plaintext.")
+
+		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("pfs", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "pfs", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		"Client certificate to use")
+
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
+		"Client certificate format")
+
+		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
+		"Certificate authority")
+
+		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
+		"Client certificate format")
+
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
+		"Client certificate format")
+
+		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+			"Length of payload (has to be same as on the server)")
+
+ 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+			"Initial an ssl handshake with the server.")
+
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		"")
+
+
  		;
 }
 
@@ -240,9 +269,9 @@ int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, c
 		for (int a=0;a<request_message.payload(i).arguments_size();a++) {
 			data += "!" + request_message.payload(i).arguments(a);
 		}
-		boost::tuple<int,std::wstring> ret = instance->send(con, data);
-		std::pair<std::wstring,std::wstring> rdata = strEx::split(ret.get<1>(), std::wstring(_T("|")));
-		nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), utf8::cvt<std::wstring>(command), ret.get<0>(), rdata.first, rdata.second);
+		boost::tuple<int,std::string> ret = instance->send(con, data);
+		strEx::s::token rdata = strEx::s::getToken(ret.get<1>(), '|');
+		nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
 	}
 	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
@@ -262,8 +291,8 @@ int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, 
 		for (int a=0;a<request_message.payload(i).arguments_size();a++) {
 			data += "!" + request_message.payload(i).arguments(i);
 		}
-		boost::tuple<int,std::wstring> ret = instance->send(con, data);
-		nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), command, ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+		boost::tuple<int,std::string> ret = instance->send(con, data);
+		nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
 	}
 	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
@@ -281,8 +310,8 @@ int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, co
 		std::string data = command;
 		for (int a=0;a<request_message.payload(i).arguments_size();a++)
 			data += "!" + request_message.payload(i).arguments(a);
-		boost::tuple<int,std::wstring> ret = instance->send(con, data);
-		nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), command, ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+		boost::tuple<int,std::string> ret = instance->send(con, data);
+		nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
 	}
 	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
@@ -292,12 +321,6 @@ int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, co
 // Protocol implementations
 //
 struct client_handler : public socket_helpers::client::client_handler {
-	client_handler(NRPEClient::connection_data &con) 
-		: socket_helpers::client::client_handler(con.host, con.port, con.timeout, con.use_ssl, con.cert)
-	{
-
-	}
-	virtual ~client_handler() {}
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::cvt<std::wstring>(msg));
@@ -310,32 +333,31 @@ struct client_handler : public socket_helpers::client::client_handler {
 	}
 };
 
-boost::tuple<int,std::wstring> NRPEClient::send(connection_data con, const std::string data) {
+boost::tuple<int,std::string> NRPEClient::send(connection_data con, const std::string data) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("NRPE Connection details: ") + con.to_wstring());
-		NSC_DEBUG_MSG_STD(_T("NRPE data: ") + utf8::cvt<std::wstring>(data));
-		if (con.use_ssl) {
+		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+		if (con.ssl.enabled) {
 #ifndef USE_SSL
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
 			return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)"));
 #endif
 		}
-		nrpe::packet packet = nrpe::packet::make_request(utf8::cvt<std::wstring>(data), con.buffer_length);
-		socket_helpers::client::client<nrpe::client::protocol> client(boost::shared_ptr<client_handler>(new client_handler(con)));
+		nrpe::packet packet = nrpe::packet::make_request(data, con.buffer_length);
+		socket_helpers::client::client<nrpe::client::protocol> client(con, boost::shared_ptr<client_handler>(new client_handler()));
 		client.connect();
 		nrpe::packet response = client.process_request(packet);
 		client.shutdown();
 		return boost::make_tuple(static_cast<int>(response.getResult()), response.getPayload());
-	} catch (nrpe::nrpe_packet_exception &e) {
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NRPE Packet errro: ") + e.wwhat());
+	} catch (nrpe::nrpe_exception &e) {
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, std::string("NRPE Packet errro: ") + e.what());
 	} catch (std::runtime_error &e) {
 		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 	}
 }
 

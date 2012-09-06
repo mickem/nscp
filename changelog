@@ -4,6 +4,16 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-09-06 MickeM
+ * Full SSL support for all clients (NRPE, NSCA, check_mk, NSCP) by full I mean certificate based authentication
+
+2012-09-05 MickeM
+ * Full SSL support for NRPE (meaning certificate based authentication)
+
+2012-09-04 MickeM
+ * Fixed config parser issue for inheriated fields
+ * Changed so ports in clients/servers are strings (so smtp and such should work)
+
 2012-09-03 MickeM
  * New module SimpleCache which acts as a brdge between passive and active monitoring (and other use cases)
    Enables storing of results for later use

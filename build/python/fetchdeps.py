@@ -261,8 +261,8 @@ build['cryptopp'] = build_instruction(
 	)
 build['gtest'] = build_instruction(
 	[],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & cmake .. -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & exit /b0"'],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & cmake .. -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & exit /b0"'],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & exit /b0"'],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & exit /b0"'],
 	['msbuild gtest.sln /p:Configuration=Release', 'msbuild gtest.sln /p:Configuration=Debug']
 	)
 
@@ -371,7 +371,7 @@ parser.add_option("-d", "--directory", help="Folder to build in (defaults to cur
 parser.add_option("-t", "--target", help="Which target architecture to build (win32 or x64)")
 parser.add_option("-c", "--cmake-config", help="Folder to place cmake configuration file in")
 parser.add_option("-D", "--cmake-define", action="append", help="Set other variables in the cmake config file")
-parser.add_option("-s", "--source", default='nscp', help="Location of the nscp source folder")
+parser.add_option("-s", "--source", help="Location of the nscp source folder")
 parser.add_option("--msver", default='2005', help="Which version of visual studio you have")
 
 (options, args) = parser.parse_args()
@@ -380,6 +380,8 @@ if not options.directory:
 	options.directory = os.getcwd()
 else:
 	options.directory = os.path.abspath(options.directory)
+if not options.source:
+	options.source = os.path.dirname(os.path.dirname(os.path.dirname(sys.argv[0])))
 
 msver = options.msver
 

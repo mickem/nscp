@@ -25,7 +25,7 @@ public:
 
 	nrpe::packet handle(nrpe::packet packet);
 
-	nrpe::packet create_error(std::wstring msg) {
+	nrpe::packet create_error(std::string msg) {
 		return nrpe::packet::create_response(3, msg, payload_length_);
 	}
 

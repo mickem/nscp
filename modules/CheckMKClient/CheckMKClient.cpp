@@ -136,6 +136,7 @@ bool CheckMKClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 	}
 	return true;
 }
+
 std::string get_command(std::string alias, std::string command = "") {
 	if (!alias.empty())
 		return alias; 
@@ -181,7 +182,7 @@ void CheckMKClient::add_command(std::wstring name, std::wstring args) {
 	try {
 		std::wstring key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("NSCP relay for: ") + name);
+			register_command(key.c_str(), _T("check_mk relay for: ") + name);
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
 	} catch (...) {
@@ -243,6 +244,38 @@ void CheckMKClient::add_local_options(po::options_description &desc, client::con
 	desc.add_options()
 		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
+
+		("pfs", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "pfs", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		"Client certificate to use")
+
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
+		"Client certificate format")
+
+		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
+		"Certificate authority")
+
+		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
+		"Client certificate format")
+
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
+		"Client certificate format")
+
+		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+			"Length of payload (has to be same as on the server)")
+
+ 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+			"Initial an ssl handshake with the server.")
+
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		"")
+
+
 		;
 }
 
@@ -318,11 +351,6 @@ int CheckMKClient::clp_handler_impl::exec(client::configuration::data_type data,
 // Protocol implementations
 //
 struct client_handler : public socket_helpers::client::client_handler {
-	client_handler(CheckMKClient::connection_data &con) 
-		: socket_helpers::client::client_handler(con.host, con.port, con.timeout, con.use_ssl, con.cert)
-	{
-
-	}
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
@@ -335,18 +363,16 @@ struct client_handler : public socket_helpers::client::client_handler {
 	}
 };
 
-
-
 void CheckMKClient::send(connection_data con) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("check_mk Connection details: ") + con.to_wstring());
-		if (con.use_ssl) {
+		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+		if (con.ssl.enabled) {
 #ifndef USE_SSL
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
 			return response;
 #endif
 		}
-		socket_helpers::client::client<check_mk::client::protocol> client(boost::shared_ptr<client_handler>(new client_handler(con)));
+		socket_helpers::client::client<check_mk::client::protocol> client(con, boost::shared_ptr<client_handler>(new client_handler()));
 		client.connect();
 		std::string dummy;
 		check_mk::packet packet = client.process_request(dummy);

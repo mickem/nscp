@@ -261,8 +261,15 @@ namespace socket_helpers {
 
 			virtual boost::system::error_code connect(std::string host, std::string port) {
 				boost::system::error_code error = connection_type::connect(host, port);
-				if (!error)
+				if (error) {
+					this->log_error(__FILE__, __LINE__, "Failed to connect to server: " + utf8::utf8_from_native(error.message()));
+				}
+				if (!error) {
 					ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+					if (error) {
+						this->log_error(__FILE__, __LINE__, "SSL handshake failed: " + utf8::utf8_from_native(error.message()));
+					}
+				}
 				return error;
 			}
 
@@ -290,6 +297,7 @@ namespace socket_helpers {
 			boost::shared_ptr<connection<protocol_type> > connection_;
 			boost::asio::io_service io_service_;
 			boost::shared_ptr<typename protocol_type::client_handler> handler_;
+			socket_helpers::connection_info info_;
 
 			typedef connection<protocol_type> connection_type;
 			typedef tcp_connection<protocol_type> tcp_connection_type;
@@ -299,8 +307,8 @@ namespace socket_helpers {
 #endif
 
 		public:
-			client(typename boost::shared_ptr<typename protocol_type::client_handler> handler)
-				: handler_(handler)
+			client(socket_helpers::connection_info info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
+				: info_(info), handler_(handler)
 #ifdef USE_SSL
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
 #endif
@@ -318,7 +326,7 @@ namespace socket_helpers {
 
 			void connect() {
 				connection_.reset(create_connection());
-				boost::system::error_code error = connection_->connect(handler_->get_host(), handler_->get_port());
+				boost::system::error_code error = connection_->connect(info_.get_address(), info_.get_port());
 				if (error) {
 					connection_.reset();
 					throw socket_helpers::socket_exception(error.message());
@@ -326,14 +334,57 @@ namespace socket_helpers {
 			}
 
 			connection_type* create_connection() {
+				boost::posix_time::time_duration timeout(boost::posix_time::seconds(info_.timeout));
+
 #ifdef USE_SSL
-				if (handler_->use_ssl()) {
-					connection_type* ptr = new ssl_connection_type(io_service_, context_, handler_->get_timeout(), handler_);
-					handler_->setup_ssl(context_);
-					return ptr;
+				boost::system::error_code er;
+				if (info_.ssl.enabled) {
+					if (!info_.ssl.certificate.empty()) {
+						context_.use_certificate_file(info_.ssl.certificate, info_.ssl.get_certificate_format(), er);
+						if (er) {
+							handler_->log_error(__FILE__, __LINE__, "Failed to load certificate: " + utf8::utf8_from_native(er.message()));
+						}
+						if (!info_.ssl.certificate_key.empty()) {
+							context_.use_private_key_file(info_.ssl.certificate_key, info_.ssl.get_certificate_key_format(), er);
+							if (er) {
+								handler_->log_error(__FILE__, __LINE__, "Failed to load key: " + utf8::utf8_from_native(er.message()));
+							}
+						} else {
+							context_.use_private_key_file(info_.ssl.certificate, info_.ssl.get_certificate_key_format(), er);
+							if (er) {
+								handler_->log_error(__FILE__, __LINE__, "Failed to load key: " + utf8::utf8_from_native(er.message()));
+							}
+						}
+					}
+					context_.set_verify_mode(info_.ssl.get_verify_mode(), er);
+					if (er) {
+						handler_->log_error(__FILE__, __LINE__, "Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
+					}
+					if (!info_.ssl.allowed_ciphers.empty())
+						SSL_CTX_set_cipher_list(context_.impl(), info_.ssl.allowed_ciphers.c_str());
+					if (!info_.ssl.dh_key.empty() && info_.ssl.dh_key != "none") {
+						context_.use_tmp_dh_file(info_.ssl.dh_key, er);
+						if (er) {
+							handler_->log_error(__FILE__, __LINE__, "Failed to set dk pfs: " + utf8::utf8_from_native(er.message()));
+						}
+					}
+
+					if (!info_.ssl.ca_path.empty()) {
+						context_.load_verify_file(info_.ssl.ca_path, er);
+						if (er) {
+							handler_->log_error(__FILE__, __LINE__, "Failed to set CA: " + utf8::utf8_from_native(er.message()));
+						}
+					}
+
+					/*
+					SSL_CTX_set_cipher_list(context.impl(), "ADH");
+					context.use_tmp_dh_file(dh_key_);
+					context.set_verify_mode(boost::asio::ssl::context::verify_none);
+					*/
+					return new ssl_connection_type(io_service_, context_, timeout, handler_);
 				}
 #endif
-				return new tcp_connection_type(io_service_, handler_->get_timeout(), handler_);
+				return new tcp_connection_type(io_service_, timeout, handler_);
 			}
 
 			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet, int retries = 3) {
@@ -359,33 +410,28 @@ namespace socket_helpers {
 		};
 
 		struct client_handler : private boost::noncopyable {
-
+/*
 			std::string host_;
 			std::string port_;
 			long timeout_;
 			bool ssl_;
 			std::string dh_key_;
+			*/
 
-			client_handler(std::string host, std::string port, long timeout, bool ssl, std::string dh_key)
-				: host_(host)
-				, port_(port)
-				, timeout_(timeout)
-				, ssl_(ssl)
-				, dh_key_(dh_key)
+			client_handler()
+// 				: host_(host)
+// 				, port_(port)
+// 				, timeout_(timeout)
+// 				, ssl_(ssl)
+// 				, dh_key_(dh_key)
 			{}
 			virtual ~client_handler() {}
 
-			bool use_ssl() { return ssl_; }
-			std::string get_host() { return host_; }
-			std::string get_port() { return port_; }
-			boost::posix_time::time_duration get_timeout() { return boost::posix_time::seconds(timeout_); }
-#ifdef USE_SSL
-			void setup_ssl(boost::asio::ssl::context &context) {
-				SSL_CTX_set_cipher_list(context.impl(), "ADH");
-				context.use_tmp_dh_file(dh_key_);
-				context.set_verify_mode(boost::asio::ssl::context::verify_none);
-			}
-#endif
+// 			bool use_ssl() { return ssl_; }
+// 			std::string get_host() { return host_; }
+// 			std::string get_port() { return port_; }
+// 			boost::posix_time::time_duration get_timeout() { return boost::posix_time::seconds(timeout_); }
+
 
 			virtual void log_debug(std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string file, int line, std::string msg) const = 0;

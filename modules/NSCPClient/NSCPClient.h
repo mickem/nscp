@@ -27,10 +27,11 @@
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
+#include <socket/client.hpp>
+
 #include <nscp/packet.hpp>
 
-#include <socket/client.hpp>
-#include <nscp/client/nscp_client_protocol.hpp>
+#include <nrpe/client/nrpe_client_protocol.hpp>
 
 
 NSC_WRAPPERS_MAIN()
@@ -54,7 +55,6 @@ private:
 		static void init_default(target_object &target) {
 			target.set_property_int(_T("timeout"), 30);
 			target.set_property_bool(_T("ssl"), true);
-			target.set_property_string(_T("certificate"), _T("${certificate-path}/nrpe_dh_512.pem"));
 			target.set_property_int(_T("payload length"), 1024);
 		}
 
@@ -64,75 +64,82 @@ private:
 				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
 				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
 
+				(_T("pfs"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("pfs"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
+				_T("DH KEY"), _T(""), true)
+
+				(_T("certificate"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1)),
+				_T("SSL CERTIFICATE"), _T(""), false)
+
+				(_T("certificate key"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate key"), _1)),
+				_T("SSL CERTIFICATE"), _T(""), true)
+
+				(_T("certificate format"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate format"), _1), _T("PEM")),
+				_T("CERTIFICATE FORMAT"), _T(""), true)
+
+				(_T("ca"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ca"), _1)),
+				_T("CA"), _T(""), true)
+
+				(_T("allowed ciphers"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("allowed ciphers"), _1), _T("ADH")),
+				_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+
+				(_T("verify mode"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("verify mode"), _1), _T("none")),
+				_T("VERIFY MODE"), _T(""), false)
+
 				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
 				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
 
-				(_T("certificate"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
-				_T("SSL CERTIFICATE"), _T(""))
 
 				;
 		}
 
 		static void post_process_target(target_object &target) {
-			nscapi::core_wrapper* core = GET_CORE();
-			if (core == NULL) {
-				NSC_LOG_ERROR_STD(_T("Invalid core"));
-				return;
-			}
-			if (target.has_option(_T("certificate"))) {
-				std::wstring value = target.options[_T("certificate")];
-				boost::filesystem::wpath p = value;
-				if (!boost::filesystem::is_regular(p)) {
-					p = core->getBasePath() / p;
-					if (boost::filesystem::is_regular(p)) {
-						value = p.string();
-					} else {
-						value = core->expand_path(value);
-						p = value;
-					}
-					target.options[_T("certificate")] = value;
-				}
-				if (boost::filesystem::is_regular(p)) {
-					NSC_DEBUG_MSG_STD(_T("Using certificate: ") + p.string());
-				} else {
-					NSC_LOG_ERROR_STD(_T("Certificate not found: ") + p.string());
-				}
+			std::list<std::wstring> err;
+			nscapi::targets::helpers::verify_file(target, _T("certificate"), err);
+			nscapi::targets::helpers::verify_file(target, _T("pfs"), err);
+			nscapi::targets::helpers::verify_file(target, _T("certificate key"), err);
+			nscapi::targets::helpers::verify_file(target, _T("ca"), err);
+			BOOST_FOREACH(const std::wstring &e, err) {
+				NSC_LOG_ERROR_STD(e);
 			}
 		}
-
 	};
 
 	nscapi::targets::handler<custom_reader> targets;
 	client::command_manager commands;
+
 public:
-	struct connection_data {
-		std::string cert;
-		std::string host;
-		std::string port;
-		int timeout;
-		bool use_ssl;
+	struct connection_data : public socket_helpers::connection_info {
 
 		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target) {
 			arguments.import(target);
-			cert = arguments.get_string_data("certificate");
+			address = arguments.address.host;
+			port_ = arguments.address.get_port_string("5668");
+			ssl.enabled = arguments.get_bool_data("ssl");
+			ssl.certificate = arguments.get_string_data("certificate");
+			ssl.certificate_key = arguments.get_string_data("certificate key");
+			ssl.certificate_key_format = arguments.get_string_data("certificate format");
+			ssl.ca_path = arguments.get_string_data("ca");
+			ssl.allowed_ciphers = arguments.get_string_data("allowed ciphers");
+			ssl.dh_key = arguments.get_string_data("pfs");
+			ssl.verify_mode = arguments.get_string_data("verify mode");
 			timeout = arguments.get_int_data("timeout", 30);
-			use_ssl = arguments.get_bool_data("ssl");
-			if (arguments.has_data("no ssl"))
-				use_ssl = !arguments.get_bool_data("no ssl");
-			if (arguments.has_data("use ssl"))
-				use_ssl = arguments.get_bool_data("use ssl");
 
-			host = arguments.address.host;
-			port = arguments.address.get_port_string("5668");
+			if (arguments.has_data("no ssl"))
+				ssl.enabled = !arguments.get_bool_data("no ssl");
+			if (arguments.has_data("use ssl"))
+				ssl.enabled = arguments.get_bool_data("use ssl");
+
+
 		}
 
 		std::wstring to_wstring() const {
-			std::wstringstream ss;
-			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
-			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
-			ss << _T(", timeout: ") << timeout;
-			ss << _T(", use_ssl: ") << use_ssl;
-			ss << _T(", certificate: ") << utf8::cvt<std::wstring>(cert);
+			return utf8::cvt<std::wstring>(to_string());
+		}
+
+		std::string to_string() const {
+			std::stringstream ss;
+			ss << "host: " << get_endpoint_string();
+			ss << ", ssl: " << ssl.to_string();
 			return ss.str();
 		}
 	};
@@ -169,11 +176,7 @@ public:
 	* @return The module name
 	*/
 	static std::wstring getModuleName() {
-#ifdef USE_SSL
-		return _T("NSCP client (w/ SSL)");
-#else
 		return _T("NSCP client");
-#endif
 	}
 	/**
 	* Module version
@@ -184,11 +187,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return _T("A simple client for checking remote NSCP servers (think proxy).\n")
-#ifndef USE_SSL
-		_T("SSL support is missing (so you cant use encryption)!")
-#endif
-	;
+		return _T("A simple client for checking remote NSCP servers.");
 	}
 
 	bool hasCommandHandler() { return true; };

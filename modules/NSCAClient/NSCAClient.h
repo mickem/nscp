@@ -26,6 +26,8 @@
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
+#include <socket/client.hpp>
+
 #include <nsca/nsca_packet.hpp>
 
 NSC_WRAPPERS_MAIN()
@@ -61,6 +63,30 @@ private:
 				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
 				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
 
+				(_T("pfs"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("pfs"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
+				_T("DH KEY"), _T(""), true)
+
+				(_T("certificate"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1)),
+				_T("SSL CERTIFICATE"), _T(""), false)
+
+				(_T("certificate key"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate key"), _1)),
+				_T("SSL CERTIFICATE"), _T(""), true)
+
+				(_T("certificate format"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate format"), _1), _T("PEM")),
+				_T("CERTIFICATE FORMAT"), _T(""), true)
+
+				(_T("ca"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ca"), _1)),
+				_T("CA"), _T(""), true)
+
+				(_T("allowed ciphers"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("allowed ciphers"), _1), _T("ADH")),
+				_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+
+				(_T("verify mode"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("verify mode"), _1), _T("none")),
+				_T("VERIFY MODE"), _T(""), false)
+
+				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
+				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+
 				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 512),
 				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."), true)
 
@@ -74,7 +100,16 @@ private:
 				_T("TIME OFFSET"), _T("Time offset."), true)
 				;
 		}
+
 		static void post_process_target(target_object &target) {
+			std::list<std::wstring> err;
+			nscapi::targets::helpers::verify_file(target, _T("certificate"), err);
+			nscapi::targets::helpers::verify_file(target, _T("pfs"), err);
+			nscapi::targets::helpers::verify_file(target, _T("certificate key"), err);
+			nscapi::targets::helpers::verify_file(target, _T("ca"), err);
+			BOOST_FOREACH(const std::wstring &e, err) {
+				NSC_LOG_ERROR_STD(e);
+			}
 		}
 	};
 
@@ -82,18 +117,25 @@ private:
 	client::command_manager commands;
 
 public:
-	struct connection_data {
+	struct connection_data : public socket_helpers::connection_info {
 		std::string password;
 		std::string encryption;
-		std::string host;
-		std::string port;
 		std::string sender_hostname;
-		int timeout;
 		int buffer_length;
 		int time_delta;
 
 		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
 			arguments.import(target);
+			address = arguments.address.host;
+			port_ = arguments.address.get_port_string("5667");
+			ssl.enabled = arguments.get_bool_data("ssl");
+			ssl.certificate = arguments.get_string_data("certificate");
+			ssl.certificate_key = arguments.get_string_data("certificate key");
+			ssl.certificate_key_format = arguments.get_string_data("certificate format");
+			ssl.ca_path = arguments.get_string_data("ca");
+			ssl.allowed_ciphers = arguments.get_string_data("allowed ciphers");
+			ssl.dh_key = arguments.get_string_data("pfs");
+			ssl.verify_mode = arguments.get_string_data("verify mode");
 			timeout = arguments.get_int_data("timeout", 30);
 			buffer_length = arguments.get_int_data("payload length", 512);
 			password = arguments.get_string_data("password");
@@ -103,8 +145,6 @@ public:
 				time_delta = strEx::stol_as_time_sec(arguments.get_string_data("time offset"));
 			else
 				time_delta = 0;
-			host = arguments.address.get_host();
-			port = strEx::s::xtos(arguments.address.get_port(5667));
 			sender_hostname = sender.address.host;
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
@@ -119,14 +159,13 @@ public:
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << "host: " << host;
-			ss << ", port: " << port;
-			ss << ", timeout: " << timeout;
+			ss << "host: " << get_endpoint_string();
 			ss << ", buffer_length: " << buffer_length;
 			ss << ", time_delta: " << time_delta;
 			ss << ", password: " << password;
 			ss << ", encryption: " << encryption << "(" << nscp::encryption::helpers::encryption_to_int(encryption) << ")";
 			ss << ", hostname: " << sender_hostname;
+			ss << ", ssl: " << ssl.to_string();
 			return ss.str();
 		}
 	};
@@ -174,7 +213,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return std::wstring(_T("Passive check support over NSCA."));
+		return _T("Passive check support over NSCA.");
 	}
 
 	bool hasCommandHandler() { return true; };
