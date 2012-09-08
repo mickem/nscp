@@ -122,6 +122,48 @@ CComPtr<IWbemServices> create_service(std::wstring ns, std::wstring user, std::w
 	return service;
 }
 
+template <class T, enum VARENUM U>
+std::wstring parse_item(T value);
+
+template<>
+std::wstring parse_item<SHORT,VT_BOOL>(SHORT value) {
+	return value?_T("TRUE"):_T("FALSE");
+}
+template<>
+std::wstring parse_item<BSTR,VT_BSTR>(BSTR value) {
+	return OLE2T(value);
+}
+template<>
+std::wstring parse_item<UINT,VT_UI1>(UINT value) {
+	return strEx::itos(value);
+}
+template<class T, enum VARENUM U>
+std::wstring array_to_string(std::wstring tag, CComVariant &vValue) {
+	SAFEARRAY* paArray = vValue.parray;
+
+	T * array = NULL;
+
+	SafeArrayAccessData(paArray, (void**)&array);
+
+	long lLBound = 0;
+	long lUBound = 0;
+	long nCount = 0;
+
+	if (FAILED(SafeArrayGetLBound(paArray, 1, &lLBound)) ||
+		FAILED(SafeArrayGetUBound(paArray, 1, &lUBound)))
+	{
+		NSC_LOG_ERROR_STD(tag + _T(" failed to get bounds for array"));
+		return _T("UNKNOWN");
+	}
+	nCount = ( lUBound - lLBound + 1 );
+	std::wstring result;
+	for (int i=0; i < nCount; i++) {
+		std::wstring s = parse_item<T,U>(array[i]);
+		strEx::append_list(result, s);
+	}
+	SafeArrayUnaccessData(paArray);
+	return result;
+}
 
 WMIQuery::WMIResult get_value(std::wstring tag, CComVariant &vValue) {
 	WMIQuery::WMIResult value;
@@ -141,6 +183,12 @@ WMIQuery::WMIResult get_value(std::wstring tag, CComVariant &vValue) {
 		value.setString(_T("NULL"));
 	} else if (vValue.vt == VT_BOOL) {
 		value.setBoth(vValue.iVal, vValue.iVal?_T("TRUE"):_T("FALSE"));
+	} else if (vValue.vt == (VT_ARRAY|VT_BSTR)) {
+		value.setString(array_to_string<BSTR,VT_BSTR>(tag, vValue));
+	} else if (vValue.vt == (VT_ARRAY|VT_BOOL)) {
+		value.setString(array_to_string<SHORT,VT_BOOL>(tag, vValue));
+	} else if (vValue.vt == (VT_ARRAY|VT_UI1)) {
+		value.setString(array_to_string<UINT,VT_UI1>(tag, vValue));
 	} else {
 		value.setString(_T("UNKNOWN"));
 		NSC_LOG_ERROR_STD(tag + _T(" is not supported (type-id: ") + strEx::itos(vValue.vt) + _T(")"));

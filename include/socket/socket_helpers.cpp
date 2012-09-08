@@ -153,6 +153,40 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 	}
 }
 #ifdef USE_SSL
+void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> errors) {
+	boost::system::error_code er;
+	if (!certificate.empty() && certificate != "none") {
+		context.use_certificate_file(certificate, get_certificate_format(), er);
+		if (er)
+			errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+		if (!certificate_key.empty() && certificate_key != "none") {
+			context.use_private_key_file(certificate_key, get_certificate_key_format(), er);
+			if (er)
+				errors.push_back("Failed to load certificate key " + certificate_key + ": " + utf8::utf8_from_native(er.message()));
+		} else {
+			context.use_private_key_file(certificate, get_certificate_key_format(), er);
+			if (er)
+				errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+		}
+	}
+	context.set_verify_mode(get_verify_mode(), er);
+	if (er)
+		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
+	if (!allowed_ciphers.empty())
+		SSL_CTX_set_cipher_list(context.impl(), allowed_ciphers.c_str());
+	if (!dh_key.empty() && dh_key != "none") {
+		context.use_tmp_dh_file(dh_key, er);
+		if (er)
+			errors.push_back("Failed to set dh file " + dh_key + ": " + utf8::utf8_from_native(er.message()));
+	}
+
+	if (!ca_path.empty()) {
+		context.load_verify_file(ca_path, er);
+		if (er)
+			errors.push_back("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()));
+	}
+}
+
 boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode()
 {
 	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;

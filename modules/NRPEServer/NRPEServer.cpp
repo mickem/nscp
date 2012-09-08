@@ -88,7 +88,7 @@ bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, true),
 			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
 
-			(_T("pfs"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+			(_T("dh"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
 			_T("DH KEY"), _T(""), true)
 
 			(_T("certificate"), sh::path_key(&info_.ssl.certificate),

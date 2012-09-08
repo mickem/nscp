@@ -21,7 +21,6 @@
 #pragma once
 
 #include <types.hpp>
-#include <Singleton.h>
 #include <string>
 #include <map>
 #include <set>

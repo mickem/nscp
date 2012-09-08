@@ -4,6 +4,17 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-09-08 MickeM
+ * Improved command line help texts and added global --version option.
+   Running nscp without options now lists all context and their use.
+ * settings: bool options are now case insensetive so TrUe will now evaluate to true...
+ * Improved clients command line interface adding support for default command
+ * Improved command line syntax removing som extra printouts
+ * Added support for lists (int and string) to wmi checks and commands.
+
+2012-09-07 MickeM
+ * Full SSL support for all server (NRPE, NSCA, check_mk, NSCP) by full I mean certificate based authentication
+
 2012-09-06 MickeM
  * Full SSL support for all clients (NRPE, NSCA, check_mk, NSCP) by full I mean certificate based authentication
 

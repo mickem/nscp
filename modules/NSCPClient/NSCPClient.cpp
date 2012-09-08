@@ -195,7 +195,7 @@ void NSCPClient::add_local_options(po::options_description &desc, client::config
 		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("pfs", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "pfs", _1)), 
+		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
 		"Length of payload (has to be same as on the server)")
 
 		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 

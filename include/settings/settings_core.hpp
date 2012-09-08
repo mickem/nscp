@@ -21,10 +21,11 @@
 #pragma once
 
 #include <types.hpp>
-#include <Singleton.h>
 #include <string>
 #include <map>
 #include <set>
+#include <algorithm>
+
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
@@ -35,7 +36,7 @@
 namespace settings {
 
 
-	class settings_exception : std::exception {
+	class settings_exception : public std::exception {
 		std::string error_;
 	public:
 		//////////////////////////////////////////////////////////////////////////
@@ -473,6 +474,7 @@ namespace settings {
 		virtual std::wstring get_info() = 0;
 
 		static bool string_to_bool(std::wstring str) {
+			std::transform(str.begin(), str.end(), str.begin(), std::tolower);
 			return str == _T("true")||str == _T("1");
 		}
 

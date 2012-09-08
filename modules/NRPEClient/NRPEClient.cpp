@@ -186,40 +186,35 @@ void NRPEClient::add_local_options(po::options_description &desc, client::config
  		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
 			"Do not initial an ssl handshake with the server, talk in plaintext.")
 
-		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("pfs", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "pfs", _1)), 
-		"Length of payload (has to be same as on the server)")
+		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
+		"The pre-generated DH key (if ADH is used this will be your 'key' though it is not a secret key)")
 
-		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		("certificate-key", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
 		"Client certificate to use")
 
 		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
-		"Client certificate format")
+		"Client certificate format (default is PEM)")
 
 		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
-		"Certificate authority")
+		"A file representing the Certificate authority used to validate peer certificates")
 
 		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
-		"Client certificate format")
+		"Which verification mode to use: none: no verification, peer: that peer has a certificate, peer-cert: that peer has a valid certificate, ...")
 
 		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
-		"Client certificate format")
+		"Which ciphers are allowed for legacy reasons this defaults to ADH which is not secure preferably set this to DEFAULT which is better or a an even stronger cipher")
 
 		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
 		"Length of payload (has to be same as on the server)")
 
 		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
-			"Length of payload (has to be same as on the server)")
+			"Same as payload-lenght (used for legacy reasons)")
 
- 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+ 		("ssl", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
 			"Initial an ssl handshake with the server.")
-
-		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
-		"")
-
-
  		;
 }
 
@@ -228,6 +223,7 @@ void NRPEClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
+	config.default_command = "query";
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
 		recipient = _T("default");

@@ -379,7 +379,7 @@ namespace sh = nscapi::settings_helper;
  * @author mickem
  */
 bool NSClientT::boot_init(std::wstring log_level) {
-	LOG_DEBUG_CORE(SERVICE_NAME _T(" Loading settings and logger..."));
+	LOG_DEBUG_CORE(utf8::cvt<std::wstring>(SERVICE_NAME) + _T(" Loading settings and logger..."));
 
 	if (!settings_manager::init_settings(&provider, context_)) {
 		return false;
@@ -390,7 +390,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 	if (!log_level.empty())
 		nsclient::logging::logger::set_log_level(log_level);
 
-	LOG_INFO_CORE(SERVICE_NAME _T(" booting..."));
+	LOG_DEBUG_CORE(utf8::cvt<std::wstring>(SERVICE_NAME) + _T(" booting..."));
 	LOG_DEBUG_CORE(_T("Booted settings subsystem..."));
 
 	bool crash_submit = false;
@@ -609,7 +609,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
 		LOG_ERROR_CORE_STD(_T("Unknown exception loading plugins"));
 		return false;
 	}
-	LOG_DEBUG_CORE_STD(APPLICATION_NAME _T(" - ") CURRENT_SERVICE_VERSION _T(" Started!"));
+	LOG_DEBUG_CORE_STD(utf8::cvt<std::wstring>(APPLICATION_NAME) + _T(" - ") + utf8::cvt<std::wstring>(CURRENT_SERVICE_VERSION) + _T(" Started!"));
 	return true;
 }
 

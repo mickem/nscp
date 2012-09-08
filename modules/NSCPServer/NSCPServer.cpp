@@ -77,16 +77,16 @@ bool NSCPListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
 
-			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, false),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), true)
+			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, true),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
 
-			(_T("certificate"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+			(_T("dh"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
 			_T("DH KEY"), _T(""), true)
 
-			(_T("certificate"), sh::path_key(&info_.ssl.certificate, "${certificate-path}/certificate.pem"),
-			_T("SSL CERTIFICATE"), _T(""), true)
+			(_T("certificate"), sh::path_key(&info_.ssl.certificate),
+			_T("SSL CERTIFICATE"), _T(""), false)
 
-			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key, "${certificate-path}/certificate_key.pem"),
+			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key),
 			_T("SSL CERTIFICATE"), _T(""), true)
 
 			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
@@ -95,11 +95,11 @@ bool NSCPListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
 			_T("CA"), _T(""), true)
 
-			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
-			_T("ALLOWED CIPHERS"), _T(""), true)
+			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ADH"),
+			_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
 
 			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
-			_T("VERIFY MODE"), _T(""), true)
+			_T("VERIFY MODE"), _T(""), false)
 			;
 
 		settings.register_all();

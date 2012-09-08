@@ -64,7 +64,7 @@ private:
 				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
 				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
 
-				(_T("pfs"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("pfs"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
+				(_T("dh"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("dh"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
 				_T("DH KEY"), _T(""), true)
 
 				(_T("certificate"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1)),
@@ -95,7 +95,7 @@ private:
 		static void post_process_target(target_object &target) {
 			std::list<std::wstring> err;
 			nscapi::targets::helpers::verify_file(target, _T("certificate"), err);
-			nscapi::targets::helpers::verify_file(target, _T("pfs"), err);
+			nscapi::targets::helpers::verify_file(target, _T("dh"), err);
 			nscapi::targets::helpers::verify_file(target, _T("certificate key"), err);
 			nscapi::targets::helpers::verify_file(target, _T("ca"), err);
 			BOOST_FOREACH(const std::wstring &e, err) {
@@ -120,7 +120,7 @@ public:
 			ssl.certificate_key_format = arguments.get_string_data("certificate format");
 			ssl.ca_path = arguments.get_string_data("ca");
 			ssl.allowed_ciphers = arguments.get_string_data("allowed ciphers");
-			ssl.dh_key = arguments.get_string_data("pfs");
+			ssl.dh_key = arguments.get_string_data("dh");
 			ssl.verify_mode = arguments.get_string_data("verify mode");
 			timeout = arguments.get_int_data("timeout", 30);
 

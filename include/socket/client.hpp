@@ -329,7 +329,7 @@ namespace socket_helpers {
 				boost::system::error_code error = connection_->connect(info_.get_address(), info_.get_port());
 				if (error) {
 					connection_.reset();
-					throw socket_helpers::socket_exception(error.message());
+					throw socket_helpers::socket_exception("Failed to connect to: " + info_.get_endpoint_string() + " :" + utf8::utf8_from_native(error.message()));
 				}
 			}
 
@@ -337,50 +337,12 @@ namespace socket_helpers {
 				boost::posix_time::time_duration timeout(boost::posix_time::seconds(info_.timeout));
 
 #ifdef USE_SSL
-				boost::system::error_code er;
 				if (info_.ssl.enabled) {
-					if (!info_.ssl.certificate.empty()) {
-						context_.use_certificate_file(info_.ssl.certificate, info_.ssl.get_certificate_format(), er);
-						if (er) {
-							handler_->log_error(__FILE__, __LINE__, "Failed to load certificate: " + utf8::utf8_from_native(er.message()));
-						}
-						if (!info_.ssl.certificate_key.empty()) {
-							context_.use_private_key_file(info_.ssl.certificate_key, info_.ssl.get_certificate_key_format(), er);
-							if (er) {
-								handler_->log_error(__FILE__, __LINE__, "Failed to load key: " + utf8::utf8_from_native(er.message()));
-							}
-						} else {
-							context_.use_private_key_file(info_.ssl.certificate, info_.ssl.get_certificate_key_format(), er);
-							if (er) {
-								handler_->log_error(__FILE__, __LINE__, "Failed to load key: " + utf8::utf8_from_native(er.message()));
-							}
-						}
+					std::list<std::string> errors;
+					info_.ssl.configure_ssl_context(context_, errors);
+					BOOST_FOREACH(const std::string &e, errors) {
+						handler_->log_error(__FILE__, __LINE__, e);
 					}
-					context_.set_verify_mode(info_.ssl.get_verify_mode(), er);
-					if (er) {
-						handler_->log_error(__FILE__, __LINE__, "Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
-					}
-					if (!info_.ssl.allowed_ciphers.empty())
-						SSL_CTX_set_cipher_list(context_.impl(), info_.ssl.allowed_ciphers.c_str());
-					if (!info_.ssl.dh_key.empty() && info_.ssl.dh_key != "none") {
-						context_.use_tmp_dh_file(info_.ssl.dh_key, er);
-						if (er) {
-							handler_->log_error(__FILE__, __LINE__, "Failed to set dk pfs: " + utf8::utf8_from_native(er.message()));
-						}
-					}
-
-					if (!info_.ssl.ca_path.empty()) {
-						context_.load_verify_file(info_.ssl.ca_path, er);
-						if (er) {
-							handler_->log_error(__FILE__, __LINE__, "Failed to set CA: " + utf8::utf8_from_native(er.message()));
-						}
-					}
-
-					/*
-					SSL_CTX_set_cipher_list(context.impl(), "ADH");
-					context.use_tmp_dh_file(dh_key_);
-					context.set_verify_mode(boost::asio::ssl::context::verify_none);
-					*/
 					return new ssl_connection_type(io_service_, context_, timeout, handler_);
 				}
 #endif

@@ -92,10 +92,10 @@ NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.getBasePath().string(), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, APPLICATION_NAME, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(APPLICATION_NAME), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, CURRENT_SERVICE_VERSION, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(CURRENT_SERVICE_VERSION), NSCAPI::isSuccess);
 }
 void NSAPISimpleMessage(int loglevel, const char* file, int line, const wchar_t* message) {
 	nsclient::logging::logger::get_logger()->log(loglevel, file, line, message);

@@ -50,17 +50,5 @@ private:
 	socket_helpers::connection_info info_;
 	boost::shared_ptr<nrpe::server::server> server_;
 	boost::shared_ptr<handler_impl> handler_;
-
-
-	class NRPEExceptionn {
-		std::wstring error_;
-	public:
-		NRPEExceptionn(std::wstring s) {
-			error_ = s;
-		}
-		std::wstring getMessage() {
-			return error_;
-		}
-	};
 };
 
