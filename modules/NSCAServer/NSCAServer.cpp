@@ -61,6 +61,8 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("password"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_password, handler_, _1), ""),
 			_T("PASSWORD"), _T("Password to use"))
 
+			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, false),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
 
 			;
 
@@ -86,9 +88,6 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 			(_T("inbox"), sh::string_fun_key<std::wstring>(boost::bind(&nsca::server::handler::set_channel, handler_, _1), _T("inbox")),
 			_T("INBOX"), _T("The default channel to post incoming messages on"))
-
-			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, true),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
 
 			(_T("dh"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
 			_T("DH KEY"), _T(""), true)

@@ -184,20 +184,25 @@ int client::command_manager::exec_simple(configuration &config, const std::wstri
 }
 int client::command_line_parser::do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response) {
 	boost::program_options::variables_map vm;
+	try {
 
-	po::options_description common("Common options");
-	add_common_options(common, config.data);
-	po::options_description query("Query NSCP options");
-	add_query_options(query, config.data);
-	po::options_description desc("Allowed options");
-	desc.add(common).add(query).add(config.local);
+		po::options_description common("Common options");
+		add_common_options(common, config.data);
+		po::options_description query("Query NSCP options");
+		add_query_options(query, config.data);
+		po::options_description desc("Allowed options");
+		desc.add(common).add(query).add(config.local);
 
-	std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
-	po::positional_options_description p;
-	p.add("arguments", -1);
-	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
-	po::store(parsed, vm);
-	po::notify(vm);
+		std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
+		po::positional_options_description p;
+		p.add("arguments", -1);
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::functions::create_simple_query_response_unknown(command, _T("Failed to parse command line re-run with --help to get help: ") + utf8::to_unicode(e.what()), _T(""), response);
+
+	}
 
 	if (vm.count("help")) {
 		return nscapi::functions::create_simple_query_response_unknown(command, build_help(config), _T(""), response);

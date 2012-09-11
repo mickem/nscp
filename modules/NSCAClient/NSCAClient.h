@@ -84,7 +84,7 @@ private:
 				(_T("verify mode"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("verify mode"), _1), _T("none")),
 				_T("VERIFY MODE"), _T(""), false)
 
-				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
+				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), false),
 				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
 
 				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 512),

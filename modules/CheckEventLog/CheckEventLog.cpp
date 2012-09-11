@@ -95,7 +95,7 @@ void real_time_thread::process_record(const filters::filter_config_object &objec
 }
 
 void real_time_thread::debug_miss(const EventLogRecord &record) {
-	std::wstring message = record.render(true, _T("%type% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
+	std::wstring message = record.render(true, _T("%id% %level% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
 	NSC_DEBUG_MSG_STD(_T("No filter matched: ") + message);
 }
 
@@ -172,7 +172,7 @@ void real_time_thread::thread_proc() {
 
 		DWORD minNext = INFINITE;
 		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
-			NSC_DEBUG_MSG_STD(_T("Getting nect from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
+			NSC_DEBUG_MSG_STD(_T("Getting next from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
 			if (object.next_ok_ > 0 && object.next_ok_ < minNext)
 				minNext = object.next_ok_;
 		}
@@ -212,7 +212,7 @@ void real_time_thread::thread_proc() {
 				bool matched = false;
 
 				BOOST_FOREACH(filters::filter_config_object &object, filters) {
-					if (object.log_ != _T("any") && object.log_ != el->get_name()) {
+					if (object.log_ != _T("any") && object.log_ != _T("all") && object.log_ != el->get_name()) {
 						NSC_DEBUG_MSG_STD(_T("Skipping filter: ") + object.alias);
 						continue;
 					}
@@ -584,7 +584,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 }
 NSCAPI::nagiosReturn CheckEventLog::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	std::wstring command = char_command;
-	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message") || command == _T("insert")) {
+	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message") || command == _T("insert") || command.empty()) {
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 		std::wstring message;
 		std::vector<std::wstring> args(data.args.begin(), data.args.end());
@@ -636,7 +636,7 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 		po::store(parsed, vm);
 		po::notify(vm);
 
-		if (help) {
+		if (help || arguments.empty()) {
 			std::stringstream ss;
 			ss << "CheckEventLog Command line syntax:" << std::endl;
 			ss << desc;

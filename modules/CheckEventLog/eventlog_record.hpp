@@ -302,6 +302,7 @@ public:
 		strEx::replace(syntax, _T("%rawid%"), strEx::itos(raw_id()));
 		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
 		strEx::replace(syntax, _T("%strings%"), enumStrings());
+		strEx::replace(syntax, _T("%level%"), translateType(eventType()));
 		strEx::replace(syntax, _T("%log%"), file_);
 		strEx::replace(syntax, _T("%file%"), file_);
 		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));

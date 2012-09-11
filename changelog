@@ -4,6 +4,14 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-09-11 MickeM
+ * Added NSCP uptime to check_nscp
+
+2012-09-08 MickeM
+ * Fixed log matching in CheckEventLog when no log was specified
+ * Improved command line syntax for eventlog
+ * Fixed return code issue in SimpleCache module
+
 2012-09-08 MickeM
  * Improved command line help texts and added global --version option.
    Running nscp without options now lists all context and their use.

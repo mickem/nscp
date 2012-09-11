@@ -228,13 +228,13 @@ void NSCAAgent::add_local_options(po::options_description &desc, client::configu
 		("encryption,e", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "encryption", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
 		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		("certificate-key", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
 		"Client certificate to use")
 
 		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 

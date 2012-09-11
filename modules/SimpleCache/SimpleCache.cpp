@@ -280,14 +280,16 @@ NSCAPI::nagiosReturn Cache::handleRAWCommand(const wchar_t *command, const std::
 				data = cit->second;
 		}
 		if (data) {
-			response_msg.add_payload()->ParseFromString(*data);
+			::Plugin::QueryResponseMessage::Response* rsp = response_msg.add_payload();
+			rsp->ParseFromString(*data);
+			ret = nscapi::functions::gbp_to_nagios_status(rsp->result());
 		} else {
 			nscapi::functions::append_simple_query_response_payload(response_msg.add_payload(), payload.command(), NSCAPI::returnUNKNOWN, "Entry not found");
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}
 	response_msg.SerializeToString(&reply);
-	return NSCAPI::returnOK;
+	return ret;
 }
 NSC_WRAP_DLL()
 NSC_WRAPPERS_MAIN_DEF(Cache)
