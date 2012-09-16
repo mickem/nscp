@@ -7,7 +7,7 @@ PROJECT(reporter)
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 SET(reporter_SRCS
-	StdAfx.cpp
+	stdafx.cpp
 	reporter.cpp
 )
 
@@ -15,7 +15,7 @@ IF(WIN32)
 	SET(reporter_SRCS ${reporter_SRCS}
 		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
 		reporter.h
-		StdAfx.h
+		atdafx.h
 	)
 	SET(EXTRA_LIBS Wininet.lib)
 ENDIF(WIN32)
