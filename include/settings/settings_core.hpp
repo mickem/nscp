@@ -474,7 +474,7 @@ namespace settings {
 		virtual std::wstring get_info() = 0;
 
 		static bool string_to_bool(std::wstring str) {
-			std::transform(str.begin(), str.end(), str.begin(), std::tolower);
+			std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 			return str == _T("true")||str == _T("1");
 		}
 
