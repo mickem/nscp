@@ -4,6 +4,11 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-09-22 MickeM
+ * Fixed performance data parsing for empty sections such as f=1;;;;1 will now work (and not become f=1;0;0;0;1)
+ * Added unit test for perfoamnce data parsing
+ * Added gtest unit test to ctest
+
 2012-09-11 MickeM
  * Added NSCP uptime to check_nscp
 

@@ -26,12 +26,6 @@ IF(GTEST_FOUND)
 	SET(SRCS
 		expression_test.cpp
 	)
-#	IF(WIN32)
-#		SET(SRCS ${SRCS}
-#			expression_test.hpp
-#		)
-#	ENDIF(WIN32)
-
 	ADD_EXECUTABLE(${TARGET}_test ${SRCS})
 	TARGET_LINK_LIBRARIES(${TARGET}_test
 		${GTEST_GTEST_LIBRARY}
@@ -39,4 +33,5 @@ IF(GTEST_FOUND)
 		${TARGET}
 	)
 	SET_TARGET_PROPERTIES(${TARGET}_test PROPERTIES FOLDER "tests")
+	ADD_TEST(${TARGET}_test ${TARGET}_test)
 ENDIF(GTEST_FOUND)

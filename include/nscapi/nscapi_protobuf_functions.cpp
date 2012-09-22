@@ -687,14 +687,14 @@ namespace nscapi {
 					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend)));
 					floatPerfData->set_unit(utf8::cvt<std::string>(fitem.second.substr(pend)));
 				}
-				if (items.size() > 2) {
+				if (items.size() >= 2 && items[1].size() > 0)
 					floatPerfData->set_warning(trim_to_double(items[1]));
+				if (items.size() >= 3 && items[2].size() > 0)
 					floatPerfData->set_critical(trim_to_double(items[2]));
-				}
-				if (items.size() >= 5) {
+				if (items.size() >= 4 && items[3].size() > 0)
 					floatPerfData->set_minimum(trim_to_double(items[3]));
+				if (items.size() >= 5 && items[4].size() > 0)
 					floatPerfData->set_maximum(trim_to_double(items[4]));
-				}
 			}
 		}
 		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf) {
@@ -733,18 +733,26 @@ namespace nscapi {
 					ss << strEx::s::itos_non_sci(fval.value());
 					if (fval.has_unit())
 						ss << fval.unit();
-					if (!fval.has_warning())
+					if (!fval.has_warning() && !fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.warning());
-					if (!fval.has_critical())	
+					ss << ";";
+					if (fval.has_warning())
+						ss << strEx::s::itos_non_sci(fval.warning());
+					if (!fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.critical());
-					if (!fval.has_minimum())
+					ss << ";";
+					if (fval.has_critical())
+						ss << strEx::s::itos_non_sci(fval.critical());
+					if (!fval.has_minimum() && !fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.minimum());
+					ss << ";";
+					if (fval.has_minimum())
+						ss << strEx::s::itos_non_sci(fval.minimum());
 					if (!fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.maximum());
+					ss << ";";
+					if (fval.has_maximum())
+						ss << strEx::s::itos_non_sci(fval.maximum());
 				}
 			}
 			return ss.str();

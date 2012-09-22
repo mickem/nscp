@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 PROJECT(NSCP CXX C)
 
+ENABLE_TESTING()
 IF(COMMAND CMAKE_POLICY)
 CMAKE_POLICY(SET CMP0011 NEW)
 ENDIF(COMMAND CMAKE_POLICY)
@@ -316,8 +317,6 @@ IF(MSVC_IDE)
     # hack to get around the "Debug" and "Release" directories cmake tries to add on Windows
     SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES PREFIX "../")
 ENDIF(MSVC_IDE)
-
-ENABLE_TESTING()
 
 #############################################################################
 #
