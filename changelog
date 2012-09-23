@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-09-23 MickeM
+ * Fixed a centos (?) linkage issue with PythonScript module
+
 2012-09-22 MickeM
  * Fixed performance data parsing for empty sections such as f=1;;;;1 will now work (and not become f=1;0;0;0;1)
  * Added unit test for perfoamnce data parsing
