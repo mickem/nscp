@@ -34,11 +34,15 @@ namespace nscapi {
 	namespace protobuf {
 		namespace types {
 	
-			struct decoded_simple_command_data {
-				std::wstring command;
-				std::wstring target;
-				std::list<std::wstring> args;
+			template<class T>
+			struct decoded_simple_command_data_raw {
+				T command;
+				T target;
+				std::list<T> args;
 			};
+
+			typedef decoded_simple_command_data_raw<std::wstring> decoded_simple_command_data;
+			typedef decoded_simple_command_data_raw<std::string> decoded_simple_command_data_utf8;
 
 			struct destination_container {
 				std::string id;

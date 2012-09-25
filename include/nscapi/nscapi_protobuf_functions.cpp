@@ -464,6 +464,22 @@ namespace nscapi {
 			}
 			return data;
 		}
+		functions::decoded_simple_command_data_utf8 functions::parse_simple_query_request_utf8(const wchar_t* char_command, const std::string &request) {
+			decoded_simple_command_data_utf8 data;
+
+			data.command = utf8::cvt<std::string>(char_command);
+			Plugin::QueryRequestMessage message;
+			message.ParseFromString(request);
+
+			if (message.payload_size() != 1) {
+				THROW_INVALID_SIZE(message.payload_size());
+			}
+			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
+			for (int i=0;i<payload.arguments_size();i++) {
+				data.args.push_back(payload.arguments(i));
+			}
+			return data;
+		}
 		functions::decoded_simple_command_data functions::parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload) {
 			decoded_simple_command_data data;
 			data.command = utf8::cvt<std::wstring>(payload.command());

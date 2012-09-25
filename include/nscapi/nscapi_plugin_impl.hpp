@@ -41,6 +41,11 @@ namespace nscapi {
 			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 			virtual NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) = 0;
 		};
+		class utf8_command_handler {
+		public:
+			NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+			virtual NSCAPI::nagiosReturn handleCommand(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf) = 0;
+		};
 		class simple_command_line_exec {
 		public:
 			NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);

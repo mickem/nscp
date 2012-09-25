@@ -196,7 +196,7 @@ namespace checkHolders {
 		MagicCheckContainer() : tParent() {}
 		MagicCheckContainer(std::wstring data_, TContents warn_, TContents crit_) : tParent(data_, warn_, crit_) {}
 		MagicCheckContainer(std::wstring data_, std::wstring alias_, TContents warn_, TContents crit_) : tParent(data_, alias_, warn_, crit_) {}
-		MagicCheckContainer(const TThisType &other) : tParent(other) {}
+		MagicCheckContainer(const MagicCheckContainer<TContents> &other) : tParent(other) {}
 
 		MagicCheckContainer<TContents>& operator =(const MagicCheckContainer<TContents> &other) {
 			tParent::operator =(other);
@@ -205,10 +205,10 @@ namespace checkHolders {
 
 
 		void set_magic(double magic) {
-			warn.max_.set_magic(magic);
-			warn.min_.set_magic(magic);
-			crit.max_.set_magic(magic);
-			crit.min_.set_magic(magic);
+			CheckContainer<TContents>::warn.max_.set_magic(magic);
+			CheckContainer<TContents>::warn.min_.set_magic(magic);
+			CheckContainer<TContents>::crit.max_.set_magic(magic);
+			CheckContainer<TContents>::crit.min_.set_magic(magic);
 		}
 
 	};
@@ -326,7 +326,7 @@ namespace checkHolders {
 		{}
 	public:
 		~check_multi_container() {
-			for (check_list_type::iterator it=checks_.begin(); it != checks_.end(); ++it) {
+			for (typename check_list_type::iterator it=checks_.begin(); it != checks_.end(); ++it) {
 				delete *it;
 			}
 			checks_.clear();
@@ -345,19 +345,20 @@ namespace checkHolders {
 		}
 		std::wstring gatherPerfData(value_type &value) {
 			std::wstring ret;
-			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+			for (typename check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
 				ret += (*cit)->gatherPerfData((*cit)->getAlias(), value);
 			}
+			return ret;
 		}
 		bool hasBounds() {
-			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+			for (typename check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
 				if ((*cit)->hasBounds())
 					return true;
 			}
 			return false;
 		}
 		void runCheck(value_type value, NSCAPI::nagiosReturn &returnCode, std::wstring &message, std::wstring &perf) {
-			for (check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
+			for (typename check_list_type::const_iterator cit=checks_.begin(); cit != checks_.end(); ++cit) {
 				(*cit)->set_showall(show);
 				(*cit)->runCheck(value, returnCode, message, perf);
 			}
@@ -365,7 +366,7 @@ namespace checkHolders {
 		}
 	};
 
-	typedef unsigned __int64 disk_size_type;
+	typedef unsigned long long disk_size_type;
 	template <typename TType = disk_size_type>
 	class disk_size_handler {
 	public:
@@ -412,7 +413,7 @@ namespace checkHolders {
 
 	};
 
-	typedef unsigned __int64 time_type;
+	typedef unsigned long long time_type;
 	template <typename TType = time_type>
 	class time_handler {
 	public:
@@ -485,28 +486,28 @@ namespace checkHolders {
 	};
 	class int64_handler {
 	public:
-		static __int64 parse(std::wstring s) {
-			__int64 val = strEx::stoi64(s);
+		static long long parse(std::wstring s) {
+			long long val = strEx::stoi64(s);
 			if (val == 0 && s.length() > 1 && s[0] != L'0')
 				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
 			return val;
 		}
-		static __int64 parse_percent(std::wstring s) {
-			return strEx::stoi(s);
+		static long long parse_percent(std::wstring s) {
+			return strEx::stoi64(s);
 		}
-		static std::wstring print(__int64 value) {
+		static std::wstring print(long long value) {
 			return boost::lexical_cast<std::wstring>(value);
 		}
-		static std::wstring get_perf_unit(__int64 value) {
+		static std::wstring get_perf_unit(long long value) {
 			return _T("");
 		}
-		static std::wstring print_perf(__int64 value, std::wstring unit) {
+		static std::wstring print_perf(long long value, std::wstring unit) {
 			return boost::lexical_cast<std::wstring>(value);
 		}
-		static std::wstring print_unformated(__int64 value) {
+		static std::wstring print_unformated(long long value) {
 			return boost::lexical_cast<std::wstring>(value);
 		}
-		static std::wstring print_percent(__int64 value) {
+		static std::wstring print_percent(long long value) {
 			return boost::lexical_cast<std::wstring>(value) + _T("%");
 		}
 		static std::wstring key_prefix() {
@@ -598,7 +599,7 @@ namespace checkHolders {
 
 		bool bHasBounds_;
 		TType value_;
-		typedef typename TType TValueType;
+		typedef TType TValueType;
 		typedef THandler TFormatType;
 
 		NumericBounds() : bHasBounds_(false), value_(0) {};
@@ -681,7 +682,7 @@ namespace checkHolders {
 
 	};
 
-	template <typename TType = int, class THandler = int_handler >
+	template <typename TType, class THandler>
 	class NumericPercentageBounds {
 	public:
 		typedef enum {
@@ -689,7 +690,7 @@ namespace checkHolders {
 			percentage_upper = 1,
 			percentage_lower = 2,
 			value_upper = 3,
-			value_lower = 4,
+			value_lower = 4
 		} checkTypes;
 
 		class InternalValue {
@@ -719,7 +720,7 @@ namespace checkHolders {
 
 		};
 
-		typedef typename TType TValueType;
+		typedef TType TValueType;
 		typedef THandler TFormatType;
 		typedef NumericPercentageBounds<TType, THandler> TMyType;
 
@@ -822,7 +823,7 @@ namespace checkHolders {
 
 		std::wstring gatherPerfData(std::wstring alias, TType &value, typename TType::TValueType warn, typename TType::TValueType crit) {
 			unsigned int value_p, warn_p, crit_p;
-			TType::TValueType warn_v, crit_v;
+			typename TType::TValueType warn_v, crit_v;
 			if (type_ == percentage_upper) {
 				value_p = static_cast<unsigned int>(value.getUpperPercentage());
 				warn_p = static_cast<unsigned int>(warn);
@@ -910,7 +911,7 @@ namespace checkHolders {
 	class StateBounds {
 	public:
 		TType value_;
-		typedef typename TType TValueType;
+		typedef TType TValueType;
 		typedef THandler TFormatType;
 		typedef StateBounds<TType, THandler> TMyType;
 
@@ -958,15 +959,13 @@ namespace checkHolders {
 	};
 
 
-	template <class TValueType = MaxMinStateValueType, class TNumericHolder = NumericBounds<int, int_handler>, class TStateHolder = StateBounds<state_type, state_handler> >
+	template <class TValueType = MaxMinStateValueType<>, class TNumericHolder = NumericBounds<int, int_handler>, class TStateHolder = StateBounds<state_type, state_handler> >
 	class MaxMinStateBounds {
 	public:
 		TNumericHolder max_;
 		TNumericHolder min_;
 		TStateHolder state;
 		typedef MaxMinStateBounds<TValueType, TNumericHolder, TStateHolder > TMyType;
-
-		typedef typename TValueType TValueType;
 
 		MaxMinStateBounds() {}
 		MaxMinStateBounds(const MaxMinStateBounds &other) : state(other.state), max_(other.max_), min_(other.min_) {}
@@ -985,10 +984,10 @@ namespace checkHolders {
 			return state.hasBounds() ||  max_.hasBounds() || min_.hasBounds();
 		}
 
-		static std::wstring toStringLong(typename TValueType &value) {
+		static std::wstring toStringLong(TValueType &value) {
 			return TNumericHolder::toStringLong(value.count) + _T(", ") + TStateHolder::toStringLong(value.state);
 		}
-		static std::wstring toStringShort(typename TValueType &value) {
+		static std::wstring toStringShort(TValueType &value) {
 			return TNumericHolder::toStringShort(value.count);
 		}
 /*
@@ -1001,7 +1000,7 @@ namespace checkHolders {
 				message = max.toString(value.count);
 		}
 		*/
-		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
+		std::wstring gatherPerfData(std::wstring alias, TValueType &value, TMyType &warn, TMyType &crit) {
 			if (max_.hasBounds()) {
 				return max_.gatherPerfData(alias, value.count, warn.max_.getPerfBound(value.count), crit.max_.getPerfBound(value.count));
 			} else if (min_.hasBounds()) {
@@ -1011,10 +1010,10 @@ namespace checkHolders {
 			}
 			return _T("");
 		}
-		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+		std::wstring gatherPerfData(std::wstring alias, TValueType &value) {
 			return _T("");
 		}
-		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
+		bool check(TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
 			if ((state.hasBounds())&&(!state.check(value.state))) {
 				message = lable + _T(": ") + formatState(TStateHolder::toStringShort(value.state), type);
 				return true;
@@ -1029,59 +1028,6 @@ namespace checkHolders {
 				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
-		}
-
-	};
-
-	template <class TFilterType>
-	class FilterBounds {
-	public:
-		TFilterType filter;
-		typedef typename TFilterType::TValueType TValueType;
-		typedef FilterBounds<TFilterType> TMyType;
-
-		FilterBounds() {}
-		FilterBounds(const FilterBounds &other) {
-			filter = other.filter;
-		}
-		void reset() {
-			filter.reset();
-		}
-		bool hasBounds() {
-			return filter.hasFilter();
-		}
-
-		static std::wstring toStringLong(typename TValueType &value) {
-			//return filter.to_string() + _T(" matches ") + value;
-			// TODO FIx this;
-			return value;
-			//return TNumericHolder::toStringLong(value.count) + _T(", ") + TStateHolder::toStringLong(value.state);
-		}
-		static std::wstring toStringShort(typename TValueType &value) {
-			// TODO FIx this;
-			return value;
-			//return TNumericHolder::toStringShort(value.count);
-		}
-		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
-			return _T("");
-		}
-		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
-			return _T("");
-		}
-		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
-			if (filter.hasFilter()) {
-				if (!filter.matchFilter(value))
-					return false;
-				message = lable + _T(": ") + filter.to_string() + _T(" matches ") + value;
-				return true;
-			} else {
-				NSC_LOG_MESSAGE_STD(_T("Missing bounds for filter check: ") + lable);
-			}
-			return false;
-		}
-		const TMyType & operator=(std::wstring value) {
-			filter = value;
-			return *this;
 		}
 
 	};
@@ -1105,22 +1051,22 @@ namespace checkHolders {
 		bool hasBounds() {
 			return state.hasBounds();
 		}
-		static std::wstring toStringLong(typename TValueType &value) {
+		static std::wstring toStringLong(TValueType &value) {
 			return TStateHolder::toStringLong(value);
 		}
-		static std::wstring toStringShort(typename TValueType &value) {
+		static std::wstring toStringShort(TValueType &value) {
 			return TStateHolder::toStringShort(value);
 		}
-		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
+		std::wstring gatherPerfData(std::wstring alias, TValueType &value, TMyType &warn, TMyType &crit) {
 			if (state.hasBounds()) {
 				// @todo
 			}
 			return _T("");
 		}
-		std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+		std::wstring gatherPerfData(std::wstring alias, TValueType &value) {
 			return _T("");
 		}
-		bool check(typename TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
+		bool check(TValueType &value, std::wstring lable, std::wstring &message, ResultType type) {
 			if ((state.hasBounds())&&(!state.check(value))) {
 				message = lable + _T(": ") + formatState(TStateHolder::toStringLong(value), type);
 				return true;
@@ -1190,7 +1136,7 @@ namespace checkHolders {
 
 	};
 	typedef MaxMinBounds<NumericBounds<double, double_handler> > MaxMinBoundsDouble;
-	typedef MaxMinBounds<NumericBounds<__int64, int64_handler> > MaxMinBoundsInt64;
+	typedef MaxMinBounds<NumericBounds<long long, int64_handler> > MaxMinBoundsInt64;
 	typedef MaxMinBounds<NumericBounds<int, int_handler> > MaxMinBoundsInteger;
 	typedef MaxMinBounds<NumericBounds<unsigned int, int_handler> > MaxMinBoundsUInteger;
 	typedef MaxMinBounds<NumericBounds<unsigned long int, int_handler> > MaxMinBoundsULongInteger;
@@ -1308,13 +1254,13 @@ namespace checkHolders {
 	typedef ExactBounds<NumericBounds<unsigned int, int_handler> > ExactBoundsUInteger;
 	typedef ExactBounds<NumericBounds<unsigned long, int_handler> > ExactBoundsULong;
 	typedef ExactBounds<NumericBounds<long long, int_handler> > ExactBoundsLongLong;
-	typedef ExactBounds<NumericBounds<time_type, time_handler<__int64> > > ExactBoundsTime;
+	typedef ExactBounds<NumericBounds<time_type, time_handler<long long> > > ExactBoundsTime;
 
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<int ,int>, int_handler> > MaxMinPercentageBoundsInteger;
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<__int64, __int64>, int64_handler> > MaxMinPercentageBoundsInt64;
 	//typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<double, double>, double_handler> > MaxMinPercentageBoundsDouble;
 	typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<disk_size_type, disk_size_type>, disk_size_handler<> > > MaxMinPercentageBoundsDiskSize;
-	typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<__int64, __int64>, disk_size_handler<__int64> > > MaxMinPercentageBoundsDiskSizei64;
+	typedef MaxMinBounds<NumericPercentageBounds<PercentageValueType<long long, long long>, disk_size_handler<long long> > > MaxMinPercentageBoundsDiskSizei64;
 
 	typedef MaxMinStateBounds<MaxMinStateValueType<int, state_type>, NumericBounds<int, int_handler>, StateBounds<state_type, state_handler> > MaxMinStateBoundsStateBoundsInteger;
 	typedef SimpleStateBounds<StateBounds<state_type, state_handler> > SimpleBoundsStateBoundsInteger;

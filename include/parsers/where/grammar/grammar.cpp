@@ -190,7 +190,10 @@ namespace parsers {
 					= uint_												[_val = _1]
 					;
 			variable_name
-					= qi::lexeme[+(ascii::alpha | ascii::char_('_'))	[_val += _1]]
+					= qi::lexeme[
+							(ascii::alpha)							[_val += _1]
+							>> *(ascii::alnum|ascii::char_('_'))	[_val += _1]
+						]
 					;
 			string_literal
 					= qi::lexeme[ '\'' 

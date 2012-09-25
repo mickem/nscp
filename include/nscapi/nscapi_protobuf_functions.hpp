@@ -37,6 +37,7 @@ namespace nscapi {
 
 			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
+			typedef nscapi::protobuf::types::decoded_simple_command_data_utf8 decoded_simple_command_data_utf8;
 		public:
 			static Plugin::Common::ResultCode nagios_status_to_gpb(int ret) {
 				if (ret == NSCAPI::returnOK)
@@ -146,6 +147,7 @@ namespace nscapi {
 			static decoded_simple_command_data parse_simple_query_request(const wchar_t* char_command, const std::string &request);
 			static decoded_simple_command_data parse_simple_query_request(const std::string char_command, const std::string &request);
 			static decoded_simple_command_data parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload);
+			static decoded_simple_command_data_utf8 parse_simple_query_request_utf8(const wchar_t* char_command, const std::string &request);
 			static int parse_simple_query_response(const std::string &response, std::wstring &msg, std::wstring &perf);
 			static int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf);
 			static void create_simple_exec_request(const std::wstring &command, const std::list<std::wstring> & args, std::string &request);

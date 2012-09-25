@@ -111,10 +111,10 @@ namespace where_filter {
 		void process(boost::shared_ptr<record_type> record, bool result) {
 			count_++;
 			if (result) {
-				if (debug_)
-					error_->report_debug(_T("==> Matched: ") + record->render(syntax_, DATE_FORMAT));
+// 				if (debug_)
+// 					error_->report_debug(_T("==> Matched: ") + record->render(syntax_, DATE_FORMAT));
 						
-				strEx::append_list(message_, record->render(syntax_, date_syntax_));
+//				strEx::append_list(message_, record->render(syntax_, date_syntax_));
 				/*
 				if (alias.length() < 16)
 					strEx::append_list(alias, info.filename);
@@ -123,8 +123,8 @@ namespace where_filter {
 					*/
 				match_++;
 			} else {
-				if (debug_)
-					error_->report_debug(_T("==> NO Matched: ") + record->render(syntax_, DATE_FORMAT));
+// 				if (debug_)
+// 					error_->report_debug(_T("==> NO Matched: ") + record->render(syntax_, DATE_FORMAT));
 			}
 		}
 		unsigned int get_total_count() { return count_; }

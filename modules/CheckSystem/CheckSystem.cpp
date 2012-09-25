@@ -42,6 +42,61 @@
 #include <settings/client/settings_client.hpp>
 #include <config.h>
 
+
+
+template <class TFilterType>
+class FilterBounds {
+public:
+	TFilterType filter;
+	typedef typename TFilterType::TValueType TValueType;
+	typedef FilterBounds<TFilterType> TMyType;
+
+	FilterBounds() {}
+	FilterBounds(const FilterBounds &other) {
+		filter = other.filter;
+	}
+	void reset() {
+		filter.reset();
+	}
+	bool hasBounds() {
+		return filter.hasFilter();
+	}
+
+	static std::wstring toStringLong(typename TValueType &value) {
+		//return filter.to_string() + _T(" matches ") + value;
+		// TODO FIx this;
+		return value;
+		//return TNumericHolder::toStringLong(value.count) + _T(", ") + TStateHolder::toStringLong(value.state);
+	}
+	static std::wstring toStringShort(typename TValueType &value) {
+		// TODO FIx this;
+		return value;
+		//return TNumericHolder::toStringShort(value.count);
+	}
+	std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
+		return _T("");
+	}
+	std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+		return _T("");
+	}
+	bool check(typename TValueType &value, std::wstring lable, std::wstring &message, checkHolders::ResultType type) {
+		if (filter.hasFilter()) {
+			if (!filter.matchFilter(value))
+				return false;
+			message = lable + _T(": ") + filter.to_string() + _T(" matches ") + value;
+			return true;
+		} else {
+			NSC_LOG_MESSAGE_STD(_T("Missing bounds for filter check: ") + lable);
+		}
+		return false;
+	}
+	const TMyType & operator=(std::wstring value) {
+		filter = value;
+		return *this;
+	}
+
+};
+
 /**
  * Default c-tor
  * @return 
@@ -1739,7 +1794,7 @@ typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::Num
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULong> ExactULongContainer;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsLongLong> ExactLongLongContainer;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsTime> DateTimeContainer;
-typedef checkHolders::CheckContainer<checkHolders::FilterBounds<filters::filter_all_strings> > StringContainer;
+typedef checkHolders::CheckContainer<FilterBounds<filters::filter_all_strings> > StringContainer;
 
 struct check_regkey_child_count : public checkHolders::check_proxy_container<regkey_container, ExactULongContainer> {
 	check_regkey_child_count() { set_alias(_T("child-count")); }

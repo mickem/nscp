@@ -50,6 +50,16 @@ NSCAPI::nagiosReturn nscapi::impl::simple_command_handler::handleRAWCommand(cons
 }
 
 
+NSCAPI::nagiosReturn nscapi::impl::utf8_command_handler::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
+	nscapi::protobuf::types::decoded_simple_command_data_utf8 data = nscapi::functions::parse_simple_query_request_utf8(char_command, request);
+	std::string msg, perf;
+
+	NSCAPI::nagiosReturn ret = handleCommand(data.target, boost::algorithm::to_lower_copy(data.command), data.args, msg, perf);
+	nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
+	return ret;
+}
+
+
 
 NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);

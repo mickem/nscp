@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-09-25 MickeM
+ * Initial version of CheckLogFile added (currentl no real-time support)
+
 2012-09-23 MickeM
  * Fixed a centos (?) linkage issue with PythonScript module
 
