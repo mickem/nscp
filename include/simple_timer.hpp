@@ -24,12 +24,12 @@ public:
 	unsigned long long stop() {
 		boost::posix_time::time_duration diff = get() - start_time;
 		start();
-		return diff.total_microseconds();
+		return diff.total_seconds();
 	}
 
 private:
 	boost::posix_time::ptime get() {
-		return boost::posix_time::second_clock::local_time();
+		return boost::posix_time::microsec_clock::local_time();
 	}
 
 };

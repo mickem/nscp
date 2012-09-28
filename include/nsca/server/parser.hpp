@@ -45,6 +45,9 @@ namespace nsca {
 			std::string::size_type size() {
 				return buffer_.size();
 			}
+			void reset() {
+				buffer_.clear();
+			}
 		};
 
 	}// namespace server

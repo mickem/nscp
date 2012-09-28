@@ -296,8 +296,8 @@ namespace socket_helpers {
 		class client : boost::noncopyable {
 			boost::shared_ptr<connection<protocol_type> > connection_;
 			boost::asio::io_service io_service_;
-			boost::shared_ptr<typename protocol_type::client_handler> handler_;
 			socket_helpers::connection_info info_;
+			boost::shared_ptr<typename protocol_type::client_handler> handler_;
 
 			typedef connection<protocol_type> connection_type;
 			typedef tcp_connection<protocol_type> tcp_connection_type;

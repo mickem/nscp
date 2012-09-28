@@ -4,6 +4,14 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-09-28 MickeM
+ * Fixed NRPE and NSCA buffer issue: Invalid packet length: 1059 != 1036 configured payload is: 1024
+
+2012-09-27 MickeM
+ * Much improved CheckLogFile with warn/crit/filter concepts (currentl no real-time support)
+   check_logfile debug "file=c:\\test.txt" "column-split=\\t" "filter=column1 eq '123' OR column(2) like 'bar' or column3 like 'foo'" "warn=column3 like 'foo'" "crit=column1 eq '123'"
+   Use "check_logfile help" for more details
+
 2012-09-25 MickeM
  * Initial version of CheckLogFile added (currentl no real-time support)
 

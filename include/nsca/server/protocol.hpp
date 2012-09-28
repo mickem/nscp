@@ -52,6 +52,7 @@ namespace nsca {
 
 		bool on_accept(boost::asio::ip::tcp::socket& socket) {
 			std::list<std::string> errors;
+			parser_.reset();
 			std::string s = socket.remote_endpoint().address().to_string();
 			if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {
 				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s);

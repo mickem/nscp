@@ -20,37 +20,29 @@ namespace logfile_filter {
 		std::string filename;
 		std::string line;
 		std::vector<std::string> chunks;
+		long long count;
 		typedef parsers::where::expression_ast expression_ast_type;
-		filter_obj(std::string filename, std::string line, std::list<std::string> chunks) : filename(filename), line(line), chunks(chunks.begin(), chunks.end()) {}
+		filter_obj(std::string filename, std::string line, std::list<std::string> chunks, long long count) : filename(filename), line(line), chunks(chunks.begin(), chunks.end()), count(count) {}
 
-		std::wstring get_column(int col) {
+		std::wstring get_column(int col) const {
 			if (col >= 1 && col <= chunks.size())
 				return utf8::cvt<std::wstring>(chunks[col-1]);
 			return _T("");
 		}
-		std::wstring get_column_1() {
-			if (chunks.size() > 1)
-				return utf8::cvt<std::wstring>(chunks[0]);
-			return _T("");
-		}
-		std::wstring get_column_2() {
-			if (chunks.size() > 2)
-				return utf8::cvt<std::wstring>(chunks[1]);
-			return _T("");
-		}
-		std::wstring get_column_3() {
-			if (chunks.size() > 3)
-				return utf8::cvt<std::wstring>(chunks[2]);
-			return _T("");
-		}
-		std::wstring get_filename() {
+		std::wstring get_filename() const {
 			return utf8::cvt<std::wstring>(filename);
 		}
-		std::wstring get_line() {
+		std::wstring get_line() const {
 			return utf8::cvt<std::wstring>(line);
 		}
+		long long get_count() const {
+			return count;
+		}
+		void matched() {
+			count++;
+		}
 		expression_ast_type get_column_fun(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject);
-
+		std::wstring render(std::wstring syntax);
 	};
 
 
@@ -104,7 +96,7 @@ namespace logfile_filter {
 	typedef boost::shared_ptr<filter_result_type> filter_result;
 
 	struct factories {
-		static filter_engine create_engine(filter_argument arg);
+		static filter_engine create_engine(filter_argument arg, std::string filter);
 		static filter_result create_result(filter_argument arg);
 		static filter_argument create_argument(std::wstring syntax, std::wstring datesyntax);
 	};

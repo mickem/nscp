@@ -30,6 +30,8 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/cmdline.hpp>
 
+#include <parsers/expression/expression.hpp>
+
 #include <time.h>
 #include <utils.h>
 #include <error.hpp>
@@ -108,14 +110,13 @@ void real_time_thread::thread_proc() {
 
 	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
 		logfile_filter::filter_argument fargs = logfile_filter::factories::create_argument(object.syntax, object.date_format);
-		fargs->filter = object.filter;
 		fargs->debug = object.debug;
 		fargs->alias = object.alias;
 		fargs->bShowDescriptions = true;
 		if (object.log_ != _T("any") && object.log_ != _T("all"))
 			logs.push_back(object.log_);
 		// eventlog_filter::filter_engine 
-		object.engine = logfile_filter::factories::create_engine(fargs);
+		object.engine = logfile_filter::factories::create_engine(fargs, utf8::cvt<std::string>(object.filter));
 
 		if (!object.engine) {
 			NSC_LOG_ERROR_STD(_T("Invalid filter: ") + object.filter);
@@ -312,6 +313,141 @@ std::vector<po::option> option_parser(std::vector<std::string> &args) {
 	return result;
 }
 
+template<class Tobject, class THandler>
+struct filter_text_renderer {
+	typedef boost::function<std::wstring(Tobject*)> function_type;
+	struct my_entry {
+		parsers::simple_expression::entry origin;
+		function_type fun;
+		my_entry(const parsers::simple_expression::entry &origin) : origin(origin) {}
+		my_entry(const my_entry &other) : origin(other.origin), fun(other.fun) {}
+		const my_entry& operator= (const my_entry &other) {
+			origin = other.origin;
+			fun = other.fun;
+			return *this;
+		}
+	};
+
+	typedef std::vector<my_entry> entry_list;
+	entry_list entries;
+
+	bool parse(const std::string str, std::string &error) {
+		parsers::simple_expression::result_type keys;
+		parsers::simple_expression expr;
+		if (!expr.parse(str, keys)) {
+			error = "Failed to parse: " + str;
+			return false;
+		}
+		THandler handler;
+		BOOST_FOREACH(const parsers::simple_expression::entry &e, keys) {
+			my_entry my_e(e);
+			if (e.is_variable) {
+				std::wstring tag = utf8::cvt<std::wstring>(e.name);
+				if (!handler.has_variable(tag)) {
+					error = "Invalid variable: " + e.name;
+					return false;
+				}
+				my_e.fun = handler.bind_simple_string(tag);
+				if (!my_e.fun) {
+					error = "Invalid variable: " + e.name;
+					return false;
+				}
+			}
+			entries.push_back(my_e);
+		}
+		return true;
+	}
+	std::string render(boost::shared_ptr<Tobject> obj) {
+		std::string ret;
+		BOOST_FOREACH(const my_entry &e, entries) {
+			if (!e.origin.is_variable)
+				ret += e.origin.name;
+			else {
+				ret += utf8::cvt<std::string>(e.fun(obj.get()));
+			}
+		}
+		return ret;
+	}
+};
+
+template<class Tsummary>
+struct text_renderer {
+	typedef boost::function<std::string(Tsummary*)> function_type;
+	struct my_entry {
+		parsers::simple_expression::entry origin;
+		function_type fun;
+		my_entry(const parsers::simple_expression::entry &origin) : origin(origin) {}
+		my_entry(const my_entry &other) : origin(other.origin), fun(other.fun) {}
+		const my_entry& operator= (const my_entry &other) {
+			origin = other.origin;
+			fun = other.fun;
+			return *this;
+		}
+	};
+
+	typedef std::vector<my_entry> entry_list;
+	entry_list entries;
+
+	bool parse(const std::string str, std::string &error) {
+		parsers::simple_expression::result_type keys;
+		parsers::simple_expression expr;
+		if (!expr.parse(str, keys)) {
+			error = "Failed to parse: " + str;
+			return false;
+		}
+		BOOST_FOREACH(const parsers::simple_expression::entry &e, keys) {
+			my_entry my_e(e);
+			if (e.is_variable) {
+				my_e.fun = Tsummary::get_function(e.name);
+				if (!my_e.fun) {
+					error = "Invalid variable: " + e.name;
+					return false;
+				}
+			}
+			entries.push_back(my_e);
+		}
+		return true;
+	}
+	std::string render(Tsummary &data) {
+		std::string ret;
+		BOOST_FOREACH(const my_entry &e, entries) {
+			if (!e.origin.is_variable)
+				ret += e.origin.name;
+			else {
+				ret += e.fun(&data);
+			}
+		}
+		return ret;
+	}
+};
+
+
+struct log_summary {
+	long long count;
+	std::string message;
+	std::string error;
+
+	log_summary() : count(0) {}
+
+	std::string get_message() {
+		return message;
+	}
+	std::string get_error() {
+		return error;
+	}
+	std::string get_count() {
+		return strEx::s::xtos(count);
+	}
+	static boost::function<std::string(log_summary*)> get_function(std::string key) {
+		if (key == "messages" || key == "lines")
+			return &log_summary::get_message;
+		if (key == "error" || key == "last")
+			return &log_summary::get_error;
+		if (key == "count")
+			return &log_summary::get_count;
+		return boost::function<std::string(log_summary*)>();
+	}
+};
 
 typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
@@ -321,33 +457,39 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 	simple_timer time;
 	
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-
 	std::list<std::wstring> files;
-	EventLogQuery1Container query1;
-	EventLogQuery2Container query2;
 	logfile_filter::filter_argument fargs = logfile_filter::factories::create_argument(syntax_, DATE_FORMAT);
 
 	std::string regexp;
 	std::string column_split;
 	std::string line_split;
-	std::string filter_string;
-	std::string syntax;
+	std::string filter_string, warn_string, crit_string, ok_string;
+	std::string syntax_top, syntax_detail;
 	std::vector<std::string> file_list;
 	std::string files_string;
+	bool debug;
 	try {
 
 		bool help;
 		po::options_description desc("Allowed options");
 		desc.add_options()
-			("help,h", po::bool_switch(&help),							"Show help screen")
+			("help", po::bool_switch(&help),							"Show help screen")
+			("debug", po::bool_switch(&debug),							"Show more information to help configure filters")
 			("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
 			("split", po::value<std::string>(&column_split),			"Lookup a string value in the PDH index table")
-			("line-split", po::value<std::string>(&line_split)->implicit_value("\\n"), 
+			("line-split", po::value<std::string>(&line_split)->default_value("\\n"), 
 																		"Lookup a string value in the PDH index table")
 			("column-split", po::value<std::string>(&column_split),		"Expand a counter path contaning wildcards into corresponding objects (for instance --expand-path \\System\\*)")
-			("filter", po::value<std::string>(&filter_string),					"Check that performance counters are working")
-			("syntax", po::value<std::string>(&syntax)->implicit_value("${file}: ${line}"), 
-																		"List counters and/or instances")
+			("filter", po::value<std::string>(&filter_string),			"Check that performance counters are working")
+			("warn", po::value<std::string>(&warn_string),				"Filter which generates a warning state")
+			("crit", po::value<std::string>(&crit_string),				"Filter which generates a critical state")
+			("warning", po::value<std::string>(&warn_string),			"Filter which generates a warning state")
+			("critical", po::value<std::string>(&crit_string),			"Filter which generates a critical state")
+			("ok", po::value<std::string>(&ok_string),					"Filter which generates an ok state")
+			("top-syntax", po::value<std::string>(&syntax_top)->default_value("${file}: ${count} (${messages})"), 
+																		"Top level syntax")
+			("detail-syntax", po::value<std::string>(&syntax_detail)->default_value("${column1}, "), 
+																		"Detail level syntax")
 			("file", po::value<std::vector<std::string> >(&file_list),	"List counters and/or instances")
 			("files", po::value<std::string>(&files_string),			"List/check all counters not configured counter")
 			;
@@ -369,84 +511,108 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 			return NSCAPI::returnUNKNOWN;
 		}
 
-// 		MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
-// 		MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
+		text_renderer<log_summary> renderer_top;
+		if (!renderer_top.parse(syntax_top, message)) {
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		filter_text_renderer<logfile_filter::filter_obj, logfile_filter::filter_obj_handler> renderer_detail;
+		if (!renderer_detail.parse(syntax_detail, message)) {
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		logfile_filter::filter_engine filter = logfile_filter::factories::create_engine(fargs, filter_string);
+		logfile_filter::filter_engine warn, crit, ok;
+		if (!warn_string.empty()) warn = logfile_filter::factories::create_engine(fargs, warn_string);
+		if (!crit_string.empty()) crit = logfile_filter::factories::create_engine(fargs, crit_string);
+		if (!ok_string.empty()) ok = logfile_filter::factories::create_engine(fargs, ok_string);
+
+		if (!filter) {
+			message = "Failed to initialize filter subsystem.";
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		filter->boot();
+		if (warn) warn->boot();
+		if (crit) crit->boot();
+		if (ok) ok->boot();
+
+		if (!column_split.empty()) {
+			strEx::replace(column_split, "\\t", "\t");
+			strEx::replace(column_split, "\\n", "\n");
+		}
+
+		std::wstring msg;
+		if (!filter->validate(msg)) {
+			message = utf8::cvt<std::string>(msg);
+			return NSCAPI::returnUNKNOWN;
+		}
+		if (warn && !warn->validate(msg)) {
+			message = utf8::cvt<std::string>(msg);
+			return NSCAPI::returnUNKNOWN;
+		}
+		if (crit && !crit->validate(msg)) {
+			message = utf8::cvt<std::string>(msg);
+			return NSCAPI::returnUNKNOWN;
+		}
+		if (ok && !ok->validate(msg)) {
+			message = utf8::cvt<std::string>(msg);
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
+
+		log_summary summary;
+		BOOST_FOREACH(const std::string &filename, file_list) {
+			std::ifstream file(filename.c_str());
+			if (file.is_open()) {
+				std::string line;
+				while (file.good()) {
+					std::getline(file,line, '\n');
+					if (!column_split.empty()) {
+						std::list<std::string> chunks = strEx::s::splitEx(line, column_split);
+						boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks, summary.count));
+						if (filter->match(record)) {
+							record->matched();
+							std::string current = renderer_detail.render(record);
+							summary.count++;
+							if (crit && crit->match(record)) {
+								summary.error = current;
+								message = renderer_top.render(summary);
+								return NSCAPI::returnCRIT;
+							} else if (warn && warn->match(record)) {
+								summary.error = current;
+								message = renderer_top.render(summary);
+								return NSCAPI::returnWARN;
+							} else if (ok && ok->match(record)) {
+								summary.error = current;
+								message = renderer_top.render(summary);
+								return NSCAPI::returnOK;
+							} else if (debug) {
+								NSC_DEBUG_MSG_STD(_T("Crit/Warn/* did not match: ") + utf8::cvt<std::wstring>(current));
+							}
+							summary.message += current;
+						}
+					}
+				}
+				file.close();
+			}
+		}
+		NSC_DEBUG_MSG_STD(_T("Evaluation time: ") + strEx::itos(time.stop()));
+
+		if (message.empty())
+			message = "OK, no matches found";
+		return returnCode;
 	} catch (checkHolders::parse_exception e) {
 		message = utf8::cvt<std::string>(e.getMessage());
 		return NSCAPI::returnUNKNOWN;
+	} catch (const std::exception &e) {
+		message = std::string("Failed to process command: check_logfile: ") + e.what();
+		return NSCAPI::returnUNKNOWN;
 	} catch (...) {
-		message = "Invalid command line!";
+		message = "Failed to process command: check_logfile";
 		return NSCAPI::returnUNKNOWN;
 	}
-
-	unsigned long int hit_count = 0;
-	bool buffer_error_reported = false;
-
-
-	fargs->filter = utf8::cvt<std::wstring>(filter_string);
-	logfile_filter::filter_engine impl = logfile_filter::factories::create_engine(fargs);
-
-	if (!impl) {
-		message = "Failed to initialize filter subsystem.";
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	impl->boot();
-
-	if (!column_split.empty()) {
-		strEx::replace(column_split, "\\t", "\t");
-		strEx::replace(column_split, "\\n", "\n");
-	}
-
-	std::wstring msg;
-	if (!impl->validate(msg)) {
-		message = utf8::cvt<std::string>(msg);
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
-
-
-	BOOST_FOREACH(const std::string &filename, file_list) {
-		std::ifstream file(filename.c_str());
-		if (file.is_open()) {
-			std::string line;
-			while (file.good()) {
-				std::getline(file,line, '\n');
-				if (!column_split.empty()) {
-					std::list<std::string> chunks = strEx::s::splitEx(line, column_split);
-					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
-					if (impl->match(record)) {
-						std::cout << "match: " << line << std::endl;
-					}
-				}
-			}
-			file.close();
-		}
-	}
-	NSC_DEBUG_MSG_STD(_T("Evaluation time: ") + strEx::itos(time.stop()));
-
-// 	if (!bPerfData) {
-// 		query1.perfData = false;
-// 		query2.perfData = false;
-// 	}
-	if (query1.alias.empty())
-		query1.alias = _T("eventlog");
-	if (query2.alias.empty())
-		query2.alias = _T("eventlog");
-// 	if (query1.hasBounds())
-// 		query1.runCheck(hit_count, returnCode, message, perf);
-// 	else if (query2.hasBounds())
-// 		query2.runCheck(hit_count, returnCode, message, perf);
-// 	else {
-// 		message = "No bounds specified!";
-// 		return NSCAPI::returnUNKNOWN;
-// 	}
-// 	if ((truncate > 0) && (message.length() > (truncate-4)))
-// 		message = message.substr(0, truncate-4) + _T("...");
-	if (message.empty())
-		message = "Eventlog check ok";
-	return returnCode;
 }
 
 NSC_WRAP_DLL()

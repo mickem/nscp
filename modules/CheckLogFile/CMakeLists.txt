@@ -36,5 +36,6 @@ target_link_libraries(${TARGET}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${Boost_THREAD_LIBRARY}
 	${NSCP_FILTER_LIB}
+	expression_parser
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

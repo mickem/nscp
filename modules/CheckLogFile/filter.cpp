@@ -25,6 +25,10 @@
 using namespace boost::assign;
 using namespace parsers::where;
 
+std::wstring logfile_filter::filter_obj::render(std::wstring syntax) {
+	return _T("TODO");
+}
+
 logfile_filter::filter_obj::expression_ast_type logfile_filter::filter_obj::get_column_fun(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject) {
 	expression_ast::list_type l = subject->get_list();
 	if (l.size() != 1) {
@@ -44,18 +48,19 @@ logfile_filter::filter_obj_handler::filter_obj_handler() {
 	using namespace boost::assign;
 	using namespace parsers::where;
 	insert(types)
-		(_T("line"), (type_string))
-		(_T("column1"), (type_string))
-		(_T("column2"), (type_string))
-		(_T("column3"), (type_string))
-		(_T("column4"), (type_string))
-		(_T("column5"), (type_string))
-		(_T("column6"), (type_string))
-		(_T("column7"), (type_string))
-		(_T("column8"), (type_string))
-		(_T("column9"), (type_string))
-		(_T("filename"),(type_string))
-		(_T("file"),(type_string))
+		(_T("line"), type_string)
+		(_T("count"), type_int)
+		(_T("column1"), type_string)
+		(_T("column2"), type_string)
+		(_T("column3"), type_string)
+		(_T("column4"), type_string)
+		(_T("column5"), type_string)
+		(_T("column6"), type_string)
+		(_T("column7"), type_string)
+		(_T("column8"), type_string)
+		(_T("column9"), type_string)
+		(_T("filename"),type_string)
+		(_T("file"),type_string)
 		;
 }
 
@@ -99,6 +104,8 @@ logfile_filter::filter_obj_handler::base_handler::bound_string_type logfile_filt
 }
 logfile_filter::filter_obj_handler::base_handler::bound_int_type logfile_filter::filter_obj_handler::bind_simple_int(std::wstring key) {
 	base_handler::bound_int_type ret;
+	if (key == _T("count"))
+		ret = &filter_obj::get_count;
 	return ret;
 }
 
@@ -119,7 +126,8 @@ logfile_filter::filter_obj_handler::base_handler::bound_function_type logfile_fi
 
 //////////////////////////////////////////////////////////////////////////
 
-logfile_filter::filter_engine logfile_filter::factories::create_engine(logfile_filter::filter_argument arg) {
+logfile_filter::filter_engine logfile_filter::factories::create_engine(logfile_filter::filter_argument arg, std::string filter) {
+	arg->filter = utf8::cvt<std::wstring>(filter);
 	return filter_engine(new filter_engine_type(arg));
 }
 logfile_filter::filter_argument logfile_filter::factories::create_argument(std::wstring syntax, std::wstring datesyntax) {
