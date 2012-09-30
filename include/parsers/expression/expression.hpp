@@ -1,4 +1,5 @@
 //#define BOOST_SPIRIT_DEBUG  ///$$$ DEFINE THIS WHEN DEBUGGING $$$///
+#pragma once
 
 #include <iostream>
 #include <string>

@@ -12,6 +12,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/filter/where_filter.hpp>
 #include <parsers/filter/where_filter_impl.hpp>
+#include <parsers/filter/modern_filter.hpp>
 
 namespace logfile_filter {
 
@@ -37,6 +38,9 @@ namespace logfile_filter {
 		}
 		long long get_count() const {
 			return count;
+		}
+		std::wstring get_count_str() const {
+			return strEx::itos(count);
 		}
 		void matched() {
 			count++;
@@ -73,31 +77,72 @@ namespace logfile_filter {
 	};
 
 
-	struct data_arguments : public where_filter::argument_interface {
+	struct log_summary {
+		long long match_count;
+		long long ok_count;
+		long long warn_count;
+		long long crit_count;
+		std::string message;
+		std::string error;
+		std::string filename;
 
-		typedef where_filter::argument_interface parent_type;
-		bool bFilterAll;
-		bool bFilterIn;
-		bool bShowDescriptions;
-		unsigned long long now;
-		std::wstring alias;
+		log_summary() : match_count(0), ok_count(0), warn_count(0), crit_count(0) {}
 
-		data_arguments(parent_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax)
-		{}
-
+		void matched(std::string &line) {
+			error = line;
+			match_count++;
+		}
+		void matched_ok(std::string &line) {
+			error = line;
+			ok_count++;
+		}
+		void matched_warn(std::string &line) {
+			error = line;
+			warn_count++;
+		}
+		void matched_crit(std::string &line) {
+			error = line;
+			crit_count++;
+		}
+		std::string get_message() {
+			return message;
+		}
+		std::string get_error() {
+			return error;
+		}
+		std::string get_match_count() {
+			return strEx::s::xtos(match_count);
+		}
+		std::string get_ok_count() {
+			return strEx::s::xtos(ok_count);
+		}
+		std::string get_warn_count() {
+			return strEx::s::xtos(warn_count);
+		}
+		std::string get_crit_count() {
+			return strEx::s::xtos(crit_count);
+		}
+		std::string get_filename() {
+			return filename;
+		}
+		static boost::function<std::string(log_summary*)> get_function(std::string key) {
+			if (key == "file" || key == "filename")
+				return &log_summary::get_filename;
+			if (key == "messages" || key == "lines")
+				return &log_summary::get_message;
+			if (key == "error" || key == "last")
+				return &log_summary::get_error;
+			if (key == "count" || key == "match_count")
+				return &log_summary::get_match_count;
+			if (key == "ok_count")
+				return &log_summary::get_ok_count;
+			if (key == "warn_count" || key == "warning_count" || key == "warnings")
+				return &log_summary::get_warn_count;
+			if (key == "crit_count" || key == "critical_count" || key == "criticals")
+				return &log_summary::get_crit_count;
+			return boost::function<std::string(log_summary*)>();
+		}
 	};
 
-	typedef data_arguments filter_argument_type;
-	typedef where_filter::engine_impl<filter_obj, filter_obj_handler, boost::shared_ptr<filter_argument_type> > filter_engine_type;
-	typedef where_filter::result_counter_interface<filter_obj> filter_result_type;
-
-	typedef boost::shared_ptr<filter_engine_type> filter_engine;
-	typedef boost::shared_ptr<filter_argument_type> filter_argument;
-	typedef boost::shared_ptr<filter_result_type> filter_result;
-
-	struct factories {
-		static filter_engine create_engine(filter_argument arg, std::string filter);
-		static filter_result create_result(filter_argument arg);
-		static filter_argument create_argument(std::wstring syntax, std::wstring datesyntax);
-	};
+	typedef modern_filter::modern_filters<logfile_filter::filter_obj, logfile_filter::filter_obj_handler, log_summary> filter;
 }

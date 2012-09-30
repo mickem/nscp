@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "stdafx.h"
 
 #include <map>
 #include <list>
@@ -20,14 +20,8 @@
 #include <strEx.h>
 #include "filter.hpp"
 
-//#include <config.h>
-
 using namespace boost::assign;
 using namespace parsers::where;
-
-std::wstring logfile_filter::filter_obj::render(std::wstring syntax) {
-	return _T("TODO");
-}
 
 logfile_filter::filter_obj::expression_ast_type logfile_filter::filter_obj::get_column_fun(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject) {
 	expression_ast::list_type l = subject->get_list();
@@ -100,6 +94,8 @@ logfile_filter::filter_obj_handler::base_handler::bound_string_type logfile_filt
 		ret = &filter_obj::get_line;
 	if (key == _T("file") || key == _T("filename"))
 		ret = &filter_obj::get_filename;
+	if (key == _T("count"))
+		ret = &filter_obj::get_count_str;
 	return ret;
 }
 logfile_filter::filter_obj_handler::base_handler::bound_int_type logfile_filter::filter_obj_handler::bind_simple_int(std::wstring key) {
@@ -125,20 +121,3 @@ logfile_filter::filter_obj_handler::base_handler::bound_function_type logfile_fi
 }
 
 //////////////////////////////////////////////////////////////////////////
-
-logfile_filter::filter_engine logfile_filter::factories::create_engine(logfile_filter::filter_argument arg, std::string filter) {
-	arg->filter = utf8::cvt<std::wstring>(filter);
-	return filter_engine(new filter_engine_type(arg));
-}
-logfile_filter::filter_argument logfile_filter::factories::create_argument(std::wstring syntax, std::wstring datesyntax) {
-	return filter_argument(new logfile_filter::filter_argument_type(logfile_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax, datesyntax));
-}
-
-logfile_filter::filter_result logfile_filter::factories::create_result(logfile_filter::filter_argument arg) {
-	return filter_result(new where_filter::simple_count_result<filter_obj>(arg));
-}
-
-
-
-
-
