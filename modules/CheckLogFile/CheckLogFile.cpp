@@ -114,12 +114,12 @@ void real_time_thread::thread_proc() {
 		}
 		filter.build_engines(utf8::cvt<std::string>(object.filter), utf8::cvt<std::string>(object.filter_ok), utf8::cvt<std::string>(object.filter_warn), utf8::cvt<std::string>(object.filter_crit));
 		BOOST_FOREACH(const std::wstring &s, strEx::splitEx(object.files, _T(","))) {
-			boost::filesystem2::wpath path = s;
-			if (boost::filesystem2::is_directory(path)) {
+			boost::filesystem::wpath path = s;
+			if (boost::filesystem::is_directory(path)) {
 				logs.push_back(path.string());
 			} else {
 				path = path.remove_filename();
-				if (boost::filesystem2::is_directory(path)) {
+				if (boost::filesystem::is_directory(path)) {
 					logs.push_back(path.string());
 				} else {
 					NSC_LOG_ERROR(_T("Failed to find folder for ") + object.alias + _T(": ") + s);
