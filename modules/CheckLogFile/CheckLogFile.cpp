@@ -74,25 +74,60 @@ void real_time_thread::process_timeout(const filters::filter_config_object &obje
 	std::wstring command = object.alias;
 	if (!object.command.empty())
 		command = object.command;
-// 	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.ok_msg, object.perf_msg, response)) {
-// 		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
-// 	}
+	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.empty_msg, _T(""), response)) {
+		NSC_LOG_ERROR(_T("Failed to submit result: ") + response);
+	}
 }
 
-void real_time_thread::process_object(const filters::filter_config_object &object) {
+void real_time_thread::process_object(filters::filter_config_object &object) {
 	std::wstring response;
 	int severity = object.severity;
 	std::wstring command = object.alias;
-	if (severity == -1) {
-		NSC_LOG_ERROR(_T("Severity not defined for: ") + object.alias);
-		severity = NSCAPI::returnUNKNOWN;
+	if (severity != -1) {
+		object.filter.returnCode = severity;
+	} else {
+		object.filter.returnCode = NSCAPI::returnOK;
 	}
+	object.filter.message = "";
+
+	BOOST_FOREACH(filters::file_container &c, object.files) {
+		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
+		std::string fname = utf8::cvt<std::string>(c.file);
+		std::ifstream file(fname.c_str());
+		if (file.is_open()) {
+			std::string line;
+			object.filter.summary.filename = fname;
+			if (sz == c.size) {
+				continue;
+			} else if (sz > c.size) {
+				file.seekg(c.size);
+			}
+			while (file.good()) {
+				std::getline(file,line, '\n');
+				if (!object.column_split.empty()) {
+					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(object.column_split));
+					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(object.filter.summary.filename, line, chunks, object.filter.summary.match_count));
+					if (object.filter.match(record)) {
+						break;
+					}
+				}
+			}
+			file.close();
+		} else {
+			NSC_LOG_ERROR(_T("Failed to open file: ") + c.file);
+		}
+	}
+
+	std::string message;
+	if (object.filter.message.empty())
+		message = "Nothing matched";
+	else
+		message = object.filter.message;
 	if (!object.command.empty())
 		command = object.command;
-// 	std::wstring message = record.render(true, object.syntax, object.date_format, object.dwLang);
-// 	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.severity, message, object.perf_msg, response)) {
-// 		NSC_LOG_ERROR(_T("Failed to submit eventlog result ") + object.alias + _T(": ") + response);
-// 	}
+	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.filter.returnCode, utf8::cvt<std::wstring>(message), _T(""), response)) {
+		NSC_LOG_ERROR(_T("Failed to submit '") + utf8::cvt<std::wstring>(message) + _T("' ") + object.alias + _T(": ") + response);
+	}
 }
 
 // void real_time_thread::debug_miss(const EventLogRecord &record) {
@@ -108,13 +143,12 @@ void real_time_thread::thread_proc() {
 	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
 		logfile_filter::filter filter;
 		std::string message;
-		if (!filter.build_syntax(utf8::cvt<std::string>(object.syntax_top), utf8::cvt<std::string>(object.syntax_detail), message)) {
+		if (!object.boot(message)) {
 			NSC_LOG_ERROR(_T("Failed to load ") + object.alias + _T(": ") + utf8::cvt<std::wstring>(message));
 			continue;
 		}
-		filter.build_engines(utf8::cvt<std::string>(object.filter), utf8::cvt<std::string>(object.filter_ok), utf8::cvt<std::string>(object.filter_warn), utf8::cvt<std::string>(object.filter_crit));
-		BOOST_FOREACH(const std::wstring &s, strEx::splitEx(object.files, _T(","))) {
-			boost::filesystem::wpath path = s;
+		BOOST_FOREACH(const filters::file_container &fc, object.files) {
+			boost::filesystem::wpath path = fc.file;
 			if (boost::filesystem::is_directory(path)) {
 				logs.push_back(path.string());
 			} else {
@@ -122,20 +156,10 @@ void real_time_thread::thread_proc() {
 				if (boost::filesystem::is_directory(path)) {
 					logs.push_back(path.string());
 				} else {
-					NSC_LOG_ERROR(_T("Failed to find folder for ") + object.alias + _T(": ") + s);
+					NSC_LOG_ERROR(_T("Failed to find folder for ") + object.alias + _T(": ") + fc.file);
 					continue;
 				}
 			}
-		}
-
-// 		if (!column_split.empty()) {
-// 			strEx::replace(column_split, "\\t", "\t");
-// 			strEx::replace(column_split, "\\n", "\n");
-// 		}
-
-		if (!filter.validate(message)) {
-			NSC_LOG_ERROR(_T("Failed to load ") + object.alias + _T(": ") + utf8::cvt<std::wstring>(message));
-			continue;
 		}
 		filters.push_back(object);
 	}
@@ -145,40 +169,43 @@ void real_time_thread::thread_proc() {
 	NSC_DEBUG_MSG_STD(_T("Scanning folders: ") + strEx::joinEx(logs, _T(", ")));
 #ifdef WIN32
 	HANDLE *handles = new HANDLE[1+logs.size()];
-	//handles[0] = stop_event_;
+	handles[0] = stop_event_;
 	std::vector<std::wstring> files_list(logs.begin(), logs.end());
 	for (int i=0;i<files_list.size();i++) {
-		handles[i+1] = FindFirstChangeNotification(files_list[i].c_str(), FALSE, FILE_NOTIFY_CHANGE_SIZE);
+		NSC_DEBUG_MSG_STD(_T("Adding folder: ") + files_list[i]);
+		handles[i+1] = FindFirstChangeNotification(files_list[i].c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
 	}
+#endif
 
-	__time64_t ltime;
-	_time64(&ltime);
-
+	boost::posix_time::ptime current_time;
 	BOOST_FOREACH(filters::filter_config_object &object, filters) {
-		object.touch(ltime);
+		object.touch(current_time);
 	}
 	while (true) {
 
 
-		DWORD minNext = INFINITE;
+		bool first = true;
+		boost::posix_time::ptime minNext;
 		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
 			NSC_DEBUG_MSG_STD(_T("Getting next from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
-			if (object.next_ok_ > 0 && object.next_ok_ < minNext)
+			if (object.max_age && (first || object.next_ok_ < minNext) ) {
+				first = false;
 				minNext = object.next_ok_;
+			}
 		}
 
-		_time64(&ltime);
-
-		if (ltime > minNext) {
-			NSC_LOG_ERROR(_T("Strange seems we expect to send ok now?"));
-			continue;
+		boost::posix_time::time_duration dur;
+		if (first) {
+			NSC_DEBUG_MSG(_T("Next miss time is in: no timeout specified"));
+		} else {
+			dur = minNext - boost::posix_time::ptime();
+			NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dur.total_seconds()) + _T("s"));
 		}
 
-		DWORD dwWaitTime = (minNext - ltime)*1000;
-		if (minNext == INFINITE || dwWaitTime < 0)
-			dwWaitTime = INFINITE;
-		NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dwWaitTime) + _T("s"));
-
+#ifdef WIN32
+		DWORD dwWaitTime = INFINITE;
+		if (!first)
+			dwWaitTime = dur.total_milliseconds();
 		DWORD dwWaitReason = WaitForMultipleObjects(logs.size()+1, handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
 			// we take care of this below...
@@ -186,65 +213,36 @@ void real_time_thread::thread_proc() {
 			delete [] handles;
 			return;
 		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + files_list.size())) {
+			FindNextChangeNotification(handles[dwWaitReason-WAIT_OBJECT_0]);
 		}
+#else
+		NSC_LOG_ERROR(_T("Not supported on linux yet..."));
+#endif
+
+		current_time = boost::posix_time::ptime();
+
+		BOOST_FOREACH(filters::filter_config_object &object, filters) {
+ 			if (object.has_changed()) {
+ 				process_object(object);
+				object.touch(current_time);
+ 			}
+		}
+
+		current_time = boost::posix_time::ptime() + boost::posix_time::seconds(1);
+		BOOST_FOREACH(filters::filter_config_object &object, filters) {
+			if (object.max_age && object.next_ok_ <= current_time) {
+				process_timeout(object);
+				object.touch(current_time);
+			} else {
+				NSC_DEBUG_MSG_STD(_T("missing: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
+			}
+		}
+
 	}
 
-#else
-	NSC_LOG_ERROR_STD(_T("Linux not currently supported :("))
+#ifdef WIN32
+	delete [] handles;
 #endif
-// 	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
-// 	typedef std::vector<eventlog_type> eventlog_list;
-// 	eventlog_list evlog_list;
-	
-	// TODO: add support for scanning "missed messages" at startup
-
-// 	HANDLE *handles = new HANDLE[1+evlog_list.size()];
-// 	handles[0] = stop_event_;
-// 	for (int i=0;i<evlog_list.size();i++) {
-// 		evlog_list[i]->notify(handles[i+1]);
-// 	}
-// 	BOOST_FOREACH(filters::filter_config_object &object, filters) {
-// 		object.touch(ltime);
-// 	}
-
-// 	unsigned int errors = 0;
-// 	while (true) {
-// 
-// 		DWORD minNext = INFINITE;
-// 		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
-// 			NSC_DEBUG_MSG_STD(_T("Getting next from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
-// 			if (object.next_ok_ > 0 && object.next_ok_ < minNext)
-// 				minNext = object.next_ok_;
-// 		}
-
-// 		if (ltime > minNext) {
-// 			NSC_LOG_ERROR(_T("Strange seems we expect to send ok now?"));
-// 			continue;
-// 		}
-// 		DWORD dwWaitTime = (minNext - ltime)*1000;
-// 		if (minNext == INFINITE || dwWaitTime < 0)
-// 			dwWaitTime = INFINITE;
-// 		NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dwWaitTime) + _T("s"));
-
-// 		std::string changed_folder = impl->wait_for_change();
-// 		BOOST_FOREACH(filters::filter_config_object &object, filters) {
-// 			if (in_folder(object, changed_folder)) {
-// 				object.touch(ltime);
-// 				process_object(object);
-// 			}
-// 		}
-
-// 		_time64(&ltime);
-// 		BOOST_FOREACH(filters::filter_config_object &object, filters) {
-// 			if (object.next_ok_ != 0 && object.next_ok_ <= (ltime+1)) {
-// 				process_timeout(object);
-// 				object.touch(ltime);
-// 			} else {
-// 				NSC_DEBUG_MSG_STD(_T("missing: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
-// 			}
-// 		}
-// 	}
-// 	delete [] handles;
 	return;
 }
 
@@ -252,14 +250,16 @@ void real_time_thread::thread_proc() {
 bool real_time_thread::start() {
 	if (!enabled_)
 		return true;
-
-// 	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
-
+#ifdef WIN32
+ 	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
+#endif
 	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
 	return true;
 }
 bool real_time_thread::stop() {
-// 	SetEvent(stop_event_);
+#ifdef WIN32
+ 	SetEvent(stop_event_);
+#endif
 	if (thread_)
 		thread_->join();
 	return true;
@@ -282,9 +282,9 @@ bool CheckLogFile::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		register_command(_T("check_logfile"), _T("Check for errors in log file or generic pattern matching in text files"));
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(alias, _T("eventlog"));
+		settings.set_alias(alias, _T("logfile"));
 		
-		thread_.filters_path_ = settings.alias().get_settings_path(_T("real-time/filters"));
+		thread_.filters_path_ = settings.alias().get_settings_path(_T("real-time/checks"));
 
 
 		settings.alias().add_path_to_settings()
@@ -292,7 +292,7 @@ bool CheckLogFile::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 
 			(_T("real-time"), _T("CONFIGURE REALTIME CHECKING"), _T("A set of options to configure the real time checks"))
 
-			(_T("real-time/filters"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, &thread_, get_settings_proxy(), _1, _2)),  
+			(_T("real-time/checks"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, &thread_, get_settings_proxy(), _1, _2)),  
 			_T("REALTIME FILTERS"), _T("A set of filters to use in real-time mode"))
 			;
 

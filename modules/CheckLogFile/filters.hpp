@@ -6,6 +6,7 @@
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/date_time.hpp>
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/settings_proxy.hpp>
@@ -19,25 +20,32 @@ namespace sh = nscapi::settings_helper;
 
 namespace filters {
 
+	struct file_container {
+		std::wstring file;
+		boost::uintmax_t size;
+	};
+
+
 	struct filter_config_object {
 
-		filter_config_object() : is_template(false), debug(false), severity(-1), max_age(0), next_ok_(0) {}
+		filter_config_object() : is_template(false), debug(false), severity(-1) {}
 		filter_config_object(const filter_config_object &other) 
 			: path(other.path)
 			, alias(other.alias)
 			, value(other.value)
 			, parent(other.parent)
 			, is_template(other.is_template)
-			, engine(other.engine)
+			, filter(other.filter)
 			, syntax_top(other.syntax_top)
 			, syntax_detail(other.syntax_detail)
-			, filter(other.filter)
+			, filter_string(other.filter_string)
 			, filter_ok(other.filter_ok)
 			, filter_warn(other.filter_warn)
 			, filter_crit(other.filter_crit)
 			, debug(other.debug)
 			, target(other.target)
 			, empty_msg(other.empty_msg)
+			, column_split(other.column_split)
 			, severity(other.severity)
 			, command(other.command)
 			, files(other.files)
@@ -51,16 +59,17 @@ namespace filters {
 			value = other.value;
 			parent = other.parent;
 			is_template = other.is_template;
-			engine = other.engine;
+			filter = other.filter;
 			syntax_top = other.syntax_top;
 			syntax_detail = other.syntax_detail;
-			filter = other.filter;
+			filter_string = other.filter_string;
 			filter_ok = other.filter_ok;
 			filter_warn = other.filter_warn;
 			filter_crit = other.filter_crit;
 			debug = other.debug;
 			target = other.target;
 			empty_msg = other.empty_msg;
+			column_split = other.column_split;
 			severity = other.severity;
 			command = other.command;
 			files = other.files;
@@ -82,49 +91,112 @@ namespace filters {
 
 		std::wstring syntax_top;
 		std::wstring syntax_detail;
-		std::wstring filter;
+		std::wstring filter_string;
 		std::wstring filter_ok;
 		std::wstring filter_warn;
 		std::wstring filter_crit;
 		NSCAPI::nagiosReturn severity;
 		std::wstring command;
-		DWORD max_age;
+		boost::optional<boost::posix_time::time_duration> max_age;
 		std::wstring target;
 		std::wstring empty_msg;
-		std::wstring files;
-
+		std::wstring column_split;
 
 		// Runtime items
-		logfile_filter::filter engine;
-		DWORD next_ok_ ;
+		logfile_filter::filter filter;
+		boost::posix_time::ptime next_ok_;
+		std::list<file_container> files;
 
 
 		std::wstring to_wstring() const {
 			std::wstringstream ss;
 			ss << alias << _T("[") << alias << _T("] = ") 
-				<< _T("{filter: ") << filter << _T(", ")  << filter_ok << _T(", ")  << filter_warn << _T(", ")  << filter_crit
+				<< _T("{filter: ") << filter_string << _T(", ")  << filter_ok << _T(", ")  << filter_warn << _T(", ")  << filter_crit
 				<< _T(", syntax: ") << syntax_top << _T(", ")  << syntax_detail
 				<< _T(", debug: ") << debug 
 				<< _T("}");
 			return ss.str();
 		}
 
+		bool boot(std::string &error) {
+			filter.debug = debug;
+			if (!filter.build_syntax(utf8::cvt<std::string>(syntax_top), utf8::cvt<std::string>(syntax_detail), error)) {
+				return false;
+			}
+			filter.build_engines(utf8::cvt<std::string>(filter_string), utf8::cvt<std::string>(filter_ok), utf8::cvt<std::string>(filter_warn), utf8::cvt<std::string>(filter_crit));
+
+			if (!column_split.empty()) {
+				strEx::replace(column_split, _T("\\t"), _T("\t"));
+				strEx::replace(column_split, _T("\\n"), _T("\n"));
+			}
+
+			if (!filter.validate(error)) {
+				return false;
+			}
+			return true;
+		}
+
 		void set_severity(std::wstring severity_) {
 			severity = nscapi::plugin_helper::translateReturn(severity_);
 		}
-
-		void touch(DWORD now) {
-			if (max_age == 0)
-				next_ok_ = 0;
-			else
-				next_ok_ = now+max_age;
-
+		void set_files(std::wstring file_string) {
+			if (file_string.empty())
+				return;
+			files.clear();
+			BOOST_FOREACH(const std::wstring &s, strEx::splitEx(file_string, _T(","))) {
+				file_container fc;
+				fc.file = s;
+				fc.size = boost::filesystem::file_size(fc.file);
+				files.push_back(fc);
+			}
 		}
+		void set_file(std::wstring file_string) {
+			if (file_string.empty())
+				return;
+			files.clear();
+			file_container fc;
+			fc.file = file_string;
+			fc.size = boost::filesystem::file_size(fc.file);
+			files.push_back(fc);
+		}
+
+		void touch(boost::posix_time::ptime now) {
+			if (max_age)
+				next_ok_ = now+ (*max_age);
+			BOOST_FOREACH(file_container &fc, files) {
+				fc.size = boost::filesystem::file_size(fc.file);
+			}
+		}
+
+		bool has_changed() {
+			BOOST_FOREACH(const file_container &fc, files) {
+				if (fc.size != boost::filesystem::file_size(fc.file))
+					return true;
+			}
+			return false;
+		}
+
+		inline boost::posix_time::time_duration parse_time(std::wstring time) {
+			std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
+			if (p == std::wstring::npos)
+				return boost::posix_time::seconds(boost::lexical_cast<long long>(time));
+			unsigned long long value = boost::lexical_cast<long long>(time.substr(0, p));
+			if ( (time[p] == 's') || (time[p] == 'S') )
+				return boost::posix_time::seconds(value);
+			else if ( (time[p] == 'm') || (time[p] == 'M') )
+				return boost::posix_time::minutes(value);
+			else if ( (time[p] == 'h') || (time[p] == 'H') )
+				return boost::posix_time::hours(value);
+			else if ( (time[p] == 'd') || (time[p] == 'D') )
+				return boost::posix_time::hours(value*24);
+			else if ( (time[p] == 'w') || (time[p] == 'W') )
+				return boost::posix_time::hours(value*24*7);
+			return boost::posix_time::seconds(value);
+		}
+
 		void set_max_age(std::wstring age) {
-			if (age == _T("none") || age == _T("infinite") || age == _T("false"))
-				max_age = 0;
-			else
-				max_age = strEx::stoi64_as_time(age)/1000;
+			if (age != _T("none") && age != _T("infinite") && age != _T("false"))
+				max_age = parse_time(age);
 		} 
 
 
@@ -146,14 +218,14 @@ namespace filters {
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
 			if (!object.value.empty())
-				object.filter = object.value;
+				object.filter_string = object.value;
 			std::wstring alias;
 			bool is_default = object.alias == _T("default");
 			if (is_default) {
 				// Populate default template!
 				object.debug = false;
 				object.syntax_top = _T("${file}: ${count} (${lines})");
-				object.syntax_detail = _T("${column(1)}");
+				object.syntax_detail = _T("${column1}");
 				object.target = _T("NSCA");
 			}
 
@@ -175,7 +247,7 @@ namespace filters {
 				;
 
 			settings.path(object.path).add_key()
-				(_T("filter"), sh::wstring_key(&object.filter),
+				(_T("filter"), sh::wstring_key(&object.filter_string),
 				_T("FILTER"), _T("The filter to match"))
 
 				(_T("warning"), sh::wstring_key(&object.filter_warn),
@@ -190,10 +262,10 @@ namespace filters {
 				(_T("alias"), sh::wstring_key(&alias),
 				_T("ALIAS"), _T("The alias (service name) to report to server"), true)
 
-				(_T("files"), sh::wstring_key(&object.files),
+				(_T("file"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_file, &object, _1)),
 				_T("FILE"), _T("The eventlog record to filter on (if set to 'all' means all enabled logs)"), false)
 
-				(_T("file"), sh::wstring_key(&object.files),
+				(_T("files"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_files, &object, _1)),
 				_T("FILES"), _T("The eventlog record to filter on (if set to 'all' means all enabled logs)"), true)
 
 				(_T("parent"), nscapi::settings_helper::wstring_key(&object.parent, _T("default")),
@@ -226,6 +298,9 @@ namespace filters {
 				(_T("command"), nscapi::settings_helper::wstring_key(&object.command), 
 				_T("COMMAND NAME"), _T("The name of the command (think nagios service name) to report up stream (defaults to alias if not set)"), !is_default)
 
+				(_T("column split"), nscapi::settings_helper::wstring_key(&object.column_split), 
+				_T("COLUMN SPLIT"), _T("THe character(s) to use when spliting on column level"), !is_default)
+
 				;
 
 			settings.register_all();
@@ -236,10 +311,11 @@ namespace filters {
 		static void apply_parent(object_type &object, object_type &parent) {
 			import_string(object.syntax_detail, parent.syntax_detail);
 			import_string(object.syntax_top, parent.syntax_top);
-			import_string(object.filter, parent.filter);
+			import_string(object.filter_string, parent.filter_string);
 			import_string(object.filter_warn, parent.filter_warn);
 			import_string(object.filter_crit, parent.filter_crit);
 			import_string(object.filter_ok, parent.filter_ok);
+			import_string(object.column_split, parent.column_split);
 			if (parent.debug)
 				object.debug = parent.debug;
 			import_string(object.target, parent.target);

@@ -34,6 +34,11 @@ struct real_time_thread {
 	filters::filter_config_handler filters_;
 	std::wstring logs_;
 
+#ifdef WIN32
+	HANDLE stop_event_;
+#endif
+
+
 	bool cache_;
 	bool debug_;
 	std::wstring filters_path_;
@@ -55,7 +60,7 @@ struct real_time_thread {
 	bool stop();
 
 	void thread_proc();
-	void process_object(const filters::filter_config_object &object);
+	void process_object(filters::filter_config_object &object);
 	void process_timeout(const filters::filter_config_object &object);
 	//void process_record(const filters::filter_config_object &object, const std::string line);
 	//void debug_miss(const EventLogRecord &record);
