@@ -4,8 +4,11 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-10-14 MickeM
+ * Added support for real-time log file checks (Linux)
+
 2012-10-07 MickeM
- * Added support for real-time log file checks (windows)
+ * Added support for real-time log file checks (Windows)
 
 2012-09-28 MickeM
  * Fixed NRPE and NSCA buffer issue: Invalid packet length: 1059 != 1036 configured payload is: 1024

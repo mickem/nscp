@@ -21,6 +21,11 @@
 
 #include "stdafx.h"
 
+#ifndef WIN32
+#include <poll.h>
+#include <sys/inotify.h>
+#endif
+
 #include <map>
 #include <vector>
 
@@ -130,11 +135,6 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 	}
 }
 
-// void real_time_thread::debug_miss(const EventLogRecord &record) {
-// // 	std::wstring message = record.render(true, _T("%id% %level% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
-// // 	NSC_DEBUG_MSG_STD(_T("No filter matched: ") + message);
-// }
-
 void real_time_thread::thread_proc() {
 
 	std::list<filters::filter_config_object> filters;
@@ -149,6 +149,7 @@ void real_time_thread::thread_proc() {
 		}
 		BOOST_FOREACH(const filters::file_container &fc, object.files) {
 			boost::filesystem::wpath path = fc.file;
+#ifdef WIN32
 			if (boost::filesystem::is_directory(path)) {
 				logs.push_back(path.string());
 			} else {
@@ -160,6 +161,14 @@ void real_time_thread::thread_proc() {
 					continue;
 				}
 			}
+#else
+			if (boost::filesystem::is_regular(path)) {
+				logs.push_back(path.string());
+			} else {
+				NSC_LOG_ERROR(_T("Failed to find folder for ") + object.alias + _T(": ") + fc.file);
+				continue;
+			}
+#endif
 		}
 		filters.push_back(object);
 	}
@@ -167,14 +176,24 @@ void real_time_thread::thread_proc() {
 	logs.sort();
 	logs.unique();
 	NSC_DEBUG_MSG_STD(_T("Scanning folders: ") + strEx::joinEx(logs, _T(", ")));
+	std::vector<std::wstring> files_list(logs.begin(), logs.end());
 #ifdef WIN32
 	HANDLE *handles = new HANDLE[1+logs.size()];
 	handles[0] = stop_event_;
-	std::vector<std::wstring> files_list(logs.begin(), logs.end());
 	for (int i=0;i<files_list.size();i++) {
 		NSC_DEBUG_MSG_STD(_T("Adding folder: ") + files_list[i]);
 		handles[i+1] = FindFirstChangeNotification(files_list[i].c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
 	}
+#else
+
+	struct pollfd pollfds[2] = { { inotify_init(), POLLIN|POLLPRI, 0}, { stop_event_[0], POLLIN, 0}};
+
+	int *wds = new int[logs.size()];
+	for (int i=0;i<files_list.size();i++) {
+		NSC_DEBUG_MSG_STD(_T("Adding folder: ") + files_list[i]);
+		wds[i] = inotify_add_watch(pollfds[0].fd, utf8::cvt<std::string>(files_list[i]).c_str(), IN_MODIFY);
+	}
+
 #endif
 
 	boost::posix_time::ptime current_time;
@@ -182,8 +201,6 @@ void real_time_thread::thread_proc() {
 		object.touch(current_time);
 	}
 	while (true) {
-
-
 		bool first = true;
 		boost::posix_time::ptime minNext;
 		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
@@ -216,7 +233,36 @@ void real_time_thread::thread_proc() {
 			FindNextChangeNotification(handles[dwWaitReason-WAIT_OBJECT_0]);
 		}
 #else
-		NSC_LOG_ERROR(_T("Not supported on linux yet..."));
+
+#define EVENT_SIZE  ( sizeof (struct inotify_event) )
+#define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
+
+		char buffer[BUF_LEN];
+		int length = poll(pollfds, 2, dur.total_milliseconds());
+		NSC_DEBUG_MSG_STD(_T("length: ") + strEx::itos(length));
+		NSC_DEBUG_MSG_STD(_T("revents (x:0): ") + strEx::itos(pollfds[0].revents));
+		NSC_DEBUG_MSG_STD(_T("revents (x:1): ") + strEx::itos(pollfds[1].revents));
+		if( !length )
+		{
+			continue;
+		}
+		else if( length < 0 )
+		{
+			NSC_LOG_ERROR(_T("read failed!"));
+			continue;
+		}
+		else if (pollfds[1].revents != 0) {
+			return;
+		} else if (pollfds[0].revents != 0) {
+			length = read(pollfds[0].fd, buffer, BUF_LEN);  
+			for (int j=0;j<length;) {
+				struct inotify_event * event = (struct inotify_event *) &buffer[j];
+				std::wstring wstr = utf8::cvt<std::wstring>( event->name);
+				j += EVENT_SIZE + event->len;
+			}
+		} else {
+			NSC_LOG_ERROR(_T("Strange, please report this..."));
+		}
 #endif
 
 		current_time = boost::posix_time::ptime();
@@ -242,6 +288,12 @@ void real_time_thread::thread_proc() {
 
 #ifdef WIN32
 	delete [] handles;
+#else
+	for (int i=0;i<files_list.size();i++) {
+		inotify_rm_watch(pollfds[0].fd, wds[i]);
+	}
+	close(pollfds[0].fd);
+	//close(pollfds[1].fd);
 #endif
 	return;
 }
@@ -252,6 +304,8 @@ bool real_time_thread::start() {
 		return true;
 #ifdef WIN32
  	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
+#else
+	pipe(stop_event_);
 #endif
 	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
 	return true;
@@ -259,6 +313,8 @@ bool real_time_thread::start() {
 bool real_time_thread::stop() {
 #ifdef WIN32
  	SetEvent(stop_event_);
+#else
+	write(stop_event_[1], "EXIT", 4);
 #endif
 	if (thread_)
 		thread_->join();

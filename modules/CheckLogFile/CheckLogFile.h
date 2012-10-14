@@ -36,6 +36,8 @@ struct real_time_thread {
 
 #ifdef WIN32
 	HANDLE stop_event_;
+#else
+	int stop_event_[2];
 #endif
 
 
