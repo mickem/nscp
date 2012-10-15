@@ -77,6 +77,7 @@ bool CheckLogFile::loadModule() {
 void real_time_thread::process_timeout(const filters::filter_config_object &object) {
 	std::wstring response;
 	std::wstring command = object.alias;
+	NSC_LOG_ERROR(_T("Processing timeout: ") + object.alias);
 	if (!object.command.empty())
 		command = object.command;
 	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.empty_msg, _T(""), response)) {
@@ -95,6 +96,7 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 	}
 	object.filter.message = "";
 
+	NSC_LOG_ERROR(_T("Processing object: ") + object.alias);
 	BOOST_FOREACH(filters::file_container &c, object.files) {
 		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
 		std::string fname = utf8::cvt<std::string>(c.file);
@@ -107,8 +109,10 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 			} else if (sz > c.size) {
 				file.seekg(c.size);
 			}
+			NSC_LOG_ERROR(_T("Processing file..."));
 			while (file.good()) {
 				std::getline(file,line, '\n');
+				NSC_LOG_ERROR(_T("---") + utf8::cvt<std::wstring>(line) + _T("--") + utf8::cvt<std::wstring>(object.column_split) + _T("---"));
 				if (!object.column_split.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(object.column_split));
 					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(object.filter.summary.filename, line, chunks, object.filter.summary.match_count));
@@ -237,11 +241,11 @@ void real_time_thread::thread_proc() {
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
 
+		int timeout = 1000*60;
+		if (!first)
+			timeout = dur.total_milliseconds();
 		char buffer[BUF_LEN];
-		int length = poll(pollfds, 2, dur.total_milliseconds());
-		NSC_DEBUG_MSG_STD(_T("length: ") + strEx::itos(length));
-		NSC_DEBUG_MSG_STD(_T("revents (x:0): ") + strEx::itos(pollfds[0].revents));
-		NSC_DEBUG_MSG_STD(_T("revents (x:1): ") + strEx::itos(pollfds[1].revents));
+		int length = poll(pollfds, 2, timeout);
 		if( !length )
 		{
 			continue;
@@ -274,9 +278,9 @@ void real_time_thread::thread_proc() {
  			}
 		}
 
-		current_time = boost::posix_time::ptime() + boost::posix_time::seconds(1);
+		//current_time = boost::posix_time::ptime() + boost::posix_time::seconds(1);
 		BOOST_FOREACH(filters::filter_config_object &object, filters) {
-			if (object.max_age && object.next_ok_ <= current_time) {
+			if (object.max_age && object.next_ok_ < current_time) {
 				process_timeout(object);
 				object.touch(current_time);
 			} else {

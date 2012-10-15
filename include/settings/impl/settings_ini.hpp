@@ -127,6 +127,14 @@ namespace settings {
 			}
 		}
 
+		virtual void remove_real_value(settings_core::key_path_type key) {
+			ini.Delete(key.first.c_str(), key.second.c_str(), true);
+		}
+		virtual void remove_real_path(std::wstring path) {
+			ini.Delete(path.c_str(), NULL, true);
+		}
+
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
 		/// If the path is empty all root sections will be returned

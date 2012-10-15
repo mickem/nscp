@@ -225,8 +225,9 @@ namespace filters {
 				// Populate default template!
 				object.debug = false;
 				object.syntax_top = _T("${file}: ${count} (${lines})");
-				object.syntax_detail = _T("${column1}");
+				object.syntax_detail = _T("${column1}, ${column2}, ${column3}");
 				object.target = _T("NSCA");
+				object.column_split = _T("\\t");
 			}
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -248,16 +249,16 @@ namespace filters {
 
 			settings.path(object.path).add_key()
 				(_T("filter"), sh::wstring_key(&object.filter_string),
-				_T("FILTER"), _T("The filter to match"))
+				_T("FILTER"), _T("Scan files for matching rows for each matching rows an OK message will be submitted"))
 
 				(_T("warning"), sh::wstring_key(&object.filter_warn),
-				_T("FILTER"), _T("The filter to match"))
+				_T("WARNING FILTER"), _T("If any rows match this filter severity will escalated to WARNING"))
 
 				(_T("critical"), sh::wstring_key(&object.filter_crit),
-				_T("FILTER"), _T("The filter to match"))
+				_T("CRITCAL FILTER"), _T("If any rows match this filter severity will escalated to CRITCAL"))
 
 				(_T("ok"), sh::wstring_key(&object.filter_ok),
-				_T("FILTER"), _T("The filter to match"))
+				_T("OK FILTER"), _T("If any rows match this filter severity will escalated down to OK"))
 
 				(_T("alias"), sh::wstring_key(&alias),
 				_T("ALIAS"), _T("The alias (service name) to report to server"), true)

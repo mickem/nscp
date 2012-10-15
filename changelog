@@ -4,6 +4,12 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-10-15 MickeM
+ * Added support for lists in targets/destination (passive checks/channels)
+ * Added new --remove-defaults option when generating settings files.
+   nscp settings --remove-defaults --generate
+ * Added new module SimpleFileWriter for writing passive check results to files.
+
 2012-10-14 MickeM
  * Added support for real-time log file checks (Linux)
 

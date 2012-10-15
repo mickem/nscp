@@ -9,10 +9,13 @@ namespace nsclient {
 		NSClient* core_;
 		std::wstring log_;
 		bool default_;
+		bool remove_default_;
 		bool load_all_;
 
 	public:
-		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool load_all) : started_(false), core_(core), log_(log), default_(update_defaults), load_all_(load_all) {
+		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool remove_defaults, bool load_all) 
+			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all) 
+		{
 			startup();
 		}
 
@@ -42,6 +45,10 @@ namespace nsclient {
 			if (default_) {
 				std::wcout << _T("Adding default values") << std::endl;
 				settings_manager::get_core()->update_defaults();
+			}
+			if (remove_default_) {
+				std::wcout << _T("Removing default values") << std::endl;
+				settings_manager::get_core()->remove_defaults();
 			}
 			started_ = true;
 		}
@@ -130,8 +137,9 @@ namespace nsclient {
 							}
 						}
 					}
+				} else if (target.empty()) {
+					settings_manager::get_core()->get()->save();
 				} else {
-					//settings_manager::get_core()->update_defaults();
 					settings_manager::get_core()->get()->save_to(target);
 				}
 				return 1;

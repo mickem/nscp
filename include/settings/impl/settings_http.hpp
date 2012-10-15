@@ -117,6 +117,12 @@ namespace settings {
 		virtual void set_real_path(std::wstring path) {
 			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + path));
 		}
+		virtual void remove_real_value(settings_core::key_path_type key) {
+			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP")));
+		}
+		virtual void remove_real_path(std::wstring path) {
+			get_logger()->error(__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP")));
+		}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).

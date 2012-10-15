@@ -61,7 +61,8 @@ public:
 			("switch", po::value<std::wstring>(), "Set default context to use (similar to migrate but does NOT copy values)")
 			("show", "Set a value given a key and path.")
 			("list", "Set all keys below the path (or root).")
-			("add-defaults", "Old name for --add-missing")
+			("add-defaults", "Same as --add-missing")
+			("remove-defaults", "Remove all keys which have default values (and empty sections)")
 			("activate-module", po::value<std::wstring>()->implicit_value(_T("")), "Add a module (and its configuration options) to the configuration.")
 			;
 
@@ -297,9 +298,10 @@ public:
 				return 1;
 
 			bool def = vm.count("add-defaults")==1 || vm.count("add-missing")==1;
+			bool rem_def = vm.count("remove-defaults")==1;
 			bool load_all = vm.count("load-all")==1;
 
-			nsclient::settings_client client(core_, log_level, def, load_all);
+			nsclient::settings_client client(core_, log_level, def, rem_def, load_all);
 			int ret = -1;
 
 			if (vm.count("generate")) {

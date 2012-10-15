@@ -1217,25 +1217,27 @@ NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, std::st
 		return NSCAPI::hasFailed;
 	}
 
-	try {
-		//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
-		bool found = false;
-		BOOST_FOREACH(nsclient::plugin_type p, channels_.get(schannel)) {
-			p->handleNotification(schannel.c_str(), request, response);
-			found = true;
-		}
-		if (!found) {
-			LOG_ERROR_CORE_STD(_T("No one listens for events from: ") + schannel + _T(" (") + std::wstring(channel) + _T(")"));
+	bool found = false;
+	BOOST_FOREACH(std::wstring cur_chan, strEx::splitEx(schannel, _T(","))) {
+		try {
+			//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
+			BOOST_FOREACH(nsclient::plugin_type p, channels_.get(cur_chan)) {
+				p->handleNotification(cur_chan.c_str(), request, response);
+				found = true;
+			}
+		} catch (nsclient::plugins_list_exception &e) {
+			LOG_ERROR_CORE(_T("No handler for channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()));
+			return NSCAPI::hasFailed;
+		} catch (...) {
+			LOG_ERROR_CORE(_T("Error handling channel: ") + std::wstring(channel));
 			return NSCAPI::hasFailed;
 		}
-		return NSCAPI::isSuccess;
-	} catch (nsclient::plugins_list_exception &e) {
-		LOG_ERROR_CORE(_T("No handler for channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_CORE(_T("Error handling channel: ") + std::wstring(channel));
+	}
+	if (!found) {
+		LOG_ERROR_CORE_STD(_T("No one listens for events from: ") + schannel + _T(" (") + std::wstring(channel) + _T(")"));
 		return NSCAPI::hasFailed;
 	}
+	return NSCAPI::isSuccess;
 }
 
 void NSClientT::listPlugins() {

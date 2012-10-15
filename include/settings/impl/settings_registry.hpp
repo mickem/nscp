@@ -104,6 +104,13 @@ namespace settings {
 			// NOT Supported (and not needed) so silently ignored!
 		}
 
+		virtual void remove_real_value(settings_core::key_path_type key) {
+			// NOT Supported
+		}
+		virtual void remove_real_path(std::wstring path) {
+			// NOT Supported
+		}
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
 		/// If the path is empty all root sections will be returned
