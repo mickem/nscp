@@ -136,6 +136,10 @@ namespace modern_filter {
 			return filter_engine(new filter_engine_type(arg));
 		}
 
+		void reset() {
+			summary.reset();
+		}
+
 		bool build_syntax(const std::string &top, const std::string &detail, std::string &error) {
 			if (!renderer_top.parse(top, error)) {
 				return false;
@@ -184,32 +188,36 @@ namespace modern_filter {
 		void start_match() {
 			returnCode = NSCAPI::returnOK;
 		}
-		bool match(boost::shared_ptr<Tobject> record) {
+		boost::tuple<bool,bool> match(boost::shared_ptr<Tobject> record) {
+			bool matched = false;
+			bool done = false;
 			if (engine_filter && engine_filter->match(record)) {
 				record->matched();
 				std::string current = renderer_detail.render(record);
 				summary.matched(current);
 				if (engine_crit && engine_crit->match(record)) {
 					summary.matched_crit(current);
-					message = renderer_top.render(summary);
 					nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
-					return true;
+					matched = done = true;
 				} else if (engine_warn && engine_warn->match(record)) {
 					summary.matched_warn(current);
-					message = renderer_top.render(summary);
 					nscapi::plugin_helper::escalteReturnCodeToWARN(returnCode);
-					return true;
-				} else if (engine_ok && engine_ok->match(record)) {
+					matched = done = true;
+				} else if (engine_ok && engine_ok->match(record) || !engine_ok) {
 					summary.matched_ok(current);
 					message = renderer_top.render(summary);
+					matched = true;
 				} else if (debug) {
 					NSC_DEBUG_MSG_STD(_T("Crit/warn/ok did not match: ") + utf8::cvt<std::wstring>(current));
 				}
-				summary.message += current;
+				if (matched) {
+					summary.message += current;
+					message = renderer_top.render(summary);
+				}
 			} else if (debug) {
 				NSC_DEBUG_MSG_STD(_T("Did not match: ") + utf8::cvt<std::wstring>(renderer_detail.render(record)));
 			}
-			return false;
+			return boost::make_tuple(matched, done);
 		}
 	};
 }

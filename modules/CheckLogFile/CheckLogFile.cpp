@@ -94,8 +94,9 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 	} else {
 		object.filter.returnCode = NSCAPI::returnOK;
 	}
-	object.filter.message = "";
+	object.filter.reset();
 
+	bool matched = false;
 	NSC_LOG_ERROR(_T("Processing object: ") + object.alias);
 	BOOST_FOREACH(filters::file_container &c, object.files) {
 		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
@@ -109,15 +110,17 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 			} else if (sz > c.size) {
 				file.seekg(c.size);
 			}
-			NSC_LOG_ERROR(_T("Processing file..."));
 			while (file.good()) {
 				std::getline(file,line, '\n');
-				NSC_LOG_ERROR(_T("---") + utf8::cvt<std::wstring>(line) + _T("--") + utf8::cvt<std::wstring>(object.column_split) + _T("---"));
 				if (!object.column_split.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(object.column_split));
 					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(object.filter.summary.filename, line, chunks, object.filter.summary.match_count));
-					if (object.filter.match(record)) {
-						break;
+					boost::tuple<bool,bool> ret = object.filter.match(record);
+					if (ret.get<0>()) {
+						matched = true;
+						if (ret.get<1>()) {
+							break;
+						}
 					}
 				}
 			}
@@ -125,6 +128,9 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 		} else {
 			NSC_LOG_ERROR(_T("Failed to open file: ") + c.file);
 		}
+	}
+	if (!matched) {
+		return;
 	}
 
 	std::string message;
@@ -514,7 +520,8 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 					if (!column_split.empty()) {
 						std::list<std::string> chunks = strEx::s::splitEx(line, column_split);
 						boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks, filter.summary.match_count));
-						if (filter.match(record)) {
+						boost::tuple<bool,bool> ret = filter.match(record);
+						if (ret.get<1>()) {
 							break;
 						}
 					}

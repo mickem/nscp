@@ -88,6 +88,15 @@ namespace logfile_filter {
 
 		log_summary() : match_count(0), ok_count(0), warn_count(0), crit_count(0) {}
 
+		void reset() {
+			match_count = 0;
+			ok_count = 0;
+			warn_count = 0;
+			crit_count = 0;
+			message = "";
+			error = "";
+			filename = "";
+		}
 		void matched(std::string &line) {
 			error = line;
 			match_count++;
