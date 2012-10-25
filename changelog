@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-10-25 MickeM
+ * Fixed installer in preparation of 0.4.1
+
 2012-10-15 MickeM
  * Added support for lists in targets/destination (passive checks/channels)
  * Added new --remove-defaults option when generating settings files.

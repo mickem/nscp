@@ -13,7 +13,7 @@ namespace socket_helpers {
 	namespace server {
 
 		using boost::asio::ip::tcp;
-		static const bool debug_trace = true;
+		static const bool debug_trace = false;
 
 		//
 		// The socket statemachine:

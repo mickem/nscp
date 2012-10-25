@@ -10,7 +10,7 @@ using boost::asio::ip::tcp;
 namespace socket_helpers {
 	namespace client {
 
-		static const bool debug_trace = true;
+		static const bool debug_trace = false;
 
 		template<class protocol_type>
 		class connection : public boost::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {

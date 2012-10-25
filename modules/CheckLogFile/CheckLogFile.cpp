@@ -324,7 +324,7 @@ bool real_time_thread::stop() {
 #ifdef WIN32
  	SetEvent(stop_event_);
 #else
-	write(stop_event_[1], "EXIT", 4);
+	write(stop_event_[1], " ", 4);
 #endif
 	if (thread_)
 		thread_->join();

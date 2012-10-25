@@ -127,8 +127,9 @@
 						<Component Id="ExtraClients" Guid="57D203AF-0A5F-4fca-BA6E-8B8767F97B8D" Win64="$(var.Win64)">
 							<File Id="GraphiteClient" Name="GraphiteClient.dll" DiskId="1" Source="$(var.Source)/modules/GraphiteClient.dll" Vital="no" />
 							<File Id="SMTPClient" Name="SMTPClient.dll" DiskId="1" Source="$(var.Source)/modules/SMTPClient.dll" Vital="no" />
-							<File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
-						</Component>
+              <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
+              <File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
+            </Component>
 						<Component Id="Plugins" Guid="BBE40548-4061-43fc-A720-96BFFDEFD34E" Win64="$(var.Win64)">
 							<File Id="ModCheckEventLog.dll" Name="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
 							<File Id="ModCheckExternalScripts.dll" Name="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
@@ -140,8 +141,11 @@
 							<File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
 							<File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
 							<File Id="ModCheckTaskSched2.dll" Name="CheckTaskSched2.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched2.dll" Vital="no" />
-							<File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
-						</Component>
+              <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
+              <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
+              <File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
+              <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
+            </Component>
 					</Directory>
 					<Directory Id="INSTALLLOCATION_SCRIPTS" Name="scripts">
 						<Component Id="Scripts" Guid="6439B928-2014-4efa-BA17-121D5DE0D527" Win64="$(var.Win64)">

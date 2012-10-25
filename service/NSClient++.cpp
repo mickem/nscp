@@ -480,7 +480,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 		}
 	}
 #else
-	LOG_ERROR_CORE(_T("Warning Not compiled with google breakpad support!"));
+//	LOG_ERROR_CORE(_T("Warning Not compiled with google breakpad support!"));
 #endif
 
 
