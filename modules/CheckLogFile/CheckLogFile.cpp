@@ -552,6 +552,6 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CheckLogFile)
+NSC_WRAPPERS_MAIN_DEF(CheckLogFile, _T("logfile"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()

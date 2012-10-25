@@ -82,9 +82,9 @@ void settings::settings_handler_impl::remove_defaults() {
 							get()->remove_key(path, key);
 						}
 					} else
-						get_logger()->error(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+						get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
 				} catch (const std::exception &e) {
-					get_logger()->error(__FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
+					get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
 				}
 			}
 		}

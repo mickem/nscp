@@ -394,7 +394,7 @@ void CheckMKClient::send(connection_data con) {
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CheckMKClient)
+NSC_WRAPPERS_MAIN_DEF(CheckMKClient, _T("check_mk"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_CLI_DEF()

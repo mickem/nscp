@@ -5,6 +5,7 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2012-10-25 MickeM
+ * Merged in changes from 0.4.1
  * Fixed installer in preparation of 0.4.1
 
 2012-10-15 MickeM

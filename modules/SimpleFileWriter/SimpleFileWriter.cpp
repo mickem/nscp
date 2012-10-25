@@ -210,7 +210,7 @@ NSCAPI::nagiosReturn FileWriter::handleRAWNotification(const wchar_t* channel_w,
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(FileWriter)
+NSC_WRAPPERS_MAIN_DEF(FileWriter, _T("file.write"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_IGNORE_CMD_DEF()
 NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

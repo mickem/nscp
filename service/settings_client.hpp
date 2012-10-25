@@ -17,8 +17,8 @@ namespace nsclient {
 		std::wstring filter_;
 
 	public:
-		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool remove_defaults, bool load_all) 
-			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all) 
+		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool remove_defaults, bool load_all, std::wstring filter) 
+			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), filter_(filter) 
 		{
 			startup();
 		}

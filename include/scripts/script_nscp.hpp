@@ -16,8 +16,12 @@ namespace scripts {
 		};
 
 		struct settings_provider_impl : public settings_provider {
+			int plugin_id;
 			nscapi::core_wrapper* core_;
-			settings_provider_impl(nscapi::core_wrapper* core) : core_(core) {}
+			settings_provider_impl(int plugin_id, nscapi::core_wrapper* core)
+				: plugin_id(plugin_id)
+				, core_(core)
+			{}
 
 			virtual std::list<std::string> get_section(std::string section);
 			virtual std::string get_string(std::string path, std::string key, std::string value);
@@ -55,7 +59,7 @@ namespace scripts {
 			nscp_runtime_impl(int plugin_id, nscapi::core_wrapper* core) 
 				: plugin_id(plugin_id)
 				, core_(core)
-				, settings_(new settings_provider_impl(core)) 
+				, settings_(new settings_provider_impl(plugin_id, core)) 
 				, core_provider_(new core_provider_impl(core))
 			{}
 

@@ -292,7 +292,7 @@ NSCAPI::nagiosReturn Cache::handleRAWCommand(const wchar_t *command, const std::
 	return ret;
 }
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(Cache)
+NSC_WRAPPERS_MAIN_DEF(Cache, _T("cache"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_HANDLE_CMD_DEF()
 NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

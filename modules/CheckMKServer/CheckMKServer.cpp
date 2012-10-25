@@ -190,6 +190,6 @@ bool CheckMKServer::add_script(std::wstring alias, std::wstring file) {
 }
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CheckMKServer)
+NSC_WRAPPERS_MAIN_DEF(CheckMKServer, _T("check_mk"))
 NSC_WRAPPERS_IGNORE_MSG_DEF()
 NSC_WRAPPERS_IGNORE_CMD_DEF()

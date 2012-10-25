@@ -314,8 +314,7 @@ public:
 			if (vm.count("filter"))
 				filter = vm["filter"].as<std::wstring>();
 
-			nsclient::settings_client client(core_, log_level, def, rem_def, load_all);
-			nsclient::settings_client client(core_, log_level, def, load_all, filter);
+			nsclient::settings_client client(core_, log_level, def, rem_def, load_all, filter);
 			int ret = -1;
 
 			if (vm.count("generate")) {

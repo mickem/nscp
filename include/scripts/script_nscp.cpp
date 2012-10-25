@@ -49,13 +49,13 @@ void scripts::nscp::settings_provider_impl::set_int(std::string path, std::strin
 
 void scripts::nscp::settings_provider_impl::register_path(std::string path, std::string title, std::string description, bool advanced)
 {
-	core_->settings_register_path(utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description),advanced);
+	core_->settings_register_path(plugin_id, utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description),advanced);
 }
 
 void scripts::nscp::settings_provider_impl::register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defaultValue)
 {
 	NSCAPI::settings_type iType = scripts::settings_provider::parse_type(type);
-	core_->settings_register_key(utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(key), iType, utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description),utf8::cvt<std::wstring>(defaultValue), false);
+	core_->settings_register_key(plugin_id, utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(key), iType, utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description),utf8::cvt<std::wstring>(defaultValue), false);
 }
 
 void scripts::nscp::settings_provider_impl::save()
