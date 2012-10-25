@@ -33,40 +33,24 @@ NSC_WRAPPERS_CLI();
 
 struct real_time_thread {
 	bool enabled_;
-	//std::wstring destination_;
 	unsigned long long start_age_;
-	unsigned long long max_age_;
-	//std::wstring syntax_;
-	//std::list<filter_container> filters_;
 	boost::shared_ptr<boost::thread> thread_;
 	HANDLE stop_event_;
-	std::list<std::wstring> lists_;
-	std::list<std::wstring> hit_cache_;
-	boost::timed_mutex cache_mutex_;
 	filters::filter_config_handler filters_;
+	std::wstring logs_;
 
 	bool cache_;
 	bool debug_;
 	std::wstring filters_path_;
 
-	real_time_thread() : enabled_(false), start_age_(0), max_age_(0), debug_(false), cache_(false) {
+	real_time_thread() : enabled_(false), start_age_(0), debug_(false), cache_(false) {
 		set_start_age(_T("30m"));
-		set_max_age(_T("5m"));
 	}
 
 	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query);
 	void set_enabled(bool flag) { enabled_ = flag; } 
 	void set_start_age(std::wstring age) {
 		start_age_ = strEx::stoi64_as_time(age);
-	} 
-	void set_max_age(std::wstring age) {
-		if (age == _T("none") || age == _T("infinite") || age == _T("false"))
-			max_age_ = 0;
-		else
-			max_age_ = strEx::stoi64_as_time(age);
-	} 
-	void set_eventlog(std::wstring log) {
-		lists_ = strEx::splitEx(log, _T(","));
 	} 
 
 	void set_language(std::string lang);
@@ -79,8 +63,6 @@ struct real_time_thread {
 	}
 	bool start();
 	bool stop();
-
-	bool check_cache(std::size_t &count, std::wstring &messages);
 
 	void thread_proc();
 //	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);

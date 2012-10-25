@@ -37,6 +37,7 @@ namespace nscapi {
 
 			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
+			typedef nscapi::protobuf::types::decoded_simple_command_data_utf8 decoded_simple_command_data_utf8;
 		public:
 			static Plugin::Common::ResultCode nagios_status_to_gpb(int ret) {
 				if (ret == NSCAPI::returnOK)
@@ -117,7 +118,10 @@ namespace nscapi {
 			static void make_return_header(::Plugin::Common_Header *target, const ::Plugin::Common_Header &source);
 
 			static void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer);
+			static void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer);
+			static void create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer);
 			static void create_simple_submit_request(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
+			static void create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
 			static void create_simple_submit_response(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer);
 			static NSCAPI::errorReturn parse_simple_submit_request(const std::string &request, std::wstring &source, std::wstring &command, std::wstring &msg, std::wstring &perf);
 
@@ -126,10 +130,10 @@ namespace nscapi {
 			static void parse_simple_query_request_payload(const Plugin::QueryRequestMessage::Request &payload, std::wstring &alias, std::wstring &command);
 			static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::wstring &response);
 			static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string response);
-			static void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer);
 			static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::wstring perf, std::string &buffer);
 			static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::string &buffer);
 			static void create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
+			static void create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
 			static void append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf = _T(""));
 			static void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf);
 
@@ -139,13 +143,19 @@ namespace nscapi {
 			static void append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, int ret, std::string msg);
 			static void append_simple_query_request_payload(Plugin::QueryRequestMessage::Request *payload, std::wstring command, std::vector<std::wstring> arguments);
 			static void append_simple_exec_request_payload(Plugin::ExecuteRequestMessage::Request *payload, std::wstring command, std::vector<std::wstring> arguments);
+			static void parse_simple_query_request(std::list<std::string> &args, const std::string &request);
 			static decoded_simple_command_data parse_simple_query_request(const wchar_t* char_command, const std::string &request);
+			static decoded_simple_command_data parse_simple_query_request(const std::string char_command, const std::string &request);
 			static decoded_simple_command_data parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload);
+			static decoded_simple_command_data_utf8 parse_simple_query_request_utf8(const wchar_t* char_command, const std::string &request);
 			static int parse_simple_query_response(const std::string &response, std::wstring &msg, std::wstring &perf);
+			static int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf);
 			static void create_simple_exec_request(const std::wstring &command, const std::list<std::wstring> & args, std::string &request);
+			static void create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request);
 			static void create_simple_exec_request(const std::wstring &command, const std::vector<std::wstring> & args, std::string &request);
 			static int parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result);
 			static void parse_simple_exec_result(const std::string &response, std::wstring &result);
+			static int parse_simple_exec_response(const std::string &response, std::list<std::string> &result);
 
 			template<class T>
 			static void append_response_payloads(T &target_message, std::string &payload) {

@@ -6,7 +6,10 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
-
+#ifdef USE_SSL
+#include <boost/asio/ssl.hpp>
+#include <boost/asio/ssl/basic_context.hpp>
+#endif
 #include <unicode_char.hpp>
 #include <strEx.h>
 
@@ -120,12 +123,12 @@ namespace socket_helpers {
 
 	struct connection_info {
 		static const int backlog_default;
-		connection_info() : back_log(backlog_default), port(0), thread_pool_size(0), timeout(30) {}
+		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30) {}
 
 		connection_info(const connection_info &other) 
 			: address(other.address)
 			, back_log(other.back_log)
-			, port(other.port)
+			, port_(other.port_)
 			, thread_pool_size(other.thread_pool_size)
 			, timeout(other.timeout)
 			, ssl(other.ssl)
@@ -134,7 +137,7 @@ namespace socket_helpers {
 			}
 		connection_info& operator=(const connection_info &other) {
 			address = other.address;
-			port = other.port;
+			port_ = other.port_;
 			thread_pool_size = other.thread_pool_size;
 			back_log = other.back_log;
 			ssl = other.ssl;
@@ -149,7 +152,7 @@ namespace socket_helpers {
 
 		std::string address;
 		int back_log;
-		unsigned int port;
+		std::string port_;
 		unsigned int thread_pool_size;
 		unsigned int timeout;
 
@@ -183,6 +186,7 @@ namespace socket_helpers {
 			std::string certificate;
 			std::string certificate_format;
 			std::string certificate_key;
+			std::string certificate_key_format;
 
 			std::string ca_path;
 			std::string allowed_ciphers;
@@ -190,7 +194,7 @@ namespace socket_helpers {
 
 			std::string verify_mode;
 
-			std::string to_string() {
+			std::string to_string() const {
 				std::stringstream ss;
 				if (enabled) {
 					ss << "ssl: " << verify_mode;
@@ -200,16 +204,22 @@ namespace socket_helpers {
 					ss << "ssl disabled";
 				return ss.str();
 			}
+#ifdef USE_SSL
+			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> errors);
+			boost::asio::ssl::context::verify_mode get_verify_mode();
+			boost::asio::ssl::context::file_format get_certificate_format();
+			boost::asio::ssl::context::file_format get_certificate_key_format();
+#endif
 		};
 		ssl_opts ssl;
 		allowed_hosts_manager allowed_hosts;
 
-		std::string get_port() { return utf8::cvt<std::string>(strEx::itos(port)); }
-		std::string get_address() { return address; }
-		std::string get_endpoint_string() {
+		std::string get_port() const { return port_; }
+		std::string get_address() const { return address; }
+		std::string get_endpoint_string() const {
 			return address + ":" + get_port();
 		}
-		std::wstring get_endpoint_wstring() {
+		std::wstring get_endpoint_wstring() const {
 			return utf8::cvt<std::wstring>(get_endpoint_string());
 		}
 	};

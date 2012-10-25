@@ -7,7 +7,6 @@ PROJECT(${TARGET})
 SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
-	lua_wrappers.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -20,8 +19,6 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
-		lua_wrappers.hpp
-		script_wrapper.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -31,19 +28,13 @@ add_library(${TARGET} MODULE ${SRCS})
 
 SET(LUA_PB)
 IF (PROTOC_GEN_LUA_FOUND)
-	MESSAGE(STATUS "Lua has PB support")
-	SET(LUA_PB lua_pb_static)
-	ADD_DEFINITIONS(-DHAVE_LUA_PB)
-	INCLUDE_DIRECTORIES(${NSCP_PROJECT_BINARY_DIR}/libs/lua_pb)
-	INCLUDE_DIRECTORIES(${NSCP_PROJECT_BINARY_DIR}/libs/protobuf)
+	SET(LUA_PB lua_pb)
 ENDIF()
 
-
 target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${LUA_LIB}
-	${LUA_PB}
+	lua_nscp
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

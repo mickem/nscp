@@ -1,0 +1,18 @@
+LIBRARY	NSCPClient
+
+EXPORTS
+	NSModuleHelperInit
+	NSLoadModule
+	NSLoadModuleEx
+	NSGetModuleName
+	NSGetModuleVersion
+	NSHasCommandHandler
+	NSHasMessageHandler
+	NSHandleMessage
+	NSHandleCommand
+	NSUnloadModule
+	NSGetModuleDescription
+	NSCommandLineExec
+	NSDeleteBuffer
+	NSHandleNotification
+	NSHasNotificationHandler

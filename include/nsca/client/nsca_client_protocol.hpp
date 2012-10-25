@@ -10,8 +10,6 @@ using boost::asio::ip::tcp;
 
 namespace nsca {
 	namespace client {
-
-
 		template<class handler_type>
 		class protocol : public boost::noncopyable {
 		public:
@@ -94,6 +92,9 @@ namespace nsca {
 			bool on_write(std::size_t bytes_transferred) {
 				set_state(sent_request);
 				return true;
+			}
+			bool on_read_error(const boost::system::error_code& e) {
+				return false;
 			}
 		};
 	}

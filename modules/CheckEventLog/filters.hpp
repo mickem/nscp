@@ -94,7 +94,7 @@ namespace filters {
 
 	struct filter_config_object {
 
-		filter_config_object() : is_template(false), debug(false), severity(-1), dwLang(0) {}
+		filter_config_object() : is_template(false), debug(false), severity(-1), dwLang(0), max_age_(0), next_ok_(0) {}
 		filter_config_object(const filter_config_object &other) 
 			: path(other.path)
 			, alias(other.alias)
@@ -112,6 +112,9 @@ namespace filters {
 			, severity(other.severity)
 			, dwLang(other.dwLang)
 			, command(other.command)
+			, log_(other.log_)
+			, max_age_(other.max_age_)
+			, next_ok_(other.next_ok_)
 
 		{}
 		const filter_config_object& operator =(const filter_config_object &other) {
@@ -131,6 +134,9 @@ namespace filters {
 			severity = other.severity;
 			dwLang = other.dwLang;
 			command = other.command;
+			log_ = other.log_;
+			max_age_ = other.max_age_;
+			next_ok_ = other.next_ok_;
 
 			return *this;
 		}
@@ -154,6 +160,9 @@ namespace filters {
 		NSCAPI::nagiosReturn severity;
 		DWORD dwLang;
 		std::wstring command;
+		std::wstring log_;
+		DWORD max_age_;
+		DWORD next_ok_ ;
 
 
 		std::wstring to_wstring() const {
@@ -183,6 +192,20 @@ namespace filters {
 		void set_severity(std::wstring severity_) {
 			severity = nscapi::plugin_helper::translateReturn(severity_);
 		}
+
+		void touch(DWORD now) {
+			if (max_age_ == 0)
+				next_ok_ = 0;
+			else
+				next_ok_ = now+max_age_;
+
+		}
+		void set_max_age(std::wstring age) {
+			if (age == _T("none") || age == _T("infinite") || age == _T("false"))
+				max_age_ = 0;
+			else
+				max_age_ = strEx::stoi64_as_time(age)/1000;
+		} 
 
 
 	};
@@ -237,6 +260,9 @@ namespace filters {
 				(_T("alias"), sh::wstring_key(&alias),
 				_T("ALIAS"), _T("The alias (service name) to report to server"), true)
 
+				(_T("log"), sh::wstring_key(&object.log_, _T("all")),
+				_T("LOG"), _T("The eventlog record to filter on (if set to 'all' means all enabled logs)"), true)
+
 				(_T("parent"), nscapi::settings_helper::wstring_key(&object.parent, _T("default")),
 				_T("PARENT"), _T("The parent the target inherits from"), true)
 
@@ -257,6 +283,9 @@ namespace filters {
 
 				(_T("language"), nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&object_type::set_language, &object, _1)),
 				_T("MESSAGE LANGUAGE"), _T("The language to use for rendering message (mainly used fror testing)"), true)
+
+				(_T("maximum age"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_max_age, &object, _1), _T("5m")),
+				_T("MAGIMUM AGE"), _T("How long before reporting \"ok\" (if this is set to off no ok will be reported only errors)"))
 
 				(_T("ok message"), nscapi::settings_helper::wstring_key(&object.ok_msg, _T("eventlog found no records")),
 				_T("OK MESSAGE"), _T("This is the message sent periodically whenever no error is discovered."), !is_default)

@@ -39,7 +39,6 @@
 
 #include "config.h"
 #include <types.hpp>
-#include <Singleton.h>
 #include <charEx.h>
 #include <error.hpp>
 #include <NSCAPI.h>

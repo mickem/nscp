@@ -29,6 +29,7 @@
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 NSC_WRAPPERS_MAIN()
 
@@ -38,6 +39,7 @@ private:
 	std::wstring crashFolder;
 	typedef std::list<std::string> error_list;
 	error_list errors_;
+	boost::posix_time::ptime start_;
 public:
 	// Module calls
 	bool loadModule();

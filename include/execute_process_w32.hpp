@@ -63,8 +63,8 @@ namespace process {
 
 		// Set up members of STARTUPINFO structure. 
 
-		ZeroMemory(&si, sizeof(STARTUPINFO));
-		si.cb = sizeof(STARTUPINFO);
+		ZeroMemory(&si, sizeof(STARTUPINFOW));
+		si.cb = sizeof(STARTUPINFOW);
 		si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
 		si.hStdInput = hChildInR;
 		si.hStdOutput = hChildOutW;

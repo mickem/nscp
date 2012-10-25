@@ -217,6 +217,7 @@ namespace settings_manager {
 			set_boot_string(_T("settings"), strEx::itos(i++), k);
 		}
 		set_boot_string(_T("main"), _T("write"), key);
+		boot(key);
 	}
 
 

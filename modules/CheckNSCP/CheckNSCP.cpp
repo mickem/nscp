@@ -33,6 +33,7 @@ bool CheckNSCP::loadModule() {
 }
 bool CheckNSCP::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
+		start_ =  boost::posix_time::microsec_clock::local_time();
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("crash"), alias);
@@ -145,10 +146,15 @@ NSCAPI::nagiosReturn CheckNSCP::check_nscp( std::list<std::wstring> arguments, s
 		strEx::append_list(msg, tmp, _T(", "));
 	}
 
+	boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();;
+	boost::posix_time::time_duration td = end - start_;
+
+	std::stringstream uptime;
+	uptime << td;
 	if (msg.empty())
-		msg = _T("OK: 0 crash(es), 0 error(s)");
+		msg = _T("OK: 0 crash(es), 0 error(s), uptime ") + utf8::cvt<std::wstring>(uptime.str());
 	else
-		msg = _T("ERROR: ") + msg;
+		msg = _T("ERROR: ") + msg + _T(", uptime ") + utf8::cvt<std::wstring>(uptime.str());
 
 	return (err_count > 0 || crash_count > 0) ? NSCAPI::returnCRIT:NSCAPI::returnOK;
 }

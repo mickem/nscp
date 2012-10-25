@@ -18,28 +18,4 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#pragma once
-
-template <class T> 
-class Singleton {
-private:
-	static T* pObject;
-protected:
-	Singleton() {}
-	virtual ~Singleton() {}
-
-public:
-	static T* getInstance() {
-		if (!pObject)
-			pObject = new T();
-		return pObject;
-	}
-	static void destroyInstance() {
-		delete pObject;
-		pObject = 0;
-	}
-};
-
-template <class T> 
-T* Singleton<T>::pObject = 0;
-
+#include "stdafx.h"

@@ -1,0 +1,63 @@
+IF(WIN32)
+	if(CMAKE_CL_64)
+		SET(LIBRARY_ROOT_FOLDER	"d:/source/x64")
+	ELSE(CMAKE_CL_64)
+		SET(LIBRARY_ROOT_FOLDER	"d:/source/w32")
+	ENDIF(CMAKE_CL_64)
+
+	# Setup boost
+	set(Boost_USE_STATIC_LIBS		ON)
+	set(Boost_USE_STATIC_RUNTIME	ON)
+	set(BOOST_USE_MULTITHREADED		ON)
+	SET(BOOST_ROOT "${LIBRARY_ROOT_FOLDER}/boost_1_49_0")
+	SET(BOOST_LIBRARYDIR "${BOOST_ROOT}/stage/lib")
+
+	# Tiny XML
+	SET(TINYXML2_DIR "${LIBRARY_ROOT_FOLDER}/tinyxml2")
+
+	# Python (python requires two installations to build bith versions)
+	if(CMAKE_CL_64)
+		SET(PYTHON_ROOT c:/python/27x64)
+	ELSE(CMAKE_CL_64)
+		SET(PYTHON_ROOT c:/python/27)
+	ENDIF(CMAKE_CL_64)
+	
+	# Lua protocol buffers
+	SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
+	
+	# Google breakpad
+	SET(GOOGLE_BREAKPAD_DIR "${LIBRARY_ROOT_FOLDER}/google-breakpad-svn")
+	#SET(BREAKPAD_LIBRARY_PREFIX "google-breakpad-")
+	#SET(BREAKPAD_LIBRARY_PREFIX_DEBUG "debug-google-breakpad-")
+	#SET(BREAKPAD_INCLUDE_DIR "${GOOGLE_BREAKPAD_DIR}/src")
+		
+	# Google protocol buffers
+	#SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
+	#SET(PROTOBUF_LIBRARY_SUFFIX_DEBUG "-lite")
+	SET(PROTOBUF_ROOT "${LIBRARY_ROOT_FOLDER}/protobuf-2.4.1")
+
+	# OpenSSL
+	#SET(OPENSSL_ROOT_DIR "${LIBRARY_ROOT_FOLDER}/openssl-1.0.1c")
+	# Due to crappy defaul openssl script we need to set these...
+	SET(OPENSSL_ROOT_DIR "${LIBRARY_ROOT_FOLDER}/openssl-1.0.1c/out32dll")
+	SET(_OPENSSL_INCLUDEDIR "${LIBRARY_ROOT_FOLDER}/openssl-1.0.1c/include")
+	
+	# ZeroMQ
+	SET(ZEROMQ_ROOT "${LIBRARY_ROOT_FOLDER}/zeromq-2.2.0")
+
+	# Crypto++
+	SET(CRYPTOPP_DIR "${LIBRARY_ROOT_FOLDER}/crypto++-5.6.1")
+
+	# Lua
+	SET(LUA_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.2.1")
+
+	# Archive generated binaries after build?
+	#SET(ARCHIVE_FOLDER "D:/archive")
+	
+	# Upload generated binaries after build?
+	#SET(TARGET_SITE "nscp@nsclient.org:/var/nsclient/www/files/nightly/;op5=mickem@home.medin.name:/home/nscp-dist/op5/nscp/;opsera=mickem@home.medin.name:/home/nscp-dist/opsera/nscp/")
+
+ELSE(WIN32)
+
+ENDIF(WIN32)
+

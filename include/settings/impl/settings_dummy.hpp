@@ -84,6 +84,10 @@ namespace settings {
 
 		virtual void set_real_path(std::wstring path) {
 		}
+		virtual void remove_real_value(settings_core::key_path_type key) {
+		}
+		virtual void remove_real_path(std::wstring path) {
+		}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).

@@ -21,6 +21,8 @@
 #pragma once
 
 #include <sstream>
+#include <Windows.h>
+#include <unicode_char.hpp>
 
 namespace serviceControll {
 	class SCException {

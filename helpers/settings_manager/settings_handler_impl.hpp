@@ -21,7 +21,6 @@
 #pragma once
 
 #include <types.hpp>
-#include <Singleton.h>
 #include <string>
 #include <map>
 #include <set>
@@ -91,6 +90,7 @@ namespace settings {
 		instance_ptr get();
 		instance_ptr get_no_wait();
 		void update_defaults();
+		void remove_defaults();
 		void migrate(instance_ptr from, instance_ptr to) {
 			if (!from || !to)
 				throw new settings_exception(_T("Source or target is null"));

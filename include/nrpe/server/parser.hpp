@@ -31,6 +31,9 @@ namespace nrpe {
 				buffer_.clear();
 				return packet;
 			}
+			void reset() {
+				buffer_.clear();
+			}
 		};
 
 	}// namespace server

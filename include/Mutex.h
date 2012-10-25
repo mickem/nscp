@@ -20,7 +20,6 @@
 ***************************************************************************/
 #pragma once
 
-#include "Singleton.h"
 #include "strEx.h"
 #include <windows.h>
 #include <iostream>

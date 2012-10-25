@@ -10,7 +10,7 @@ using boost::asio::ip::tcp;
 namespace socket_helpers {
 	namespace client {
 
-		static const bool debug_trace = true;
+		static const bool debug_trace = false;
 
 		template<class protocol_type>
 		class connection : public boost::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
@@ -37,7 +37,7 @@ namespace socket_helpers {
 				try {
 					cancel_timer();
 				} catch (const std::exception &e) {
-					handler_->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					handler_->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + utf8::utf8_from_native(e.what()));
 				} catch (...) {
 					handler_->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}
@@ -58,7 +58,7 @@ namespace socket_helpers {
 				timer_.cancel();
 			}
 			virtual void on_timeout(boost::system::error_code ec) {
-				trace("on_timeout(" + ec.message() + ")");
+				trace("on_timeout(" + utf8::utf8_from_native(ec.message()) + ")");
 				if (!ec) {
 					timer_result_.reset(ec);
 				}
@@ -137,25 +137,32 @@ namespace socket_helpers {
 			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_read_request(" + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_read_request(" + utf8::utf8_from_native(e.message())  + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_read(bytes_transferred);
 					do_process();
 				} else {
-					handler_->log_error(__FILE__, __LINE__, "Failed to read data: " + e.message());
-					cancel_timer();
+					if (bytes_transferred > 0) {
+						protocol_.on_read(bytes_transferred);
+					}
+					if (!protocol_.on_read_error(e)) {
+						handler_->log_error(__FILE__, __LINE__, "Failed to read data: " + utf8::utf8_from_native(e.message()));
+						cancel_timer();
+					} else {
+						do_process();
+					}
 				}
 			}
 
 			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_write_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_write_request(" + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_write_request(" + utf8::utf8_from_native(e.message())  + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_write(bytes_transferred);
 					do_process();
 				} else {
-					handler_->log_error(__FILE__, __LINE__, "Failed to send data: " + e.message());
+					handler_->log_error(__FILE__, __LINE__, "Failed to send data: " + utf8::utf8_from_native(e.message()));
 					cancel_timer();
 				}
 			}
@@ -205,7 +212,7 @@ namespace socket_helpers {
 				try {
 					this->close_socket();
 				} catch (const std::exception &e) {
-					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + utf8::utf8_from_native(e.what()));
 				} catch (...) {
 					this->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}
@@ -246,7 +253,7 @@ namespace socket_helpers {
 				try {
 					this->close_socket();
 				} catch (const std::exception &e) {
-					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + e.what());
+					this->log_error(__FILE__, __LINE__, std::string("Failed to close connection: ") + utf8::utf8_from_native(e.what()));
 				} catch (...) {
 					this->log_error(__FILE__, __LINE__, "Failed to close connection");
 				}
@@ -254,8 +261,15 @@ namespace socket_helpers {
 
 			virtual boost::system::error_code connect(std::string host, std::string port) {
 				boost::system::error_code error = connection_type::connect(host, port);
-				if (!error)
+				if (error) {
+					this->log_error(__FILE__, __LINE__, "Failed to connect to server: " + utf8::utf8_from_native(error.message()));
+				}
+				if (!error) {
 					ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+					if (error) {
+						this->log_error(__FILE__, __LINE__, "SSL handshake failed: " + utf8::utf8_from_native(error.message()));
+					}
+				}
 				return error;
 			}
 
@@ -282,6 +296,7 @@ namespace socket_helpers {
 		class client : boost::noncopyable {
 			boost::shared_ptr<connection<protocol_type> > connection_;
 			boost::asio::io_service io_service_;
+			socket_helpers::connection_info info_;
 			boost::shared_ptr<typename protocol_type::client_handler> handler_;
 
 			typedef connection<protocol_type> connection_type;
@@ -292,8 +307,8 @@ namespace socket_helpers {
 #endif
 
 		public:
-			client(typename boost::shared_ptr<typename protocol_type::client_handler> handler)
-				: handler_(handler)
+			client(socket_helpers::connection_info info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
+				: info_(info), handler_(handler)
 #ifdef USE_SSL
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
 #endif
@@ -311,22 +326,27 @@ namespace socket_helpers {
 
 			void connect() {
 				connection_.reset(create_connection());
-				boost::system::error_code error = connection_->connect(handler_->get_host(), handler_->get_port());
+				boost::system::error_code error = connection_->connect(info_.get_address(), info_.get_port());
 				if (error) {
 					connection_.reset();
-					throw socket_helpers::socket_exception(error.message());
+					throw socket_helpers::socket_exception("Failed to connect to: " + info_.get_endpoint_string() + " :" + utf8::utf8_from_native(error.message()));
 				}
 			}
 
 			connection_type* create_connection() {
+				boost::posix_time::time_duration timeout(boost::posix_time::seconds(info_.timeout));
+
 #ifdef USE_SSL
-				if (handler_->use_ssl()) {
-					connection_type* ptr = new ssl_connection_type(io_service_, context_, handler_->get_timeout(), handler_);
-					handler_->setup_ssl(context_);
-					return ptr;
+				if (info_.ssl.enabled) {
+					std::list<std::string> errors;
+					info_.ssl.configure_ssl_context(context_, errors);
+					BOOST_FOREACH(const std::string &e, errors) {
+						handler_->log_error(__FILE__, __LINE__, e);
+					}
+					return new ssl_connection_type(io_service_, context_, timeout, handler_);
 				}
 #endif
-				return new tcp_connection_type(io_service_, handler_->get_timeout(), handler_);
+				return new tcp_connection_type(io_service_, timeout, handler_);
 			}
 
 			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet, int retries = 3) {
@@ -352,33 +372,28 @@ namespace socket_helpers {
 		};
 
 		struct client_handler : private boost::noncopyable {
-
+/*
 			std::string host_;
 			std::string port_;
 			long timeout_;
 			bool ssl_;
 			std::string dh_key_;
+			*/
 
-			client_handler(std::string host, std::string port, long timeout, bool ssl, std::string dh_key)
-				: host_(host)
-				, port_(port)
-				, timeout_(timeout)
-				, ssl_(ssl)
-				, dh_key_(dh_key)
+			client_handler()
+// 				: host_(host)
+// 				, port_(port)
+// 				, timeout_(timeout)
+// 				, ssl_(ssl)
+// 				, dh_key_(dh_key)
 			{}
 			virtual ~client_handler() {}
 
-			bool use_ssl() { return ssl_; }
-			std::string get_host() { return host_; }
-			std::string get_port() { return port_; }
-			boost::posix_time::time_duration get_timeout() { return boost::posix_time::seconds(timeout_); }
-#ifdef USE_SSL
-			void setup_ssl(boost::asio::ssl::context &context) {
-				SSL_CTX_set_cipher_list(context.impl(), "ADH");
-				context.use_tmp_dh_file(dh_key_);
-				context.set_verify_mode(boost::asio::ssl::context::verify_none);
-			}
-#endif
+// 			bool use_ssl() { return ssl_; }
+// 			std::string get_host() { return host_; }
+// 			std::string get_port() { return port_; }
+// 			boost::posix_time::time_duration get_timeout() { return boost::posix_time::seconds(timeout_); }
+
 
 			virtual void log_debug(std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string file, int line, std::string msg) const = 0;

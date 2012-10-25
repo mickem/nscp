@@ -64,8 +64,6 @@ namespace settings_manager {
 		void set_primary(std::wstring key);
 	};
 
-	//typedef Singleton<NSCSettingsImpl> SettingsHandler;
-
 	// Alias to make handling "compatible" with old syntax
 	settings::instance_ptr get_settings();
 	settings::instance_ptr get_settings_no_wait();

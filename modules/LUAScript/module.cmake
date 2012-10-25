@@ -1,5 +1,8 @@
 IF(HAVE_LUA)
 	SET (BUILD_MODULE 1)
+	IF(NOT PROTOC_GEN_LUA_FOUND)
+		SET(MODULE_NOTE "without protocol buffer support")
+	ENDIF(NOT PROTOC_GEN_LUA_FOUND)
 ELSE(HAVE_LUA)
 	MESSAGE(STATUS "Disabling CheckLua since Lua was not foun")
 ENDIF(HAVE_LUA)

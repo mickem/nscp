@@ -86,7 +86,7 @@ addr calculate_mask(std::string mask_s) {
 
 void socket_helpers::allowed_hosts_manager::set_source(std::wstring source) {
 	sources.clear();
-	BOOST_FOREACH(std::wstring s, strEx::splitEx(source, _T(","))) {
+	BOOST_FOREACH(std::wstring s, strEx::splitEx(source, std::wstring(_T(",")))) {
 		boost::trim(s);
 		if (!s.empty())
 			sources.push_back(utf8::cvt<std::string>(s));
@@ -152,3 +152,76 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 // 		std::cout << "timer aborted incorrectly: " << b.message() << std::endl;
 	}
 }
+#ifdef USE_SSL
+void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> errors) {
+	boost::system::error_code er;
+	if (!certificate.empty() && certificate != "none") {
+		context.use_certificate_file(certificate, get_certificate_format(), er);
+		if (er)
+			errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+		if (!certificate_key.empty() && certificate_key != "none") {
+			context.use_private_key_file(certificate_key, get_certificate_key_format(), er);
+			if (er)
+				errors.push_back("Failed to load certificate key " + certificate_key + ": " + utf8::utf8_from_native(er.message()));
+		} else {
+			context.use_private_key_file(certificate, get_certificate_key_format(), er);
+			if (er)
+				errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+		}
+	}
+	context.set_verify_mode(get_verify_mode(), er);
+	if (er)
+		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
+	if (!allowed_ciphers.empty())
+		SSL_CTX_set_cipher_list(context.impl(), allowed_ciphers.c_str());
+	if (!dh_key.empty() && dh_key != "none") {
+		context.use_tmp_dh_file(dh_key, er);
+		if (er)
+			errors.push_back("Failed to set dh file " + dh_key + ": " + utf8::utf8_from_native(er.message()));
+	}
+
+	if (!ca_path.empty()) {
+		context.load_verify_file(ca_path, er);
+		if (er)
+			errors.push_back("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()));
+	}
+}
+
+boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode()
+{
+	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
+	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(verify_mode, std::string(","))) {
+		if (key == "client-once")
+			mode |= boost::asio::ssl::context_base::verify_client_once;
+		else if (key == "none")
+			mode |= boost::asio::ssl::context_base::verify_none;
+		else if (key == "peer")
+			mode |= boost::asio::ssl::context_base::verify_peer;
+		else if (key == "fail-if-no-cert")
+			mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
+		else if (key == "peer-cert") {
+			mode |= boost::asio::ssl::context_base::verify_peer;
+			mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
+		}
+		else if (key == "workarounds")
+			mode |= boost::asio::ssl::context_base::default_workarounds;
+		else if (key == "single")
+			mode |= boost::asio::ssl::context::single_dh_use;
+	}
+	return mode;
+}
+
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format()
+{
+	if (certificate_format == "asn1")
+		return boost::asio::ssl::context::asn1;
+	return boost::asio::ssl::context::pem;
+}
+
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_key_format()
+{
+	if (certificate_key_format == "asn1")
+		return boost::asio::ssl::context::asn1;
+	return boost::asio::ssl::context::pem;
+}
+#endif

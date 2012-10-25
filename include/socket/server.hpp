@@ -43,6 +43,7 @@ namespace socket_helpers {
 		template<class protocol_type, std::size_t N>
 		class server : private boost::noncopyable {
 
+
 			typedef socket_helpers::server::connection<protocol_type, N> connection_type;
 			typedef socket_helpers::server::tcp_connection<protocol_type, N> tcp_connection_type;
 #ifdef USE_SSL
@@ -53,6 +54,7 @@ namespace socket_helpers {
 			boost::shared_ptr<protocol_type> protocol_;
 			boost::asio::ip::tcp::acceptor acceptor_;
 			boost::asio::strand accept_strand_;
+			socket_helpers::connection_info info_;
 #ifdef USE_SSL
 			boost::asio::ssl::context context_;
 #endif
@@ -62,6 +64,7 @@ namespace socket_helpers {
 		public:
 			server(boost::shared_ptr<protocol_type> protocol)
 				: protocol_(protocol)
+				, info_(protocol->get_info())
 				, acceptor_(io_service_)
 				, accept_strand_(io_service_)
 #ifdef USE_SSL
@@ -76,27 +79,26 @@ namespace socket_helpers {
 			}
 
 			void start() {
+				boost::system::error_code er;
 				ip::tcp::resolver resolver(io_service_);
 				ip::tcp::resolver::iterator endpoint_iterator;
-				if (protocol_->get_info().address.empty()) {
-					endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(protocol_->get_info().get_port()));
+				if (info_.address.empty()) {
+					endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info_.get_port()));
 				} else {
-					endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(protocol_->get_info().get_address(), protocol_->get_info().get_port()));
+					endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info_.get_address(), info_.get_port()));
 				}
 				ip::tcp::resolver::iterator end;
 				if (endpoint_iterator == end) {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to lookup: " + protocol_->get_info().get_endpoint_string());
+					protocol_->log_error(__FILE__, __LINE__, "Failed to lookup: " + info_.get_endpoint_string());
 					return;
 				}
-				if (protocol_->get_info().ssl.enabled) {
+				if (info_.ssl.enabled) {
 #ifdef USE_SSL
-					protocol_->log_debug(__FILE__, __LINE__, "Using SSL: " + protocol_->get_info().ssl.to_string());
-					//context_.use_certificate_file(protocol_->get_info().ssl.certificate);
-					//context_.use_private_key_file(protocol_->get_info().ssl.certificate_key);
-					//context_.set_verify_mode(protocol_->get_info().ssl.get_verify_mode());
-					SSL_CTX_set_cipher_list(context_.impl(), protocol_->get_info().ssl.allowed_ciphers.c_str());
-					context_.use_tmp_dh_file(protocol_->get_info().ssl.dh_key);
-					context_.set_verify_mode(boost::asio::ssl::context::verify_none);
+					std::list<std::string> errors;
+					info_.ssl.configure_ssl_context(context_, errors);
+					BOOST_FOREACH(const std::string &e, errors) {
+						protocol_->log_error(__FILE__, __LINE__, e);
+					}
 #else
 					protocol_->log_error(__FILE__, __LINE__, "Not compiled with SSL");
 #endif
@@ -105,28 +107,36 @@ namespace socket_helpers {
 
 				ip::tcp::endpoint endpoint = *endpoint_iterator;
 				acceptor_.open(endpoint.protocol());
-				boost::system::error_code er;
 				acceptor_.set_option(ip::tcp::acceptor::reuse_address(true), er);
 				if (er) {
 					protocol_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
 				}
-				protocol_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + protocol_->get_info().get_endpoint_string());
-				acceptor_.bind(endpoint);
-				if (protocol_->get_info().back_log == connection_info::backlog_default)
+				protocol_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + info_.get_endpoint_string());
+				acceptor_.bind(endpoint, er);
+				if (er) {
+					protocol_->log_error(__FILE__, __LINE__, "Failed to bind: " + er.message());
+				}
+				if (info_.back_log == connection_info::backlog_default)
 					acceptor_.listen();
 				else
-					acceptor_.listen(protocol_->get_info().back_log);
+					acceptor_.listen(info_.back_log);
 
 				acceptor_.async_accept(new_connection_->get_socket(),accept_strand_.wrap(
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					));
-				protocol_->log_debug(__FILE__, __LINE__, "Bound to: " + protocol_->get_info().get_endpoint_string());
+				protocol_->log_debug(__FILE__, __LINE__, "Bound to: " + info_.get_endpoint_string());
 
-				for (std::size_t i = 0; i < protocol_->get_info().thread_pool_size; ++i) {
+				for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
 					thread_group_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
 				}
 			}
 
+
+			std::string get_password() const
+			{
+				protocol_->log_error(__FILE__, __LINE__, "Getting password...");
+				return "test";
+			}
 			void stop() {
 				io_service_.stop();
 				thread_group_.join_all();
@@ -156,13 +166,12 @@ namespace socket_helpers {
 
 			connection_type* create_connection() {
 #ifdef USE_SSL
-				if (protocol_->get_info().ssl.enabled) {
+				if (info_.ssl.enabled) {
 					return new ssl_connection_type(io_service_, context_, protocol_);
 				}
 #endif
 				return new tcp_connection_type(io_service_, protocol_);
 			}
 		};
-
 	} // namespace server
 } // namespace nrpe

@@ -46,7 +46,7 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("port"), sh::uint_key(&info_.port, 5667),
+			(_T("port"), sh::string_key(&info_.port_, "5667"),
 			_T("PORT NUMBER"), _T("Port to use for NSCA."))
 
 			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nsca::server::handler::set_payload_length, handler_, _1), 512),
@@ -61,19 +61,21 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("password"), sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_password, handler_, _1), ""),
 			_T("PASSWORD"), _T("Password to use"))
 
+			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, false),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
 
 			;
 
 		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
 			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
-			_T("THREAD POOL"), _T(""))
+			_T("THREAD POOL"), _T(""), true)
 
 			(_T("bind to"), sh::string_key(&info_.address),
-			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
+			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."), true)
 
 			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
-			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."))
+			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
 
 			(_T("allowed hosts"), sh::string_fun_key<std::wstring>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), _T("127.0.0.1")),
 			_T("ALLOWED HOSTS"), _T("A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges."))
@@ -87,21 +89,47 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("inbox"), sh::string_fun_key<std::wstring>(boost::bind(&nsca::server::handler::set_channel, handler_, _1), _T("inbox")),
 			_T("INBOX"), _T("The default channel to post incoming messages on"))
 
+			(_T("dh"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+			_T("DH KEY"), _T(""), true)
+
+			(_T("certificate"), sh::path_key(&info_.ssl.certificate),
+			_T("SSL CERTIFICATE"), _T(""), false)
+
+			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key),
+			_T("SSL CERTIFICATE"), _T(""), true)
+
+			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
+			_T("CERTIFICATE FORMAT"), _T(""), true)
+
+			(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
+			_T("CA"), _T(""), true)
+
+			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ADH"),
+			_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+
+			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
+			_T("VERIFY MODE"), _T(""), false)
+
 			;
 
 		settings.register_all();
 		settings.notify();
 
+
+#ifndef USE_SSL
+		if (info_.ssl.enabled) {
+			NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+			return false;
+		}
+#endif
 		if (handler_->get_payload_length() != 512)
 			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(handler_->get_payload_length()));
+		NSC_LOG_ERROR_LISTW(info_.validate());
 
 		std::list<std::string> errors;
 		info_.allowed_hosts.refresh(errors);
-		BOOST_FOREACH(const std::string &e, errors) {
-			NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(e));
-		}
+		NSC_LOG_ERROR_LISTS(errors);
 		NSC_DEBUG_MSG_STD(_T("Allowed hosts definition: ") + info_.allowed_hosts.to_wstring());
-		NSC_LOG_ERROR_LISTW(info_.validate());
 
 		if (mode == NSCAPI::normalStart) {
 
@@ -110,7 +138,6 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 				return false;
 			}
-			//server_->setup();
 			server_->start();
 		}
 	} catch (std::exception &e) {
@@ -120,6 +147,8 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
 		return false;
 	}
+
+
 	return true;
 }
 

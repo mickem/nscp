@@ -74,6 +74,32 @@ namespace strEx {
 		virtual ~string_exception() throw();
 	};
 	namespace s {
+
+		template<class T>
+		inline std::list<T> splitEx(const T str, const T key) {
+			std::list<T> ret;
+			typename T::size_type pos = 0, lpos = 0;
+			while ((pos = str.find(key, pos)) !=  T::npos) {
+				ret.push_back(str.substr(lpos, pos-lpos));
+				lpos = ++pos;
+			}
+			if (lpos < str.size())
+				ret.push_back(str.substr(lpos));
+			return ret;
+		}
+
+		typedef std::pair<std::string,std::string> token;
+		inline token getToken(std::string buffer, char split) {
+			std::string::size_type pos = std::string::npos;
+				pos = buffer.find(split);
+			if (pos == std::string::npos)
+				return token(buffer, "");
+			if (pos == buffer.length()-1)
+				return token(buffer.substr(0, pos), "");
+			return token(buffer.substr(0, pos), buffer.substr(pos+1));
+		}
+
+
 		template<class T>
 		inline T stox(std::string s) {
 			return boost::lexical_cast<T>(s.c_str());
@@ -105,7 +131,7 @@ namespace strEx {
 		}
 	}
 
-	inline void append_list(std::wstring &lst, std::wstring &append, std::wstring sep = _T(", ")) {
+	inline void append_list(std::wstring &lst, const std::wstring &append, const std::wstring sep = _T(", ")) {
 		if (append.empty())
 			return;
 		if (!lst.empty())
@@ -382,7 +408,7 @@ namespace strEx {
 
 
 	typedef std::list<std::wstring> splitList;
-	inline splitList splitEx(const std::wstring str, const std::wstring key) {
+	inline std::list<std::wstring> splitEx(const std::wstring str, const std::wstring key) {
 		splitList ret;
 		std::wstring::size_type pos = 0, lpos = 0;
 		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {

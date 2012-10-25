@@ -31,7 +31,6 @@
 #include <queue>
 
 #include "config.h"
-#include <Singleton.h>
 #include <charEx.h>
 #include <error.hpp>
 #include <NSCAPI.h>

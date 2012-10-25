@@ -73,6 +73,7 @@ namespace client {
 		typedef boost::shared_ptr<target_lookup_interface> target_lookup_type;
 
 		std::string title;
+		std::string default_command;
 		po::options_description local;
 		data_type data;
 		handler_type handler;
@@ -165,7 +166,8 @@ namespace client {
 				|| (command == _T("query"))
 				|| (command == _T("exec"))
 				|| (command == _T("submit"))
-				|| (command == _T("forward"));
+				|| (command == _T("forward"))
+				|| (command == _T(""));
 		}
 
 		static int do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);

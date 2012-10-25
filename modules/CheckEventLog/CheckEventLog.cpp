@@ -90,53 +90,32 @@ void real_time_thread::process_record(const filters::filter_config_object &objec
 		command = object.command;
 	std::wstring message = record.render(true, object.syntax, object.date_format, object.dwLang);
 	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.severity, message, object.perf_msg, response)) {
-		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
+		NSC_LOG_ERROR(_T("Failed to submit eventlog result ") + object.alias + _T(": ") + response);
 	}
+}
 
-	if (cache_) {
-		boost::unique_lock<boost::timed_mutex> lock(cache_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-		if (!lock.owns_lock()) {
-			NSC_LOG_ERROR(_T("ERROR: Could not get CheckEventLogCache mutex."));
-			return;
-		}
-		hit_cache_.push_back(message);
-	}
-}
-bool real_time_thread::check_cache(std::size_t &count, std::wstring &messages) {
-	if (!cache_) {
-		messages = _T("ERROR: Cache is not enabled!");
-		NSC_LOG_ERROR(messages);
-		return false;
-	}
-	boost::unique_lock<boost::timed_mutex> lock(cache_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-	if (!lock.owns_lock()) {
-		messages = _T("ERROR: Could not get CheckEventLogCache mutex.");
-		NSC_LOG_ERROR(messages);
-		return false;
-	}
-	BOOST_FOREACH(const std::wstring &s, hit_cache_) {
-		if (!messages.empty())
-			messages += _T(", ");
-		messages += s;
-	}
-	count = hit_cache_.size();
-	hit_cache_.clear();
-	return true;
-}
 void real_time_thread::debug_miss(const EventLogRecord &record) {
-	std::wstring message = record.render(true, _T("%type% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
+	std::wstring message = record.render(true, _T("%id% %level% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
 	NSC_DEBUG_MSG_STD(_T("No filter matched: ") + message);
 }
 
 void real_time_thread::thread_proc() {
 
 	std::list<filters::filter_config_object> filters;
+	std::list<std::wstring> logs;
+
+	BOOST_FOREACH(std::wstring s, strEx::splitEx(logs_, _T(","))) {
+		logs.push_back(s);
+	}
+
 	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
 		eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(object.syntax, object.date_format);
 		fargs->filter = object.filter;
 		fargs->debug = object.debug;
 		fargs->alias = object.alias;
 		fargs->bShowDescriptions = true;
+		if (object.log_ != _T("any") && object.log_ != _T("all"))
+			logs.push_back(object.log_);
 		// eventlog_filter::filter_engine 
 		object.engine = eventlog_filter::factories::create_engine(fargs);
 
@@ -157,53 +136,73 @@ void real_time_thread::thread_proc() {
 		}
 		filters.push_back(object);
 	}
-
-
+	logs.sort();
+	logs.unique();
+	NSC_DEBUG_MSG_STD(_T("Scanning logs: ") + strEx::joinEx(logs, _T(", ")));
 
 	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
 	typedef std::vector<eventlog_type> eventlog_list;
-	eventlog_list list;
+	eventlog_list evlog_list;
 
-	BOOST_FOREACH(std::wstring l, lists_) {
+	BOOST_FOREACH(std::wstring l, logs) {
 		eventlog_type el = eventlog_type(new eventlog_wrapper(l));
 		if (!el->seek_end()) {
 			NSC_LOG_ERROR_STD(_T("Failed to find the end of eventlog: ") + l);
 		} else {
-			list.push_back(el);
+			evlog_list.push_back(el);
 		}
 	}
 	
 	// TODO: add support for scanning "missed messages" at startup
 
-	HANDLE *handles = new HANDLE[1+list.size()];
+	HANDLE *handles = new HANDLE[1+evlog_list.size()];
 	handles[0] = stop_event_;
-	for (int i=0;i<list.size();i++) {
-		list[i]->notify(handles[i+1]);
+	for (int i=0;i<evlog_list.size();i++) {
+		evlog_list[i]->notify(handles[i+1]);
+	}
+	__time64_t ltime;
+	_time64(&ltime);
+
+	BOOST_FOREACH(filters::filter_config_object &object, filters) {
+		object.touch(ltime);
 	}
 
-	DWORD dwWaitTime = max_age_;
-	if (dwWaitTime > 0 && dwWaitTime < 5000)
-		dwWaitTime = 5000;
 	unsigned int errors = 0;
 	while (true) {
-		DWORD dwWaitReason = WaitForMultipleObjects(list.size()+1, handles, FALSE, dwWaitTime==0?INFINITE:dwWaitTime);
+
+		DWORD minNext = INFINITE;
+		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
+			NSC_DEBUG_MSG_STD(_T("Getting next from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
+			if (object.next_ok_ > 0 && object.next_ok_ < minNext)
+				minNext = object.next_ok_;
+		}
+
+		_time64(&ltime);
+
+		if (ltime > minNext) {
+			NSC_LOG_ERROR(_T("Strange seems we expect to send ok now?"));
+			continue;
+		}
+		DWORD dwWaitTime = (minNext - ltime)*1000;
+		if (minNext == INFINITE || dwWaitTime < 0)
+			dwWaitTime = INFINITE;
+		NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dwWaitTime) + _T("s"));
+
+		DWORD dwWaitReason = WaitForMultipleObjects(evlog_list.size()+1, handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
-			BOOST_FOREACH(const filters::filter_config_object &object, filters) {
-				process_no_events(object);
-			}
+			// we take care of this below...
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
 			delete [] handles;
 			return;
-		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + list.size())) {
+		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + evlog_list.size())) {
 
-			eventlog_type el = list[dwWaitReason-WAIT_OBJECT_0-1];
+			eventlog_type el = evlog_list[dwWaitReason-WAIT_OBJECT_0-1];
 			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
 			if (ERROR_SUCCESS != status && ERROR_HANDLE_EOF != status) {
 				delete [] handles;
 				return;
 			}
 
-			__time64_t ltime;
 			_time64(&ltime);
 
 			EVENTLOGRECORD *pevlr = el->read_record_with_buffer();
@@ -212,9 +211,14 @@ void real_time_thread::thread_proc() {
 				boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(elr));
 				bool matched = false;
 
-				BOOST_FOREACH(const filters::filter_config_object &object, filters) {
+				BOOST_FOREACH(filters::filter_config_object &object, filters) {
+					if (object.log_ != _T("any") && object.log_ != _T("all") && object.log_ != el->get_name()) {
+						NSC_DEBUG_MSG_STD(_T("Skipping filter: ") + object.alias);
+						continue;
+					}
 					if (object.engine->match(arg)) {
 						process_record(object, elr);
+						object.touch(ltime);
 						matched = true;
 					}
 				}
@@ -229,6 +233,15 @@ void real_time_thread::thread_proc() {
 				NSC_LOG_ERROR(_T("To many errors giving up"));
 				delete [] handles;
 				return;
+			}
+		}
+		_time64(&ltime);
+		BOOST_FOREACH(filters::filter_config_object &object, filters) {
+			if (object.next_ok_ != 0 && object.next_ok_ <= (ltime+1)) {
+				process_no_events(object);
+				object.touch(ltime);
+			} else {
+				NSC_DEBUG_MSG_STD(_T("missing: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
 			}
 		}
 	}
@@ -268,8 +281,6 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 	try {
 		register_command(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
 		register_command(_T("check_eventlog"), _T("Check for errors in the event logger!"));
-		register_command(_T("checkeventlogcache"), _T("Check for errors in the event logger!"));
-		register_command(_T("check_eventlog_cache"), _T("Check for errors in the event logger!"));
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, _T("eventlog"));
@@ -309,17 +320,12 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 			(_T("startup age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_start_age, &thread_, _1), _T("30m")),
 			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
 
-			(_T("maximum age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_max_age, &thread_, _1), _T("5m")),
-			_T("MAGIMUM AGE"), _T("How long before reporting \"ok\" (if this is set to off no ok will be reported only errors)"))
-
-			(_T("log"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_eventlog, &thread_, _1), _T("application")),
-			_T("LOGS TO CHECK"), _T("Coma separated list of logs to check"))
+			(_T("log"), sh::wstring_key(&thread_.logs_ ,_T("application,system")),
+			_T("LOGS TO CHECK"), _T("Comma separated list of logs to check"))
 
 			(_T("debug"), sh::bool_key(&thread_.debug_, false),
 			_T("DEBUG"), _T("Log missed records (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
 
-			(_T("enable active"), sh::bool_key(&thread_.cache_, false),
-			_T("ENABLE ACTIVE MONITORING"), _T("This will store all matches so you can use real-time filters from active monitoring (use CheckEventlogCache)."))
 			;
 
 		settings.register_all();
@@ -389,62 +395,7 @@ struct event_log_buffer {
 };
 typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
-
-NSCAPI::nagiosReturn CheckEventLog::checkCache(std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-
-	EventLogQuery1Container query1;
-	EventLogQuery2Container query2;
-	bool bPerfData = true;
-	unsigned int truncate = 0;
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-
-	try {
-		MAP_OPTIONS_BEGIN(arguments)
-			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
-			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
-			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
-			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
-		MAP_OPTIONS_END()
-	} catch (checkHolders::parse_exception e) {
-		message = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	} catch (...) {
-		message = _T("Invalid command line!");
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	std::size_t count = 0;
-	if (!thread_.check_cache(count, message)) {
-		return NSCAPI::returnUNKNOWN;
-	}
-
-	if (!bPerfData) {
-		query1.perfData = false;
-		query2.perfData = false;
-	}
-	if (query1.alias.empty())
-		query1.alias = _T("eventlog");
-	if (query2.alias.empty())
-		query2.alias = _T("eventlog");
-	if (query1.hasBounds())
-		query1.runCheck(count, returnCode, message, perf);
-	else if (query2.hasBounds())
-		query2.runCheck(count, returnCode, message, perf);
-	else {
-		message = _T("No bounds specified!");
-		return NSCAPI::returnUNKNOWN;
-	}
-	if ((truncate > 0) && (message.length() > (truncate-4)))
-		message = message.substr(0, truncate-4) + _T("...");
-	if (message.empty())
-		message = _T("Eventlog check ok");
-	return returnCode;
-}
-
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checkeventlogcache") || command == _T("check_eventlog_cache"))
-		return checkCache(arguments, message, perf);
 	if (command != _T("checkeventlog") && command != _T("check_eventlog"))
 		return NSCAPI::returnIgnored;
 	simple_timer time;
@@ -633,7 +584,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 }
 NSCAPI::nagiosReturn CheckEventLog::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	std::wstring command = char_command;
-	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message") || command == _T("insert")) {
+	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message") || command == _T("insert") || command.empty()) {
 		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
 		std::wstring message;
 		std::vector<std::wstring> args(data.args.begin(), data.args.end());
@@ -685,7 +636,7 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 		po::store(parsed, vm);
 		po::notify(vm);
 
-		if (help) {
+		if (help || arguments.empty()) {
 			std::stringstream ss;
 			ss << "CheckEventLog Command line syntax:" << std::endl;
 			ss << desc;

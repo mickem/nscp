@@ -57,7 +57,7 @@ namespace nrpe {
 			}
 
 			response_type get_timeout_response() {
-				return nrpe::packet::unknown_response(_T("Failed to read data"));
+				return nrpe::packet::unknown_response("Failed to read data");
 			}
 			response_type get_response() {
 				return nrpe::packet(&buffer_[0], buffer_.size());
@@ -76,6 +76,9 @@ namespace nrpe {
 			bool on_write(std::size_t bytes_transferred) {
 				set_state(sent_response);
 				return true;
+			}
+			bool on_read_error(const boost::system::error_code& e) {
+				return false;
 			}
 		};
 	}

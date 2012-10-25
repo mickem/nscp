@@ -60,7 +60,7 @@ namespace settings {
 				}
 			}
 			void read_map_data(std::wstring data) {
-				strEx::splitList list = strEx::splitEx(data, _T("\n"));
+				strEx::splitList list = strEx::splitEx(data, std::wstring(_T("\n")));
 				BOOST_FOREACH(std::wstring l, list) {
 					parse_line(l);
 				}
@@ -332,6 +332,12 @@ namespace settings {
 
 		virtual void set_real_path(std::wstring path) {
 			// NOT Supported (and not needed) so silently ignored!
+		}
+		virtual void remove_real_value(settings_core::key_path_type key) {
+			// NOT Supported
+		}
+		virtual void remove_real_path(std::wstring path) {
+			// NOT Supported
 		}
 
 		//////////////////////////////////////////////////////////////////////////

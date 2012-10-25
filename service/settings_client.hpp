@@ -12,11 +12,14 @@ namespace nsclient {
 		NSClient* core_;
 		std::wstring log_;
 		bool default_;
+		bool remove_default_;
 		bool load_all_;
 		std::wstring filter_;
 
 	public:
-		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool load_all, std::wstring filter) : started_(false), core_(core), log_(log), default_(update_defaults), load_all_(load_all), filter_(filter) {
+		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool remove_defaults, bool load_all) 
+			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all) 
+		{
 			startup();
 		}
 
@@ -45,6 +48,10 @@ namespace nsclient {
 			}
 			if (default_) {
 				settings_manager::get_core()->update_defaults();
+			}
+			if (remove_default_) {
+				std::wcout << _T("Removing default values") << std::endl;
+				settings_manager::get_core()->remove_defaults();
 			}
 			started_ = true;
 		}
@@ -153,6 +160,8 @@ namespace nsclient {
 							}
 						}
 					}
+				} else if (target.empty()) {
+					settings_manager::get_core()->get()->save();
 				} else if (target == _T("doc")) {
 					settings::string_list s = settings_manager::get_core()->get_reg_sections();
 					BOOST_FOREACH(std::wstring path, s) {
@@ -248,7 +257,6 @@ namespace nsclient {
 						write(json_root, std::wcout, json_spirit::pretty_print);
 #endif
 				} else {
-					//settings_manager::get_core()->update_defaults();
 					settings_manager::get_core()->get()->save_to(target);
 				}
 				return 1;
@@ -324,6 +332,18 @@ namespace nsclient {
 		void list_settings_info() {
 			std::wcout << _T("Current settings instance loaded: ") << std::endl;
 			list_settings_context_info(2, settings_manager::get_settings());
+		}
+		void activate(const std::wstring &module) 
+		{
+			if (!core_->boot_load_plugin(module)) {
+				std::wcerr << _T("Failed to load module (Wont activate): ") << module << std::endl;
+			}
+			core_->boot_start_plugins(false);
+			settings_manager::get_core()->get()->set_string(_T("/modules"), module, _T("enabled"));
+			if (default_) {
+				settings_manager::get_core()->update_defaults();
+			}
+			settings_manager::get_core()->get()->save();
 		}
 	};
 }

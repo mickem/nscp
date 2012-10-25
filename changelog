@@ -4,8 +4,111 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-10-25 MickeM
+ * Fixed installer in preparation of 0.4.1
+
+2012-10-15 MickeM
+ * Added support for lists in targets/destination (passive checks/channels)
+ * Added new --remove-defaults option when generating settings files.
+   nscp settings --remove-defaults --generate
+ * Added new module SimpleFileWriter for writing passive check results to files.
+ * Fixed issues here and there (mainly new filtering for CheckLogFile)
+
+2012-10-14 MickeM
+ * Added support for real-time log file checks (Linux)
+
+2012-10-07 MickeM
+ * Added support for real-time log file checks (Windows)
+
+2012-09-28 MickeM
+ * Fixed NRPE and NSCA buffer issue: Invalid packet length: 1059 != 1036 configured payload is: 1024
+
+2012-09-27 MickeM
+ * Much improved CheckLogFile with warn/crit/filter concepts (currentl no real-time support)
+   check_logfile debug "file=c:\\test.txt" "column-split=\\t" "filter=column1 eq '123' OR column(2) like 'bar' or column3 like 'foo'" "warn=column3 like 'foo'" "crit=column1 eq '123'"
+   Use "check_logfile help" for more details
+
+2012-09-25 MickeM
+ * Initial version of CheckLogFile added (currentl no real-time support)
+
+2012-09-23 MickeM
+ * Fixed a centos (?) linkage issue with PythonScript module
+
+2012-09-22 MickeM
+ * Fixed performance data parsing for empty sections such as f=1;;;;1 will now work (and not become f=1;0;0;0;1)
+ * Added unit test for perfoamnce data parsing
+ * Added gtest unit test to ctest
+
+2012-09-11 MickeM
+ * Added NSCP uptime to check_nscp
+
+2012-09-08 MickeM
+ * Fixed log matching in CheckEventLog when no log was specified
+ * Improved command line syntax for eventlog
+ * Fixed return code issue in SimpleCache module
+
+2012-09-08 MickeM
+ * Improved command line help texts and added global --version option.
+   Running nscp without options now lists all context and their use.
+ * settings: bool options are now case insensetive so TrUe will now evaluate to true...
+ * Improved clients command line interface adding support for default command
+ * Improved command line syntax removing som extra printouts
+ * Added support for lists (int and string) to wmi checks and commands.
+
+2012-09-07 MickeM
+ * Full SSL support for all server (NRPE, NSCA, check_mk, NSCP) by full I mean certificate based authentication
+
+2012-09-06 MickeM
+ * Full SSL support for all clients (NRPE, NSCA, check_mk, NSCP) by full I mean certificate based authentication
+
+2012-09-05 MickeM
+ * Full SSL support for NRPE (meaning certificate based authentication)
 2012-08-08 MickeM
  * Initial merge of 0.4.1 into 0.4.2
+
+2012-09-04 MickeM
+ * Fixed config parser issue for inheriated fields
+ * Changed so ports in clients/servers are strings (so smtp and such should work)
+
+2012-09-03 MickeM
+ * New module SimpleCache which acts as a brdge between passive and active monitoring (and other use cases)
+   Enables storing of results for later use
+   Replaces check_eventlogcache (since it does the same)
+ * REMOVED cache from check eventlog (use SimpleCache instead)
+
+2012-08-26 MickeM
+ * Added google test and the first (of many) google test unit case
+ * Added SimpleCache module
+ * Removed caching from CheckEventLog (use SimpleCache instead)
+
+ 2012-08-26 MickeM
+ * REMOVED global maximum age from real-time eventlog 
+ * Added per-filter maximum age option to real-time eventlog 
+ * Added per-filter log option to real-time eventlog (this can be set to "any" to make this match recoreds from all checked logs)
+ * Improved fetchdeps script which now takes an option (--msver) to set target visual studio version (currently 2005 and 2008)
+ * Added initial support for real certificates
+
+2012-08-30 MickeM
+ * Fixed issue with NSCA and AES encryption (still broken, but broken the way it was before)
+ * Fixed issue with aliases in upperaase not working (#554)
+ * Fixed (yet more) performance data parsing issues.
+
+2012-08-25 MickeM
+ * Added initial check_mk server CheckMKServer
+
+2012-08-25 MickeM
+ * Added initial check_mk client CheckMKClient
+ * Added sample check_mk lua script
+
+2012-08-23 MickeM
+ * Added initial proof of concept for the check_mk client
+
+2012-08-21 MickeM
+ * Refactoring and cleanup of the lua scripting wrappers
+
+2012-08-14 MickeM
+ * New experimental way to build things automagically as well as new cleanedup build scripts.
+   http://nsclient.org/nscp/wiki/build/04x#Automatic
 
 2012-08-07 MickeM
  * Fixed issue with perfoamnce data overflowing 32-bit integers (#550)

@@ -82,6 +82,11 @@ namespace parsers {
 					return left.get_int(handler) == right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					//if (debug_enabled && debug_level > 10) {
+						std::wstring lhs = left.get_string(handler);
+						std::wstring rhs = right.get_string(handler);
+						//std::cout << "(op_gt) " << lhs << " > " << rhs << std::endl;
+					//}
 					return left.get_string(handler) == right.get_string(handler);
 				};
 			};
@@ -162,13 +167,13 @@ namespace parsers {
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
 					std::wstring s1 = left.get_string(handler);
 					std::wstring s2 = right.get_string(handler);
-					bool res;
+					if (s1.size() == 0 && s2.size() == 0)
+						return true;
+					if (s1.size() == 0 || s2.size() == 0)
+						return false;
 					if (s1.size() > s2.size() && s2.size() > 0)
 						return s1.find(s2) != std::wstring::npos;
 					return s2.find(s1) != std::wstring::npos;
-					//if (res)
-					//	std::wcout << _T("Found: ") << s1 << _T(" in ") << s2 << std::endl;
-					return res;
 				};
 			};
 			struct operator_regexp : public simple_bool_binary_operator_impl {

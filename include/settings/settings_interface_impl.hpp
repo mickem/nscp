@@ -21,7 +21,6 @@
 #pragma once
 
 #include <types.hpp>
-#include <Singleton.h>
 #include <string>
 #include <map>
 #include <set>
@@ -92,9 +91,12 @@ namespace settings {
 		typedef settings_core::key_path_type cache_key_type;
 		typedef std::map<cache_key_type,conainer> cache_type;
 		typedef std::set<std::wstring> path_cache_type;
+		typedef std::set<cache_key_type> path_delete_cache_type;
 		typedef std::map<std::wstring,std::set<std::wstring> > key_cache_type;
 		cache_type settings_cache_;
+		path_delete_cache_type settings_delete_cache_;
 		path_cache_type path_cache_;
+		path_cache_type settings_delete_path_cache_;
 		key_cache_type key_cache_;
 		std::wstring context_;
 		net::wurl url_;
@@ -217,6 +219,25 @@ namespace settings {
 			}
 			add_key(path, key);
 		}
+
+		virtual void remove_key(std::wstring path, std::wstring key) {
+			MUTEX_GUARD();
+			settings_core::key_path_type lookup(path,key);
+			cache_type::iterator it = settings_cache_.find(lookup);
+			if (it != settings_cache_.end()) {
+				settings_cache_.erase(it);
+			}
+			settings_delete_cache_.insert(cache_key_type(path, key));
+		}
+		virtual void remove_path(std::wstring path) {
+			MUTEX_GUARD();
+			path_cache_type::iterator it = path_cache_.find(path);
+			if (it != path_cache_.end()) {
+				path_cache_.erase(it);
+			}
+			settings_delete_path_cache_.insert(path);
+		}
+
 
 		virtual void add_path(std::wstring path) {
 			MUTEX_GUARD();
@@ -588,6 +609,14 @@ namespace settings {
 		/// @author mickem
 		virtual void save() {
 			MUTEX_GUARD();
+
+			BOOST_FOREACH(cache_key_type v, settings_delete_cache_) {
+				remove_real_value(v);
+			}
+			BOOST_FOREACH(std::wstring v, settings_delete_path_cache_) {
+				remove_real_path(v);
+			}
+
 			BOOST_FOREACH(std::wstring path, path_cache_) {
 				set_real_path(path);
 			}
@@ -596,9 +625,9 @@ namespace settings {
 				set_real_value((*cit).first, (*cit).second);
 				sections.insert((*cit).first.first);
 			}
-			BOOST_FOREACH(std::wstring str, get_core()->get_reg_sections()) {
-				set_real_path(str);
-			}
+// 			BOOST_FOREACH(std::wstring str, get_core()->get_reg_sections()) {
+// 				set_real_path(str);
+// 			}
 		}
 		/////////////////////////////////////////////////////////////////////////
 		/// Load from another settings store
@@ -685,6 +714,9 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) = 0;
+
+		virtual void remove_real_value(settings_core::key_path_type key) = 0;
+		virtual void remove_real_path(std::wstring path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.

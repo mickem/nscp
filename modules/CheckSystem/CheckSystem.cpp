@@ -42,6 +42,61 @@
 #include <settings/client/settings_client.hpp>
 #include <config.h>
 
+
+
+template <class TFilterType>
+class FilterBounds {
+public:
+	TFilterType filter;
+	typedef typename TFilterType::TValueType TValueType;
+	typedef FilterBounds<TFilterType> TMyType;
+
+	FilterBounds() {}
+	FilterBounds(const FilterBounds &other) {
+		filter = other.filter;
+	}
+	void reset() {
+		filter.reset();
+	}
+	bool hasBounds() {
+		return filter.hasFilter();
+	}
+
+	static std::wstring toStringLong(typename TValueType &value) {
+		//return filter.to_string() + _T(" matches ") + value;
+		// TODO FIx this;
+		return value;
+		//return TNumericHolder::toStringLong(value.count) + _T(", ") + TStateHolder::toStringLong(value.state);
+	}
+	static std::wstring toStringShort(typename TValueType &value) {
+		// TODO FIx this;
+		return value;
+		//return TNumericHolder::toStringShort(value.count);
+	}
+	std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
+		return _T("");
+	}
+	std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+		return _T("");
+	}
+	bool check(typename TValueType &value, std::wstring lable, std::wstring &message, checkHolders::ResultType type) {
+		if (filter.hasFilter()) {
+			if (!filter.matchFilter(value))
+				return false;
+			message = lable + _T(": ") + filter.to_string() + _T(" matches ") + value;
+			return true;
+		} else {
+			NSC_LOG_MESSAGE_STD(_T("Missing bounds for filter check: ") + lable);
+		}
+		return false;
+	}
+	const TMyType & operator=(std::wstring value) {
+		filter = value;
+		return *this;
+	}
+
+};
+
 /**
  * Default c-tor
  * @return 
@@ -484,6 +539,9 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 					if (!porcelain) {
 						result += _T("---------------------------\n");
 						result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(count) + _T(" counters.");
+						if (match == 0) {
+							result += _T("No counters was found (perhaps you wanted the --all option to make this a global query, the default is so only look in configured counters).");
+						}
 					}
 				}
 			}
@@ -532,6 +590,12 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 				result += _T("Failed to lookup index: ") + e.getError();
 				return NSCAPI::hasFailed;
 			}
+		} else {
+			std::stringstream ss;
+			ss << "pdh Command line syntax:" << std::endl;
+			ss << desc;
+			result = utf8::cvt<std::wstring>(ss.str());
+			return NSCAPI::isSuccess;
 		}
 	}
 	return 0;
@@ -549,19 +613,19 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
  * @return 
  */
 NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checkcpu")) {
+	if (command == _T("checkcpu") || command == _T("check_cpu")) {
 		return checkCPU(arguments, message, perf);
-	} else if (command == _T("checkuptime")) {
+	} else if (command == _T("checkuptime") || command == _T("check_uptime")) {
 		return checkUpTime(arguments, message, perf);
-	} else if (command == _T("checkservicestate")) {
+	} else if (command == _T("checkservicestate") || command == _T("check_service")) {
 		return checkServiceState(arguments, message, perf);
-	} else if (command == _T("checkprocstate")) {
+	} else if (command == _T("checkprocstate") || command == _T("check_process")) {
 		return checkProcState(arguments, message, perf);
-	} else if (command == _T("checkmem")) {
+	} else if (command == _T("checkmem") || command == _T("check_mem")) {
 		return checkMem(arguments, message, perf);
-	} else if (command == _T("checkcounter")) {
+	} else if (command == _T("checkcounter") || command == _T("check_counter")) {
 		return checkCounter(arguments, message, perf);
-	} else if (command == _T("checksingleregentry")) {
+	} else if (command == _T("checksingleregentry") || command == _T("check_registry")) {
 		return checkSingleRegEntry(arguments, message, perf);
 	}
 	return NSCAPI::returnIgnored;
@@ -603,7 +667,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, st
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, cpuload_handler> > > CPULoadContainer;
 
 	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
+		msg = _T("ERROR: Usage: check_cpu <threshold> <time1> [<time2>...] (check_cpu MaxWarn=80 time=5m)");
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<CPULoadContainer> list;
@@ -1729,7 +1793,7 @@ typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::Num
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULong> ExactULongContainer;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsLongLong> ExactLongLongContainer;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsTime> DateTimeContainer;
-typedef checkHolders::CheckContainer<checkHolders::FilterBounds<filters::filter_all_strings> > StringContainer;
+typedef checkHolders::CheckContainer<FilterBounds<filters::filter_all_strings> > StringContainer;
 
 struct check_regkey_child_count : public checkHolders::check_proxy_container<regkey_container, ExactULongContainer> {
 	check_regkey_child_count() { set_alias(_T("child-count")); }

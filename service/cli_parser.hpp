@@ -9,7 +9,6 @@ class cli_parser {
 	
 
 	NSClient* core_;
-	po::options_description root;
 	po::options_description common;
 	po::options_description settings;
 	po::options_description service;
@@ -37,7 +36,6 @@ class cli_parser {
 public:
 	cli_parser(NSClient* core) 
 		: core_(core)
-		, root("Allowed first option (Mode of operation)")
 		, common("Common options")
 		, settings("Settings options")
 		, service("Service Options")
@@ -48,11 +46,6 @@ public:
 		, version(false)
 		, log_debug(false)
 	{
-		root.add_options()
-			("help", po::bool_switch(&help), "produce help message")
-			("version", po::bool_switch(&version), "Show version information")
-			;
-
 		common.add_options()
 			("settings", po::value<std::wstring>(&settings_store), "Override (temporarily) settings subsystem to use")
 			("help", po::bool_switch(&help), "produce help message")
@@ -64,6 +57,8 @@ public:
 		settings.add_options()
 			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
 			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
+			("generate", po::value<std::wstring>()->implicit_value(_T("settings")), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
+			("add-missing", "Add all default (if missing) values.")
 			("generate", po::value<std::wstring>(), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
 			("filter", po::value<std::wstring>(), "Filter what to update (only works with generate trac currently).")
 			("add-defaults", "Add all default (if missing) values.")
@@ -75,6 +70,9 @@ public:
 			("switch", po::value<std::wstring>(), "Set default context to use (similar to migrate but does NOT copy values)")
 			("show", "Set a value given a key and path.")
 			("list", "Set all keys below the path (or root).")
+			("add-defaults", "Same as --add-missing")
+			("remove-defaults", "Remove all keys which have default values (and empty sections)")
+			("activate-module", po::value<std::wstring>()->implicit_value(_T("")), "Add a module (and its configuration options) to the configuration.")
 			;
 
 		service.add_options()
@@ -133,7 +131,7 @@ public:
 			return true;
 		}
 		if (version) {
-			std::cout << APPLICATION_NAME << _T(", Version: ") << CURRENT_SERVICE_VERSION << _T(", Platform: ") << SZARCH << std::endl;
+			std::cout << APPLICATION_NAME << ", Version: " << CURRENT_SERVICE_VERSION << ", Platform: " << SZARCH << std::endl;
 			return true;
 		}
 		return false;
@@ -166,15 +164,15 @@ public:
 		aliases["syslog"] = "SyslogClient";
 		aliases["sys"] = "CheckSystem";
 		aliases["wmi"] = "CheckWMI";
+		aliases["check_mk"] = "CheckMKClient";
+		aliases["mk"] = "CheckMKClient";
 		return aliases;
 	}
 
 	int parse(int argc, wchar_t* argv[]) {
-
+		handler_map handlers = get_handlers();
+		alias_map aliases = get_aliases();
 		if (argc > 1 && argv[1][0] != L'-') {
-			handler_map handlers = get_handlers();
-			alias_map aliases = get_aliases();
-
 			std::string mod = utf8::cvt<std::string>(argv[1]);
 			handler_map::const_iterator it = handlers.find(mod);
 			if (it != handlers.end())
@@ -187,8 +185,40 @@ public:
 			parse_help(argc, argv);
 			std::cerr << "Invalid module specified: " << mod << std::endl;
 			return 1;
+		} else if (argc > 2) {
+			std::cerr << "First option should be the \"context\": nscp <context>" << std::endl;
+			return 1;
+		} else if (argc > 1) {
+			std::string mod = utf8::cvt<std::string>(argv[1]);
+			if (mod == "--version") {
+				std::cout << APPLICATION_NAME << ", Version: " << CURRENT_SERVICE_VERSION << ", Platform: " << SZARCH << std::endl;
+				return 0;
+			}
+			if (mod == "--help") {
+				display_help();
+			}
 		}
-		return parse_help(argc, argv);
+		std::cout << "Usage: nscp <context>" << std::endl;
+		std::cout << "  The <ontext> is the mode of operation ie. a type of command. " << std::endl;
+		std::cout << "You can also use aliases here which are shorthands for 'nscp client --module <plugin>'" << std::endl;
+		std::cout << "  Available context are: " << std::endl;
+		std::string all_context;
+		BOOST_FOREACH(const handler_map::value_type &e, handlers) {
+			std::cout << "    " << describe(e.first) << std::endl;
+			if (!all_context.empty())
+				all_context += ", ";
+			all_context += e.first;
+		}
+		std::cout << "  Available aliases are: " << std::endl;
+		BOOST_FOREACH(const alias_map::value_type &e, aliases) {
+			std::cout << "    " << describe(e.first, e.second) << std::endl;
+			if (!all_context.empty())
+				all_context += ", ";
+			all_context += e.first;
+		}
+		std::cout << "  A short list of all available contexts are: " << std::endl << all_context << std::endl;
+		
+		return 1;
 	}
 
 	po::basic_parsed_options<wchar_t> do_parse(int argc, wchar_t* argv[], po::options_description &desc) {
@@ -205,33 +235,35 @@ public:
 		return parsed;
 	}
 
-	int parse_help(int argc, wchar_t* argv[]) {
+	void display_help() {
 		try {
-
 			po::options_description all("Allowed options");
-			all.add(root).add(common).add(service).add(settings).add(client).add(test).add(unittest);
+			all.add(common).add(service).add(settings).add(client).add(test).add(unittest);
 			std::cout << all << std::endl;
 
-			std::cerr << "First argument has to be one of the following: ";
+			std::cout << "First argument has to be one of the following: ";
 			handler_map handlers = get_handlers();
 			BOOST_FOREACH(const handler_map::value_type &itm, handlers) {
-				std::cerr << itm.first << ", ";
+				std::cout << itm.first << ", ";
 			}
-			std::cerr << std::endl;
-			std::cerr << "Or on of the following client aliases: ";
+			std::cout << std::endl;
+			std::cout << "Or on of the following client aliases: ";
 			alias_map aliases = get_aliases();
 			BOOST_FOREACH(const alias_map::value_type &itm, aliases) {
-				std::cerr << itm.first << ", ";
+				std::cout << itm.first << ", ";
 			}
-			std::cerr << std::endl;
-			return 1;
+			std::cout << std::endl;
 		} catch(std::exception & e) {
 			std::cerr << "Unable to parse root option: " << e.what() << std::endl;
-			return 1;
 		} catch (...) {
 			std::cerr << "Unable to parse root option" << std::endl;
-			return 1;
 		}
+
+	}
+
+	int parse_help(int argc, wchar_t* argv[]) {
+		display_help();
+		return 1;
 	}
 
 	int parse_test(int argc, wchar_t* argv[]) {
@@ -275,12 +307,14 @@ public:
 			if (process_common_options("settings", all))
 				return 1;
 
-			bool def = vm.count("add-defaults")==1;
+			bool def = vm.count("add-defaults")==1 || vm.count("add-missing")==1;
+			bool rem_def = vm.count("remove-defaults")==1;
 			bool load_all = vm.count("load-all")==1;
 			std::wstring filter;
 			if (vm.count("filter"))
 				filter = vm["filter"].as<std::wstring>();
 
+			nsclient::settings_client client(core_, log_level, def, rem_def, load_all);
 			nsclient::settings_client client(core_, log_level, def, load_all, filter);
 			int ret = -1;
 
@@ -295,11 +329,19 @@ public:
 			} else if (vm.count("list")) {
 				ret = client.list(vm["path"].as<std::wstring>());
 			} else if (vm.count("show")) {
+				if (vm.count("path") > 0 && vm.count("key") > 0)
 				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
+				else {
+					std::cerr << "Invalid command line please use --path and --key with show" << std::endl;
+					ret = -1;
+				}
+			} else if (vm.count("activate-module")) {
+				client.activate(vm["activate-module"].as<std::wstring>());
 			} else if (vm.count("validate")) {
 				ret = client.validate();
 			} else if (vm.count("switch")) {
 				client.switch_context(vm["switch"].as<std::wstring>());
+				client.list_settings_info();
 				ret = 0;
 			} else {
 				std::cout << all << std::endl;
@@ -586,15 +628,21 @@ public:
 			std::list<std::wstring> resp;
 			if (args.mode == client_arguments::none) {
 				args.mode = client_arguments::exec;
-				std::wcerr << _T("Since no mode was specified assuming --exec (other options are --query and --submit)") << std::endl;
 			}
 			if (args.mode == client_arguments::query) {
 				ret = core_->simple_query(args.module, args.command, args.arguments, resp);
+				if (ret == NSCAPI::returnIgnored) {
+					resp.push_back(_T("Command not found: ") + args.command);
+					std::wstring commands;
+					BOOST_FOREACH(const std::wstring &c, core_->list_commands()) {
+						strEx::append_list(commands, c);
+					}
+					resp.push_back(_T("Avalible commmands: ") + commands);
+				}
 			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
 				ret = mainClient.simple_exec(args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
-					std::wcout << _T("Command not found (by module): ") << args.command << std::endl;
 					resp.push_back(_T("Command not found: ") + args.command);
 					core_->simple_exec(_T("help"), args.arguments, resp);
 				} else if (args.mode == client_arguments::combined) {
@@ -606,7 +654,7 @@ public:
 					}
 				}
 			} else if (args.mode == client_arguments::submit) {
-				std::wcerr << _T("--submit is currently not supported (but you can use --exec submit which is technically the same)") << std::endl;
+				std::wcerr << _T("--submit is currently not supported") << std::endl;
 			} else {
 				std::wcerr << _T("Need to specify one of --exec, --query or --submit") << std::endl;
 			}
@@ -626,9 +674,54 @@ public:
 			return 1;
 		}
 	}
+
+	std::string get_description(std::string key) 
+	{
+		if (key == "settings") {
+			return "Change and list settings as well as load and initialize modules.";
+		} else if (key == "service") {
+			return "Install/uninstall/display NSCP service.";
+		} else if (key == "client") {
+			return "Act as a client. This will run commands inside various installed modules and scripts.";
+		} else if (key == "test") {
+			return "The best way to diagnose and find errors with your configuration and setup.";
+		} else if (key == "help") {
+			return "Display the help screen.";
+		} else if (key == "unit") {
+			return "Run unit test scripts.";
+		} else if (key == "nrpe") {
+			return "Use a NRPE client to request information from other systems via NRPE similar to standard NRPE check_nrpe command.";
+		} else if (key == "nscp") {
+			return "Use a NSCP (the protocol) client to request information from other systems via NSCP.";
+		} else if (key == "nsca") {
+			return "Use a NSCA to submit passive checks to a remote system. Similar to the send_nsca command";
+		} else if (key == "syslog") {
+			return "Use SYSLOG (the protocol) to submit messages to a remote system.";
+		} else if (key == "py" || key == "python") {
+			return "Execute python scripts";
+		} else if (key == "lua") {
+			return "Execute lua scripts";
+		} else if (key == "mk" || key == "check_mk") {
+			return "Use a check_mk (the protocol) client to request information from other systems via check_mk.";
+		} else if (key == "eventlog") {
+			return "Inject event log message into the eventlog (mainly for testing eventlog filtering and setup)";
+		} else if (key == "wmi") {
+			return "Run WMI queries from command line";
+		} else if (key == "sys") {
+			return "Various system tools to get information about the system (generally PDH on windows curretly)";
+		} else {
+			return "TODO: describe: " + key;
+		}
+	}
+	std::string describe(std::string key) 
+	{
+		return key + "\n      " + get_description(key) + "\n";
+	}
+	std::string describe(std::string key, std::string alias) {
+		return key + "   (same as nscp client --module " + alias + ")"
+			"\n      " + get_description(key) +
+			+ "\n";
+	}
+
+
 };
-
-
-
-
-

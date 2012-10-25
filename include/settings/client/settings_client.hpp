@@ -80,7 +80,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_ || data != dummy) 
 					dummy = data;
 				data = core_->get_string(path, key, dummy);
-				if (typed_key<T>::has_default_ || data != dummy) {
+				if (typed_key<T>::has_default_ || data != _T("$$DUMMY_VALUE_DO_NOT_USE$$")) {
 					try {
 						T value = boost::lexical_cast<T>(data);
 						update_target(&value);
@@ -119,7 +119,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_ || data != dummy) 
 					dummy = data;
 				data = core_->get_string(path, key, dummy);
-				if (typed_key<T>::has_default_ || data != dummy) {
+				if (typed_key<T>::has_default_ || data != _T("$$DUMMY_VALUE_DO_NOT_USE$$")) {
 					try {
 						T value = boost::lexical_cast<T>(core_->expand_path(data));
 						update_target(&value);
@@ -301,6 +301,16 @@ namespace nscapi {
 		template<class T>
 		boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > string_fun_key(boost::function<void (T)> fun) {
 			boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > r(new typed_key_fun<T, typed_string_value<T> >(fun, T(), false));
+			return r;
+		}
+		template<class T>
+		boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > path_fun_key(boost::function<void (T)> fun, T def) {
+			boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > r(new typed_key_fun<T, typed_path_value<T> >(fun, def, true));
+			return r;
+		}
+		template<class T>
+		boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > path_fun_key(boost::function<void (T)> fun) {
+			boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > r(new typed_key_fun<T, typed_path_value<T> >(fun, T(), false));
 			return r;
 		}
 

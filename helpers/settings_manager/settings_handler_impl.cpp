@@ -58,7 +58,40 @@ void settings::settings_handler_impl::update_defaults() {
 			}
 		}
 	}
-	get_logger()->info(_T("settings"), __FILE__, __LINE__, _T("DONE Updating settings with default values!"));
+}
+
+
+void settings::settings_handler_impl::remove_defaults() {
+	BOOST_FOREACH(std::wstring path, get_reg_sections()) {
+		BOOST_FOREACH(std::wstring key, get_reg_keys(path)) {
+			settings_core::key_description desc = get_registred_key(path, key);
+			if (get()->has_key(path, key)) {
+				try {
+					if (desc.type == key_string) {
+						if (get()->get_string(path, key) == desc.defValue) {
+							get()->remove_key(path, key);
+						}
+					}
+					else if (desc.type == key_bool) {
+						if (get()->get_bool(path, key) == settings::settings_interface::string_to_bool(desc.defValue)) {
+							get()->remove_key(path, key);
+						}
+					}
+					else if (desc.type == key_integer) {
+						if (get()->get_int(path, key) == strEx::stoi(desc.defValue)) {
+							get()->remove_key(path, key);
+						}
+					} else
+						get_logger()->error(__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+				} catch (const std::exception &e) {
+					get_logger()->error(__FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
+				}
+			}
+		}
+		if (get()->get_keys(path).size() == 0 && get()->get_sections(path).size() == 0) {
+			get()->remove_path(path);
+		}
+	}
 }
 
 

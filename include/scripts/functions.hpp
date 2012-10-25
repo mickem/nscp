@@ -1,6 +1,11 @@
 #pragma once
+#include <list>
 
 #include <boost/filesystem.hpp>
+
+#include <NSCAPI.h>
+#include <unicode_char.hpp>
+
 
 struct script_container {
 	typedef std::list<script_container> list_type;

@@ -21,10 +21,11 @@
 #pragma once
 
 #include <types.hpp>
-#include <Singleton.h>
 #include <string>
 #include <map>
 #include <set>
+#include <algorithm>
+
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
@@ -218,6 +219,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void update_defaults() = 0;
+		virtual void remove_defaults() = 0;
 
 
 
@@ -385,6 +387,9 @@ namespace settings {
 		/// @author mickem
 		virtual void set_bool(std::wstring path, std::wstring key, bool value) = 0;
 
+		virtual void remove_key(std::wstring path, std::wstring key) = 0;
+		virtual void remove_path(std::wstring path) = 0;
+
 		// Meta Functions
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
@@ -484,6 +489,7 @@ namespace settings {
 		virtual std::wstring get_info() = 0;
 
 		static bool string_to_bool(std::wstring str) {
+			std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 			return str == _T("true")||str == _T("1");
 		}
 

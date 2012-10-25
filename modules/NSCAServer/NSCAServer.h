@@ -25,8 +25,6 @@
 NSC_WRAPPERS_MAIN()
 
 class NSCAServer : public nscapi::impl::simple_plugin {
-private:
-	socket_helpers::connection_info info_;
 
 public:
 	NSCAServer();
@@ -52,6 +50,8 @@ public:
 		return _T("A simple server that listens for incoming NSCA connection and handles them.");
 	}
 
+private:
+	socket_helpers::connection_info info_;
 	boost::shared_ptr<nsca::server::server> server_;
 	boost::shared_ptr<nsca::server::handler> handler_;
 };

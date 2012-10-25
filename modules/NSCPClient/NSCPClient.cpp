@@ -29,6 +29,8 @@
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#include <nscp/client/nscp_client_protocol.hpp>
+
 namespace sh = nscapi::settings_helper;
 
 const std::wstring NSCPClient::command_prefix = _T("nscp");
@@ -103,6 +105,7 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	}
 	return true;
 }
+
 std::string get_command(std::string alias, std::string command = "") {
 	if (!alias.empty())
 		return alias; 
@@ -186,11 +189,37 @@ NSCAPI::nagiosReturn NSCPClient::handleRAWNotification(const wchar_t* channel, s
 
 void NSCPClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
+ 		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
+			"Do not initial an ssl handshake with the server, talk in plaintext.")
+
 		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
-		"Do not initial an ssl handshake with the server, talk in plaintext.")
+		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		"Client certificate to use")
+
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
+		"Client certificate format")
+
+		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
+		"Certificate authority")
+
+		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
+		"Client certificate format")
+
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
+		"Client certificate format")
+
+ 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+			"Initial an ssl handshake with the server.")
+
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		"")
+
+
 		;
 }
 
@@ -324,11 +353,6 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 // Protocol implementations
 //
 struct client_handler : public socket_helpers::client::client_handler {
-	client_handler(NSCPClient::connection_data &con) 
-		: socket_helpers::client::client_handler(con.host, con.port, con.timeout, con.use_ssl, con.cert)
-	{
-
-	}
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
@@ -344,15 +368,14 @@ struct client_handler : public socket_helpers::client::client_handler {
 std::list<nscp::packet> NSCPClient::send(connection_data con, std::list<nscp::packet> &chunks) {
 	std::list<nscp::packet> response;
 	try {
-		NSC_DEBUG_MSG_STD(_T("NSCP Connection details: ") + con.to_wstring());
-		//NSC_DEBUG_MSG_STD(_T("NSCP data: ") + utf8::cvt<std::wstring>(data));
-		if (con.use_ssl) {
+		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+		if (con.ssl.enabled) {
 #ifndef USE_SSL
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
 			return response;
 #endif
 		}
-		socket_helpers::client::client<nscp::client::protocol> client(boost::shared_ptr<client_handler>(new client_handler(con)));
+		socket_helpers::client::client<nscp::client::protocol> client(con, boost::shared_ptr<client_handler>(new client_handler()));
 		client.connect();
 		BOOST_FOREACH(nscp::packet packet, chunks) {
 			response.push_back(client.process_request(packet));
