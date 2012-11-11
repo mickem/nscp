@@ -26,6 +26,11 @@
 #include <map>
 #include <vector>
 
+#include <strEx.h>
+#include <utils.h>
+#include <checkHelpers.hpp>
+#include "TaskSched.h"
+
 #include "filter.hpp"
 
 #include <parsers/where/unary_fun.hpp>
@@ -38,67 +43,37 @@
 
 namespace sh = nscapi::settings_helper;
 
-bool CheckTaskSched::loadModule() {
-	return false;
-}
 bool CheckTaskSched::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	try {
-		register_command(_T("CheckTaskSchedValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
-		register_command(_T("CheckTaskSched"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+	sh::settings_registry settings(get_settings_proxy());
+	settings.set_alias(_T("check"), alias, _T("task schedule"));
+
+	settings.alias().add_path_to_settings()
+		(_T("TASK SCHEDULE"), _T("Section for system checks and system settings"))
+
+		;
+
+	settings.alias().add_key_to_settings()
+
+		(_T("default buffer length"), sh::wstring_key(&syntax, _T("%title% last run: %most-recent-run-time% (%exit-code%)")),
+		_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)"))
+		;
 
 
-		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("check"), alias, _T("task schedule"));
-
-		settings.alias().add_path_to_settings()
-			(_T("TASK SCHEDULE"), _T("Section for system checks and system settings"))
-
-			;
-
-
-		settings.alias().add_key_to_settings()
-
-			(_T("default buffer length"), sh::wstring_key(&syntax, _T("%title% last run: %most-recent-run-time% (%exit-code%)")),
-			_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)"))
-			;
-
-
-		settings.register_all();
-		settings.notify();
-
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-		return false;
-	}
+	settings.register_all();
+	settings.notify();
 	return true;
 }
 bool CheckTaskSched::unloadModule() {
 	return true;
 }
 
-bool CheckTaskSched::hasCommandHandler() {
-	return true;
-}
-bool CheckTaskSched::hasMessageHandler() {
-	return false;
-}
-
-
-
-
-NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckTaskSched::check_taskshced(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainerQuery1;
 	typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainerQuery2;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	if (arguments.empty()) {
-		message = _T("Missing argument(s).");
+		msg = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
 	}
 	unsigned int truncate = 0;
@@ -122,21 +97,21 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> argume
 			MAP_OPTIONS_STR(_T("master-syntax"), masterSyntax)
 			MAP_OPTIONS_STR(_T("filter"), args->filter)
 			MAP_OPTIONS_STR(_T("syntax"), args->syntax)
-			MAP_OPTIONS_MISSING(message,_T("Invalid argument: "))
+			MAP_OPTIONS_MISSING(msg,_T("Invalid argument: "))
 			MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
-		message = _T("TaskSched failed: ") + e.getMessage();
+		msg = _T("TaskSched failed: ") + e.getMessage();
 		return NSCAPI::returnCRIT;
 	}
 
 	tasksched_filter::filter_engine impl = tasksched_filter::factories::create_engine(args);
 	if (!impl) {
-		message = _T("Failed to initialize filter subsystem.");
+		msg = _T("Failed to initialize filter subsystem.");
 		return NSCAPI::returnUNKNOWN;
 	}
 	impl->boot();
 	NSC_DEBUG_MSG_STD(_T("Using: ") + impl->get_name() + _T(" ") + impl->get_subject());
-	if (!impl->validate(message)) {
+	if (!impl->validate(msg)) {
 		return NSCAPI::returnUNKNOWN;
 	}
 	tasksched_filter::filter_result result = tasksched_filter::factories::create_result(args);
@@ -145,12 +120,12 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> argume
 		TaskSched query;
 		query.findAll(result, args, impl);
 	} catch (TaskSched::Exception e) {
-		message = _T("WMIQuery failed: ") + e.getMessage();
+		msg = _T("WMIQuery failed: ") + e.getMessage();
 		return NSCAPI::returnCRIT;
 	}
 
 	int count = result->get_match_count();
-	message = result->render(masterSyntax, returnCode);
+	msg = result->render(masterSyntax, returnCode);
 	if (!bPerfData) {
 		query1.perfData = false;
 		query2.perfData = false;
@@ -160,22 +135,17 @@ NSCAPI::nagiosReturn CheckTaskSched::TaskSchedule(std::list<std::wstring> argume
 	if (query2.alias.empty())
 		query2.alias = _T("eventlog");
 	if (query1.hasBounds())
-		query1.runCheck(count, returnCode, message, perf);
+		query1.runCheck(count, returnCode, msg, perf);
 	else if (query2.hasBounds())
-		query2.runCheck(count, returnCode, message, perf);
-	if ((truncate > 0) && (message.length() > (truncate-4)))
-		message = message.substr(0, truncate-4) + _T("...");
-	if (message.empty())
-		message = _T("OK: All scheduled tasks are good.");
+		query2.runCheck(count, returnCode, msg, perf);
+	if ((truncate > 0) && (msg.length() > (truncate-4)))
+		msg = msg.substr(0, truncate-4) + _T("...");
+	if (msg.empty())
+		msg = _T("OK: All scheduled tasks are good.");
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckTaskSched::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checktasksched"))
-		return TaskSchedule(arguments, message, perf);
-	return NSCAPI::returnIgnored;
-}
-int CheckTaskSched::commandLineExec(const wchar_t* command, const unsigned int argLen, wchar_t** char_args) {
+int CheckTaskSched::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
 // 	std::wstring query = command;
 // 	query += _T(" ") + arrayBuffer::arrayBuffer2string(char_args, argLen, _T(" "));
 // 	TaskSched::result_type rows;
@@ -195,10 +165,3 @@ int CheckTaskSched::commandLineExec(const wchar_t* command, const unsigned int a
 // 	}
 	return 0;
 }
-
-
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckTaskSched, _T("tasksched"));
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-//NSC_WRAPPERS_CLI_DEF(gCheckTaskSched);

@@ -20,6 +20,7 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
+	${NSCP_INCLUDEDIR}/nscapi/command_client.cpp
 	
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 )

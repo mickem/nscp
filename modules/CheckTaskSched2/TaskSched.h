@@ -27,7 +27,6 @@
 #include <strEx.h>
 #include <error.hpp>
 #include <filter_framework.hpp>
-#include <error_com.hpp>
 #include <taskschd.h>
 
 #include "filter.hpp"

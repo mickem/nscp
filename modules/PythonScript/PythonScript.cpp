@@ -287,7 +287,7 @@ boost::optional<boost::filesystem::wpath> PythonScript::find_file(std::wstring f
 	checks.push_back(root_ / file);
 	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
 		NSC_DEBUG_MSG_STD(_T("Looking for: ") + c.string());
-		if (boost::filesystem::exists(c))
+		if (boost::filesystem::exists(c) && boost::filesystem::is_regular(c))
 			return boost::optional<boost::filesystem::wpath>(c);
 	}
 	NSC_LOG_ERROR(_T("Script not found: ") + file);
@@ -310,13 +310,15 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 		po::store(parsed, vm);
 		po::notify(vm);
 
-		if (vm.count("help") > 0) {
+		std::vector<std::wstring> py_args = po::collect_unrecognized(parsed.options, po::include_positional);
+		if (vm.count("script") == 0 && vm.count("help") > 0) {
 			std::stringstream ss;
 			ss << desc;
 			message = utf8::to_unicode(ss.str());
 			return NSCAPI::returnUNKNOWN;
+		} else if (vm.count("help") > 0) {
+			py_args.push_back(_T("--help"));
 		}
-		std::vector<std::wstring> py_args = po::collect_unrecognized(parsed.options, po::include_positional);
 
 		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
 		if (!ofile)

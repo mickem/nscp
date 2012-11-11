@@ -4,7 +4,9 @@ SET(TARGET CheckSystem)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	"PDHCollector.cpp"
@@ -21,27 +23,29 @@ SET(SRCS
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
-SET(SRCS ${SRCS}
-	stdafx.h
-	"${TARGET}.h"
-	"${TARGET}.def"
-	"PDHCollector.h"
+IF(WIN32)
+	SET(SRCS ${SRCS}
+		stdafx.h
+		"${TARGET}.h"
+		"${TARGET}.def"
+		"PDHCollector.h"
 
-	${NSCP_INCLUDEDIR}/EnumProcess.h
-	${NSCP_INCLUDEDIR}/EnumNtSrv.h
-	${NSCP_INCLUDEDIR}/sysinfo.h
+		${NSCP_INCLUDEDIR}/EnumProcess.h
+		${NSCP_INCLUDEDIR}/EnumNtSrv.h
+		${NSCP_INCLUDEDIR}/sysinfo.h
 
-	${NSCP_INCLUDEDIR}/pdh/basic_impl.hpp
-	${NSCP_INCLUDEDIR}/pdh/collectors.hpp
-	${NSCP_INCLUDEDIR}/pdh/core.hpp
-	${NSCP_INCLUDEDIR}/pdh/counters.hpp
-	${NSCP_INCLUDEDIR}/pdh/enumerations.hpp
-	${NSCP_INCLUDEDIR}/pdh/query.hpp
-	${NSCP_INCLUDEDIR}/pdh/resolver.hpp
-	${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.hpp
-	
-	${NSCP_DEF_PLUGIN_HPP}
-)
+		${NSCP_INCLUDEDIR}/pdh/basic_impl.hpp
+		${NSCP_INCLUDEDIR}/pdh/collectors.hpp
+		${NSCP_INCLUDEDIR}/pdh/core.hpp
+		${NSCP_INCLUDEDIR}/pdh/counters.hpp
+		${NSCP_INCLUDEDIR}/pdh/enumerations.hpp
+		${NSCP_INCLUDEDIR}/pdh/query.hpp
+		${NSCP_INCLUDEDIR}/pdh/resolver.hpp
+		${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.hpp
+		
+		${NSCP_DEF_PLUGIN_HPP}
+	)
+ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
 

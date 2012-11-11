@@ -80,11 +80,12 @@ class DocumentationHelper(object):
 		self.conf = Settings.get(self.plugin_id)
 		self.registry = Registry.get(self.plugin_id)
 		
-	def build_inventory_request(self, path = '/', recursive = True, keys = False):
+	def build_inventory_request(self,  path = '/', recursive = True, keys = False):
 		message = plugin_pb2.SettingsRequestMessage()
 		message.header.version = plugin_pb2.Common.VERSION_1
 		payload = message.payload.add()
 		payload.type = 4
+		payload.plugin_id = self.plugin_id
 		payload.inventory.node.path = path
 		payload.inventory.recursive_fetch = recursive
 		payload.inventory.fetch_keys = keys
@@ -224,7 +225,7 @@ class DocumentationHelper(object):
 
 		
 	def serialize_wiki(self, string, filename, wikiname):
-		if dir:
+		if self.dir:
 			if not os.path.exists(self.dir):
 				os.makedirs(self.dir)
 			f = open('%s/%s.wiki'%(self.dir, filename),"w")
@@ -327,11 +328,12 @@ A list of all commands (alphabetically).
 		print import_commands
 
 	def main(self, args):
-		parser = OptionParser(prog="N/A")
+		parser = OptionParser(prog="")
 		parser.add_option("-f", "--format", help="Generate format")
 		parser.add_option("-o", "--output", help="write report to FILE(s)")
 		parser.add_option("--trac-path", help="The path to track (used for importing wikis)")
 		(options, args) = parser.parse_args(args=args)
+
 		if options.format in ["trac"]:
 			self.generate_trac(options.output, options.trac_path)
 		else:
@@ -347,6 +349,7 @@ def init(plugin_id, plugin_alias, script_alias):
 	helper = DocumentationHelper(plugin_id, plugin_alias, script_alias)
 
 def shutdown():
-	None
+	global helper
+	helper = None
 
 

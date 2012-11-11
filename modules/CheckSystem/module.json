@@ -1,0 +1,36 @@
+{
+	"module"		: {
+		"title"			: "Win32 system module",
+		"description"	: "Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.",
+		"name"			: "CheckSystem",
+		"alias"			: "w32system",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "system/windows"
+	},
+
+	"commands" : {
+		"check_cpu" : { 
+			"alias"		: "checkCPU",
+			"description" : "Check that the load of the CPU(s) are within bounds.",
+			"metadata"	: { "guide" : "http://nsclient.org/nscp/wiki/doc/usage/nagios/nsca" },
+			"legacy"	: true
+			},
+		"check_uptime"	: { "legacy":true, "alias" : "checkUpTime", 			"desc" : "Check time since last server re-boot." },
+		"check_service"	: { "legacy":true, "alias" : "checkServiceState",		"desc" : "Check the state of one or more of the computer services." },
+		"check_process"	: { "legacy":true, "alias" : "checkProcState",			"desc" : "Check the state of one or more of the processes running on the computer." },
+		"check_memory"	: { "legacy":true, "alias" : "checkMem",				"desc" : "Check free/used memory on the system." },
+		"check_pdh" 	: { "legacy":true, "alias" : "checkCounter",			"desc" : "Check a PDH counter." },
+		"check_registry": { "legacy":true, "alias" : "checkSingleRegEntry",	"desc" : "Check values in the registry." }
+	},
+
+	"channels" : {
+		"SYSTEM" : "The system channels recieves system data"
+	},
+	
+	"command line exec" : "legacy",
+	
+	"log messages" : false
+}

@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-11-11 MickeM
+ * Created json module information blocks (and generators)
+
 2012-10-25 MickeM
  * Merged in changes from 0.4.1
  * Fixed installer in preparation of 0.4.1

@@ -52,3 +52,21 @@ MACRO(add_nscp_py_test name script)
 		)
 ENDMACRO(add_nscp_py_test)
 
+
+MACRO(CREATE_MODULE _SRCS _SOURCE _TARGET)
+INCLUDE_DIRECTORIES(${_TARGET})
+ADD_CUSTOM_COMMAND(
+	OUTPUT ${_TARGET}/module.cpp
+	COMMAND ${PYTHON_EXECUTABLE}
+		ARGS
+		"${BUILD_PYTHON_FOLDER}/create_plugin_module.py" 
+		--source ${_SOURCE}
+		--target ${_TARGET}
+	COMMENT Generating ${_TARGET}/module.cpp and ${_TARGET}/module.hpp from ${_SOURCE}/module.json
+	DEPENDS ${_SOURCE}/module.json
+	)
+SET(${_SRCS} ${_TARGET}/module.cpp)
+IF(WIN32)
+	SET(${_SRCS} ${_TARGET}/module.cpp)
+ENDIF(WIN32)
+ENDMACRO(CREATE_MODULE)

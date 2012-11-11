@@ -21,6 +21,7 @@
 #include "StdAfx.h"
 #include "TaskSched.h"
 
+#include <error_com.hpp>
 #include <objidl.h>
 #include <map>
 

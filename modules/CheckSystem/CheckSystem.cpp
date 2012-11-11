@@ -13,13 +13,14 @@
 *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
 *   GNU General Public License for more details.                          *
 *                                                                         *
-*   You should have received a copy of the GNU General Public License     *
+*   You should  have received a copy of the GNU General Public License     *
 *   along with this program; if not, write to the                         *
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
 #include "stdafx.h"
+#include "module.hpp"
 #include "CheckSystem.h"
 
 #include <map>
@@ -97,27 +98,7 @@ public:
 
 };
 
-/**
- * Default c-tor
- * @return 
- */
-CheckSystem::CheckSystem() {}
-/**
- * Default d-tor
- * @return 
- */
-CheckSystem::~CheckSystem() {}
-
 namespace sh = nscapi::settings_helper;
-
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool CheckSystem::loadModule() {
-	return loadModuleEx(_T(""), NSCAPI::normalStart);
-}
 
 boost::tuple<bool,std::wstring> validate_counter(std::wstring counter) {
 	std::pair<bool,std::wstring> ret;
@@ -228,100 +209,73 @@ void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_r
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	boost::shared_ptr<PDHCollector::system_counter_data> data(new PDHCollector::system_counter_data);
 	data->check_intervall = 1;
-	try {
-		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("check"), alias, _T("system/windows"));
+	sh::settings_registry settings(get_settings_proxy());
+	settings.set_alias(_T("check"), alias, _T("system/windows"));
 
-		if (mode == NSCAPI::normalStart) {
-			load_counters(counters, settings);
-		}
-
-		settings.alias().add_path_to_settings()
-			(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
-
-			(_T("service mapping"), _T("SERVICE MAPPING SECTION"), _T("Confiure which services has to be in which state"))
-
-			(_T("pdh"), _T("PDH COUNTER INFORMATION"), _T(""))
-
-			;
-
- 		settings.alias().add_key_to_settings()
-			(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
-			_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
-
-			(_T("default intervall"), sh::uint_key(&data->check_intervall, 1),
-			_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."), true)
-
-			(_T("subsystem"), sh::wstring_key(&data->subsystem, _T("default")),
-			_T("PDH SUBSYSTEM"), _T("Set which pdh subsystem to use."), true)
-			;
-
-		settings.alias().add_key_to_settings(_T("service mapping"))
-
-			(_T("BOOT_START"), sh::wstring_vector_key(&lookups_, SERVICE_BOOT_START, _T("ignored")),
-			_T("SERVICE_BOOT_START"), _T("TODO"), true)
-
-			(_T("SYSTEM_START"), sh::wstring_vector_key(&lookups_, SERVICE_SYSTEM_START, _T("ignored")),
-			_T("SERVICE_SYSTEM_START"), _T("TODO"), true)
-
-			(_T("AUTO_START"), sh::wstring_vector_key(&lookups_, SERVICE_AUTO_START, _T("started")),
-			_T("SERVICE_AUTO_START"), _T("TODO"), true)
-
-			(_T("DEMAND_START"), sh::wstring_vector_key(&lookups_, SERVICE_DEMAND_START, _T("ignored")),
-			_T("SERVICE_DEMAND_START"), _T("TODO"), true)
-
-			(_T("DISABLED"), sh::wstring_vector_key(&lookups_, SERVICE_DISABLED, _T("stopped")),
-			_T("SERVICE_DISABLED"), _T("TODO"), true)
-
-			(_T("DELAYED"), sh::wstring_vector_key(&lookups_, NSCP_SERVICE_DELAYED, _T("ignored")),
-			_T("SERVICE_DELAYED"), _T("TODO"), true)
-
-			;
-
-		settings.register_all();
-		settings.notify();
-
-		
-		if (mode == NSCAPI::normalStart) {
-			typedef PDHCollector::system_counter_data::counter cnt;
-			BOOST_FOREACH(counter_map_type::value_type c, counters) {
-				std::wstring path = c.second;
-				boost::tuple<bool, std::wstring> result = validate_counter(path);
-				if (!result.get<0>()) {
-					NSC_LOG_ERROR(_T("Failed to load counter ") + c.first + _T("(") + path + _T(": ") + result.get<1>());
-				}
-				// TODO: parse coolection strategy here!
-				data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::value));
-			}
-		}
-
-		register_command(_T("check_CPU"), _T("Check that the load of the CPU(s) are within bounds."), 
-			boost::assign::list_of(_T("checkCPU")));
-		register_command(_T("check_uptime"), _T("Check time since last server re-boot."), 
-			boost::assign::list_of(_T("checkUpTime")));
-		register_command(_T("check_service"), _T("Check the state of one or more of the computer services."), 
-			boost::assign::list_of(_T("checkServiceState")));
-		register_command(_T("check_process"), _T("Check the state of one or more of the processes running on the computer."), 
-			boost::assign::list_of(_T("checkProcState")));
-		register_command(_T("check_memory"), _T("Check free/used memory on the system."), 
-			boost::assign::list_of(_T("checkMem")));
-		register_command(_T("check_pdh"), _T("Check a PDH counter."), 
-			boost::assign::list_of(_T("checkCounter")));
-		register_command(_T("check_registry"), _T("Check values in the registry."), 
-			boost::assign::list_of(_T("checkSingleRegEntry")));
-
-		register_command(_T("listCounterInstances"), _T("*DEPRECATED* List all instances for a counter."));
-
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-		return false;
+	if (mode == NSCAPI::normalStart) {
+		load_counters(counters, settings);
 	}
+
+	settings.alias().add_path_to_settings()
+		(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
+
+		(_T("service mapping"), _T("SERVICE MAPPING SECTION"), _T("Confiure which services has to be in which state"))
+
+		(_T("pdh"), _T("PDH COUNTER INFORMATION"), _T(""))
+
+		;
+
+	settings.alias().add_key_to_settings()
+		(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
+		_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
+
+		(_T("default intervall"), sh::uint_key(&data->check_intervall, 1),
+		_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."), true)
+
+		(_T("subsystem"), sh::wstring_key(&data->subsystem, _T("default")),
+		_T("PDH SUBSYSTEM"), _T("Set which pdh subsystem to use."), true)
+		;
+
+	settings.alias().add_key_to_settings(_T("service mapping"))
+
+		(_T("BOOT_START"), sh::wstring_vector_key(&lookups_, SERVICE_BOOT_START, _T("ignored")),
+		_T("SERVICE_BOOT_START"), _T("TODO"), true)
+
+		(_T("SYSTEM_START"), sh::wstring_vector_key(&lookups_, SERVICE_SYSTEM_START, _T("ignored")),
+		_T("SERVICE_SYSTEM_START"), _T("TODO"), true)
+
+		(_T("AUTO_START"), sh::wstring_vector_key(&lookups_, SERVICE_AUTO_START, _T("started")),
+		_T("SERVICE_AUTO_START"), _T("TODO"), true)
+
+		(_T("DEMAND_START"), sh::wstring_vector_key(&lookups_, SERVICE_DEMAND_START, _T("ignored")),
+		_T("SERVICE_DEMAND_START"), _T("TODO"), true)
+
+		(_T("DISABLED"), sh::wstring_vector_key(&lookups_, SERVICE_DISABLED, _T("stopped")),
+		_T("SERVICE_DISABLED"), _T("TODO"), true)
+
+		(_T("DELAYED"), sh::wstring_vector_key(&lookups_, NSCP_SERVICE_DELAYED, _T("ignored")),
+		_T("SERVICE_DELAYED"), _T("TODO"), true)
+
+		;
+
+	settings.register_all();
+	settings.notify();
+
+	
+	if (mode == NSCAPI::normalStart) {
+		typedef PDHCollector::system_counter_data::counter cnt;
+		BOOST_FOREACH(counter_map_type::value_type c, counters) {
+			std::wstring path = c.second;
+			boost::tuple<bool, std::wstring> result = validate_counter(path);
+			if (!result.get<0>()) {
+				NSC_LOG_ERROR(_T("Failed to load counter ") + c.first + _T("(") + path + _T(": ") + result.get<1>());
+			}
+			// TODO: parse coolection strategy here!
+			data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::value));
+		}
+	}
+
+		//register_command(_T("listCounterInstances"), _T("*DEPRECATED* List all instances for a counter."));
 
 	if (mode == NSCAPI::normalStart) {
 		pdh_collector.start(data);
@@ -339,20 +293,6 @@ bool CheckSystem::unloadModule() {
 		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
 	}
 	return true;
-}
-/**
- * Check if we have a command handler.
- * @return true (as we have a command handler)
- */
-bool CheckSystem::hasCommandHandler() {
-	return true;
-}
-/**
- * Check if we have a message handler.
- * @return false as we have no message handler
- */
-bool CheckSystem::hasMessageHandler() {
-	return false;
 }
 
 std::wstring qoute(const std::wstring &s) {
@@ -601,37 +541,6 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 	return 0;
 }
 
-
-/**
- * Main command parser and delegator.
- * This also handles a lot of the simpler responses (though some are deferred to other helper functions)
- *
- *
- * @param command 
- * @param argLen 
- * @param **args 
- * @return 
- */
-NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checkcpu") || command == _T("check_cpu")) {
-		return checkCPU(arguments, message, perf);
-	} else if (command == _T("checkuptime") || command == _T("check_uptime")) {
-		return checkUpTime(arguments, message, perf);
-	} else if (command == _T("checkservicestate") || command == _T("check_service")) {
-		return checkServiceState(arguments, message, perf);
-	} else if (command == _T("checkprocstate") || command == _T("check_process")) {
-		return checkProcState(arguments, message, perf);
-	} else if (command == _T("checkmem") || command == _T("check_mem")) {
-		return checkMem(arguments, message, perf);
-	} else if (command == _T("checkcounter") || command == _T("check_counter")) {
-		return checkCounter(arguments, message, perf);
-	} else if (command == _T("checksingleregentry") || command == _T("check_registry")) {
-		return checkSingleRegEntry(arguments, message, perf);
-	}
-	return NSCAPI::returnIgnored;
-}
-
-
 class cpuload_handler {
 public:
 	static int parse(std::wstring s) {
@@ -663,7 +572,7 @@ public:
 		return _T("");
 	}
 };
-NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckSystem::check_cpu(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, cpuload_handler> > > CPULoadContainer;
 
 	if (arguments.empty()) {
@@ -722,7 +631,7 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, st
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckSystem::checkUpTime(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_uptime(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsTime> UpTimeContainer;
 
@@ -804,7 +713,7 @@ inline int get_state(DWORD state) {
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::SimpleBoundsStateBoundsInteger> StateContainer;
 	if (arguments.empty()) {
@@ -948,7 +857,7 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> argu
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::checkMem(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_memory(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericPercentageBounds<checkHolders::PercentageValueType<unsigned __int64, unsigned __int64>, checkHolders::disk_size_handler<unsigned __int64> > > > MemoryContainer;
 	if (arguments.empty()) {
@@ -1211,7 +1120,7 @@ public:
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef checkHolders::CheckContainer<ProcessBound> StateContainer;
 	
@@ -1402,7 +1311,7 @@ public:
  *
  * @todo add parsing support for NRPE
  */
-NSCAPI::nagiosReturn CheckSystem::checkCounter(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
 {
 	typedef PerfDataContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
 
@@ -1859,13 +1768,13 @@ struct check_regkey_factories {
 		else if ((p__.first == _T("check")) && (p__.second == ##value)) { checker.add_check(check_regkey_factories::obj()); }
 
 
-NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckSystem::check_registry(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	check_file_multi checker;
 	typedef std::pair<int,regkey_filter> filteritem_type;
 	typedef std::list<filteritem_type > filterlist_type;
 	if (arguments.empty()) {
-		message = _T("Missing argument(s).");
+		msg = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<std::wstring> files;
@@ -1888,13 +1797,13 @@ NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(std::list<std::wstring> ar
 			MAP_FACTORY_PB(_T("written"), written)
 			MAP_FACTORY_PB(_T("int"), value_int)
 			MAP_FACTORY_PB(_T("string"), value_string)
-			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
+			MAP_OPTIONS_MISSING(msg, _T("Unknown argument: "))
 			MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
-		message = e.getMessage();
+		msg = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
 	} catch (filters::filter_exception e) {
-		message = e.getMessage();
+		msg = e.getMessage();
 		return NSCAPI::returnUNKNOWN;
 	}
 	FILETIME now;
@@ -1903,23 +1812,17 @@ NSCAPI::nagiosReturn CheckSystem::checkSingleRegEntry(std::list<std::wstring> ar
 	for (std::list<std::wstring>::const_iterator pit = files.begin(); pit != files.end(); ++pit) {
 		regkey_container info = regkey_container::get(*pit, nowi64);
 		if (info.has_errors()) {
-			message = info.error;
+			msg = info.error;
 			return NSCAPI::returnUNKNOWN;
 		}
 		checker.alias = info.render(syntax);
-		checker.runCheck(info, returnCode, message, perf);
+		checker.runCheck(info, returnCode, msg, perf);
 	}
-	if ((truncate > 0) && (message.length() > (truncate-4))) {
-		message = message.substr(0, truncate-4) + _T("...");
+	if ((truncate > 0) && (msg.length() > (truncate-4))) {
+		msg = msg.substr(0, truncate-4) + _T("...");
 		perf = _T("");
 	}
-	if (message.empty())
-		message = _T("CheckSingleRegkey ok");
+	if (msg.empty())
+		msg = _T("CheckSingleRegkey ok");
 	return returnCode;
 }
-
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckSystem, _T("w32system"));
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();

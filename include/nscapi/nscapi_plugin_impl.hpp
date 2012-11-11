@@ -7,6 +7,7 @@
 #include <NSCAPI.h>
 
 #include <nscapi/settings_proxy.hpp>
+#include <nscapi/command_proxy.hpp>
 
 namespace nscapi {
 	namespace impl {
@@ -21,6 +22,9 @@ namespace nscapi {
 			}
 			inline boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy() {
 				return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(id_, get_core()));
+			}
+			inline boost::shared_ptr<nscapi::command_proxy> get_command_proxy() {
+				return boost::shared_ptr<nscapi::command_proxy>(new nscapi::command_proxy(id_, get_core()));
 			}
 			void register_command(std::wstring command, std::wstring description);
 			void register_command(std::wstring command, std::wstring description, std::list<std::wstring> aliases);
