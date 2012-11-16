@@ -137,6 +137,10 @@ template<>
 std::wstring parse_item<UINT,VT_UI1>(UINT value) {
 	return strEx::itos(value);
 }
+template<>
+std::wstring parse_item<LONG,VT_I4>(LONG value) {
+	return strEx::itos(value);
+}
 template<class T, enum VARENUM U>
 std::wstring array_to_string(std::wstring tag, CComVariant &vValue) {
 	SAFEARRAY* paArray = vValue.parray;
@@ -189,6 +193,8 @@ WMIQuery::WMIResult get_value(std::wstring tag, CComVariant &vValue) {
 		value.setString(array_to_string<SHORT,VT_BOOL>(tag, vValue));
 	} else if (vValue.vt == (VT_ARRAY|VT_UI1)) {
 		value.setString(array_to_string<UINT,VT_UI1>(tag, vValue));
+	} else if (vValue.vt == (VT_ARRAY|VT_I4)) {
+		value.setString(array_to_string<LONG,VT_I4>(tag, vValue));
 	} else {
 		value.setString(_T("UNKNOWN"));
 		NSC_LOG_ERROR_STD(tag + _T(" is not supported (type-id: ") + strEx::itos(vValue.vt) + _T(")"));

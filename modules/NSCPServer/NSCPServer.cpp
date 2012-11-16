@@ -122,7 +122,7 @@ bool NSCPListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 		boost::asio::io_service io_service_;
 
 		if (mode == NSCAPI::normalStart) {
-			server_.reset(new nscp::server::server(boost::shared_ptr<nscp::read_protocol>(new nscp::read_protocol(info_, handler_))));
+			server_.reset(new nscp::server::server(info_, handler_));
 			if (!server_) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 				return false;

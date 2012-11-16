@@ -43,6 +43,10 @@ namespace nscp {
 
 		state current_state_;
 
+		static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, handler_type handler) {
+			return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
+		}
+
 		read_protocol(socket_helpers::connection_info info, handler_type handler) 
 			: info_(info)
 			, handler_(handler)

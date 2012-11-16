@@ -133,7 +133,7 @@ bool NSCAServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		if (mode == NSCAPI::normalStart) {
 
-			server_.reset(new nsca::server::server(boost::shared_ptr<nsca::read_protocol>(new nsca::read_protocol(info_, handler_))));
+			server_.reset(new nsca::server::server(info_, handler_));
 			if (!server_) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 				return false;

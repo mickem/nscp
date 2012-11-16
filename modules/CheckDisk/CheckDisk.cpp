@@ -227,6 +227,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 	std::wstring strCheckAll;
 	bool ignore_unreadable = false;
 	float magic = 0;
+	std::wstring matching;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("Drive"), tmpObject.data, drives.push_back(tmpObject))
@@ -238,6 +239,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemote, _T("REMOTE"))
 		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterNoRootDir, _T("NO_ROOT_DIR"))
 		MAP_OPTIONS_BOOL_TRUE(_T("ignore-unreadable"), ignore_unreadable)
+		MAP_OPTIONS_STR(_T("perf-unit"), tmpObject.perf_unit)
+		MAP_OPTIONS_STR(_T("matching"), matching)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		//MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
@@ -258,6 +261,16 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 
 	if ((drives.size() == 0) && strCheckAll.empty())
 		bCheckAllDrives = true;
+
+	boost::wregex regexp_filter;
+	if (!matching.empty()) {
+		try {
+			regexp_filter = boost::wregex(matching);
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR_STD(_T("Failed to parse expression: ") + utf8::to_unicode(e.what()));
+			return NSCAPI::returnUNKNOWN;
+		}
+	}
 
 	if (strCheckAll == _T("volumes")) {
 		volume_helper helper;
@@ -286,8 +299,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
 					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ||
 					((bFilter)&&(bFilterNoRootDir)&&(drvType==DRIVE_NO_ROOT_DIR)) 
-					)
-					drives.push_back(DriveContainer(v.first, v.second, tmpObject.warn, tmpObject.crit));
+					) {
+						if (matching.empty() || boost::regex_match(v.second, regexp_filter))
+							drives.push_back(DriveContainer(v.first, v.second, tmpObject.warn, tmpObject.crit));
+						else
+							NSC_DEBUG_MSG_STD(_T("Ignoring drive (not matching filter): ") + v.second);
+				}
 				else
 				NSC_DEBUG_MSG_STD(_T("Ignoring drive: ") + v.second);
 		}
@@ -307,8 +324,12 @@ NSCAPI::nagiosReturn CheckDisk::CheckDriveSize(std::list<std::wstring> args, std
 					((bFilter)&&(bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
 					((bFilter)&&(bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) ||
 					((bFilter)&&(bFilterNoRootDir)&&(drvType==DRIVE_NO_ROOT_DIR)) 
-					)
-					drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
+					) {
+						if (matching.empty() || boost::regex_match(drv, regexp_filter))
+							drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
+						else
+							NSC_DEBUG_MSG_STD(_T("Ignoring drive (not matching filter): ") + drv);
+				}
 			}
 			idx++;
 			dwDrives >>= 1;
@@ -700,6 +721,7 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(std::list<std::wstring> args, std::ws
 			MAP_OPTIONS_STR2INT(_T("max-dir-depth"), fargs->max_level)
 			MAP_OPTIONS_BOOL_EX(_T("filter"), fargs->bFilterIn, _T("in"), _T("out"))
 			MAP_OPTIONS_BOOL_EX(_T("filter"), fargs->bFilterAll, _T("all"), _T("any"))
+			MAP_OPTIONS_STR(_T("perf-unit"), tmpObject.perf_unit)
 
 			MAP_OPTIONS_STR(_T("filter"), fargs->filter)
 
@@ -716,19 +738,20 @@ NSCAPI::nagiosReturn CheckDisk::CheckFiles(std::list<std::wstring> args, std::ws
 		message = _T("Missing path argument");
 		return NSCAPI::returnUNKNOWN;
 	}
-	file_filter::filter_engine impl = file_filter::factories::create_engine(fargs);
-	if (!impl) {
-		message = _T("Missing filter argument");
-		return NSCAPI::returnUNKNOWN;
+	file_filter::filter_engine impl;
+	if (!fargs->filter.empty()) {
+		impl = file_filter::factories::create_engine(fargs);
+		if (!impl->validate(message))
+			return NSCAPI::returnUNKNOWN;
+	} else if (fargs->debug) {
+		NSC_DEBUG_MSG_STD(_T("No filter specified: matching all files and folders"));
 	}
-	if (!impl->validate(message))
-		return NSCAPI::returnUNKNOWN;
+
 	if (fargs->debug)
 		NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(fargs->now));
 
 	file_filter::filter_result result = file_filter::factories::create_result(fargs);
 	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-
 		file_finder::recursive_scan(result, fargs, impl, *pit);
 		if (!ignoreError && fargs->error->has_error()) {
 			if (show_errors_)

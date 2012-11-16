@@ -4,6 +4,32 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-11-16 MickeM
+  * CheckDriveSize now supports regular expressiion filtering:
+    CheckDriveSize ShowAll MaxWarn=1M MaxCrit=2M CheckAll=volumes matching=.*[CD].*
+
+2012-11-15 MickeM
+ * CheckFiles filter is now optional (not specifying a filter will find all files matching)
+ * CheckFiles no longer matching . and ..
+
+2012-11-14 MickeM
+ * Added perf-unit to allow for stable performance data units (if not specified it will guess which is the current solution).
+    checkmem type=paged MaxWarn=80% perf-unit=M
+     => 'paged bytes %'=34%;80;0 'paged bytes'=8454.04M;19629.84;0;0;24537.3
+    checkmem type=paged MaxWarn=80% perf-unit=K
+     => 'paged bytes %'=34%;80;0 'paged bytes'=8655200K;20100963.19;0;0;25126204
+    checkmem type=paged MaxWarn=80% perf-unit=B
+     => 'paged bytes %'=34%;80;0 'paged bytes'=8872108032B;20583386316;0;0;25729232896
+    checkmem type=paged MaxWarn=80%
+     => 'paged bytes %'=34%;80;0 'paged bytes'=8.25G;19.1;0;0;23.96 
+ * Fixed threadding issue related to servers (ie. check_nt causing a crash)
+    Dont know what I was thinking when I designed that, pretty stupid bug :(
+
+2012-11-11 MickeM
+ * Fixed issue with loading performance counters (check_cpu)
+ * Fixed default service name (nscp)
+ * CheckWMI: Added support for lists of integers
+
 2012-10-25 MickeM
  * Fixed installer in preparation of 0.4.1
 
