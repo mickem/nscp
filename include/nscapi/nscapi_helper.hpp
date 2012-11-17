@@ -38,6 +38,7 @@ namespace nscapi {
 		static std::wstring translateMessageType(NSCAPI::messageTypes msgType);
 		static std::wstring translateReturn(NSCAPI::nagiosReturn returnCode);
 		static NSCAPI::nagiosReturn translateReturn(std::wstring str);
+		static NSCAPI::nagiosReturn translateReturn(std::string str);
 		static NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b);
 	};
 

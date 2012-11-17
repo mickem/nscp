@@ -239,6 +239,8 @@ NSCAPI::nagiosReturn Cache::handleRAWCommand(const wchar_t *command, const std::
 	Plugin::QueryResponseMessage response_msg;
 	request_msg.ParseFromString(request);
 	nscapi::functions::make_return_header(response_msg.mutable_header(), request_msg.header());
+	std::string not_found_msg = "Entry not found";
+	NSCAPI::nagiosReturn not_found_code = NSCAPI::returnUNKNOWN;
 	BOOST_FOREACH(const Plugin::QueryRequestMessage::Request &payload ,request_msg.payload()) {
 		std::string key;
 		try {
@@ -249,6 +251,8 @@ NSCAPI::nagiosReturn Cache::handleRAWCommand(const wchar_t *command, const std::
 				else if (a.first == "command") query.command = a.second;
 				else if (a.first == "channel") query.channel = a.second;
 				else if (a.first == "alias") query.alias = a.second;
+				else if (a.first == "not-found-msg") not_found_msg = a.second;
+				else if (a.first == "not-found-code") not_found_code = nscapi::plugin_helper::translateReturn(a.second);
 				else {
 					throw std::string("invalid syntax: ") + a.first;
 				}
@@ -284,7 +288,7 @@ NSCAPI::nagiosReturn Cache::handleRAWCommand(const wchar_t *command, const std::
 			rsp->ParseFromString(*data);
 			ret = nscapi::functions::gbp_to_nagios_status(rsp->result());
 		} else {
-			nscapi::functions::append_simple_query_response_payload(response_msg.add_payload(), payload.command(), NSCAPI::returnUNKNOWN, "Entry not found");
+			nscapi::functions::append_simple_query_response_payload(response_msg.add_payload(), payload.command(), not_found_code, not_found_msg);
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}

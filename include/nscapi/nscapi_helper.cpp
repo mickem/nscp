@@ -239,6 +239,16 @@ NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::wstring str) {
 	else 
 		return NSCAPI::returnUNKNOWN;
 }
+NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
+	if ((str == "OK") || (str == "ok"))
+		return NSCAPI::returnOK;
+	else if ((str == "CRITICAL") || (str == "critical"))
+		return NSCAPI::returnCRIT;
+	else if ((str == "WARNING") || (str == "warning"))
+		return NSCAPI::returnWARN;
+	else 
+		return NSCAPI::returnUNKNOWN;
+}
 /**
  * Returns the biggest of the two states
  * STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL

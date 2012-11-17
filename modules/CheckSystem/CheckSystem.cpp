@@ -905,6 +905,12 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> argu
 					} else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND) {
 						if (!msg.empty()) msg += _T(" - ");
 						msg += (*it).data + _T(": Not found");
+					} else if (info.m_dwCurrentState == SERVICE_START_PENDING) {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Start pending");
+					} else if (info.m_dwCurrentState == SERVICE_STOP_PENDING) {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Stop pending");
 					} else {
 						if (!msg.empty()) msg += _T(" - ");
 						msg += (*it).data + _T(": Unknown");
@@ -926,6 +932,10 @@ NSCAPI::nagiosReturn CheckSystem::checkServiceState(std::list<std::wstring> argu
 				value = checkHolders::state_started;
 			else if (info.m_dwCurrentState == SERVICE_STOPPED)
 				value = checkHolders::state_stopped;
+			else if (info.m_dwCurrentState == SERVICE_STOP_PENDING)
+				value = checkHolders::state_started|checkHolders::state_pending_other;
+			else if (info.m_dwCurrentState == SERVICE_START_PENDING)
+				value = checkHolders::state_stopped|checkHolders::state_pending_other;
 			else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND)
 				value = checkHolders::state_not_found;
 			else {
@@ -1274,6 +1284,7 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 	else if (p2.first == _T("Proc")) {
 			tmpObject.data = p__.second;
 			tmpObject.alias = p2.second;
+			
 			list.push_back(tmpObject);
 		}
 	MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
@@ -1313,16 +1324,17 @@ NSCAPI::nagiosReturn CheckSystem::checkProcState(std::list<std::wstring> argumen
 
 	for (std::list<StateContainer>::iterator it = list.begin(); it != list.end(); ++it) {
 		NSPROCLST::iterator proc;
+		std::wstring key = boost::to_lower_copy((*it).data);
 		if (match == match_string) {
-			proc = runningProcs.find((*it).data);
+			proc = runningProcs.find(key);
 		} else if (match == match_substring) {
 			for (proc=runningProcs.begin();proc!=runningProcs.end();++proc) {
-				if ((*proc).first.find((*it).data) != std::wstring::npos)
+				if ((*proc).first.find(key) != std::wstring::npos)
 					break;
 			}
 		} else if (match == match_regexp) {
 			try {
-				boost::wregex filter((*it).data,boost::regex::icase);
+				boost::wregex filter(key,boost::regex::icase);
 				for (proc=runningProcs.begin();proc!=runningProcs.end();++proc) {
 					std::wstring value = (*proc).first;
 					if (boost::regex_match(value, filter))

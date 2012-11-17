@@ -5,6 +5,13 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2012-11-16 MickeM
+ * CheckEventLog: Added debug message lisgin all loaded filters to make it simpler to detect missing once
+ * SimpleCache: Added keywords not-found-msg and not-found-code option to configure the outcome of "item not found".
+    check_cache index=foobar "not-found-code=Doch! item was not found" not-found-code=critical
+ * CheckProcess is no longer case sensetive
+ * CheckServiceState: added support for pending states
+
+2012-11-16 MickeM
   * CheckDriveSize now supports regular expressiion filtering:
     CheckDriveSize ShowAll MaxWarn=1M MaxCrit=2M CheckAll=volumes matching=.*[CD].*
 

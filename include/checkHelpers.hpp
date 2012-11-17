@@ -559,6 +559,7 @@ namespace checkHolders {
 	const int state_stopped   = 0x02;
 	const int state_not_found = 0x06;
 	const int state_hung      = 0x0e;
+	const int state_pending_other   = 0x80;
 
 	class state_handler {
 	public:
@@ -574,6 +575,8 @@ namespace checkHolders {
 					ret |= state_none;
 				else if (*it == _T("not found"))
 					ret |= state_not_found;
+				else if (*it == _T("pending"))
+					ret |= state_pending_other;
 				else if (*it == _T("hung"))
 					ret |= state_hung;
 			}
@@ -588,6 +591,8 @@ namespace checkHolders {
 				return _T("none");
 			else if (value == state_not_found)
 				return _T("not found");
+			else if (value == state_pending_other)
+				return _T("pending(other)");
 			else if (value == state_hung)
 				return _T("hung");
 			return _T("unknown");
