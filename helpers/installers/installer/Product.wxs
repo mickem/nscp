@@ -82,7 +82,6 @@
 					</Component>
 					<Component Id="RandomFiles" Guid="E23865C3-C11F-4d11-BE63-C670D60B0CD0" Win64="$(var.Win64)">
 						<File Id="Changelog" Name="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no" />
-						<File Id="Counters" Name="counters.defs" DiskId="1" Source="$(var.Source)/counters.defs" Vital="no" />
 						<File Id="License" Name="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="no" KeyPath="yes" />
 						<File Id="settingsMap" Name="old-settings.map" DiskId="1" Source="$(var.Source)/old-settings.map" Vital="no" />
 
