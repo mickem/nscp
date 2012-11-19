@@ -74,10 +74,10 @@ public:
 		return value;
 		//return TNumericHolder::toStringShort(value.count);
 	}
-	std::wstring gatherPerfData(std::wstring alias, typename TValueType &value, TMyType &warn, TMyType &crit) {
+	std::wstring gatherPerfData(std::wstring alias, std::wstring unit, typename TValueType &value, TMyType &warn, TMyType &crit) {
 		return _T("");
 	}
-	std::wstring gatherPerfData(std::wstring alias, typename TValueType &value) {
+	std::wstring gatherPerfData(std::wstring alias, std::wstring unit, typename TValueType &value) {
 		return _T("");
 	}
 	bool check(typename TValueType &value, std::wstring lable, std::wstring &message, checkHolders::ResultType type) {
@@ -190,7 +190,8 @@ void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_r
 
 	std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
 	if (counters[PDH_SYSTEM_KEY_CPU] == _T("")) {
-		settings.register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPP is usually round robin."), _T("round robin"), false);
+		settings.register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPU is usually round robin, for others static."), _T("round robin"), false);
+		settings.set_static_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), _T("round robin"));
 	}
 	wchar_t *keys[] = {PDH_SYSTEM_KEY_UPT, PDH_SYSTEM_KEY_MCL, PDH_SYSTEM_KEY_MCB, PDH_SYSTEM_KEY_CPU};
 	BOOST_FOREACH(const wchar_t *key, keys) {
@@ -209,8 +210,10 @@ void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_r
 bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	boost::shared_ptr<PDHCollector::system_counter_data> data(new PDHCollector::system_counter_data);
 	data->check_intervall = 1;
+
 	sh::settings_registry settings(get_settings_proxy());
-	settings.set_alias(_T("check"), alias, _T("system/windows"));
+	settings.set_alias(alias, _T("system/windows"));
+	std::wstring counter_path = settings.alias().get_settings_path(_T("pdh/counters"));
 
 	if (mode == NSCAPI::normalStart) {
 		load_counters(counters, settings);
@@ -261,7 +264,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 	settings.register_all();
 	settings.notify();
 
-	
+		
 	if (mode == NSCAPI::normalStart) {
 		typedef PDHCollector::system_counter_data::counter cnt;
 		BOOST_FOREACH(counter_map_type::value_type c, counters) {
@@ -270,12 +273,22 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			if (!result.get<0>()) {
 				NSC_LOG_ERROR(_T("Failed to load counter ") + c.first + _T("(") + path + _T(": ") + result.get<1>());
 			}
-			// TODO: parse coolection strategy here!
-			data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::value));
+			std::wstring strategy = get_core()->getSettingsString(counter_path + _T("/") + c.first, _T("collection strategy"), _T("static"));
+			if (strategy == _T("static")) {
+				data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::value));
+			} else if (strategy == _T("round robin")) {
+				std::wstring size = get_core()->getSettingsString(counter_path + _T("/") + c.first, _T("size"), _T(""));
+				if (size.empty())
+					data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::rrd));
+				else
+					data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::rrd, size));
+			} else {
+				NSC_LOG_ERROR(_T("Failed to load counter ") + c.first + _T(" invalid collection strategy: ") + strategy);
+			}
 		}
 	}
 
-		//register_command(_T("listCounterInstances"), _T("*DEPRECATED* List all instances for a counter."));
+	//register_command(_T("listCounterInstances"), _T("*DEPRECATED* List all instances for a counter."));
 
 	if (mode == NSCAPI::normalStart) {
 		pdh_collector.start(data);
@@ -801,6 +814,12 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 					} else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND) {
 						if (!msg.empty()) msg += _T(" - ");
 						msg += (*it).data + _T(": Not found");
+					} else if (info.m_dwCurrentState == SERVICE_START_PENDING) {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Start pending");
+					} else if (info.m_dwCurrentState == SERVICE_STOP_PENDING) {
+						if (!msg.empty()) msg += _T(" - ");
+						msg += (*it).data + _T(": Stop pending");
 					} else {
 						if (!msg.empty()) msg += _T(" - ");
 						msg += (*it).data + _T(": Unknown");
@@ -822,6 +841,10 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 				value = checkHolders::state_started;
 			else if (info.m_dwCurrentState == SERVICE_STOPPED)
 				value = checkHolders::state_stopped;
+			else if (info.m_dwCurrentState == SERVICE_STOP_PENDING)
+				value = checkHolders::state_started|checkHolders::state_pending_other;
+			else if (info.m_dwCurrentState == SERVICE_START_PENDING)
+				value = checkHolders::state_stopped|checkHolders::state_pending_other;
 			else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND)
 				value = checkHolders::state_not_found;
 			else {
@@ -883,6 +906,7 @@ NSCAPI::nagiosReturn CheckSystem::check_memory(const std::wstring &target, const
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
 		MAP_OPTIONS_DISK_ALL(tmpObject, _T(""), _T("Free"), _T("Used"))
 		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
+		MAP_OPTIONS_STR(_T("perf-unit"), tmpObject.perf_unit)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_MISSING(msg, _T("Unknown argument: "))
 		MAP_OPTIONS_END()
@@ -1089,16 +1113,16 @@ public:
 	static std::wstring toStringShort(TValueType &value) {
 		return value.to_wstring_short();
 	}
-	std::wstring gatherPerfData(std::wstring alias, TValueType &value, TMyType &warn, TMyType &crit) {
+	std::wstring gatherPerfData(std::wstring alias, std::wstring unit, TValueType &value, TMyType &warn, TMyType &crit) {
 		if (hung.hasBounds())
-			return hung.gatherPerfData(alias, value.hung, warn.hung, crit.hung);
-		return running.gatherPerfData(alias, value.running, warn.running, crit.running);
+			return hung.gatherPerfData(alias, unit, value.hung, warn.hung, crit.hung);
+		return running.gatherPerfData(alias, unit, value.running, warn.running, crit.running);
 	}
-	std::wstring gatherPerfData(std::wstring alias, TValueType &value) {
+	std::wstring gatherPerfData(std::wstring alias, std::wstring unit, TValueType &value) {
 		THolder tmp;
 		if (hung.hasBounds())
-			return tmp.gatherPerfData(alias, value.hung);
-		return tmp.gatherPerfData(alias, value.running);
+			return tmp.gatherPerfData(alias, unit, value.hung);
+		return tmp.gatherPerfData(alias, unit, value.running);
 	}
 	bool check(TValueType &value, std::wstring lable, std::wstring &message, checkHolders::ResultType type) {
 		if (hung.hasBounds()) {
@@ -1169,6 +1193,7 @@ NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, cons
 	else if (p2.first == _T("Proc")) {
 			tmpObject.data = p__.second;
 			tmpObject.alias = p2.second;
+			
 			list.push_back(tmpObject);
 		}
 	MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
@@ -1208,16 +1233,17 @@ NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, cons
 
 	for (std::list<StateContainer>::iterator it = list.begin(); it != list.end(); ++it) {
 		NSPROCLST::iterator proc;
+		std::wstring key = boost::to_lower_copy((*it).data);
 		if (match == match_string) {
-			proc = runningProcs.find((*it).data);
+			proc = runningProcs.find(key);
 		} else if (match == match_substring) {
 			for (proc=runningProcs.begin();proc!=runningProcs.end();++proc) {
-				if ((*proc).first.find((*it).data) != std::wstring::npos)
+				if ((*proc).first.find(key) != std::wstring::npos)
 					break;
 			}
 		} else if (match == match_regexp) {
 			try {
-				boost::wregex filter((*it).data,boost::regex::icase);
+				boost::wregex filter(key,boost::regex::icase);
 				for (proc=runningProcs.begin();proc!=runningProcs.end();++proc) {
 					std::wstring value = (*proc).first;
 					if (boost::regex_match(value, filter))
@@ -1369,13 +1395,6 @@ NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::wstring &target, const st
 	BOOST_FOREACH(CounterContainer &counter, counters) {
 		try {
 			if (counter.data.find('\\') == std::wstring::npos) {
-				/*
-				value = pObject->get_double(counter.data);
-				if (value == -1) {
-					msg = _T("ERROR: Failed to get counter value: ") + counter.data;
-					return NSCAPI::returnUNKNOWN;
-				}
-				*/
 			} else {
 				std::wstring tstr;
 				if (bExpandIndex) {

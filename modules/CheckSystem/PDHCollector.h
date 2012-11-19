@@ -75,6 +75,14 @@ public:
 				, data_format(data_format)
 				, collection_strategy(collection_strategy)
 			{}
+			counter(std::wstring alias, std::wstring path, data_type_struct data_type, data_format_struct data_format, collection_strategy_struct collection_strategy, std::wstring buffer_size)
+				: alias(alias)
+				, path(path)
+				, data_type(data_type)
+				, data_format(data_format)
+				, collection_strategy(collection_strategy)
+				, buffer_size(buffer_size)
+			{}
 			data_type_struct data_type;
 			data_format_struct data_format;
 			std::wstring alias;
@@ -84,7 +92,8 @@ public:
 
 			boost::shared_ptr<PDHCollectors::PDHCollector> create(int check_intervall);
 			void set_default_buffer_size(std::wstring buffer_size_) {
-				buffer_size = buffer_size_;
+				if (buffer_size.empty())
+					buffer_size = buffer_size_;
 			}
 
 			int get_buffer_length(int check_intervall) {

@@ -148,7 +148,7 @@ bool NSClientServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 						return false;
 					}
 #endif
-					server_.reset(new check_nt::server::server(boost::shared_ptr<check_nt::read_protocol>(new check_nt::read_protocol(info_, this))));
+					server_.reset(new check_nt::server::server(info_, this));
 					if (!server_) {
 						NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 						return false;

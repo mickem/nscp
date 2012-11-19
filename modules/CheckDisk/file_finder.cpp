@@ -31,7 +31,10 @@ void file_finder::recursive_scan(file_filter::filter_result result, file_filter:
 		HANDLE hFind = FindFirstFile(dir.string().c_str(), &wfd);
 		if (hFind != INVALID_HANDLE_VALUE) {
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(args->now, wfd, single_path.first);
-			result->process(info, engine->match(info));
+			if (engine) 
+				result->process(info, engine->match(info));
+			else
+				result->process(info, true);
 			FindClose(hFind);
 		} else {
 			args->error->report_error(_T("File was NOT found!"));
@@ -43,8 +46,16 @@ void file_finder::recursive_scan(file_filter::filter_result result, file_filter:
 	HANDLE hFind = FindFirstFile(file_pattern.c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
+			if (
+				file_helpers::checks::is_directory(wfd.dwFileAttributes)
+				&& ( wcscmp(wfd.cFileName, _T(".")) != 0 || wcscmp(wfd.cFileName, _T("..")) != 0)
+				)
+				continue;
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(args->now, wfd, dir);
-			result->process(info, engine->match(info));
+			if (engine) 
+				result->process(info, engine->match(info));
+			else
+				result->process(info, true);
 		} while (FindNextFile(hFind, &wfd));
 		FindClose(hFind);
 	}

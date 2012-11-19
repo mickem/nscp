@@ -134,7 +134,7 @@ bool CheckMKServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 
 
 		if (mode == NSCAPI::normalStart) {
-			server_.reset(new check_mk::server::server(boost::shared_ptr<check_mk::read_protocol>(new check_mk::read_protocol(info_, handler_))));
+			server_.reset(new check_mk::server::server(info_, handler_));
 			if (!server_) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 				return false;

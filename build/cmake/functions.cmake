@@ -39,6 +39,7 @@ MACRO(copy_single_file _TARGET_LIST src destDir)
 		DEPENDS ${source_file}
 		)
 	SET(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
+	INSTALL(FILES ${target_file} DESTINATION ${destDir})
 ENDMACRO(copy_single_file)
 
 MACRO(add_nscp_py_test name script)

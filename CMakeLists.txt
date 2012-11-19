@@ -296,6 +296,10 @@ SET(NSCP_DEF_PLUGIN_LIB
 #############################################################################
 
 SET(MAIN_NSCP_TARGET "nscp")
+IF(BREAKPAD_FOUND)
+	SET(MAIN_NSCP_TARGET ${MAIN_NSCP_TARGET} "nscpnobp")
+ENDIF(BREAKPAD_FOUND)
+
 
 ADD_SUBDIRECTORY("service")
 ADD_SUBDIRECTORY("scripts")

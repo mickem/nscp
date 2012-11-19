@@ -51,10 +51,11 @@ namespace socket_helpers {
 #endif
 
 			boost::asio::io_service io_service_;
-			boost::shared_ptr<protocol_type> protocol_;
 			boost::asio::ip::tcp::acceptor acceptor_;
 			boost::asio::strand accept_strand_;
 			socket_helpers::connection_info info_;
+			typename protocol_type::handler_type handler_;
+			boost::shared_ptr<protocol_type> logger_;
 #ifdef USE_SSL
 			boost::asio::ssl::context context_;
 #endif
@@ -62,17 +63,16 @@ namespace socket_helpers {
 			boost::shared_ptr<connection_type> new_connection_;
 			boost::thread_group thread_group_;
 		public:
-			server(boost::shared_ptr<protocol_type> protocol)
-				: protocol_(protocol)
-				, info_(protocol->get_info())
+			server(socket_helpers::connection_info info, typename protocol_type::handler_type handler)
+				: info_(info)
+				, handler_(handler)
 				, acceptor_(io_service_)
 				, accept_strand_(io_service_)
+				, logger_(protocol_type::create(info_, handler_))
 #ifdef USE_SSL
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
 #endif
 			{
-				if (!protocol_)
-					throw server_exception("Invalid protocol instance");
 			}
 			~server() {
 
@@ -89,7 +89,7 @@ namespace socket_helpers {
 				}
 				ip::tcp::resolver::iterator end;
 				if (endpoint_iterator == end) {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to lookup: " + info_.get_endpoint_string());
+					logger_->log_error(__FILE__, __LINE__, "Failed to lookup: " + info_.get_endpoint_string());
 					return;
 				}
 				if (info_.ssl.enabled) {
@@ -97,10 +97,10 @@ namespace socket_helpers {
 					std::list<std::string> errors;
 					info_.ssl.configure_ssl_context(context_, errors);
 					BOOST_FOREACH(const std::string &e, errors) {
-						protocol_->log_error(__FILE__, __LINE__, e);
+						logger_->log_error(__FILE__, __LINE__, e);
 					}
 #else
-					protocol_->log_error(__FILE__, __LINE__, "Not compiled with SSL");
+					logger_->log_error(__FILE__, __LINE__, "Not compiled with SSL");
 #endif
 				}
 				new_connection_.reset(create_connection());
@@ -109,12 +109,12 @@ namespace socket_helpers {
 				acceptor_.open(endpoint.protocol());
 				acceptor_.set_option(ip::tcp::acceptor::reuse_address(true), er);
 				if (er) {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
+					logger_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
 				}
-				protocol_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + info_.get_endpoint_string());
+				logger_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + info_.get_endpoint_string());
 				acceptor_.bind(endpoint, er);
 				if (er) {
-					protocol_->log_error(__FILE__, __LINE__, "Failed to bind: " + er.message());
+					logger_->log_error(__FILE__, __LINE__, "Failed to bind: " + er.message());
 				}
 				if (info_.back_log == connection_info::backlog_default)
 					acceptor_.listen();
@@ -124,7 +124,7 @@ namespace socket_helpers {
 				acceptor_.async_accept(new_connection_->get_socket(),accept_strand_.wrap(
 					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
 					));
-				protocol_->log_debug(__FILE__, __LINE__, "Bound to: " + info_.get_endpoint_string());
+				logger_->log_debug(__FILE__, __LINE__, "Bound to: " + info_.get_endpoint_string());
 
 				for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
 					thread_group_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
@@ -134,7 +134,7 @@ namespace socket_helpers {
 
 			std::string get_password() const
 			{
-				protocol_->log_error(__FILE__, __LINE__, "Getting password...");
+				logger_->log_error(__FILE__, __LINE__, "Getting password...");
 				return "test";
 			}
 			void stop() {
@@ -146,7 +146,7 @@ namespace socket_helpers {
 			void handle_accept(const boost::system::error_code& e) {
 				if (!e) {
 					std::list<std::string> errors;
-					if (protocol_->on_accept(new_connection_->get_socket())) {
+					if (logger_->on_accept(new_connection_->get_socket())) {
 						new_connection_->start();
 					} else {
 						new_connection_->on_done(false);
@@ -160,17 +160,17 @@ namespace socket_helpers {
 						)
 						);
 				} else {
-					protocol_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
+					logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
 				}
 			}
 
 			connection_type* create_connection() {
 #ifdef USE_SSL
 				if (info_.ssl.enabled) {
-					return new ssl_connection_type(io_service_, context_, protocol_);
+					return new ssl_connection_type(io_service_, context_, protocol_type::create(info_, handler_));
 				}
 #endif
-				return new tcp_connection_type(io_service_, protocol_);
+				return new tcp_connection_type(io_service_, protocol_type::create(info_, handler_));
 			}
 		};
 	} // namespace server

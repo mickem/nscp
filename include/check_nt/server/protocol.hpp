@@ -22,6 +22,7 @@ namespace check_nt {
 
 		typedef std::vector<char> outbound_buffer_type;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
+		typedef check_nt::server::handler* handler_type;
 
 		enum state {
 			none,
@@ -37,6 +38,10 @@ namespace check_nt {
 		std::vector<char> data_;
 		check_nt::server::parser parser_;
 
+
+		static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, check_nt::server::handler *handler) {
+			return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
+		}
 		read_protocol(socket_helpers::connection_info info, check_nt::server::handler *handler) 
 			: info_(info)
 			, handler_(handler)

@@ -103,6 +103,7 @@ void real_time_thread::thread_proc() {
 
 	std::list<filters::filter_config_object> filters;
 	std::list<std::wstring> logs;
+	std::list<std::wstring> filter_list;
 
 	BOOST_FOREACH(std::wstring s, strEx::splitEx(logs_, _T(","))) {
 		logs.push_back(s);
@@ -135,10 +136,12 @@ void real_time_thread::thread_proc() {
 			continue;
 		}
 		filters.push_back(object);
+		filter_list.push_back(object.alias);
 	}
 	logs.sort();
 	logs.unique();
 	NSC_DEBUG_MSG_STD(_T("Scanning logs: ") + strEx::joinEx(logs, _T(", ")));
+	NSC_DEBUG_MSG_STD(_T("Scanning filters: ") + strEx::joinEx(filter_list, _T(", ")));
 
 	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
 	typedef std::vector<eventlog_type> eventlog_list;

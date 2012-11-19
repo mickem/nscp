@@ -702,6 +702,10 @@ namespace nscapi {
 			path_extension path(std::wstring path) {
 				return path_extension(this, path);
 			}
+
+			void set_static_key(std::wstring path, std::wstring key, std::wstring value) {
+				core_->set_string(path, key, value);
+			}
 			
 
 			void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced = false)  {
