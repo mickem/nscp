@@ -175,7 +175,7 @@ def parse_module(data):
 	if data:
 		module = Module(data)
 
-COMMAND_INSTANCE_HPP = """	NSCAPI::nagiosReturn ${NAME}(const std::wstring &char_command, const std::string &request, std::string &response);
+COMMAND_INSTANCE_HPP = """	void ${NAME}(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 """
 COMMAND_INSTANCE_HPP_LEGACY = """	NSCAPI::nagiosReturn ${NAME}(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
 """
@@ -305,15 +305,24 @@ NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_comm
 CLI_DELEGATOR_CPP_FALSE = ""
 
 
-COMMAND_INSTANCE_CPP = """	} else if (command == _T("${NAME}")) {
-		return impl_->${NAME}(command, request, response);
+COMMAND_INSTANCE_CPP = """			} else if (command == "${NAME}") {
+				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				impl_->${NAME}(request_payload, response_payload);
 """
-COMMAND_INSTANCE_CPP_LEGACY = """	} else if (command == _T("${NAME}")) {
-		nscapi::protobuf::types::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-		std::wstring msg, perf;
-		NSCAPI::nagiosReturn ret = impl_->${NAME}(data.target, boost::algorithm::to_lower_copy(data.command), data.args, msg, perf);
-		nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
-		return ret;
+COMMAND_INSTANCE_CPP_LEGACY = """			} else if (command == "${NAME}") {
+				std::wstring msg, perf;
+				std::list<std::wstring> args;
+				for (int i=0;i<request_payload.arguments_size();i++) {
+					args.push_back(utf8::cvt<std::wstring>(request_payload.arguments(i)));
+				}
+				NSCAPI::nagiosReturn ret = impl_->${NAME}(utf8::cvt<std::wstring>(request_payload.target()), boost::algorithm::to_lower_copy(utf8::cvt<std::wstring>(request_payload.command())), args, msg, perf);
+				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				response_payload->set_message(utf8::cvt<std::string>(msg));
+				response_payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+				if (!perf.empty())
+					nscapi::functions::parse_performance_data(response_payload, perf);
 """
 COMMAND_REGISTRATION_ALIAS_CPP = """		(_T("${NAME}"), _T("${ALIAS}"),
 		_T("${DESCRIPTION}"))
@@ -342,12 +351,28 @@ bool ${CLASS}Module::hasCommandHandler() {
  * @return status code
  */
 NSCAPI::nagiosReturn ${CLASS}Module::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	std::wstring command(char_command);
-	if (!impl_ || command.empty()) {
-		return NSCAPI::returnIgnored;
+	std::string command = utf8::cvt<std::string>(char_command);
+	try {
+		Plugin::QueryRequestMessage request_message;
+		Plugin::QueryResponseMessage response_message;
+		request_message.ParseFromString(request);
+		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
+
+		for (int i=0;i<request_message.payload_size();i++) {
+			Plugin::QueryRequestMessage::Request request_payload = request_message.payload(i);
+			Plugin::QueryResponseMessage::Response response_payload;
+			if (!impl_) {
+				return NSCAPI::returnIgnored;
 ${COMMAND_INSTANCES_CPP}
+			}
+		}
+		response_message.SerializeToString(&response);
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		return nscapi::functions::create_simple_query_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
+	} catch (...) {
+		return nscapi::functions::create_simple_query_response_unknown(command, "Failed to process command: " + command, response);
 	}
-	return NSCAPI::returnIgnored;
 }
 
 void ${CLASS}Module::registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy) {
@@ -366,8 +391,8 @@ ${COMMAND_REGISTRATIONS_CPP}
 
 LOAD_DELEGATOR_TRUE = "		return impl_->loadModuleEx(alias, mode);"
 LOAD_DELEGATOR_FALSE = "		return true;"
-UNLOAD_DELEGATOR_TRUE = "	bool ret = impl_->unloadModule();"
-UNLOAD_DELEGATOR_FALSE = "	bool ret = true;"
+UNLOAD_DELEGATOR_TRUE = "		ret = impl_->unloadModule();"
+UNLOAD_DELEGATOR_FALSE = "		ret = true;"
 
 MODULE_CPP = """
 #include <nscapi/macros.hpp>
@@ -405,7 +430,10 @@ ${LOAD_DELEGATOR}
 }
 
 bool ${CLASS}Module::unloadModule() {
+	bool ret = false;
+	if (impl_) {
 ${UNLOAD_DELEGATOR}
+	}
 	impl_.reset();
 	return ret;
 }

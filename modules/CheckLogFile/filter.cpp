@@ -106,13 +106,11 @@ logfile_filter::filter_obj_handler::base_handler::bound_int_type logfile_filter:
 }
 
 bool logfile_filter::filter_obj_handler::has_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject) {
-	std::wcout << name << std::endl;
 	if (to == type_string && name == _T("column"))
 		return true;
 	return false;
 }
 logfile_filter::filter_obj_handler::base_handler::bound_function_type logfile_filter::filter_obj_handler::bind_simple_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject) {
-	std::wcout << name << std::endl;
 	base_handler::bound_function_type ret;
 	if (to == type_string && name == _T("column")) {
 		ret = &filter_obj::get_column_fun;

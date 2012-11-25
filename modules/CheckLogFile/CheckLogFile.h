@@ -25,80 +25,19 @@ NSC_WRAPPERS_MAIN()
 #include <utils.h>
 #include <checkHelpers.hpp>
 
-#include "filters.hpp"
+#include <protobuf/plugin.pb.h>
 
-
-struct real_time_thread {
-	bool enabled_;
-	boost::shared_ptr<boost::thread> thread_;
-	filters::filter_config_handler filters_;
-	std::wstring logs_;
-
-#ifdef WIN32
-	HANDLE stop_event_;
-#else
-	int stop_event_[2];
-#endif
-
-
-	bool cache_;
-	bool debug_;
-	std::wstring filters_path_;
-
-	real_time_thread() : enabled_(false), debug_(false), cache_(false) {}
-
-	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query);
-	void set_enabled(bool flag) { enabled_ = flag; } 
-
-	void set_language(std::string lang);
-	void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring flt) {
-		if (!flt.empty())
-			add_realtime_filter(proxy, _T("default"), flt);
-	}
-	bool has_filters() {
-		return !filters_.has_objects();
-	}
-	bool start();
-	bool stop();
-
-	void thread_proc();
-	void process_object(filters::filter_config_object &object);
-	void process_timeout(const filters::filter_config_object &object);
-	//void process_record(const filters::filter_config_object &object, const std::string line);
-	//void debug_miss(const EventLogRecord &record);
-};
-
-class CheckLogFile : public nscapi::impl::utf8_command_handler, public nscapi::impl::simple_plugin {
+class real_time_thread;
+class CheckLogFile : public nscapi::impl::simple_plugin {
 private:
-	bool debug_;
-	std::wstring syntax_;
-	int buffer_length_;
-	bool lookup_names_;
-	real_time_thread thread_;
+	boost::shared_ptr<real_time_thread> thread_;
 
 public:
-	CheckLogFile();
-	virtual ~CheckLogFile();
+	CheckLogFile() {}
+	virtual ~CheckLogFile() {}
+
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-
-	static std::wstring getModuleName() {
-		return _T("Event log Checker.");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Check for errors and warnings in the event log.\nThis is only supported through NRPE so if you plan to use only NSClient this wont help you at all.");
-	}
-
-	void parse(std::wstring expr);
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &message, std::string &perf);
-
+	void check_logfile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 };

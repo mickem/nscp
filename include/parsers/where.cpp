@@ -17,6 +17,7 @@
 #include <parsers/where/ast_type_inference.hpp>
 #include <parsers/where/ast_static_eval.hpp>
 #include <parsers/where/ast_bind.hpp>
+#include <parsers/where/ast_perf_collector.hpp>
 
 #include <parsers/helpers.hpp>
 #include <parsers/where/grammar/grammar.hpp>
@@ -65,6 +66,17 @@ namespace parsers {
 				return false;
 			}
 		}
+		bool parser::collect_perfkeys(filter_handler handler) {
+			try {
+				ast_perf_collector evaluator(handler);
+				evaluator(resulting_tree);
+				return true;
+			} catch (...) {
+				handler->error(_T("Unhandled exception collecting performance data eval: ") + result_as_tree());
+				return false;
+			}
+		}
+		
 		bool parser::bind(filter_handler handler) {
 			try {
 				ast_bind binder(handler);

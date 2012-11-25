@@ -162,6 +162,10 @@ namespace modern_filter {
 			if (engine_ok) engine_ok->boot();
 			if (engine_warn) engine_warn->boot();
 			if (engine_crit) engine_crit->boot();
+
+			if (engine_warn) engine_warn->enabled_performance_collection();
+			if (engine_crit) engine_crit->enabled_performance_collection();
+
 		}
 
 		bool validate(std::string &error) {

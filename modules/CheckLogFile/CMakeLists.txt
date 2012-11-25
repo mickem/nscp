@@ -4,9 +4,12 @@ SET(TARGET CheckLogFile)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
+	real_time_thread.cpp
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}
@@ -19,9 +22,10 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
+		real_time_thread.hpp
 
 		filter.hpp
-		filters.hpp
+		filter_config_object.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_FILTER_HPP}
@@ -31,11 +35,11 @@ ENDIF(WIN32)
 add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
-	${NSCP_DEF_PLUGIN_LIB}
 	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${Boost_THREAD_LIBRARY}
 	${Boost_REGEX_LIBRARY}
+	${Boost_THREAD_LIBRARY}
+	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${NSCP_DEF_PLUGIN_LIB}
 	${NSCP_FILTER_LIB}
 	expression_parser
 )

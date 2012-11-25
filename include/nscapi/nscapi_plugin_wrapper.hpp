@@ -201,7 +201,7 @@ namespace nscapi {
 		} 
 		int NSUnloadModule() { 
 			try { 
-				if (instance->unloadModule())
+				if (instance && instance->unloadModule())
 					return NSCAPI::isSuccess;
 			} catch (...) { 
 				NSC_LOG_CRITICAL(_T("Unknown exception in: NSUnloadModule")); 

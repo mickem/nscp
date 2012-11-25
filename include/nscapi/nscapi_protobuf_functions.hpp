@@ -30,8 +30,18 @@
 #include <strEx.h>
 
 namespace nscapi {
-	namespace protobuf {	
+	namespace protobuf {
 
+		struct query {
+			static void set_response(Plugin::QueryResponseMessage::Response *response, ::Plugin::Common_ResultCode result, std::string message) {
+				response->set_result(result);
+				response->set_message(message);
+			}
+			static void set_response_unknown(Plugin::QueryResponseMessage::Response *response, std::string message) {
+				response->set_result(Plugin::Common_ResultCode_UNKNOWN);
+				response->set_message(message);
+			}
+		};
 		class functions {
 		public:
 
@@ -132,8 +142,11 @@ namespace nscapi {
 			static NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string response);
 			static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::wstring perf, std::string &buffer);
 			static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::string &buffer);
-			static void create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
-			static void create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
+			static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::string msg, std::string &buffer);
+			static NSCAPI::nagiosReturn create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer);
+			static NSCAPI::nagiosReturn create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
+			static NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
+			static NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer);
 			static void append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf = _T(""));
 			static void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf);
 

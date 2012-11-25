@@ -14,12 +14,18 @@ namespace where_filter {
 		parsers::where::parser ast_parser;
 		handler_instance_type object_handler;
 		std::wstring filter_string;
+		bool perf_collection;
 
-		engine_impl(argument_type data) : data(data), object_handler(handler_instance_type(new handler_type())) {
+		engine_impl(argument_type data) : data(data), object_handler(handler_instance_type(new handler_type())), perf_collection(false) {
 			filter_string = data->filter;
 		}
 		engine_impl(argument_type data, std::wstring filter) : data(data), object_handler(handler_instance_type(new handler_type())), filter_string(filter) {}
-		bool boot() {return true; 
+		bool boot() {
+			return true; 
+		}
+
+		void enabled_performance_collection() {
+			perf_collection = true;
 		}
 
 		bool validate(std::wstring &message) {
@@ -54,6 +60,13 @@ namespace where_filter {
 			}
 			if (data->debug)
 				data->error->report_debug(_T("Static evaluation succeeded: ") + ast_parser.result_as_tree());
+
+			if (perf_collection) {
+				if (!ast_parser.collect_perfkeys(object_handler) || object_handler->has_error()) {
+					message = _T("Collection of perfkeys failed: ") + object_handler->get_error();
+					return false;
+				}
+			}
 
 			return true;
 		}
