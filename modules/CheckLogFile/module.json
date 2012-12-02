@@ -1,0 +1,20 @@
+{
+	"module"		: {
+		"title"			: "Log file checker",
+		"description"	: "File for checking log files and various other forms of updating text files",
+		"name"			: "CheckLogFile",
+		"alias"			: "logfile",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "logfile"
+	},
+
+	"commands" : {
+		"check_logfile" : { 
+			"alias"		: "CheckLogFile",
+			"description" : "Check for errors in log file or generic pattern matching in text files."
+			}
+	}
+}
