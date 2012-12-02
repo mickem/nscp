@@ -16,7 +16,7 @@ namespace nscp {
 			const char* what() const throw () { return msg_.c_str(); }
 		};
 		struct helpers {
-			static std::string get_crypto_string(std::string sep = ", ");
+			std::string get_crypto_string(std::string sep = ", ");
 			static int encryption_to_int(std::string encryption_raw);
 			static std::string encryption_to_string(int encryption);
 		};

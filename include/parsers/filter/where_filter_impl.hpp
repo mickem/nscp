@@ -13,16 +13,27 @@ namespace where_filter {
 		argument_type data;
 		parsers::where::parser ast_parser;
 		handler_instance_type object_handler;
+		std::wstring filter_string;
+		bool perf_collection;
 
-		engine_impl(argument_type data) : data(data), object_handler(handler_instance_type(new handler_type())) {}
-		bool boot() {return true; }
+		engine_impl(argument_type data) : data(data), object_handler(handler_instance_type(new handler_type())), perf_collection(false) {
+			filter_string = data->filter;
+		}
+		engine_impl(argument_type data, std::wstring filter) : data(data), object_handler(handler_instance_type(new handler_type())), filter_string(filter) {}
+		bool boot() {
+			return true; 
+		}
+
+		void enabled_performance_collection() {
+			perf_collection = true;
+		}
 
 		bool validate(std::wstring &message) {
 			if (data->debug)
-				data->error->report_debug(_T("Parsing: ") + data->filter);
+				data->error->report_debug(_T("Parsing: ") + filter_string);
 
-			if (!ast_parser.parse(data->filter)) {
-				data->error->report_error(_T("Parsing failed of '") + data->filter + _T("' at: ") + ast_parser.rest);
+			if (!ast_parser.parse(filter_string)) {
+				data->error->report_error(_T("Parsing failed of '") + filter_string + _T("' at: ") + ast_parser.rest);
 				message = _T("Parsing failed: ") + ast_parser.rest;
 				return false;
 			}
@@ -50,6 +61,13 @@ namespace where_filter {
 			if (data->debug)
 				data->error->report_debug(_T("Static evaluation succeeded: ") + ast_parser.result_as_tree());
 
+			if (perf_collection) {
+				if (!ast_parser.collect_perfkeys(object_handler) || object_handler->has_error()) {
+					message = _T("Collection of perfkeys failed: ") + object_handler->get_error();
+					return false;
+				}
+			}
+
 			return true;
 		}
 
@@ -64,7 +82,7 @@ namespace where_filter {
 		std::wstring get_name() {
 			return _T("where");
 		}
-		std::wstring get_subject() { return data->filter; }
+		std::wstring get_subject() { return filter_string; }
 	};
 
 
@@ -111,10 +129,10 @@ namespace where_filter {
 		void process(boost::shared_ptr<record_type> record, bool result) {
 			count_++;
 			if (result) {
-				if (debug_)
-					error_->report_debug(_T("==> Matched: ") + record->render(syntax_, DATE_FORMAT));
+// 				if (debug_)
+// 					error_->report_debug(_T("==> Matched: ") + record->render(syntax_, DATE_FORMAT));
 						
-				strEx::append_list(message_, record->render(syntax_, date_syntax_));
+//				strEx::append_list(message_, record->render(syntax_, date_syntax_));
 				/*
 				if (alias.length() < 16)
 					strEx::append_list(alias, info.filename);
@@ -123,8 +141,8 @@ namespace where_filter {
 					*/
 				match_++;
 			} else {
-				if (debug_)
-					error_->report_debug(_T("==> NO Matched: ") + record->render(syntax_, DATE_FORMAT));
+// 				if (debug_)
+// 					error_->report_debug(_T("==> NO Matched: ") + record->render(syntax_, DATE_FORMAT));
 			}
 		}
 		unsigned int get_total_count() { return count_; }

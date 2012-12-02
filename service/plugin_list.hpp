@@ -120,7 +120,7 @@ namespace nsclient {
 			return boost::algorithm::to_lower_copy(key);
 		}
 		void log_error(const char *file, int line, std::wstring error) {
-			nsclient::logging::logger::get_logger()->error(file, line, error);
+			nsclient::logging::logger::get_logger()->error(_T("plugin"), file, line, error);
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {

@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <algorithm>
 
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
@@ -78,7 +79,7 @@ namespace commands {
 				if (first)
 					first = false;
 				else 
-					ss << L', ';
+					ss << L',';
 				ss << s;
 			}
 			if (!user.empty()) {
@@ -152,7 +153,9 @@ namespace commands {
 	struct command_reader {
 		typedef command_object object_type;
 
-		static void post_process_object(object_type &object) {}
+		static void post_process_object(object_type &object) {
+			std::transform(object.alias.begin(), object.alias.end(), object.alias.begin(), ::tolower);
+		}
 
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {

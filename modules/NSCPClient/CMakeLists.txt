@@ -8,7 +8,6 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/nscp/packet.cpp
-	${NSCP_INCLUDEDIR}/nscp/handler.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
@@ -19,6 +18,7 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 IF(OPENSSL_FOUND)
 	ADD_DEFINITIONS(-DUSE_SSL)
 	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 ENDIF(OPENSSL_FOUND)
 
 IF(WIN32)
@@ -27,10 +27,10 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/nscp/packet.hpp
-		${NSCP_INCLUDEDIR}/nscp/handler.hpp
-		${NSCP_INCLUDEDIR}/nscp/client/socket.hpp
+		${NSCP_INCLUDEDIR}/nscp/client/nscp_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/socket/client.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
@@ -38,7 +38,6 @@ IF(WIN32)
 ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

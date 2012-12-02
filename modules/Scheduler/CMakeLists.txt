@@ -20,6 +20,7 @@ IF(WIN32)
 		"${TARGET}.h"
 		"${TARGET}.def"
 		simple_scheduler.hpp
+		schedules.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

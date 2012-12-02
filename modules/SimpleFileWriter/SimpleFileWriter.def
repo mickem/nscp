@@ -1,0 +1,17 @@
+LIBRARY	CheckEventLog
+
+EXPORTS
+	NSModuleHelperInit
+	NSLoadModule
+	NSLoadModuleEx
+	NSGetModuleName
+	NSGetModuleVersion
+	NSHasCommandHandler
+	NSHasMessageHandler
+	NSHandleMessage
+	NSHandleCommand
+	NSUnloadModule
+	NSGetModuleDescription
+	NSDeleteBuffer
+	NSHandleNotification
+	NSHasNotificationHandler

@@ -6,67 +6,114 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
-
+#ifdef USE_SSL
+#include <boost/asio/ssl.hpp>
+#include <boost/asio/ssl/basic_context.hpp>
+#endif
 #include <unicode_char.hpp>
 #include <strEx.h>
 
 namespace socket_helpers {
 
-	struct allowed_hosts_manager {
+	class socket_exception : public std::exception {
+		std::string error;
+	public:
+		//////////////////////////////////////////////////////////////////////////
+		/// Constructor takes an error message.
+		/// @param error the error message
+		///
+		/// @author mickem
+		socket_exception(std::string error) : error(error) {}
+		~socket_exception() throw() {}
 
+		//////////////////////////////////////////////////////////////////////////
+		/// Retrieve the error message from the exception.
+		/// @return the error message
+		///
+		/// @author mickem
+		const char* what() const throw() { return error.c_str(); }
+
+	};
+
+	struct allowed_hosts_manager {
+		template<class addr_type_t>
 		struct host_record {
-			host_record() : mask(0), in_addr(0) {}
-			host_record(const host_record &other) : mask(other.mask), in_addr(other.in_addr), host(other.host) {}
+			host_record(std::string host, addr_type_t addr, addr_type_t mask) 
+				: host(host)
+				, addr(addr)
+				, mask(mask)
+				{}
+			host_record(const host_record &other) 
+				: host(other.host)
+				, addr(other.addr)
+				, mask(other.mask)
+				{}
 			const host_record& operator=(const host_record &other) {
-				mask = other.mask;
-				in_addr = other.in_addr;
 				host = other.host;
+				addr = other.addr;
+				mask = other.mask;
 				return *this;
 			}
 			std::string host;
-			u_long in_addr;
-			unsigned long mask;
+			addr_type_t addr;
+			addr_type_t mask;
 		};
+		typedef boost::asio::ip::address_v4::bytes_type addr_v4;
+		typedef boost::asio::ip::address_v6::bytes_type addr_v6;
 
-		std::list<host_record> entries;
+		typedef host_record<addr_v4> host_record_v4;
+		typedef host_record<addr_v6> host_record_v6;
+
+		std::list<host_record_v4> entries_v4;
+		std::list<host_record_v6> entries_v6;
 		std::list<std::string> sources;
-		//std::wstring list;
 		bool cached;
 
 		allowed_hosts_manager() : cached(true) {}
-		allowed_hosts_manager(const allowed_hosts_manager &other) : entries(other.entries), sources(other.sources), cached(other.cached) {}
+		allowed_hosts_manager(const allowed_hosts_manager &other) : entries_v4(other.entries_v4), entries_v6(other.entries_v6), sources(other.sources), cached(other.cached) {}
 		const allowed_hosts_manager& operator=(const allowed_hosts_manager &other) {
-			entries = other.entries;
+			entries_v4 = other.entries_v4;
+			entries_v6 = other.entries_v6;
 			sources = other.sources;
 			cached = other.cached;
 			return *this;
 		}
 
-		void set_source(std::wstring source) {
-			sources.clear();
-			BOOST_FOREACH(const std::wstring &s, strEx::splitEx(source, _T(","))) {
-				sources.push_back(utf8::cvt<std::string>(s));
-			}
-		}
-		unsigned int lookup_mask(std::string mask);
+		void set_source(std::wstring source);
+		addr_v4 lookup_mask_v4(std::string mask);
+		addr_v6 lookup_mask_v6(std::string mask);
 		void refresh(std::list<std::string> &errors);
 
-		inline bool match_host(const host_record &allowed, const unsigned long &remote) const {
-			return ((allowed.in_addr&allowed.mask)==(remote&allowed.mask));
+		template<class T>
+		inline bool match_host(const T &allowed, const T &mask, const T &remote) const {
+			for (std::size_t i=0;i<allowed.size(); i++) {
+				if ( (allowed[i]&mask[i]) != (remote[i]&mask[i]) )
+					return false;
+			}
+			return true;
 		}
 		bool is_allowed(const boost::asio::ip::address &address, std::list<std::string> &errors) {
-			return (address.is_v4() && is_allowed_v4(address.to_v4().to_ulong(), errors))
-				|| (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_ulong(), errors))
-				|| (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_ulong(), errors));
+			return (entries_v4.empty()&&entries_v6.empty())
+				|| (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors))
+				|| (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors))
+				|| (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors))
+				|| (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors))
+				;
 		}
-		bool is_allowed_v4(const unsigned long &remote, std::list<std::string> &errors) {
-			errors.push_back(strEx::wstring_to_string(strEx::itos(remote)));
-			if (entries.empty())
-				return true;
+		bool is_allowed_v4(const addr_v4 &remote, std::list<std::string> &errors) {
 			if (!cached)
 				refresh(errors);
-			BOOST_FOREACH(const host_record &r, entries) {
-				if (match_host(r, remote))
+			BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
+				if (match_host(r.addr, r.mask, remote))
+					return true;
+			}
+			return false;
+		}
+		bool is_allowed_v6(const addr_v6 &remote, std::list<std::string> &errors) {
+			if (!cached)
+				refresh(errors);
+			BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
+				if (match_host(r.addr, r.mask, remote))
 					return true;
 			}
 			return false;
@@ -76,48 +123,103 @@ namespace socket_helpers {
 
 	struct connection_info {
 		static const int backlog_default;
-		connection_info() : back_log(backlog_default), port(0), thread_pool_size(0), use_ssl(false), timeout(30) {}
+		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30) {}
 
 		connection_info(const connection_info &other) 
 			: address(other.address)
-			, port(other.port)
-			, thread_pool_size(other.thread_pool_size)
 			, back_log(other.back_log)
-			, use_ssl(other.use_ssl)
+			, port_(other.port_)
+			, thread_pool_size(other.thread_pool_size)
 			, timeout(other.timeout)
-			, certificate(other.certificate)
+			, ssl(other.ssl)
 			, allowed_hosts(other.allowed_hosts)
 			{
 			}
 		connection_info& operator=(const connection_info &other) {
 			address = other.address;
-			port = other.port;
+			port_ = other.port_;
 			thread_pool_size = other.thread_pool_size;
 			back_log = other.back_log;
-			use_ssl = other.use_ssl;
+			ssl = other.ssl;
 			timeout = other.timeout;
-			certificate = other.certificate;
 			allowed_hosts = other.allowed_hosts;
 			return *this;
 		}
 
 
-		std::string address;
-		unsigned int port;
-		unsigned int thread_pool_size;
-		int back_log;
-		bool use_ssl;
-		unsigned int timeout;
-		std::wstring certificate;
+		std::list<std::wstring> validate_ssl();
+		std::list<std::wstring> validate();
 
+		std::string address;
+		int back_log;
+		std::string port_;
+		unsigned int thread_pool_size;
+		unsigned int timeout;
+
+		struct ssl_opts {
+			ssl_opts() : enabled(false) {}
+
+			ssl_opts(const ssl_opts &other) 
+				: enabled(other.enabled)
+				, certificate(other.certificate)
+				, certificate_format(other.certificate_format)
+				, certificate_key(other.certificate_key)
+				, ca_path(other.ca_path)
+				, allowed_ciphers(other.allowed_ciphers)
+				, dh_key(other.dh_key)
+				, verify_mode(other.verify_mode)
+			{}
+			ssl_opts& operator=(const ssl_opts &other) {
+				enabled = other.enabled;
+				certificate = other.certificate;
+				certificate_format = other.certificate_format;
+				certificate_key = other.certificate_key;
+				ca_path = other.ca_path;
+				allowed_ciphers = other.allowed_ciphers;
+				dh_key = other.dh_key;
+				verify_mode = other.verify_mode;
+				return *this;
+			}
+
+
+			bool enabled;
+			std::string certificate;
+			std::string certificate_format;
+			std::string certificate_key;
+			std::string certificate_key_format;
+
+			std::string ca_path;
+			std::string allowed_ciphers;
+			std::string dh_key;
+
+			std::string verify_mode;
+
+			std::string to_string() const {
+				std::stringstream ss;
+				if (enabled) {
+					ss << "ssl: " << verify_mode;
+					ss << ", cert: " << certificate << " (" << certificate_format << "), " << certificate_key;
+					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
+				} else 
+					ss << "ssl disabled";
+				return ss.str();
+			}
+#ifdef USE_SSL
+			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> errors);
+			boost::asio::ssl::context::verify_mode get_verify_mode();
+			boost::asio::ssl::context::file_format get_certificate_format();
+			boost::asio::ssl::context::file_format get_certificate_key_format();
+#endif
+		};
+		ssl_opts ssl;
 		allowed_hosts_manager allowed_hosts;
 
-		std::string get_port() { return utf8::cvt<std::string>(strEx::itos(port)); }
-		std::string get_address() { return address; }
-		std::string get_endpoint_string() {
+		std::string get_port() const { return port_; }
+		std::string get_address() const { return address; }
+		std::string get_endpoint_string() const {
 			return address + ":" + get_port();
 		}
-		std::wstring get_endpoint_wstring() {
+		std::wstring get_endpoint_wstring() const {
 			return utf8::cvt<std::wstring>(get_endpoint_string());
 		}
 	};

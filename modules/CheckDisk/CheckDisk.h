@@ -18,48 +18,24 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN();
-//#include <config.h>
 #include <strEx.h>
 #include <utils.h>
 #include <checkHelpers.hpp>
 
-class CheckDisk : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin  {
+class CheckDisk : public nscapi::impl::simple_plugin  {
 private:
 	bool show_errors_;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
+	typedef checkHolders::MagicCheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 
 public:
 	CheckDisk();
 	virtual ~CheckDisk();
-	// Module calls
-	bool loadModule();
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
 
-	static std::wstring getModuleName() {
-		return _T("CheckDisk");
-	}
-	static std::wstring getModuleDescription() {
-		return _T("CheckDisk can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
 	std::wstring get_filter(unsigned int drvType);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 
 	// Check commands
-	//NSCAPI::nagiosReturn CheckFileSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckDriveSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckFiles(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	//NSCAPI::nagiosReturn getFileAge(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	//NSCAPI::nagiosReturn CheckSingleFile(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-
-private:
-	typedef checkHolders::MagicCheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
+	//NSCAPI::nagiosReturn check_filesize(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_files(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_drivesize(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
 };

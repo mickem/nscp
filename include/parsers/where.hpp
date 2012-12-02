@@ -13,6 +13,7 @@ namespace parsers {
 			bool static_eval(filter_handler handler);
 			bool bind(filter_handler handler);
 			bool evaluate(filter_handler handler);
+			bool collect_perfkeys(filter_handler handler);
 			std::wstring result_as_tree() const;
 		};
 	}

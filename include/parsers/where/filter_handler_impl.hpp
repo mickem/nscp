@@ -14,25 +14,25 @@ namespace parsers {
 			virtual value_type get_type(std::wstring) = 0;
 			virtual bool can_convert(value_type from, value_type to) = 0;
 
-			unsigned int bind_string(std::wstring key) {
+			std::size_t bind_string(std::wstring key) {
 				string_functions.push_back(bind_simple_string(key));
 				return string_functions.size();
 			}
-			virtual unsigned int bind_int(std::wstring key) {
+			virtual std::size_t bind_int(std::wstring key) {
 				int_functions.push_back(bind_simple_int(key));
 				return int_functions.size();
 			}
-			virtual unsigned int bind_function(value_type to, std::wstring name, expression_ast *subject) {
+			virtual std::size_t bind_function(value_type to, std::wstring name, expression_ast *subject) {
 				functions.push_back(bind_simple_function(to, name, subject));
 				return functions.size();
 			}
-			long long execute_int(unsigned int id) {
+			long long execute_int(filter_handler_interface::index_type id) {
 				return int_functions[id-1](current_element.get());
 			}
-			std::wstring execute_string(unsigned int id) {
+			std::wstring execute_string(filter_handler_interface::index_type id) {
 				return string_functions[id-1](current_element.get());
 			}
-			expression_ast execute_function(unsigned int id, value_type type, filter_handler handler, const expression_ast *arguments) {
+			expression_ast execute_function(filter_handler_interface::index_type id, value_type type, filter_handler handler, const expression_ast *arguments) {
 				return functions[id-1](current_element.get(), type, handler, arguments);
 			}
 

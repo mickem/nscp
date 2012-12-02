@@ -99,6 +99,27 @@ NSCAPI::log_level::level nscapi::logging::parse(std::wstring str) {
 	}
 	return NSCAPI::log_level::error;
 }
+NSCAPI::log_level::level nscapi::logging::parse(std::string str) {
+	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+	if ("all" == str) {
+		return NSCAPI::log_level::trace;
+	} else if ("error" == str) {
+		return NSCAPI::log_level::error;
+	} else if ("critical" == str) {
+		return NSCAPI::log_level::critical;
+	} else if ("debug" == str) {
+		return NSCAPI::log_level::debug;
+	} else if ("trace" == str) {
+		return NSCAPI::log_level::trace;
+	} else if ("info" == str) {
+		return NSCAPI::log_level::info;
+	} else if ("warning" == str) {
+		return NSCAPI::log_level::warning;
+	} else if ("off" == str) {
+		return NSCAPI::log_level::off;
+	}
+	return NSCAPI::log_level::error;
+}
 bool nscapi::logging::matches(NSCAPI::log_level::level level, NSCAPI::nagiosReturn code) {
 	return code <= level;
 }
@@ -214,6 +235,16 @@ NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::wstring str) {
 	else if (str == _T("CRITICAL"))
 		return NSCAPI::returnCRIT;
 	else if (str == _T("WARNING"))
+		return NSCAPI::returnWARN;
+	else 
+		return NSCAPI::returnUNKNOWN;
+}
+NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
+	if ((str == "OK") || (str == "ok"))
+		return NSCAPI::returnOK;
+	else if ((str == "CRITICAL") || (str == "critical"))
+		return NSCAPI::returnCRIT;
+	else if ((str == "WARNING") || (str == "warning"))
 		return NSCAPI::returnWARN;
 	else 
 		return NSCAPI::returnUNKNOWN;

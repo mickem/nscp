@@ -20,27 +20,15 @@
 ***************************************************************************/
 
 #include <socket_helpers.hpp>
-#include <nrpe/server/server.hpp>
+#include <nrpe/server/protocol.hpp>
+#include "handler_impl.hpp"
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
-class NRPEListener : public nscapi::impl::simple_plugin {
-private:
-	typedef enum {
-		inject, script, script_dir,
-	} command_type;
-	struct command_data {
-		command_data() : type(inject) {}
-		command_data(command_type type_, std::wstring arguments_) : type(type_), arguments(arguments_) {}
-		command_type type;
-		std::wstring arguments;
-	};
-
-	nrpe::server::server::connection_info info_;
-
+class NRPEServer : public nscapi::impl::simple_plugin {
 public:
-	NRPEListener();
-	virtual ~NRPEListener();
+	NRPEServer();
+	virtual ~NRPEServer();
 	// Module calls
 	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
@@ -48,36 +36,19 @@ public:
 
 
 	static std::wstring getModuleName() {
-#ifdef USE_SSL
 		return _T("NRPE server");
-#else
-		return _T("NRPE server (no SSL)");
-#endif
 	}
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NRPE connection and handles them.\nNRPE is preferred over NSClient as it is more flexible. You can of cource use both NSClient and NRPE.");
+		return _T("A simple server that listens for incoming NRPE connection and handles them.");
 	}
 
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
-	std::wstring getConfigurationMeta();
-	boost::shared_ptr<nrpe::server::server> server_;
-
 private:
-	class NRPEException {
-		std::wstring error_;
-	public:
-		NRPEException(std::wstring s) {
-			error_ = s;
-		}
-		std::wstring getMessage() {
-			return error_;
-		}
-	};
+	socket_helpers::connection_info info_;
+	boost::shared_ptr<nrpe::server::server> server_;
+	boost::shared_ptr<handler_impl> handler_;
 };
 

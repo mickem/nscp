@@ -4,13 +4,17 @@
 #include <check_nt/server/handler.hpp>
 #include <boost/tuple/tuple.hpp>
 
-class handler_impl : public check_nt::server::handler, private boost::noncopyable {
-	bool allowArgs_;
-	bool allowNasty_;
+class handler_impl : public check_nt::server::handler {
 	bool noPerfData_;
+	bool allowNasty_;
+	bool allowArgs_;
+
 	std::wstring password_;
 public:
-	handler_impl() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
+	handler_impl() 
+		: noPerfData_(false)
+		, allowNasty_(false)
+		, allowArgs_(false) {}
 
 	check_nt::packet handle(check_nt::packet packet);
 
@@ -29,12 +33,12 @@ public:
 	}
 
 
-	void log_debug(std::string file, int line, std::wstring msg) {
+	void log_debug(std::string module, std::string file, int line, std::string msg) {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
-	void log_error(std::string file, int line, std::wstring msg) {
+	void log_error(std::string module, std::string file, int line, std::string msg) {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
 			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}

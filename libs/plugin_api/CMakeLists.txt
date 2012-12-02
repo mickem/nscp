@@ -20,6 +20,7 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
+	${NSCP_INCLUDEDIR}/nscapi/command_client.cpp
 	
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 )
@@ -50,11 +51,12 @@ ENDIF(WIN32)
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
-add_library(${TARGET} ${SRCS})
+ADD_LIBRARY(${TARGET} ${SRCS})
 target_link_libraries(${TARGET} protobuf)
 ADD_DEPENDENCIES(${TARGET} protobuf)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
+
 IF(CMAKE_COMPILER_IS_GNUCXX)
 	IF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
 		SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS -fPIC)

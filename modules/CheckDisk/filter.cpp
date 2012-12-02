@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "stdafx.h"
 
 #include <map>
 #include <list>
@@ -235,7 +235,7 @@ std::wstring file_filter::filter_obj::render(std::wstring syntax, std::wstring d
 	strEx::replace(syntax, _T("%access-d%"), strEx::format_filetime(ullLastAccessTime, DATE_FORMAT));
 	strEx::replace(syntax, _T("%write-d%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
 */
-	strEx::replace(syntax, _T("%size%"), strEx::itos_as_BKMG(ullSize));
+	strEx::replace(syntax, _T("%size%"), format::format_byte_units(ullSize));
 	if (cached_version)
 		strEx::replace(syntax, _T("%version%"), *cached_version);
 	if (cached_count)

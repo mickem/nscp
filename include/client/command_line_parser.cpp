@@ -17,6 +17,7 @@ void client::command_line_parser::add_common_options(po::options_description &de
 		("query,q", po::bool_switch(&command_data->query), "Force query mode (only useful when this is not already obvious)")
 		("submit,s", po::bool_switch(&command_data->submit), "Force submit mode (only useful when this is not already obvious)")
 		("exec,e", po::bool_switch(&command_data->exec), "Force exec mode (only useful when this is not already obvious)")
+		("help,h", "Display help information")
 		;
 }
 void client::command_line_parser::add_query_options(po::options_description &desc, data_type command_data) {
@@ -157,6 +158,8 @@ int client::command_manager::process_exec(std::wstring cmd, client::configuratio
 		return nscapi::functions::create_simple_exec_response_unknown(cmd, std::wstring(_T("Multiple payloads currently not supported")), result);
 	}
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(cmd, message);
+	if (cmd.empty())
+		return client::command_line_parser::do_execute_command_as_exec(config, utf8::cvt<std::wstring>(config.default_command), data.args, result);
 	if (client::command_line_parser::is_command(cmd))
 		return client::command_line_parser::do_execute_command_as_exec(config, cmd, data.args, result);
 	return exec_simple(config, data.target, cmd, data.args, result);
@@ -181,20 +184,30 @@ int client::command_manager::exec_simple(configuration &config, const std::wstri
 }
 int client::command_line_parser::do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response) {
 	boost::program_options::variables_map vm;
+	try {
 
-	po::options_description common("Common options");
-	add_common_options(common, config.data);
-	po::options_description query("Query NSCP options");
-	add_query_options(query, config.data);
-	po::options_description desc("Allowed options");
-	desc.add(common).add(query).add(config.local);
+		po::options_description common("Common options");
+		add_common_options(common, config.data);
+		po::options_description query("Query NSCP options");
+		add_query_options(query, config.data);
+		po::options_description desc("Allowed options");
+		desc.add(common).add(query).add(config.local);
 
-	std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
-	po::positional_options_description p;
-	p.add("arguments", -1);
-	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
-	po::store(parsed, vm);
-	po::notify(vm);
+		std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
+		po::positional_options_description p;
+		p.add("arguments", -1);
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::functions::create_simple_query_response_unknown(command, _T("Failed to parse command line re-run with --help to get help: ") + utf8::to_unicode(e.what()), _T(""), response);
+
+	}
+
+	if (vm.count("help")) {
+		return nscapi::functions::create_simple_query_response_unknown(command, build_help(config), _T(""), response);
+	}
+
 	if (!config.data->target_id.empty()) {
 		if (!config.target_lookup)
 			throw cli_exception("No target interface given when looking for targets");
@@ -224,6 +237,11 @@ int client::command_line_parser::do_exec(configuration &config, const std::wstri
 	po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
 	po::store(parsed, vm);
 	po::notify(vm);
+
+	if (vm.count("help")) {
+		return nscapi::functions::create_simple_exec_response_unknown(command, build_help(config), result);
+	}
+
 	if (!config.data->target_id.empty()) {
 		if (!config.target_lookup)
 			throw cli_exception("No target interface given when looking for targets");

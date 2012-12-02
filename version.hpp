@@ -1,6 +1,0 @@
-#ifndef VERSION_HPP
-#define VERSION_HPP
-#define PRODUCTVER     0,4,0,185
-#define STRPRODUCTVER  "0,4,0,185"
-#define STRPRODUCTDATE "2012-08-29"
-#endif // VERSION_HPP

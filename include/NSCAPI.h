@@ -87,7 +87,7 @@ namespace NSCAPI {
 	typedef int moduleLoadMode;
 //#endif
 
-	const int encryption_xor = 1;
+	const unsigned int encryption_xor = 1;
 
 	// Settings types
 	const int settings_default = 0;
@@ -119,7 +119,7 @@ namespace NSCAPI {
 	typedef plugin_info* plugin_info_list;
 
 
-};
+}
 
 namespace nscapi {
 
@@ -149,7 +149,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSections)(const wchar_t*, wchar_t***, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(wchar_t***, unsigned int *);
 		typedef void (*lpNSAPIMessage)(const char*, unsigned int);
-		typedef void (*lpNSAPISimpleMessage)(int, const char*, int, const wchar_t*);
+		typedef void (*lpNSAPISimpleMessage)(const wchar_t*, int, const char*, int, const wchar_t*);
 		typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
 		typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
 		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
@@ -170,8 +170,9 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIGetAllCommandNames)(wchar_t***, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleaseAllCommandNamessBuffer)(wchar_t***, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(unsigned int, const wchar_t*,const wchar_t*);
-		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
-		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(const wchar_t*, const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(unsigned int, const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(unsigned int, const wchar_t*, const wchar_t*, const wchar_t*, int);
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsQuery)(const char *, const unsigned int, char **, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
 		typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSCAPI::plugin_info *list[]);
 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
@@ -179,6 +180,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
 		typedef NSCAPI::errorReturn (*lpNSAPIReload)(const wchar_t* module);
 		typedef NSCAPI::log_level::level (*lpNSAPIGetLoglevel)();
+		typedef NSCAPI::errorReturn (*lpNSAPIRegistryQuery)(const char *, const unsigned int, char **, unsigned int *);
 
 	}
 

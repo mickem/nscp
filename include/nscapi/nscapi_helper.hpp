@@ -38,6 +38,7 @@ namespace nscapi {
 		static std::wstring translateMessageType(NSCAPI::messageTypes msgType);
 		static std::wstring translateReturn(NSCAPI::nagiosReturn returnCode);
 		static NSCAPI::nagiosReturn translateReturn(std::wstring str);
+		static NSCAPI::nagiosReturn translateReturn(std::string str);
 		static NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b);
 	};
 
@@ -48,7 +49,8 @@ namespace nscapi {
 	}
 	namespace logging {
 		NSCAPI::log_level::level parse(std::wstring str);
+		NSCAPI::log_level::level parse(std::string str);
 		bool matches(NSCAPI::log_level::level level, NSCAPI::nagiosReturn code);
 		std::wstring to_string(NSCAPI::log_level::level level);
 	}
-};
+}

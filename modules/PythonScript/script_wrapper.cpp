@@ -100,8 +100,15 @@ std::list<std::wstring> script_wrapper::convert(py::list lst) {
 }
 py::list script_wrapper::convert(std::list<std::wstring> lst) {
 	py::list ret;
-	BOOST_FOREACH(std::wstring s, lst) {
+	BOOST_FOREACH(const std::wstring &s, lst) {
 		ret.append(utf8::cvt<std::string>(s));
+	}
+	return ret;
+}
+py::list script_wrapper::convert(const std::vector<std::wstring> &lst) {
+	py::list ret;
+	BOOST_FOREACH(const std::wstring &s, lst) {
+		ret.append(s);
 	}
 	return ret;
 }
@@ -219,6 +226,21 @@ void script_wrapper::function_wrapper::register_cmdline(std::string name, PyObje
 		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(name));
 	}
 }
+
+tuple script_wrapper::function_wrapper::query(std::string request) {
+	try {
+		std::string response;
+		NSCAPI::errorReturn ret = core->registry_query(request, response);
+		return make_tuple(ret, response);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Query failed: ") + utf8::cvt<std::wstring>(e.what()));
+		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Query failed"));
+		return make_tuple(false,_T(""));
+	}
+}
+
 int script_wrapper::function_wrapper::handle_query(const std::string cmd, const std::string &request, std::string &response) const {
 	try {
 		functions::function_map_type::iterator it = functions::get()->normal_functions.find(cmd);
@@ -490,9 +512,13 @@ tuple script_wrapper::command_wrapper::submit(std::string channel, std::string r
 	std::wstring wchannel = utf8::cvt<std::wstring>(channel);
 	std::string response;
 	int ret = 0;
-	{
+	try {
 		thread_unlocker unlocker;
 		ret = core->submit_message(wchannel, request, response);
+	} catch (const std::exception &e) {
+		return make_tuple(false,std::string(e.what()));
+	} catch (...) {
+		return make_tuple(false,std::string("Failed to submit message"));
 	}
 	std::wstring err;
 	nscapi::functions::parse_simple_submit_response(response, err);
@@ -616,8 +642,21 @@ NSCAPI::settings_type script_wrapper::settings_wrapper::get_type(std::string sty
 }
 void script_wrapper::settings_wrapper::settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue) {
 	NSCAPI::settings_type type = get_type(stype);
-	core->settings_register_key(utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(key), type, utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), utf8::cvt<std::wstring>(defaultValue), false);
+	core->settings_register_key(plugin_id, utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(key), type, utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), utf8::cvt<std::wstring>(defaultValue), false);
 }
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
-	core->settings_register_path(utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), false);
+	core->settings_register_path(plugin_id, utf8::cvt<std::wstring>(path), utf8::cvt<std::wstring>(title), utf8::cvt<std::wstring>(description), false);
+}
+tuple script_wrapper::settings_wrapper::query(std::string request) {
+	try {
+		std::string response;
+		NSCAPI::errorReturn ret = core->settings_query(request, response);
+		return make_tuple(ret, response);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD(_T("Query failed: ") + utf8::cvt<std::wstring>(e.what()));
+		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_STD(_T("Query failed"));
+		return make_tuple(false,_T(""));
+	}
 }

@@ -18,21 +18,15 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-//#include <Socket.h>
 #include <socket_helpers.hpp>
-#include <check_nt/server/server.hpp>
+#include <check_nt/server/protocol.hpp>
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
-class NSClientListener : public nscapi::impl::simple_plugin {
-private:
-
-	check_nt::server::server::connection_info info_;
-	boost::shared_ptr<check_nt::server::server> server_;
-
+class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {
 public:
-	NSClientListener();
-	virtual ~NSClientListener();
+	NSClientServer();
+	virtual ~NSClientServer();
 	// Module calls
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool loadModule();
@@ -49,4 +43,51 @@ public:
 	static std::wstring getModuleDescription() {
 		return _T("A simple server that listens for incoming NSClient (check_nt) connection and handles them.\nAlthough NRPE is the preferred method NSClient is fully supported and can be used for simplicity or for compatibility.");
 	}
+
+
+	check_nt::packet handle(check_nt::packet packet);
+
+	check_nt::packet create_error(std::wstring msg) {
+		return check_nt::packet("ERROR: Failed to parse");
+	}
+
+	void log_debug(std::string module, std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
+		}
+	}
+	void log_error(std::string module, std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
+		}
+	}
+
+	std::wstring get_password() const {
+		return password_;
+	}
+
+private:
+	void set_password(std::wstring password) {
+		password_ = password;
+	}
+	virtual void set_allow_arguments(bool v)  {
+		allowArgs_ = v;
+	}
+	virtual void set_allow_nasty_arguments(bool v) {
+		allowNasty_ = v;
+	}
+	virtual void set_perf_data(bool v) {
+		noPerfData_ = !v;
+	}
+	bool isPasswordOk(std::wstring remotePassword);
+
+private:
+	bool noPerfData_;
+	bool allowNasty_;
+	bool allowArgs_;
+
+	socket_helpers::connection_info info_;
+	boost::shared_ptr<check_nt::server::server> server_;
+	std::wstring password_;
+
 };

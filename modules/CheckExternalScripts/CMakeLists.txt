@@ -17,6 +17,7 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		"${TARGET}.def"
+		commands.hpp
 
 		${NSCP_INCLUDEDIR}/execute_process_unix.hpp
 		${NSCP_INCLUDEDIR}/execute_process_w32.hpp

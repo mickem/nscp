@@ -346,7 +346,7 @@ boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list
 
 		boost::asio::io_service io_service;
 		ip::udp::resolver resolver(io_service);
-		ip::udp::resolver::query query(ip::udp::v4(), con.host, strEx::s::itos(con.port));
+		ip::udp::resolver::query query(ip::udp::v4(), con.host, strEx::s::xtos(con.port));
 		ip::udp::endpoint receiver_endpoint = *resolver.resolve(query);
 
 		ip::udp::socket socket(io_service);
@@ -369,10 +369,10 @@ boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list
 }
 
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(SyslogClient);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(SyslogClient, _T("syslog"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
 

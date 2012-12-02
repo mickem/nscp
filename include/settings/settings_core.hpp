@@ -21,10 +21,11 @@
 #pragma once
 
 #include <types.hpp>
-#include <Singleton.h>
 #include <string>
 #include <map>
 #include <set>
+#include <algorithm>
+
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
@@ -35,7 +36,7 @@
 namespace settings {
 
 
-	class settings_exception : std::exception {
+	class settings_exception : public std::exception {
 		std::string error_;
 	public:
 		//////////////////////////////////////////////////////////////////////////
@@ -71,6 +72,7 @@ namespace settings {
 	class settings_interface;
 	typedef boost::shared_ptr<settings_interface> instance_ptr;
 	typedef boost::shared_ptr<settings_interface> instance_raw_ptr;
+	typedef std::list<std::wstring> error_list;
 
 	class settings_core {
 	public:
@@ -78,7 +80,7 @@ namespace settings {
 		typedef enum {
 			key_string = 100,
 			key_integer = 200,
-			key_bool = 300,
+			key_bool = 300
 		} key_type;
 		typedef std::pair<std::wstring,std::wstring> key_path_type;
 		struct key_description {
@@ -87,9 +89,14 @@ namespace settings {
 			key_type type;
 			std::wstring defValue;
 			bool advanced;
-			key_description(std::wstring title_, std::wstring description_, settings_core::key_type type_, std::wstring defValue_, bool advanced_) 
-				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) {}
-			key_description() : advanced(false), type(settings_core::key_string) {}
+			std::set<unsigned int> plugins;
+			key_description(unsigned int plugin_id, std::wstring title_, std::wstring description_, settings_core::key_type type_, std::wstring defValue_, bool advanced_) 
+				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) { append_plugin(plugin_id); }
+			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false) { append_plugin(plugin_id); }
+			key_description() : type(settings_core::key_string), advanced(false) { }
+			void append_plugin(unsigned int plugin_id) {
+				plugins.insert(plugin_id);
+			}
 		};
 		struct path_description {
 			std::wstring title;
@@ -97,12 +104,18 @@ namespace settings {
 			bool advanced;
 			typedef std::map<std::wstring,key_description> keys_type;
 			keys_type keys;
-			path_description(std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) {}
-			path_description() : advanced(false) {}
-			void update(std::wstring title_, std::wstring description_, bool advanced_) {
+			std::set<unsigned int> plugins;
+			path_description(unsigned int plugin_id, std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) { append_plugin(plugin_id); }
+			path_description(unsigned int plugin_id) : advanced(false) { append_plugin(plugin_id); }
+			path_description() : advanced(false) {  }
+			void update(unsigned int plugin_id, std::wstring title_, std::wstring description_, bool advanced_) {
 				title = title_;
 				description = description_;
 				advanced = advanced_;
+				append_plugin(plugin_id);
+			}
+			void append_plugin(unsigned int plugin_id) {
+				plugins.insert(plugin_id);
 			}
 		};
 
@@ -123,7 +136,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced = false) = 0;
+		virtual void register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced = false) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a key with the settings module.
@@ -138,7 +151,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_key(std::wstring path, std::wstring key, key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) = 0;
+		virtual void register_key(unsigned int plugin_id, std::wstring path, std::wstring key, key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get info about a registered key.
 		/// Used when writing settings files.
@@ -150,7 +163,7 @@ namespace settings {
 		/// @author mickem
 		virtual key_description get_registred_key(std::wstring path, std::wstring key) = 0;
 
-		virtual settings_core::path_description get_registred_path(std::wstring path) = 0;
+		virtual settings_core::path_description get_registred_path(const std::wstring &path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all registered sections
@@ -196,10 +209,17 @@ namespace settings {
 		virtual void set_primary(std::wstring context) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
+		/// Validate the settings store and report all missing/invalid and superflous keys.
+		///
+		/// @author mickem
+		virtual settings::error_list validate() = 0;
+
+		//////////////////////////////////////////////////////////////////////////
 		/// Overwrite the (current) settings store with default values.
 		///
 		/// @author mickem
 		virtual void update_defaults() = 0;
+		virtual void remove_defaults() = 0;
 
 
 
@@ -367,6 +387,9 @@ namespace settings {
 		/// @author mickem
 		virtual void set_bool(std::wstring path, std::wstring key, bool value) = 0;
 
+		virtual void remove_key(std::wstring path, std::wstring key) = 0;
+		virtual void remove_path(std::wstring path) = 0;
+
 		// Meta Functions
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
@@ -455,15 +478,22 @@ namespace settings {
 		/// @author mickem
 		virtual void load() = 0;
 
+		//////////////////////////////////////////////////////////////////////////
+		/// Validate the settings store and report all missing/invalid and superflous keys.
+		///
+		/// @author mickem
+		virtual settings::error_list validate() = 0;
+
 		virtual std::wstring to_string() = 0;
 
 		virtual std::wstring get_info() = 0;
 
 		static bool string_to_bool(std::wstring str) {
+			std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 			return str == _T("true")||str == _T("1");
 		}
 
-
+		virtual std::list<boost::shared_ptr<settings_interface> > get_children() = 0;
 	};
 
 }

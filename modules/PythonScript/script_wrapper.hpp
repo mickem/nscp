@@ -51,7 +51,7 @@ namespace script_wrapper {
 		OK = NSCAPI::returnOK, 
 		WARN = NSCAPI::returnWARN, 
 		CRIT = NSCAPI::returnCRIT, 
-		UNKNOWN = NSCAPI::returnUNKNOWN, 
+		UNKNOWN = NSCAPI::returnUNKNOWN
 	};
 
 	status nagios_return_to_py(int code);
@@ -66,6 +66,7 @@ namespace script_wrapper {
 
 	std::list<std::wstring> convert(boost::python::list lst);
 	boost::python::list convert(std::list<std::wstring> lst);
+	boost::python::list convert(const std::vector<std::wstring> &lst);
 
 
 	struct functions {
@@ -133,6 +134,7 @@ namespace script_wrapper {
 		bool has_simple_message_handler(const std::string command);
 
 		std::wstring get_commands();
+		tuple query(std::string request);
 	};
 	struct command_wrapper {
 	private:
@@ -147,7 +149,7 @@ namespace script_wrapper {
 		command_wrapper(nscapi::core_wrapper* core) : core(core) {}
 
 	public:
-		static boost::shared_ptr<command_wrapper> create() {
+		static boost::shared_ptr<command_wrapper> create(unsigned int plugin_id) {
 			return boost::shared_ptr<command_wrapper>(new command_wrapper(nscapi::plugin_singleton->get_core()));
 		}
 
@@ -164,6 +166,7 @@ namespace script_wrapper {
 	struct settings_wrapper {
 	private:
 		nscapi::core_wrapper* core;
+		unsigned int plugin_id;
 	public:
 		settings_wrapper() : core(NULL) {}
 		settings_wrapper(const settings_wrapper &other) : core(other.core) {}
@@ -171,11 +174,11 @@ namespace script_wrapper {
 			core = other.core;
 			return *this;
 		}
-		settings_wrapper(nscapi::core_wrapper* core) : core(core) {}
+		settings_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
 
 	public:
-		static boost::shared_ptr<settings_wrapper> create() {
-			return boost::shared_ptr<settings_wrapper>(new settings_wrapper(nscapi::plugin_singleton->get_core()));
+		static boost::shared_ptr<settings_wrapper> create(unsigned int plugin_id) {
+			return boost::shared_ptr<settings_wrapper>(new settings_wrapper(nscapi::plugin_singleton->get_core(), plugin_id));
 		}
 		
 
@@ -190,6 +193,7 @@ namespace script_wrapper {
 		NSCAPI::settings_type get_type(std::string stype);
 		void settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue);
 		void settings_register_path(std::string path, std::string title, std::string description);
+		tuple query(std::string request);
 	};
 
 

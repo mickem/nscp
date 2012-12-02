@@ -27,9 +27,6 @@
 #include <strEx.h>
 #include <arrayBuffer.h>
 
-//#include <protobuf/plugin.pb.h>
-//#include <nscapi/nscapi_protobuf_functions.hpp>
-
 #define CORE_LOG_ERROR_STD(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, (std::wstring)msg); }
 #define CORE_LOG_ERROR(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, msg); }
 
@@ -66,20 +63,8 @@ void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, i
 		std::wcout << _T("NSCORE NOT LOADED Dumping log: ") << line << _T(": ") << std::endl << logMessage << std::endl;
 		return;
 	}
-	std::string str;
 	try {
-		/*
-		Plugin::LogEntry message;
-		Plugin::LogEntry::Entry *msg = message.add_entry();
-		msg->set_level(nscapi::functions::log_to_gpb(msgType));
-		msg->set_file(file);
-		msg->set_line(line);
-		msg->set_message(utf8::cvt<std::string>(logMessage));
-		if (!message.SerializeToString(&str)) {
-			std::wcout << _T("Failed to generate message: SERIALIZATION ERROR");
-		}
-		*/
-		return fNSAPISimpleMessage(msgType, file.c_str(), line, logMessage.c_str());
+		return fNSAPISimpleMessage(alias.c_str(), msgType, file.c_str(), line, logMessage.c_str());
 	} catch (const std::exception &e) {
 		std::wcout << _T("Failed to generate message: ") << utf8::to_unicode(e.what());
 	} catch (...) {
@@ -332,22 +317,53 @@ bool nscapi::core_wrapper::getSettingsBool(std::wstring section, std::wstring ke
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIGetSettingsBool(section.c_str(), key.c_str(), defaultValue?1:0) == 1;
 }
-void nscapi::core_wrapper::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
+void nscapi::core_wrapper::settings_register_key(unsigned int plugin_id, std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
 	if (!fNSAPISettingsRegKey)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	fNSAPISettingsRegKey(path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
+	fNSAPISettingsRegKey(plugin_id, path.c_str(), key.c_str(), type, title.c_str(), description.c_str(), defaultValue.c_str(), advanced);
 }
-void nscapi::core_wrapper::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+void nscapi::core_wrapper::settings_register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced) {
 	if (!fNSAPISettingsRegPath)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	fNSAPISettingsRegPath(path.c_str(), title.c_str(), description.c_str(), advanced);
+	fNSAPISettingsRegPath(plugin_id, path.c_str(), title.c_str(), description.c_str(), advanced);
 }
-
+NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+	if (!fNSAPISettingsQuery)
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	fNSAPISettingsQuery(request, request_len, response, response_len);
+}
+NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const std::string request, std::string &response) {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::errorReturn retC = settings_query(request.c_str(), request.size(), &buffer, &buffer_size);
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+	DestroyBuffer(&buffer);
+	return retC;
+}
 
 void nscapi::core_wrapper::settings_save() {
 	if (!fNSAPISettingsSave)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	fNSAPISettingsSave();
+}
+
+
+NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+	if (!fNSAPIRegistryQuery)
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	fNSAPIRegistryQuery(request, request_len, response, response_len);
+}
+NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string request, std::string &response) {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::errorReturn retC = registry_query(request.c_str(), request.size(), &buffer, &buffer_size);
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+	DestroyBuffer(&buffer);
+	return retC;
 }
 
 /**
@@ -451,11 +467,7 @@ nscapi::core_wrapper::plugin_info_list nscapi::core_wrapper::getPluginList() {
 	
 	
 	int len = 0;
-	//NSCAPI::plugin_info_list **list2;
-	//NSCAPI::plugin_info_list *list[1];
 	NSCAPI::plugin_info *list[1];
-	//typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSAPI_plugin_info** list);
-	//typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSAPI_plugin_info** list);
 	NSCAPI::errorReturn err = fNSAPIGetPluginList(&len, list);
 	if (err != NSCAPI::isSuccess)
 		return ret;
@@ -547,6 +559,10 @@ std::wstring nscapi::core_wrapper::getApplicationVersionString() {
 	return ret;
 }
 
+void nscapi::core_wrapper::set_alias(const std::wstring default_alias_, const std::wstring alias_) {
+	alias = default_alias_;
+}
+
 /**
  * Wrapper function around the ModuleHelperInit call.
  * This wrapper retrieves all pointers and stores them for future use.
@@ -593,12 +609,14 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIReleasePluginList = (nscapi::core_api::lpNSAPIReleasePluginList)f(_T("NSAPIReleasePluginList"));
 
 	fNSAPISettingsSave = (nscapi::core_api::lpNSAPISettingsSave)f(_T("NSAPISettingsSave"));
+	fNSAPISettingsQuery = (nscapi::core_api::lpNSAPISettingsQuery)f(_T("NSAPISettingsQuery"));
 
 	fNSAPIExpandPath = (nscapi::core_api::lpNSAPIExpandPath)f(_T("NSAPIExpandPath"));
 	
 	fNSAPIRegisterSubmissionListener = (nscapi::core_api::lpNSAPIRegisterSubmissionListener)f(_T("NSAPIRegisterSubmissionListener"));
 	fNSAPIRegisterRoutingListener = (nscapi::core_api::lpNSAPIRegisterRoutingListener)f(_T("NSAPIRegisterRoutingListener"));
 	fNSAPIGetLoglevel = (nscapi::core_api::lpNSAPIGetLoglevel)f(_T("NSAPIGetLoglevel"));
+	fNSAPIRegistryQuery = (nscapi::core_api::lpNSAPIRegistryQuery)f(_T("NSAPIRegistryQuery"));
 
 	return true;
 }

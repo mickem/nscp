@@ -31,6 +31,8 @@ namespace nsclient {
 					boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 					if (!lock.owns_lock())
 						return;
+					if (subscribers_.empty())
+						return;
 					BOOST_FOREACH(subscriber_type & s, subscribers_) {
 						s->on_raw_log_message(data);
 					}

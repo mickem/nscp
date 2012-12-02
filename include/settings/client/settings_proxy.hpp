@@ -1,6 +1,6 @@
 #pragma once
 #include <settings/settings_core.hpp>
-#include <settings/settings_handler_impl.hpp>
+#include <settings/settings_interface_impl.hpp>
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
@@ -25,11 +25,11 @@ namespace settings_client {
 			return core_;
 		}
 		virtual void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
-			get_core()->register_path(path, title, description, advanced);
+			get_core()->register_path(0xffff, path, title, description, advanced);
 		}
 
 		virtual void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced) {
-			get_core()->register_key(path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced);
+			get_core()->register_key(0xffff, path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced);
 		}
 
 		virtual std::wstring get_string(std::wstring path, std::wstring key, std::wstring def) {
@@ -62,16 +62,16 @@ namespace settings_client {
 		}
 
 		virtual void err(const char* file, int line, std::wstring message) {
-			nsclient::logging::logger::get_logger()->error(file, line, message);
+			nsclient::logging::logger::get_logger()->error(_T("settings"),file, line, message);
 		}
 		virtual void warn(const char* file, int line, std::wstring message) {
-			nsclient::logging::logger::get_logger()->warning(file, line, message);
+			nsclient::logging::logger::get_logger()->warning(_T("settings"),file, line, message);
 		}
 		virtual void info(const char* file, int line, std::wstring message)  {
-			nsclient::logging::logger::get_logger()->info(file, line, message);
+			nsclient::logging::logger::get_logger()->info(_T("settings"),file, line, message);
 		}
 		virtual void debug(const char* file, int line, std::wstring message)  {
-			nsclient::logging::logger::get_logger()->debug(file, line, message);
+			nsclient::logging::logger::get_logger()->debug(_T("settings"),file, line, message);
 		}
 	};
 }

@@ -1,18 +1,25 @@
 #pragma once
 #include <settings/settings_core.hpp>
 #include <nsclient/logger.hpp>
+#ifdef JSON_SPIRIT
+#include <json_spirit.h>
+#endif
 
 class NSClientT;
 namespace nsclient {
 	class settings_client {
-		NSClient* core_;
-		bool default_;
-		bool load_all_;
 		bool started_;
+		NSClient* core_;
 		std::wstring log_;
+		bool default_;
+		bool remove_default_;
+		bool load_all_;
+		std::wstring filter_;
 
 	public:
-		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool load_all) : started_(false), core_(core), log_(log), default_(update_defaults), load_all_(load_all) {
+		settings_client(NSClient* core, std::wstring log, bool update_defaults, bool remove_defaults, bool load_all, std::wstring filter) 
+			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), filter_(filter) 
+		{
 			startup();
 		}
 
@@ -40,8 +47,11 @@ namespace nsclient {
 				return;
 			}
 			if (default_) {
-				std::wcout << _T("Adding default values") << std::endl;
 				settings_manager::get_core()->update_defaults();
+			}
+			if (remove_default_) {
+				std::wcout << _T("Removing default values") << std::endl;
+				settings_manager::get_core()->remove_defaults();
 			}
 			started_ = true;
 		}
@@ -92,6 +102,10 @@ namespace nsclient {
 			}
 		}
 
+		bool match_filter(std::wstring name) {
+			return filter_.empty() || name.find(filter_) != std::wstring::npos; 
+		}
+
 
 		int generate(std::wstring target) {
 			try {
@@ -100,10 +114,26 @@ namespace nsclient {
 				} else if (target == _T("trac")) {
 					settings::string_list s = settings_manager::get_core()->get_reg_sections();
 					BOOST_FOREACH(std::wstring path, s) {
-						std::wcout << _T("== ") << path << _T(" ==") << std::endl;
+
 						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+						std::wstring plugins;
+						bool include = filter_.empty();
+						BOOST_FOREACH(unsigned int i, desc.plugins) {
+							std::wstring name = core_->get_plugin_module_name(i);
+							if (match_filter(name))
+								include = true;
+							if (!plugins.empty())
+								plugins += _T(", ");
+							plugins += name;
+						}
+
+						if (!include)
+							continue;
+
+						std::wcout << _T("== ") << path << _T(" ==") << std::endl;
 						if (!desc.description.empty())
 							std::wcout << desc.description << std::endl;
+						std::wcout << _T("'''Used by:''' ") << plugins << std::endl;
 						std::wcout << std::endl;
 						settings::string_list k = settings_manager::get_core()->get_reg_keys(path);
 						bool first = true;
@@ -130,8 +160,103 @@ namespace nsclient {
 							}
 						}
 					}
+				} else if (target.empty()) {
+					settings_manager::get_core()->get()->save();
+				} else if (target == _T("doc")) {
+					settings::string_list s = settings_manager::get_core()->get_reg_sections();
+					BOOST_FOREACH(std::wstring path, s) {
+
+						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+						std::wstring plugins;
+						bool include = filter_.empty();
+						BOOST_FOREACH(unsigned int i, desc.plugins) {
+							std::wstring name = core_->get_plugin_module_name(i);
+							if (match_filter(name))
+								include = true;
+							if (!plugins.empty())
+								plugins += _T(", ");
+							plugins += name;
+						}
+
+						if (!include)
+							continue;
+
+						std::wcout << path << std::endl;
+						strEx::replace(desc.description, _T("\n"), _T("\n\t"));
+						std::wcout << _T("\t") << desc.description << std::endl;
+						std::wcout << _T("\tUsed by: ") << plugins << std::endl;
+						std::wcout << std::endl;
+						settings::string_list k = settings_manager::get_core()->get_reg_keys(path);
+						bool first = true;
+						BOOST_FOREACH(std::wstring key, k) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+							if (!desc.advanced) {
+								if (first)
+									std::wcout << _T("\tKeys:") << std::endl;
+								first = false;
+								std::wcout << _T("\t") << key << _T(" (=") << desc.defValue << _T(")") << std::endl;
+								strEx::replace(desc.description, _T("\n"), _T("\n\t\t"));
+								std::wcout << _T("\t\t") << desc.title << std::endl;
+								std::wcout << _T("\t\t") << desc.description << std::endl;
+							}
+						}
+						first = true;
+						BOOST_FOREACH(std::wstring key, k) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+							if (desc.advanced) {
+								if (first)
+									std::wcout << _T("\tAdvanced keys:") << std::endl;
+								first = false;
+								std::wcout << _T("\t") << key << _T(" (=") << desc.defValue << _T(")") << std::endl;
+								strEx::replace(desc.description, _T("\n"), _T("\n\t\t"));
+								std::wcout << _T("\t\t") << desc.title << std::endl;
+								std::wcout << _T("\t\t") << desc.description << std::endl;
+							}
+						}
+					}
+#ifdef JSON_SPIRIT
+				} else if (target == _T("json") || target == _T("json-compact")) {
+					json_spirit::wObject json_root;
+					settings::string_list s = settings_manager::get_core()->get_reg_sections();
+					BOOST_FOREACH(std::wstring path, s) {
+
+						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+						bool include = filter_.empty();
+						json_spirit::wObject json_plugins;
+						BOOST_FOREACH(unsigned int i, desc.plugins) {
+							std::wstring name = core_->get_plugin_module_name(i);
+							if (match_filter(name))
+								include = true;
+							json_plugins.push_back(json_spirit::wPair(strEx::itos(i), name));
+						}
+						if (!include)
+							continue;
+
+						json_spirit::wObject json_path;
+						json_path.push_back(json_spirit::wPair(_T("path"), path));
+						json_path.push_back(json_spirit::wPair(_T("title"), desc.title));
+						json_path.push_back(json_spirit::wPair(_T("description"), desc.description));
+						json_path.push_back(json_spirit::wPair(_T("plugins"), json_plugins));
+
+						json_spirit::wObject json_keys;
+						BOOST_FOREACH(std::wstring key, settings_manager::get_core()->get_reg_keys(path)) {
+							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+							json_spirit::wObject json_key;
+							json_key.push_back(json_spirit::wPair(_T("key"), key));
+							json_key.push_back(json_spirit::wPair(_T("title"), desc.title));
+							json_key.push_back(json_spirit::wPair(_T("description"), desc.description));
+							json_key.push_back(json_spirit::wPair(_T("default value"), desc.defValue));
+							json_keys.push_back(json_spirit::wPair(key, json_key));
+						}
+						json_path.push_back(json_spirit::wPair(_T("keys"), json_keys));
+						json_root.push_back(json_spirit::wPair(path, json_path));
+					}
+					if (target == _T("json-compact"))
+						write(json_root, std::wcout);
+					else
+						write(json_root, std::wcout, json_spirit::pretty_print);
+#endif
 				} else {
-					//settings_manager::get_core()->update_defaults();
 					settings_manager::get_core()->get()->save_to(target);
 				}
 				return 1;
@@ -182,12 +307,43 @@ namespace nsclient {
 
 			return 0;
 		}
+		int validate() {
+			settings::error_list errors = settings_manager::get_core()->validate();
+			BOOST_FOREACH(const std::wstring &e, errors) {
+				std::wcerr << e << std::endl;
+			}
+			return 0;
+		}
 
 		void error_msg(std::wstring msg) {
-			nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg.c_str());
+			nsclient::logging::logger::get_logger()->error(_T("client"), __FILE__, __LINE__, msg.c_str());
 		}
 		void debug_msg(std::wstring msg) {
-			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, msg.c_str());
+			nsclient::logging::logger::get_logger()->debug(_T("client"), __FILE__, __LINE__, msg.c_str());
+		}
+
+		void list_settings_context_info(int padding, settings::instance_ptr instance) {
+			std::wstring pad = std::wstring(padding, L' ');
+			std::wcout << pad << instance->get_info() << std::endl;
+			BOOST_FOREACH(settings::instance_ptr child, instance->get_children()) {
+				list_settings_context_info(padding+2, child);
+			}
+		}
+		void list_settings_info() {
+			std::wcout << _T("Current settings instance loaded: ") << std::endl;
+			list_settings_context_info(2, settings_manager::get_settings());
+		}
+		void activate(const std::wstring &module) 
+		{
+			if (!core_->boot_load_plugin(module)) {
+				std::wcerr << _T("Failed to load module (Wont activate): ") << module << std::endl;
+			}
+			core_->boot_start_plugins(false);
+			settings_manager::get_core()->get()->set_string(_T("/modules"), module, _T("enabled"));
+			if (default_) {
+				settings_manager::get_core()->update_defaults();
+			}
+			settings_manager::get_core()->get()->save();
 		}
 	};
 }

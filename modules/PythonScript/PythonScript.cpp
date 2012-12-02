@@ -63,6 +63,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("save", &script_wrapper::settings_wrapper::save)
 		.def("register_path", &script_wrapper::settings_wrapper::settings_register_path)
 		.def("register_key", &script_wrapper::settings_wrapper::settings_register_key)
+		.def("query", &script_wrapper::settings_wrapper::query)
 		;
 	class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Registry", no_init)
 		.def("get",&script_wrapper::function_wrapper::create)
@@ -75,6 +76,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("simple_cmdline", &script_wrapper::function_wrapper::register_simple_cmdline)
 		.def("subscription", &script_wrapper::function_wrapper::subscribe_function)
 		.def("simple_subscription", &script_wrapper::function_wrapper::subscribe_simple_function)
+		.def("query", &script_wrapper::function_wrapper::query)
 		;
 	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", init<>())
 		.def("get",&script_wrapper::command_wrapper::create)
@@ -107,7 +109,9 @@ BOOST_PYTHON_MODULE(NSCP)
 //	def("get_script_alias", script_wrapper::get_script_alias);
 }
 
-python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) : alias(alias), plugin_id(plugin_id) {
+python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) 
+	: alias(alias)
+	, plugin_id(plugin_id) {
 	NSC_DEBUG_MSG_STD(_T("Loading python script: ") + script.script.string());
 	std::wstring err;
 	if (!script.validate(err)) {
@@ -129,6 +133,25 @@ bool python_script::callFunction(const std::string& functionName) {
 			object scriptFunction = extract<object>(localDict[functionName]);
 			if( scriptFunction )
 				scriptFunction();
+			return true;
+		} catch( error_already_set e) {
+			script_wrapper::log_exception();
+			return false;
+		}
+	} catch (...) {
+		NSC_LOG_ERROR(_T("Unknown exception"));
+		return false;
+	}
+}
+bool python_script::callFunction(const std::string& functionName, const std::vector<std::wstring> args) {
+	try {
+		script_wrapper::thread_locker locker;
+		try	{
+			if (!localDict.has_key(functionName))
+				return true;
+			object scriptFunction = extract<object>(localDict[functionName]);
+			if (scriptFunction)
+				scriptFunction(script_wrapper::convert(args));
 			return true;
 		} catch( error_already_set e) {
 			script_wrapper::log_exception();
@@ -215,7 +238,7 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			PyEval_InitThreads();
 			//PyEval_ReleaseLock();
 
-			PyThreadState *state = PyEval_SaveThread();
+			PyEval_SaveThread();
 			do_init = true;
 		}
 
@@ -264,7 +287,7 @@ boost::optional<boost::filesystem::wpath> PythonScript::find_file(std::wstring f
 	checks.push_back(root_ / file);
 	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
 		NSC_DEBUG_MSG_STD(_T("Looking for: ") + c.string());
-		if (boost::filesystem::exists(c))
+		if (boost::filesystem::exists(c) && boost::filesystem::is_regular(c))
 			return boost::optional<boost::filesystem::wpath>(c);
 	}
 	NSC_LOG_ERROR(_T("Script not found: ") + file);
@@ -283,15 +306,18 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 			;
 
 		std::vector<std::wstring> vargs(args.begin(), args.end());
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).allow_unregistered().run();
 		po::store(parsed, vm);
 		po::notify(vm);
 
-		if (vm.count("help") > 0) {
+		std::vector<std::wstring> py_args = po::collect_unrecognized(parsed.options, po::include_positional);
+		if (vm.count("script") == 0 && vm.count("help") > 0) {
 			std::stringstream ss;
 			ss << desc;
 			message = utf8::to_unicode(ss.str());
 			return NSCAPI::returnUNKNOWN;
+		} else if (vm.count("help") > 0) {
+			py_args.push_back(_T("--help"));
 		}
 
 		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
@@ -299,7 +325,7 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 			return false;
 		script_container sc(*ofile);
 		python_script script(get_id(), "", sc);
-		if (!script.callFunction("__main__")) {
+		if (!script.callFunction("__main__", py_args)) {
 			message = _T("Failed to execute script: __main__");
 			return NSCAPI::returnUNKNOWN;
 		}
@@ -451,9 +477,9 @@ NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &cha
 	return NSCAPI::returnIgnored;
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(PythonScript);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(PythonScript, _T("python"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

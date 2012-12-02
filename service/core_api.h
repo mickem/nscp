@@ -36,7 +36,7 @@ NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int b
 NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue, wchar_t* buffer, unsigned int bufLen);
 int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultValue);
 void NSAPIMessage(const char* data,unsigned int count);
-void NSAPISimpleMessage(int loglevel, const char* file, int line, const wchar_t* message);
+void NSAPISimpleMessage(const wchar_t* module, int loglevel, const char* file, int line, const wchar_t* message);
 void NSAPIStopServer(void);
 NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::nagiosReturn NSAPIExecCommand(const wchar_t* target, const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
@@ -56,8 +56,8 @@ NSCAPI::errorReturn NSAPIDescribeCommand(const wchar_t*,wchar_t*,unsigned int);
 NSCAPI::errorReturn NSAPIGetAllCommandNames(wchar_t***, unsigned int *);
 NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(wchar_t***, unsigned int *);
 NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int, const wchar_t*,const wchar_t*);
-NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
-NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t*, const wchar_t*, const wchar_t*, int);
+NSCAPI::errorReturn NSAPISettingsRegKey(unsigned int plugin_id, const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
+NSCAPI::errorReturn NSAPISettingsRegPath(unsigned int plugin_id, const wchar_t*, const wchar_t*, const wchar_t*, int);
 NSCAPI::errorReturn NSAPIGetPluginList(int*, NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPIReleasePluginList(int,NSCAPI::plugin_info*[]);
 NSCAPI::errorReturn NSAPISettingsSave(void);
@@ -68,3 +68,5 @@ NSCAPI::errorReturn NSAPIRegisterSubmissionListener(unsigned int plugin_id, cons
 NSCAPI::errorReturn NSAPIRegisterRoutingListener(unsigned int plugin_id, const wchar_t* channel);
 NSCAPI::errorReturn NSAPIReload(const wchar_t*);
 NSCAPI::log_level::level NSAPIGetLoglevel();
+NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
+NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);

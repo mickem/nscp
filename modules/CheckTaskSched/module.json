@@ -1,0 +1,19 @@
+{
+	"module"		: {
+		"title"			: "Task shedule checker",
+		"description"	: "CheckTaskSched can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.",
+		"name"			: "CheckTaskSched",
+		"alias"			: "tasksched",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "task schedule"
+	},
+
+	"commands" : {
+		"check_taskshced"	: { "legacy":true, "alias" : "CheckTaskSched",
+			"desc" : "Check status of scheduled jobs." }
+	},
+	"command line exec" : "legacy"
+}

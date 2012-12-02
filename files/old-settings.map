@@ -57,11 +57,11 @@ NRPE/use_ssl=/settings/NRPE/server/use ssl
 
 #Check System/CPUBufferSize=/settings/check/system/windows/CPUBufferSize
 #Check System/CheckResolution=/settings/CheckSystem/CheckResolution
-Check System/check_all_services[SERVICE_BOOT_START]=/settings/check/system/windows/service mapping/SERVICE_BOOT_START
-Check System/check_all_services[SERVICE_SYSTEM_START]=/settings/check/system/windows/service mapping/SERVICE_SYSTEM_START
-Check System/check_all_services[SERVICE_AUTO_START]=/settings/check/system/windows/service mapping/SERVICE_AUTO_START
-Check System/check_all_services[SERVICE_DEMAND_START]=/settings/check/system/windows/service mapping/SERVICE_DEMAND_START
-Check System/check_all_services[SERVICE_DISABLED]=/settings/check/system/windows/service mapping/SERVICE_DISABLED
+Check System/check_all_services[SERVICE_BOOT_START]=/settings/system/windows/service mapping/SERVICE_BOOT_START
+Check System/check_all_services[SERVICE_SYSTEM_START]=/settings/system/windows/service mapping/SERVICE_SYSTEM_START
+Check System/check_all_services[SERVICE_AUTO_START]=/settings/system/windows/service mapping/SERVICE_AUTO_START
+Check System/check_all_services[SERVICE_DEMAND_START]=/settings/system/windows/service mapping/SERVICE_DEMAND_START
+Check System/check_all_services[SERVICE_DISABLED]=/settings/system/windows/service mapping/SERVICE_DISABLED
 
 External Script/command_timeout=/settings/external scripts/command timeout
 External Script/allow_arguments=/settings/external scripts/allow arguments

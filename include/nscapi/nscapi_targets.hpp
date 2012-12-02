@@ -167,6 +167,10 @@ namespace nscapi {
 		};
 		template<class custom_reader>
 		struct handler : public nscapi::settings_objects::object_handler<target_object, split_object_reader<custom_reader > > {};
+		struct helpers {
+			static void verify_file(target_object &target, std::wstring key, std::list<std::wstring> &errors);
+		};
+
 	}
 }
 

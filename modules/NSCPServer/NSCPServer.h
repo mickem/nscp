@@ -20,24 +20,12 @@
 ***************************************************************************/
 
 #include <socket_helpers.hpp>
-#include <nscp/server/server.hpp>
+#include <nscp/server/protocol.hpp>
+#include "handler_impl.hpp"
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
 class NSCPListener : public nscapi::impl::simple_plugin {
-private:
-	typedef enum {
-		inject, script, script_dir,
-	} command_type;
-	struct command_data {
-		command_data() : type(inject) {}
-		command_data(command_type type_, std::wstring arguments_) : type(type_), arguments(arguments_) {}
-		command_type type;
-		std::wstring arguments;
-	};
-
-	nscp::server::server::connection_info info_;
-
 public:
 	NSCPListener();
 	virtual ~NSCPListener();
@@ -48,11 +36,7 @@ public:
 
 
 	static std::wstring getModuleName() {
-#ifdef USE_SSL
 		return _T("NSCP server");
-#else
-		return _T("NSCP server (no SSL)");
-#endif
 	}
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
@@ -61,11 +45,10 @@ public:
 	static std::wstring getModuleDescription() {
 		return _T("A simple server that listens for incoming NSCP connection and handles them.");
 	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const strEx::blindstr command, const unsigned int argLen, wchar_t **char_args, std::wstring &message, std::wstring &perf);
-	std::wstring getConfigurationMeta();
+	
+private:
+	socket_helpers::connection_info info_;
 	boost::shared_ptr<nscp::server::server> server_;
+	boost::shared_ptr<handler_impl> handler_;
 };
 

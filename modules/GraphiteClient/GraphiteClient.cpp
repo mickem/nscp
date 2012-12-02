@@ -284,7 +284,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 		for (int j=0;j<r.perf_size();j++) {
 			g_data d;
 			::Plugin::Common::PerformanceData perf = r.perf(j);
-			double value;
+			double value = 0.0;
 			d.path = tmp_path;
 			strEx::replace(d.path, "${perf_alias}", perf.alias());
 			if (perf.has_float_value()) {
@@ -302,7 +302,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 				continue;
 			}
 			strEx::replace(d.path, " ", "_");
-			d.value = strEx::s::itos(value);
+			d.value = strEx::s::xtos(value);
 			list.push_back(d);
 		}
 	}
@@ -343,7 +343,7 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 			throw boost::system::system_error(error);
 
 		boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
-		boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+		boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
 		boost::posix_time::time_duration diff = now - time_t_epoch;
 		int x = diff.total_seconds();
 
@@ -366,10 +366,9 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 	}
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(GraphiteClient);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
-
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(GraphiteClient, _T("graphite"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

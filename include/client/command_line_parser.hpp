@@ -39,11 +39,11 @@ namespace client {
 		nscapi::protobuf::types::destination_container host_self;
 		nscapi::protobuf::types::destination_container recipient;
 
+		int timeout;
 		bool submit;
 		bool query;
 		bool exec;
 
-		int timeout;
 		nscp_cli_data() : timeout(10), submit(false), query(false), exec(false) {}
 		std::wstring to_wstring() {
 			std::wstringstream ss;
@@ -73,6 +73,7 @@ namespace client {
 		typedef boost::shared_ptr<target_lookup_interface> target_lookup_type;
 
 		std::string title;
+		std::string default_command;
 		po::options_description local;
 		data_type data;
 		handler_type handler;
@@ -97,9 +98,9 @@ namespace client {
 
 	};
 	struct command_container {
-		std::list<std::wstring> arguments;
 		std::wstring command;
 		std::wstring key;
+		std::list<std::wstring> arguments;
 
 		command_container() {}
 		command_container(const command_container &other) : command(other.command), key(other.key), arguments(other.arguments) {}
@@ -165,7 +166,8 @@ namespace client {
 				|| (command == _T("query"))
 				|| (command == _T("exec"))
 				|| (command == _T("submit"))
-				|| (command == _T("forward"));
+				|| (command == _T("forward"))
+				|| (command == _T(""));
 		}
 
 		static int do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);

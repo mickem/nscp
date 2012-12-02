@@ -2,6 +2,7 @@
 
 #include <nsclient/logger.hpp>
 #include <nsclient/base_logger_impl.hpp>
+#include <format.hpp>
 #include "logger_impl.hpp"
 
 #include <concurrent_queue.hpp>
@@ -20,11 +21,12 @@ void log_fatal(std::string message) {
 	std::cout << message << std::endl;
 }
 
-std::string create_message(Plugin::LogEntry::Entry::Level level, const char* file, const int line, std::wstring logMessage) {
+std::string create_message(const std::wstring &module, Plugin::LogEntry::Entry::Level level, const char* file, const int line, const std::wstring &logMessage) {
 	std::string str;
 	try {
 		Plugin::LogEntry message;
 		Plugin::LogEntry::Entry *msg = message.add_entry();
+		msg->set_sender(utf8::cvt<std::string>(module));
 		msg->set_level(level);
 		msg->set_file(file);
 		msg->set_line(line);
@@ -37,8 +39,8 @@ std::string create_message(Plugin::LogEntry::Entry::Level level, const char* fil
 	}
 	return str;
 }
-std::string nsclient::logging::logger_helper::create(NSCAPI::log_level::level level, const char* file, const int line, std::wstring message) {
-	return create_message(nscapi::functions::log_to_gpb(level), file, line, message);
+std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
+	return create_message(module, nscapi::functions::log_to_gpb(level), file, line, message);
 }
 
 std::wstring render_log_level_short(Plugin::LogEntry::Entry::Level l) {
@@ -46,14 +48,14 @@ std::wstring render_log_level_short(Plugin::LogEntry::Entry::Level l) {
 }
 
 std::wstring render_log_level_long(Plugin::LogEntry::Entry::Level l) {
-	return nsclient::logging::logger_helper::render_log_level_short(nscapi::functions::gpb_to_log(l));
+	return nsclient::logging::logger_helper::render_log_level_long(nscapi::functions::gpb_to_log(l));
 }
-std::wstring rpad(std::wstring str, int len) {
+std::wstring rpad(std::wstring str, std::size_t len) {
 	if (str.length() > len)
 		return str.substr(str.length()-len);
 	return std::wstring(len-str.length(), L' ') + str;
 }
-std::wstring lpad(std::wstring str, int len) {
+std::wstring lpad(std::wstring str, std::size_t len) {
 	if (str.length() > len)
 		return str.substr(0, len);
 	return str + std::wstring(len-str.length(), L' ');
@@ -63,7 +65,7 @@ std::wstring render_console_message(const std::string &data) {
 	try {
 		Plugin::LogEntry message;
 		if (!message.ParseFromString(data)) {
-			log_fatal("Failed to parse message: " + strEx::strip_hex(data));
+			log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
 			return ss.str();
 		}
 
@@ -71,17 +73,25 @@ std::wstring render_console_message(const std::string &data) {
 			Plugin::LogEntry::Entry msg = message.entry(i);
 			if (i > 0)
 				ss << _T(" -- ");
-			ss << render_log_level_short(msg.level())
-				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.file()), 20)
-				<< _T(":") << lpad(utf8::cvt<std::wstring>(strEx::itos(msg.line())),4) 
+			std::string tmp = msg.message();
+			strEx::replace(tmp, "\n", "\n    -    ");
+			ss << lpad(render_log_level_long(msg.level()), 8)
+				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.sender()), 10)
 				<< _T(" ") + utf8::cvt<std::wstring>(msg.message())
 				<< std::endl;
+			if (msg.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR) {
+				ss << _T("                    ") 
+					<< utf8::cvt<std::wstring>(msg.file())
+					<< _T(":")
+					<< msg.line() << std::endl;
+
+			}
 		}
 		return ss.str();
 	} catch (std::exception &e) {
-		log_fatal("Failed to parse data from: " + strEx::strip_hex(data) + ": " + e.what());
+		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
 	} catch (...) {
-		log_fatal("Failed to parse data from: " + strEx::strip_hex(data));
+		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
 	}
 	return ss.str();
 }
@@ -90,7 +100,7 @@ namespace sh = nscapi::settings_helper;
 
 class simple_file_logger : public nsclient::logging::logging_interface_impl {
 	std::string file_;
-	int max_size_;
+	std::size_t max_size_;
 	std::string format_;
 
 public:
@@ -113,7 +123,7 @@ public:
 	}
 
 
-	void do_log(const std::string &data) {
+	void do_log(const std::string data) {
 		if (file_.empty())
 			return;
 		try {
@@ -134,13 +144,13 @@ public:
 			}
 			std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
 			if (!stream) {
-				log_fatal("File could not be opened, Discarding: " + strEx::strip_hex(data));
+				log_fatal("File could not be opened, Discarding: " + format::strip_ctrl_chars(data));
 			}
 			std::string date = nsclient::logging::logger_helper::get_formated_date(format_);
 
 			Plugin::LogEntry message;
 			if (!message.ParseFromString(data)) {
-				log_fatal("Failed to parse message: " + strEx::strip_hex(data));
+				log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
 			} else {
 				for (int i=0;i<message.entry_size();i++) {
 					Plugin::LogEntry::Entry msg = message.entry(i);
@@ -152,9 +162,9 @@ public:
 				}
 			}
 		} catch (std::exception &e) {
-			log_fatal("Failed to parse data from: " + strEx::strip_hex(data) + ": " + e.what());
+			log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
 		} catch (...) {
-			log_fatal("Failed to parse data from: " + strEx::strip_hex(data));
+			log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
 		}
 	}
 	void configure() {
@@ -181,7 +191,7 @@ public:
 				;
 
 			settings.add_key_to_settings(_T("log/file"))
-				(_T("max size"), sh::int_key(&max_size_, 0),
+				(_T("max size"), sh::size_key(&max_size_, 0),
 				_T("MAXIMUM FILE SIZE"), _T("When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled"))
 				;
 
@@ -215,7 +225,7 @@ class simple_console_logger : public nsclient::logging::logging_interface_impl {
 public:
 	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S") {}
 
-	void do_log(const std::string &data) {
+	void do_log(const std::string data) {
 		if (get_console_log()) {
 			std::wcout << render_console_message(data);
 		}
@@ -272,7 +282,7 @@ public:
 		shutdown();
 	}
 
-	void do_log(const std::string &data) {
+	void do_log(const std::string data) {
 		if (get_console_log()) {
 			std::wcout << render_console_message(data);
 		}
@@ -323,6 +333,7 @@ public:
 				log_fatal("Failed to exit log slave!");
 				return false;
 			}
+			background_logger_->shutdown();
 			return nsclient::logging::logging_interface_impl::shutdown();
 		} catch (const std::exception &e) {
 			log_fatal(std::string("Failed to exit log slave: ") + e.what());
@@ -368,7 +379,7 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 			tmp->startup();
 	}
 	logger_impl_ = tmp;
-	logger_impl_->debug(__FILE__, __LINE__, _T("Creating logger: ") + utf8::to_unicode(backend));
+	logger_impl_->debug(_T("log"), __FILE__, __LINE__, _T("Creating logger: ") + utf8::to_unicode(backend));
 	delete old;
 	old = NULL;
 }

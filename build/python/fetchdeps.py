@@ -19,6 +19,7 @@ SET(TINYXML2_DIR "$${LIBRARY_ROOT_FOLDER}/${TinyXML2}")
 #SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
 #SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf}")
+SET(GTEST_ROOT "$${LIBRARY_ROOT_FOLDER}/${gtest}")
 SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32")
 SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/include")
 SET(ZEROMQ_ROOT "$${LIBRARY_ROOT_FOLDER}/${ZeroMQ}")
@@ -74,7 +75,8 @@ targets = [
 	'protobuf',
 	'TinyXML2',
 	'ZeroMQ',
-	'breakpad'
+	'breakpad',
+	'gtest'
 ]
 
 class source:
@@ -204,10 +206,8 @@ class build_instruction:
 		self.exec_build(folder, source, self.common_pre, self.specific_x64, self.common_post)
 
 sources = {}
-#sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
-#sources['cryptopp'].folder = 'cryptopp-5.6.1'
-sources['cryptopp'] = source('cryptopp560.zip', 'http://www.cryptopp.com/cryptopp560.zip', 'b836783ebd72d5bc6a916620ab2b1ecec316fef1')
-sources['cryptopp'].folder = 'cryptopp-5.6.0'
+sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
+sources['cryptopp'].folder = 'cryptopp-5.6.1'
 # sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
 sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
 
@@ -217,6 +217,7 @@ sources['openssl'] = source('openssl-1.0.1c.tar.gz', 'http://www.openssl.org/sou
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
 sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethomason/tinyxml2/zipball/master')
 sources['ZeroMQ'] = source('zeromq-2.2.0.zip', 'http://download.zeromq.org/zeromq-2.2.0.zip')
+sources['gtest'] = source('gtest-1.6.0.zip', 'http://googletest.googlecode.com/files/gtest-1.6.0.zip', '00d6be170eb9fc3b2198ffdcb1f1d6ba7fc6e621')
 
 build = {}
 post_build = {}
@@ -257,6 +258,12 @@ build['cryptopp'] = build_instruction(
 	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
 	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
 	[]
+	)
+build['gtest'] = build_instruction(
+	[],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & exit /b0"'],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & exit /b0"'],
+	['msbuild gtest.sln /p:Configuration=Release', 'msbuild gtest.sln /p:Configuration=Debug']
 	)
 
 
@@ -364,7 +371,7 @@ parser.add_option("-d", "--directory", help="Folder to build in (defaults to cur
 parser.add_option("-t", "--target", help="Which target architecture to build (win32 or x64)")
 parser.add_option("-c", "--cmake-config", help="Folder to place cmake configuration file in")
 parser.add_option("-D", "--cmake-define", action="append", help="Set other variables in the cmake config file")
-parser.add_option("-s", "--source", default='nscp', help="Location of the nscp source folder")
+parser.add_option("-s", "--source", help="Location of the nscp source folder")
 parser.add_option("--msver", default='2005', help="Which version of visual studio you have")
 
 (options, args) = parser.parse_args()
@@ -373,6 +380,8 @@ if not options.directory:
 	options.directory = os.getcwd()
 else:
 	options.directory = os.path.abspath(options.directory)
+if not options.source:
+	options.source = os.path.dirname(os.path.dirname(os.path.dirname(sys.argv[0])))
 
 msver = options.msver
 

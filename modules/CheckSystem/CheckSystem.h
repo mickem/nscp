@@ -24,68 +24,33 @@
 #include "PDHCollector.h"
 #include <CheckMemory.h>
 
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
-
-class CheckSystem : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
+class CheckSystem : public nscapi::impl::simple_plugin {
 private:
 	CheckMemory memoryChecker;
-	PDHCollectorThread pdhThread;
+	PDHCollector pdh_collector;
+
+	typedef std::map<std::wstring,std::wstring> counter_map_type;
+	counter_map_type counters;
 
 public:
-	typedef enum { started, stopped } states;
-	typedef struct rB {
-		NSCAPI::nagiosReturn code_;
-		std::wstring msg_;
-		std::wstring perf_;
-		rB(NSCAPI::nagiosReturn code, std::wstring msg) : code_(code), msg_(msg) {}
-		rB() : code_(NSCAPI::returnUNKNOWN) {}
-	} returnBundle;
-
 	std::map<DWORD,std::wstring> lookups_;
 
 
 public:
-	CheckSystem();
-	virtual ~CheckSystem();
-	// Module calls
-	bool loadModule();
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-	std::wstring getConfigurationMeta();
+	CheckSystem() {}
+	virtual ~CheckSystem() {}
 
-	/**
-	* Return the module name.
-	* @return The module name
-	*/
-	static std::wstring getModuleName() {
-		return _T("CheckSystem");
-	}
-	/**
-	* Module version
-	* @return module version
-	*/
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.");
-	}
+	virtual bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	virtual bool unloadModule();
 
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 
-	NSCAPI::nagiosReturn checkCPU(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkUpTime(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkServiceState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkMem(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkProcState(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkCounter(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn listCounterInstances(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn checkSingleRegEntry(std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-
+	NSCAPI::nagiosReturn check_service(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_registry(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_memory(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_pdh(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_process(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_cpu(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_uptime(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
 
 };

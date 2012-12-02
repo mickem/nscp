@@ -28,6 +28,7 @@
 #include <functional>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/regex.hpp>
 
 #include <common.hpp>
 #include <strEx.h>

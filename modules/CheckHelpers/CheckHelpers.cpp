@@ -77,7 +77,6 @@ bool CheckHelpers::hasMessageHandler() {
 }
 NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status, const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) 
 {
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	if (arguments.empty()) {
 		message = nscapi::plugin_helper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
 		return status;
@@ -174,7 +173,6 @@ NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> a
 
 NSCAPI::nagiosReturn CheckHelpers::negate(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) 
 {
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	if (arguments.empty()) {
 		msg = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
@@ -265,7 +263,6 @@ public:
 
 NSCAPI::nagiosReturn CheckHelpers::timeout(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) 
 {
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	if (arguments.empty()) {
 		msg = _T("Missing argument(s).");
 		return NSCAPI::returnCRIT;
@@ -329,7 +326,7 @@ NSCAPI::nagiosReturn CheckHelpers::timeout(std::list<std::wstring> arguments, st
 	return retCode;
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckHelpers);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(CheckHelpers, _T("helpers"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()

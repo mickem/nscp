@@ -32,10 +32,10 @@ using namespace nscp::helpers;
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
 
-#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg); }
-#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error(__FILE__, __LINE__, msg); }
-#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info(__FILE__, __LINE__, msg); }
-#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, msg); }
+#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
+#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
+#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info(_T("core"), __FILE__, __LINE__, msg); }
+#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug(_T("core"), __FILE__, __LINE__, msg); }
 
 NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned int bufLen) {
 	try {
@@ -92,13 +92,13 @@ NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.getBasePath().string(), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, APPLICATION_NAME, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(APPLICATION_NAME), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, CURRENT_SERVICE_VERSION, NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(CURRENT_SERVICE_VERSION), NSCAPI::isSuccess);
 }
-void NSAPISimpleMessage(int loglevel, const char* file, int line, const wchar_t* message) {
-	nsclient::logging::logger::get_logger()->log(loglevel, file, line, message);
+void NSAPISimpleMessage(const wchar_t* module, int loglevel, const char* file, int line, const wchar_t* message) {
+	nsclient::logging::logger::get_logger()->log(module, loglevel, file, line, message);
 }
 void NSAPIMessage(const char* data, unsigned int count) {
 	std::string message(data, count);
@@ -344,14 +344,14 @@ NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,con
 	}
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {
+NSCAPI::errorReturn NSAPISettingsRegKey(unsigned int plugin_id, const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {
 	try {
 		if (type == NSCAPI::key_string)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_string, title, description, defVal, advanced);
+			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_string, title, description, defVal, advanced==1);
 		if (type == NSCAPI::key_bool)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_bool, title, description, defVal, advanced);
+			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_bool, title, description, defVal, advanced==1);
 		if (type == NSCAPI::key_integer)
-			settings_manager::get_core()->register_key(path, key, settings::settings_core::key_integer, title, description, defVal, advanced);
+			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_integer, title, description, defVal, advanced==1);
 		return NSCAPI::hasFailed;
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed register key: ") + e.getMessage());
@@ -363,10 +363,17 @@ NSCAPI::errorReturn NSAPISettingsRegKey(const wchar_t* path, const wchar_t* key,
 	return NSCAPI::isSuccess;
 }
 
+NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+	return mainClient.settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+}
+NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+	return mainClient.registry_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+}
 
-NSCAPI::errorReturn NSAPISettingsRegPath(const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
+
+NSCAPI::errorReturn NSAPISettingsRegPath(unsigned int plugin_id, const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
 	try {
-		settings_manager::get_core()->register_path(path, title, description, advanced);
+		settings_manager::get_core()->register_path(plugin_id, path, title, description, advanced);
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_STD(_T("Failed register path: ") + e.getMessage());
 		return NSCAPI::hasFailed;
@@ -434,8 +441,6 @@ NSCAPI::errorReturn NSAPISettingsSave(void) {
 	}
 	return NSCAPI::isSuccess;
 }
-
-
 
 
 LPVOID NSAPILoader(const wchar_t*buffer) {
@@ -515,6 +520,10 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPIReload);
 	if (wcscasecmp(buffer, _T("NSAPIGetLoglevel")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetLoglevel);
+	if (wcscasecmp(buffer, _T("NSAPISettingsQuery")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPISettingsQuery);
+	if (wcscasecmp(buffer, _T("NSAPIRegistryQuery")) == 0)
+		return reinterpret_cast<LPVOID>(&NSAPIRegistryQuery);
 
 	LOG_ERROR_STD(_T("Function not found: ") + buffer);
 	return NULL;

@@ -2,7 +2,7 @@
 
 #include <settings/settings_core.hpp>
 #include <settings/client/settings_client.hpp>
-#include <settings/settings_handler_impl.hpp>
+#include "settings_handler_impl.hpp"
 
 namespace settings_manager {
 
@@ -63,8 +63,6 @@ namespace settings_manager {
 		bool has_boot_conf();
 		void set_primary(std::wstring key);
 	};
-
-	//typedef Singleton<NSCSettingsImpl> SettingsHandler;
 
 	// Alias to make handling "compatible" with old syntax
 	settings::instance_ptr get_settings();

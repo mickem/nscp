@@ -29,8 +29,9 @@
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
 class CheckNSCP : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
 private:
@@ -38,6 +39,7 @@ private:
 	std::wstring crashFolder;
 	typedef std::list<std::string> error_list;
 	error_list errors_;
+	boost::posix_time::ptime start_;
 public:
 	// Module calls
 	bool loadModule();
@@ -64,5 +66,5 @@ public:
 	std::string render(int msgType, const std::string file, int line, std::string message);
 	NSCAPI::nagiosReturn check_nscp( std::list<std::wstring> arguments, std::wstring & msg, std::wstring & perf );
 	int get_crashes(std::wstring &last_crash);
-	int get_errors(std::wstring &last_error);
+	std::size_t get_errors(std::wstring &last_error);
 };

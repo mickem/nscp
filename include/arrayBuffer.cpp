@@ -29,7 +29,6 @@
  */
 array_buffer::arrayList array_buffer::arrayBuffer2list(const unsigned int argLen, wchar_t *argument[]) {
 	arrayList ret;
-	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
 		std::wstring s = argument[i];
 		ret.push_back(s);
@@ -44,7 +43,6 @@ array_buffer::arrayList array_buffer::arrayBuffer2list(const unsigned int argLen
  */
 array_buffer::arrayVector array_buffer::arrayBuffer2vector(const unsigned int argLen, wchar_t *argument[]) {
 	arrayVector ret;
-	int i=0;
 	for (unsigned int i=0;i<argLen;i++) {
 		std::wstring s = argument[i];
 		ret.push_back(s);
@@ -64,7 +62,7 @@ array_buffer::arrayBuffer array_buffer::list2arrayBuffer(const arrayList lst, un
 	argLen = static_cast<unsigned int>(lst.size());
 	arrayBuffer arrayBuffer = new arrayBufferItem[argLen];
 	arrayList::const_iterator it = lst.begin();
-	int i;
+	unsigned int i;
 	for (i=0;it!=lst.end();++it,i++) {
 		std::wstring::size_type alen = (*it).size();
 		arrayBuffer[i] = new wchar_t[alen+2];
@@ -81,7 +79,8 @@ array_buffer::arrayBuffer array_buffer::list2arrayBuffer(const arrayList lst, un
 */
 array_buffer::arrayBuffer array_buffer::createEmptyArrayBuffer(unsigned int &argLen) {
 	argLen = 0;
-	arrayBuffer arrayBuffer = new arrayBufferItem[0];
+	arrayBuffer arrayBuffer
+		= new arrayBufferItem[0];
 	return arrayBuffer;
 }
 /**

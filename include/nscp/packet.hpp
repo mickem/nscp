@@ -61,15 +61,16 @@ namespace nscp {
 
 		struct signature_type;
 		struct tcp_signature_data {
-			int16_t   version;
+			int16_t	version;
 
-			int16_t   header_type;
-			unsigned long long  header_length;
+			int16_t	header_type;
+			u_int32_t header_length;
+			u_int32_t	header_padding;
 
-			int16_t   payload_type;
-			unsigned long long payload_length;
+			int16_t	payload_type;
+			u_int32_t	payload_length;
+			u_int32_t	payload_padding;
 
-			u_int32_t additional_packet_count;
 			u_int32_t magic_number;
 			tcp_signature_data() : magic_number(nscp_magic_number) {}
 			tcp_signature_data(const tcp_signature_data &other)
@@ -79,7 +80,6 @@ namespace nscp {
 				, payload_type(other.payload_type)
 				, payload_length(other.payload_length)
 				, magic_number(other.magic_number)
-				, additional_packet_count(other.additional_packet_count)
 			{}
 			const tcp_signature_data& operator=(const tcp_signature_data &other) {
 				version = other.version;
@@ -87,7 +87,6 @@ namespace nscp {
 				header_length = other.header_length;
 				payload_type = other.payload_type;
 				payload_length = other.payload_length;
-				additional_packet_count = other.additional_packet_count;
 				magic_number = other.magic_number;
 				return *this;
 			}
@@ -97,7 +96,6 @@ namespace nscp {
 				header_length = other.header_length;
 				payload_type = other.payload_type;
 				payload_length = other.payload_length;
-				additional_packet_count = other.additional_packet_count;
 				magic_number = other.magic_number;
 				return *this;
 			}
@@ -109,8 +107,7 @@ namespace nscp {
 					<< _T(", header: ") << header_type
 					<< _T(", ") << header_length
 					<< _T(", payload: ") << payload_type
-					<< _T(", ") << payload_length
-					<< _T(", count: ") << additional_packet_count;
+					<< _T(", ") << payload_length;
 				return ss.str();
 			}
 			std::string to_string() const {
@@ -120,8 +117,7 @@ namespace nscp {
 					<< ", header: " << header_type
 					<< ", " << header_length
 					<< ", payload: " << payload_type
-					<< ", " << payload_length
-					<< ", count: " << additional_packet_count;
+					<< ", " << payload_length;
 				return ss.str();
 			}
 		};
@@ -160,13 +156,13 @@ namespace nscp {
 
 	};
 	struct length {
-		static unsigned long long get_signature_size() {
+		static std::size_t get_signature_size() {
 			return sizeof(data::tcp_signature_data);
 		}
-		static unsigned long long get_header_size(const data::tcp_signature_data &signature) {
+		static std::size_t get_header_size(const data::tcp_signature_data &signature) {
 			return signature.header_length*sizeof(char);
 		}
-		static unsigned long long get_payload_size(const data::tcp_signature_data &signature) {
+		static std::size_t get_payload_size(const data::tcp_signature_data &signature) {
 			return signature.payload_length*sizeof(char);
 		}
 
@@ -202,8 +198,8 @@ namespace nscp {
 
 		//////////////////////////////////////////////////////////////////////////
 		// Write to string
-		std::string write_string() const {
-			std::string ret;
+		std::vector<char> write_string() const {
+			std::vector<char> ret;
 			write_signature(ret);
 			write_header(ret);
 			write_payload(ret);
@@ -227,16 +223,20 @@ namespace nscp {
 			sig.set_cookie(signature.cookie);
 			sig.AppendToString(&buffer);
 		}
-		void write_signature(std::string &buffer) const {
+		template<class T>
+		void write_signature(T &buffer) const {
 			nscp::data::tcp_signature_data data = signature;
-			buffer.append(reinterpret_cast<char*>(&data), length::get_signature_size());
+			char * begin = reinterpret_cast<char*>(&data);
+			char *end = &begin[length::get_signature_size()];
+			buffer.insert(buffer.end(), begin, end);
 		}
 		std::string write_header() const {
 			std::string buffer;
 			write_header(buffer);
 			return buffer;
 		}
-		inline void write_header(std::string &buffer) const {
+		template<class T>
+		inline void write_header(T &buffer) const {
 			if (!header.empty())
 				buffer.insert(buffer.end(), header.begin(), header.end());
 		}
@@ -245,7 +245,8 @@ namespace nscp {
 			write_payload(buffer);
 			return buffer;
 		}
-		inline void write_payload(std::string &buffer) const {
+		template<class T>
+		inline void write_payload(T &buffer) const {
 			if (!payload.empty())
 				buffer.insert(buffer.end(), payload.begin(), payload.end());
 		}
@@ -268,7 +269,6 @@ namespace nscp {
 			signature.magic_number = nscp::data::nscp_magic_number;
 			if (sig.version() == NSCPIPC::Common_Version_VERSION_1)
 				signature.version = nscp::data::version_1;
-			signature.additional_packet_count = 0;
 		}
 
 		void read_signature(std::vector<char> &buf) {
@@ -350,7 +350,6 @@ namespace nscp {
 			signature.header_length = 0;
 			signature.header_type = 0;
 
-			signature.additional_packet_count = 0;
 			signature.version = nscp::data::version_1;
 
 			signature.payload_length = size;
@@ -358,12 +357,11 @@ namespace nscp {
 			return signature;
 
 		}
-		static nscp::data::signature_type create_sig(int payload_type, std::string::size_type header_size, std::string::size_type payload_size, unsigned long additional_packets = 0) {
+		static nscp::data::signature_type create_sig(int payload_type, std::string::size_type header_size, std::string::size_type payload_size) {
 			nscp::data::signature_type signature;
 			signature.header_length = header_size;
 			signature.header_type = 0;
 
-			signature.additional_packet_count = additional_packets;
 			signature.version = nscp::data::version_1;
 
 			signature.payload_length = payload_size;
@@ -371,12 +369,11 @@ namespace nscp {
 			return signature;
 
 		}
-		static packet create_payload(unsigned long payload_type, std::string buffer, unsigned long additional_packets = 0) {
+		static packet create_payload(unsigned long payload_type, std::string buffer) {
 			nscp::data::signature_type signature;
 			signature.header_length = 0;
 			signature.header_type = 0;
 
-			signature.additional_packet_count = additional_packets;
 			signature.version = nscp::data::version_1;
 
 			signature.payload_length = buffer.size();
@@ -392,14 +389,14 @@ namespace nscp {
 			return create_payload(nscp::data::submit_response, buffer);
 		}
 
-		static packet create_message_envelope_request(unsigned long additional_packets) {
+		static packet create_message_envelope_request() {
 			std::string buffer;
 			NSCPIPC::MessageRequestEnvelope request_envelope;
 			request_envelope.mutable_envelope()->set_version(NSCPIPC::Common_Version_VERSION_1);
 			request_envelope.mutable_envelope()->set_max_supported_version(NSCPIPC::Common_Version_VERSION_1);
 			// @todo: set authentication stuff here
 			request_envelope.SerializeToString(&buffer);
-			return packet(create_sig(nscp::data::message_envelope_request, 0, buffer.size(), additional_packets), "", buffer);
+			return packet(create_sig(nscp::data::message_envelope_request, 0, buffer.size()), "", buffer);
 		}
 		static packet create_message_envelope_response(std::string cookie, int sequence) {
 			std::string buffer;
@@ -409,26 +406,26 @@ namespace nscp {
 			envelope.set_cookie(cookie);
 			envelope.set_sequence(sequence);
 			envelope.SerializeToString(&buffer);
-			return packet(create_sig(nscp::data::message_envelope_response, 0, buffer.size(), 0), "", buffer);
+			return packet(create_sig(nscp::data::message_envelope_response, 0, buffer.size()), "", buffer);
 		}
 
 
-		static packet create_envelope_request(unsigned long additional_packets) {
+		static packet create_envelope_request() {
 			std::string buffer;
 			NSCPIPC::RequestEnvelope request_envelope;
 			request_envelope.set_version(NSCPIPC::Common_Version_VERSION_1);
 			request_envelope.set_max_supported_version(NSCPIPC::Common_Version_VERSION_1);
 			request_envelope.SerializeToString(&buffer);
-			return packet(create_sig(nscp::data::envelope_request, 0, buffer.size(), additional_packets), "", buffer);
+			return packet(create_sig(nscp::data::envelope_request, 0, buffer.size()), "", buffer);
 		}
 
-		static packet create_envelope_response(unsigned long additional_packets) {
+		static packet create_envelope_response() {
 			std::string buffer;
 			NSCPIPC::RequestEnvelope request_envelope;
 			request_envelope.set_version(NSCPIPC::Common_Version_VERSION_1);
 			request_envelope.set_max_supported_version(NSCPIPC::Common_Version_VERSION_1);
 			request_envelope.SerializeToString(&buffer);
-			return packet(create_sig(nscp::data::envelope_response, 0, buffer.size(), additional_packets), "", buffer);
+			return packet(create_sig(nscp::data::envelope_response, 0, buffer.size()), "", buffer);
 		}
 
 		static packet create_error(std::wstring msg) {

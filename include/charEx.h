@@ -104,4 +104,4 @@ namespace charEx {
 		p++;
 		return token(std::wstring(buffer, p-buffer-1), p);
 	}
-};
+}

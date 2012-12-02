@@ -29,78 +29,45 @@ NSC_WRAPPERS_CLI();
 #include "eventlog_wrapper.hpp"
 #include "eventlog_record.hpp"
 
+#include "filters.hpp"
+
 struct real_time_thread {
-
-	struct target_information {
-		std::wstring target;
-		std::wstring alias;
-		std::wstring syntax;
-		std::wstring ok_msg;
-		std::wstring perf_msg; //
-		//bool perf;
-		DWORD dwLang;
-
-	};
-
-	struct filter_container {
-		std::wstring filter;
-		std::wstring alias;
-	};
-
-	target_information info;
 	bool enabled_;
-	//std::wstring destination_;
 	unsigned long long start_age_;
-	unsigned long long max_age_;
-	//std::wstring syntax_;
-	std::list<filter_container> filters_;
 	boost::shared_ptr<boost::thread> thread_;
 	HANDLE stop_event_;
-	std::list<std::wstring> lists_;
-	std::list<std::wstring> hit_cache_;
-	boost::timed_mutex cache_mutex_;
+	filters::filter_config_handler filters_;
+	std::wstring logs_;
 
 	bool cache_;
 	bool debug_;
+	std::wstring filters_path_;
 
-	real_time_thread() : enabled_(false), start_age_(0), max_age_(0), debug_(false), cache_(false) {
+	real_time_thread() : enabled_(false), start_age_(0), debug_(false), cache_(false) {
 		set_start_age(_T("30m"));
-		set_max_age(_T("5m"));
 	}
 
-	void add_realtime_filter(std::wstring key, std::wstring query);
+	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query);
 	void set_enabled(bool flag) { enabled_ = flag; } 
-	void set_destination(std::wstring dst) { info.target = dst; } 
 	void set_start_age(std::wstring age) {
 		start_age_ = strEx::stoi64_as_time(age);
 	} 
-	void set_max_age(std::wstring age) {
-		if (age == _T("none") || age == _T("infinite") || age == _T("false"))
-			max_age_ = 0;
-		else
-			max_age_ = strEx::stoi64_as_time(age);
-	} 
-	void set_eventlog(std::wstring log) {
-		lists_ = strEx::splitEx(log, _T(","));
-	} 
 
 	void set_language(std::string lang);
-	void set_filter(std::wstring flt) {
+	void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring flt) {
 		if (!flt.empty())
-			add_realtime_filter(_T("filter"), flt);
+			add_realtime_filter(proxy, _T("default"), flt);
 	}
 	bool has_filters() {
-		return !filters_.empty();
+		return !filters_.has_objects();
 	}
 	bool start();
 	bool stop();
 
-	bool check_cache(unsigned long &count, std::wstring &messages);
-
 	void thread_proc();
 //	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
-	void process_no_events(std::wstring alias);
-	void process_record(std::wstring alias, const EventLogRecord &record);
+	void process_no_events(const filters::filter_config_object &object);
+	void process_record(const filters::filter_config_object &object, const EventLogRecord &record);
 	void debug_miss(const EventLogRecord &record);
 //	void process_event(eventlog_filter::filter_engine engine, const EVENTLOGRECORD* record);
 };

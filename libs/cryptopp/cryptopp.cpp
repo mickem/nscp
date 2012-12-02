@@ -124,7 +124,7 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
 			int enc = atoi(encryption.c_str());
 			if (enc == ENCRYPT_XOR 
 #ifdef HAVE_LIBCRYPTOPP
-				|| enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH || enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128 || enc == ENCRYPT_SERPENT || enc == ENCRYPT_GOST
+				|| enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH || enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128|| enc == ENCRYPT_RIJNDAEL192 || enc == ENCRYPT_RIJNDAEL256 || enc == ENCRYPT_SERPENT || enc == ENCRYPT_GOST
 #endif
 				)
 				return enc;
@@ -197,20 +197,20 @@ std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
 
 				// Generate key buffer
 				std::string::size_type keysize=get_keySize();
-				unsigned char *key = new unsigned char[keysize+1];
+				char *key = new char[keysize+1];
 				if (key == NULL)
 					throw nscp::encryption::encryption_exception("Could not allocate memory for encryption/decryption key");
 				memset(key, 0, keysize);
 				using namespace std;
 				memcpy(key,password.c_str(),min(keysize,password.length()));
+				std::string skey(key, keysize);
+				delete [] key;
 
 				try {
-					cipher_.SetKey(key, keysize);
+					cipher_.SetKey((const byte*)skey.c_str(), keysize);
 					crypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
 					decrypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
-					delete [] key;
 				} catch (...) {
-					delete [] key;
 					throw nscp::encryption::encryption_exception("Unknown exception when trying to setup crypto");
 				}
 			}
@@ -413,6 +413,7 @@ void nscp::encryption::engine::encrypt_init(std::string password, int encryption
 	if (core_ == NULL)
 		throw encryption_exception("Failed to get encryption module for: " + boost::lexical_cast<std::string>(encryption_method));
 
+	std::string name = core_->getName();
 	// server generates IV used for encryption 
 	if (received_iv.empty()) {
 		std::string iv = generate_transmitted_iv();
@@ -434,11 +435,11 @@ void nscp::encryption::engine::decrypt_buffer(std::string &buffer) {
 	core_->decrypt(buffer);
 }
 std::string nscp::encryption::engine::get_rand_buffer(int length) {
-	byte * buffer = new byte[length+1];
-	memset(buffer, 0, length);
+	std::string buffer; buffer.resize(length);
+	//unsigned char * buffer = new unsigned char[length+1];
 #if HAVE_LIBCRYPTOPP
 	CryptoPP::AutoSeededRandomPool rng;
-	rng.GenerateBlock(buffer, length);
+	rng.GenerateBlock((byte*)&*buffer.begin(), length);
 #endif
-	return std::string(reinterpret_cast<char*>(buffer), length);
+	return buffer;
 }

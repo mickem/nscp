@@ -20,6 +20,9 @@
 ***************************************************************************/
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#define THROW_INVALID_SIZE(size) \
+	throw nscapi_exception(std::string("Whoops, invalid payload size: ") + strEx::s::xtos(size) + " != 1 at line " + strEx::s::xtos(__LINE__));
+
 namespace nscapi {
 	namespace protobuf {
 
@@ -64,7 +67,14 @@ namespace nscapi {
 			if (pend != T::npos)
 				s = s.substr(0,pend);
 			strEx::replace(s, traits::perf_data_consts<T>::get_replace_perf_coma_src(), traits::perf_data_consts<T>::get_replace_perf_coma_tgt());
-			return strEx::stod(s);
+			if (s.empty()) {
+				return 0.0;
+			}
+			try {
+				return strEx::stod(s);
+			} catch (...) {
+				return 0.0;
+			}
 		}
 
 
@@ -224,6 +234,20 @@ namespace nscapi {
 
 			message.SerializeToString(&buffer);
 		}
+		void functions::create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer) {
+			Plugin::SubmitRequestMessage message;
+			create_simple_header(message.mutable_header());
+			message.set_channel(channel);
+
+			Plugin::QueryResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(command);
+			payload->set_message(msg);
+			payload->set_result(nagios_status_to_gpb(ret));
+			if (!perf.empty())
+				parse_performance_data(payload, perf);
+
+			message.SerializeToString(&buffer);
+		}
 		void functions::create_simple_submit_response(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer) {
 			Plugin::SubmitResponseMessage message;
 			create_simple_header(message.mutable_header());
@@ -240,7 +264,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
 			source = utf8::cvt<std::wstring>(payload.source());
@@ -273,7 +297,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
 			response = utf8::cvt<std::wstring>(payload.mutable_status()->message());
@@ -284,7 +308,7 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
 			response = payload.mutable_status()->message();
@@ -303,6 +327,19 @@ namespace nscapi {
 
 			message.SerializeToString(&buffer);
 		}
+		void functions::create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer) {
+			Plugin::QueryRequestMessage message;
+			create_simple_header(message.mutable_header());
+
+			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
+			payload->set_command(utf8::cvt<std::string>(command));
+
+			BOOST_FOREACH(std::string s, arguments) {
+				payload->add_arguments(utf8::cvt<std::string>(s));
+			}
+
+			message.SerializeToString(&buffer);
+		}
 		NSCAPI::nagiosReturn functions::create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::wstring perf, std::string &buffer) {
 			create_simple_query_response(command, NSCAPI::returnUNKNOWN, msg, perf, buffer);
 			return NSCAPI::returnUNKNOWN;
@@ -311,14 +348,61 @@ namespace nscapi {
 			create_simple_query_response(command, NSCAPI::returnUNKNOWN, msg, _T(""), buffer);
 			return NSCAPI::returnUNKNOWN;
 		}
+		NSCAPI::nagiosReturn functions::create_simple_query_response_unknown(std::wstring command, std::string msg, std::string &buffer) {
+			Plugin::QueryResponseMessage message;
+			create_simple_header(message.mutable_header());
 
-		void functions::create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
+			::Plugin::QueryResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(utf8::cvt<std::string>(command));
+			payload->set_message(utf8::cvt<std::string>(msg));
+			payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+
+			message.SerializeToString(&buffer);
+			return NSCAPI::returnUNKNOWN;
+		}
+		NSCAPI::nagiosReturn functions::create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer) {
+			Plugin::QueryResponseMessage message;
+			create_simple_header(message.mutable_header());
+
+			::Plugin::QueryResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(command);
+			payload->set_message(msg);
+			payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+
+			message.SerializeToString(&buffer);
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		NSCAPI::nagiosReturn functions::create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer) {
 			Plugin::QueryResponseMessage message;
 			create_simple_header(message.mutable_header());
 
 			append_simple_query_response_payload(message.add_payload(), command, ret, msg, perf);
 
 			message.SerializeToString(&buffer);
+			return ret;
+		}
+
+		NSCAPI::nagiosReturn functions::create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer) {
+			Plugin::QueryResponseMessage message;
+			create_simple_header(message.mutable_header());
+
+			append_simple_query_response_payload(message.add_payload(), command, ret, msg, perf);
+
+			message.SerializeToString(&buffer);
+			return ret;
+		}
+		NSCAPI::nagiosReturn functions::create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer) {
+			Plugin::QueryResponseMessage message;
+			create_simple_header(message.mutable_header());
+
+			::Plugin::QueryResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(utf8::cvt<std::string>(command));
+			payload->set_message(utf8::cvt<std::string>(msg));
+			payload->set_result(nagios_status_to_gpb(ret));
+
+			message.SerializeToString(&buffer);
+			return ret;
 		}
 
 
@@ -339,8 +423,8 @@ namespace nscapi {
 		}
 
 		void functions::append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf) {
-			payload->set_command(utf8::cvt<std::string>(command));
-			payload->set_message(utf8::cvt<std::string>(msg));
+			payload->set_command(command);
+			payload->set_message(msg);
 			payload->set_result(nagios_status_to_gpb(ret));
 			if (!perf.empty())
 				parse_performance_data(payload, perf);
@@ -372,6 +456,36 @@ namespace nscapi {
 		}
 
 
+		void functions::parse_simple_query_request(std::list<std::string> &args, const std::string &request) {
+			decoded_simple_command_data data;
+
+			Plugin::QueryRequestMessage message;
+			message.ParseFromString(request);
+
+			if (message.payload_size() != 1) {
+				THROW_INVALID_SIZE(message.payload_size());
+			}
+			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
+			for (int i=0;i<payload.arguments_size();i++) {
+				args.push_back(payload.arguments(i));
+			}
+		}
+		functions::decoded_simple_command_data functions::parse_simple_query_request(const std::string command, const std::string &request) {
+			decoded_simple_command_data data;
+
+			data.command = utf8::cvt<std::wstring>(command);
+			Plugin::QueryRequestMessage message;
+			message.ParseFromString(request);
+
+			if (message.payload_size() != 1) {
+				THROW_INVALID_SIZE(message.payload_size());
+			}
+			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
+			for (int i=0;i<payload.arguments_size();i++) {
+				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
+			}
+			return data;
+		}
 		functions::decoded_simple_command_data functions::parse_simple_query_request(const wchar_t* char_command, const std::string &request) {
 			decoded_simple_command_data data;
 
@@ -380,11 +494,27 @@ namespace nscapi {
 			message.ParseFromString(request);
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
 				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
+			}
+			return data;
+		}
+		functions::decoded_simple_command_data_utf8 functions::parse_simple_query_request_utf8(const wchar_t* char_command, const std::string &request) {
+			decoded_simple_command_data_utf8 data;
+
+			data.command = utf8::cvt<std::string>(char_command);
+			Plugin::QueryRequestMessage message;
+			message.ParseFromString(request);
+
+			if (message.payload_size() != 1) {
+				THROW_INVALID_SIZE(message.payload_size());
+			}
+			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
+			for (int i=0;i<payload.arguments_size();i++) {
+				data.args.push_back(payload.arguments(i));
 			}
 			return data;
 		}
@@ -405,12 +535,28 @@ namespace nscapi {
 			if (message.payload_size() == 0) {
 				return NSCAPI::returnUNKNOWN;
 			} else if (message.payload_size() > 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
 			msg = utf8::cvt<std::wstring>(payload.message());
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
+			return gbp_to_nagios_status(payload.result());
+		}
+		int functions::parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf) {
+			Plugin::QueryResponseMessage message;
+			message.ParseFromString(response);
+
+
+			if (message.payload_size() == 0) {
+				return NSCAPI::returnUNKNOWN;
+			} else if (message.payload_size() > 1) {
+				THROW_INVALID_SIZE(message.payload_size());
+			}
+
+			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
+			msg = utf8::cvt<std::string>(payload.message());
+			perf = utf8::cvt<std::string>(build_performance_data(payload));
 			return gbp_to_nagios_status(payload.result());
 		}
 
@@ -426,6 +572,20 @@ namespace nscapi {
 			payload->set_command(utf8::cvt<std::string>(command));
 
 			BOOST_FOREACH(std::wstring s, args)
+				payload->add_arguments(utf8::cvt<std::string>(s));
+
+			message.SerializeToString(&request);
+		}
+
+		void functions::create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request) {
+
+			Plugin::ExecuteRequestMessage message;
+			create_simple_header(message.mutable_header());
+
+			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
+			payload->set_command(utf8::cvt<std::string>(command));
+
+			BOOST_FOREACH(std::string s, args)
 				payload->add_arguments(utf8::cvt<std::string>(s));
 
 			message.SerializeToString(&request);
@@ -456,6 +616,19 @@ namespace nscapi {
 			}
 			return ret;
 		}
+		int functions::parse_simple_exec_response(const std::string &response, std::list<std::string> &result) {
+			int ret = 0;
+			Plugin::ExecuteResponseMessage message;
+			message.ParseFromString(response);
+
+			for (int i=0;i<message.payload_size(); i++) {
+				result.push_back(utf8::cvt<std::string>(message.payload(i).message()));
+				int r=gbp_to_nagios_status(message.payload(i).result());
+				if (r > ret)
+					ret = r;
+			}
+			return ret;
+		}
 		void functions::parse_simple_exec_result(const std::string &response, std::wstring &result) {
 			Plugin::ExecuteResponseMessage message;
 			message.ParseFromString(response);
@@ -478,7 +651,7 @@ namespace nscapi {
 				data.target = utf8::cvt<std::wstring>(message.header().recipient_id());
 
 			if (message.payload_size() != 1) {
-				throw nscapi_exception("Whoops, invalid payload size (for now)");
+				THROW_INVALID_SIZE(message.payload_size());
 			}
 			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
@@ -568,14 +741,14 @@ namespace nscapi {
 					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend)));
 					floatPerfData->set_unit(utf8::cvt<std::string>(fitem.second.substr(pend)));
 				}
-				if (items.size() > 2) {
+				if (items.size() >= 2 && items[1].size() > 0)
 					floatPerfData->set_warning(trim_to_double(items[1]));
+				if (items.size() >= 3 && items[2].size() > 0)
 					floatPerfData->set_critical(trim_to_double(items[2]));
-				}
-				if (items.size() >= 5) {
+				if (items.size() >= 4 && items[3].size() > 0)
 					floatPerfData->set_minimum(trim_to_double(items[3]));
+				if (items.size() >= 5 && items[4].size() > 0)
 					floatPerfData->set_maximum(trim_to_double(items[4]));
-				}
 			}
 		}
 		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf) {
@@ -614,18 +787,26 @@ namespace nscapi {
 					ss << strEx::s::itos_non_sci(fval.value());
 					if (fval.has_unit())
 						ss << fval.unit();
-					if (!fval.has_warning())
+					if (!fval.has_warning() && !fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.warning());
-					if (!fval.has_critical())	
+					ss << ";";
+					if (fval.has_warning())
+						ss << strEx::s::itos_non_sci(fval.warning());
+					if (!fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.critical());
-					if (!fval.has_minimum())
+					ss << ";";
+					if (fval.has_critical())
+						ss << strEx::s::itos_non_sci(fval.critical());
+					if (!fval.has_minimum() && !fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.minimum());
+					ss << ";";
+					if (fval.has_minimum())
+						ss << strEx::s::itos_non_sci(fval.minimum());
 					if (!fval.has_maximum())
 						continue;
-					ss << ";" << strEx::s::itos_non_sci(fval.maximum());
+					ss << ";";
+					if (fval.has_maximum())
+						ss << strEx::s::itos_non_sci(fval.maximum());
 				}
 			}
 			return ss.str();

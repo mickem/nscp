@@ -21,13 +21,14 @@
 #include "stdafx.h"
 #include "NSCAClient.h"
 
-#include <boost/tuple/tuple.hpp>
 #include <utils.h>
 #include <strEx.h>
 
 #include <cryptopp/cryptopp.hpp>
 #include <nsca/nsca_packet.hpp>
-#include <nsca/nsca_socket.hpp>
+
+#include <nsca/client/nsca_client_protocol.hpp>
+#include <socket/client.hpp>
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -227,8 +228,35 @@ void NSCAAgent::add_local_options(po::options_description &desc, client::configu
 		("encryption,e", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "encryption", _1)), 
 		"Length of payload (has to be same as on the server)")
 
+		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
+		"Length of payload (has to be same as on the server)")
+
+		("certificate-key", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		"Client certificate to use")
+
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
+		"Client certificate format")
+
+		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
+		"Certificate authority")
+
+		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
+		"Client certificate format")
+
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
+		"Client certificate format")
+
 		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
 		"Length of payload (has to be same as on the server)")
+
+		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+			"Length of payload (has to be same as on the server)")
+
+ 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+			"Initial an ssl handshake with the server.")
 
 		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
 		"")
@@ -359,23 +387,43 @@ int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, con
 //////////////////////////////////////////////////////////////////////////
 // Protocol implementations
 //
-
-boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::list<nsca::packet> packets) {
-	try {
-		NSC_DEBUG_MSG_STD(_T("Connection details: ") + data.to_wstring());
-		boost::asio::io_service io_service;
-		nsca::socket socket(io_service);
-		socket.connect(data.host, data.port);
-		if (!socket.recv_iv(data.password, data.get_encryption(), boost::posix_time::seconds(data.timeout<5?30:data.timeout))) {
-			NSC_LOG_ERROR_STD(_T("Failed to read iv"));
-			return NSCAPI::hasFailed;
+struct client_handler : public socket_helpers::client::client_handler {
+	unsigned int encryption_;
+	std::string password_;
+	client_handler(NSCAAgent::connection_data &con) 
+		: encryption_(con.get_encryption())
+		, password_(con.password)
+	{}
+	void log_debug(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::cvt<std::wstring>(msg));
 		}
-		NSC_DEBUG_MSG_STD(_T("Got IV sending packets: ") + strEx::itos(packets.size()));
+	}
+	void log_error(std::string file, int line, std::string msg) const {
+		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::cvt<std::wstring>(msg));
+		}
+	}
+	unsigned int get_encryption() {
+		return encryption_;
+	}
+	std::string get_password() {
+		return password_;
+	}
+};
+
+boost::tuple<int,std::wstring> NSCAAgent::send(connection_data con, const std::list<nsca::packet> packets) {
+	try {
+		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+
+		socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::shared_ptr<client_handler>(new client_handler(con)));
+		client.connect();
+
 		BOOST_FOREACH(const nsca::packet &packet, packets) {
 			NSC_DEBUG_MSG_STD(_T("Sending (data): ") + utf8::cvt<std::wstring>(packet.to_string()));
-			socket.send_nsca(packet, boost::posix_time::seconds(data.timeout));
+			client.process_request(packet);
 		}
-		socket.shutdown();
+		client.shutdown();
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
 	} catch (const nscp::encryption::encryption_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSCA Error: ") + utf8::to_unicode(e.what()));
@@ -392,10 +440,10 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data data, const std::
 	}
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(NSCAAgent);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(NSCAAgent, _T("nsca"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
 

@@ -1,16 +1,13 @@
 #pragma once
 
 #include <nscp/packet.hpp>
-#include <nscp/handler.hpp>
+#include <nscp/server/handler.hpp>
 #include <boost/tuple/tuple.hpp>
 
-class handler_impl : private boost::noncopyable, public nscp::handler {
-	unsigned int payload_length_;
+class handler_impl : public nscp::server::handler {
 	bool allowArgs_;
-	bool allowNasty_;
-	bool noPerfData_;
 public:
-	handler_impl(unsigned int payload_length) : payload_length_(payload_length), noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
+	handler_impl() : allowArgs_(false) {}
 
 	NSCAPI::nagiosReturn handle_query_request(const std::string &request, Plugin::QueryRequestMessage &msg, std::string &reply);
 
@@ -25,21 +22,15 @@ public:
 	virtual void set_allow_arguments(bool v)  {
 		allowArgs_ = v;
 	}
-	virtual void set_allow_nasty_arguments(bool v) {
-		allowNasty_ = v;
-	}
-	virtual void set_perf_data(bool v) {
-		noPerfData_ = !v;
-		if (noPerfData_)
-			log_debug(__FILE__, __LINE__, _T("Performance data disabled!"));
-	}
 
-	void log_debug(std::string file, int line, std::wstring msg) {
+	virtual nscp::packet process(const nscp::packet &packet);
+
+	virtual void log_debug(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
-	void log_error(std::string file, int line, std::wstring msg) {
+	virtual void log_error(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
 			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}

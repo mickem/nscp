@@ -27,6 +27,8 @@ IF(WIN32)
 		simple_registry.hpp
 		filter.hpp
 
+		filters.hpp
+
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_FILTER_HPP}
 	)

@@ -47,7 +47,7 @@ namespace scheduler {
 		if (!running_)
 			return;
 		stop_requested_ = false;
-		int missing_threads = thread_count_ - threads_.size();
+		std::size_t missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
 			for (int i=0;i<missing_threads;i++) {
 				//std::wcout << _T("***START_THREAD: ") << threads_.size() << std::endl;
@@ -80,7 +80,6 @@ namespace scheduler {
 
 	void simple_scheduler::thread_proc(int id) {
 		try {
-			int iteration = 0;
 			schedule_queue_type::value_type instance;
 			while (!stop_requested_) {
 				instance = queue_.pop();

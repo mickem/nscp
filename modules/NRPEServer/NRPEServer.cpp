@@ -22,7 +22,6 @@
 #include "NRPEServer.h"
 #include <strEx.h>
 #include <time.h>
-//#include <config.h>
 #include "handler_impl.hpp"
 
 #include <settings/client/settings_client.hpp>
@@ -30,38 +29,38 @@
 namespace sh = nscapi::settings_helper;
 
 
-NRPEListener::NRPEListener() : info_(boost::shared_ptr<nrpe::server::handler>(new handler_impl(1024))) {
+NRPEServer::NRPEServer() : handler_(new handler_impl(1024)) {
 }
-NRPEListener::~NRPEListener() {}
+NRPEServer::~NRPEServer() {}
 
-bool NRPEListener::loadModule() {
+bool NRPEServer::loadModule() {
 	return false;
 }
 
-bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("NRPE"), alias, _T("server"));
 
 		settings.alias().add_path_to_settings()
-			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEListener.dll) (check_nrpe) protocol options."))
+			(_T("NRPE SERVER SECTION"), _T("Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options."))
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("port"), sh::uint_key(&info_.port, 5666),
+			(_T("port"), sh::string_key(&info_.port_, "5666"),
 			_T("PORT NUMBER"), _T("Port to use for NRPE."))
 
-			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nrpe::server::handler::set_payload_length, info_.request_handler, _1), 1024),
+			(_T("payload length"), sh::int_fun_key<unsigned int>(boost::bind(&nrpe::server::handler::set_payload_length, handler_, _1), 1024),
 			_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."), true)
 
-			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_arguments, info_.request_handler, _1), false),
+			(_T("allow arguments"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_arguments, handler_, _1), false),
 			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
 
-			(_T("allow nasty characters"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_nasty_arguments, info_.request_handler, _1), false),
+			(_T("allow nasty characters"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_allow_nasty_arguments, handler_, _1), false),
 			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
 
-			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_perf_data, info_.request_handler, _1), true),
+			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&nrpe::server::handler::set_perf_data, handler_, _1), true),
 			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."), true)
 
 			;
@@ -86,12 +85,29 @@ bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
 
-			(_T("use ssl"), sh::bool_key(&info_.use_ssl, true),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, true),
+			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
 
-			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
-			_T("SSL CERTIFICATE"), _T("Configure which SSL certificate to use (DH key)"))
+			(_T("dh"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+			_T("DH KEY"), _T(""), true)
 
+			(_T("certificate"), sh::path_key(&info_.ssl.certificate),
+			_T("SSL CERTIFICATE"), _T(""), false)
+
+			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key),
+			_T("SSL CERTIFICATE"), _T(""), true)
+
+			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
+			_T("CERTIFICATE FORMAT"), _T(""), true)
+
+			(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
+			_T("CA"), _T(""), true)
+
+			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ADH"),
+			_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+
+			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
+			_T("VERIFY MODE"), _T(""), false)
 			;
 
 		settings.register_all();
@@ -101,43 +117,28 @@ bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 #ifndef USE_SSL
 		if (info_.use_ssl) {
 			NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+			return false;
 		}
 #endif
-		if (info_.request_handler->get_payload_length() != 1024)
-			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(info_.request_handler->get_payload_length()));
-		if (!boost::filesystem::is_regular(info_.certificate))
-			NSC_LOG_ERROR_STD(_T("Certificate not found: ") + info_.certificate);
-
+		if (handler_->get_payload_length() != 1024)
+			NSC_DEBUG_MSG_STD(_T("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = ") + strEx::itos(handler_->get_payload_length()));
+		NSC_LOG_ERROR_LISTW(info_.validate());
 
 		std::list<std::string> errors;
 		info_.allowed_hosts.refresh(errors);
-		BOOST_FOREACH(const std::string &e, errors) {
-			NSC_LOG_ERROR_STD(utf8::cvt<std::wstring>(e));
-		}
+		NSC_LOG_ERROR_LISTS(errors);
 		NSC_DEBUG_MSG_STD(_T("Allowed hosts definition: ") + info_.allowed_hosts.to_wstring());
 
 		boost::asio::io_service io_service_;
 
 		if (mode == NSCAPI::normalStart) {
-			if (info_.use_ssl) {
-#ifdef USE_SSL
-				server_.reset(new nrpe::server::server(info_));
-#else
-				NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
-				return false;
-#endif
-			} else {
-				server_.reset(new nrpe::server::server(info_));
-			}
+			server_.reset(new nrpe::server::server(info_, handler_));
 			if (!server_) {
 				NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 				return false;
 			}
 			server_->start();
 		}
-	} catch (nrpe::server::nrpe_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
-		return false;
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
 		return false;
@@ -150,7 +151,7 @@ bool NRPEListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 	return true;
 }
 
-bool NRPEListener::unloadModule() {
+bool NRPEServer::unloadModule() {
 	try {
 		if (server_) {
 			server_->stop();
@@ -163,15 +164,7 @@ bool NRPEListener::unloadModule() {
 	return true;
 }
 
-
-bool NRPEListener::hasCommandHandler() {
-	return false;
-}
-bool NRPEListener::hasMessageHandler() {
-	return false;
-}
-
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(NRPEListener);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_IGNORE_CMD_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(NRPEServer, _T("nrpe"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_IGNORE_CMD_DEF()

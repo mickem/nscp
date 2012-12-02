@@ -1,5 +1,3 @@
-#pragma once
-
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/list_value.hpp>
 #include <parsers/where/binary_op.hpp>

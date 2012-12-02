@@ -42,11 +42,11 @@ bool DotnetPlugin::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 
 	try {
 		root_path = get_core()->expand_path(module_path);
-		get_core()->settings_register_path(settings_path, _T("DOTNET MODULES"), _T("List all dot net modules loaded by the DotNetplugins module here"), false);
+		get_core()->settings_register_path(get_id(), settings_path, _T("DOTNET MODULES"), _T("List all dot net modules loaded by the DotNetplugins module here"), false);
 
 		std::list<std::wstring> keys = get_core()->getSettingsSection(settings_path);
 		BOOST_FOREACH(std::wstring key, keys) {
-			get_core()->settings_register_key(settings_path + _T("/") + key, factory_key, NSCAPI::key_string, _T("DOTNET FACTORY"), _T("The class to instasitate in the dot-net plugin"), factory_default, true);
+			get_core()->settings_register_key(get_id(), settings_path + _T("/") + key, factory_key, NSCAPI::key_string, _T("DOTNET FACTORY"), _T("The class to instasitate in the dot-net plugin"), factory_default, true);
 		}
 		if (mode == NSCAPI::normalStart) {
 			BOOST_FOREACH(std::wstring key, keys) {
@@ -85,6 +85,14 @@ void DotnetPlugin::load(std::wstring key, std::wstring val) {
 		NSC_LOG_ERROR_STD(_T("CLR failed to load!"));
 	}
 }
+bool DotnetPlugin::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
+	get_core()->settings_register_key(id_, path, key, type, title, description, defaultValue, advanced);
+	return true;
+}
+bool DotnetPlugin::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+	get_core()->settings_register_path(id_, path, title, description, advanced);
+	return true;
+}
 
 bool DotnetPlugin::register_command(std::wstring command, plugin_instance::plugin_type plugin, std::wstring description){
 	commands[command] = plugin;
@@ -122,8 +130,8 @@ NSCAPI::nagiosReturn DotnetPlugin::handleRAWCommand(const wchar_t* char_command,
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + command + _T(": ") + to_nstring(e->ToString()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + command + _T(": ") + utf8::to_unicode(e.what()));
-		return NSCAPI::returnIgnored;
 	}
+	return NSCAPI::returnIgnored;
 }
 
 NSCAPI::nagiosReturn DotnetPlugin::handleRAWNotification(const std::wstring &channel, std::string &request, std::string &response) {
@@ -136,8 +144,8 @@ NSCAPI::nagiosReturn DotnetPlugin::handleRAWNotification(const std::wstring &cha
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + channel + _T(": ") + to_nstring(e->ToString()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute command ") + channel + _T(": ") + utf8::to_unicode(e.what()));
-		return NSCAPI::returnIgnored;
 	}
+	return NSCAPI::returnIgnored;
 }
 
 NSCAPI::nagiosReturn DotnetPlugin::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
@@ -152,7 +160,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 #pragma managed(pop)
 nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 
-NSC_WRAPPERS_MAIN_DEF(DotnetPlugin);
+NSC_WRAPPERS_MAIN_DEF(DotnetPlugin, _T("dotnet"));
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();
 NSC_WRAPPERS_CLI_DEF();

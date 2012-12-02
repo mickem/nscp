@@ -8,15 +8,13 @@
 
 namespace check_nt {
 	namespace server {
-		class parser : public boost::noncopyable{
+		class parser : public boost::noncopyable {
 			std::vector<char> buffer_;
-			boost::shared_ptr<check_nt::server::handler> handler_;
 		public:
-			parser(boost::shared_ptr<check_nt::server::handler> handler) : handler_(handler) {}
+			parser() {}
 
 			template <typename InputIterator>
 			boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
-				bool found = false;
 				for (;begin != end; ++begin) {
 					buffer_.push_back(*begin);
 					if (*begin == '\n') {

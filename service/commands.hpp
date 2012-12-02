@@ -23,10 +23,15 @@ namespace nsclient {
 			}
 
 		};
+		struct command_info {
+			std::wstring description;
+			unsigned int plugin_id;
+			std::wstring name;
+		};
 
 		typedef boost::shared_ptr<NSCPlugin> plugin_type;
 		typedef std::map<unsigned long,plugin_type> plugin_list_type;
-		typedef std::map<std::wstring,std::wstring> description_list_type;
+		typedef std::map<std::wstring,command_info> description_list_type;
 		typedef std::map<std::wstring,plugin_type> command_list_type;
 
 
@@ -91,7 +96,9 @@ namespace nsclient {
 			std::wstring lc = make_key(cmd);
 			if (!have_plugin(plugin_id))
 				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
-			descriptions_[lc] = desc;
+			descriptions_[lc].description = desc;
+			descriptions_[lc].plugin_id = plugin_id;
+			descriptions_[lc].name = cmd;
 			commands_[lc] = plugins_[plugin_id];
 		}
 private:
@@ -109,16 +116,19 @@ private:
 
 
 public:
-		std::wstring describe(std::wstring command) {
+		command_info describe(std::wstring command) {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
 				log_error(__FILE__, __LINE__, _T("Failed to get mutex: ") + command);
-				return _T("error: ") + command;
+				return command_info();
 			}
 			std::wstring lc = make_key(command);
 			description_list_type::const_iterator cit = descriptions_.find(lc);
-			if (cit == descriptions_.end())
-				return _T("Command not found: ") + command;
+			if (cit == descriptions_.end()) {
+				command_info info;
+				info.description = _T("Command not found: ") + command;
+				return info;
+			}
 			return (*cit).second;
 		}
 
@@ -129,8 +139,7 @@ public:
 				log_error(__FILE__, __LINE__, _T("Failed to get mutex"));
 				return lst;
 			}
-			std::pair<std::wstring,std::wstring> cit;
-			BOOST_FOREACH(cit, descriptions_) {
+			BOOST_FOREACH(description_list_type::value_type cit, descriptions_) {
 				lst.push_back(cit.first);
 			}
 			return lst;
@@ -185,7 +194,7 @@ public:
 			return boost::algorithm::to_lower_copy(key);
 		}
 		void log_error(const char* file, int line, std::wstring error) {
-			nsclient::logging::logger::get_logger()->error(file, line, error);
+			nsclient::logging::logger::get_logger()->error(_T("core"), file, line, error);
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {

@@ -26,9 +26,9 @@
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
-NSC_WRAPPERS_CHANNELS();
+NSC_WRAPPERS_MAIN()
+NSC_WRAPPERS_CLI()
+NSC_WRAPPERS_CHANNELS()
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
@@ -82,7 +82,7 @@ private:
 			timeout = recipient.get_int_data("timeout", 30);
 			path = recipient.get_string_data("path");
 			host = recipient.address.get_host();
-			port = strEx::s::itos(recipient.address.get_port(2003));
+			port = strEx::s::xtos(recipient.address.get_port(2003));
 			sender_hostname = sender.address.host;
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
@@ -130,11 +130,7 @@ public:
 	* @return The module name
 	*/
 	static std::wstring getModuleName() {
-#ifdef HAVE_LIBCRYPTOPP
-		return _T("NSCAClient");
-#else
-		return _T("NSCAClient (without encryption support)");
-#endif
+		return _T("GraphiteClient");
 	}
 	/**
 	* Module version
@@ -166,7 +162,6 @@ private:
 	void add_command(std::wstring key, std::wstring args);
 	void add_target(std::wstring key, std::wstring args);
 
-	static std::wstring getCryptos();
 	void set_delay(std::wstring key) {
 		time_delta_ = strEx::stol_as_time_sec(key, 1);
 	}

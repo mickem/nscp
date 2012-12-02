@@ -10,7 +10,6 @@ namespace parsers {
 	namespace where {
 		expression_ast binary_op::evaluate(filter_handler handler, value_type type) const {
 			factory::bin_op_type impl = factory::get_binary_operator(op, left, right);
-			value_type expected_type = get_return_type(op, type);
 			if (type_is_int(type)) {
 				return impl->evaluate(handler, left, right);
 			}

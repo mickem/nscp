@@ -11,14 +11,16 @@
 namespace nsca {
 	namespace server {
 		class parser : public boost::noncopyable{
-			std::string buffer_;
-			unsigned int packet_length_;
 			unsigned int payload_length_;
+			unsigned int packet_length_;
+
+			std::string buffer_;
 			boost::shared_ptr<nsca::server::handler> handler_;
 		public:
-			parser(boost::shared_ptr<nsca::server::handler> handler) : handler_(handler) {
-				set_payload_length(handler->get_payload_length());
-			}
+			parser(unsigned int payload_length) 
+				: payload_length_(payload_length)
+				, packet_length_(nsca::length::get_packet_length(payload_length)) 
+			{}
 
 			template <typename InputIterator>
 			boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
@@ -40,13 +42,11 @@ namespace nsca {
 			std::string get_buffer() const {
 				return buffer_;
 			}
-			void set_payload_length(unsigned int length) {
-				payload_length_ = length;
-				packet_length_ = nsca::length::get_packet_length(length);
-			}
-			int get_payload_lenght() const { return payload_length_; }
 			std::string::size_type size() {
 				return buffer_.size();
+			}
+			void reset() {
+				buffer_.clear();
 			}
 		};
 

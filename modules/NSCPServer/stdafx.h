@@ -46,7 +46,7 @@ include <Windows.h>
 #include <boost/asio/ssl.hpp>
 #endif
 
-#include <config.h>
+#include <strEx.h>
 #include <utils.h>
 
 #include <types.hpp>

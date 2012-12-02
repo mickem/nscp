@@ -93,13 +93,13 @@ public:
 		return ret;
 	}
 
-	static DWORD appendType(DWORD dwType, std::wstring sType) {
+	static WORD appendType(WORD dwType, std::wstring sType) {
 		return dwType | translateType(sType);
 	}
-	static DWORD subtractType(DWORD dwType, std::wstring sType) {
+	static WORD subtractType(WORD dwType, std::wstring sType) {
 		return dwType & (!translateType(sType));
 	}
-	static DWORD translateType(std::wstring sType) {
+	static WORD translateType(std::wstring sType) {
 		if (sType.empty())
 			return EVENTLOG_ERROR_TYPE;
 		if (sType == _T("error"))
@@ -116,7 +116,7 @@ public:
 			return EVENTLOG_AUDIT_FAILURE;
 		return strEx::stoi(sType);
 	}
-	static std::wstring translateType(DWORD dwType) {
+	static std::wstring translateType(WORD dwType) {
 		if (dwType == EVENTLOG_ERROR_TYPE)
 			return _T("error");
 		if (dwType == EVENTLOG_WARNING_TYPE)
@@ -131,7 +131,7 @@ public:
 			return _T("auditFailure");
 		return strEx::itos(dwType);
 	}
-	static DWORD translateSeverity(std::wstring sType) {
+	static WORD translateSeverity(std::wstring sType) {
 		if (sType.empty())
 			return 0;
 		if (sType == _T("success"))
@@ -144,7 +144,7 @@ public:
 			return 3;
 		return strEx::stoi(sType);
 	}
-	static std::wstring translateSeverity(DWORD dwType) {
+	static std::wstring translateSeverity(WORD dwType) {
 		if (dwType == 0)
 			return _T("success");
 		if (dwType == 1)
@@ -166,19 +166,19 @@ public:
 
 	struct tchar_array {
 		TCHAR **buffer;
-		unsigned int size;
-		tchar_array(unsigned int size) : buffer(NULL), size(size) {
+		std::size_t size;
+		tchar_array(std::size_t size) : buffer(NULL), size(size) {
 			buffer = new TCHAR*[size];
-			for (int i=0;i<size;i++) 
+			for (std::size_t i=0;i<size;i++) 
 				buffer[i] = NULL;
 		}
 		~tchar_array() {
-			for (int i=0;i<size;i++) 
+			for (std::size_t i=0;i<size;i++) 
 				delete [] buffer[i];
 			delete [] buffer;
 		}
-		unsigned int set(int i, const TCHAR* str) {
-			unsigned int len = wcslen(str);
+		std::size_t set(std::size_t i, const TCHAR* str) {
+			std::size_t len = wcslen(str);
 			buffer[i] = new TCHAR[len+2];
 			wcsncpy(buffer[i], str, len+1);
 			return len;
@@ -302,6 +302,7 @@ public:
 		strEx::replace(syntax, _T("%rawid%"), strEx::itos(raw_id()));
 		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
 		strEx::replace(syntax, _T("%strings%"), enumStrings());
+		strEx::replace(syntax, _T("%level%"), translateType(eventType()));
 		strEx::replace(syntax, _T("%log%"), file_);
 		strEx::replace(syntax, _T("%file%"), file_);
 		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));

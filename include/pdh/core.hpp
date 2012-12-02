@@ -36,23 +36,25 @@ namespace PDH {
 		bool error_;
 		bool more_data_;
 		bool negative_denominator_;
+		long status_;
 	public:
 		/*
 		PDHError(std::wstring message, bool error, bool more_data) : message_(message), error_(error), more_data_(more_data) {}
 		PDHError(bool error, bool more_data) : error_(error), more_data_(more_data) {}
 		*/
 		PDHError() : error_(false), more_data_(false), negative_denominator_(false) {}
-		PDHError(PDH_STATUS status) : error_(status!=ERROR_SUCCESS), more_data_(status==PDH_MORE_DATA), negative_denominator_(status==PDH_CALC_NEGATIVE_DENOMINATOR)
+		PDHError(PDH_STATUS status) : status_(status), error_(status!=ERROR_SUCCESS), more_data_(status==PDH_MORE_DATA), negative_denominator_(status==PDH_CALC_NEGATIVE_DENOMINATOR)
 		{
 			if (is_error()) {
 				message_ = error::format::from_module(_T("PDH.DLL"), status);
 			}
 		}
-		PDHError(const PDHError &other) : error_(other.error_), more_data_(other.more_data_), message_(other.message_), negative_denominator_(other.negative_denominator_) {}
+		PDHError(const PDHError &other) : error_(other.error_), more_data_(other.more_data_), message_(other.message_), negative_denominator_(other.negative_denominator_), status_(other.status_) {}
 		PDHError& operator=(PDHError const& other) {
 			error_ = other.error_;
 			more_data_ = other.more_data_;
 			message_ = other.message_;
+			status_ = other.status_;
 			negative_denominator_ = other.negative_denominator_;
 			return *this;
 		}

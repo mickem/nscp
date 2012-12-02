@@ -34,11 +34,15 @@ namespace nscapi {
 	namespace protobuf {
 		namespace types {
 	
-			struct decoded_simple_command_data {
-				std::wstring command;
-				std::wstring target;
-				std::list<std::wstring> args;
+			template<class T>
+			struct decoded_simple_command_data_raw {
+				T command;
+				T target;
+				std::list<T> args;
 			};
+
+			typedef decoded_simple_command_data_raw<std::wstring> decoded_simple_command_data;
+			typedef decoded_simple_command_data_raw<std::string> decoded_simple_command_data_utf8;
 
 			struct destination_container {
 				std::string id;
@@ -54,7 +58,7 @@ namespace nscapi {
 					address = net::parse(value);
 				}
 				void set_port(std::string value) {
-					address.port = strEx::stoi(value);
+					address.port = strEx::s::stox<unsigned int>(value);
 				}
 				std::string get_protocol() const {
 					return address.protocol;
@@ -116,7 +120,6 @@ namespace nscapi {
 				void import(const destination_container &other);
 				void apply(const destination_container &other);
 			};
-		};
-
-	};
+		}
+	}
 }

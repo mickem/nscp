@@ -20,9 +20,9 @@
 ***************************************************************************/
 #pragma once
 
+#include <boost/thread.hpp>
+
 #include <pdh.hpp>
-#include <thread.h>
-#include <MutexRW.h>
 #include <boost/unordered_map.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -75,6 +75,14 @@ public:
 				, data_format(data_format)
 				, collection_strategy(collection_strategy)
 			{}
+			counter(std::wstring alias, std::wstring path, data_type_struct data_type, data_format_struct data_format, collection_strategy_struct collection_strategy, std::wstring buffer_size)
+				: alias(alias)
+				, path(path)
+				, data_type(data_type)
+				, data_format(data_format)
+				, collection_strategy(collection_strategy)
+				, buffer_size(buffer_size)
+			{}
 			data_type_struct data_type;
 			data_format_struct data_format;
 			std::wstring alias;
@@ -84,7 +92,8 @@ public:
 
 			boost::shared_ptr<PDHCollectors::PDHCollector> create(int check_intervall);
 			void set_default_buffer_size(std::wstring buffer_size_) {
-				buffer_size = buffer_size_;
+				if (buffer_size.empty())
+					buffer_size = buffer_size_;
 			}
 
 			int get_buffer_length(int check_intervall) {
@@ -104,24 +113,26 @@ public:
 
 		unsigned int check_intervall;
 		std::wstring buffer_length;
+		std::wstring subsystem;
 
 		std::list<counter> counters;
 	};
 
 private:
 
-	//system_counter_data *data_;
-	MutexRW mutex_;
-	HANDLE hStopEvent_;
+	boost::shared_mutex mutex_;
+	HANDLE stop_event_;
 	typedef boost::shared_ptr<PDHCollectors::PDHCollector> collector_ptr;
 	typedef boost::unordered_map<std::wstring,collector_ptr > counter_map;
 	counter_map counters_;
 	int check_intervall_;
+	boost::shared_ptr<boost::thread> thread_;
+	boost::shared_ptr<system_counter_data> thread_data_;
 
 public:
 	PDHCollector();
 	virtual ~PDHCollector();
-	DWORD threadProc(LPVOID lpParameter);
+	void thread_proc();
 	void exitThread(void);
 
 	// Retrieve values
@@ -134,7 +145,6 @@ public:
 	__int64 get_int_value(std::wstring counter);
 	double get_avg_value(std::wstring counter, unsigned int delta);
 	double get_double(std::wstring counter);
+	void start(boost::shared_ptr<system_counter_data> data);
+	bool stop();
 };
-
-
-typedef Thread<PDHCollector> PDHCollectorThread;

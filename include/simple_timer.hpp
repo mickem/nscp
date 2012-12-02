@@ -1,9 +1,11 @@
 #pragma once
 
+#include <boost/date_time.hpp>
+
 class simple_timer {
-	unsigned long long start_time;
-	bool log;
+	boost::posix_time::ptime start_time;
 	std::wstring text;
+	bool log;
 public:
 	simple_timer() {
 		start();
@@ -17,21 +19,17 @@ public:
 	}
 
 	void start() {
-		start_time = getFT();
+		start_time = get();
 	}
 	unsigned long long stop() {
-		unsigned int  ret = getFT() - start_time;
+		boost::posix_time::time_duration diff = get() - start_time;
 		start();
-		return ret/1000;
+		return diff.total_seconds();
 	}
 
 private:
-	unsigned long long getFT() {
-		SYSTEMTIME systemTime;
-		GetSystemTime( &systemTime );
-		FILETIME fileTime;
-		SystemTimeToFileTime( &systemTime, &fileTime );
-		return  static_cast<unsigned long long>(fileTime.dwHighDateTime) << 32 | fileTime.dwLowDateTime;
+	boost::posix_time::ptime get() {
+		return boost::posix_time::microsec_clock::local_time();
 	}
 
 };

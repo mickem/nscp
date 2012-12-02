@@ -103,10 +103,11 @@ class NSCPlugin : public boost::noncopyable, public nsclient::logging::raw_subsc
 private:
 	//bool bLoaded_;			// Status of plug in
 	dll::dll module_;
+	bool loaded_;
 	bool broken_;
 	unsigned int plugin_id_;
 	std::wstring alias_;
-	bool loaded_;
+	bool lastIsMsgPlugin_;
 
 	nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
 	nscapi::plugin_api::lpLoadModule fLoadModule;
@@ -116,8 +117,8 @@ private:
 	nscapi::plugin_api::lpHasCommandHandler fHasCommandHandler;
 	nscapi::plugin_api::lpHasMessageHandler fHasMessageHandler;
 	nscapi::plugin_api::lpHandleCommand fHandleCommand;
-	nscapi::plugin_api::lpDeleteBuffer fDeleteBuffer;
 	nscapi::plugin_api::lpHandleMessage fHandleMessage;
+	nscapi::plugin_api::lpDeleteBuffer fDeleteBuffer;
 	nscapi::plugin_api::lpUnLoadModule fUnLoadModule;
 	nscapi::plugin_api::lpCommandLineExec fCommandLineExec;
 	nscapi::plugin_api::lpHasNotificationHandler fHasNotificationHandler;
@@ -202,7 +203,6 @@ public:
 	}
 
 private:
-	bool lastIsMsgPlugin_;
 	bool getName_(wchar_t* buf, unsigned int buflen);
 	bool getDescription_(wchar_t* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);

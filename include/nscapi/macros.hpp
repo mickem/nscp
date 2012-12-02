@@ -36,6 +36,8 @@
 
 #define NSC_LOG_ERROR_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG((std::wstring)msg, NSCAPI::log_level::error); }
 #define NSC_LOG_ERROR(msg) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG(msg, NSCAPI::log_level::error); }
+#define NSC_LOG_ERROR_LISTW(lst) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { BOOST_FOREACH(const std::wstring &s, lst) { NSC_ANY_MSG(s, NSCAPI::log_level::error); } }
+#define NSC_LOG_ERROR_LISTS(lst) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { BOOST_FOREACH(const std::string &s, lst) { NSC_ANY_MSG(s, NSCAPI::log_level::error); } }
 
 #define NSC_LOG_CRITICAL_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::critical)) { NSC_ANY_MSG((std::wstring)msg, NSCAPI::log_level::critical); }
 #define NSC_LOG_CRITICAL(msg) if (GET_CORE()->should_log(NSCAPI::log_level::critical)) { NSC_ANY_MSG(msg, NSCAPI::log_level::critical); }
@@ -53,7 +55,7 @@
 
 #ifdef _WIN32
 #define NSC_WRAP_DLL() \
-	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { /*GET_PLUGIN()->wrapDllMain(hModule, ul_reason_for_call); */return TRUE; } \
+	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { return TRUE; } \
 	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 #else
 #define NSC_WRAP_DLL() \
@@ -61,11 +63,12 @@
 #endif
 
 
-#define NSC_WRAPPERS_MAIN_DEF(impl_class) \
+#define NSC_WRAPPERS_MAIN_DEF(impl_class, def_alias) \
 	typedef impl_class plugin_impl_class; \
 	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance; \
 	extern int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSModuleHelperInit(f); } \
 	extern int NSLoadModuleEx(unsigned int id, wchar_t* alias, int mode) { \
+		nscapi::basic_wrapper_static<plugin_impl_class>::set_alias(def_alias, alias); \
 		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
 		return wrapper.NSLoadModuleEx(id, alias, mode); } \
 	extern int NSLoadModule() { return nscapi::basic_wrapper_static<plugin_impl_class>::NSLoadModule(); } \
@@ -128,32 +131,4 @@
 	extern int NSHandleNotification(unsigned int id, const wchar_t* channel, const wchar_t* command, const char* result_buffer, unsigned int result_buffer_len) {} \
 	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { return NSCAPI::isfalse; }
 
-
-#define SETTINGS_MAKE_NAME(key) \
-	std::wstring(setting_keys::key ## _PATH + _T(".") + setting_keys::key)
-
-#define SETTINGS_GET_STRING(key) \
-	GET_CORE()->getSettingsString(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
-#define SETTINGS_GET_INT(key) \
-	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
-#define SETTINGS_GET_BOOL(key) \
-	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, setting_keys::key ## _DEFAULT)
-
-#define SETTINGS_GET_STRING_FALLBACK(key, fallback) \
-	GET_CORE()->getSettingsString(setting_keys::key ## _PATH, setting_keys::key, GET_CORE()->getSettingsString(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
-#define SETTINGS_GET_INT_FALLBACK(key, fallback) \
-	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, GET_CORE()->getSettingsInt(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
-#define SETTINGS_GET_BOOL_FALLBACK(key, fallback) \
-	GET_CORE()->getSettingsInt(setting_keys::key ## _PATH, setting_keys::key, GET_CORE()->getSettingsInt(setting_keys::fallback ## _PATH, setting_keys::fallback, setting_keys::fallback ## _DEFAULT))
-
-#define SETTINGS_REG_KEY_S(key) \
-	GET_CORE()->settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_string, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT, setting_keys::key ## _ADVANCED);
-#define SETTINGS_REG_KEY_I(key) \
-	GET_CORE()->settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, boost::lexical_cast<std::wstring>(setting_keys::key ## _DEFAULT), setting_keys::key ## _ADVANCED);
-#define SETTINGS_REG_KEY_B(key) \
-	GET_CORE()->settings_register_key(setting_keys::key ## _PATH, setting_keys::key, NSCAPI::key_integer, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _DEFAULT==1?_T("1"):_T("0"), setting_keys::key ## _ADVANCED);
-#define SETTINGS_REG_PATH(key) \
-	GET_CORE()->settings_register_path(setting_keys::key ## _PATH, setting_keys::key ## _TITLE, setting_keys::key ## _DESC, setting_keys::key ## _ADVANCED);
-
 #define GET_CORE() nscapi::plugin_singleton->get_core()
-#define GET_PLUGIN() nscapi::plugin_singleton->get_plugin()

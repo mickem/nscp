@@ -1,5 +1,6 @@
 #include <boost/asio.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 #include <strEx.h>
 #include <socket/socket_helpers.hpp>
@@ -9,65 +10,133 @@ const int socket_helpers::connection_info::backlog_default = 0;
 
 namespace ip = boost::asio::ip;
 
+std::list<std::wstring> socket_helpers::connection_info::validate() {
+	return validate_ssl();
+}
+
+std::list<std::wstring> socket_helpers::connection_info::validate_ssl() {
+	std::list<std::wstring> list;
+	if (!ssl.enabled)
+		return list;
+#ifndef USE_SSL
+	list.push_back(_T("SSL is not supported (not compiled with openssl)"));
+#endif
+
+	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate))
+		list.push_back(_T("Certificate not found: ") + utf8::cvt<std::wstring>(ssl.certificate));
+	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
+		list.push_back(_T("Certificate key not found: ") + utf8::cvt<std::wstring>(ssl.certificate_key));
+	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular(ssl.dh_key))
+		list.push_back(_T("DH key not found: ") + utf8::cvt<std::wstring>(ssl.dh_key));
+	return list;
+}
 
 std::wstring socket_helpers::allowed_hosts_manager::to_wstring() {
 	std::wstring ret;
-	BOOST_FOREACH(const host_record &r, entries) {
-		ip::address_v4 a(r.in_addr);
+	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
+		ip::address_v4 a(r.addr);
 		ip::address_v4 m(r.mask);
+		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
+		strEx::append_list(ret, s);
+	}
+	BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
+		ip::address_v6 a(r.addr);
+		ip::address_v6 m(r.mask);
 		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
 		strEx::append_list(ret, s);
 	}
 	return ret;
 }
 
-unsigned int socket_helpers::allowed_hosts_manager::lookup_mask(std::string mask) {
-	unsigned int masklen = 32;
+std::size_t extract_mask(std::string &mask, std::size_t masklen) {
 	if (!mask.empty()) {
-		std::string::size_type pos = mask.find_first_of("0123456789");
-		if (pos != std::wstring::npos) {
-			masklen = strEx::stoi(mask.substr(pos));
+		std::string::size_type p1 = mask.find_first_of("0123456789");
+		if (p1 != std::wstring::npos) {
+			std::string::size_type p2 = mask.find_first_not_of("0123456789", p1);
+			if (p2 != std::wstring::npos)
+				masklen = strEx::s::stox<std::size_t>(mask.substr(p1, p2));
+			else
+				masklen = strEx::s::stox<std::size_t>(mask.substr(p1));
 		}
 	}
-	if (masklen > 32)
-		masklen = 32;
-	return (0xffffffff << (32 - masklen )) & 0xffffffff;
+	return static_cast<unsigned int>(masklen);
+}
+
+template<class addr>
+addr calculate_mask(std::string mask_s) {
+	addr ret;
+	const unsigned int byte_size = 8;
+	const unsigned int largest_byte = 0xff;
+	unsigned int mask = extract_mask(mask_s, byte_size*ret.size());
+	unsigned int index = mask / byte_size;
+	unsigned int reminder = mask % byte_size;
+
+	unsigned int value = largest_byte - (largest_byte >> reminder);
+
+	for (unsigned int i=0;i<ret.size();i++) {
+		if (i < index)
+			ret[i] = largest_byte;
+		else if (i == index)
+			ret[i] = value;
+		else
+			ret[i] = 0;
+	}
+	return ret;
+}
+
+void socket_helpers::allowed_hosts_manager::set_source(std::wstring source) {
+	sources.clear();
+	BOOST_FOREACH(std::wstring s, strEx::splitEx(source, std::wstring(_T(",")))) {
+		boost::trim(s);
+		if (!s.empty())
+			sources.push_back(utf8::cvt<std::string>(s));
+	}
 }
 
 void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &errors) {
 	boost::asio::io_service io_service;
 	ip::tcp::resolver resolver(io_service);
-	entries.clear();
-	host_record tmp_record;
-	BOOST_FOREACH(std::string &record, sources) {
-		boost::trim(record);
-		if (!record.empty()) {
-			std::string::size_type pos = record.find('/');
-			if (pos == std::string::npos) {
-				tmp_record.host = record;
-				tmp_record.mask = lookup_mask("");
-			} else {
-				tmp_record.host = record.substr(0, pos);
-				tmp_record.mask = lookup_mask(record.substr(pos));
-			}
+	entries_v4.clear();
+	entries_v6.clear();
+	BOOST_FOREACH(const std::string &record, sources) {
+		std::string::size_type pos = record.find('/');
+		std::string addr, mask;
+		if (pos == std::string::npos) {
+			addr = record;
+			mask = "";
+		} else {
+			addr = record.substr(0, pos);
+			mask = record.substr(pos);
+		}
+		if (addr.empty())
+			continue;
 
-			if (std::isdigit(tmp_record.host[0])) {
-				ip::address_v4 a = ip::address_v4::from_string(tmp_record.host);
-				tmp_record.in_addr = a.to_ulong();
-				entries.push_back(tmp_record);
+		if (std::isdigit(addr[0])) {
+			ip::address a = ip::address::from_string(addr);
+			if (a.is_v4()) {
+				entries_v4.push_back(host_record_v4(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask)));
+			} else if (a.is_v6()) {
+				entries_v6.push_back(host_record_v6(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask)));
 			} else {
-				try {
-					ip::tcp::resolver::query query(tmp_record.host, "");
-					ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-					ip::tcp::resolver::iterator end;
-					for (;endpoint_iterator != end; ++endpoint_iterator) {
-						tmp_record.in_addr = endpoint_iterator->endpoint().address().to_v4().to_ulong();
-						tmp_record.host = endpoint_iterator->endpoint().address().to_string();
-						entries.push_back(tmp_record);
+				errors.push_back("Invalid address: " + record);
+			}
+		} else {
+			try {
+				ip::tcp::resolver::query query(addr, "");
+				ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+				ip::tcp::resolver::iterator end;
+				for (;endpoint_iterator != end; ++endpoint_iterator) {
+					ip::address a = endpoint_iterator->endpoint().address();
+					if (a.is_v4()) {
+						entries_v4.push_back(host_record_v4(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask)));
+					} else if (a.is_v6()) {
+						entries_v6.push_back(host_record_v6(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask)));
+					} else {
+						errors.push_back("Invalid address: " + record);
 					}
-				} catch (const std::exception &e) {
-					errors.push_back("Failed to lookup allowed host " + record + ": " + e.what());
 				}
+			} catch (const std::exception &e) {
+				errors.push_back("Failed to parse host " + record + ": " + e.what());
 			}
 		}
 	}
@@ -83,3 +152,76 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 // 		std::cout << "timer aborted incorrectly: " << b.message() << std::endl;
 	}
 }
+#ifdef USE_SSL
+void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> errors) {
+	boost::system::error_code er;
+	if (!certificate.empty() && certificate != "none") {
+		context.use_certificate_file(certificate, get_certificate_format(), er);
+		if (er)
+			errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+		if (!certificate_key.empty() && certificate_key != "none") {
+			context.use_private_key_file(certificate_key, get_certificate_key_format(), er);
+			if (er)
+				errors.push_back("Failed to load certificate key " + certificate_key + ": " + utf8::utf8_from_native(er.message()));
+		} else {
+			context.use_private_key_file(certificate, get_certificate_key_format(), er);
+			if (er)
+				errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+		}
+	}
+	context.set_verify_mode(get_verify_mode(), er);
+	if (er)
+		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
+	if (!allowed_ciphers.empty())
+		SSL_CTX_set_cipher_list(context.impl(), allowed_ciphers.c_str());
+	if (!dh_key.empty() && dh_key != "none") {
+		context.use_tmp_dh_file(dh_key, er);
+		if (er)
+			errors.push_back("Failed to set dh file " + dh_key + ": " + utf8::utf8_from_native(er.message()));
+	}
+
+	if (!ca_path.empty()) {
+		context.load_verify_file(ca_path, er);
+		if (er)
+			errors.push_back("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()));
+	}
+}
+
+boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode()
+{
+	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
+	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(verify_mode, std::string(","))) {
+		if (key == "client-once")
+			mode |= boost::asio::ssl::context_base::verify_client_once;
+		else if (key == "none")
+			mode |= boost::asio::ssl::context_base::verify_none;
+		else if (key == "peer")
+			mode |= boost::asio::ssl::context_base::verify_peer;
+		else if (key == "fail-if-no-cert")
+			mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
+		else if (key == "peer-cert") {
+			mode |= boost::asio::ssl::context_base::verify_peer;
+			mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
+		}
+		else if (key == "workarounds")
+			mode |= boost::asio::ssl::context_base::default_workarounds;
+		else if (key == "single")
+			mode |= boost::asio::ssl::context::single_dh_use;
+	}
+	return mode;
+}
+
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format()
+{
+	if (certificate_format == "asn1")
+		return boost::asio::ssl::context::asn1;
+	return boost::asio::ssl::context::pem;
+}
+
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_key_format()
+{
+	if (certificate_key_format == "asn1")
+		return boost::asio::ssl::context::asn1;
+	return boost::asio::ssl::context::pem;
+}
+#endif

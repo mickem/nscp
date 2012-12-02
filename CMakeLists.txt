@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 PROJECT(NSCP CXX C)
 
+ENABLE_TESTING()
 IF(COMMAND CMAKE_POLICY)
 CMAKE_POLICY(SET CMP0011 NEW)
 ENDIF(COMMAND CMAKE_POLICY)
@@ -75,6 +76,15 @@ ELSE(NOT HAVE_REQUIRED_DEPENDENCIES)
 	MESSAGE(STATUS " - All required dependecies found! (some modules and features migh stil be missing though)")
 ENDIF(NOT HAVE_REQUIRED_DEPENDENCIES)
 
+FIND_PACKAGE(JSON_SPIRIT)
+IF (JSON_SPIRIT_FOUND)
+	MESSAGE(STATUS "Found json spirit in: ${JSON_SPIRIT_INCLUDE_DIR}")
+ENDIF (JSON_SPIRIT_FOUND)
+
+FIND_PACKAGE(ZeroMQ)
+IF (ZEROMQ_FOUND)
+	MESSAGE(STATUS "Found zeromq (lib) in: ${ZEROMQ_LIBRARY}")
+ENDIF (ZEROMQ_FOUND)
 
 #############################################################################
 #
@@ -250,8 +260,8 @@ ADD_SUBDIRECTORY("helpers/where_filter")
 
 SET(NSCP_DEF_PLUGIN_CPP)
 SET(NSCP_DEF_PLUGIN_HPP
-#	${NSCP_INCLUDEDIR}/utf8.hpp
-#	${NSCP_INCLUDEDIR}/format.hpp
+	${NSCP_INCLUDEDIR}/utf8.hpp
+	${NSCP_INCLUDEDIR}/format.hpp
 	${NSCP_INCLUDEDIR}/strEx.h
 	${NSCP_INCLUDEDIR}/config.h
 	${NSCP_INCLUDEDIR}/utils.h
@@ -286,6 +296,10 @@ SET(NSCP_DEF_PLUGIN_LIB
 #############################################################################
 
 SET(MAIN_NSCP_TARGET "nscp")
+IF(BREAKPAD_FOUND)
+	SET(MAIN_NSCP_TARGET ${MAIN_NSCP_TARGET} "nscpnobp")
+ENDIF(BREAKPAD_FOUND)
+
 
 ADD_SUBDIRECTORY("service")
 ADD_SUBDIRECTORY("scripts")
@@ -316,8 +330,6 @@ IF(MSVC_IDE)
     # hack to get around the "Debug" and "Release" directories cmake tries to add on Windows
     SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES PREFIX "../")
 ENDIF(MSVC_IDE)
-
-ENABLE_TESTING()
 
 #############################################################################
 #

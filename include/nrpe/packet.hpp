@@ -75,19 +75,11 @@ namespace nrpe {
 	class nrpe_exception : public std::exception {
 		std::string error_;
 	public:
-		nrpe_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
-		nrpe_exception(std::string error) : error_(utf8::cvt<std::string>(error)) {}
+		nrpe_exception(std::string error) : error_(error) {}
 		~nrpe_exception() throw() {}
 		const char* what() const throw() {
 			return error_.c_str();
 		}
-		const std::wstring wwhat() const throw() {
-			return utf8::to_unicode(error_);
-		}
-	};
-	class nrpe_packet_exception : public nrpe_exception {
-	public:
-		nrpe_packet_exception(std::wstring error) : nrpe_exception(error) {}
 	};
 
 	class packet /*: public boost::noncopyable*/ {
@@ -95,40 +87,49 @@ namespace nrpe {
 
 
 	private:
-		std::wstring payload_;
+		char *tmpBuffer;
+		unsigned int payload_length_;
 		short type_;
 		short version_;
 		int result_;
+		std::string payload_;
 		unsigned int crc32_;
 		unsigned int calculatedCRC32_;
-		char *tmpBuffer;
-		unsigned int payload_length_;
 	public:
 		packet(unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {};
 		packet(std::vector<char> buffer, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
 			char *tmp = new char[buffer.size()+1];
 			copy( buffer.begin(), buffer.end(), tmp);
-			readFrom(tmp, buffer.size());
+			try {
+				readFrom(tmp, buffer.size());
+			} catch (const nrpe::nrpe_exception &e) {
+				delete [] tmp;
+				throw e;
+			}
 			delete [] tmp;
 		};
-		packet(const char *buffer, unsigned int buffer_length, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
+		packet(const char *buffer, unsigned int buffer_length) : tmpBuffer(NULL), payload_length_(length::get_payload_length(buffer_length)) {
 			readFrom(buffer, buffer_length);
 		};
-		packet(short type, short version, int result, std::wstring payLoad, unsigned int payload_length) 
+		packet(short type, short version, int result, std::string payLoad, unsigned int payload_length) 
 			: tmpBuffer(NULL) 
-			,type_(type)
-			,version_(version)
-			,result_(result)
-			,payload_(payLoad)
-			,payload_length_(payload_length)
+			, payload_length_(payload_length)
+			, type_(type)
+			, version_(version)
+			, result_(result)
+			, payload_(payLoad)
+			, crc32_(0)
+			, calculatedCRC32_(0)
 		{
 		}
 		packet() 
 			: tmpBuffer(NULL) 
-			,type_(nrpe::data::unknownPacket)
-			,version_(nrpe::data::version2)
-			,result_(0)
-			,payload_length_(nrpe::length::get_payload_length())
+			, payload_length_(nrpe::length::get_payload_length())
+			, type_(nrpe::data::unknownPacket)
+			, version_(nrpe::data::version2)
+			, result_(0)
+			, crc32_(0)
+			, calculatedCRC32_(0)
 		{
 		}
 		packet(const packet &other) : tmpBuffer(NULL) {
@@ -152,10 +153,14 @@ namespace nrpe {
 			return *this;
 		}
 
+		static packet unknown_response(std::string message) {
+			return packet(nrpe::data::responsePacket, nrpe::data::version2, 3, message, 0);
+		}
+
 		~packet() {
 			delete [] tmpBuffer;
 		}
-		static packet make_request(std::wstring payload, unsigned int buffer_length) {
+		static packet make_request(std::string payload, unsigned int buffer_length) {
 			return packet(nrpe::data::queryPacket, nrpe::data::version2, -1, payload, buffer_length);
 		}
 
@@ -163,26 +168,17 @@ namespace nrpe {
 			delete [] tmpBuffer;
 			unsigned int packet_length = nrpe::length::get_packet_length(payload_length_);
 			tmpBuffer = new char[packet_length+1];
-			//TODO readd this ZeroMemory(tmpBuffer, getBufferLength()+1);
+			memset(tmpBuffer, 0, packet_length+1);
 			nrpe::data::packet *p = reinterpret_cast<nrpe::data::packet*>(tmpBuffer);
 			p->result_code = swap_bytes::hton<int16_t>(result_);
 			p->packet_type = swap_bytes::hton<int16_t>(type_);
 			p->packet_version = swap_bytes::hton<int16_t>(version_);
 			if (payload_.length() >= payload_length_-1)
-				throw nrpe::nrpe_packet_exception(_T("To much data cant create return packet (truncate datat)"));
-			//ZeroMemory(p->buffer, payload_length_-1);
-			strncpy(p->buffer, ::to_string(payload_).c_str(), payload_.length());
+				throw nrpe::nrpe_exception("To much data cant create return packet (truncate datat)");
+			strncpy(p->buffer, payload_.c_str(), payload_.length());
 			p->buffer[payload_.length()] = 0;
 			p->crc32_value = 0;
 			crc32_ = p->crc32_value = swap_bytes::hton<u_int32_t>(calculate_crc32(tmpBuffer, packet_length));
-// 			std::wcout << _T("About to send: ") << to_string() << std::endl;
-// 			std::wcout << _T("About to send: ") 
-// 				<< _T("<<<") << to_wstring(strEx::format_buffer(tmpBuffer, packet_length)) 
-// 				<< _T(">>>, ") << strEx::ihextos((int16_t)tmpBuffer[2]) 
-// 				<< _T(", ") << strEx::ihextos((u_int32_t)tmpBuffer[4]) 
-// 				<< _T(", ") << strEx::ihextos((int16_t)tmpBuffer[8]) 
-// 				<< _T(", crc: ") << strEx::ihextos(p->crc32_value) 
-// 				<< std::endl;
 			return tmpBuffer;
 		}
 
@@ -192,25 +188,18 @@ namespace nrpe {
 			return buf;
 		}
 
-		void readFrom(const char *buffer, unsigned int length) {
-// 			std::wcout << _T("Just read: ") 
-// 				<< _T("") << strEx::ihextos(buffer[0]) 
-// 				<< _T(", ") << strEx::ihextos(buffer[1]) 
-// 				<< _T(", ") << strEx::ihextos(buffer[2]) 
-// 				<< _T(", ") << strEx::ihextos(buffer[3]) 
-// 				<< _T(", ") << strEx::ihextos(buffer[4]) 
-// 				<< std::endl;
+		void readFrom(const char *buffer, std::size_t length) {
 			if (buffer == NULL)
-				throw nrpe::nrpe_packet_exception(_T("No buffer."));
+				throw nrpe::nrpe_exception("No buffer.");
 			if (length != get_packet_length())
-				throw nrpe::nrpe_packet_exception(_T("Invalid packet length: ") + strEx::itos(length) + _T(" != ") + strEx::itos(get_packet_length()) + _T(" configured payload is: ") + to_wstring(get_payload_length()));
+				throw nrpe::nrpe_exception("Invalid packet length: " + strEx::s::xtos(length) + " != " + strEx::s::xtos(get_packet_length()) + " configured payload is: " + strEx::s::xtos(get_payload_length()));
 			const nrpe::data::packet *p = reinterpret_cast<const nrpe::data::packet*>(buffer);
 			type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
 			if ((type_ != nrpe::data::queryPacket)&&(type_ != nrpe::data::responsePacket))
-				throw nrpe::nrpe_packet_exception(_T("Invalid packet type: ") + strEx::itos(type_));
+				throw nrpe::nrpe_exception("Invalid packet type: " + strEx::s::xtos(type_));
 			version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
 			if (version_ != nrpe::data::version2)
-				throw nrpe::nrpe_packet_exception(_T("Invalid packet version.") + strEx::itos(version_));
+				throw nrpe::nrpe_exception("Invalid packet version." + strEx::s::xtos(version_));
 			crc32_ = swap_bytes::ntoh<u_int32_t>(p->crc32_value);
 			// Verify CRC32
 			// @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
@@ -222,16 +211,16 @@ namespace nrpe {
 			delete [] tb;
 // 			std::wcout << _T("Just read: ") << to_string() << std::endl;
 			if (crc32_ != calculatedCRC32_) 
-				throw nrpe::nrpe_packet_exception(_T("Invalid checksum in NRPE packet: ") + strEx::ihextos(crc32_) + _T("!=") + strEx::ihextos(calculatedCRC32_));
+				throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + strEx::s::xtos(crc32_) + "!=" + strEx::s::xtos(calculatedCRC32_));
 			// Verify CRC32 end
 			result_ = swap_bytes::ntoh<int16_t>(p->result_code);
-			payload_ = strEx::string_to_wstring(std::string(p->buffer));
+			payload_ = std::string(p->buffer);
 		}
 
 		unsigned short getVersion() const { return version_; }
 		unsigned short getType() const { return type_; }
 		unsigned short getResult() const { return result_; }
-		std::wstring getPayload() const { return payload_; }
+		std::string getPayload() const { return payload_; }
 		bool verifyCRC() { return calculatedCRC32_ == crc32_; }
 		unsigned int get_packet_length() const { return nrpe::length::get_packet_length(payload_length_); }
 		unsigned int get_payload_length() const { return payload_length_; }
@@ -239,16 +228,16 @@ namespace nrpe {
 		boost::asio::const_buffer to_buffers() {
 			return boost::asio::buffer(create_buffer(), get_packet_length());
 		}
-		std::wstring to_string() {
-			std::wstringstream ss;
-			ss << _T("type: ") << type_;
-			ss << _T(", version: ") << version_;
-			ss << _T(", result: ") << result_;
-			ss << _T(", crc32: ") << crc32_;
-			ss << _T(", payload: ") << payload_;
+		std::string to_string() {
+			std::stringstream ss;
+			ss << "type: " << type_;
+			ss << ", version: " << version_;
+			ss << ", result: " << result_;
+			ss << ", crc32: " << crc32_;
+			ss << ", payload: " << payload_;
 			return ss.str();
 		}
-		static nrpe::packet create_response(int ret, std::wstring string, int buffer_length) {
+		static nrpe::packet create_response(int ret, std::string string, int buffer_length) {
 			return packet(nrpe::data::responsePacket, nrpe::data::version2, ret, string, buffer_length);
 		}
 	};

@@ -598,7 +598,7 @@ public:
 		operator const wchar_t* () const {
 			return buf_.c_str();
 		}
-		unsigned int used_size() const {
+		std::size_t used_size() const {
 			return buf_.length();
 		}
 	};

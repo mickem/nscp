@@ -112,7 +112,7 @@ namespace dll {
 			std::wstring get_filename() const { return module_.leaf(); }
 			std::wstring get_module_name() {
 				std::wstring ext = get_extension();
-				int l = ext.length();
+				std::size_t l = ext.length();
 				std::wstring fn = get_filename();
 				if ((fn.length() > l) && (fn.substr(fn.size()-l) == ext))
 					return fn.substr(0, fn.size()-l);

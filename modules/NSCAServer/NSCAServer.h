@@ -20,13 +20,11 @@
 ***************************************************************************/
 
 #include <socket_helpers.hpp>
-#include <nsca/server/server.hpp>
+#include <nsca/server/protocol.hpp>
 
-NSC_WRAPPERS_MAIN();
+NSC_WRAPPERS_MAIN()
 
 class NSCAServer : public nscapi::impl::simple_plugin {
-private:
-	nsca::server::nsca_connection_info info_;
 
 public:
 	NSCAServer();
@@ -49,9 +47,12 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NSCA connection and handles them.\nAvalible crypto are: ") + utf8::cvt<std::wstring>(nscp::encryption::helpers::get_crypto_string());
+		return _T("A simple server that listens for incoming NSCA connection and handles them.");
 	}
 
-	boost::shared_ptr<nsca::server::nsca_server> server_;
+private:
+	socket_helpers::connection_info info_;
+	boost::shared_ptr<nsca::server::server> server_;
+	boost::shared_ptr<nsca::server::handler> handler_;
 };
 

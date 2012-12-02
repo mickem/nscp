@@ -102,7 +102,7 @@ public:
 	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
 	// c-tor, d-tor
 	NSClientT();
-	virtual ~NSClientT() {}
+	virtual ~NSClientT();
 
 	// Service helper functions
 	bool boot_init(std::wstring log_level = _T(""));
@@ -134,11 +134,13 @@ public:
 	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-	int simple_exec(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
+	int simple_exec(std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
 	int simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
 	NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* raw_command, std::string &request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const wchar_t* channel);
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const wchar_t* channel);
+	NSCAPI::errorReturn settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
+	NSCAPI::errorReturn registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 
 	NSCAPI::errorReturn reload(const std::wstring module);
 
@@ -171,6 +173,7 @@ public:
 
 	void listPlugins();
 	plugin_info_list get_all_plugins();
+	std::wstring get_plugin_module_name(unsigned int plugin_id);
 	plugin_alias_list_type find_all_plugins(bool active);
 	std::list<std::wstring> list_commands();
 

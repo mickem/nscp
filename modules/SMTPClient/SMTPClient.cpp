@@ -60,7 +60,6 @@ bool SMTPClient::loadModule() {
 bool SMTPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 	std::wstring template_string, sender, recipient;
-	unsigned int timeout;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("SMTP"), alias, _T("client"));
@@ -272,10 +271,10 @@ int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 // Protocol implementations
 //
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(SMTPClient);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(SMTPClient, _T("smtp"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_CLI_DEF()
+NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
 

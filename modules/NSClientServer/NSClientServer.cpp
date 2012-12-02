@@ -20,24 +20,32 @@
 ***************************************************************************/
 #include "stdafx.h"
 #include "NSClientServer.h"
+
+#include <boost/assign.hpp>
+
 #include <strEx.h>
 #include <time.h>
 #include <config.h>
 #include "handler_impl.hpp"
 #include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 
-NSClientListener::NSClientListener() : info_(boost::shared_ptr<check_nt::server::handler>(new handler_impl())) {
+NSClientServer::NSClientServer() 
+	: noPerfData_(false)
+	, allowNasty_(false)
+	, allowArgs_(false)
+{
 }
-NSClientListener::~NSClientListener() {
+NSClientServer::~NSClientServer() {
 }
 
-bool NSClientListener::loadModule() {
+bool NSClientServer::loadModule() {
 	return false;
 }
 
-bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NSClientServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 	try {
 
@@ -49,10 +57,10 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("port"), sh::uint_key(&info_.port, 12489),
+			(_T("port"), sh::string_key(&info_.port_, "12489"),
 			_T("PORT NUMBER"), _T("Port to use for check_nt."))
 
-			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&check_nt::server::handler::set_perf_data, info_.request_handler, _1), true),
+			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&NSClientServer::set_perf_data, this, _1), true),
 			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
 
 			;
@@ -65,11 +73,29 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
 			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
 
-			(_T("use ssl"), sh::bool_key(&info_.use_ssl, false),
+			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, false),
 			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), true)
 
-			(_T("certificate"), sh::wpath_key(&info_.certificate, _T("${certificate-path}/nrpe_dh_512.pem")),
+			(_T("certificate"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+			_T("DH KEY"), _T(""), true)
+
+			(_T("certificate"), sh::path_key(&info_.ssl.certificate, "${certificate-path}/certificate.pem"),
 			_T("SSL CERTIFICATE"), _T(""), true)
+
+			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key, "${certificate-path}/certificate_key.pem"),
+			_T("SSL CERTIFICATE"), _T(""), true)
+
+			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
+			_T("CERTIFICATE FORMAT"), _T(""), true)
+
+			(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
+			_T("CA"), _T(""), true)
+
+			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
+			_T("ALLOWED CIPHERS"), _T(""), true)
+
+			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
+			_T("VERIFY MODE"), _T(""), true)
 
 			;
 
@@ -89,7 +115,7 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
 			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
 
-			(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&check_nt::server::handler::set_password, info_.request_handler, _1), _T("")),
+			(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&NSClientServer::set_password, this, _1), _T("")),
 			_T("PASSWORD"), _T("Password used to authenticate againast server"))
 
 			;
@@ -103,9 +129,7 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
 	}
 #endif
-	if (!boost::filesystem::is_regular(info_.certificate))
-		NSC_LOG_ERROR_STD(_T("Certificate not found: ") + info_.certificate);
-
+	NSC_LOG_ERROR_LISTW(info_.validate());
 
 	std::list<std::string> errors;
 	info_.allowed_hosts.refresh(errors);
@@ -118,25 +142,18 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 
 	if (mode == NSCAPI::normalStart) {
 		try {
+#ifndef USE_SSL
 					if (info_.use_ssl) {
-#ifdef USE_SSL
-						server_.reset(new check_nt::server::server(info_));
-#else
 						NSC_LOG_ERROR_STD(_T("SSL is not supported (not compiled with openssl)"));
 						return false;
-#endif
-					} else {
-						server_.reset(new check_nt::server::server(info_));
 					}
+#endif
+					server_.reset(new check_nt::server::server(info_, this));
 					if (!server_) {
 						NSC_LOG_ERROR_STD(_T("Failed to create server instance!"));
 						return false;
 					}
 					server_->start();
-
-		} catch (check_nt::server::check_nt_exception &e) {
-			NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
-			return false;
 		} catch (std::exception &e) {
 			NSC_LOG_ERROR_STD(_T("Exception caught: ") + to_wstring(e.what()));
 			return false;
@@ -147,7 +164,7 @@ bool NSClientListener::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 	}
 	return true;
 }
-bool NSClientListener::unloadModule() {
+bool NSClientServer::unloadModule() {
 	try {
 		if (server_) {
 			server_->stop();
@@ -160,7 +177,182 @@ bool NSClientListener::unloadModule() {
 	return true;
 }
 
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(NSClientListener);
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_IGNORE_CMD_DEF();
+
+
+#define REQ_CLIENTVERSION	1	// Works fine!
+#define REQ_CPULOAD			2	// Quirks
+#define REQ_UPTIME			3	// Works fine!
+#define REQ_USEDDISKSPACE	4	// Works fine!
+#define REQ_SERVICESTATE	5	// Works fine!
+#define REQ_PROCSTATE		6	// Works fine!
+#define REQ_MEMUSE			7	// Works fine!
+#define REQ_COUNTER			8	// Works fine!
+#define REQ_FILEAGE			9	// Works fine! (i hope)
+#define REQ_INSTANCES		10	// Works fine! (i hope)
+
+bool NSClientServer::isPasswordOk(std::wstring remotePassword)  {
+	std::wstring localPassword = get_password();
+	if (localPassword == remotePassword) {
+		return true;
+	}
+	if ((remotePassword == _T("None")) && (localPassword.empty())) {
+		return true;
+	}
+	return false;
+}
+
+void split_to_list(std::list<std::wstring> &list, std::wstring str) {
+	strEx::splitList add = strEx::splitEx(str, _T("&"));
+	list.insert(list.begin(), add.begin(), add.end());
+}
+
+
+std::wstring list_instance(std::wstring counter) {
+	std::list<std::wstring> exeresult;
+	nscapi::core_helper::exec_simple_command(_T("*"), _T("pdh"), boost::assign::list_of(std::wstring(_T("--list")))(_T("--porcelain"))(_T("--counter"))(counter)(_T("--no-counters")), exeresult);
+	std::wstring result;
+
+	typedef std::basic_istringstream<wchar_t> wistringstream;
+	typedef boost::tokenizer< boost::escaped_list_separator<wchar_t>, std::wstring::const_iterator, std::wstring > Tokenizer;
+	BOOST_FOREACH(std::wstring s, exeresult) {
+		wistringstream iss(s);
+		std::wstring line;
+		while(std::getline(iss, line, L'\n')) {
+			Tokenizer tok(line);
+			Tokenizer::const_iterator cit = tok.begin();
+			int i = 1;
+			while ((i-->0) && (cit != tok.end()))
+				++cit;
+			if (i <= 1) {
+				if (!result.empty())
+					result += _T(",");
+				result += *cit;
+			} else {
+				NSC_LOG_ERROR(_T("Invalid line: ") + line);
+			}
+		}
+	}
+	return result;
+}
+
+check_nt::packet NSClientServer::handle(check_nt::packet p) {
+	std::wstring buffer = p.get_payload();
+	NSC_DEBUG_MSG_STD(_T("Data: ") + buffer);
+
+	std::wstring::size_type pos = buffer.find_first_of(_T("\n\r"));
+	if (pos != std::wstring::npos) {
+		std::wstring::size_type pos2 = buffer.find_first_not_of(_T("\n\r"), pos);
+		if (pos2 != std::wstring::npos) {
+			std::wstring rest = buffer.substr(pos2);
+			NSC_DEBUG_MSG_STD(_T("Ignoring data: ") + rest);
+		}
+		buffer = buffer.substr(0, pos);
+	}
+
+	strEx::token pwd = strEx::getToken(buffer, '&');
+	if (!isPasswordOk(pwd.first)) {
+		NSC_LOG_ERROR_STD(_T("Invalid password (") + pwd.first + _T(")."));
+		return check_nt::packet("ERROR: Invalid password.");
+	}
+	if (pwd.second.empty())
+		return check_nt::packet("ERROR: No command specified.");
+	strEx::token cmd = strEx::getToken(pwd.second, '&');
+	if (cmd.first.empty())
+		return check_nt::packet("ERROR: No command specified.");
+
+	int c = boost::lexical_cast<int>(cmd.first.c_str());
+
+	NSC_DEBUG_MSG_STD(_T("Data: ") + cmd.second);
+
+	std::list<std::wstring> args;
+
+	// prefix various commands
+	switch (c) {
+		case REQ_CPULOAD:
+			cmd.first = _T("checkCPU");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
+			break;
+		case REQ_UPTIME:
+			cmd.first = _T("checkUpTime");
+			args.push_back(_T("nsclient"));
+			break;
+		case REQ_USEDDISKSPACE:
+			cmd.first = _T("CheckDriveSize");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
+			break;
+		case REQ_CLIENTVERSION:
+			{
+				//std::wstring v = SETTINGS_GET_STRING(nsclient::VERSION);
+				//if (v == _T("auto"))
+				std::wstring v = nscapi::plugin_singleton->get_core()->getApplicationName() + _T(" ") + nscapi::plugin_singleton->get_core()->getApplicationVersionString();
+				return strEx::wstring_to_string(v);
+			}
+		case REQ_SERVICESTATE:
+			cmd.first = _T("checkServiceState");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
+			break;
+		case REQ_PROCSTATE:
+			cmd.first = _T("checkProcState");
+			split_to_list(args, cmd.second);
+			args.push_back(_T("nsclient"));
+			break;
+		case REQ_MEMUSE:
+			cmd.first = _T("checkMem");
+			args.push_back(_T("nsclient"));
+			break;
+		case REQ_COUNTER:
+			cmd.first = _T("checkCounter");
+			args.push_back(_T("Counter=") + cmd.second);
+			args.push_back(_T("nsclient"));
+			break;
+		case REQ_FILEAGE:
+			cmd.first = _T("getFileAge");
+			args.push_back(_T("path=") + cmd.second);
+			break;
+		case REQ_INSTANCES:
+			return list_instance(cmd.second);
+
+
+		default:
+			split_to_list(args, cmd.second);
+	}
+
+	std::wstring message, perf;
+	NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd.first.c_str(), args, message, perf);
+	if (!nscapi::plugin_helper::isNagiosReturnCode(ret)) {
+		if (message.empty())
+			return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
+		return check_nt::packet("ERROR: " + strEx::wstring_to_string(message));
+	}
+	switch (c) {
+		case REQ_UPTIME:		// Some check_nt commands has no return code syntax
+		case REQ_MEMUSE:
+		case REQ_CPULOAD:
+		case REQ_CLIENTVERSION:
+		case REQ_USEDDISKSPACE:
+		case REQ_COUNTER:
+		case REQ_FILEAGE:
+			return check_nt::packet(message);
+
+		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
+		case REQ_PROCSTATE:
+			return check_nt::packet(strEx::itos(nscapi::plugin_helper::nagios2int(ret)) + _T("& ") + message);
+
+		default:				// "New" check_nscp also returns performance data
+			if (perf.empty())
+				return check_nt::packet(nscapi::plugin_helper::translateReturn(ret) + _T("&") + message);
+			return check_nt::packet(nscapi::plugin_helper::translateReturn(ret) + _T("&") + message + _T("&") + perf);
+	}
+
+	return check_nt::packet("FOO");
+}
+
+
+
+NSC_WRAP_DLL()
+NSC_WRAPPERS_MAIN_DEF(NSClientServer, _T("check_nt"))
+NSC_WRAPPERS_IGNORE_MSG_DEF()
+NSC_WRAPPERS_IGNORE_CMD_DEF()
