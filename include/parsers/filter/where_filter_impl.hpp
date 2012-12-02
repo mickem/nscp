@@ -119,7 +119,7 @@ namespace where_filter {
 // 				if (debug_)
 // 					error_->report_debug(_T("==> Matched: ") + record->render(syntax_, DATE_FORMAT));
 						
-//				strEx::append_list(message_, record->render(syntax_, date_syntax_));
+				strEx::append_list(message_, record->render(syntax_, date_syntax_));
 				/*
 				if (alias.length() < 16)
 					strEx::append_list(alias, info.filename);

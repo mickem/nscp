@@ -302,6 +302,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ScheduleWriteConfig"));
 	try {
 		if (h.getPropery(_T("CONF_CAN_CHANGE")) != _T("1")) {
+			h.logMessage(_T("Configuration changes not allowed: set CONF_CAN_CHANGE=1"));
 			return ERROR_SUCCESS;
 		}
 		msi_helper::custom_action_data_w data;

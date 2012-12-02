@@ -488,9 +488,16 @@ static int info (lua_State *L) {
 static int error (lua_State *L) {
 	return log_any(L, NSCAPI::log_level::error);
 }
+static int lua_sleep (lua_State *L) {
+	lua::lua_wrapper lua_instance(L);
+	int time = lua_instance.pop_int();
+	Sleep(time);
+	return 0;
+}
 
 
 const luaL_Reg my_funcs[] = {
+	{"sleep", lua_sleep},
 	{"info", info},
 	{"print", info},
 	{"error", error},

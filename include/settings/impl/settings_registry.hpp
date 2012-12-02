@@ -58,7 +58,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual int get_real_int(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+			std::wstring str = get_real_string(key);
+			return strEx::stoi(str);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -69,7 +70,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual bool get_real_bool(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+			std::wstring str = get_real_string(key);
+			return SettingsInterfaceImpl::string_to_bool(str);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
@@ -156,7 +158,7 @@ namespace settings {
 			wchar_t *buf;
 			std::wstring::size_type len;
 			reg_buffer(std::wstring::size_type len) : buf(new wchar_t[len]), len(len) {}
-			reg_buffer(std::wstring str) : buf(new wchar_t[str.length()]), len(str.length()) {
+			reg_buffer(std::wstring str) : buf(new wchar_t[str.length()+1]), len(str.length()+1) {
 				copy_from(str);
 			}
 			~reg_buffer() {
@@ -230,7 +232,7 @@ namespace settings {
 			LONG lRet = RegQueryValueEx(hTemp, key.c_str(), NULL, &type, bData, &cbData);
 			RegCloseKey(hTemp);
 			if (lRet == ERROR_SUCCESS) {
-				if (type == REG_SZ) {
+				if (type == REG_SZ || type == REG_EXPAND_SZ) {
 					if (cbData == 0) {
 						delete [] bData;
 						return _T("");
@@ -240,7 +242,6 @@ namespace settings {
 						const TCHAR *ptr = reinterpret_cast<TCHAR*>(bData);
 						std::wstring ret = ptr;
 						delete [] bData;
-						std::wcout << _T("read: ") << ret << std::endl;
 						return ret;
 					}
 					throw settings_exception(_T("String to long: ") + path.to_string());

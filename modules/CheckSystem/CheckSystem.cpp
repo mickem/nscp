@@ -281,6 +281,13 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 			;
 
+		bool reg_alias;
+		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
+
+			(_T("modern commands"), sh::bool_key(&reg_alias, true),
+			_T("Register modern aliases for built-in commands"), _T("Register moden alias for commands (ccheck_xxx as opposed of CheckXXX) these are the names which will be used in future version of NSClient++"), true)
+			;
+
 		settings.register_all();
 		settings.notify();
 
@@ -308,20 +315,30 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			}
 		}
 
-		register_command(_T("check_CPU"), _T("Check that the load of the CPU(s) are within bounds."), 
-			boost::assign::list_of(_T("checkCPU")));
-		register_command(_T("check_uptime"), _T("Check time since last server re-boot."), 
-			boost::assign::list_of(_T("checkUpTime")));
-		register_command(_T("check_service"), _T("Check the state of one or more of the computer services."), 
-			boost::assign::list_of(_T("checkServiceState")));
-		register_command(_T("check_process"), _T("Check the state of one or more of the processes running on the computer."), 
-			boost::assign::list_of(_T("checkProcState")));
-		register_command(_T("check_memory"), _T("Check free/used memory on the system."), 
-			boost::assign::list_of(_T("checkMem")));
-		register_command(_T("check_pdh"), _T("Check a PDH counter."), 
-			boost::assign::list_of(_T("checkCounter")));
-		register_command(_T("check_registry"), _T("Check values in the registry."), 
-			boost::assign::list_of(_T("checkSingleRegEntry")));
+		if (reg_alias) {
+			register_command(_T("check_CPU"), _T("Check that the load of the CPU(s) are within bounds."), 
+				boost::assign::list_of(_T("checkCPU")));
+			register_command(_T("check_uptime"), _T("Check time since last server re-boot."), 
+				boost::assign::list_of(_T("checkUpTime")));
+			register_command(_T("check_service"), _T("Check the state of one or more of the computer services."), 
+				boost::assign::list_of(_T("checkServiceState")));
+			register_command(_T("check_process"), _T("Check the state of one or more of the processes running on the computer."), 
+				boost::assign::list_of(_T("checkProcState")));
+			register_command(_T("check_memory"), _T("Check free/used memory on the system."), 
+				boost::assign::list_of(_T("checkMem")));
+			register_command(_T("check_pdh"), _T("Check a PDH counter."), 
+				boost::assign::list_of(_T("checkCounter")));
+			register_command(_T("check_registry"), _T("Check values in the registry."), 
+				boost::assign::list_of(_T("checkSingleRegEntry")));
+		} else {
+			register_command(_T("checkCPU"), _T("Check that the load of the CPU(s) are within bounds."));
+			register_command(_T("checkUpTime"), _T("Check time since last server re-boot."));
+			register_command(_T("checkServiceState"), _T("Check the state of one or more of the computer services."));
+			register_command(_T("checkProcState"), _T("Check the state of one or more of the processes running on the computer."));
+			register_command(_T("checkMem"), _T("Check free/used memory on the system."));
+			register_command(_T("checkCounter"), _T("Check a PDH counter."));
+			register_command(_T("checkSingleRegEntry"), _T("Check values in the registry."));
+		}
 
 		register_command(_T("listCounterInstances"), _T("*DEPRECATED* List all instances for a counter."));
 

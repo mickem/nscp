@@ -103,7 +103,11 @@ namespace nrpe {
 						response = handler_->create_error("Exception processing request");
 					}
 
-					data_ = response.get_buffer();
+					try {
+						data_ = response.get_buffer();
+					} catch (const std::exception &e) {
+						log_debug(__FILE__, __LINE__, "Failed to create return package: " + utf8::utf8_from_native(e.what()));
+					}
 					set_state(got_request);
 					return true;
 				} else if (begin == old_begin) {

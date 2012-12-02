@@ -129,7 +129,6 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 			add_alias(_T("alias_sched_long"), _T("CheckTaskSched \"filter=status = 'running' AND most_recent_run_time < -$ARG1$\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0"));
 			add_alias(_T("alias_sched_task"), _T("CheckTaskSched \"filter=title eq '$ARG1$' AND exit_code ne 0\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0"));
 			add_alias(_T("alias_updates"), _T("check_updates -warning 0 -critical 0"));
-			add_alias(_T("check_ok"), _T("CheckOK Everything is fine!"));
 		}
 
 		settings.alias().add_path_to_settings()

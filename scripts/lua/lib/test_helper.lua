@@ -66,7 +66,7 @@ function TestResult:add(result)
 	table.insert(self.children,result)
 end
 function TestResult:add_message(result, message)
-	table.insert(self.children,TestResult:new{status=status, message=message})
+	table.insert(self.children,TestResult:new{status=result, message=message})
 end
 function TestResult:assert_equals(a, b, message)
 	if a==b then

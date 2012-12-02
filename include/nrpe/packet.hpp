@@ -173,7 +173,7 @@ namespace nrpe {
 			p->result_code = swap_bytes::hton<int16_t>(result_);
 			p->packet_type = swap_bytes::hton<int16_t>(type_);
 			p->packet_version = swap_bytes::hton<int16_t>(version_);
-			if (payload_.length() >= payload_length_-1)
+			if (payload_.length() >= payload_length_)
 				throw nrpe::nrpe_exception("To much data cant create return packet (truncate datat)");
 			strncpy(p->buffer, payload_.c_str(), payload_.length());
 			p->buffer[payload_.length()] = 0;
