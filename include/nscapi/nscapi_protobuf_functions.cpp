@@ -687,6 +687,9 @@ namespace nscapi {
 				if (perf.size() == 0)
 					return;
 				typename T::size_type p = 0;
+				p = perf.find_first_not_of(tokenizer_data.perf_separator, p);
+				if (p != 0)
+					perf = perf.substr(p);
 				if (perf[0] == tokenizer_data.perf_lable_enclosure[0]) {
 					p = perf.find(tokenizer_data.perf_lable_enclosure[0], 1)+1;
 					if (p == T::npos)

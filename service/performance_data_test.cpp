@@ -40,6 +40,10 @@ TEST(PerfDataTest, value_without_warncrit_with_maxmin) {
 TEST(PerfDataTest, value_without_warncrit_maxmin) {
 	EXPECT_EQ("'aaa'=1g", do_parse("aaa=1g"));
 }
+TEST(PerfDataTest, leading_space) {
+	EXPECT_EQ("'aaa'=1g", do_parse(" aaa=1g"));
+	EXPECT_EQ("'aaa'=1g", do_parse("                   aaa=1g"));
+}
 
 TEST(PerfDataTest, value_various_reparse) {
 	std::vector<std::string> strings;

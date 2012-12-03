@@ -26,7 +26,6 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 			throw nrpe::nrpe_exception("Request command contained illegal metachars!");
 		}
 	}
-
 	std::wstring wmsg, wperf;
 	NSCAPI::nagiosReturn ret = -3;
 	try {
@@ -51,11 +50,12 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	std::string msg = utf8::cvt<std::string>(wmsg);
 	std::string perf = utf8::cvt<std::string>(wperf);
 
-	if (msg.length() > p.get_payload_length()) {
-		data = msg.substr(0, p.get_payload_length()-1);
+	const unsigned int max_len = p.get_payload_length()-1;
+	if (msg.length() >= max_len) {
+		data = msg.substr(0, max_len);
 	} else if (perf.empty() || noPerfData_) {
 		data = msg;
-	} else if (msg.length() + perf.length() + 1 > p.get_payload_length()) {
+	} else if (msg.length() + perf.length() + 1 > max_len) {
 		data = msg;
 	} else {
 		data = msg + "|" + perf;

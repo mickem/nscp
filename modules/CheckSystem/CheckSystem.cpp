@@ -258,11 +258,17 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 
 		(_T("DELAYED"), sh::wstring_vector_key(&lookups_, NSCP_SERVICE_DELAYED, _T("ignored")),
 		_T("SERVICE_DELAYED"), _T("TODO"), true)
-
 		;
 
-	settings.register_all();
-	settings.notify();
+	bool reg_alias;
+	settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
+
+		(_T("modern commands"), sh::bool_key(&reg_alias, true),
+		_T("Register modern aliases for built-in commands"), _T("Register moden alias for commands (ccheck_xxx as opposed of CheckXXX) these are the names which will be used in future version of NSClient++"), true)
+		;
+
+		settings.register_all();
+		settings.notify();
 
 		
 	if (mode == NSCAPI::normalStart) {
@@ -288,7 +294,6 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 		}
 	}
 
-	//register_command(_T("listCounterInstances"), _T("*DEPRECATED* List all instances for a counter."));
 
 	if (mode == NSCAPI::normalStart) {
 		pdh_collector.start(data);

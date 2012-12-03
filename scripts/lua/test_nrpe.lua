@@ -100,18 +100,21 @@ function TestNRPE:simple_handler(command, args)
 	msg = self:get_response(args[0])
 	msg.got_simple_response = true
 	self:set_response(msg)
+	message = rmsg.message
+	if args[1] then
+		message = string.rep('x', args[1])
+	end
 	rmsg = self:get_request(args[0])
-	return rmsg.status, rmsg.message, rmsg.perfdata
+	return rmsg.status, message, rmsg.perfdata
 end
 
 function TestNRPE:handler(req)
 	local msg = self:get_response(args[0])
 	msg.got_response = true
 	self:set_response(msg)
-	rmsg = self:get_request(args[0])
 end
 
-function TestNRPE:submit_payload(tag, ssl, length, source, status, message, perf, target)
+function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, status, message, perf, target)
 	local core = nscp.Core()
 	local result = test.TestResult:new{message='Testing NRPE: '..tag..' for '..target}
 	
@@ -139,6 +142,9 @@ function TestNRPE:submit_payload(tag, ssl, length, source, status, message, perf
 	payload = msg:add_payload()
 	payload:set_command('check_py_nrpe_test_s')
 	payload:set_arguments(1, uid)
+	if payload_length ~= 0 then
+		payload:set_arguments(2, payload_length)
+	end
 	rmsg = self:get_request(uid)
 	rmsg.status = status
 	rmsg.message = message
@@ -158,28 +164,36 @@ function TestNRPE:submit_payload(tag, ssl, length, source, status, message, perf
 			result:add_message(response_message:size_payload() == 1, 'Verify that we only get one payload response for '..tag)
 			pl = response_message:get_payload(1)
 			result:assert_equals(pl:get_result(), test.status_to_int(status), 'Verify that status is sent through '..tag)
-			result:assert_equals(pl:get_message(), rmsg.message, 'Verify that message is sent through '..tag)
+			if payload_length == 0 then
+				result:assert_equals(pl:get_message(), rmsg.message, 'Verify that message is sent through '..tag)
+			else
+				max_len = payload_length
+				if max_len > length-1 then
+					max_len = length -1
+				end
+				result:assert_equals(string.len(pl:get_message()), max_len, 'Verify that message length is correct ' .. max_len .. ': ' ..tag)
+			end
 			--#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
 			self:del_response(uid)
-			found = True
+			found = true
 			break
 		else
 			core:log(string.format('Waiting for %s (%s/%s)', uid,tag,target))
-			--sleep(500)
+			--nscp.sleep(500)
 		end
 	end
 	if (not found) then
-		result:add_message(false, string.format('Testing to recieve message using %s', tag))
+		result:add_message(false, string.format('Failed to find message %s using %s', uid, tag))
 	end
 	
 	return result
 end
 
-function TestNRPE:test_one(ssl, length, status)
+function TestNRPE:test_one(ssl, length, payload_length, status)
 	tag = string.format("%s/%d/%s", tostring(ssl), length, status)
 	local result = test.TestResult:new{message=string.format('Testing: %s with various targets', tag)}
 	for k,t in pairs({'valid', 'test_rp', 'invalid'}) do
-		result:add(self:submit_payload(tag, ssl, length, tag .. 'src' .. tag, status, tag .. 'msg' .. tag, '', t))
+		result:add(self:submit_payload(tag, ssl, length, payload_length, tag .. 'src' .. tag, status, tag .. 'msg' .. tag, '', t))
 	end
 	return result
 end
@@ -209,10 +223,13 @@ function TestNRPE:do_one_test(ssl, length)
 	core:reload('test_nrpe_client')
 
 	local result = test.TestResult:new{message="Testing "..tostring(ssl)..", "..tostring(length)}
-	result:add(self:test_one(ssl, length, 'unknown'))
-	result:add(self:test_one(ssl, length, 'ok'))
-	result:add(self:test_one(ssl, length, 'warn'))
-	result:add(self:test_one(ssl, length, 'crit'))
+	result:add(self:test_one(ssl, length, 0, 'unknown'))
+	result:add(self:test_one(ssl, length, 0, 'ok'))
+	result:add(self:test_one(ssl, length, 0, 'warn'))
+	result:add(self:test_one(ssl, length, 0, 'crit'))
+	result:add(self:test_one(ssl, length, length/2, 'ok'))
+	result:add(self:test_one(ssl, length, length, 'ok'))
+	result:add(self:test_one(ssl, length, length*2, 'ok'))
 	return result
 end
 

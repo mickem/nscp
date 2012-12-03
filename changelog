@@ -4,6 +4,23 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-12-02 MickeM
+ * Added option to disable new alias check_cpu and only register old ones CheckCPU
+   [/settings/default]
+   modern commands=false
+
+2012-11-29 MickeM
+ * Improved exception handling in server threads
+
+2012-11-28 MickeM
+ * Fixed crash in NRPE server when payload was to large (#585 #582)
+ * Fixed issue with lua unit test
+ * Added payload length simulation in lua unit tests (so it returns various payload sizes)
+ * Added nscp.sleep to Lua scripts (but dont use as I will implement coroutines in 0.4.2)
+ * Fixed registry settings bug
+ * Fixed issue with parsin performance data with leading spaces
+ * Fixed issue with rendering filters
+
 2012-11-18 MickeM
  * Created nscpnobp.exe which is a version without break pad for older machines (windows 2000 and nt4).
    This can only be foundin the zip file (not the msi)

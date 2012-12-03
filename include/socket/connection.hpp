@@ -104,14 +104,20 @@ namespace socket_helpers {
 			// Socket state machine (assumed all sockets are simple connect-read-write-disconnect
 
 			void do_process() {
-				if (protocol_->wants_data()) {
-					start_read_request();
-				} else if (protocol_->has_data()) {
-					//std::vector<boost::asio::const_buffer> buffers;
-					//buffers.push_back();
-					start_write_request(buf(protocol_->get_outbound()));
-				} else {
-					on_done(true);
+				try {
+					if (protocol_->wants_data()) {
+						start_read_request();
+					} else if (protocol_->has_data()) {
+						//std::vector<boost::asio::const_buffer> buffers;
+						//buffers.push_back();
+						start_write_request(buf(protocol_->get_outbound()));
+					} else {
+						on_done(true);
+					}
+				} catch (const std::exception &e) {
+					protocol_->log_error(__FILE__, __LINE__, "Protocol error: " + utf8::utf8_from_native(e.what()));
+				} catch (...) {
+					protocol_->log_error(__FILE__, __LINE__, "Protocol error: UNKNOWN");
 				}
 			}
 
