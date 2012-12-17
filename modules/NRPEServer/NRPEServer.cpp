@@ -68,46 +68,46 @@ bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
 			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
-			_T("THREAD POOL"), _T(""), true)
+			_T("THREAD POOL"), _T("Size of socket responder thread pool (number of simultaneous connection)"), true)
 
 			(_T("bind to"), sh::string_key(&info_.address),
-			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."), true)
+			_T("BIND TO ADDRESS"), _T("Force server to bind to a given network interface (specify IP address here). Leaving this blank will bind to all available IP addresses."), true)
 
 			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
-			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
+			_T("LISTEN QUEUE"), _T("Number of connection to queue before starting to refuse new incoming connections."), true)
 
 			(_T("allowed hosts"), sh::string_fun_key<std::wstring>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), _T("127.0.0.1")),
-			_T("ALLOWED HOSTS"), _T("A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges."))
+			_T("ALLOWED HOSTS"), _T("A coma separated list of hosts which are allowed to connect. You can use netmasks (/ syntax) or * to create ranges."))
 
 			(_T("cache allowed hosts"), sh::bool_key(&info_.allowed_hosts.cached, true),
 			_T("CACHE ALLOWED HOSTS"), _T("If hostnames should be cached, improves speed and security somewhat but wont allow you to have dynamic IPs for your nagios server."))
 
 			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
-			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
+			_T("TIMEOUT"), _T("Timeout for incoming connections."))
 
 			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, true),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), false)
+			_T("ENABLE SSL ENCRYPTION"), _T("Encrypt connection with SSL (has to match client configuration)."), false)
 
 			(_T("dh"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
-			_T("DH KEY"), _T(""), true)
+			_T("DH KEY"), _T("The Diffie-Hellman key to use for key exchange. Set to none to disable pre created keys and generate keys on the fly"), true)
 
 			(_T("certificate"), sh::path_key(&info_.ssl.certificate),
-			_T("SSL CERTIFICATE"), _T(""), false)
+			_T("SSL CERTIFICATE"), _T("Certificate file to use. Set to non to disable certificates."), false)
 
 			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key),
-			_T("SSL CERTIFICATE"), _T(""), true)
+			_T("SSL CERTIFICATE"), _T("Key for certificate file to use."), true)
 
 			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
-			_T("CERTIFICATE FORMAT"), _T(""), true)
+			_T("CERTIFICATE FORMAT"), _T("Formats of certificates pem or asn1."), true)
 
 			(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
-			_T("CA"), _T(""), true)
+			_T("CA"), _T("Certificate authority to use when validating certificates."), true)
 
 			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ADH"),
-			_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+			_T("ALLOWED CIPHERS"), _T("The list of allowed chipers default is (for legacy reasons UNSECURE ADH) a better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
 
 			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
-			_T("VERIFY MODE"), _T(""), false)
+			_T("VERIFY MODE"), _T("Which verification mode to use for remote certificates (none, peer, peer-cert, etc)"), false)
 			;
 
 		settings.register_all();

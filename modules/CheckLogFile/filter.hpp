@@ -30,6 +30,11 @@ namespace logfile_filter {
 				return utf8::cvt<std::wstring>(chunks[col-1]);
 			return _T("");
 		}
+		long long get_column_number(int col) const {
+			if (col >= 1 && col <= chunks.size())
+				return strEx::s::stox<long long>(chunks[col-1]);
+			return 0;
+		}
 		std::wstring get_filename() const {
 			return utf8::cvt<std::wstring>(filename);
 		}
@@ -69,6 +74,7 @@ namespace logfile_filter {
 		base_handler::bound_int_type bind_simple_int(std::wstring key);
 		bool has_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
 		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
+
 	private:
 		types_type types;
 		static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
@@ -85,6 +91,7 @@ namespace logfile_filter {
 		std::string message;
 		std::string error;
 		std::string filename;
+		std::set<std::wstring> metrics;
 
 		log_summary() : match_count(0), ok_count(0), warn_count(0), crit_count(0) {}
 
@@ -151,6 +158,29 @@ namespace logfile_filter {
 				return &log_summary::get_crit_count;
 			return boost::function<std::string(log_summary*)>();
 		}
+		bool add_performance_data_metric(std::wstring metric) {
+			if (metric == _T("count") || metric == _T("warn_count") || metric == _T("crit_count")) {
+				metrics.insert(metric);
+				return true;
+			}
+			return false;
+		}
+
+		void collect_metrics() {
+			BOOST_FOREACH(const std::wstring &m, metrics) {
+				if (m == _T("count")) {
+					std::wcout << _T("- count: ") << match_count << std::endl;
+				}
+			}
+		}
+		void fetch_perf() {
+			BOOST_FOREACH(const std::wstring &m, metrics) {
+				if (m == _T("count")) {
+					std::wcout << _T(" *  count = ") << match_count << std::endl;
+				}
+			}
+		}
+
 	};
 
 	typedef modern_filter::modern_filters<logfile_filter::filter_obj, logfile_filter::filter_obj_handler, log_summary> filter;

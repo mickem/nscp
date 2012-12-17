@@ -220,7 +220,7 @@ std::wstring nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnC
 	else if (returnCode == NSCAPI::returnWARN)
 		return _T("WARNING");
 	else if (returnCode == NSCAPI::returnUNKNOWN)
-		return _T("WARNING");
+		return _T("UNKNOWN");
 	else
 		return _T("BAD_CODE: " + strEx::itos(returnCode));
 }

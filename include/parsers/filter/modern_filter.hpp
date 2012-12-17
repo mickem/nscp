@@ -1,6 +1,7 @@
 #pragma once
 
 #include <parsers/expression/expression.hpp>
+#include <parsers/filter/where_filter_impl.hpp>
 
 namespace modern_filter {
 
@@ -119,6 +120,7 @@ namespace modern_filter {
 		typedef where_filter::engine_impl<Tobject, Thandler, filter_argument_type> filter_engine_type;
 		typedef boost::shared_ptr<where_filter::error_handler_interface> error_type;
 		typedef boost::shared_ptr<filter_engine_type> filter_engine;
+		typedef std::map<std::wstring,std::wstring> boundries_type;
 
 		text_renderer<Tsummary> renderer_top;
 		filter_text_renderer<Tobject, Thandler> renderer_detail;
@@ -130,6 +132,32 @@ namespace modern_filter {
 		NSCAPI::nagiosReturn returnCode;
 		std::string message;
 		bool debug;
+
+		struct perf_instance_data {
+			std::wstring label;
+			std::string alias;
+			long long number_value;
+			std::string string_value;
+			parsers::where::value_type type;
+		};
+		struct perf_entry {
+			parsers::where::value_type type;
+			std::wstring label;
+			typedef boost::function<long long(Tobject*)> bound_int_type;
+			bound_int_type collect_int;
+
+			//parsers::where::filter_handler_impl<Thandler>::bound_int_type collect_int;
+			std::wstring crit_value;
+			std::wstring warn_value;
+
+		};
+
+		typedef std::list<perf_instance_data> performance_instance_data_type;
+		performance_instance_data_type performance_instance_data;
+
+		typedef std::map<std::wstring,perf_entry> leaf_performance_entry_type;
+		leaf_performance_entry_type leaf_performance_data;
+
 
 		filter_engine create_engine(filter_argument_type arg, std::string filter) {
 			arg->filter = utf8::cvt<std::wstring>(filter);
@@ -178,15 +206,44 @@ namespace modern_filter {
 				error = utf8::cvt<std::string>(msg);
 				return false;
 			}
+			if (engine_warn) {
+				BOOST_FOREACH(const boundries_type::value_type &v, engine_warn->fetch_performance_data()) {
+					if (!summary.add_performance_data_metric(v.first)) {
+						register_leaf_performance_data(v.first, v.second, engine_warn);
+					}
+				}
+			}
 			if (engine_crit && !engine_crit->validate(msg)) {
 				error = utf8::cvt<std::string>(msg);
 				return false;
+			}
+			if (engine_crit) {
+				BOOST_FOREACH(const boundries_type::value_type &v, engine_crit->fetch_performance_data()) {
+					if (!summary.add_performance_data_metric(v.first)) {
+						register_leaf_performance_data(v.first, v.second, engine_crit);
+					}
+				}
 			}
 			if (engine_ok && !engine_ok->validate(msg)) {
 				error = utf8::cvt<std::string>(msg);
 				return false;
 			}
 			return true;
+		}
+
+		void register_leaf_performance_data(const std::wstring &tag, const std::wstring &value, filter_engine engine) {
+			if (engine->object_handler->has_variable(tag)) {
+				perf_entry entry;
+				entry.type = engine->object_handler->get_type(tag);
+				if (entry.type == parsers::where::type_int) {
+					entry.label = tag;
+					entry.collect_int = engine->object_handler->bind_simple_int(tag);
+					if (!entry.collect_int)
+						return;
+					entry.crit_value = value;
+					leaf_performance_data[tag] = entry;
+				}
+			}
 		}
 
 		void start_match() {
@@ -198,6 +255,7 @@ namespace modern_filter {
 			if (engine_filter && engine_filter->match(record)) {
 				record->matched();
 				std::string current = renderer_detail.render(record);
+				store_perf(record, current);
 				summary.matched(current);
 				if (engine_crit && engine_crit->match(record)) {
 					summary.matched_crit(current);
@@ -223,5 +281,37 @@ namespace modern_filter {
 			}
 			return boost::make_tuple(matched, done);
 		}
+		void store_perf(boost::shared_ptr<Tobject> record, const std::string &alias) {
+			BOOST_FOREACH(const leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
+				if (entry.second.type == parsers::where::type_int) {
+					long long value = entry.second.collect_int(record.get());
+					append_record(alias, entry.second, value);
+				}
+			}
+		}
+		void append_record(const std::string &alias, const perf_entry &key, long long value) {
+			perf_instance_data data;
+			data.alias = alias;
+			data.label = key.label;
+			data.type = key.type;
+			data.number_value = value;
+			performance_instance_data.push_back(data);
+		}
+		void append_record(const perf_entry &key, std::wstring value) {
+			perf_instance_data data;
+			data.alias = alias;
+			data.label = key.label;
+			data.type = key.type;
+			data.string_value = value;
+			performance_instance_data.push_back(data);
+		}
+
+		void fetch_perf() {
+			summary.fetch_perf();
+			BOOST_FOREACH(const performance_instance_data_type::value_type &entry, performance_instance_data) {
+				std::wcout << _T(" * ") << entry.label << _T(" = ") << entry.number_value << _T(": ") << utf8::cvt<std::wstring>(entry.alias) << std::endl;
+			}
+		}
+
 	};
 }

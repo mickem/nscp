@@ -66,10 +66,11 @@ namespace parsers {
 				return false;
 			}
 		}
-		bool parser::collect_perfkeys(filter_handler handler) {
+		bool parser::collect_perfkeys(std::map<std::wstring,std::wstring> &boundries, filter_handler handler) {
 			try {
 				ast_perf_collector evaluator(handler);
 				evaluator(resulting_tree);
+				boundries.insert(evaluator.boundries.begin(), evaluator.boundries.end());
 				return true;
 			} catch (...) {
 				handler->error(_T("Unhandled exception collecting performance data eval: ") + result_as_tree());

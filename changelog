@@ -4,6 +4,16 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-12-03 MickeM
+ * Started to refactor to use newinternal structures for all legacy checks.
+ * Fixed issue in the installer
+ * Added support for not using -- for options to clients (nrpe_query)
+
+2012-12-03 MickeM
+ * Merged in 0.4.1 into master (0.4.2)
+ * Fixed issue in settings key registration
+ * Started to improve descriptions a bit
+
 2012-12-02 MickeM
  * Added option to disable new alias check_cpu and only register old ones CheckCPU
    [/settings/default]

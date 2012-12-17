@@ -181,7 +181,7 @@ NSCAPI::nagiosReturn GraphiteClient::handleRAWCommand(const wchar_t* char_comman
 	Plugin::QueryRequestMessage message;
 	message.ParseFromString(request);
 
-	client::configuration config;
+	client::configuration config(command_prefix);
 	setup(config, message.header());
 
 	return commands.process_query(cmd, config, message, result);
@@ -193,7 +193,7 @@ NSCAPI::nagiosReturn GraphiteClient::commandRAWLineExec(const wchar_t* char_comm
 	Plugin::ExecuteRequestMessage message;
 	message.ParseFromString(request);
 
-	client::configuration config;
+	client::configuration config(command_prefix);
 	setup(config, message.header());
 
 	return commands.process_exec(cmd, config, message, result);
@@ -203,7 +203,7 @@ NSCAPI::nagiosReturn GraphiteClient::handleRAWNotification(const wchar_t* channe
 	Plugin::SubmitRequestMessage message;
 	message.ParseFromString(request);
 
-	client::configuration config;
+	client::configuration config(command_prefix);
 	setup(config, message.header());
 
 	return client::command_line_parser::do_relay_submit(config, message, result);

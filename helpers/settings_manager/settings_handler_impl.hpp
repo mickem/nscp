@@ -157,11 +157,14 @@ namespace settings {
 				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, type, defValue, advanced);
 			} else {
 				(*it).second.append_plugin(plugin_id);
-				path_description::keys_type::iterator kit = (*it).second.keys.find(path);
+				path_description::keys_type::iterator kit = (*it).second.keys.find(key);
 				if (kit == (*it).second.keys.end()) {
 					(*it).second.keys[key] = key_description(plugin_id, title, description, type, defValue, advanced);
 				} else {
 					(*kit).second.append_plugin(plugin_id);
+					if (!description.empty() && (*kit).second.description.empty()) {
+						(*kit).second.description = description;
+					}
 				}
 			}
 		}
