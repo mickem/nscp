@@ -51,12 +51,15 @@
 					</Component>
 					<Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
 						<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="$(var.App.Title) ($(var.arch), test)" 
+                      Target="[INSTALLLOCATION]nscp.exe"
                         WorkingDirectory="INSTALLDIR" Icon="nscp.exe" IconIndex="0" 
                       Arguments="test" Description="Run $(var.App.Title) in test mode" />
 						<Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="Start $(var.App.Title) ($(var.arch))"
+                      Target="[INSTALLLOCATION]nscp.exe"
 								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
 								  Arguments="service --name [SERVICE_NAME] --start" Description="Start the $(var.App.Title) service" />
 						<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="Stop $(var.App.Title) ($(var.arch))"
+                      Target="[INSTALLLOCATION]nscp.exe"
 								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
 								  Arguments="service --name [SERVICE_NAME] --stop" Description="Stop the $(var.App.Title) service" />
 						<Shortcut Id="StarmentNSCHelp" Directory="ProgramMenuDir" Name="Documentation"
@@ -177,8 +180,6 @@
 								<File Id="P_script_003" Name="test_pb.py" DiskId="1" Source="$(var.Source)/scripts/python/test_pb.py" Vital="no" />
 								<File Id="P_script_004" Name="test_sample.py" DiskId="1" Source="$(var.Source)/scripts/python/test_sample.py" Vital="no" />
 							</Component>
-						</Directory>
-
 						<Directory Id="INSTALLLOCATION_SCRIPTS_PYTHON_LIB1" Name="lib">
 							<Component Id="PythonScriptsPBLib1" Guid="7BB3FE48-7E17-4796-9135-76A26DB3B81E" Win64="$(var.Win64)">
 								<File Id="p_script_lib_001" Name="__init__.py" DiskId="1" Source="$(var.Source)/scripts/python/lib/__init__.py" Vital="no" />
@@ -223,6 +224,7 @@
 							</Directory>
 						</Directory>
 					</Directory>
+          </Directory>
 				</Directory>
 			</Directory>
 

@@ -182,6 +182,23 @@ int client::command_manager::exec_simple(configuration &config, const std::wstri
 	// TODO: Add support for target here!
 	return client::command_line_parser::do_execute_command_as_exec(config, ci.command, rendered_arguments, response);
 }
+
+std::vector<boost::program_options::option> option_parser(std::vector<std::string> &args) {
+	std::vector<boost::program_options::option> result;
+	BOOST_FOREACH(const std::string &s, args) {
+		boost::program_options::option opt;
+		std::string::size_type pos = s.find('=');
+		if (pos == std::string::npos) {
+			opt.string_key = s;
+		} else {
+			opt.string_key = s.substr(0, pos);
+			opt.value.push_back(s.substr(pos+1));
+		}
+		result.push_back(opt);
+	}
+	args.clear();
+	return result;
+}
 int client::command_line_parser::do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response) {
 	boost::program_options::variables_map vm;
 	try {
@@ -196,7 +213,17 @@ int client::command_line_parser::do_query(configuration &config, const std::wstr
 		std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
 		po::positional_options_description p;
 		p.add("arguments", -1);
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
+
+		po::basic_command_line_parser<wchar_t> cmd(vargs);
+		cmd.options(desc);
+		cmd.positional(p);
+		if (arguments.size() > 0) {
+			const std::wstring s = arguments.front();
+			if (s.size() > 0 && s[0] != L'-') {
+				cmd.extra_style_parser(option_parser);
+			}
+		}
+		po::wparsed_options parsed = cmd.run();
 		po::store(parsed, vm);
 		po::notify(vm);
 	} catch (const std::exception &e) {

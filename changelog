@@ -4,6 +4,12 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-12-18 MickeM
+ * Fixed path issues in the installer
+ * Fixed shortcuts in the installer
+ * Fixed so clients can understand no prefixed arguments ie.
+     ... -c nrpe_query -a command=check_ok host=129.168.0.1
+
 2012-12-02 MickeM
  * Added option to disable new alias check_cpu and only register old ones CheckCPU
    [/settings/default]
