@@ -396,6 +396,36 @@ struct event_log_buffer {
 		return bufferSize_;
 	}
 };
+
+inline std::time_t to_time_t(boost::posix_time::ptime t) { 
+	if( t == boost::date_time::neg_infin ) 
+		return 0; 
+	else if( t == boost::date_time::pos_infin ) 
+		return LONG_MAX; 
+	boost::posix_time::ptime start(boost::gregorian::date(1970,1,1)); 
+	return (t-start).total_seconds(); 
+} 
+
+inline long long parse_time(std::wstring time) {
+	long long now = to_time_t(boost::posix_time::second_clock::universal_time());
+	std::wstring::size_type p = time.find_first_not_of(_T("-0123456789"));
+	if (p == std::wstring::npos)
+		return now + boost::lexical_cast<long long>(time);
+	long long value = boost::lexical_cast<long long>(time.substr(0, p));
+	if ( (time[p] == 's') || (time[p] == 'S') )
+		return now + value;
+	else if ( (time[p] == 'm') || (time[p] == 'M') )
+		return now + (value * 60);
+	else if ( (time[p] == 'h') || (time[p] == 'H') )
+		return now + (value * 60 * 60);
+	else if ( (time[p] == 'd') || (time[p] == 'D') )
+		return now + (value * 24 * 60 * 60);
+	else if ( (time[p] == 'w') || (time[p] == 'W') )
+		return now + (value * 7 * 24 * 60 * 60);
+	return now + value;
+}
+
+
 typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
 NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
@@ -416,6 +446,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 	bool unique = false;
 	unsigned int truncate = 0;
 	event_log_buffer buffer(buffer_length_);
+	std::wstring scan_range;
 	//bool bPush = true;
 
 	try {
@@ -432,6 +463,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 			MAP_OPTIONS_BOOL_EX(_T("debug"), fargs->debug, _T("true"), _T("false"))
 			MAP_OPTIONS_STR(_T("syntax"), fargs->syntax)
 			MAP_OPTIONS_STR(_T("filter"), fargs->filter)
+			MAP_OPTIONS_STR(_T("scan-range"), scan_range)
 			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
 			MAP_OPTIONS_END()
 	} catch (filters::parse_exception e) {
@@ -489,10 +521,30 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 			return NSCAPI::returnUNKNOWN;
 		}
 		uniq_eventlog_map uniq_records;
+		unsigned long long stop_date;
+		enum direction_type {
+			direction_none, direction_forwards, direction_backwards
+
+		};
+		direction_type direction = direction_none;
+		DWORD flags = EVENTLOG_SEQUENTIAL_READ;
+		if ((scan_range.size() > 0) && (scan_range[0] == L'-')) {
+			direction = direction_backwards;
+			flags|=EVENTLOG_BACKWARDS_READ;
+			stop_date = parse_time(scan_range);
+		} else if (scan_range.size() > 0) {
+			direction = direction_forwards;
+			flags|=EVENTLOG_FORWARDS_READ;
+			stop_date = parse_time(scan_range);
+		} else {
+			flags|=EVENTLOG_FORWARDS_READ;
+		}
 
 		DWORD dwRead, dwNeeded;
-		while (true) {
-			BOOL bStatus = ReadEventLog(hLog, EVENTLOG_FORWARDS_READ|EVENTLOG_SEQUENTIAL_READ,
+		bool is_scanning = true;
+		while (is_scanning) {
+
+			BOOL bStatus = ReadEventLog(hLog, flags,
 				0, buffer.getBufferUnsafe(), buffer.getBufferSize(), &dwRead, &dwNeeded);
 			if (bStatus == FALSE) {
 				DWORD err = GetLastError();
@@ -502,6 +554,7 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 						buffer_error_reported = true;
 					}
 				} else if (err == ERROR_HANDLE_EOF) {
+					is_scanning = false;
 					break;
 				} else {
 					NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
@@ -513,6 +566,14 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 			EVENTLOGRECORD *pevlr = buffer.getBufferUnsafe(); 
 			while (dwRead > 0) { 
 				EventLogRecord record((*cit2), pevlr, ltime);
+				if (direction == direction_backwards && record.written() < stop_date) {
+					is_scanning = false;
+					break;
+				}
+				if (direction == direction_forwards && record.written() > stop_date) {
+					is_scanning = false;
+					break;
+				}
 				boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(record));
 				bool match = impl->match(arg);
 				if (match&&unique) {

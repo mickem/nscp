@@ -91,6 +91,9 @@ namespace nsclient {
 			std::wstring lc = make_key(cmd);
 			if (!have_plugin(plugin_id))
 				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
+			if (commands_.find(lc) != commands_.end()) {
+				log_error(__FILE__,__LINE__, _T("Adding duplicate command: ") + cmd);
+			}
 			descriptions_[lc] = desc;
 			commands_[lc] = plugins_[plugin_id];
 		}

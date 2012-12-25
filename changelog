@@ -4,7 +4,17 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2012-12-18 MickeM
+2012-12-25 MickeM
+ * Added option scan-range to CheckEventLog.
+   This new option reduces the entries scanned a *lot* and can help solve memory, time and CPU issues.
+   The idea is that is negative we start scanning from the end and once we hit something outsiden the range we stop scanning.
+   There is a chanse that entries reported are "outside" the range so set range bigger then generate/written date/times (to reduce this risk).
+     CheckEventLog file=application file=system MaxWarn=1 MaxCrit=1 "filter=generated gt -1h AND level eq 'info'" truncate=800 unique descriptions "syntax=%severity%: %source%: %message% (%count%)"
+   Executes in 7 seconds adding scan-range=-5h executes in 0 seconds (yields the same result).
+ * Added error message when overriding a commad (ie. when alias check_cpu overrides the new command check_cpu).
+   Wont work (for technical reasons) for duplicate aliases ie.- alias x=foo and x=bar
+
+2012-12-18 MickeM - 0.4.1 RELEASE
  * Fixed path issues in the installer
  * Fixed shortcuts in the installer
  * Fixed so clients can understand no prefixed arguments ie.
