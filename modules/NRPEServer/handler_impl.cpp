@@ -29,7 +29,11 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	std::wstring wmsg, wperf;
 	NSCAPI::nagiosReturn ret = -3;
 	try {
-		ret = nscapi::core_helper::simple_query_from_nrpe(utf8::cvt<std::wstring>(cmd.first), utf8::cvt<std::wstring>(cmd.second), wmsg, wperf);
+		if (encoding_.empty()) {
+			ret = nscapi::core_helper::simple_query_from_nrpe(utf8::to_unicode(cmd.first), utf8::to_unicode(cmd.second), wmsg, wperf);
+		} else {
+			ret = nscapi::core_helper::simple_query_from_nrpe(utf8::from_encoding(cmd.first, encoding_), utf8::from_encoding(cmd.second, encoding_), wmsg, wperf);
+		}
 	} catch (...) {
 		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length());
 	}
@@ -46,9 +50,14 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	default:
 		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Internal error.", p.get_payload_length());
 	}
-	std::string data;
-	std::string msg = utf8::cvt<std::string>(wmsg);
-	std::string perf = utf8::cvt<std::string>(wperf);
+	std::string data,msg, perf;
+	if (encoding_.empty()) {
+		msg = utf8::to_system(wmsg);
+		perf = utf8::to_system(wperf);
+	} else {
+		msg = utf8::to_encoding(wmsg, encoding_);
+		perf = utf8::to_encoding(wperf, encoding_);
+	}
 
 	const unsigned int max_len = p.get_payload_length()-1;
 	if (msg.length() >= max_len) {

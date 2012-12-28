@@ -4,6 +4,13 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2012-12-28 MickeM
+ * Reverted default NRPE encoding to "system" (not UTF-8).
+ * Added new option to configure NRPE encoding:
+    [/settings/NRPE/server]
+    encoding = utf8
+   Valid values are currently system and utf8 (and strangely enough utf7). If you need something else let me know.
+
 2012-12-25 MickeM
  * Added option scan-range to CheckEventLog.
    This new option reduces the entries scanned a *lot* and can help solve memory, time and CPU issues.
