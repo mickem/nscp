@@ -47,7 +47,7 @@ namespace settings {
 			if (!file_helpers::checks::exists(wp.string())) {
 				throw new settings_exception(_T("Failed to find cached settings: ") + wp.string());
 			}
-			add_child(_T("ini://") + wp.string());
+			add_child(_T("ini:///") + wp.string());
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"

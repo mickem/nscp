@@ -54,7 +54,7 @@ public:
 	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
 
 	// Check commands
-	//NSCAPI::nagiosReturn CheckFileSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn CheckFileSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn CheckDriveSize(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn CheckFiles(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
 	//NSCAPI::nagiosReturn getFileAge(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);

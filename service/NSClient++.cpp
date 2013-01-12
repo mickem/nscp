@@ -379,6 +379,10 @@ namespace sh = nscapi::settings_helper;
  * @author mickem
  */
 bool NSClientT::boot_init(std::wstring log_level) {
+#ifdef WIN32
+	SetErrorMode(SEM_FAILCRITICALERRORS);
+#endif
+
 	LOG_DEBUG_CORE(utf8::cvt<std::wstring>(SERVICE_NAME) + _T(" Loading settings and logger..."));
 
 	if (!settings_manager::init_settings(&provider, context_)) {

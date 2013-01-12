@@ -135,7 +135,7 @@ namespace checkHolders {
 			warn.reset();
 			crit.reset();
 		}
-		std::wstring getAlias() {
+		std::wstring getAlias() const {
 			if (alias.empty())
 				return data;
 			return alias;

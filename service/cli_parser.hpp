@@ -121,7 +121,7 @@ public:
 			return true;
 		}
 		if (version) {
-			std::cout << APPLICATION_NAME << ", Version: " << CURRENT_SERVICE_VERSION << ", Platform: " << SZARCH << std::endl;
+			std::wcout << APPLICATION_NAME << _T(", Version: ") << CURRENT_SERVICE_VERSION << _T(", Platform: ") << SZARCH << std::endl;
 			return true;
 		}
 		return false;

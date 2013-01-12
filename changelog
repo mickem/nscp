@@ -4,6 +4,12 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2013-01-02 MickeM
+ * Fixed message dialog when loading PythonScript module without python installed.
+ * (re)add check_fiulesize which was accidentally removed.
+ * Fix for http settings
+ * fix for --version command line option
+
 2012-12-28 MickeM
  * Reverted default NRPE encoding to "system" (not UTF-8).
  * Added new option to configure NRPE encoding:
