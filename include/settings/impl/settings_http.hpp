@@ -30,12 +30,11 @@ namespace settings {
 			if (!file_helpers::checks::is_directory(path)) {
 				if (file_helpers::checks::exists(path)) 
 					throw new settings_exception(_T("Cache path not found: ") + path);
-				//boost::wpath wp = path;
 				boost::filesystem::create_directories(path);
 				if (!file_helpers::checks::is_directory(path))
 					throw new settings_exception(_T("Cache path not found: ") + path);
 			}
-			boost::filesystem::wpath wp(path);
+			boost::filesystem::path wp(path);
 			wp /= _T("cached.ini");
 			std::ofstream os(utf8::cvt<std::string>(wp.string()).c_str());
 			std::string error;
@@ -44,10 +43,10 @@ namespace settings {
 				get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
 			}
 			os.close();
-			if (!file_helpers::checks::exists(wp.string())) {
-				throw new settings_exception(_T("Failed to find cached settings: ") + wp.string());
+			if (!boost::filesystem::is_regular_file(wp)) {
+				throw new settings_exception(_T("Failed to find cached settings: ") + wp.wstring());
 			}
-			add_child(_T("ini://") + wp.string());
+			add_child(_T("ini://") + wp.wstring());
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"

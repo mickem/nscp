@@ -22,15 +22,14 @@
 #pragma once
 
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-// Windows Header Files:
+//#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 //#include <windows.h>
 
 #include <string>
 #include <functional>
 
-#define _WIN32_DCOM
-#include <objbase.h>
+//#define _WIN32_DCOM
+//#include <objbase.h>
 
 #include <common.hpp>
 #include <strEx.h>
@@ -40,11 +39,7 @@
 #include <checkHelpers.hpp>
 #include <filter_framework.hpp>
 
-#include <atlbase.h>
+//#include <atlbase.h>
 //#include <atlcom.h>
 //#include <atlstr.h>
-#include <atlsafe.h>
-
-#ifdef MEMCHECK
-#include <vld.h>
-#endif
+//#include <atlsafe.h>

@@ -177,11 +177,11 @@ bool CheckMKServer::add_script(std::wstring alias, std::wstring file) {
 			alias = _T("");
 		}
 
-		boost::optional<boost::filesystem::wpath> ofile = lua::lua_script::find_script(root_, file);
+		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
 		if (!ofile)
 			return false;
-		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->string() + _T(" as ") + alias + _T(")"));
-		scripts_->add(utf8::cvt<std::string>(alias), utf8::cvt<std::string>(ofile->string()));
+		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->wstring() + _T(" as ") + alias + _T(")"));
+		scripts_->add(utf8::cvt<std::string>(alias), ofile->string());
 		return true;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);

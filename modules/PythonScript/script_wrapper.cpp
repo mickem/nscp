@@ -231,10 +231,10 @@ tuple script_wrapper::function_wrapper::query(std::string request) {
 	try {
 		std::string response;
 		NSCAPI::errorReturn ret = core->registry_query(request, response);
-		return make_tuple(ret, response);
+		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Query failed: ") + utf8::cvt<std::wstring>(e.what()));
-		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Query failed"));
 		return make_tuple(false,_T(""));
@@ -506,7 +506,7 @@ tuple script_wrapper::command_wrapper::simple_submit(std::string channel, std::s
 		thread_unlocker unlocker;
 		ret = nscapi::core_helper::submit_simple_message(wchannel, wcommand, c, wmessage, wperf, wresp);
 	}
-	return make_tuple(ret,utf8::cvt<std::string>(wresp));
+	return boost::python::make_tuple(ret,utf8::cvt<std::string>(wresp));
 }
 tuple script_wrapper::command_wrapper::submit(std::string channel, std::string request) {
 	std::wstring wchannel = utf8::cvt<std::wstring>(channel);
@@ -516,13 +516,13 @@ tuple script_wrapper::command_wrapper::submit(std::string channel, std::string r
 		thread_unlocker unlocker;
 		ret = core->submit_message(wchannel, request, response);
 	} catch (const std::exception &e) {
-		return make_tuple(false,std::string(e.what()));
+		return boost::python::make_tuple(false,std::string(e.what()));
 	} catch (...) {
-		return make_tuple(false,std::string("Failed to submit message"));
+		return boost::python::make_tuple(false,std::string("Failed to submit message"));
 	}
 	std::wstring err;
 	nscapi::functions::parse_simple_submit_response(response, err);
-	return make_tuple(ret==NSCAPI::isSuccess,err);
+	return boost::python::make_tuple(ret==NSCAPI::isSuccess,err);
 }
 
 bool script_wrapper::command_wrapper::reload(std::string module) {
@@ -550,7 +550,7 @@ tuple script_wrapper::command_wrapper::simple_query(std::string command, py::lis
 		thread_unlocker unlocker;
 		ret = nscapi::core_helper::simple_query(utf8::cvt<std::wstring>(command), ws_argument, msg, perf);
 	}
-	return make_tuple(nagios_return_to_py(ret),utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
+	return boost::python::make_tuple(nagios_return_to_py(ret),utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
 }
 tuple script_wrapper::command_wrapper::query(std::string command, std::string request) {
 	std::string response;
@@ -559,7 +559,7 @@ tuple script_wrapper::command_wrapper::query(std::string command, std::string re
 		thread_unlocker unlocker;
 		ret = core->query(utf8::cvt<std::wstring>(command), request, response);
 	}
-	return make_tuple(ret,response);
+	return boost::python::make_tuple(ret,response);
 }
 
 tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::string command, py::list args) {
@@ -576,10 +576,10 @@ tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::stri
 		return make_tuple(ret, convert(result));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command) + _T(": ") + utf8::cvt<std::wstring>(e.what()));
-		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command));
-		return make_tuple(false,utf8::cvt<std::wstring>(command));
+		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(command));
 	}
 }
 tuple script_wrapper::command_wrapper::exec(std::string target, std::string command, std::string request) {
@@ -590,13 +590,13 @@ tuple script_wrapper::command_wrapper::exec(std::string target, std::string comm
 			thread_unlocker unlocker;
 			ret = core->exec_command(utf8::cvt<std::wstring>(target), utf8::cvt<std::wstring>(command), request, response);
 		}
-		return make_tuple(ret, response);
+		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command) + _T(": ") + utf8::cvt<std::wstring>(e.what()));
-		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Failed to execute ") + utf8::cvt<std::wstring>(command));
-		return make_tuple(false,utf8::cvt<std::wstring>(command));
+		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(command));
 	}
 }
 
@@ -651,10 +651,10 @@ tuple script_wrapper::settings_wrapper::query(std::string request) {
 	try {
 		std::string response;
 		NSCAPI::errorReturn ret = core->settings_query(request, response);
-		return make_tuple(ret, response);
+		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Query failed: ") + utf8::cvt<std::wstring>(e.what()));
-		return make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Query failed"));
 		return make_tuple(false,_T(""));

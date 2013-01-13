@@ -42,7 +42,7 @@ namespace settings {
 		
 		instance_raw_ptr instance_;
 		boost::timed_mutex instance_mutex_;
-		boost::filesystem::wpath base_path_;
+		boost::filesystem::path base_path_;
 		reg_paths_type registred_paths_;
 
 	public:
@@ -58,7 +58,7 @@ namespace settings {
 		/// @param path the path to the settings files
 		///
 		/// @author mickem
-		void set_base(boost::filesystem::wpath path) {
+		void set_base(boost::filesystem::path path) {
 			base_path_ = path;
 		}
 
@@ -79,7 +79,7 @@ namespace settings {
 		/// @return the path to the settings files
 		///
 		/// @author mickem
-		boost::filesystem::wpath get_base() {
+		boost::filesystem::path get_base() {
 			return base_path_;
 		}
 

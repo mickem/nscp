@@ -38,9 +38,10 @@ add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
+	${Boost_DATE_TIME_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${Boost_THREAD_LIBRARY}
+	${NSCP_DEF_PLUGIN_LIB}
 	${NSCP_FILTER_LIB}
 	version.lib
 )

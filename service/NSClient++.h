@@ -83,8 +83,8 @@ private:
 
 	typedef std::vector<plugin_type> pluginList;
 	pluginList plugins_;
-	boost::filesystem::wpath basePath;
-	boost::filesystem::wpath tempPath;
+	boost::filesystem::path basePath;
+	boost::filesystem::path tempPath;
 	boost::timed_mutex internalVariables;
 	boost::shared_mutex m_mutexRW;
 
@@ -126,8 +126,8 @@ public:
 
 
 	// Member functions
-	boost::filesystem::wpath getBasePath();
-	boost::filesystem::wpath getTempPath();
+	boost::filesystem::path getBasePath();
+	boost::filesystem::path getTempPath();
 
 	NSCAPI::errorReturn reroute(std::wstring &channel, std::string &buffer);
 	NSCAPI::errorReturn send_notification(const wchar_t* channel, std::string &request, std::string &response);
@@ -162,7 +162,7 @@ public:
 
 	service_controller get_service_control();
 
-	//plugin_type loadPlugin(const boost::filesystem::wpath plugin, std::wstring alias);
+	//plugin_type loadPlugin(const boost::filesystem::path plugin, std::wstring alias);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
 	void unloadPlugins();
 	std::wstring describeCommand(std::wstring command);
@@ -187,7 +187,7 @@ public:
 		void preboot_load_all_plugin_files();
 
 	private:
-		plugin_type addPlugin(boost::filesystem::wpath file, std::wstring alias);
+		plugin_type addPlugin(boost::filesystem::path file, std::wstring alias);
 };
 
 

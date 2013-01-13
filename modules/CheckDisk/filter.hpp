@@ -35,7 +35,7 @@ namespace file_filter {
 			, ullSize(0)
 			, ullNow(0)
 		{}
-		filter_obj(boost::filesystem::wpath path_, std::wstring filename_, __int64 now = 0, __int64 creationTime = 0, __int64 lastAccessTime = 0, __int64 lastWriteTime = 0, __int64 size = 0, DWORD attributes = 0) 
+		filter_obj(boost::filesystem::path path_, std::wstring filename_, __int64 now = 0, __int64 creationTime = 0, __int64 lastAccessTime = 0, __int64 lastWriteTime = 0, __int64 size = 0, DWORD attributes = 0) 
 			: path(path_)
 			, filename(filename_)
 			, ullCreationTime(creationTime)
@@ -47,16 +47,16 @@ namespace file_filter {
 		{};
 
 #ifdef WIN32
-		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem::wpath path, std::wstring filename);
-		static filter_obj get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::wpath path, std::wstring filename);
-		static boost::shared_ptr<filter_obj>  get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::wpath path);
+		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem:: path path, std::wstring filename);
+		static filter_obj get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::path path, std::wstring filename);
+		static boost::shared_ptr<filter_obj>  get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path);
 #endif
-		static filter_obj get(unsigned long long now, boost::filesystem::wpath path, std::wstring filename);
+		static filter_obj get(unsigned long long now, boost::filesystem::path path, std::wstring filename);
 		static filter_obj get(unsigned long long now, std::wstring file);
 		static filter_obj get(std::wstring file);
 
 		std::wstring get_filename() { return filename; }
-		std::wstring get_path() { return path.string(); }
+		std::wstring get_path() { return path.wstring(); }
 
 		long long get_creation() {
 			return strEx::filetime_to_time(ullCreationTime);
@@ -106,7 +106,7 @@ namespace file_filter {
 		__int64 ullLastWriteTime;
 		__int64 ullNow;
 		std::wstring filename;
-		boost::filesystem::wpath path;
+		boost::filesystem::path path;
 		boost::optional<std::wstring> cached_version;
 		boost::optional<unsigned long> cached_count;
 		DWORD attributes;

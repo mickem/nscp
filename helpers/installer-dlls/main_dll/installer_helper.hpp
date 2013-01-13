@@ -4,7 +4,7 @@
 #include <msi.h>
 #include <error.hpp>
 #include <char_buffer.hpp>
-#include <strsafe.h>
+//#include <strsafe.h>
 
 class installer_exception {
 	std::wstring error_;

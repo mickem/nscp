@@ -29,7 +29,7 @@
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::wpath file, std::wstring alias)
+NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::wstring alias)
  	: module_(file.string())
 	,loaded_(false)
 	,broken_(false)
@@ -466,10 +466,10 @@ int NSCPlugin::commandLineExec(const wchar_t* command, const char* request, cons
 	}
 
 }
-boost::filesystem::wpath NSCPlugin::get_filename(boost::filesystem::wpath folder, std::wstring module) {
+boost::filesystem::path NSCPlugin::get_filename(boost::filesystem::path folder, std::wstring module) {
 	return dll::dll::fix_module_name(folder / module);
 }
-bool NSCPlugin::is_duplicate(boost::filesystem::wpath file, std::wstring alias) {
+bool NSCPlugin::is_duplicate(boost::filesystem::path file, std::wstring alias) {
 	if (alias.empty() && alias_.empty())
 		return module_.get_file() == dll::dll::fix_module_name(file);
 	if (alias.empty() || alias_.empty())

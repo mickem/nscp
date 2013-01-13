@@ -35,43 +35,44 @@ namespace file_helpers {
 
 	class meta {
 	public:
-		static boost::filesystem::wpath get_path(boost::filesystem::wpath path) {
-			return path.branch_path();
+		static boost::filesystem::path get_path(boost::filesystem::path path) {
+			return path.parent_path();
 		}
-		static std::wstring get_filename(boost::filesystem::wpath path) {
-			return path.filename();
+		static std::wstring get_filename(boost::filesystem::path path) {
+			return path.filename().wstring();
 		}
 		static std::wstring get_path(std::wstring file) {
-			boost::filesystem::wpath path = file;
-			return path.branch_path().string();
+			boost::filesystem::path path(file);
+			return path.parent_path().wstring();
 		}
 		static std::wstring get_filename(std::wstring file) {
-			boost::filesystem::wpath path = file;
-			return path.filename();
+			boost::filesystem::path path = file;
+			return path.filename().wstring();
 		}
 	};
 
 	class patterns {
 	public:
-		typedef std::pair<boost::filesystem::wpath,std::wstring> pattern_type;
+		typedef std::pair<boost::filesystem::path,boost::filesystem::path> pattern_type;
 
-		static pattern_type split_pattern(boost::filesystem::wpath path) {
+		static pattern_type split_pattern(boost::filesystem::path path) {
 			if (boost::filesystem::is_directory(path))
-				return pattern_type(path, _T(""));
+				return pattern_type(path,boost::filesystem::path());
 			return pattern_type(path.branch_path(), path.filename());
 		}
-		static pattern_type split_path_ex(std::wstring path) {
-			std::wstring baseDir;
-			if (file_helpers::checks::is_directory(path)) {
-				return pattern_type(path, _T(""));
+		static pattern_type split_path_ex(boost::filesystem::path path) {
+			if (boost::filesystem::is_directory(path)) {
+				return pattern_type(path, boost::filesystem::path());
 			}
-			std::wstring::size_type pos = path.find_last_of('\\');
-			if (pos == std::wstring::npos) {
-				pattern_type(path, _T("*.*"));
+
+			std::string spath = path.string();
+			std::string::size_type pos = spath.find_last_of('\\');
+			if (pos == std::string::npos) {
+				pattern_type(spath, boost::filesystem::path("*.*"));
 			}
-			return pattern_type(path.substr(0, pos), path.substr(pos+1));
+			return pattern_type(spath.substr(0, pos), spath.substr(pos+1));
 		}
-		static boost::filesystem::wpath combine_pattern(pattern_type pattern) {
+		static boost::filesystem::path combine_pattern(pattern_type pattern) {
 			return pattern.first / pattern.second;
 		}
 	}; // END patterns

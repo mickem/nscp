@@ -1129,7 +1129,6 @@ namespace checkHolders {
 				NSC_LOG_MESSAGE_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
 				return min_.gatherPerfData(alias, unit, value, 0, 0);
 			}
-			return _T("");
 		}
 		std::wstring gatherPerfData(std::wstring alias, std::wstring unit, typename THolder::TValueType &value) {
 			THolder tmp;

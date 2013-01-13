@@ -38,6 +38,7 @@ IF(WIN32)
 ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
+OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

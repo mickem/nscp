@@ -122,14 +122,14 @@ void real_time_thread::thread_proc() {
 			continue;
 		}
 		BOOST_FOREACH(const filters::file_container &fc, object.files) {
-			boost::filesystem::wpath path = fc.file;
+			boost::filesystem::path path = fc.file;
 #ifdef WIN32
 			if (boost::filesystem::is_directory(path)) {
-				logs.push_back(path.string());
+				logs.push_back(path.wstring());
 			} else {
 				path = path.remove_filename();
 				if (boost::filesystem::is_directory(path)) {
-					logs.push_back(path.string());
+					logs.push_back(path.wstring());
 				} else {
 					NSC_LOG_ERROR(_T("Failed to find folder for ") + object.alias + _T(": ") + fc.file);
 					continue;

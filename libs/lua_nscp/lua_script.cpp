@@ -517,16 +517,16 @@ void lua::lua_script::luaopen(lua_State *L) {
 }
 
 
-boost::optional<boost::filesystem::wpath> lua::lua_script::find_script(boost::filesystem::wpath root, std::wstring file) {
-	std::list<boost::filesystem::wpath> checks;
+boost::optional<boost::filesystem::path> lua::lua_script::find_script(boost::filesystem::path root, std::wstring file) {
+	std::list<boost::filesystem::path> checks;
 	checks.push_back(file);
 	checks.push_back(root / _T("scripts") / _T("lua") / file);
 	checks.push_back(root / _T("scripts") / file);
 	checks.push_back(root / _T("lua") / file);
 	checks.push_back(root / file);
-	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
+	BOOST_FOREACH(boost::filesystem::path c, checks) {
 		if (boost::filesystem::exists(c))
-			return boost::optional<boost::filesystem::wpath>(c);
+			return boost::optional<boost::filesystem::path>(c);
 	}
-	return boost::optional<boost::filesystem::wpath>();
+	return boost::optional<boost::filesystem::path>();
 }

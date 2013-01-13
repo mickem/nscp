@@ -9,7 +9,7 @@ void nscapi::targets::helpers::verify_file(nscapi::targets::target_object &targe
 	std::wstring value = target.options[key];
 	if (value == _T("none") || value == _T(""))
 		return;
-	boost::filesystem::wpath p = value;
+	boost::filesystem::path p = value;
 	if (!boost::filesystem::is_regular(p))
-		errors.push_back(_T("File not found '") + key + _T("': ") + p.string());
+		errors.push_back(_T("File not found '") + key + _T("': ") + p.wstring());
 }

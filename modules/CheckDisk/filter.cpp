@@ -103,7 +103,7 @@ file_filter::filter_obj_handler::base_handler::bound_function_type file_filter::
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef WIN32
-file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem::wpath path, std::wstring filename) {
+file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem::path path, std::wstring filename) {
 	return file_filter::filter_obj(path, filename, now, 
 		(info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime,
 		(info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime,
@@ -111,7 +111,7 @@ file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, con
 		(info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow
 		);
 };
-file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::wpath path, std::wstring filename) {
+file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::path path, std::wstring filename) {
 	return file_filter::filter_obj(path, filename, now, 
 		(info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime,
 		(info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime,
@@ -119,7 +119,7 @@ file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, con
 		(info.nFileSizeHigh * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.nFileSizeLow
 	);
 };
-boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::wpath path) {
+boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path) {
 	return boost::shared_ptr<file_filter::filter_obj>(new file_filter::filter_obj(path, info.cFileName, now, 
 		(info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime, 
 		(info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime,
@@ -129,10 +129,10 @@ boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned
 	//attributes = info.dwFileAttributes;
 };
 #endif
-file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, boost::filesystem::wpath path, std::wstring filename) {
+file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, boost::filesystem::path path, std::wstring filename) {
  	WIN32_FILE_ATTRIBUTE_DATA data;
- 	if (!GetFileAttributesEx((path.string() + _T("\\") + filename).c_str(), GetFileExInfoStandard, reinterpret_cast<LPVOID>(&data))) {
-		throw new file_object_exception("Could not open file (2) " + utf8::cvt<std::string>(path.string()) + "\\" + utf8::cvt<std::string>(filename) + ": " + utf8::cvt<std::string>(error::lookup::last_error()));
+ 	if (!GetFileAttributesEx((path.wstring() + _T("\\") + filename).c_str(), GetFileExInfoStandard, reinterpret_cast<LPVOID>(&data))) {
+		throw new file_object_exception("Could not open file (2) " + utf8::cvt<std::string>(path.wstring()) + "\\" + utf8::cvt<std::string>(filename) + ": " + utf8::cvt<std::string>(error::lookup::last_error()));
 	}
 	return get(now, data, path, filename);
 }
@@ -161,7 +161,7 @@ file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, std
 std::wstring file_filter::filter_obj::get_version(filter_obj_handler *handler) {
 	if (cached_version)
 		return *cached_version;
-	std::wstring fullpath = (path / filename).string();
+	std::wstring fullpath = (path / filename).wstring();
 
 	DWORD dwDummy;
 	DWORD dwFVISize = GetFileVersionInfoSize(fullpath.c_str(), &dwDummy);
@@ -199,7 +199,7 @@ unsigned long file_filter::filter_obj::get_line_count() {
 		return *cached_count;
 
 	unsigned long count = 0;
-	std::wstring fullpath = (path / filename).string();
+	std::wstring fullpath = (path / filename).wstring();
 	FILE * pFile = fopen(strEx::wstring_to_string(fullpath).c_str(),"r");;
 	if (pFile==NULL) 
 		return 0;
@@ -221,7 +221,7 @@ unsigned long file_filter::filter_obj::get_line_count() {
 
 
 std::wstring file_filter::filter_obj::render(std::wstring syntax, std::wstring datesyntax) {
-	strEx::replace(syntax, _T("%path%"), path.string());
+	strEx::replace(syntax, _T("%path%"), path.wstring());
 	strEx::replace(syntax, _T("%filename%"), filename);
 	strEx::replace(syntax, _T("%creation%"), strEx::format_filetime(ullCreationTime, datesyntax));
 	strEx::replace(syntax, _T("%access%"), strEx::format_filetime(ullLastAccessTime, datesyntax));

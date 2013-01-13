@@ -234,10 +234,10 @@ namespace settings {
 				return;
 			if (boost::filesystem::is_directory(get_file_name())) {
 
-				boost::filesystem::wdirectory_iterator it(get_file_name()), eod;
+				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
-				BOOST_FOREACH(boost::filesystem::wpath const &p, std::make_pair(it, eod)) {
-					add_child(_T("ini:///") + p.string());
+				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+					add_child(_T("ini:///") + p.wstring());
 				}
 			}
 			if (!file_exists()) {

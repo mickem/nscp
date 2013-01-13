@@ -10,21 +10,21 @@ namespace dll {
 		class impl : public boost::noncopyable {
 		private:
 			HMODULE handle_;
-			boost::filesystem::wpath module_;
+			boost::filesystem::path module_;
 		public:
-			impl(boost::filesystem::wpath module) : module_(module), handle_(NULL) {
+			impl(boost::filesystem::path module) : module_(module), handle_(NULL) {
 				if (!boost::filesystem::is_regular(module_)) {
 					module_ = fix_module_name(module_);
 				}
 			}
-			static boost::filesystem::wpath fix_module_name( boost::filesystem::wpath module ) {
+			static boost::filesystem::path fix_module_name( boost::filesystem::path module ) {
 				if (boost::filesystem::is_regular(module))
 					return module;
 				/* this one (below) is wrong I think */
-				boost::filesystem::wpath mod = module / get_extension();
+				boost::filesystem::path mod = module / get_extension();
 				if (boost::filesystem::is_regular(mod))
 					return mod;
-				mod = boost::filesystem::wpath(module.string() + get_extension());
+				mod = boost::filesystem::path(module.wstring() + get_extension());
 				if (boost::filesystem::is_regular(mod))
 					return mod;
 				return module;
@@ -42,13 +42,13 @@ namespace dll {
 			void load_library() {
 				if (handle_ != NULL)
 					unload_library();
-				handle_ = LoadLibrary(module_.file_string().c_str());
+				handle_ = LoadLibrary(module_.filename().wstring().c_str());
 				if (handle_ == NULL)
-					throw dll_exception(_T("Could not load library: ") + error::lookup::last_error() + _T(": ") + module_.file_string());
+					throw dll_exception(_T("Could not load library: ") + error::lookup::last_error() + _T(": ") + module_.filename().wstring());
 			}
 			LPVOID load_proc(std::string name) {
 				if (handle_ == NULL)
-					throw dll_exception(_T("Failed to load process since module is not loaded: ") + module_.file_string());
+					throw dll_exception(_T("Failed to load process since module is not loaded: ") + module_.filename().wstring());
 				LPVOID ep = GetProcAddress(handle_, name.c_str());
 				return ep;
 			}
@@ -60,8 +60,8 @@ namespace dll {
 				handle_ = NULL;
 			}
 			bool is_loaded() const { return handle_ != NULL; }
-			boost::filesystem::wpath get_file() const { return module_; }
-			std::wstring get_filename() const { return module_.leaf(); }
+			boost::filesystem::path get_file() const { return module_; }
+			std::wstring get_filename() const { return module_.filename().wstring(); }
 			std::wstring get_module_name() {
 				std::wstring ext = _T(".dll");
 				std::wstring::size_type l = ext.length();

@@ -8,7 +8,7 @@ namespace file {
 			if ((max_level != -1) && (current_level > max_level))
 				return;
 
-			boost::filesystem::wpath path = dir;
+			boost::filesystem::path path = dir;
 			if (path.is_directory()) {
 				// scan and parse all sub folders.
 				boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end

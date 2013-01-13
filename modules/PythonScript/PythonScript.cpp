@@ -112,13 +112,13 @@ BOOST_PYTHON_MODULE(NSCP)
 python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) 
 	: alias(alias)
 	, plugin_id(plugin_id) {
-	NSC_DEBUG_MSG_STD(_T("Loading python script: ") + script.script.string());
+	NSC_DEBUG_MSG_STD(_T("Loading python script: ") + script.script.wstring());
 	std::wstring err;
 	if (!script.validate(err)) {
 		NSC_LOG_ERROR(err);
 		return;
 	}
-	_exec(utf8::cvt<std::string>(script.script.file_string()));
+	_exec(script.script.filename().string());
 	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
 python_script::~python_script(){
@@ -194,11 +194,11 @@ void python_script::_exec(const std::string &scriptfile){
 			PyRun_SimpleString("import cStringIO");
 			PyRun_SimpleString("import sys");
 			PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
-			boost::filesystem::wpath path = GET_CORE()->getBasePath();
+			boost::filesystem::path path = GET_CORE()->getBasePath();
 			path /= _T("scripts");
 			path /= _T("python");
 			path /= _T("lib");
-			NSC_DEBUG_MSG(_T("Lib path: ") + path.string());
+			NSC_DEBUG_MSG(_T("Lib path: ") + path.wstring());
 			PyRun_SimpleString(("sys.path.append('" + utf8::cvt<std::string>(path.string()) + "')").c_str());
 
 			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
@@ -276,8 +276,8 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 	return true;
 }
 
-boost::optional<boost::filesystem::wpath> PythonScript::find_file(std::wstring file) {
-	std::list<boost::filesystem::wpath> checks;
+boost::optional<boost::filesystem::path> PythonScript::find_file(std::wstring file) {
+	std::list<boost::filesystem::path> checks;
 	checks.push_back(file);
 	checks.push_back((file + _T(".py")));
 	checks.push_back(root_ / _T("scripts") / _T("python") / file);
@@ -285,13 +285,13 @@ boost::optional<boost::filesystem::wpath> PythonScript::find_file(std::wstring f
 	checks.push_back(root_ / _T("scripts") / file);
 	checks.push_back(root_ / _T("scripts") / (file + _T(".py")));
 	checks.push_back(root_ / file);
-	BOOST_FOREACH(boost::filesystem::wpath c, checks) {
-		NSC_DEBUG_MSG_STD(_T("Looking for: ") + c.string());
+	BOOST_FOREACH(boost::filesystem::path c, checks) {
+		NSC_DEBUG_MSG_STD(_T("Looking for: ") + c.wstring());
 		if (boost::filesystem::exists(c) && boost::filesystem::is_regular(c))
-			return boost::optional<boost::filesystem::wpath>(c);
+			return boost::optional<boost::filesystem::path>(c);
 	}
 	NSC_LOG_ERROR(_T("Script not found: ") + file);
-	return boost::optional<boost::filesystem::wpath>();
+	return boost::optional<boost::filesystem::path>();
 }
 
 NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstring> args, std::wstring &message) {
@@ -320,7 +320,7 @@ NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstrin
 			py_args.push_back(_T("--help"));
 		}
 
-		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
+		boost::optional<boost::filesystem::path> ofile = find_file(file);
 		if (!ofile)
 			return false;
 		script_container sc(*ofile);
@@ -348,11 +348,11 @@ bool PythonScript::loadScript(std::wstring alias, std::wstring file) {
 			file = alias;
 			alias = _T("");
 		}
-		boost::optional<boost::filesystem::wpath> ofile = find_file(file);
+		boost::optional<boost::filesystem::path> ofile = find_file(file);
 		if (!ofile)
 			return false;
 		script_container::push(scripts_, alias, *ofile);
-		NSC_DEBUG_MSG_STD(_T("Adding script: ") + alias + _T(" (") + ofile->string() + _T(")"));
+		NSC_DEBUG_MSG_STD(_T("Adding script: ") + alias + _T(" (") + ofile->wstring() + _T(")"));
 		return true;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Could not find script: (Unknown exception) ") + file);

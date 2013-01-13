@@ -55,8 +55,19 @@ def get_root_from_file(path):
 	file = opener(path, mode)
 	try:
 		roots = []
-		for f in file.namelist():
-			(root, ignored) = f.split('/', 1)
+		list = []
+		if hasattr(file, 'namelist'):
+			list = file.namelist()
+		elif hasattr(file, 'getnames'):
+			list = file.getnames()
+		else:
+			print 'ERR  Failed to retrive data from: %s'%path
+			return None
+		for f in list:
+			if '/' in f:
+				(root, ignored) = f.split('/', 1)
+			else:
+				root = f
 			if root not in roots:
 				roots.append(root)
 		if len(roots) == 1:
@@ -179,9 +190,15 @@ class build_instruction:
 				if cached_name in lines:
 					print('INFO found cached: %s (not running)'%cmd)
 				else:
-					print('INFO Running: %s'%cmd)
+					raw_cmd = cmd
 					cmd = cmd.replace('$$NSCP_SOURCE_ROOT$$', source)
 					cmd = cmd.replace('$$MSVER$$', msver)
+					cmd = cmd.replace('$boost-version$', boost_version[msver])
+					cmd = cmd.replace('$$CMAKE_GENERATOR$$', cmake_generator[msver])
+					print('INFO Running: "%s" as "%s"'%(raw_cmd, cmd))
+					
+					if msver == '2012':
+						cmd = cmd.replace('.vcproj', '.vcxproj')
 					ret = os.system(cmd)
 					if ret != 0:
 						print "ERR  Failed to execute: %s (%d)"%(cmd, ret)
@@ -211,8 +228,10 @@ sources['cryptopp'].folder = 'cryptopp-5.6.1'
 # sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
 sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
 
-# sources['boost'] = source('boost_1_49_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.zip/download', 'e2e778a444e7ae7157b97f4f1fedf363cf87940c')
-sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
+sources['boost'] = source('boost_1_52_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.52.0/boost_1_52_0.zip/download', '5cfe29351e0b734993a2e6717e22b709680dd132')
+
+#sources['boost'] = source('boost_1_49_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.zip/download', 'e2e778a444e7ae7157b97f4f1fedf363cf87940c')
+#sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
 sources['openssl'] = source('openssl-1.0.1c.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1c.tar.gz', '91b684de947cb021ac61b8c51027cc4b63d894ce')
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
 sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethomason/tinyxml2/zipball/master')
@@ -225,8 +244,8 @@ post_build = {}
 
 build['boost'] = build_instruction(
 	['bootstrap.bat'], 
-	['bjam --toolset=msvc-8.0 runtime-link=static'],
-	['bjam --toolset=msvc-8.0 runtime-link=static address-model=64'],
+	['bjam --toolset=$boost-version$ runtime-link=static'],
+	['bjam --toolset=$boost-version$ runtime-link=static address-model=64'],
 	[]
 	)
 
@@ -238,14 +257,14 @@ build['openssl'] = build_instruction(
 	)
 
 build['protobuf'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'], 
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'], 
 	[],
 	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py'],
 	['msbuild vsprojects\\protobuf.sln /p:Configuration=Release', 'msbuild vsprojects\\protobuf.sln /p:Configuration=Debug']
 	)
 
 build['ZeroMQ'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py'
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'
 #		,'$$TODO: Apply debug patch$$'
 		], 
 	[],
@@ -254,32 +273,35 @@ build['ZeroMQ'] = build_instruction(
 	)
 
 build['cryptopp'] = build_instruction(
-	[], 
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'],
 	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
 	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
 	[]
 	)
 build['gtest'] = build_instruction(
 	[],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005" & exit /b0"'],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & cmake . -Dgtest_disable_pthreads=true -G "Visual Studio 8 2005 Win64" & exit /b0"'],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & exit /b0"'],
+	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & exit /b0"'],
 	['msbuild gtest.sln /p:Configuration=Release', 'msbuild gtest.sln /p:Configuration=Debug']
 	)
 
+boost_version = {}
+boost_version['2005'] = "msvc-8.0"
+boost_version['2012'] = "msvc-11.0"
+cmake_generator = {}
+cmake_generator['2005'] = "Visual Studio 8 2005"
+cmake_generator['2012'] = "Visual Studio 11"
 
 post_build['protobuf'] = """Be sure to install protocol buffers python library in your python installation (notice if you have multiple you need to do this for all of them):
 cd ${protobuf_abs}\python
 c:\path\of\python.exe setup.py install"""
 post_build['breakpad'] = """Google breakpad requires the plattform SDK to be able to build so you need to buildthat manually."""
-post_build['global'] = """Validate your setup using the following command (notice boost will probably fail since it does not know which compiler you are using):
+post_build['validate'] = """You can (if you wich) validate your setup using the following command:
 cmake -D TARGET=${target} -D SOURCE=${source} -P ${source}\check_deps.cmake
-
-Then you need to build:
+Notice: boost will probably fail since it does not know which compiler you are using"""
+post_build['nsclient++'] = """To build NSClient++ you can run the following commands
 cd ${target}
-cmake -G "Visual Studio 8 2005" ../${source}
-or
-cmake -G "Visual Studio 8 2005 Win64" ../${source}
-
+cmake -G "${cmake_generator}" ${source}
 """
 
 
@@ -349,22 +371,28 @@ def write_config(root, target, defines):
 				conf.write('SET(%s "%s")'%(key, value))
 	print 'OK   CMake config written to: %s'%target
 
-def post_build_source(root, target, source):
+def post_build_source(root, target, arch, source):
+	global msver
 	data = {}
 	data['root'] = root.replace('\\', '/')
 	data['target'] = target.replace('\\', '/')
 	data['source'] = source.replace('\\', '/')
+	data['cmake_generator'] = cmake_generator[msver]
+	if arch == 'x64':
+		data['cmake_generator'] = '%s Win64'%data['cmake_generator']
 	for t in targets:
 		if t in sources:
 			data[t] = sources[t].find_rel_path(root)
 			data['%s_abs'%t] = sources[t].find_abs_path(root)
 	local_targets = targets
-	local_targets.append('global')
+	local_targets.append('validate')
+	local_targets.append('nsclient++')
 	for t in local_targets:
 		if t in post_build:
 			tpl = Template(post_build[t])
-			print "---/// %s ///---"%t
-			print tpl.safe_substitute(data)
+			print
+			print " * %s"%t.upper()
+			print '   ' + tpl.safe_substitute(data).replace('\n', '\n   ')
 
 parser = OptionParser()
 parser.add_option("-d", "--directory", help="Folder to build in (defaults to current)")
@@ -397,6 +425,6 @@ decompress_sources(options.directory)
 build_source(options.directory, options.target, options.source)
 if options.cmake_config:
 	write_config(options.directory, options.cmake_config, options.cmake_define)
-	post_build_source(options.directory, options.cmake_config, options.source)
+	post_build_source(options.directory, options.cmake_config, options.target, options.source)
 else:
 	print 'WARN Since you did not specify --cmake-config we will not write the cmake config file so most likely this was not very usefull...'

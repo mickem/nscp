@@ -1135,7 +1135,6 @@ public:
 		} else {
 			return running.check_preformatted(value.running, value.to_wstring(), lable, message, type);
 		}
-		return false;
 	}
 
 };

@@ -40,7 +40,7 @@ private:
 	boost::scoped_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
 	boost::shared_ptr<lua::lua_runtime> lua_runtime_;
 	boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
-	boost::filesystem::wpath root_;
+	boost::filesystem::path root_;
 
 public:
 	LUAScript();

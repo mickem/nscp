@@ -263,7 +263,7 @@ namespace settings {
 		/// @param path the path to the settings files
 		///
 		/// @author mickem
-		virtual void set_base(boost::filesystem::wpath path) = 0;
+		virtual void set_base(boost::filesystem::path path) = 0;
 
 		virtual std::wstring to_string() = 0;
 

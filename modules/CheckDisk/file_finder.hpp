@@ -12,5 +12,5 @@
 #include "filter.hpp"
 
 namespace file_finder {
-	void recursive_scan(file_filter::filter_result result, file_filter::filter_argument args, file_filter::filter_engine engine, boost::filesystem::wpath dir, bool recursive = false, int current_level = 0);
+	void recursive_scan(file_filter::filter_result result, file_filter::filter_argument args, file_filter::filter_engine engine, boost::filesystem::path dir, bool recursive = false, int current_level = 0);
 }

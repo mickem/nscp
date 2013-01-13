@@ -5,8 +5,11 @@
 #include <map>
 #include <string>
 
+//#define _ATL_NTDDI_MIN 
+//#define _WIN32_WINNT 0x0403
+//#include <Windows.h>
 #include <taskschd.h>
-#include <ATLComTime.h>
+//#include <ATLComTime.h>
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
@@ -111,9 +114,10 @@ namespace tasksched_filter {
 			static void cleanup(TTarget obj) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr) && hr != SCHED_S_TASK_HAS_NOT_RUN; }
 			static TReturn convert(HRESULT hr, TTarget &value) {
-				COleDateTime date(value);
+				// TODO: FIXME: Readd this!
+				//COleDateTime date(value);
 				SYSTEMTIME tmp;
-				date.GetAsSystemTime(tmp);
+				//date.GetAsSystemTime(tmp);
 				return task_sched_date(systemtime_to_ullFiletime(tmp)); 
 			}
 		};

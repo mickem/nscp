@@ -1,4 +1,6 @@
-#define _WIN32_WINNT 0x0500
+//#define _WIN32_WINNT 0x0500
+#include <string>
+
 #include <windows.h>
 #include <msi.h>
 #include <msiquery.h>
@@ -175,17 +177,17 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			return ERROR_SUCCESS;
 		}
 
-		boost::filesystem::wpath restore_path = h.getTempPath();
+		boost::filesystem::path restore_path = h.getTempPath();
 		restore_path = restore_path / (_T("old_nsc.ini"));
-		boost::filesystem::wpath old_path = target;
+		boost::filesystem::path old_path = target;
 		old_path = old_path / (_T("nsc.ini"));
 
-		h.logMessage(_T("Looking for old settings file (for archiving): ") + old_path.string());
-		h.logMessage(_T("Using restore path: ") + restore_path.string());
+		h.logMessage(_T("Looking for old settings file (for archiving): ") + old_path.wstring());
+		h.logMessage(_T("Using restore path: ") + restore_path.wstring());
 		if (boost::filesystem::exists(old_path)) {
 			h.logMessage(_T("Found old file: ") + strEx::itos(boost::filesystem::file_size(old_path)));
-			h.setProperty(_T("RESTORE_FILE"), restore_path.string());
-			copy_file(h, old_path.string(), restore_path.string());
+			h.setProperty(_T("RESTORE_FILE"), restore_path.wstring());
+			copy_file(h, old_path.wstring(), restore_path.wstring());
 		}
 		if (boost::filesystem::exists(restore_path))
 			h.logMessage(_T("Found restore file: ") + strEx::itos(boost::filesystem::file_size(restore_path)));
@@ -365,11 +367,11 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		h.logMessage(_T("Context: ") + context);
 		h.logMessage(_T("Restore: ") + restore);
 
-		boost::filesystem::wpath path = target;
-		boost::filesystem::wpath old_path = path / _T("nsc.ini.old");
-		path = path / _T("nsc.ini");
+		boost::filesystem::path path = target;
+		boost::filesystem::path old_path = path / "nsc.ini.old";
+		path = path / "nsc.ini";
 
-		boost::filesystem::wpath restore_path = restore;
+		boost::filesystem::path restore_path = restore;
 
 		if (boost::filesystem::exists(old_path))
 			h.logMessage(_T("Found old (.old) file: ") + strEx::itos(boost::filesystem::file_size(old_path)));
@@ -381,11 +383,11 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		if (boost::filesystem::exists(restore_path)) {
 			if (!boost::filesystem::exists(path)) {
 				h.logMessage(_T("Restoring nsc.ini configuration file"));
-				copy_file(h, restore_path.string(), path.string());
+				copy_file(h, restore_path.wstring(), path.wstring());
 			}
 			if (!boost::filesystem::exists(old_path)) {
 				h.logMessage(_T("Creating backup nsc.ini.old configuration file"));
-				copy_file(h, restore_path.string(), old_path.string());
+				copy_file(h, restore_path.wstring(), old_path.wstring());
 			}
 		}
 

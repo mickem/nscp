@@ -41,20 +41,20 @@ CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
 void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
-	boost::filesystem::wpath path = str_path;
+	boost::filesystem::path path = str_path;
 	if (path.has_relative_path())
 		path = get_core()->getBasePath() / path;
 	file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
 	if (!boost::filesystem::is_directory(split_path.first))
-		NSC_LOG_ERROR_STD(_T("Path was not found: ") + split_path.first.string());
+		NSC_LOG_ERROR_STD(_T("Path was not found: ") + split_path.first.wstring());
 
-	boost::wregex pattern(split_path.second);
-	boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
-	for ( boost::filesystem::wdirectory_iterator itr( split_path.first ); itr != end_itr; ++itr ) {
+	boost::wregex pattern(split_path.second.wstring());
+	boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
+	for ( boost::filesystem::directory_iterator itr( split_path.first ); itr != end_itr; ++itr ) {
 		if ( !is_directory(itr->status()) ) {
-			std::wstring name = itr->path().leaf();
+			std::wstring name = itr->path().leaf().wstring();
 			if (regex_match(name, pattern))
-				add_command(name.c_str(), (split_path.first / name).string());
+				add_command(name.c_str(), (split_path.first / name).wstring());
 		}
 	}
 }

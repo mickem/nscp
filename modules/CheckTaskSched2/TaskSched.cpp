@@ -21,9 +21,11 @@
 #include "StdAfx.h"
 #include "TaskSched.h"
 
+#include <atlbase.h>
+
 #include <error_com.hpp>
 
-#include <objidl.h>
+//#include <objidl.h>
 #include <map>
 #include <comdef.h>
 

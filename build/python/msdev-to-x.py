@@ -24,18 +24,30 @@ if len(sys.argv) < 2:
 	print "Invalid sytax: python %s <version>"%sys.argv[0]
 	os.exit(1)
 
+convert_tool = False
 if sys.argv[1] == "2005":
 	target_vc = '8.00'
 	target_sln = '09.00'
 elif sys.argv[1] == "2008":
 	target_vc = '9.00'
 	target_sln = '10.00'
+elif sys.argv[1] == "2012":
+	convert_tool = True
+	target_vc = '12.00'
+	target_sln = '13.00'
 else:
 	print "Invalid version: %s"%sys.argv[1]
 	os.exit(1)
 	
 scan_folder(os.getcwd())
+if convert_tool:
+	for f in slns:
+		print 'Running: devenv /Upgrade %s'%f
+		os.system('devenv /Upgrade %s'%f)
 for f in vcprojs:
+	#if convert_tool:
+	#	print 'Running: devenv /Upgrade %s'%f
+	#	os.system('devenv /Upgrade %s'%f)
 	replace_in_file(f, 'Version="9.00"', 'Version="%s"'%target_vc)
 	replace_in_file(f, 'Version="8.00"', 'Version="%s"'%target_vc)
 	replace_in_file(f, 'Version="7.10"', 'Version="%s"'%target_vc)

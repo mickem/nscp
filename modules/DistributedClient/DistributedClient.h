@@ -75,7 +75,7 @@ private:
 			}
 			if (target.has_option(_T("certificate"))) {
 				std::wstring value = target.options[_T("certificate")];
-				boost::filesystem::wpath p = value;
+				boost::filesystem::path p = value;
 				if (!boost::filesystem::is_regular(p)) {
 					p = core->getBasePath() / p;
 					if (boost::filesystem::is_regular(p)) {

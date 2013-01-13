@@ -127,7 +127,7 @@ private:
 	nscapi::plugin_api::lpRouteMessage fRouteMessage;
 
 public:
-	NSCPlugin(const unsigned int id, const boost::filesystem::wpath file, std::wstring alias);
+	NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::wstring alias);
 	virtual ~NSCPlugin(void);
 
 	std::wstring getName(void);
@@ -152,7 +152,7 @@ public:
 	int commandLineExec(const wchar_t* command, std::string &request, std::string &reply);
 	int commandLineExec(const wchar_t* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
 	bool has_command_line_exec();
-	bool is_duplicate( boost::filesystem::wpath file, std::wstring alias );
+	bool is_duplicate( boost::filesystem::path file, std::wstring alias );
 
 
 	bool has_routing_handler();
@@ -195,7 +195,7 @@ public:
 		return module_.is_loaded();
 	}
 	unsigned int get_id() const { return plugin_id_; }
-	static boost::filesystem::wpath get_filename(boost::filesystem::wpath folder, std::wstring module);
+	static boost::filesystem::path get_filename(boost::filesystem::path folder, std::wstring module);
 
 public:
 	void on_raw_log_message(std::string &payload) {

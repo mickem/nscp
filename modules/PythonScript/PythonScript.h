@@ -47,7 +47,7 @@ struct python_script : public boost::noncopyable {
 
 class PythonScript : public nscapi::impl::simple_plugin {
 private:
-	boost::filesystem::wpath root_;
+	boost::filesystem::path root_;
 	typedef script_container::list_type script_type;
 	script_type scripts_;
 	typedef std::list<boost::shared_ptr<python_script> > instance_list_type;
@@ -92,6 +92,6 @@ public:
 
 private:
 
-	boost::optional<boost::filesystem::wpath> find_file(std::wstring file);
+	boost::optional<boost::filesystem::path> find_file(std::wstring file);
 
 };

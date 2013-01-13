@@ -13,7 +13,7 @@ namespace settings_manager {
 
 	class NSCSettingsImpl : public settings::settings_handler_impl {
 	private:
-		boost::filesystem::wpath boot_;
+		boost::filesystem::path boot_;
 		bool old_;
 		provider_interface *provider_;
 	public:
@@ -30,7 +30,7 @@ namespace settings_manager {
 		std::wstring get_boot_string(std::wstring section, std::wstring key, std::wstring def) {
 #ifdef WIN32
 			wchar_t* buffer = new wchar_t[1024];
-			GetPrivateProfileString(section.c_str(), key.c_str(), def.c_str(), buffer, 1023, boot_.string().c_str());
+			GetPrivateProfileString(section.c_str(), key.c_str(), def.c_str(), buffer, 1023, boot_.wstring().c_str());
 			std::wstring ret = buffer;
 			delete [] buffer;
 			if (ret == def) {
@@ -46,7 +46,7 @@ namespace settings_manager {
 		}
 		void set_boot_string(std::wstring section, std::wstring key, std::wstring val) {
 #ifdef WIN32
-			WritePrivateProfileString(section.c_str(), key.c_str(), val.c_str(), boot_.string().c_str());
+			WritePrivateProfileString(section.c_str(), key.c_str(), val.c_str(), boot_.wstring().c_str());
 #else
 #endif
 		}

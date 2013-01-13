@@ -1,10 +1,11 @@
 #pragma once
+#include <atlbase.h>
 
 namespace error {
 	class com {
 	public:
 		static std::wstring get() {
-			USES_CONVERSION;
+//			USES_CONVERSION;
 			CComPtr<IErrorInfo> errorInfo;
 			HRESULT hr = GetErrorInfo(NULL, &errorInfo);
 			if (FAILED(hr) || hr == S_FALSE)

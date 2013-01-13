@@ -20,14 +20,14 @@
 ***************************************************************************/
 #pragma once
 
-#define _WIN32_DCOM
+//#define _WIN32_DCOM
 
 #include <string>
 #include <map>
 #include <strEx.h>
 #include <error.hpp>
 #include <filter_framework.hpp>
-#include <taskschd.h>
+//#include <taskschd.h>
 
 #include "filter.hpp"
 

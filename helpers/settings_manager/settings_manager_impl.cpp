@@ -143,7 +143,7 @@ namespace settings_manager {
 	}
 
 	bool NSCSettingsImpl::has_boot_conf() {
-		return file_helpers::checks::exists(boot_.string());
+		return boost::filesystem::is_regular_file(boot_);
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -158,8 +158,8 @@ namespace settings_manager {
 			order.push_back(key);
 		} 
 		boot_ = provider_->expand_path(BOOT_CONF_LOCATION);
-		if (file_helpers::checks::exists(boot_.string())) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Boot.ini found in: ") + boot_.string());
+		if (boost::filesystem::is_regular_file(boot_)) {
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Boot.ini found in: ") + boot_.wstring());
 			for (int i=0;i<20;i++) {
 				std::wstring v = get_boot_string(_T("settings"), strEx::itos(i), _T(""));
 				if (!v.empty()) 
@@ -167,7 +167,7 @@ namespace settings_manager {
 			}
 		}
 		if (order.size() == 0) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("No entries found looking in (adding default): ") + boot_.string());
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("No entries found looking in (adding default): ") + boot_.wstring());
 			order.push_back(DEFAULT_CONF_OLD_LOCATION);
 			order.push_back(DEFAULT_CONF_INI_LOCATION);
 		}

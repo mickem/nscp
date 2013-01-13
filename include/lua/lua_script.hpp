@@ -122,6 +122,6 @@ namespace lua {
 
 	struct lua_script {
 		static void luaopen(lua_State *L);
-		static boost::optional<boost::filesystem::wpath> find_script(boost::filesystem::wpath root, std::wstring file);
+		static boost::optional<boost::filesystem::path> find_script(boost::filesystem::path root, std::wstring file);
 	};
 }

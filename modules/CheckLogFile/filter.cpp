@@ -73,23 +73,23 @@ bool logfile_filter::filter_obj_handler::can_convert(parsers::where::value_type 
 logfile_filter::filter_obj_handler::base_handler::bound_string_type logfile_filter::filter_obj_handler::bind_simple_string(std::wstring key) {
 	base_handler::bound_string_type ret;
 	if (key == _T("column1"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 1);
+		ret = boost::bind(&logfile_filter::filter_obj::get_column, _1, 1);
 	if (key == _T("column2"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 2);
+		ret = boost::bind(&filter_obj::get_column, _1, 2);
 	if (key == _T("column3"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 3);
+		ret = boost::bind(&filter_obj::get_column, _1, 3);
 	if (key == _T("column4"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 4);
+		ret = boost::bind(&filter_obj::get_column, _1, 4);
 	if (key == _T("column5"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 5);
+		ret = boost::bind(&filter_obj::get_column, _1, 5);
 	if (key == _T("column6"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 6);
+		ret = boost::bind(&filter_obj::get_column, _1, 6);
 	if (key == _T("column7"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 7);
+		ret = boost::bind(&filter_obj::get_column, _1, 7);
 	if (key == _T("column8"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 8);
+		ret = boost::bind(&filter_obj::get_column, _1, 8);
 	if (key == _T("column9"))
-		ret = BOOST_BIND(&filter_obj::get_column, _1, 9);
+		ret = boost::bind(&filter_obj::get_column, _1, 9);
 	if (key == _T("line"))
 		ret = &filter_obj::get_line;
 	if (key == _T("file") || key == _T("filename"))

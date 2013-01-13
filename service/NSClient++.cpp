@@ -197,7 +197,7 @@ public:
  * End of class tray started (MERGE HELP)
  */
 
-bool is_module(boost::filesystem::wpath file ) 
+bool is_module(boost::filesystem::path file ) 
 {
 #ifdef WIN32
 	return boost::ends_with(file.string(), _T(".dll"));
@@ -312,13 +312,13 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
 	}
 	if (!active) {
-		boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
-		boost::filesystem::wdirectory_iterator end_itr; // default construction yields past-the-end
-		for ( boost::filesystem::wdirectory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
+		boost::filesystem::path pluginPath = expand_path(_T("${module-path}"));
+		boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
+		for ( boost::filesystem::directory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
 			if ( !is_directory(itr->status()) ) {
-				boost::filesystem::wpath file= itr->leaf();
-				if (is_module(pluginPath  / file) && !contains_plugin(ret, _T(""), file.string()))
-					ret.insert(plugin_alias_list_type::value_type(_T(""), file.string()));
+				boost::filesystem::path file= itr->path().filename();
+				if (is_module(pluginPath  / file) && !contains_plugin(ret, _T(""), file.wstring()))
+					ret.insert(plugin_alias_list_type::value_type(_T(""), file.wstring()));
 			}
 		}
 	} 
@@ -326,7 +326,7 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 }
 
 void NSClientT::preboot_load_all_plugin_files() {
-	boost::filesystem::wpath pluginPath;
+	boost::filesystem::path pluginPath;
 	{
 		try {
 			pluginPath = expand_path(_T("${module-path}"));
@@ -539,7 +539,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 bool NSClientT::boot_load_all_plugins() {
 	LOG_DEBUG_CORE(_T("booting::loading plugins"));
 	try {
-		boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
+		boost::filesystem::path pluginPath = expand_path(_T("${module-path}"));
 		plugin_alias_list_type plugins = find_all_plugins(true);
 		std::pair<std::wstring,std::wstring> v;
 		BOOST_FOREACH(v, plugins) {
@@ -551,7 +551,7 @@ bool NSClientT::boot_load_all_plugins() {
 // 				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file);
 // 			}
 			try {
-				addPlugin(pluginPath / boost::filesystem::wpath(file), alias);
+				addPlugin(pluginPath / boost::filesystem::path(file), alias);
 			} catch(const NSPluginException& e) {
 				if (e.file_.find(_T("FileLogger")) != std::wstring::npos) {
 					LOG_DEBUG_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
@@ -582,8 +582,8 @@ bool NSClientT::boot_load_plugin(std::wstring plugin) {
 			plugin = plugin.substr(0, plugin.length()-4);
 
 		std::wstring plugin_file = NSCPlugin::get_plugin_file(plugin);
-		boost::filesystem::wpath pluginPath = expand_path(_T("${module-path}"));
-		boost::filesystem::wpath file = pluginPath / plugin_file;
+		boost::filesystem::path pluginPath = expand_path(_T("${module-path}"));
+		boost::filesystem::path file = pluginPath / plugin_file;
 		if (boost::filesystem::is_regular(file)) {
 			plugin_type plugin = addPlugin(file, _T(""));
 		} else {
@@ -835,9 +835,9 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
  * Load and add a plugin to various internal structures
  * @param plugin The plug-in instance to load. The pointer is managed by the 
  */
-NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::wpath file, std::wstring alias) {
+NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::wstring alias) {
 	{
-		LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.string() + _T(" as ") + alias + _T(")"));
+		LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.wstring() + _T(" as ") + alias + _T(")"));
 		// Check if this is a duplicate plugin (if so return that instance)
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
@@ -995,7 +995,7 @@ int NSClientT::load_and_run(std::wstring module, run_function fun, std::list<std
 	}
 	if (!found && !module.empty()) {
 		try {
-			boost::filesystem::wpath file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::wpath(_T("modules")), module);
+			boost::filesystem::path file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::path(_T("modules")), module);
 			if (boost::filesystem::is_regular(file)) {
 				plugin_type plugin = addPlugin(file, _T(""));
 				if (plugin) {
@@ -1271,7 +1271,7 @@ void NSClientT::listPlugins() {
 	}
 }
 
-boost::filesystem::wpath NSClientT::getBasePath(void) {
+boost::filesystem::path NSClientT::getBasePath(void) {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
@@ -1303,7 +1303,7 @@ boost::filesystem::wpath NSClientT::getBasePath(void) {
 #ifdef WIN32
 typedef DWORD (WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out  LPTSTR lpBuffer);
 #endif
-boost::filesystem::wpath NSClientT::getTempPath() {
+boost::filesystem::path NSClientT::getTempPath() {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
@@ -1412,10 +1412,10 @@ std::wstring NSClientT::getFolder(std::wstring key) {
 		return _T("${shared-path}/modules");
 	}
 	if (key == _T("temp")) {
-		return getTempPath().string();
+		return getTempPath().wstring();
 	}
 	if (key == _T("shared-path") || key == _T("base-path") || key == _T("exe-path")) {
-		return getBasePath().string();
+		return getBasePath().wstring();
 	}
 #ifdef WIN32
 	if (key == _T("common-appdata")) {
@@ -1430,7 +1430,7 @@ std::wstring NSClientT::getFolder(std::wstring key) {
 		return _T("/etc");
 	}
 #endif
-	return getBasePath().string();
+	return getBasePath().wstring();
 }
 
 std::wstring NSClientT::expand_path(std::wstring file) {

@@ -11,12 +11,12 @@ struct script_container {
 	typedef std::list<script_container> list_type;
 
 	std::wstring alias;
-	boost::filesystem::wpath script;
+	boost::filesystem::path script;
 
-	script_container(std::wstring alias, boost::filesystem::wpath script) 
+	script_container(std::wstring alias, boost::filesystem::path script) 
 		: alias(alias)
 		, script(script) {}
-	script_container(boost::filesystem::wpath script) : script(script) {}
+	script_container(boost::filesystem::path script) : script(script) {}
 	script_container(const script_container &other) : alias(other.alias), script(other.script) {}
 	script_container& operator=(const script_container &other) {
 		alias = other.alias;
@@ -30,23 +30,23 @@ struct script_container {
 			return false;
 		}
 		if (!boost::filesystem::exists(script)) {
-			error = _T("Script not found: ") + script.string();
+			error = _T("Script not found: ") + script.wstring();
 			return false;
 		}
 		if (!boost::filesystem::is_regular(script)) {
-			error = _T("Script is not a file: ") + script.string();
+			error = _T("Script is not a file: ") + script.wstring();
 			return false;
 		}
 		return true;
 	}
 
-	static void push(list_type &list, std::wstring alias, boost::filesystem::wpath script) {
+	static void push(list_type &list, std::wstring alias, boost::filesystem::path script) {
 		list.push_back(script_container(alias, script));
 	}
-	static void push(list_type &list, boost::filesystem::wpath script) {
+	static void push(list_type &list, boost::filesystem::path script) {
 		list.push_back(script_container(script));
 	}
 	std::wstring to_wstring() {
-		return script.string() + _T(" as ") + alias;
+		return script.wstring() + _T(" as ") + alias;
 	}
 };
