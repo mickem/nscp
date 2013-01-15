@@ -168,6 +168,8 @@ class source:
 
 class build_instruction:
 	common_pre = []
+	pre_w32 = []
+	pre_x64 = []
 	specific_w32 = []
 	specific_x64 = []
 	common_post = []
@@ -176,6 +178,8 @@ class build_instruction:
 		self.specific_w32 = specific_w32
 		self.specific_x64 = specific_x64
 		self.common_post = common_post
+		self.pre_w32 = []
+		self.pre_x64 = []
 
 	def exec_chunk(self, tag, chunk, source):
 		global msver
@@ -208,19 +212,20 @@ class build_instruction:
 					print('INFO DONE: %s'%cmd)
 					log.write(cached_name)
 
-	def exec_build(self, folder, source, pre, task, post):
+	def exec_build(self, folder, source, pre1, pre2, task, post):
 		cwd = os.getcwd()
 		os.chdir(folder)
-		self.exec_chunk('pre', pre, source)
+		self.exec_chunk('pre', pre1, source)
+		self.exec_chunk('pre', pre2, source)
 		self.exec_chunk('task', task, source)
 		self.exec_chunk('post', post, source)
 		os.chdir(cwd)
 
 	def build_w32(self, folder, source):
-		self.exec_build(folder, source, self.common_pre, self.specific_w32, self.common_post)
+		self.exec_build(folder, source, self.pre_w32, self.common_pre, self.specific_w32, self.common_post)
 
 	def build_x64(self, folder, source):
-		self.exec_build(folder, source, self.common_pre, self.specific_x64, self.common_post)
+		self.exec_build(folder, source, self.pre_x64, self.common_pre, self.specific_x64, self.common_post)
 
 sources = {}
 sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
@@ -259,18 +264,29 @@ build['openssl'] = build_instruction(
 build['protobuf'] = build_instruction(
 	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'], 
 	[],
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py'],
-	['msbuild vsprojects\\protobuf.sln /p:Configuration=Release', 'msbuild vsprojects\\protobuf.sln /p:Configuration=Debug']
+	[],
+	[
+		'msbuild vsprojects\\libprotobuf.vcproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotobuf.vcproj /p:Configuration=Debug',
+		'msbuild vsprojects\\libprotoc.vcproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotoc.vcproj /p:Configuration=Debug',
+		'msbuild vsprojects\\protoc.vcproj /p:Configuration=Release',
+		'msbuild vsprojects\\protoc.vcproj /p:Configuration=Debug',
+		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Debug'
+	]
 	)
+build['protobuf'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
 
 build['ZeroMQ'] = build_instruction(
 	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'
 #		,'$$TODO: Apply debug patch$$'
 		], 
 	[],
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py'],
+	[],
 	['msbuild builds\\msvc\\msvc.sln /p:Configuration=Release', 'msbuild builds\\msvc\\msvc.sln /p:Configuration=Release']
 	)
+build['ZeroMQ'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
 
 build['cryptopp'] = build_instruction(
 	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'],

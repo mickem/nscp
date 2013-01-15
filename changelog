@@ -4,7 +4,13 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
-2012-12-02 MickeM
+2013-01-15 MickeM
+ * x64 build fixes as well as improvments to build protocol buffers and patch for google test
+
+2013-01-14 MickeM
+ * Fixed os it builds with visual studio 2012 as well as latest version of boost
+
+ 2012-12-02 MickeM
  * Added option to disable new alias check_cpu and only register old ones CheckCPU
    [/settings/default]
    modern commands=false
