@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2013-01-13 MickeM
+ * Fixed crash when collector thread is not started.
+
 2013-01-02 MickeM
  * Fixed message dialog when loading PythonScript module without python installed.
  * (re)add check_fiulesize which was accidentally removed.

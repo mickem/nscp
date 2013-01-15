@@ -184,7 +184,7 @@ namespace utf8 {
 		char *inPointer = inString;
 		char *outPointer = outString;
 
-		iconv_t convDesc = iconv_open(encoding, "WCHAR_T");
+		iconv_t convDesc = iconv_open(encoding.c_str(), "WCHAR_T");
 		iconv(convDesc, &inPointer, &wideSize, &outPointer, &outbytesLeft);
 		iconv_close(convDesc);
 

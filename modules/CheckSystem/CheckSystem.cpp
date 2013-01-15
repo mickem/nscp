@@ -707,6 +707,10 @@ NSCAPI::nagiosReturn CheckSystem::checkCPU(std::list<std::wstring> arguments, st
 	CPULoadContainer tmpObject;
 
 	tmpObject.data = _T("cpuload");
+	if (!pdh_collector)  {
+		msg = _T("ERROR: No collecto thread started");
+		return NSCAPI::returnUNKNOWN;
+	}
 
 	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T(""))
@@ -758,6 +762,10 @@ NSCAPI::nagiosReturn CheckSystem::checkUpTime(std::list<std::wstring> arguments,
 
 	if (arguments.empty()) {
 		msg = _T("ERROR: Missing argument exception.");
+		return NSCAPI::returnUNKNOWN;
+	}
+	if (!pdh_collector)  {
+		msg = _T("ERROR: No collecto thread started");
 		return NSCAPI::returnUNKNOWN;
 	}
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -995,6 +1003,11 @@ NSCAPI::nagiosReturn CheckSystem::checkMem(std::list<std::wstring> arguments, st
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
+	if (!pdh_collector)  {
+		msg = _T("ERROR: No collecto thread started");
+		return NSCAPI::returnUNKNOWN;
+	}
+
 	std::list<MemoryContainer> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;
