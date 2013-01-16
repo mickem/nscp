@@ -153,8 +153,9 @@ namespace settings {
 		void register_key(std::wstring path, std::wstring key, settings_core::key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
-				registred_paths_[path] = path_description();
-				registred_paths_[path].keys[key] = key_description(title, description, type, defValue, advanced);
+				path_description desc;
+				desc.keys[key] = key_description(title, description, type, defValue, advanced);
+				registred_paths_[path] = desc;
 			} else {
 				(*it).second.keys[key] = key_description(title, description, type, defValue, advanced);
 			}
