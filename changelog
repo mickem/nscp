@@ -9,6 +9,7 @@ TODO:
  * Fix for reloading settings from file from script: core:reload('settings') will not work.
    Notice it still will onlya reload the settings not the modules so modules have to be reloaded manually.
  * Fixed return code issue in nsclient-ini full generator.
+ * Added support for delayed reloading
 
 2013-01-13 MickeM
  * Fixed crash when collector thread is not started.

@@ -141,6 +141,7 @@ public:
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const wchar_t* channel);
 
 	NSCAPI::errorReturn reload(const std::wstring module);
+	bool do_reload(const bool delay, const std::wstring module);
 
 	struct service_controller {
 		std::wstring service;

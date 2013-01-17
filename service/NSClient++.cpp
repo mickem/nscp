@@ -770,24 +770,26 @@ void NSClientT::unloadPlugins() {
 	}
 }
 
-NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
+bool NSClientT::do_reload(const bool delay, const std::wstring module) {
+	if (delay) {
+		boost::this_thread::sleep(boost::posix_time::seconds(1));
+	}
 	if (module == _T("settings")) {
 		try {
 			settings_manager::get_settings()->clear_cache();
-			return NSCAPI::isSuccess;
+			return true;
 		} catch(const std::exception &e) {
 			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: ") + utf8::to_unicode(e.what()));
-			return NSCAPI::hasFailed;
 		} catch(...) {
 			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: UNKNOWN"));
-			return NSCAPI::hasFailed;
 		}
 	} else if (module == _T("service")) {
 		try {
+			LOG_DEBUG_CORE_STD(std::wstring(_T("Reloading all modules ")) + (delay?_T("(delayed)"):_T("")) + _T("."));
 			stop_unload_plugins_pre();
 			boot_load_all_plugins();
 			boot_start_plugins(true);
-			return NSCAPI::isSuccess;
+			return true;
 		} catch(const std::exception &e) {
 			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: ") + utf8::to_unicode(e.what()));
 		} catch(...) {
@@ -797,18 +799,37 @@ NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
 			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (007a)."));
-			return NSCAPI::hasFailed;
+			return false;
 		}
-
 		BOOST_FOREACH(plugin_type &p, plugins_) {
 			if (p->get_alias() == module) {
-				LOG_DEBUG_CORE_STD(_T("Found module: ") + module + _T(", reloading..."));
+				LOG_DEBUG_CORE_STD(std::wstring(_T("Found module: ")) + module + _T(", reloading ") + (delay?_T("(delayed)"):_T("")) + _T("."));
 				p->unload_plugin();
 				p->load_plugin(NSCAPI::normalStart);
-				return NSCAPI::isSuccess;
+				return true;
 			}
 		}
 	}
+	return false;
+}
+
+
+NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
+	bool delayed = false;
+	if (module.size() > 8 && module.substr(0,8) == _T("delayed,")) {
+		delayed = true;
+		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(8)));
+		delayed_thread.detach();
+		return NSCAPI::isSuccess;
+	} else if (module.size() > 6 && module.substr(0,6) == _T("delay,")) {
+			delayed = true;
+			boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(6)));
+			delayed_thread.detach();
+			return NSCAPI::isSuccess;
+	} else {
+		return do_reload(false, module)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+	}
+
 	return NSCAPI::hasFailed;
 }
 
