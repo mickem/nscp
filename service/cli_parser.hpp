@@ -305,7 +305,8 @@ public:
 			int ret = -1;
 
 			if (vm.count("generate")) {
-				ret = client.generate(vm["generate"].as<std::wstring>());
+				std::wstring option = vm["generate"].as<std::wstring>();
+				ret = client.generate(option);
 			} else if (vm.count("migrate-to")) {
 				ret = client.migrate_to(vm["migrate-to"].as<std::wstring>());
 			} else if (vm.count("migrate-from")) {

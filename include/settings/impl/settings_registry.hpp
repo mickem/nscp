@@ -337,6 +337,7 @@ public:
 			// @todo: Fix this
 			return false;
 		}
+		virtual void real_clear_cache() {}
 
 	};
 }

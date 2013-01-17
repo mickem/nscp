@@ -205,6 +205,7 @@ namespace settings {
 			settings::error_list ret;
 			return ret;
 		}
+		virtual void real_clear_cache() {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown

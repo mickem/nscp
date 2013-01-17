@@ -777,8 +777,10 @@ NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
 			return NSCAPI::isSuccess;
 		} catch(const std::exception &e) {
 			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: ") + utf8::to_unicode(e.what()));
+			return NSCAPI::hasFailed;
 		} catch(...) {
 			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: UNKNOWN"));
+			return NSCAPI::hasFailed;
 		}
 	} else if (module == _T("service")) {
 		try {

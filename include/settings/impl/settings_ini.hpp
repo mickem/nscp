@@ -228,6 +228,10 @@ namespace settings {
 
 			return ret;
 		}
+		virtual void real_clear_cache() {
+			is_loaded_ = false;
+			load_data();
+		}
 	private:
 		void load_data() {
 			if (is_loaded_)
@@ -246,7 +250,7 @@ namespace settings {
 			}
 			std::wstring f = get_file_name();
 			ini.SetUnicode();
-			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
+			nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, _T("Loading: ") + f);
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));

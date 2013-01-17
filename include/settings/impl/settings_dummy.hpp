@@ -127,6 +127,7 @@ namespace settings {
 		}
 
 		public:
+			virtual void real_clear_cache() {}
 			static bool context_exists(settings::settings_core *core, std::wstring key) {
 				return true;
 			}

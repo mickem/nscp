@@ -114,6 +114,14 @@ namespace settings {
 			settings_cache_.clear();
 			path_cache_.clear();
 			key_cache_.clear();
+			real_clear_cache();
+			BOOST_FOREACH(instance_raw_ptr child, children_) {
+				try {
+					return child->clear_cache();
+				} catch (...) {
+					continue;
+				}
+			}
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -534,6 +542,9 @@ namespace settings {
 			MUTEX_GUARD();
 			return context_;
 		}
+		virtual std::wstring get_context_unsafe() {
+			return context_;
+		}
 		virtual std::wstring get_file_from_context() {
 			return core_->find_file(url_.host + url_.path, _T(""));
 		}
@@ -758,6 +769,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual SettingsInterfaceImpl* create_new_context(std::wstring context) = 0;
+
+		virtual void real_clear_cache() = 0;
 
 
 		virtual std::wstring to_string() {

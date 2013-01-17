@@ -18,6 +18,8 @@ namespace settings {
 	class settings_http : public settings::SettingsInterfaceImpl {
 	private:
 		std::wstring url_;
+		boost::filesystem::wpath local_file;
+		net::url remote_url;
 
 		inline nsclient::logging::logger_interface* get_logger() const {
 			return nsclient::logging::logger::get_logger();
@@ -25,7 +27,7 @@ namespace settings {
 
 	public:
 		settings_http(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			net::url url = net::parse(utf8::cvt<std::string>(context), 80);
+			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
 			std::wstring path = core->expand_path(DEFAULT_CACHE_PATH);
 			if (!file_helpers::checks::is_directory(path)) {
 				if (file_helpers::checks::exists(path)) 
@@ -35,19 +37,27 @@ namespace settings {
 				if (!file_helpers::checks::is_directory(path))
 					throw new settings_exception(_T("Cache path not found: ") + path);
 			}
-			boost::filesystem::wpath wp(path);
-			wp /= _T("cached.ini");
-			std::ofstream os(utf8::cvt<std::string>(wp.string()).c_str());
+			local_file = boost::filesystem::wpath(path) / _T("cached.ini");
+
+			reload_data();
+			add_child(_T("ini:///") + local_file.string());
+		}
+
+		virtual void real_clear_cache() {
+			reload_data();
+		}
+
+		void reload_data() {
+			std::ofstream os(utf8::cvt<std::string>(local_file.string()).c_str());
 			std::string error;
-			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
+			if (!http::client::download(remote_url.protocol, remote_url.host, remote_url.path, os, error)) {
 				os.close();
 				get_logger()->error(__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::to_unicode(error));
 			}
 			os.close();
-			if (!file_helpers::checks::exists(wp.string())) {
-				throw new settings_exception(_T("Failed to find cached settings: ") + wp.string());
+			if (!file_helpers::checks::exists(local_file.string())) {
+				throw new settings_exception(_T("Failed to find cached settings: ") + local_file.string());
 			}
-			add_child(_T("ini:///") + wp.string());
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
