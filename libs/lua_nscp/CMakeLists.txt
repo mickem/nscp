@@ -33,7 +33,7 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 ADD_LIBRARY(${TARGET} ${SRCS})
 IF (PROTOC_GEN_LUA_FOUND)
-	target_link_libraries(${TARGET} lua_pb)
+	target_link_libraries(${TARGET} lua_pb ${Boost_THREAD_LIBRARY})
 	ADD_DEPENDENCIES(${TARGET} lua_pb)
 ENDIF()
 
