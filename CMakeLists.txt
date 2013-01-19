@@ -287,10 +287,11 @@ SET(NSCP_DEF_PLUGIN_LIB
 #
 #############################################################################
 
-SET(MAIN_NSCP_TARGET "nscp")
+SET(MAIN_NSCP_TARGET "nscp" "nscp_full_config")
 IF(BREAKPAD_FOUND)
 	SET(MAIN_NSCP_TARGET ${MAIN_NSCP_TARGET} "nscpnobp")
 ENDIF(BREAKPAD_FOUND)
+
 
 
 ADD_SUBDIRECTORY("service")
