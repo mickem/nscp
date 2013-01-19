@@ -45,11 +45,9 @@ ENDMACRO(copy_single_file)
 MACRO(add_nscp_py_test name script)
 	ADD_TEST("${name}"
 		nscp 
-			py 
-			--settings dummy 
-			--exec run 
+			unit
+			--language python
 			--script ${script}
-			--query py_unittest
 		)
 ENDMACRO(add_nscp_py_test)
 
