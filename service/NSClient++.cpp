@@ -796,9 +796,9 @@ bool NSClientT::do_reload(const bool delay, const std::wstring module) {
 			LOG_ERROR_CORE_STD(_T("Exception raised when reloading: UNKNOWN"));
 		}
 	} else {
-		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (007a)."));
+			LOG_ERROR_CORE(_T("Failed to reload module (could not get write lock)."));
 			return false;
 		}
 		BOOST_FOREACH(plugin_type &p, plugins_) {
