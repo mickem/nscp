@@ -329,10 +329,20 @@ ENDIF(MSVC_IDE)
 # CTest setup and add testcases
 #
 #############################################################################
-add_nscp_py_test(nsca test_nsca)
-add_nscp_py_test(nrpe test_nrpe)
+if(WIN32)
+	IF(CMAKE_CL_64)
+		# Disabled for w32 due to linkage error with openssl from both python and nscp on x64 machines running w32
+		add_nscp_py_test(nsca test_nsca)
+		add_nscp_py_test(nrpe test_nrpe)
+	ENDIF(CMAKE_CL_64)
+ELSE(WIN32)
+	add_nscp_py_test(nsca test_nsca)
+	add_nscp_py_test(nrpe test_nrpe)
+ENDIF(WIN32)
+add_nscp_lua_test(lua_nrpe test_nrpe)
 add_nscp_py_test(python test_python)
 IF(WIN32)
+# Disabled as is is not a unit test per see, since it requires extenal non mocked stimula
 #	add_nscp_py_test(eventlog test_eventlog)
 	add_nscp_py_test(w32_system test_w32_system)
 ENDIF(WIN32)

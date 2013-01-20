@@ -51,3 +51,12 @@ MACRO(add_nscp_py_test name script)
 		)
 ENDMACRO(add_nscp_py_test)
 
+MACRO(add_nscp_lua_test name script)
+	ADD_TEST("${name}"
+		nscp 
+			unit
+			--language lua
+			--script ${script}.lua
+		)
+ENDMACRO(add_nscp_lua_test)
+
