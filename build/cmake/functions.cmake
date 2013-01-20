@@ -52,11 +52,15 @@ MACRO(add_nscp_py_test name script)
 ENDMACRO(add_nscp_py_test)
 
 MACRO(add_nscp_lua_test name script)
+IF (LUA_FOUND)
 	ADD_TEST("${name}"
 		nscp 
 			unit
 			--language lua
 			--script ${script}.lua
 		)
+ELSE (LUA_FOUND)
+	MESSAGE(STATUS "Skipping test ${name} since lua is not avalible")
+ENDIF (LUA_FOUND)
 ENDMACRO(add_nscp_lua_test)
 
