@@ -4,6 +4,9 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2013-01-21 MickeM
+ * Fixed two include files issues
+
 2013-01-19 MickeM
  * Fixed Wix 3.7 and added wix to dependencies
 

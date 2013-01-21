@@ -241,7 +241,7 @@ namespace settings {
 				boost::filesystem::wdirectory_iterator it(get_file_name()), eod;
 
 				BOOST_FOREACH(boost::filesystem::wpath const &p, std::make_pair(it, eod)) {
-					add_child(_T("ini:///") + p.string());
+					add_child_unsafe(_T("ini:///") + p.string());
 				}
 			}
 			if (!file_exists()) {
@@ -258,7 +258,7 @@ namespace settings {
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllKeys(_T("/includes"), lst);
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
-				add_child(ini.GetValue(_T("/includes"), (*cit).pItem));
+				add_child_unsafe(ini.GetValue(_T("/includes"), (*cit).pItem));
 			}
 			is_loaded_ = true;
 		}
@@ -282,6 +282,18 @@ namespace settings {
 					} else if (boost::filesystem::is_directory(filename_)) {
 					} else if (boost::filesystem::is_directory(filename_.substr(1))) {
 						filename_ = filename_.substr(1);
+					} else {
+						std::wstring tmp = core_->find_file(_T("${exe-path}/") + filename_, _T(""));
+						if (boost::filesystem::exists(tmp)) {
+							filename_ = tmp;
+						} else {
+							tmp = core_->find_file(_T("${exe-path}/") + filename_.substr(1), _T(""));
+							if (boost::filesystem::exists(tmp)) {
+								filename_ = tmp;
+							} else {
+								nsclient::logging::logger::get_logger()->info(__FILE__, __LINE__, _T("Configuration file not found: ") + filename_);
+							}
+						}
 					}
 				}
 				nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, _T("Reading INI settings from: ") + filename_);

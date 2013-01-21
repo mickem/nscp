@@ -772,7 +772,7 @@ void NSClientT::unloadPlugins() {
 
 bool NSClientT::do_reload(const bool delay, const std::wstring module) {
 	if (delay) {
-		boost::this_thread::sleep(boost::posix_time::seconds(1));
+		boost::this_thread::sleep(boost::posix_time::seconds(3));
 	}
 	if (module == _T("settings")) {
 		try {
