@@ -3,12 +3,13 @@
 
 namespace dll {
 
-	class dll_exception {
-		std::wstring what_;
+	class dll_exception : public std::exception {
+		std::string what_;
 	public:
-		dll_exception(std::wstring what) : what_(what) {}
-		std::wstring what() {
-			return what_;
+		dll_exception(std::string what) : what_(what) {}
+		~dll_exception() throw() {}
+		const char* what() const throw() {
+			return what_.c_str();
 		}
 	};
 }
@@ -21,9 +22,9 @@ namespace dll {
 namespace dll {
 
 #ifdef WIN32
-	typedef dll::win32::impl dll;
+	typedef ::dll::win32::impl dll_impl;
 #else
-	typedef dll::iunix::impl dll;
+	typedef dll::iunix::impl dll_impl;
 #endif
 }
 

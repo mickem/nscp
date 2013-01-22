@@ -5,6 +5,11 @@ TODO:
  * Fix RtlStringFromGUID problem on NT4
 
 2013-01-15 MickeM
+ * Rewrote so dll subsystem is not using wstrings
+ * Workaround for Visual Studio 2012 debugger crash
+ * Fixed issues with path handling in dll subsystem
+
+2013-01-15 MickeM
  * x64 build fixes as well as improvments to build protocol buffers and patch for google test
 
 2013-01-14 MickeM

@@ -1,15 +1,6 @@
 #pragma once
-
-#ifndef _WIN32_DCOM
-#define _WIN32_DCOM
-#define _WIN32_WINNT 0x0400
-#endif
-
 #include <error.hpp>
 #include <windows.h>
-#include <objbase.h>
-#include <atlbase.h>
-#include <atlsafe.h>
 
 namespace com_helper {
 

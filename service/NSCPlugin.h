@@ -58,8 +58,11 @@ public:
 	 * @param file DLL filename (for which the exception is thrown)
 	 * @param error An error message (human readable format)
 	 */
-	NSPluginException(dll::dll &module, std::wstring error) : error_(error) {
-		file_ = module.get_module_name();
+	NSPluginException(const std::wstring &module, const std::wstring &error) : error_(error), file_(module) {
+		msg_ = utf8::cvt<std::string>(error_ + _T(" in file: ") + file_);
+	}
+	NSPluginException(const std::wstring &module, const std::string &error) : file_(module) {
+		error_ = utf8::cvt<std::wstring>(error);
 		msg_ = utf8::cvt<std::string>(error_ + _T(" in file: ") + file_);
 	}
 
@@ -99,10 +102,10 @@ public:
  * @bug 
  *
  */
-class NSCPlugin : public boost::noncopyable, public nsclient::logging::raw_subscriber {
+class NSCPlugin :  public boost::noncopyable, public nsclient::logging::raw_subscriber {
 private:
 	//bool bLoaded_;			// Status of plug in
-	dll::dll module_;
+	::dll::dll_impl module_;
 	bool loaded_;
 	bool broken_;
 	unsigned int plugin_id_;
@@ -168,17 +171,23 @@ public:
 	std::wstring get_alias() {
 		return alias_;
 	}
-	std::wstring getFilename() {
-		return module_.get_filename();
+	inline std::wstring getFilename() const {
+		return utf8::cvt<std::wstring>(module_.get_filename());
+	}
+	inline std::wstring get_alias_or_name() const {
+		if (!alias_.empty())
+			return alias_;
+		return getFilename();
 	}
 	std::wstring getModule() {
+		return _T("");
 #ifndef WIN32
 		std::wstring file = module_.get_module_name();
 		if (file.substr(0,3) == _T("lib"))
 			file = file.substr(3);
 		return file;
 #else
-		return module_.get_module_name();
+		return utf8::cvt<std::wstring>(module_.get_module_name());
 #endif
 	}
 	static std::wstring get_plugin_file(std::wstring key) {

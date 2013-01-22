@@ -360,7 +360,6 @@ NSCAPI::errorReturn NSAPISettingsRegKey(unsigned int plugin_id, const wchar_t* p
 		LOG_ERROR_STD(_T("Failed register key"));
 		return NSCAPI::hasFailed;
 	}
-	return NSCAPI::isSuccess;
 }
 
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
@@ -426,7 +425,6 @@ NSCAPI::errorReturn NSAPIReload(const wchar_t *module) {
 		LOG_ERROR_STD(_T("Failed to reload: ") + module);
 		return NSCAPI::hasFailed;
 	}
-	return NSCAPI::isSuccess;
 }
 
 NSCAPI::errorReturn NSAPISettingsSave(void) {

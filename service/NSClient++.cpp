@@ -540,6 +540,10 @@ bool NSClientT::boot_load_all_plugins() {
 	LOG_DEBUG_CORE(_T("booting::loading plugins"));
 	try {
 		boost::filesystem::path pluginPath = expand_path(_T("${module-path}"));
+		if (!boost::filesystem::is_directory(pluginPath)) {
+			LOG_ERROR_CORE_STD(_T("Failed to find modules folder: ") + pluginPath.native());
+			return false;
+		}
 		plugin_alias_list_type plugins = find_all_plugins(true);
 		std::pair<std::wstring,std::wstring> v;
 		BOOST_FOREACH(v, plugins) {
@@ -855,7 +859,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::w
 	}
 
 
-	plugin_type plugin(new NSCPlugin(next_plugin_id_++, file, alias));
+	plugin_type plugin(new NSCPlugin(next_plugin_id_++, file.normalize(), alias));
 	plugin->load_dll();
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
