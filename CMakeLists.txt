@@ -306,7 +306,7 @@ ADD_SUBDIRECTORY("scripts")
 ADD_SUBDIRECTORY("files")
 ADD_SUBDIRECTORY("docs")
 
-# LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
+LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
 LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
 LOAD_SECTIONS(ALL_INSTALLERS_DLLS_NAMES "helpers/installer-dlls/*/module.cmake" "Installer DLLs")
 IF(WIN32)

@@ -77,7 +77,7 @@ tasksched_filter::filter_obj_handler::base_handler::bound_string_type tasksched_
 // 		ret = &object_type::get_parameters;
 // 	else if (key == _T("working_directory"))
 // 		ret = &object_type::get_working_directory;
-//  	else
+  	else
 		NSC_DEBUG_MSG_STD(_T("Failed to bind (string): ") + key);
 	return ret;
 }

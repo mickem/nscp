@@ -27,4 +27,3 @@ end
 reg = nscp.check_mk()
 reg:client_callback(client_process)
 reg:server_callback(server_process)
-nscp.print('loaded check_mk processor')

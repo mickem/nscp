@@ -79,7 +79,7 @@ namespace client {
 		handler_type handler;
 		target_lookup_type target_lookup;
 
-		configuration() : data(data_type(new nscp_cli_data())) {}
+		configuration(std::wstring caption) : data(data_type(new nscp_cli_data())), local("Common options for " + utf8::cvt<std::string>(caption)) {}
 
 		bool validate() {
 			if (!data) return false;

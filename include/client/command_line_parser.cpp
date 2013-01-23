@@ -1,6 +1,7 @@
 #include <client/command_line_parser.hpp>
 #include <nscapi/functions.hpp>
 #include <boost/bind.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 
 namespace po = boost::program_options;
 
@@ -182,6 +183,7 @@ int client::command_manager::exec_simple(configuration &config, const std::wstri
 	// TODO: Add support for target here!
 	return client::command_line_parser::do_execute_command_as_exec(config, ci.command, rendered_arguments, response);
 }
+
 int client::command_line_parser::do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response) {
 	boost::program_options::variables_map vm;
 	try {
@@ -196,9 +198,20 @@ int client::command_line_parser::do_query(configuration &config, const std::wstr
 		std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
 		po::positional_options_description p;
 		p.add("arguments", -1);
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).positional(p).run();
+
+		po::basic_command_line_parser<wchar_t> cmd(vargs);
+		cmd.options(desc);
+		cmd.positional(p);
+ 		if (arguments.size() > 0) {
+ 			const std::wstring s = arguments.front();
+ 			if (s.size() > 0 && s[0] != L'-') {
+				cmd.extra_style_parser(nscapi::program_options::option_parser);
+ 			}
+ 		}
+		po::wparsed_options parsed = cmd.run();
 		po::store(parsed, vm);
 		po::notify(vm);
+
 	} catch (const std::exception &e) {
 		return nscapi::functions::create_simple_query_response_unknown(command, _T("Failed to parse command line re-run with --help to get help: ") + utf8::to_unicode(e.what()), _T(""), response);
 

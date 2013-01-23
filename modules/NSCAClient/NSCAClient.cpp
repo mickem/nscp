@@ -191,7 +191,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleRAWCommand(const wchar_t* char_command, co
 	Plugin::QueryRequestMessage message;
 	message.ParseFromString(request);
 
-	client::configuration config;
+	client::configuration config(command_prefix);
 	setup(config, message.header());
 
 	return commands.process_query(cmd, config, message, result);
@@ -203,7 +203,7 @@ NSCAPI::nagiosReturn NSCAAgent::commandRAWLineExec(const wchar_t* char_command, 
 	Plugin::ExecuteRequestMessage message;
 	message.ParseFromString(request);
 
-	client::configuration config;
+	client::configuration config(command_prefix);
 	setup(config, message.header());
 
 	return commands.process_exec(cmd, config, message, result);
@@ -213,7 +213,7 @@ NSCAPI::nagiosReturn NSCAAgent::handleRAWNotification(const wchar_t* channel, st
 	Plugin::SubmitRequestMessage message;
 	message.ParseFromString(request);
 
-	client::configuration config;
+	client::configuration config(command_prefix);
 	setup(config, message.header());
 
 	return client::command_line_parser::do_relay_submit(config, message, result);

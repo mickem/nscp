@@ -106,7 +106,7 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 
 	std::string regexp, line_split, column_split;
 	std::string filter_string, warn_string, crit_string, ok_string;
-	std::string syntax_top, syntax_detail;
+	std::string syntax_top, syntax_detail, empty_detail;
 	std::vector<std::string> file_list;
 	std::string files_string;
 	std::string mode;
@@ -130,6 +130,8 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 																	"Top level syntax")
 		("detail-syntax", po::value<std::string>(&syntax_detail)->default_value("${column1}, "), 
 																	"Detail level syntax")
+		("empty-syntax", po::value<std::string>(&empty_detail)->default_value("No matches"), 
+																	"Message to use when no matchies was found")
 		("file", po::value<std::vector<std::string> >(&file_list),	"List counters and/or instances")
 		("files", po::value<std::string>(&files_string),			"List/check all counters not configured counter")
 		("mode", po::value<std::string>(&mode),						"Mode of operation: count (count all critical/warning lines), find (find first critical/warning line)")
@@ -186,9 +188,10 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 	}
 	NSC_DEBUG_MSG_STD(_T("Evaluation time: ") + strEx::itos(time.stop()));
 
+	filter.fetch_perf();
 	response->set_result(nscapi::functions::nagios_status_to_gpb(filter.returnCode));
 	if (filter.message.empty())
-		response->set_message("Nothing found");
+		response->set_message(empty_detail);
 	else
 		response->set_message(filter.message);
 }

@@ -1,11 +1,15 @@
 #pragma once
 
+#include <set>
+
 namespace parsers {
 	namespace where {
 		///////////////////////////////////////////////////////////////////////////
 		//  Walk the tree
 		///////////////////////////////////////////////////////////////////////////
 		struct ast_perf_collector {
+			typedef std::map<std::wstring,std::wstring> boundries_type;
+			boundries_type boundries;
 			typedef bool result_type;
 			typedef std::list<std::wstring> error_type;
 
@@ -25,16 +29,27 @@ namespace parsers {
 				}
 				return result;
 			}
+			void push(const std::wstring &var, const std::wstring &val) {
+				boundries_type::iterator it = boundries.find(var);
+				if (it == boundries.end()) {
+					std::wcout << _T("*** Found: ") <<  var << _T(" : ") << val << std::endl;
+					boundries[var] = val;
+				} else {
+					// TODO: increase if possible...
+				}
+			}
 			bool operator()(binary_op & expr) {
 				bool r1 = operator()(expr.left);
 				bool r2 = operator()(expr.right);
-				if (!last_value.empty() && !last_variable.empty()) {
-					std::wcout << _T("*** FOUND OP: ") <<  last_variable << _T(" := ") << last_value << _T(" ***") << std::endl;
-					last_value = _T("");
-					last_variable = _T("");
+				if (r1 && r2) {
+				} else if (last_value.empty() || last_variable.empty()) {
+					// ignore partially empty setups
+				} else {
+					push(last_variable, last_value);
 				}
-
-				return r1 && r2;
+				last_value = _T("");
+				last_variable = _T("");
+				return false;
 			}
 			bool operator()(unary_op & expr) {
 				return operator()(expr.subject);

@@ -841,7 +841,11 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
  */
 NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::wstring alias) {
 	{
-		LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.wstring() + _T(" as ") + alias + _T(")"));
+		if (alias.empty()) {
+			LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.wstring() + _T(" without alias)"));
+		} else {
+			LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.wstring() + _T(" as ") + alias + _T(")"));
+		}
 		// Check if this is a duplicate plugin (if so return that instance)
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
