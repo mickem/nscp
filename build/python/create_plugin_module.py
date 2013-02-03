@@ -3,9 +3,11 @@ import string
 from optparse import OptionParser
 
 commands = []
+command_fallback = False
 module = None
 cli = False
 log_handler = False
+channels = False
 
 class Module:
 	name = ''
@@ -39,25 +41,36 @@ class Module:
 	def __repr__(self):
 		return self.name
 		
-	def tpl_data(self, commands):
+	def tpl_data(self, commands, command_fallback):
 		global cli, log_handler, options
 		module_info = {
 			'CLASS': self.name,
-			'NAME': self.name,
+			'MODULE_NAME': self.name,
+			'MODULE_ALIAS': self.alias,
 			'SOURCE' : options.source,
-			'DESCRIPTION': self.description
+			'MODULE_DESCRIPTION': self.description.replace('\n', '\\n')
 		}
 		command_hpp = ''
-		command_instances_hpp = ''
-		command_instances_cpp = ''
 		command_registrations_cpp = ''
-		if commands:
-			commands_hpp = COMMAND_DELEGATOR_HPP
+		raw_command_cpp = ''
+		if commands or command_fallback:
+			command_instances_hpp = ''
+			command_instances_cpp = ''
+			raw_command_instances_cpp = ''
 			for c in commands:
 				cmd_tpl = c.tpl_data(module_info)
 				if c.legacy:
 					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP_LEGACY).substitute(cmd_tpl)
 					command_instances_cpp += string.Template(COMMAND_INSTANCE_CPP_LEGACY).substitute(cmd_tpl)
+				elif c.request:
+					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP_REQUEST_MESSAGE).substitute(cmd_tpl)
+					command_instances_cpp += string.Template(COMMAND_INSTANCE_CPP_REQUEST_MESSAGE).substitute(cmd_tpl)
+				elif c.no_mapping:
+					# Dont add anything sinxe it is not mapped
+					None
+				elif c.raw_mapping:
+					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP_RAW).substitute(cmd_tpl)
+					raw_command_instances_cpp += string.Template(RAW_COMMAND_INSTANCE_CPP).substitute(cmd_tpl)
 				else:
 					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP).substitute(cmd_tpl)
 					command_instances_cpp += string.Template(COMMAND_INSTANCE_CPP).substitute(cmd_tpl)
@@ -65,27 +78,79 @@ class Module:
 					command_registrations_cpp += string.Template(COMMAND_REGISTRATION_ALIAS_CPP).substitute(cmd_tpl)
 				else:
 					command_registrations_cpp += string.Template(COMMAND_REGISTRATION_CPP).substitute(cmd_tpl)
-			commands_cpp = string.Template(COMMAND_CPP).substitute(dict(module_info.items() + 
+			if command_fallback:
+				command_instances_hpp += COMMAND_INSTANCE_HPP_FALLBACK
+				command_instances_cpp += COMMAND_INSTANCE_CPP_FALLBACK
+
+			commands_hpp = COMMAND_DELEGATOR_HPP_TRUE
+			commands_cpp = string.Template(COMMAND_DELEGATOR_CPP_TRUE).substitute(dict(module_info.items() + 
 				{
 					'COMMAND_REGISTRATIONS_CPP': command_registrations_cpp, 
-					'COMMAND_INSTANCES_CPP' : command_instances_cpp
+					'COMMAND_INSTANCES_CPP' : command_instances_cpp,
+					'RAW_COMMAND_INSTANCES_CPP' : raw_command_instances_cpp
 				}.items()))
-		if log_handler:
-			log_delegator_hpp = LOG_DELEGATOR_HPP_TRUE
+			commands_hpp_def = COMMAND_DELEGATOR_DEF_HPP_TRUE
+			commands_cpp_def = COMMAND_DELEGATOR_DEF_CPP_TRUE
 		else:
-			log_delegator_hpp = LOG_DELEGATOR_HPP_FALSE
+			commands_hpp = COMMAND_DELEGATOR_HPP_FALSE
+			commands_cpp = string.Template(COMMAND_DELEGATOR_CPP_FALSE).substitute(dict(module_info.items()))
+			commands_hpp_def = COMMAND_DELEGATOR_DEF_HPP_FALSE
+			commands_cpp_def = COMMAND_DELEGATOR_DEF_CPP_FALSE
+			
+		if log_handler:
+			log_delegator_hpp = string.Template(LOG_DELEGATOR_HPP_TRUE).substitute(module_info)
+			log_delegator_cpp = string.Template(LOG_DELEGATOR_CPP_TRUE).substitute(module_info)
+			log_delegator_hpp_def = string.Template(LOG_DELEGATOR_DEF_HPP_TRUE).substitute(module_info)
+			log_delegator_cpp_def = string.Template(LOG_DELEGATOR_DEF_CPP_TRUE).substitute(module_info)
+		else:
+			log_delegator_hpp = string.Template(LOG_DELEGATOR_HPP_FALSE).substitute(module_info)
+			log_delegator_cpp = string.Template(LOG_DELEGATOR_CPP_FALSE).substitute(module_info)
+			log_delegator_hpp_def = string.Template(LOG_DELEGATOR_DEF_HPP_FALSE).substitute(module_info)
+			log_delegator_cpp_def = string.Template(LOG_DELEGATOR_DEF_CPP_FALSE).substitute(module_info)
 		if cli == "legacy":
 			cli_delegator_hpp = string.Template(CLI_DELEGATOR_HPP_LEGACY).substitute(module_info)
 			cli_delegator_cpp = string.Template(CLI_DELEGATOR_CPP_LEGACY).substitute(module_info)
-			cli_delegator_def = string.Template(CLI_DELEGATOR_DEF_LEGACY).substitute(module_info)
+			cli_delegator_hpp_def = string.Template(CLI_DELEGATOR_DEF_HPP_TRUE).substitute(module_info)
+			cli_delegator_cpp_def = string.Template(CLI_DELEGATOR_DEF_CPP_TRUE).substitute(module_info)
+			cli_delegator_def_def = string.Template(CLI_DELEGATOR_DEF_DEF_TRUE).substitute(module_info)
+		elif cli == "pass-through":
+			cli_delegator_hpp = string.Template(CLI_DELEGATOR_HPP_PASS_THROUGH).substitute(module_info)
+			cli_delegator_cpp = string.Template(CLI_DELEGATOR_CPP_PASS_THROUGH).substitute(module_info)
+			cli_delegator_hpp_def = string.Template(CLI_DELEGATOR_DEF_HPP_TRUE).substitute(module_info)
+			cli_delegator_cpp_def = string.Template(CLI_DELEGATOR_DEF_CPP_TRUE).substitute(module_info)
+			cli_delegator_def_def = string.Template(CLI_DELEGATOR_DEF_DEF_TRUE).substitute(module_info)
 		elif cli:
 			cli_delegator_hpp = string.Template(CLI_DELEGATOR_HPP_TRUE).substitute(module_info)
 			cli_delegator_cpp = string.Template(CLI_DELEGATOR_CPP_TRUE).substitute(module_info)
-			cli_delegator_def = string.Template(CLI_DELEGATOR_DEF_TRUE).substitute(module_info)
+			cli_delegator_hpp_def = string.Template(CLI_DELEGATOR_DEF_HPP_TRUE).substitute(module_info)
+			cli_delegator_cpp_def = string.Template(CLI_DELEGATOR_DEF_CPP_TRUE).substitute(module_info)
+			cli_delegator_def_def = string.Template(CLI_DELEGATOR_DEF_DEF_TRUE).substitute(module_info)
 		else:
 			cli_delegator_hpp = string.Template(CLI_DELEGATOR_HPP_FALSE).substitute(module_info)
 			cli_delegator_cpp = string.Template(CLI_DELEGATOR_CPP_FALSE).substitute(module_info)
-			cli_delegator_def = string.Template(CLI_DELEGATOR_DEF_FALSE).substitute(module_info)
+			cli_delegator_hpp_def = string.Template(CLI_DELEGATOR_DEF_HPP_FALSE).substitute(module_info)
+			cli_delegator_cpp_def = string.Template(CLI_DELEGATOR_DEF_CPP_FALSE).substitute(module_info)
+			cli_delegator_def_def = string.Template(CLI_DELEGATOR_DEF_DEF_FALSE).substitute(module_info)
+			
+		if channels == "pass-through" or channels == "raw":
+			channel_delegator_hpp = string.Template(CHANNEL_DELEGATOR_HPP_PASS_THROUGH).substitute(module_info)
+			channel_delegator_cpp = string.Template(CHANNEL_DELEGATOR_CPP_PASS_THROUGH).substitute(module_info)
+			channel_delegator_hpp_def = string.Template(CHANNEL_DELEGATOR_DEF_HPP_TRUE).substitute(module_info)
+			channel_delegator_cpp_def = string.Template(CHANNEL_DELEGATOR_DEF_CPP_TRUE).substitute(module_info)
+			channel_delegator_def_def = string.Template(CHANNEL_DELEGATOR_DEF_DEF_TRUE).substitute(module_info)
+		elif channels:
+			channel_delegator_hpp = string.Template(CHANNEL_DELEGATOR_HPP_TRUE).substitute(module_info)
+			channel_delegator_cpp = string.Template(CHANNEL_DELEGATOR_CPP_TRUE).substitute(module_info)
+			channel_delegator_hpp_def = string.Template(CHANNEL_DELEGATOR_DEF_HPP_TRUE).substitute(module_info)
+			channel_delegator_cpp_def = string.Template(CHANNEL_DELEGATOR_DEF_CPP_TRUE).substitute(module_info)
+			channel_delegator_def_def = string.Template(CHANNEL_DELEGATOR_DEF_DEF_TRUE).substitute(module_info)
+		else:
+			channel_delegator_hpp = string.Template(CHANNEL_DELEGATOR_HPP_FALSE).substitute(module_info)
+			channel_delegator_cpp = string.Template(CHANNEL_DELEGATOR_CPP_FALSE).substitute(module_info)
+			channel_delegator_hpp_def = string.Template(CHANNEL_DELEGATOR_DEF_HPP_FALSE).substitute(module_info)
+			channel_delegator_cpp_def = string.Template(CHANNEL_DELEGATOR_DEF_CPP_FALSE).substitute(module_info)
+			channel_delegator_def_def = string.Template(CHANNEL_DELEGATOR_DEF_DEF_FALSE).substitute(module_info)
+
 		if self.loaders == "both":
 			load_delegator = string.Template(LOAD_DELEGATOR_TRUE).substitute(module_info)
 			unload_delegator = string.Template(UNLOAD_DELEGATOR_TRUE).substitute(module_info)
@@ -98,32 +163,52 @@ class Module:
 		else:
 			load_delegator = string.Template(LOAD_DELEGATOR_FALSE).substitute(module_info)
 			unload_delegator = string.Template(UNLOAD_DELEGATOR_FALSE).substitute(module_info)
-		return dict(cmd_tpl.items() + {
+		extra_keys = {
 			'COMMAND_DELEGATOR_HPP': commands_hpp,
-			'COMMAND_CPP': commands_cpp,
+			'COMMAND_DELEGATOR_CPP': commands_cpp,
+			'RAW_COMMAND_DELEGATOR_CPP_DEF': raw_command_instances_cpp,
+			'COMMAND_DELEGATOR_HPP_DEF': commands_hpp_def,
+			'COMMAND_DELEGATOR_CPP_DEF': commands_cpp_def,
 			'COMMAND_INSTANCES_HPP': command_instances_hpp,
 			'CLI_DELEGATOR_HPP' : cli_delegator_hpp,
 			'CLI_DELEGATOR_CPP' : cli_delegator_cpp,
-			'CLI_DELEGATOR_DEF' : cli_delegator_def,
+			'CLI_DELEGATOR_HPP_DEF' : cli_delegator_hpp_def,
+			'CLI_DELEGATOR_CPP_DEF' : cli_delegator_cpp_def,
+			'CLI_DELEGATOR_DEF' : cli_delegator_def_def,
+			'CHANNEL_DELEGATOR_HPP' : channel_delegator_hpp,
+			'CHANNEL_DELEGATOR_CPP' : channel_delegator_cpp,
+			'CHANNEL_DELEGATOR_HPP_DEF' : channel_delegator_hpp_def,
+			'CHANNEL_DELEGATOR_CPP_DEF' : channel_delegator_cpp_def,
+			'CHANNEL_DELEGATOR_DEF' : channel_delegator_def_def,
 			'LOG_DELEGATOR_HPP' : log_delegator_hpp,
-			'LOG_DELEGATOR_CPP' : '/* TODO: Add support for LOG delegators */',
+			'LOG_DELEGATOR_CPP' : log_delegator_cpp,
+			'LOG_DELEGATOR_HPP_DEF' : log_delegator_hpp_def,
+			'LOG_DELEGATOR_CPP_DEF' : log_delegator_cpp_def,
 			'LOAD_DELEGATOR'	: load_delegator,
 			'UNLOAD_DELEGATOR'	: unload_delegator,
-			'CHANNEL_DELEGATOR_HPP' : '/* TODO: Add support for channel delegators */',
-			'CHANNEL_DELEGATOR_CPP' : '/* TODO: Add support for channel delegators */'
-		}.items())
+		}
+		if commands:
+			return dict(cmd_tpl.items() + extra_keys.items())
+		else:
+			return dict(module_info.items() + extra_keys.items())
 
 class Command:
 	name = ''
 	description = ''
 	alias = []
 	legacy = False
+	request = False
+	no_mapping = False
+	raw_mapping = False
 
 	def __init__(self, name, description, alias = []):
 		self.name = name
 		self.description = description
 		self.alias = alias
 		self.legacy = False
+		self.request = False
+		self.no_mapping = False
+		self.raw_mapping = False
 
 	def __repr__(self):
 		if self.alias:
@@ -138,19 +223,24 @@ class Command:
 			alias = ''
 			alias_lst = ''
 		return dict(module_data.items() + {
-			'NAME': self.name,
+			'COMMAND_NAME': self.name,
 			'ALIAS': alias,
 			'ALIAS_LST': alias_lst,
-			'DESCRIPTION': self.description
+			'COMMAND_DESCRIPTION': self.description
 		}.items())
 
 def parse_commands(data):
-	global commands
+	global commands, command_fallback
 	if data:
 		for key, value in data.iteritems():
 			desc = ''
 			alias = []
 			legacy = False
+			request = False
+			no_mapping = False
+			raw_mapping = False
+			if key == "fallback" and value:
+				command_fallback = True
 			if type(value) is dict:
 				if 'desc' in value:
 					desc = value['desc']
@@ -158,6 +248,12 @@ def parse_commands(data):
 					desc = value['description']
 				if 'legacy' in value and value['legacy']:
 					legacy = True
+				if 'request' in value and value['request']:
+					request = True
+				if 'mapping' in value and not value['mapping']:
+					no_mapping = True
+				if 'mapping' in value and value['mapping'] == 'raw':
+					raw_mapping = True
 				if 'alias' in value:
 					if type(value['alias']) is list:
 						alias = value['alias']
@@ -165,23 +261,40 @@ def parse_commands(data):
 						alias = [ value['alias'] ]
 			else:
 				desc = value
-			cmd = Command(key, desc, alias)
-			if legacy:
-				cmd.legacy = True
-			commands.append(cmd)
+			if not key == "fallback":
+				cmd = Command(key, desc, alias)
+				if legacy:
+					cmd.legacy = True
+				if request:
+					cmd.request = True
+				if no_mapping:
+					cmd.no_mapping = True
+				if raw_mapping:
+					cmd.raw_mapping = True
+				commands.append(cmd)
 
 def parse_module(data):
 	global module
 	if data:
 		module = Module(data)
 
-COMMAND_INSTANCE_HPP = """	void ${NAME}(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+COMMAND_INSTANCE_HPP = """	void ${COMMAND_NAME}(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 """
-COMMAND_INSTANCE_HPP_LEGACY = """	NSCAPI::nagiosReturn ${NAME}(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+COMMAND_INSTANCE_HPP_LEGACY = """	NSCAPI::nagiosReturn ${COMMAND_NAME}(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+"""
+COMMAND_INSTANCE_HPP_REQUEST_MESSAGE = """	void ${COMMAND_NAME}(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
+"""
+COMMAND_INSTANCE_HPP_FALLBACK = """	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
+"""
+COMMAND_INSTANCE_HPP_RAW = """	void ${COMMAND_NAME}(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response);
 """
 
-COMMAND_DELEGATOR_HPP = """
-	bool hasCommandHandler();
+COMMAND_DELEGATOR_HPP_TRUE = """
+	bool hasCommandHandler() { return true; }
+	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+"""
+COMMAND_DELEGATOR_HPP_FALSE = """
+	bool hasCommandHandler() { return false; }
 	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 """
 
@@ -189,35 +302,65 @@ CLI_DELEGATOR_HPP_TRUE = """
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
+	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	*/
+"""
+CLI_DELEGATOR_HPP_PASS_THROUGH = """
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	/*
+	Add the following to ${CLASS}
+	NSCAPI::nagiosReturn commandLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 	*/
 """
 CLI_DELEGATOR_HPP_LEGACY = """
 	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
-	NSCAPI::nagiosReturn commandRAWLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 	*/
 """
 CLI_DELEGATOR_HPP_FALSE = ""
 
+CHANNEL_DELEGATOR_HPP_PASS_THROUGH = """
+	bool hasNotificationHandler() { return true; };
+	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* char_command, const std::string &request, std::string &response);
+	/*
+	Add the following to ${CLASS}
+	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
+	*/
+"""
 CHANNEL_DELEGATOR_HPP_TRUE = """
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
+	bool hasNotificationHandler() { return true; };
+	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* char_command, const std::string &request, std::string &response);
+	/*
+	Add the following to ${CLASS}
+	void handleNotification(const std::wstring channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
+	*/
 """
 CHANNEL_DELEGATOR_HPP_FALSE = ""
 
+
 LOG_DELEGATOR_HPP_TRUE = """
-	bool hasMessageHandler();
+	bool hasMessageHandler() { return true; }
 	void handleMessageRAW(std::string data);
+	/*
+	Add the following to ${CLASS}
+	void handleLogMessage(const Plugin::LogEntry::Entry &message);
+	*/
 """
 LOG_DELEGATOR_HPP_FALSE = ""
 
-MODULE_HPP = """
-#pragma once
+MODULE_HPP = """#pragma once
+#include <boost/shared_ptr.hpp>
+
+#include <nscapi/macros.hpp>
+#include <NSCAPI.h>
 
 NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
+${LOG_DELEGATOR_HPP_DEF}
+${CLI_DELEGATOR_HPP_DEF}
+${CHANNEL_DELEGATOR_HPP_DEF}
+${COMMAND_DELEGATOR_HPP_DEF}
 
 #include "${SOURCE}/${CLASS}.h"
 
@@ -242,7 +385,7 @@ public:
 	 * @return The module name
 	 */
 	static std::wstring getModuleName() {
-		return _T("${NAME}");
+		return _T("${MODULE_NAME}");
 	}
 	/**
 	* Module version
@@ -253,7 +396,7 @@ public:
 		return version;
 	}
 	static std::wstring getModuleDescription() {
-		return _T("${DESCRIPTION}");
+		return _T("${MODULE_DESCRIPTION}");
 	}
 
 ${COMMAND_DELEGATOR_HPP}
@@ -282,9 +425,29 @@ bool ${CLASS}Module::hasMessageHandler() {
 }
 
 """
-CLI_DELEGATOR_DEF_TRUE = "NSC_WRAPPERS_CLI_DEF()"
-CLI_DELEGATOR_DEF_FALSE = ""
-CLI_DELEGATOR_DEF_LEGACY = CLI_DELEGATOR_DEF_TRUE
+CLI_DELEGATOR_DEF_HPP_TRUE = "NSC_WRAPPERS_CLI()"
+CLI_DELEGATOR_DEF_HPP_FALSE = ""
+CLI_DELEGATOR_DEF_CPP_TRUE = "NSC_WRAPPERS_CLI_DEF()"
+CLI_DELEGATOR_DEF_CPP_FALSE = ""
+CLI_DELEGATOR_DEF_DEF_TRUE = "	NSCommandLineExec"
+CLI_DELEGATOR_DEF_DEF_FALSE = ""
+
+COMMAND_DELEGATOR_DEF_HPP_TRUE = ""
+COMMAND_DELEGATOR_DEF_HPP_FALSE = ""
+COMMAND_DELEGATOR_DEF_CPP_TRUE = "NSC_WRAPPERS_HANDLE_CMD_DEF()"
+COMMAND_DELEGATOR_DEF_CPP_FALSE = "NSC_WRAPPERS_IGNORE_CMD_DEF()"
+
+CHANNEL_DELEGATOR_DEF_HPP_TRUE = "NSC_WRAPPERS_CHANNELS()"
+CHANNEL_DELEGATOR_DEF_HPP_FALSE = ""
+CHANNEL_DELEGATOR_DEF_CPP_TRUE = "NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()"
+CHANNEL_DELEGATOR_DEF_CPP_FALSE = ""
+CHANNEL_DELEGATOR_DEF_DEF_TRUE = "	NSHasNotificationHandler\n	NSHandleNotification"
+CHANNEL_DELEGATOR_DEF_DEF_FALSE = ""
+
+LOG_DELEGATOR_DEF_HPP_TRUE = ""
+LOG_DELEGATOR_DEF_HPP_FALSE = ""
+LOG_DELEGATOR_DEF_CPP_TRUE = "NSC_WRAPPERS_HANDLE_MSG_DEF()"
+LOG_DELEGATOR_DEF_CPP_FALSE = "NSC_WRAPPERS_IGNORE_MSG_DEF()"
 
 CLI_DELEGATOR_CPP_LEGACY = """
 NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
@@ -297,26 +460,151 @@ NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_comm
 	return ret;
 }
 """
-CLI_DELEGATOR_CPP_TRUE = """
+CLI_DELEGATOR_CPP_PASS_THROUGH = """
 NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
 	return impl_->commandLineExec(char_command, request, response);
 }
 """
+CLI_DELEGATOR_CPP_TRUE = """
+NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
+	std::string command = utf8::cvt<std::string>(char_command);
+	try {
+		Plugin::ExecuteRequestMessage request_message;
+		Plugin::ExecuteResponseMessage response_message;
+		request_message.ParseFromString(request);
+		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
+
+		bool found = false;
+		for (int i=0;i<request_message.payload_size();i++) {
+			Plugin::ExecuteRequestMessage::Request request_payload = request_message.payload(i);
+			if (!impl_) {
+				return NSCAPI::returnIgnored;
+			} else {
+				Plugin::ExecuteResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				if (!impl_->commandLineExec(request_payload, response_payload, request_message)) {
+					// TODO: remove payloads here!
+				} else {
+					found = true;
+				}
+			}
+		}
+		if (found) {
+			response_message.SerializeToString(&response);
+			return NSCAPI::isSuccess;
+		}
+		return NSCAPI::returnIgnored;
+	} catch (const std::exception &e) {
+		nscapi::functions::create_simple_exec_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
+		return NSCAPI::isSuccess;
+	} catch (...) {
+		nscapi::functions::create_simple_exec_response_unknown(command, "Failed to process command: " + command, response);
+		return NSCAPI::isSuccess;
+	}
+}
+"""
+
 CLI_DELEGATOR_CPP_FALSE = ""
 
+CHANNEL_DELEGATOR_CPP_PASS_THROUGH = """
+NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const wchar_t* char_channel, const std::string &request, std::string &response) {
+	const std::string channel = utf8::cvt<std::string>(char_channel);
+	try {
+		if (!impl_) {
+			return NSCAPI::returnIgnored;
+		}
+		Plugin::SubmitRequestMessage request_message;
+		Plugin::SubmitResponseMessage response_message;
+		request_message.ParseFromString(request);
+		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
+		impl_->handleNotification(channel, request_message, &response_message);
+		response_message.SerializeToString(&response);
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
+		return NSCAPI::isSuccess;
+	} catch (...) {
+		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, "Failed to process submission on: " + channel, response);
+		return NSCAPI::isSuccess;
+	}
+}
+"""
+CHANNEL_DELEGATOR_CPP_TRUE = """
+NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const wchar_t* char_channel, const std::string &request, std::string &response) {
+	const std::string channel = utf8::cvt<std::string>(char_channel);
+	try {
+		Plugin::SubmitRequestMessage request_message;
+		Plugin::SubmitResponseMessage response_message;
+		request_message.ParseFromString(request);
+		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
-COMMAND_INSTANCE_CPP = """			} else if (command == "${NAME}") {
+		for (int i=0;i<request_message.payload_size();i++) {
+			Plugin::QueryResponseMessage::Response request_payload = request_message.payload(i);
+			if (!impl_) {
+				return NSCAPI::returnIgnored;
+			} else {
+				Plugin::SubmitResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				impl_->handleNotification(channel, request_payload, response_payload, request_message);
+			}
+		}
+		response_message.SerializeToString(&response);
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
+		return NSCAPI::isSuccess;
+	} catch (...) {
+		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, "Failed to process submission on: " + channel, response);
+		return NSCAPI::isSuccess;
+	}
+}
+"""
+CHANNEL_DELEGATOR_CPP_FALSE = ""
+
+
+LOG_DELEGATOR_CPP_FALSE = ""
+LOG_DELEGATOR_CPP_TRUE = """
+void ${CLASS}Module::handleMessageRAW(std::string data) {
+	try {
+		Plugin::LogEntry message;
+		message.ParseFromString(data);
+		if (!impl_) {
+			return;
+		} else {
+			for (int i=0;i<message.entry_size();i++) {
+				impl_->handleLogMessage(message.entry(i));
+			}
+		}
+	} catch (std::exception &e) {
+		// Ignored since loggers cant log
+	} catch (...) {
+		// Ignored since loggers cant log
+	}
+}
+"""
+
+COMMAND_INSTANCE_CPP = """			} else if (command == "${COMMAND_NAME}") {
 				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
-				impl_->${NAME}(request_payload, response_payload);
+				impl_->${COMMAND_NAME}(request_payload, response_payload);
 """
-COMMAND_INSTANCE_CPP_LEGACY = """			} else if (command == "${NAME}") {
+COMMAND_INSTANCE_CPP_REQUEST_MESSAGE = """			} else if (command == "${COMMAND_NAME}") {
+				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				impl_->${COMMAND_NAME}(request_payload, response_payload, request_message);
+"""
+COMMAND_INSTANCE_CPP_FALLBACK = """			} else {
+				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				impl_->query_fallback(request_payload, response_payload, request_message);
+"""
+COMMAND_INSTANCE_CPP_LEGACY = """			} else if (command == "${COMMAND_NAME}") {
 				std::wstring msg, perf;
 				std::list<std::wstring> args;
 				for (int i=0;i<request_payload.arguments_size();i++) {
 					args.push_back(utf8::cvt<std::wstring>(request_payload.arguments(i)));
 				}
-				NSCAPI::nagiosReturn ret = impl_->${NAME}(utf8::cvt<std::wstring>(request_payload.target()), boost::algorithm::to_lower_copy(utf8::cvt<std::wstring>(request_payload.command())), args, msg, perf);
+				NSCAPI::nagiosReturn ret = impl_->${COMMAND_NAME}(utf8::cvt<std::wstring>(request_payload.target()), boost::algorithm::to_lower_copy(utf8::cvt<std::wstring>(request_payload.command())), args, msg, perf);
 				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				response_payload->set_message(utf8::cvt<std::string>(msg));
@@ -324,24 +612,21 @@ COMMAND_INSTANCE_CPP_LEGACY = """			} else if (command == "${NAME}") {
 				if (!perf.empty())
 					nscapi::functions::parse_performance_data(response_payload, perf);
 """
-COMMAND_REGISTRATION_ALIAS_CPP = """		(_T("${NAME}"), _T("${ALIAS}"),
-		_T("${DESCRIPTION}"))
-
+COMMAND_REGISTRATION_ALIAS_CPP = """		("${COMMAND_NAME}", "${ALIAS}",
+		"${COMMAND_DESCRIPTION}")
 """
-COMMAND_REGISTRATION_CPP = """		(_T("${NAME}"),
-		_T("${DESCRIPTION}"))
-
+COMMAND_REGISTRATION_CPP = """		("${COMMAND_NAME}",
+		"${COMMAND_DESCRIPTION}")
+"""
+RAW_COMMAND_INSTANCE_CPP = """		else if (command == "${COMMAND_NAME}") {
+			impl_->${COMMAND_NAME}(command, request_message, &response_message);
+			response_message.SerializeToString(&response);
+			return NSCAPI::isSuccess;
+		}
 """
 
-COMMAND_CPP = """
-/**
- * Check if we have a command handler.
- * @return true (as we have a command handler)
- */
-bool ${CLASS}Module::hasCommandHandler() {
-	return true;
-}
 
+COMMAND_DELEGATOR_CPP_TRUE = """
 /**
  * Main command parser and delegator.
  *
@@ -358,9 +643,14 @@ NSCAPI::nagiosReturn ${CLASS}Module::handleRAWCommand(const wchar_t* char_comman
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
+		std::string command = utf8::cvt<std::string>(char_command);
+		command;
+		if (!impl_) {
+			return NSCAPI::returnIgnored;
+		}
+${RAW_COMMAND_INSTANCES_CPP}
 		for (int i=0;i<request_message.payload_size();i++) {
 			Plugin::QueryRequestMessage::Request request_payload = request_message.payload(i);
-			Plugin::QueryResponseMessage::Response response_payload;
 			if (!impl_) {
 				return NSCAPI::returnIgnored;
 ${COMMAND_INSTANCES_CPP}
@@ -388,6 +678,10 @@ ${COMMAND_REGISTRATIONS_CPP}
 	registry.register_all();
 }
 """
+COMMAND_DELEGATOR_CPP_FALSE = """
+void ${CLASS}Module::registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy) {}
+"""
+
 
 LOAD_DELEGATOR_TRUE = "		return impl_->loadModuleEx(alias, mode);"
 LOAD_DELEGATOR_FALSE = "		return true;"
@@ -438,7 +732,7 @@ ${UNLOAD_DELEGATOR}
 	return ret;
 }
 
-${COMMAND_CPP}
+${COMMAND_DELEGATOR_CPP}
 
 ${LOG_DELEGATOR_CPP}
 
@@ -447,9 +741,29 @@ ${CHANNEL_DELEGATOR_CPP}
 ${CLI_DELEGATOR_CPP}
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(${CLASS}Module, _T("w32system"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
+NSC_WRAPPERS_MAIN_DEF(${CLASS}Module, _T("${MODULE_ALIAS}"))
+${LOG_DELEGATOR_CPP_DEF}
+${COMMAND_DELEGATOR_CPP_DEF}
+${CLI_DELEGATOR_CPP_DEF}
+${CHANNEL_DELEGATOR_CPP_DEF}
+"""
+
+MODULE_DEF = """
+LIBRARY	${CLASS}
+
+EXPORTS
+	NSModuleHelperInit
+	NSLoadModuleEx
+	NSUnloadModule
+	NSGetModuleName
+	NSGetModuleDescription
+	NSGetModuleVersion
+	NSHasCommandHandler
+	NSHasMessageHandler
+	NSHandleMessage
+	NSHandleCommand
+	NSDeleteBuffer
+${CHANNEL_DELEGATOR_DEF}
 ${CLI_DELEGATOR_DEF}
 """
 
@@ -470,6 +784,10 @@ for key, value in data.iteritems():
 			cli = "legacy"
 		elif value:
 			cli = True
+	elif key == "channels" and ( value == 'raw' or value == 'pass-through' ):
+		channels = value
+	elif key == "channels":
+		channels = True
 	elif key == "log messages":
 		if value:
 			log_handler = True
@@ -477,10 +795,13 @@ for key, value in data.iteritems():
 		print '* TODO: %s'%key
 
 
-tpl_data = module.tpl_data(commands)
+tpl_data = module.tpl_data(commands, command_fallback)
 hpp=open('%s/module.hpp'%options.target, 'w+')
 hpp.write(string.Template(MODULE_HPP).substitute(tpl_data))
 print "Updated module.hpp"
 cpp=open('%s/module.cpp'%options.target, 'w+')
 cpp.write(string.Template(MODULE_CPP).substitute(tpl_data))
 print "Updated module.cpp"
+cpp=open('%s/module.def'%options.target, 'w+')
+cpp.write(string.Template(MODULE_DEF).substitute(tpl_data))
+print "Updated module.def"

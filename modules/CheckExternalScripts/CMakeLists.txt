@@ -4,7 +4,9 @@ SET(TARGET CheckExternalScripts)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
@@ -16,7 +18,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		commands.hpp
 
 		${NSCP_INCLUDEDIR}/execute_process_unix.hpp

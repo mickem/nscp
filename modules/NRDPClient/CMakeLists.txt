@@ -4,7 +4,9 @@ SET(TARGET NRDPClient)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	nrdp.cpp
@@ -22,7 +24,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		nrdp.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
@@ -30,7 +31,6 @@ IF(WIN32)
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
-
 
 add_library(${TARGET} MODULE ${SRCS})
 

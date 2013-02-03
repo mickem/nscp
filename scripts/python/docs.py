@@ -3,6 +3,9 @@ import plugin_pb2
 from optparse import OptionParser
 from sets import Set
 import os
+import csv
+import traceback
+import StringIO
 helper = None
 
 
@@ -10,14 +13,20 @@ def ttfix(string, def_val = ' '):
 	if not string or len(string) == 0:
 		return def_val
 	return string
+def key2link(str):
+	str = str.replace('/', '_')
+	str = str.replace(' ', '_')
+	return str
 
 class root_container(object):
 	paths = {}
 	commands = {}
+	aliases = {}
 	plugins = {}
 	def __init__(self):
 		self.paths = {}
 		self.commands = {}
+		self.aliases = {}
 		self.plugins = {}
 
 	def append_key(self, info):
@@ -38,6 +47,10 @@ class root_container(object):
 		name = info.name
 		if not name in self.commands:
 			self.commands[name] = command_container(info)
+	def append_alias(self, info):
+		name = info.name
+		if not name in self.commands:
+			self.aliases[name] = command_container(info)
 
 	def append_plugin(self, info):
 		name = info.name
@@ -70,6 +83,7 @@ class DocumentationHelper(object):
 	script_alias = None
 	conf = None
 	registry = None
+	core = None
 	dir = None
 	trac_path = None
 	
@@ -79,6 +93,7 @@ class DocumentationHelper(object):
 		self.script_alias = script_alias
 		self.conf = Settings.get(self.plugin_id)
 		self.registry = Registry.get(self.plugin_id)
+		self.core = Core.get(self.plugin_id)
 		
 	def build_inventory_request(self,  path = '/', recursive = True, keys = False):
 		message = plugin_pb2.SettingsRequestMessage()
@@ -109,6 +124,7 @@ class DocumentationHelper(object):
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.type == 4:
+					log_debug('Found %d paths'%len(payload.inventory))
 					return payload.inventory
 		return []
 
@@ -119,17 +135,32 @@ class DocumentationHelper(object):
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.type == 4:
+					log_debug('Found %d keys for %s'%(len(payload.inventory), path))
 					return payload.inventory
+		log_error('No keys found')
 		return []
 
-	def get_commands(self):
+	def get_queries(self):
 		(code, data) = self.registry.query(self.build_command_request(1))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.type == 2:
+					log_debug('Found %d commands'%len(payload.inventory))
 					return payload.inventory
+		log_error('No commands found')
+		return []
+	def get_query_aliases(self):
+		(code, data) = self.registry.query(self.build_command_request(5))
+		if code == 1:
+			message = plugin_pb2.RegistryResponseMessage()
+			message.ParseFromString(data)
+			for payload in message.payload:
+				if payload.type == 2:
+					log_debug('Found %d commands'%len(payload.inventory))
+					return payload.inventory
+		log_error('No commands found')
 		return []
 
 	def get_plugins(self):
@@ -139,7 +170,9 @@ class DocumentationHelper(object):
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.type == 2:
+					log_debug('Found %d plugins'%len(payload.inventory))
 					return payload.inventory
+		log_error('No plugins')
 		return []
 
 	def get_info(self):
@@ -148,82 +181,193 @@ class DocumentationHelper(object):
 			root.append_path(p)
 			for k in self.get_keys(p.node.path):
 				root.append_key(k)
-		for p in self.get_commands():
+		for p in self.get_queries():
 			root.append_command(p)
+		for p in self.get_query_aliases():
+			root.append_alias(p)
 		for p in self.get_plugins():
 			root.append_plugin(p)
 		return root
-		
-	def generate_trac_config_path(self, p, pinfo, module = None):
-		string = ''
-		if not module or module in pinfo.info.plugin:
-			string += '=== %s ===\n'%pinfo.info.title
-			string += '%s\n\n'%(pinfo.info.description)
-			string += "'''Section:''' %s\n\n"%(p)
-			first = True
-			for (k,kinfo) in pinfo.keys.iteritems():
-				if not module or module in pinfo.info.plugin:
-					if not kinfo.info.advanced:
-						if first:
-							string += "'''Keys:'''\n"
-							string += "||'''Key'''||'''Title'''||'''Description'''\n"
-							first = False
-						string += '||%s||%s ||%s \n'%(ttfix(k), ttfix(kinfo.info.title), ttfix(kinfo.info.description))
-			if not first:
-				string += '\n\n'
-			first = True
-			for (k,kinfo) in pinfo.keys.iteritems():
-				if not module or module in pinfo.info.plugin:
-					if kinfo.info.advanced:
-						if first:
-							string += "'''Advanced Keys:'''\n"
-							string += "||'''Key'''||'''Title'''||'''Description'''\n"
-							first = False
-						string += '||%s||%s ||%s \n'%(ttfix(k), ttfix(kinfo.info.title), ttfix(kinfo.info.description, "'''TODO'''"))
-			if not first:
-				string += '\n\n'
-			string += "'''Sample:'''\n\n"
-			string += "{{{\n"
-			string += "# %s\n"%pinfo.info.title
-			string += "# %s\n"%pinfo.info.description
-			string += "[%s]\n"%p
-			for (k,kinfo) in pinfo.keys.iteritems():
-				if not module or module in pinfo.info.plugin:
-					string += "# %s\n"%kinfo.info.title
-					string += "# %s\n"%kinfo.info.description
-					string += "%s=%s\n"%(k, kinfo.info.default_value)
 
-			string += "}}}\n"
-			string += '\n'
-			for (k,kinfo) in pinfo.keys.iteritems():
-				if not module or module in pinfo.info.plugin:
-					string += "==== %s ====\n"%kinfo.info.title
-					string += "'''Description:''' %s\n\n"%kinfo.info.description
-					if kinfo.info.advanced:
-						string += "'''Advanced:''' (means it is not commonly used)\n\n"
-					string += "'''Key:''' %s\n\n"%k
-					if kinfo.info.default_value:
-						string += "'''Default value:''' %s\n\n"%kinfo.info.default_value
-					string += "'''Used by:''' "
-					first = True
-					for p in pinfo.info.plugin:
-						if first:
-							first = False
-						else:
-							string += ", "
-						string += "[[%s]]"%p
-					string += "\n\n"
-					string += "'''Sample:'''\n\n"
-					string += "{{{\n"
-					string += "# %s\n"%kinfo.info.title
-					string += "# %s\n"%kinfo.info.description
-					string += "[%s]\n"%p
-					string += "%s=%s\n"%(k, kinfo.info.default_value)
-					string += "}}}\n"
-					string += '\n'
+	def generate_trac_config_table(self, paths, module = None):
+		found = False
+		regular_keys = ''
+		advanced_keys = ''
+		for (p,pinfo) in paths.iteritems():
+			if not module or module in pinfo.info.plugin:
+				found = True
+				found_key = False
+				plink = '[wiki:%s/config#%s %s]'%(module, p.replace('/', '_'), p)
+				for (k,kinfo) in pinfo.keys.iteritems():
+					found_key = True
+					link = '[wiki:%s/config#%s__%s %s]'%(module, key2link(p), key2link(k), k)
+					if not kinfo.info.advanced:
+						regular_keys += '||%s||%s ||%s ||%s \n'%(plink, link, kinfo.info.default_value, ttfix(kinfo.info.title))
+					else:
+						advanced_keys += '||%s||%s ||%s ||%s \n'%(plink, link, kinfo.info.default_value, ttfix(kinfo.info.title))
+				if not found_key:
+					regular_keys += '||%s|| || ||%s \n'%(plink, ttfix(pinfo.info.title))
+
+		if not found:
+			return False
+		return "||= '''Path / Section''' =||= '''Key''' =||= '''Default value''' =||= '''Description'''\n%s%s"%(regular_keys, advanced_keys)
+
+	def generate_trac_config_details(self, paths, table, module = None):
+		string = ''
+		string += '[[TracNav(TracNav/CC|nocollapse|noreorder)]]\n'
+		string += '[[PageOutline]]\n'
+		string += '= Configuration for %s module =\n'%module
+		string += 'Section with configuration keys for the %s module\n\n'%module
+		string += table + '\n\n'
+		
+		for (path,pinfo) in paths.iteritems():
+			if not module or module in pinfo.info.plugin:
+				string += '[=#%s]\n'%key2link(path)
+				string += '== %s ==\n'%pinfo.info.title
+				string += '%s\n\n'%(pinfo.info.description)
+				string += "'''Section:''' %s\n\n"%(path)
+				first = True
+				for (k,kinfo) in pinfo.keys.iteritems():
+					if not module or module in pinfo.info.plugin:
+						if not kinfo.info.advanced:
+							link = '[wiki:%s/config#%s__%s %s]'%(module, key2link(path), key2link(k), k)
+							if first:
+								string += "'''Keys:'''\n"
+								string += "||= '''Key''' =||= '''Default''' =||= '''Title''' =||= '''Description'''\n"
+								first = False
+							string += '||%s||%s ||%s ||%s \n'%(link, kinfo.info.default_value, ttfix(kinfo.info.title), ttfix(kinfo.info.description, "'''TODO'''"))
+				if not first:
+					string += '\n\n'
+				first = True
+				for (k,kinfo) in pinfo.keys.iteritems():
+					if not module or module in pinfo.info.plugin:
+						if kinfo.info.advanced:
+							link = '[wiki:%s/config#%s__%s %s]'%(module, key2link(path), key2link(k), k)
+							if first:
+								string += "'''Advanced Keys:'''\n"
+								string += "||= '''Key''' =||= '''Default''' =||= '''Title''' =||= '''Description'''\n"
+								first = False
+							string += '||%s||%s ||%s ||%s \n'%(link, kinfo.info.default_value, ttfix(kinfo.info.title), ttfix(kinfo.info.description, "'''TODO'''"))
+				if not first:
+					string += '\n\n'
+				string += "'''Sample:'''\n\n"
+				string += "{{{\n"
+				string += "# %s\n"%pinfo.info.title
+				string += "# %s\n"%pinfo.info.description
+				string += "[%s]\n"%path
+				for (k,kinfo) in pinfo.keys.iteritems():
+					if not module or module in pinfo.info.plugin:
+						string += "# %s\n"%kinfo.info.title
+						string += "# %s\n"%kinfo.info.description
+						string += "%s=%s\n"%(k, kinfo.info.default_value)
+
+				string += "}}}\n"
+				string += '\n'
+				for (k,kinfo) in pinfo.keys.iteritems():
+					if not module or module in pinfo.info.plugin:
+						string += '[=#%s__%s]\n'%(key2link(path), key2link(k))
+						string += "=== %s ===\n"%kinfo.info.title
+						string += "'''Description:''' %s\n\n"%kinfo.info.description
+						if kinfo.info.advanced:
+							string += "'''Advanced:''' (means it is not commonly used)\n\n"
+						string += "'''Key:''' %s\n\n"%k
+						if kinfo.info.default_value:
+							string += "'''Default value:''' %s\n\n"%kinfo.info.default_value
+						string += "'''Used by:''' "
+						first = True
+						for p in pinfo.info.plugin:
+							if first:
+								first = False
+							else:
+								string += ", "
+							string += "[[%s]]"%p
+						string += "\n\n"
+						string += "'''Sample:'''\n\n"
+						string += "{{{\n"
+						string += "# %s\n"%kinfo.info.title
+						string += "# %s\n"%kinfo.info.description
+						string += "[%s]\n"%path
+						string += "%s=%s\n"%(k, kinfo.info.default_value)
+						string += "}}}\n"
+						string += '\n'
 		return string
 
-		
+	def generate_trac_commands(self, command, cinfo, module = None):
+		string = ""
+		overview = ""
+		try:
+			overview += '[[TracNav(TracNav/CC|nocollapse|noreorder)]]\n'
+			overview += '[[PageOutline]]\n'
+			overview += "= %s =\n"%cinfo.info.title
+			overview += "%s\n\n"%cinfo.info.description
+			overview += "'''Provided by''': the [%s] module\n\n"%module
+			overview += "'''Samples and usage''': This page provides reference information for samples and usage please see the samples page [wiki:%s/%s/samples].\n\n"%(module, command)
+
+			string += '=== %s ===\n'%cinfo.info.title
+			string += '%s\n\n'%(cinfo.info.description)
+			string += "For details on this command go to the [wiki:%s/%s %s] page\n\n"%(module, command, command)
+
+			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
+			if ret == 0:
+				string += "'''Usage:''' (Click any option to go to the description page for that option)\n"
+				reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
+				table = ""
+				details = ""
+				table += "||= '''Option''' =||= '''Default value''' =||= '''Description''' \n"
+				for row in reader:
+					if len(row) < 3:
+						continue
+					desc = row[3]
+					ops = row[3].split("\\n", 1)
+					if len(ops) == 1:
+						ops += ['']
+					(desc, rest) = ops
+					if row[0] == 'help':
+						link = '[wiki:%s/%s#%s_ %s]'%(module, command, row[0], row[0])
+					else:
+						link = '[wiki:%s/%s#%s %s]'%(module, command, row[0], row[0])
+					if row[1] == "false":
+						table += "|| %s ||N/A ||%s\n"%(link, desc)
+					else:
+						table += "|| %s ||%s ||%s\n"%(link, row[2], desc)
+					
+					if row[0] == 'help':
+						details += "=== %s_ ===\n"%(row[0])
+						details += "''The _ is due to trac bugs, real name is help''\n\n"
+					else:
+						details += "=== %s ===\n"%(row[0])
+					details += "%s\n\n"%desc
+					if rest:
+						details += "'''Description''':\n%s\n\n"%rest.replace('\\n', '\n')
+					if row[1] == "false":
+						details += "'''Syntax''': %s\n\n"%(row[0])
+						details += "'''Sample''':\n{{{\n%s ... %s ...\n}}}\n\n"%(command, row[0])
+					else:
+						if row[2] == "":
+							details += "'''Syntax''': %s=ARGUMENT\n\n"%(row[0])
+							details += "'''Sample''':\n{{{\n%s ... %s=ARGUMENT ...\n}}}\n\n"%(command, row[0])
+						else:
+							details += "'''Default value''': %s=%s\n\n"%(row[0], row[2])
+							row[2] = row[2].replace('\"', '\\"')
+							if ' ' in row[2]:
+								details += "'''Sample''':\n{{{\n%s ... \"%s=%s\" ...\n}}}\n\n"%(command, row[0], row[2])
+							else:
+								details += "'''Sample''':\n{{{\n%s ... %s=%s ...\n}}}\n\n"%(command, row[0], row[2])
+				string += table
+				overview += table
+				overview += '== Options ==\n'
+				overview += details
+				overview += "== Sample commands ==\n\n"
+				overview += "Notice this section is included so please go [wiki:%s/%s/samples here] if you want to edit this section.\n\n"%(module, command)
+				overview += "[[Include(wiki:%s/%s/samples)]]\n\n"%(module, command)
+			else:
+				overview = False
+		except Exception as e:
+			log_error('Failed to generate command details for: %s'%command)
+			log_error(e)
+			log_error('%s'%traceback.format_exc())
+		return (string, overview)
+
 	def serialize_wiki(self, string, filename, wikiname):
 		if self.dir:
 			if not os.path.exists(self.dir):
@@ -245,35 +389,63 @@ class DocumentationHelper(object):
 		root = self.get_info()
 		import_commands = ""
 		
+		i = 0
 		for (module,minfo) in root.plugins.iteritems():
+			i=i+1
+			log_debug('Processing module: %d of %d [%s]'%(i, len(root.plugins), module))
 			string = ''
 			string += '[[TracNav(TracNav/CC|nocollapse|noreorder)]]\n'
 			string += '[[PageOutline]]\n'
 			string += "= %s =\n"%minfo.info.title
 			string += "%s\n\n"%minfo.info.description
-			string += '== Queries (commands) ==\n'
-			found = False
+			string += '== Queries (Overview) ==\n'
+			string += 'A list of all avalible queries (check commands)\n\n'
+			query_found = False
 			for (c,cinfo) in root.commands.iteritems():
 				if module in cinfo.info.plugin:
 					string += " * [[%s/%s|%s]]\n"%(module, cinfo.info.title, cinfo.info.title)
 					string += "   %s\n"%cinfo.info.description
-					found = True
-			if not found:
+					query_found = True
+			if not query_found:
 				string += "No commands avalible in %s\n"%module
-			
+			else:
+				string += '== Aliases ==\n'
+				string += 'A list of all avalible aliases for queries and check commands\n\n'
+				for (c,cinfo) in root.aliases.iteritems():
+					if module in cinfo.info.plugin:
+						if cinfo.info.description.startswith('Alternative name for:'):
+							command = cinfo.info.description[22:]
+							string += " * [[%s/%s|%s]]\n"%(module, command, cinfo.info.title)
+							string += "   %s\n"%cinfo.info.description
+							if command in root.commands:
+								string += "   %s\n"%root.commands[command].info.description
+						else:
+							string += " * [[%s/%s|%s]]\n"%(module, cinfo.info.title, cinfo.info.title)
+							string += "   %s\n"%cinfo.info.description
+
 			string += "\n\n"
 			string += '== Commands (executable) ==\n'
 			string += "'''TODO:''' Add command list\n"
 			string += "\n\n"
+			#string += '[[PageOutline]]\n'
 			string += '== Configuration ==\n'
-			found = None
-			for (p,pinfo) in root.paths.iteritems():
-				found = self.generate_trac_config_path(p, pinfo, module)
-				string += found
-
-			if not found:
-				string += "No configuration avalible for %s\n"%module
+			config_table = self.generate_trac_config_table(root.paths, module)
+			if config_table:
+				string += config_table
+				import_commands += self.serialize_wiki(self.generate_trac_config_details(root.paths, config_table, module), '%s_config'%module, '%s/config'%module)
+			else:
+				string += "''No configuration avalible for %s''\n\n"%module
 				
+			if query_found:
+				string += '== Queries (Reference) ==\n'
+				string += 'A quick reference for all avalible queries (check commands) in the %s module.\n\n'%module
+				for (c,cinfo) in root.commands.iteritems():
+					if module in cinfo.info.plugin:
+						(overview, details) =  self.generate_trac_commands(c, cinfo, module)
+						string += overview
+						if details:
+							import_commands += self.serialize_wiki(details, '%s_%s'%(module, c), '%s/%s'%(module, c))
+
 			import_commands += self.serialize_wiki(string, module, module)
 
 		all_config = """
@@ -290,8 +462,9 @@ The configuration is as mentioned divided into sections (paths) each with a give
 
 The various sections are described in short below. The default configuration file has a lot of examples and comments so make sure you change this before you use NSClient++ as some of the examples might be potential security issues.
 		"""
-		for (p,pinfo) in root.paths.iteritems():
-			all_config += self.generate_trac_config_path(p, pinfo)
+		all_config = self.generate_trac_config_table(root.paths)
+		#for (p,pinfo) in root.paths.iteritems():
+		#	all_config += self.generate_trac_config_path(p, pinfo)
 		import_commands += self.serialize_wiki(all_config, "all-config", "doc/configuration/0.4.x")
 			
 			
@@ -324,8 +497,11 @@ A list of all commands (alphabetically).
 [[ListTagged(check)]]
 """
 		import_commands += self.serialize_wiki(all_commands, "all-commands", "CheckCommands")
-				
+		#log_error('-------------------------------------------------------------')
+		#log_error(import_commands)
+		#log_error('-------------------------------------------------------------')
 		print import_commands
+		#log_error('-------------------------------------------------------------')
 
 	def main(self, args):
 		parser = OptionParser(prog="")

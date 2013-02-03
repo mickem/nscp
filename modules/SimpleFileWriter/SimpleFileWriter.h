@@ -18,39 +18,24 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN()
-NSC_WRAPPERS_CHANNELS()
+#include <boost/thread/shared_mutex.hpp>
 
-class FileWriter : public nscapi::impl::simple_plugin {
-public:
+#include <protobuf/plugin.pb.h>
+
+class SimpleFileWriter : public nscapi::impl::simple_plugin {
 private:
 	typedef boost::function<std::string(const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload)> index_lookup_function;
 	typedef std::list<index_lookup_function> index_lookup_type;
 	index_lookup_type index_lookup_;
 	std::string filename_;
-	//boost::shared_mutex cache_mutex_;
+	boost::shared_mutex cache_mutex_;
 
 
 public:
-	FileWriter();
-	virtual ~FileWriter();
+	SimpleFileWriter() {}
+	virtual ~SimpleFileWriter() {}
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-
-	static std::wstring getModuleName() {
-		return _T("SimpleFileWriter module");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("FileWriters results for later checking.");
-	}
-
-	bool hasNotificationHandler() { return true; }
-	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &reply);
+	void handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
 
 };

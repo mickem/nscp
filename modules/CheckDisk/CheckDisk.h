@@ -22,6 +22,8 @@
 #include <utils.h>
 #include <checkHelpers.hpp>
 
+#include <protobuf/plugin.pb.h>
+
 class CheckDisk : public nscapi::impl::simple_plugin  {
 private:
 	bool show_errors_;
@@ -30,12 +32,12 @@ private:
 
 public:
 	CheckDisk();
-	virtual ~CheckDisk();
 
 	std::wstring get_filter(unsigned int drvType);
 
 	// Check commands
 	//NSCAPI::nagiosReturn check_filesize(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
 	NSCAPI::nagiosReturn check_files(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn check_drivesize(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	void check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+
 };

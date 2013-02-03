@@ -26,10 +26,6 @@
 		"check_registry": { "legacy":true, "alias" : "checkSingleRegEntry",	"desc" : "Check values in the registry." }
 	},
 
-	"channels" : {
-		"SYSTEM" : "The system channels recieves system data"
-	},
-	
 	"command line exec" : "legacy",
 	
 	"log messages" : false

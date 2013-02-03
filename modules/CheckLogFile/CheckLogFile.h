@@ -18,7 +18,7 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN()
+#pragma once
 
 #include <settings/macros.h>
 #include <strEx.h>

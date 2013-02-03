@@ -20,6 +20,9 @@
 ***************************************************************************/
 
 #include "stdafx.h"
+
+#include <boost/program_options.hpp>
+
 #include "CheckTaskSched.h"
 #include <strEx.h>
 #include <time.h>
@@ -39,9 +42,13 @@
 #include <parsers/where/unary_op.hpp>
 #include <parsers/where/variable.hpp>
 
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+
 #include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
 bool CheckTaskSched::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
@@ -67,65 +74,70 @@ bool CheckTaskSched::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn CheckTaskSched::check_taskshced(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
+void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainerQuery1;
 	typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainerQuery2;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	if (arguments.empty()) {
-		msg = _T("Missing argument(s).");
-		return NSCAPI::returnCRIT;
-	}
 	unsigned int truncate = 0;
 	std::wstring query, alias;
 	bool bPerfData = true;
-	std::wstring masterSyntax = _T("%list%");
+	std::wstring syntax_top = _T("%list%");
 	tasksched_filter::filter_argument args = tasksched_filter::factories::create_argument(_T("%task%"), DATE_FORMAT);
 
 	WMIContainerQuery1 query1;
 	WMIContainerQuery2 query2;
-	try {
-		MAP_OPTIONS_BEGIN(arguments)
-			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
-			MAP_OPTIONS_STR(_T("Alias"), alias)
-			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_BOOL_TRUE(_T("debug"), args->debug)
-			MAP_OPTIONS_STR(_T("date-syntax"), args->date_syntax)
-			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
-			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
-			//MAP_OPTIONS_SHOWALL(result_query)
-			MAP_OPTIONS_STR(_T("master-syntax"), masterSyntax)
-			MAP_OPTIONS_STR(_T("filter"), args->filter)
-			MAP_OPTIONS_STR(_T("syntax"), args->syntax)
-			MAP_OPTIONS_MISSING(msg,_T("Invalid argument: "))
-			MAP_OPTIONS_END()
-	} catch (filters::parse_exception e) {
-		msg = _T("TaskSched failed: ") + e.getMessage();
-		return NSCAPI::returnCRIT;
-	}
+
+
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("truncate", po::value<unsigned int>(&truncate), "Truncate the resulting message (mainly useful in older version of nsclient++)")
+		("filter", po::wvalue<std::wstring>(&args->filter),			"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but they are checked use this to filter out unwanted items.")
+		("alias", po::wvalue<std::wstring>(&alias),			"Alias: TODO.")
+		("top-syntax", po::wvalue<std::wstring>(&syntax_top)->default_value(_T("%list%")), "Top level syntax.\n")
+		("master-syntax", po::wvalue<std::wstring>(&syntax_top)->default_value(_T("%list%")), "Top level syntax.\n")
+		("syntax", po::wvalue<std::wstring>(&args->syntax)->default_value(_T("%task%")), "Detail level syntax.")
+		("date-syntax", po::wvalue<std::wstring>(&args->date_syntax)->default_value(DATE_FORMAT), "Detail level syntax.")
+		("debug", po::bool_switch(&args->debug), "Enable debug information.")
+		;
+
+	nscapi::program_options::legacy::add_numerical_all(desc);
+	nscapi::program_options::legacy::add_exact_numerical_all(desc);
+	nscapi::program_options::legacy::add_ignore_perf_data(desc, bPerfData);
+	nscapi::program_options::legacy::add_show_all(desc);
+
+	boost::program_options::variables_map vm;
+	nscapi::program_options::unrecognized_map unrecognized;
+	if (!nscapi::program_options::process_arguments_unrecognized(vm, unrecognized, desc, request, *response)) 
+		return;
+	nscapi::program_options::legacy::collect_numerical_all(vm, query1);
+	nscapi::program_options::legacy::collect_exact_numerical_all(vm, query2);
+	nscapi::program_options::legacy::collect_show_all(vm, query1);
+	nscapi::program_options::legacy::collect_show_all(vm, query2);
+	nscapi::program_options::alias_map aliases = nscapi::program_options::parse_legacy_alias(unrecognized, "Drive");
 
 	tasksched_filter::filter_engine impl = tasksched_filter::factories::create_engine(args);
 	if (!impl) {
-		msg = _T("Failed to initialize filter subsystem.");
-		return NSCAPI::returnUNKNOWN;
+		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to initialize filter subsystem.");
 	}
 	impl->boot();
 	NSC_DEBUG_MSG_STD(_T("Using: ") + impl->get_name() + _T(" ") + impl->get_subject());
-	if (!impl->validate(msg)) {
-		return NSCAPI::returnUNKNOWN;
+	std::wstring tmp;
+	if (!impl->validate(tmp)) {
+		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(tmp));
 	}
-	tasksched_filter::filter_result result = tasksched_filter::factories::create_result(args);
+	tasksched_filter::filter_result query_result = tasksched_filter::factories::create_result(args);
 
 	try {
 		TaskSched query;
-		query.findAll(result, args, impl);
+		query.findAll(query_result, args, impl);
 	} catch (TaskSched::Exception e) {
-		msg = _T("WMIQuery failed: ") + e.getMessage();
-		return NSCAPI::returnCRIT;
+		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(_T("WMIQuery failed: ") + e.getMessage()));
 	}
 
-	int count = result->get_match_count();
-	msg = result->render(masterSyntax, returnCode);
+	int count = query_result->get_match_count();
+	std::wstring msg, perf;
+	msg = query_result->render(syntax_top, returnCode);
 	if (!bPerfData) {
 		query1.perfData = false;
 		query2.perfData = false;
@@ -142,7 +154,8 @@ NSCAPI::nagiosReturn CheckTaskSched::check_taskshced(const std::wstring &target,
 		msg = msg.substr(0, truncate-4) + _T("...");
 	if (msg.empty())
 		msg = _T("OK: All scheduled tasks are good.");
-	return returnCode;
+	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
+	response->set_message(utf8::cvt<std::string>(msg));
 }
 
 int CheckTaskSched::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {

@@ -1,0 +1,27 @@
+{
+	"module"		: {
+		"title"			: "SMTP Client",
+		"description"		: "SMTP client can be used both from command line and from queries to check remote systes via SMTP",
+		"name"			: "SMTPClient",
+		"alias"			: "smtp",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "SMTP/client"
+	},
+
+	"commands" : {
+		"fallback" : "true",
+		"smtp_submit" : { 
+			"description" : "Submit information to remote host via SMTP.",
+			"mapping"	: false
+		}
+	},
+
+	"channels" : "raw",
+
+	"command line exec" : true,
+
+	"log messages" : false
+}

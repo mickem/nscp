@@ -21,55 +21,18 @@
 #include "stdafx.h"
 #include "CauseCrashes.h"
 
-#include <strEx.h>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 
-CauseCrashes::CauseCrashes() {
-}
-CauseCrashes::~CauseCrashes() {
-}
+namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
-
-bool CauseCrashes::loadModule() {
-	return false;
+void CauseCrashes::crash_client(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	int *foo = 0;
+	*foo = 0;
+	return nscapi::protobuf::functions::set_response_bad(*response, "We should have crashed now...");
 }
-
-bool CauseCrashes::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	try {
-		register_command(_T("CrashClient"), _T("Crash NSClient++"));
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-		return false;
-	}
-	return true;
-}
-bool CauseCrashes::unloadModule() {
-	return true;
-}
-
-bool CauseCrashes::hasCommandHandler() {
-	return true;
-}
-bool CauseCrashes::hasMessageHandler() {
-	return false;
-}
-
-NSCAPI::nagiosReturn CauseCrashes::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("crashclient")) {
-		int *foo = 0;
-		*foo = 0;
-		message = _T("We should have crashed now...");
-		return NSCAPI::returnOK;
-	}
-	return NSCAPI::returnIgnored;
-}
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CauseCrashes, _T("crash"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()

@@ -24,14 +24,14 @@ namespace process {
 
 #define BUFF_SIZE 4096
 
-	char* createBuffer() {
+	static char* createBuffer() {
 		return new char[BUFF_SIZE+1];
 	}
-	void destroyBuffer(char* buffer) {
+	static void destroyBuffer(char* buffer) {
 		delete [] buffer;
 	}
 
-	std::string readFromFile(char* buffer, HANDLE hFile) {
+	static std::string readFromFile(char* buffer, HANDLE hFile) {
 		DWORD dwRead = 0;
 		DWORD retval = 0;
 		std::string str;
@@ -45,7 +45,7 @@ namespace process {
 		return str;
 	}
 
-	int executeProcess(process::exec_arguments args, std::wstring &msg, std::wstring &perf) {
+	static int executeProcess(process::exec_arguments args, std::string &msg, std::string &perf) {
 		NSCAPI::nagiosReturn result;
 		PROCESS_INFORMATION pi;
 		STARTUPINFO si;
@@ -74,16 +74,17 @@ namespace process {
 
 		// CreateProcess doesn't work with a const command
 		TCHAR *cmd = new TCHAR[args.command.length()+1];
-		wcsncpy(cmd, args.command.c_str(), args.command.length());
+		wcsncpy(cmd, utf8::cvt<std::wstring>(args.command).c_str(), args.command.length());
 		cmd[args.command.length()] = 0;
 
 		// Create the child process.
 		//HANDLE hWaitEvt = ::CreateEvent(NULL, TRUE, FALSE, NULL);
 		BOOL processOK = FALSE;
 		if (!args.user.empty()) {
-			processOK = CreateProcessWithLogonW(args.user.c_str(), args.domain.c_str(), args.password.c_str(), LOGON_WITH_PROFILE, NULL, cmd, NULL, NULL, args.root_path.c_str(), &si, &pi);
+			processOK = CreateProcessWithLogonW(utf8::cvt<std::wstring>(args.user).c_str(), utf8::cvt<std::wstring>(args.domain).c_str(), utf8::cvt<std::wstring>(args.password).c_str(), 
+				LOGON_WITH_PROFILE, NULL, cmd, NULL, NULL, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
 		} else {
-			processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, args.root_path.c_str(), &si, &pi);
+			processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
 		}
 
 		delete [] cmd;
@@ -112,30 +113,32 @@ namespace process {
 			dwAvail = 0;
 			if (::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL) && dwAvail > 0)
 				str += readFromFile(buffer, hChildOutR);
-			msg = strEx::string_to_wstring(str);
+			msg = str;
 			destroyBuffer(buffer);
 
 			if (dwstate == WAIT_TIMEOUT) {
 				TerminateProcess(pi.hProcess, 5);
-				msg = _T("Command (") + args.command + _T(") didn't terminate within the timeout period (") + strEx::itos(args.timeout) + _T("s)!");
+				msg = "Command (" + args.command + ") didn't terminate within the timeout period (" + strEx::s::xtos(args.timeout) + "s)!";
 				result = NSCAPI::returnUNKNOWN;
 			} else {
-				std::wstring::size_type pos = msg.find_last_not_of(_T("\n\r "));
-				if (pos != std::wstring::npos) {
+				std::string::size_type pos = msg.find_last_not_of("\n\r ");
+				if (pos != std::string::npos) {
 					if (pos == msg.size())
 						msg = msg.substr(0,pos);
 					else
 						msg = msg.substr(0,pos+1);
 				}
 				if (msg.empty()) {
-					msg = _T("No output available from command (") + args.command + _T(").");
+					msg = "No output available from command (" + args.command + ").";
 				} else {
-					strEx::token t = strEx::getToken(msg, '|');
-					msg = t.first;
-					perf = t.second;
+					std::string::size_type pos = msg.find('|');
+					if (pos != std::string::npos) {
+						perf = msg.substr(pos+1);
+						msg = msg.substr(0, pos);
+					}
 				}
 				if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
-					msg = _T("Failed to get commands (") + args.command + _T(") return code: ") + error::lookup::last_error();
+					msg = "Failed to get commands (" + args.command + ") return code: " + utf8::cvt<std::string>(error::lookup::last_error());
 					result = NSCAPI::returnUNKNOWN;
 				} else {
 					result = dwexitcode;
@@ -147,10 +150,9 @@ namespace process {
 		} else {
 			DWORD error = GetLastError();
 			if (error == ERROR_BAD_EXE_FORMAT) {
-				NSC_LOG_ERROR_STD(args.command + _T(" is not an .exe file or a valid image (if you run a script you usually need to prefix the command with the interpreter like so: \"command=c:\\perl.exe <script>\""));
-				msg = _T("ExternalCommands: failed to create process (") + args.command + _T("): it is not an exe file (check NSC.log for more info) - ") + error::lookup::last_error(error);
+				msg = "ExternalCommands: failed to create process (" + args.command + "): it is not an exe file: " + utf8::cvt<std::string>(error::lookup::last_error(error));
 			} else {
-				msg = _T("ExternalCommands: failed to create process (") + args.command + _T("): ") + error::lookup::last_error(error);
+				msg = "ExternalCommands: failed to create process (" + args.command + "): " + utf8::cvt<std::string>(error::lookup::last_error(error));
 			}
 			result = NSCAPI::returnUNKNOWN;
 			CloseHandle(hChildInR);

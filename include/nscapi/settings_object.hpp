@@ -116,8 +116,11 @@ namespace nscapi {
 				}
 			}
 
+			optional_object find_object(const std::string alias) const {
+				return find_object(utf8::cvt<std::wstring>(alias));
+			}
 
-			optional_object find_object(std::wstring alias) {
+			optional_object find_object(const std::wstring alias) const {
 				typename object_list_type::const_iterator cit = object_list.find(alias);
 				if (cit != object_list.end())
 					return optional_object(cit->second);

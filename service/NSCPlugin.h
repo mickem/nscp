@@ -180,7 +180,6 @@ public:
 		return getFilename();
 	}
 	std::wstring getModule() {
-		return _T("");
 #ifndef WIN32
 		std::wstring file = module_.get_module_name();
 		if (file.substr(0,3) == _T("lib"))

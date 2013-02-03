@@ -24,21 +24,21 @@
 #include <map>
 #include <vector>
 
-#include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 
 #include "CheckWMI.h"
 #include <strEx.h>
 #include <time.h>
 
-#include <arrayBuffer.h>
+//#include <arrayBuffer.h>
 
-CheckWMI::CheckWMI() {
-}
-CheckWMI::~CheckWMI() {
-}
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+
+#include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
 void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_ptr core, std::wstring key, std::wstring val) {
 	std::wstring alias = key;
@@ -84,46 +84,21 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 	NSC_LOG_ERROR_STD(_T("Found: ") + alias + _T(" ==> ") + target.to_wstring());
 }
 
-bool CheckWMI::loadModule() {
-	return false;
-}
 bool CheckWMI::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	try {
-		register_command(_T("CheckWMIValue"), _T("Run a WMI query and check the resulting value (the values of each row determin the state)."));
-		register_command(_T("CheckWMI"), _T("Run a WMI query and check the resulting rows (the number of hits determine state)."));
+	sh::settings_registry settings(get_settings_proxy());
+	//settings.set_alias(_T("targets"));
 
-		sh::settings_registry settings(get_settings_proxy());
-		//settings.set_alias(_T("targets"));
+	settings.add_path_to_settings()
+		(_T("targets"), sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)), 
+		_T("TARGET LIST SECTION"), _T("A list of avalible remote target systems"))
+		;
 
-		settings.add_path_to_settings()
-			(_T("targets"), sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)), 
-			_T("TARGET LIST SECTION"), _T("A list of avalible remote target systems"))
-			;
-
-		settings.register_all();
-		settings.notify();
-
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-		return false;
-	}
+	settings.register_all();
+	settings.notify();
 	return true;
 }
 bool CheckWMI::unloadModule() {
 	return true;
-}
-
-bool CheckWMI::hasCommandHandler() {
-	return true;
-}
-bool CheckWMI::hasMessageHandler() {
-	return false;
 }
 
 std::wstring build_namespace(std::wstring ns, std::wstring computer) {
@@ -147,16 +122,11 @@ std::wstring build_namespace(std::wstring ns, std::wstring computer) {
 #define MAP_CHAINED_FILTER_NUMERIC(value) \
 	MAP_CHAINED_FILTER(value, numeric)
 
-NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const std::wstring &target, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
+void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, checkHolders::int_handler> > > WMIContainer;
 
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	typedef filters::chained_filter<WMIQuery::wmi_filter,WMIQuery::wmi_row> filter_chain;
 	filter_chain chain;
-	if (arguments.empty()) {
-		message = _T("Missing argument(s).");
-		return NSCAPI::returnCRIT;
-	}
 	unsigned int truncate = 0;
 	std::wstring query, alias;
 	std::wstring ns = _T("root\\cimv2");
@@ -164,27 +134,44 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const std::wstring &target, std::l
 	std::wstring colSyntax;
 	std::wstring colSep;
 	target_helper::target_info target_info;
+	boost::optional<target_helper::target_info> t;
+	/*
 	boost::optional<target_helper::target_info> t = targets.find(target);
 	if (t)
 		target_info = *t;
+		*/
 	std::wstring given_target;
-
 	WMIContainer result_query;
-	try {
-		MAP_OPTIONS_BEGIN(arguments)
-		MAP_OPTIONS_STR(_T("Query"), query)
-		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
-		MAP_OPTIONS_STR(_T("namespace"), ns)
-		MAP_OPTIONS_STR(_T("Alias"), result_query.alias)
-		MAP_OPTIONS_STR(_T("target"), given_target)
-		MAP_OPTIONS_STR(_T("user"), target_info.username)
-		MAP_OPTIONS_STR(_T("password"), target_info.password)
-		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-		MAP_OPTIONS_NUMERIC_ALL(result_query, _T(""))
-		MAP_OPTIONS_SHOWALL(result_query)
+
+
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("truncate", po::value<unsigned int>(&truncate), "Truncate the resulting message (mainly useful in older version of nsclient++)")
+		("alias", po::wvalue<std::wstring>(&result_query.alias),			"Alias: TODO.")
+		("columnSyntax", po::wvalue<std::wstring>(&colSyntax), "Syntax for columns.")
+		("columnSeparator", po::wvalue<std::wstring>(&colSep), "TODO: What is this.")
+		("target", po::wvalue<std::wstring>(&given_target), "The target to check (for checking remote machines).")
+		("user", po::wvalue<std::wstring>(&target_info.username), "Remote username when checking remote machines.")
+		("password", po::wvalue<std::wstring>(&target_info.password), "Remote password when checking remote machines.")
+		("namespace", po::wvalue<std::wstring>(&ns), "The WMI root namespace to bind to.")
+		("query", po::wvalue<std::wstring>(&query), "The WMI query to execute.")
+		;
+
+	nscapi::program_options::legacy::add_numerical_all(desc);
+	//nscapi::program_options::legacy::add_exact_numerical_all(desc);
+	nscapi::program_options::legacy::add_ignore_perf_data(desc, bPerfData);
+	nscapi::program_options::legacy::add_show_all(desc);
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	nscapi::program_options::legacy::collect_numerical_all(vm, result_query);
+	//nscapi::program_options::legacy::collect_exact_numerical_all(vm, query2);
+	nscapi::program_options::legacy::collect_show_all(vm, result_query);
+	//nscapi::program_options::legacy::collect_show_all(vm, query2);
+
+	/*
 		MAP_CHAINED_FILTER(_T("string"),string)
-		MAP_OPTIONS_STR(_T("columnSyntax"),colSyntax)
-		MAP_OPTIONS_STR(_T("columnSeparator"),colSep)
 		MAP_CHAINED_FILTER(_T("numeric"),numeric)
 		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 		MAP_SECONDARY_CHAINED_FILTER(_T("string"),string)
@@ -193,13 +180,7 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const std::wstring &target, std::l
 					query = p__.second;
 					result_query.alias = p2.second;
 				}
-		MAP_OPTIONS_MISSING_EX(p2, message, _T("Unknown argument: "))
-			MAP_OPTIONS_SECONDARY_END()
-		MAP_OPTIONS_END()
-	} catch (filters::parse_exception e) {
-		message = _T("WMIQuery failed: ") + e.getMessage();
-		return NSCAPI::returnCRIT;
-	}
+				*/
 
 	if (!given_target.empty()) {
 		t = targets.find(given_target);
@@ -208,6 +189,8 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const std::wstring &target, std::l
 		else
 			target_info.hostname = given_target;
 	}
+	if (query.empty())
+		return nscapi::protobuf::functions::set_response_bad(*response, "No query specified.");
 
 	WMIQuery::result_type rows;
 	try {
@@ -216,11 +199,12 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const std::wstring &target, std::l
 		NSC_DEBUG_MSG_STD(_T("Running query: '") + query + _T("' on: ") + ns + _T(" with ") + target_info.to_wstring());
 		rows = wmiQuery.execute(ns, query, target_info.username, target_info.password);
 	} catch (WMIException e) {
-		message = _T("WMIQuery failed: ") + e.getMessage();
-		return NSCAPI::returnCRIT;
+		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(_T("WMIQuery failed: ") + e.getMessage()));
 	}
 	int hit_count = 0;
 
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
+	std::wstring message;
 	if (chain.empty()) {
 		NSC_DEBUG_MSG_STD(_T("No filters specified so we will match all rows"));
 		hit_count = rows.size();
@@ -246,22 +230,20 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMI(const std::wstring &target, std::l
 		result_query.alias = _T("wmi query");
 
 	NSC_DEBUG_MSG_STD(_T("Message is: ") + message);
+	std::wstring perf;
 	result_query.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");
 	if (message.empty())
 		message = _T("OK: WMI Query returned no results.");
-	return returnCode;
+	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
+	response->set_message(utf8::cvt<std::string>(message));
 }
 
-NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const std::wstring &target, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
+void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<long long, checkHolders::int64_handler> > > WMIContainer;
-	if (arguments.empty()) {
-		message = _T("ERROR: Missing argument exception.");
-		return NSCAPI::returnUNKNOWN;
-	}
+
 	std::list<WMIContainer> list;
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	WMIContainer tmpObject;
 	bool bPerfData = true;
 	unsigned int truncate = 0;
@@ -272,38 +254,53 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const std::wstring &target, s
 	std::wstring user;
 
 	target_helper::target_info target_info;
+	boost::optional<target_helper::target_info> t;
+	/*
 	boost::optional<target_helper::target_info> t = targets.find(target);
 	if (t)
 		target_info = *t;
+	*/
 	std::wstring given_target;
 
+
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("truncate", po::value<unsigned int>(&truncate), "Truncate the resulting message (mainly useful in older version of nsclient++)")
+//		("alias", po::wvalue<std::wstring>(&result_query.alias),			"Alias: TODO.")
+//		("columnSyntax", po::wvalue<std::wstring>(&colSyntax), "Syntax for columns.")
+//		("columnSeparator", po::wvalue<std::wstring>(&colSep), "TODO: What is this.")
+		("target", po::wvalue<std::wstring>(&given_target), "The target to check (for checking remote machines).")
+		("user", po::wvalue<std::wstring>(&target_info.username), "Remote username when checking remote machines.")
+		("password", po::wvalue<std::wstring>(&target_info.password), "Remote password when checking remote machines.")
+		("namespace", po::wvalue<std::wstring>(&ns), "The WMI root namespace to bind to.")
+		("query", po::wvalue<std::wstring>(&query), "The WMI query to execute.")
+		;
+
+	nscapi::program_options::legacy::add_numerical_all(desc);
+	//nscapi::program_options::legacy::add_exact_numerical_all(desc);
+	nscapi::program_options::legacy::add_ignore_perf_data(desc, bPerfData);
+	nscapi::program_options::legacy::add_show_all(desc);
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	//nscapi::program_options::legacy::collect_numerical_all(vm, result_query);
+	//nscapi::program_options::legacy::collect_exact_numerical_all(vm, query2);
+	//nscapi::program_options::legacy::collect_show_all(vm, result_query);
+	//nscapi::program_options::legacy::collect_show_all(vm, query2);
 	// Query=Select ... MaxWarn=5 MaxCrit=12 Check=Col1 --(later)-- Match==test Check=Col2
 	// MaxWarnNumeric:ID=>5
-	try {
-		MAP_OPTIONS_BEGIN(arguments)
-			MAP_OPTIONS_SHOWALL(tmpObject)
-			MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T(""))
-			MAP_OPTIONS_STR(_T("namespace"), ns)
-			MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
-			MAP_OPTIONS_STR(_T("AliasCol"), aliasCol)
-			MAP_OPTIONS_STR(_T("target"), given_target)
-			MAP_OPTIONS_STR(_T("user"), target_info.username)
-			MAP_OPTIONS_STR(_T("password"), target_info.password)
-			MAP_OPTIONS_STR(_T("Query"), query)
-			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_STR_AND(_T("Check"), tmpObject.data, list.push_back(tmpObject))
-			MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
-			MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
-			MAP_OPTIONS_SECONDARY_STR_AND(p2,_T("Check"), tmpObject.data, tmpObject.alias, list.push_back(tmpObject))
-				MAP_OPTIONS_MISSING_EX(p2, message, _T("Unknown argument: "))
-				MAP_OPTIONS_SECONDARY_END()
-			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
-			MAP_OPTIONS_END()
-
-	} catch (filters::parse_exception e) {
-		message = _T("WMIQuery failed: ") + e.getMessage();
-		return NSCAPI::returnCRIT;
-	}
+	/*
+	MAP_OPTIONS_STR(_T("AliasCol"), aliasCol)
+	MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
+	MAP_OPTIONS_STR_AND(_T("Check"), tmpObject.data, list.push_back(tmpObject))
+		
+	MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
+	MAP_OPTIONS_SECONDARY_STR_AND(p2,_T("Check"), tmpObject.data, tmpObject.alias, list.push_back(tmpObject))
+	MAP_OPTIONS_MISSING_EX(p2, message, _T("Unknown argument: "))
+	MAP_OPTIONS_SECONDARY_END()
+	MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
+	*/
 	if (!given_target.empty()) {
 		t = targets.find(given_target);
 		if (t)
@@ -311,6 +308,8 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const std::wstring &target, s
 		else
 			target_info.hostname = given_target;
 	}
+	if (query.empty())
+		return nscapi::protobuf::functions::set_response_bad(*response, "No query specified.");
 
 	WMIQuery::result_type rows;
 	try {
@@ -319,11 +318,12 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const std::wstring &target, s
 		WMIQuery wmiQuery;
 		rows = wmiQuery.execute(ns, query, target_info.username, target_info.password);
 	} catch (WMIException e) {
-		message = _T("WMIQuery failed: ") + e.getMessage();
-		return NSCAPI::returnCRIT;
+		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(_T("WMIQuery failed: ") + e.getMessage()));
 	}
 	int hit_count = 0;
 
+	std::wstring message, perf;
+	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	for (std::list<WMIContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
 		WMIContainer itm = (*it);
 		itm.setDefault(tmpObject);
@@ -368,7 +368,8 @@ NSCAPI::nagiosReturn CheckWMI::CheckSimpleWMIValue(const std::wstring &target, s
 		message = message.substr(0, truncate-4) + _T("...");
 	if (message.empty())
 		message = _T("OK: Everything seems fine.");
-	return returnCode;
+	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
+	response->set_message(utf8::cvt<std::string>(message));
 }
 
 struct pad_handler {
@@ -473,15 +474,6 @@ void print_results(WMIQuery::result_type &rows, int limit, std::wstring & result
 }
 
 
-NSCAPI::nagiosReturn CheckWMI::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checkwmi")) {
-		return CheckSimpleWMI(target, arguments, message, perf);
-	} else if (command == _T("checkwmivalue")) {
-		return CheckSimpleWMIValue(target, arguments, message, perf);
-	}	
-	return NSCAPI::returnIgnored;
-}
-
 void list_ns_rec(std::wstring ns, std::wstring user, std::wstring password, std::wstring &result) {
 	try {
 		WMIQuery wmiQuery;
@@ -517,7 +509,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 				("list-classes", po::wvalue<std::wstring>(&list_cls)->implicit_value(_T("")), "list all classes of a given type")
 				("list-instances", po::wvalue<std::wstring>(&list_inst)->implicit_value(_T("")), "list all instances of a given type")
 				("list-ns", "list all name spaces")
-				("list-all-ns", "list all name spaces recursivly")
+				("list-all-ns", "list all name spaces recursively")
 				("limit,l", po::value<int>(&limit), "Limit number of rows")
 				("namespace,n", po::wvalue<std::wstring>(&ns)->default_value(_T("root\\cimv2")), "Namespace")
 				("computer,c", po::wvalue<std::wstring>(&computer), "A remote computer to connect to ")
@@ -616,10 +608,3 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 	}
 	return NSCAPI::returnIgnored;
 }
-
-
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckWMI, _T("wmi"));
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();

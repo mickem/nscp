@@ -33,17 +33,13 @@
 
 #include "script_wrapper.hpp"
 
-PythonScript::PythonScript() {
-}
-PythonScript::~PythonScript() {
-}
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+
+#include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
-
-bool PythonScript::loadModule() {
-	return false;
-}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(NSCP)
@@ -118,7 +114,7 @@ python_script::python_script(unsigned int plugin_id, const std::string alias, co
 		NSC_LOG_ERROR(err);
 		return;
 	}
-	_exec(script.script.filename().string());
+	_exec(script.script.string());
 	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
 python_script::~python_script(){
@@ -143,7 +139,7 @@ bool python_script::callFunction(const std::string& functionName) {
 		return false;
 	}
 }
-bool python_script::callFunction(const std::string& functionName, const std::vector<std::wstring> args) {
+bool python_script::callFunction(const std::string& functionName, const std::list<std::string> &args) {
 	try {
 		script_wrapper::thread_locker locker;
 		try	{
@@ -198,14 +194,16 @@ void python_script::_exec(const std::string &scriptfile){
 			path /= _T("scripts");
 			path /= _T("python");
 			path /= _T("lib");
-			NSC_DEBUG_MSG(_T("Lib path: ") + path.wstring());
-			PyRun_SimpleString(("sys.path.append('" + utf8::cvt<std::string>(path.string()) + "')").c_str());
+			NSC_DEBUG_MSG(_T("Lib path: ") + path.generic_wstring());
+			PyRun_SimpleString(("sys.path.append('" + path.generic_string() + "')").c_str());
 
 			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
 		} catch( error_already_set e) {
 			script_wrapper::log_exception();
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR(_T("Exception in python script: ") + utf8::to_unicode(e.what()));
 		} catch(...) {
-			NSC_LOG_ERROR(_T("Failed to run python script: ") + utf8::to_unicode(scriptfile));
+			NSC_LOG_ERROR(_T("Unknown exception in python script: ") + utf8::to_unicode(scriptfile));
 		}
 	} catch (...) {
 		NSC_LOG_ERROR(_T("Unknown exception"));
@@ -294,53 +292,6 @@ boost::optional<boost::filesystem::path> PythonScript::find_file(std::wstring fi
 	return boost::optional<boost::filesystem::path>();
 }
 
-NSCAPI::nagiosReturn PythonScript::execute_and_load_python(std::list<std::wstring> args, std::wstring &message) {
-	try {
-		po::options_description desc("Options for the following commands: (exec, execute)");
-		boost::program_options::variables_map vm;
-		std::wstring file;
-		desc.add_options()
-			("help", "Display help")
-			("script", po::wvalue<std::wstring>(&file), "The script to run")
-			("file", po::wvalue<std::wstring>(&file), "The script to run")
-			;
-
-		std::vector<std::wstring> vargs(args.begin(), args.end());
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).allow_unregistered().run();
-		po::store(parsed, vm);
-		po::notify(vm);
-
-		std::vector<std::wstring> py_args = po::collect_unrecognized(parsed.options, po::include_positional);
-		if (vm.count("script") == 0 && vm.count("help") > 0) {
-			std::stringstream ss;
-			ss << desc;
-			message = utf8::to_unicode(ss.str());
-			return NSCAPI::returnUNKNOWN;
-		} else if (vm.count("help") > 0) {
-			py_args.push_back(_T("--help"));
-		}
-
-		boost::optional<boost::filesystem::path> ofile = find_file(file);
-		if (!ofile)
-			return false;
-		script_container sc(*ofile);
-		python_script script(get_id(), "", sc);
-		if (!script.callFunction("__main__", py_args)) {
-			message = _T("Failed to execute script: __main__");
-			return NSCAPI::returnUNKNOWN;
-		}
-		message = _T("Script execute successfully...");
-		return NSCAPI::returnOK;
-	} catch (const std::exception &e) {
-		message = _T("Failed to execute script ") + utf8::to_unicode(e.what());
-		NSC_LOG_ERROR_STD(message);
-		return NSCAPI::returnUNKNOWN;
-	} catch (...) {
-		message = _T("Failed to execute script ");
-		NSC_LOG_ERROR_STD(message);
-		return NSCAPI::returnUNKNOWN;
-	}
-}
 
 bool PythonScript::loadScript(std::wstring alias, std::wstring file) {
 	try {
@@ -367,119 +318,111 @@ bool PythonScript::unloadModule() {
 	return true;
 }
 
-bool PythonScript::hasCommandHandler() {
-	return true;
-}
-bool PythonScript::hasMessageHandler() {
-	return true;
-}
-bool PythonScript::hasNotificationHandler() {
+bool PythonScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+	if (inst->has_cmdline(request.command())) {
+		std::string buffer;
+		int ret = inst->handle_exec(request.command(), request_message.SerializeAsString(), buffer);
+		Plugin::ExecuteResponseMessage local_response;
+		local_response.ParseFromString(buffer);
+		if (local_response.payload_size() != 1) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + request.command());
+			return true;
+		}
+		response->CopyFrom(local_response.payload(0));
+	}
+	if (inst->has_simple_cmdline(request.command())) {
+		std::list<std::string> args;
+		for (int i=0;i<request.arguments_size();i++)
+			args.push_back(request.arguments(i));
+		std::string result;
+		NSCAPI::nagiosReturn ret = inst->handle_simple_exec(request.command(), args, result);
+		response->set_message(result);
+		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
+	}
+	if (request.command() != "execute-and-load-python" && request.command() != "execute-python" && request.command() != "python-script"
+		&& request.command() != "run" && request.command() != "execute" && request.command() != "exec" && request.command() != "") {
+			return false;
+	}
+
+	try {
+		po::options_description desc = nscapi::program_options::create_desc(request);
+		std::string file;
+		desc.add_options()
+			("script", po::value<std::string>(&file), "The script to run")
+			("file", po::value<std::string>(&file), "The script to run")
+			;
+		boost::program_options::variables_map vm;
+		nscapi::program_options::unrecognized_map script_options;
+		if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response))
+			return true;
+
+		boost::optional<boost::filesystem::path> ofile = find_file(utf8::cvt<std::wstring>(file));
+		if (!ofile) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
+			return true;
+		}
+		script_container sc(*ofile);
+		python_script script(get_id(), "", sc);
+		std::list<std::string> ops(script_options.begin(), script_options.end());
+		if (!script.callFunction("__main__", ops)) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");
+			return true;
+		}
+		nscapi::protobuf::functions::set_response_good(*response, "TODO: Collect info messages here!");
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script.");
+	}
 	return true;
 }
 
-bool PythonScript::reload(std::wstring &message) {
-	/*
-	bool error = false;
-	commands_.clear();
-	for (script_list::const_iterator cit = scripts_.begin(); cit != scripts_.end() ; ++cit) {
-		try {
-			(*cit)->reload(this);
-		} catch (script_wrapper::LUAException e) {
-			error = true;
-			message += _T("Exception when reloading script: ") + (*cit)->get_script() + _T(": ") + e.getMessage();
-			NSC_LOG_ERROR_STD(_T("Exception when reloading script: ") + (*cit)->get_script() + _T(": ") + e.getMessage());
-		} catch (...) {
-			error = true;
-			message += _T("Unhandeled Exception when reloading script: ") + (*cit)->get_script();
-			NSC_LOG_ERROR_STD(_T("Unhandeled Exception when reloading script: ") + (*cit)->get_script());
+
+void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+	if (inst->has_function(request.command())) {
+		std::string buffer;
+		if (inst->handle_query(request.command(), request_message.SerializeAsString(), buffer) != NSCAPI::isSuccess) {
+			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + request.command());
+		}
+		Plugin::QueryResponseMessage local_response;
+		local_response.ParseFromString(buffer);
+		if (local_response.payload_size() != 1)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + request.command());
+		response->CopyFrom(local_response.payload(0));
+	}
+	if (inst->has_simple(request.command())) {
+		std::list<std::string> args;
+		for (int i=0;i<request.arguments_size();i++)
+			args.push_back(request.arguments(i));
+		std::string msg, perf;
+		NSCAPI::nagiosReturn ret = inst->handle_simple_query(request.command(), args, msg, perf);
+		nscapi::functions::parse_performance_data(response, perf);
+		response->set_message(msg);
+		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
+	}
+}
+
+
+void PythonScript::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+	if (inst->has_message_handler(channel)) {
+		std::string buffer;
+		if (inst->handle_message(channel, request_message.SerializeAsString(), buffer) == NSCAPI::isSuccess) {
+			Plugin::SubmitResponseMessage local_response;
+			local_response.ParseFromString(buffer);
+			if (local_response.payload_size() == 1) {
+				response->CopyFrom(local_response.payload(0));
+				return;
+			}
 		}
 	}
-	if (!error)
-		message = _T("LUA scripts Reloaded...");
-	return !error;
-	*/
-	return false;
+	if (inst->has_simple_message_handler(channel)) {
+		std::string perf = nscapi::protobuf::functions::build_performance_data(request);
+		if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), request.message(), perf) != NSCAPI::isSuccess)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
+		return nscapi::protobuf::functions::set_response_good(*response, "");
+	}
+	return nscapi::protobuf::functions::set_response_bad(*response, "Unable to process message: " + channel);
 }
-
-NSCAPI::nagiosReturn PythonScript::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	std::wstring command = char_command;
-	if (command == _T("help")) {
-		std::list<std::wstring> args;
-		args.push_back(_T("--help"));
-		std::wstring result;
-		int ret = execute_and_load_python(args, result);
-		nscapi::functions::create_simple_exec_response<std::wstring>(_T("help"), ret, result, response);
-		return ret;
-	} else if (command == _T("execute-and-load-python") || command == _T("execute-python") || command == _T("python-script")
-		|| command == _T("run") || command == _T("execute") || command == _T("exec") || command == _T("")) {
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-		if (data.command == _T("") && data.args.size() == 0)
-			return NSCAPI::returnIgnored;
-		std::wstring result;
-		int ret = execute_and_load_python(data.args, result);
-		nscapi::functions::create_simple_exec_response(data.command, ret, result, response);
-		return ret;
-	}
-	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
-	std::string cmd = utf8::cvt<std::string>(char_command);
-	if (inst->has_cmdline(cmd)) {
-		return inst->handle_exec(cmd, request, response);
-	}
-	if (inst->has_simple_cmdline(cmd)) {
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-		std::wstring result;
-		NSCAPI::nagiosReturn ret = inst->handle_simple_exec(cmd, data.args, result);
-		nscapi::functions::create_simple_exec_response(data.command, ret, result, response);
-		return ret;
-	}
-	return NSCAPI::returnIgnored;
-}
-
-
-NSCAPI::nagiosReturn PythonScript::handleRAWCommand(const wchar_t* command, const std::string &request, std::string &response) {
-	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
-	std::string cmd = utf8::cvt<std::string>(command);
-	if (inst->has_function(cmd)) {
-		return inst->handle_query(cmd, request, response);
-	}
-	if (inst->has_simple(cmd)) {
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(command, request);
-		std::wstring msg, perf;
-		NSCAPI::nagiosReturn ret = inst->handle_simple_query(cmd, data.args, msg, perf);
-		nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
-		return ret;
-	}
-	NSC_LOG_ERROR_STD(_T("Could not find python commands for: ") + command + _T(" (avalible python commands are: ") + inst->get_commands() + _T(")"));
-	/*
-	if (command == _T("luareload")) {
-		return reload(message)?NSCAPI::returnOK:NSCAPI::returnCRIT;
-	}
-	*/
-	return NSCAPI::returnIgnored;
-}
-
-
-NSCAPI::nagiosReturn PythonScript::handleRAWNotification(const std::wstring &channel, std::string &request, std::string &response) {
-	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
-	std::string chnl = utf8::cvt<std::string>(channel);
-	if (inst->has_message_handler(chnl)) {
-		NSCAPI::nagiosReturn ret = inst->handle_message(chnl, request, response);
-		if (ret != NSCAPI::returnIgnored)
-			return ret;
-	}
-	if (inst->has_simple_message_handler(chnl)) {
-		std::wstring src, cmd, msg, perf;
-		int code = nscapi::functions::parse_simple_submit_request(request, src, cmd, msg, perf);
-		int ret = inst->handle_simple_message(chnl, utf8::cvt<std::string>(src), utf8::cvt<std::string>(cmd), code, msg, perf);
-		nscapi::functions::create_simple_submit_response(channel, cmd, ret, _T(""), response);
-		return ret;
-	}
-	return NSCAPI::returnIgnored;
-}
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(PythonScript, _T("python"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

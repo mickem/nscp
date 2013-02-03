@@ -12,9 +12,9 @@ namespace parsers {
 			long long get_int(filter_handler handler) const;
 			std::wstring get_string(filter_handler handler) const;
 			std::wstring get_name() const { return name; }
-			bool is_bound_int() const { return int_ptr_id; }
-			bool is_bound_string() const { return string_ptr_id; }
-			bool is_bound() const { return string_ptr_id||int_ptr_id; }
+			bool is_bound_int() const { return int_ptr_id != 0; }
+			bool is_bound_string() const { return string_ptr_id != 0; }
+			bool is_bound() const { return string_ptr_id != 0||int_ptr_id != 0; }
 
 			variable( const variable& other ) : name(other.name), int_ptr_id(other.int_ptr_id), string_ptr_id(other.string_ptr_id) {}
 			const variable& operator=( const variable& other ) {

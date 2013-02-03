@@ -4,7 +4,9 @@ SET(TARGET NRPEServer)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	"handler_impl.cpp"
@@ -25,7 +27,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		"handler_impl.hpp"
 		${NSCP_INCLUDEDIR}/nrpe/server/protocol.hpp
 		${NSCP_INCLUDEDIR}/nrpe/server/handler.hpp

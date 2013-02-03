@@ -91,27 +91,65 @@ namespace where_filter {
 		std::wstring get_subject() { return filter_string; }
 	};
 
-
-	class nsc_error_handler : public where_filter::error_handler_interface {
+	
+	class collect_error_handler : public where_filter::error_handler_interface {
 		int error_count_;
 		int warning_count_;
 		std::wstring first_error_;
 		std::wstring last_error_;
+		std::wstring all_errors_;
+		std::wstring all_warnings_;
 	public:
-		nsc_error_handler() : error_count_(0), warning_count_(0) {}
+		collect_error_handler() : error_count_(0), warning_count_(0) {}
 		void report_error(std::wstring error) {
 			if (error_count_==0)
 				first_error_ = error;
 			else
 				last_error_ = error;
 			error_count_++;
-			NSC_LOG_ERROR(error);
+			strEx::append_list(all_errors_, error);
 		}
 		void report_warning(std::wstring error) {
-			NSC_LOG_MESSAGE(error);
+			warning_count_++;
+			strEx::append_list(all_errors_, error);
 		}
 		void report_debug(std::wstring error) {
-			NSC_DEBUG_MSG(error);
+		}
+		std::wstring get_error() {
+			return strEx::itos(error_count_) + _T(" errors and ") + strEx::itos(warning_count_) + _T(" warnings where returned: ") + first_error_;
+		}
+		bool has_error() {
+			return error_count_ > 0;
+		}
+	};
+	class nscapi::core_wrapper;
+	class nsc_error_handler : public where_filter::error_handler_interface {
+		int error_count_;
+		int warning_count_;
+		std::wstring first_error_;
+		std::wstring last_error_;
+		nscapi::core_wrapper *core_;
+	public:
+		nsc_error_handler(nscapi::core_wrapper *core) : error_count_(0), warning_count_(0), core_(core) {}
+		void report_error(std::wstring error) {
+			if (error_count_==0)
+				first_error_ = error;
+			else
+				last_error_ = error;
+			error_count_++;
+			if (core_->should_log(NSCAPI::log_level::error)) { 
+				core_->log(NSCAPI::log_level::error, __FILE__, __LINE__, error);
+			}
+		}
+		void report_warning(std::wstring error) {
+			if (core_->should_log(NSCAPI::log_level::warning)) { 
+				core_->log(NSCAPI::log_level::warning, __FILE__, __LINE__, error);
+			}
+		}
+		void report_debug(std::wstring error) {
+			if (core_->should_log(NSCAPI::log_level::debug)) { 
+				core_->log(NSCAPI::log_level::debug, __FILE__, __LINE__, error);
+			}
 		}
 		std::wstring get_error() {
 			return strEx::itos(error_count_) + _T(" errors and ") + strEx::itos(warning_count_) + _T(" warnings where returned: ") + first_error_;

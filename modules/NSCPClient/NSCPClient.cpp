@@ -24,8 +24,6 @@
 #include <time.h>
 #include <strEx.h>
 
-#include <protobuf/plugin.pb.h>
-
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
@@ -33,7 +31,8 @@
 
 namespace sh = nscapi::settings_helper;
 
-const std::wstring NSCPClient::command_prefix = _T("nscp");
+const std::string command_prefix("nscp");
+const std::string default_command("query");
 /**
  * Default c-tor
  * @return 
@@ -46,20 +45,10 @@ NSCPClient::NSCPClient() {}
  */
 NSCPClient::~NSCPClient() {}
 
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool NSCPClient::loadModule() {
-	return false;
-}
-
 bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	std::map<std::wstring,std::wstring> commands;
 
 	try {
-
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(_T("nscp"), alias, _T("client"));
@@ -85,14 +74,7 @@ bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
-
-
 		get_core()->registerSubmissionListener(get_id(), channel_);
-		register_command(_T("nscp_query"), _T("Submit a query to a remote host via NSCP"));
-		register_command(_T("nscp_forward"), _T("Forward query to remote NSCP host"));
-		register_command(_T("nscp_submit"), _T("Submit a query to a remote host via NSCP"));
-		register_command(_T("nscp_exec"), _T("Execute remote command on a remote host via NSCP"));
-		register_command(_T("nscp_help"), _T("Help on using NSCP Client"));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -149,38 +131,22 @@ bool NSCPClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn NSCPClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::QueryRequestMessage message;
-	message.ParseFromString(request);
-
+void NSCPClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_query(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn NSCPClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::ExecuteRequestMessage message;
-	message.ParseFromString(request);
-
+void NSCPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_exec(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn NSCPClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-
+void NSCPClient::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return client::command_line_parser::do_relay_submit(config, message, result);
+	setup(config, request_message.header());
+	commands.parse_submit(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -228,6 +194,7 @@ void NSCPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
+	config.default_command = default_command;
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
 		recipient = _T("default");
@@ -266,12 +233,12 @@ std::string gather_and_log_errors(std::string  &payload) {
 	}
 	return ret;
 }
-int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+
+int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnUNKNOWN;
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::QueryResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
@@ -290,15 +257,14 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, c
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}
-	response_message.SerializeToString(&reply);
 	return ret;
 }
 
-int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnUNKNOWN;
 	connection_data con = parse_header(request_header, data);
-	Plugin::SubmitResponseMessage response_message;
+	
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
@@ -317,16 +283,14 @@ int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}
-	response_message.SerializeToString(&reply);
 	return ret;
 }
 
-int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnOK;
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::ExecuteResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
@@ -345,7 +309,6 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}
-	response_message.SerializeToString(&reply);
 	return ret;
 }
 
@@ -392,11 +355,3 @@ std::list<nscp::packet> NSCPClient::send(connection_data con, std::list<nscp::pa
 		return response;
 	}
 }
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NSCPClient, _T("nscp"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
-

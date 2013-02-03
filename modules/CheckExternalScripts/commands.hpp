@@ -54,11 +54,11 @@ namespace commands {
 		bool is_template;
 
 		// Command keys
-		std::wstring command;
-		std::list<std::wstring> arguments;
-		std::wstring user, domain, password;
+		std::string command;
+		std::list<std::string> arguments;
+		std::string user, domain, password;
 
-
+		/*
 		std::wstring get_argument() const {
 			std::wstring args;
 			BOOST_FOREACH(std::wstring s, arguments) {
@@ -90,22 +90,26 @@ namespace commands {
 			ss << _T("}");
 			return ss.str();
 		}
+		*/
 
-		void set_command(std::wstring str) {
+		void set_command(std::string str) {
 			if (str.empty())
 				return;
 			try {
-				strEx::parse_command(str, command, arguments);
+				strEx::s::parse_command(str, arguments);
+				if (arguments.size() > 0) {
+					command = arguments.front(); arguments.pop_front();
+				}
 			} catch (const std::exception &e) {
-				NSC_LOG_MESSAGE(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
-				strEx::splitList list = strEx::splitEx(str, _T(" "));
+				//NSC_LOG_MESSAGE(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
+				std::list<std::string> list = strEx::s::splitEx(str, std::string(" "));
 				if (list.size() > 0) {
 					command = list.front();
 					list.pop_front();
 				}
 				arguments.clear();
-				std::list<std::wstring> buffer;
-				BOOST_FOREACH(std::wstring s, list) {
+				std::list<std::string> buffer;
+				BOOST_FOREACH(std::string s, list) {
 					std::size_t len = s.length();
 					if (buffer.empty()) {
 						if (len > 2 && s[0] == L'\"' && s[len-1]  == L'\"') {
@@ -116,16 +120,16 @@ namespace commands {
 							arguments.push_back(s);
 						}
 					} else {
-						if (len > 1 && s[len-1] == L'\"') {
-							std::wstring tmp;
-							BOOST_FOREACH(const std::wstring &s2, buffer) {
+						if (len > 1 && s[len-1] == '\"') {
+							std::string tmp;
+							BOOST_FOREACH(const std::string &s2, buffer) {
 								if (tmp.empty()) {
 									tmp = s2.substr(1);
 								} else {
-									tmp += _T(" ") + s2;
+									tmp += " " + s2;
 								}
 							}
-							arguments.push_back(tmp + _T(" ") + s.substr(0, len-1));
+							arguments.push_back(tmp + " " + s.substr(0, len-1));
 							buffer.clear();
 						} else {
 							buffer.push_back(s);
@@ -133,7 +137,7 @@ namespace commands {
 					}
 				}
 				if (!buffer.empty()) {
-					BOOST_FOREACH(const std::wstring &s, buffer) {
+					BOOST_FOREACH(const std::string &s, buffer) {
 						arguments.push_back(s);
 					}
 				}
@@ -159,7 +163,7 @@ namespace commands {
 
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
-			object.set_command(object.value);
+			object.set_command(utf8::cvt<std::string>(object.value));
 			std::wstring alias;
 			//if (object.alias == _T("default"))
 			// Pupulate default template!
@@ -181,7 +185,7 @@ namespace commands {
 				;
 
 			settings.path(object.path).add_key()
-				(_T("command"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_command, &object, _1)),
+				(_T("command"), sh::string_fun_key<std::string>(boost::bind(&object_type::set_command, &object, _1)),
 				_T("COMMAND"), _T("Command to execute"))
 
 				(_T("alias"), sh::wstring_key(&alias),
@@ -193,13 +197,13 @@ namespace commands {
 				(_T("is template"), nscapi::settings_helper::bool_key(&object.is_template, false),
 				_T("IS TEMPLATE"), _T("Declare this object as a template (this means it will not be available as a separate object)"), true)
 
-				(_T("user"), nscapi::settings_helper::wstring_key(&object.user),
+				(_T("user"), nscapi::settings_helper::string_key(&object.user),
 				_T("USER"), _T("The user to run the command as"), true)
 
-				(_T("domain"), nscapi::settings_helper::wstring_key(&object.domain),
+				(_T("domain"), nscapi::settings_helper::string_key(&object.domain),
 				_T("DOMAIN"), _T("The user to run the command as"), true)
 
-				(_T("password"), nscapi::settings_helper::wstring_key(&object.password),
+				(_T("password"), nscapi::settings_helper::string_key(&object.password),
 				_T("PASSWORD"), _T("The user to run the command as"), true)
 
 				;

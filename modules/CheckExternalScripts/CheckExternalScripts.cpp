@@ -60,17 +60,6 @@ void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
 }
 
 
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool CheckExternalScripts::loadModule() {
-	return false;
-}
-
-
-
 bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
@@ -163,14 +152,12 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 		if (!scriptDirectory_.empty()) {
 			addAllScriptsFrom(scriptDirectory_);
 		}
-		root_ = get_core()->getBasePath();
+		root_ = utf8::cvt<std::string>(get_core()->getBasePath());
 
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
-			NSC_DEBUG_MSG(_T("Registring command: ") + o.second.to_wstring());
 			register_command(o.second.alias, _T("Alias for: ") + o.second.alias);
 		}
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, aliases_.object_list) {
-			NSC_DEBUG_MSG(_T("Registring alias: ") + o.second.to_wstring());
 			register_command(o.second.alias, _T("Alias for: ") + o.second.alias);
 		}
 
@@ -208,88 +195,78 @@ void CheckExternalScripts::add_alias(std::wstring key, std::wstring arg) {
 }
 
 
-bool CheckExternalScripts::hasCommandHandler() {
-	return true;
-}
-bool CheckExternalScripts::hasMessageHandler() {
-	return false;
-}
-
-NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-
-	commands::optional_command_object cmd = commands_.find_object(data.command);
+void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+	commands::optional_command_object cmd = commands_.find_object(request.command());
 	bool isAlias = !cmd;
 	if (!cmd)
-		cmd = aliases_.find_object(data.command);
-	if (!cmd) {
-		NSC_LOG_ERROR_STD(_T("Alias: ") + char_command + _T(" not found."));
-		return NSCAPI::returnIgnored;
-	}
+		cmd = aliases_.find_object(request.command());
+	if (!cmd)
+		return nscapi::protobuf::functions::set_response_bad(*response, "Command not found: " + request.command());
 
 	const commands::command_object cd = *cmd;
-	std::list<std::wstring> args = cd.arguments;
+	std::list<std::string> args = cd.arguments;
 	bool first = true;
 	if (isAlias || allowArgs_) {
-		BOOST_FOREACH(std::wstring &arg, args) {
-			int i=1;
-			BOOST_FOREACH(std::wstring str, data.args) {
+		BOOST_FOREACH(std::string arg, args) {
+			for(int i=0;i<request.arguments_size();i++) {
+				const std::string &replace_arg = request.arguments(i);
 				if (first && !isAlias && !allowNasty_) {
-					if (str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
-						return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters!"), _T(""), response);
+					if (replace_arg.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+						return nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters!");
 					}
 				}
-				strEx::replace(arg, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
+				strEx::replace(arg, "$ARG" + strEx::s::xtos(i+1) + "$", replace_arg);
 			}
 		}
-	} else if (!allowArgs_ && data.args.size() > 0) {
-		NSC_LOG_ERROR_STD(_T("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true"))
+	} else if (!allowArgs_ && request.arguments_size() > 0) {
+		return nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
 	}
 
 
-	std::wstring xargs;
-	BOOST_FOREACH(std::wstring s, args) {
+	std::string xargs;
+	BOOST_FOREACH(std::string s, args) {
 		if (!xargs.empty())
-			xargs += _T(" ");
+			xargs += " ";
 		xargs += s;
 	}
-
-	NSC_DEBUG_MSG(_T("Arguments: ") + xargs);
-
 
 	if (isAlias) {
 		std::wstring message;
 		try {
-			int result = nscapi::core_helper::simple_query(cd.command, args, response);
-			if (result == NSCAPI::returnIgnored) {
-				nscapi::functions::create_simple_query_response_unknown(data.command, _T("No handler for command: ") + cd.command, response);
-				return NSCAPI::returnUNKNOWN;
-			}
-			return result;
+			std::string buffer;
+			int result = nscapi::core_helper::simple_query(cd.command, args, buffer);
+			if (result == NSCAPI::returnIgnored)
+				return nscapi::protobuf::functions::set_response_bad(*response, "No handler for command: " + cd.command);
+			Plugin::QueryResponseMessage local_response;
+			local_response.ParseFromString(buffer);
+			if (local_response.payload_size() != 1)
+				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid return from: " + cd.command);
+			response->CopyFrom(local_response.payload(0));
 		} catch (boost::escaped_list_error &e) {
 			NSC_LOG_MESSAGE(_T("Failed to parse alias expression: ") + strEx::string_to_wstring(e.what()));
 			NSC_LOG_MESSAGE(_T("We will now try parsing the old syntax instead..."));
-			return nscapi::core_helper::simple_query(cd.command, args, response);
+			std::string buffer;
+			if (nscapi::core_helper::simple_query(cd.command, args, buffer) != NSCAPI::isSuccess) {
+				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute process: " + cd.command);
+			}
+			Plugin::QueryResponseMessage local_result;
+			local_result.ParseFromString(buffer);
+			if (local_result.payload_size() != 1) 
+				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute process (invalid response): " + cd.command);
+			response->CopyFrom(local_result.payload(0));
 		}
 	} else {
-		std::wstring message, perf;
-		process::exec_arguments args(root_, cd.command + _T(" ") + xargs, timeout);
+		std::string message, perf;
+		process::exec_arguments args(root_, cd.command + " " + xargs, timeout);
 		if (!cd.user.empty()) {
 			args.user = cd.user;
 			args.domain = cd.domain;
 			args.password = cd.password;
 		}
 		int result = process::executeProcess(args, message, perf);
-		if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-			nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + args.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
-			return NSCAPI::returnUNKNOWN;
-		}
-		nscapi::functions::create_simple_query_response(data.command, nscapi::plugin_helper::int2nagios(result), message, perf, response);
-		return result;
+		if (!nscapi::plugin_helper::isNagiosReturnCode(result))
+			return nscapi::protobuf::functions::set_response_bad(*response, "The command (" + args.command + ") returned an invalid return code: " + strEx::s::xtos(result));
+		response->set_message(message);
+		nscapi::protobuf::functions::parse_performance_data(response, perf);
 	}
 }
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CheckExternalScripts, _T("external scripts"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-

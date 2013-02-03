@@ -12,8 +12,6 @@
 
 namespace client {
 
-	namespace po = boost::program_options;
-
 	struct cli_exception : public std::exception {
 		std::string error_;
 	public:
@@ -22,10 +20,6 @@ namespace client {
 		const char* what() const throw() {
 			return error_.c_str();
 		}
-		const std::wstring wwhat() const throw() {
-			return utf8::to_unicode(error_);
-		}
-
 	};
 
 	struct nscp_cli_data {
@@ -40,11 +34,8 @@ namespace client {
 		nscapi::protobuf::types::destination_container recipient;
 
 		int timeout;
-		bool submit;
-		bool query;
-		bool exec;
 
-		nscp_cli_data() : timeout(10), submit(false), query(false), exec(false) {}
+		nscp_cli_data() : timeout(10) {}
 		std::wstring to_wstring() {
 			std::wstringstream ss;
 			ss << _T("Timeout: ") << timeout;
@@ -67,19 +58,19 @@ namespace client {
 	struct target_lookup_interface {
 		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) = 0;
 	};
-	struct configuration /*: boost::noncopyable*/ {
+	struct configuration : public boost::noncopyable {
 		typedef boost::shared_ptr<nscp_cli_data> data_type;
 		typedef boost::shared_ptr<clp_handler> handler_type;
 		typedef boost::shared_ptr<target_lookup_interface> target_lookup_type;
 
 		std::string title;
 		std::string default_command;
-		po::options_description local;
+		boost::program_options::options_description local;
 		data_type data;
 		handler_type handler;
 		target_lookup_type target_lookup;
 
-		configuration(std::wstring caption) : data(data_type(new nscp_cli_data())), local("Common options for " + utf8::cvt<std::string>(caption)) {}
+		configuration(std::string caption) : data(data_type(new nscp_cli_data())), local("Common options for " + caption) {}
 
 		bool validate() {
 			if (!data) return false;
@@ -98,9 +89,9 @@ namespace client {
 
 	};
 	struct command_container {
-		std::wstring command;
-		std::wstring key;
-		std::list<std::wstring> arguments;
+		std::string command;
+		std::string key;
+		std::list<std::string> arguments;
 
 		command_container() {}
 		command_container(const command_container &other) : command(other.command), key(other.key), arguments(other.arguments) {}
@@ -113,68 +104,29 @@ namespace client {
 	};
 
 	struct clp_handler {
-		virtual int query(configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) = 0;
-		virtual int submit(configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &response) = 0;
-		virtual int exec(configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) = 0;
+		virtual int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) = 0;
+		virtual int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) = 0;
+		virtual int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) = 0;
 	};
 	struct command_manager {
-		typedef boost::unordered_map<std::wstring, command_container> command_type;
+		typedef boost::unordered_map<std::string, command_container> command_type;
 		command_type commands;
 
 		std::wstring add_command(std::wstring name, std::wstring args);
 		int exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response);
 
-		static std::wstring make_key(std::wstring key) {
-			return boost::algorithm::to_lower_copy(key);
-		}
+		// Wrappers based on source
+		void parse_query(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response &response, const Plugin::QueryRequestMessage &request_message);
+		bool parse_exec(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response &response, const Plugin::ExecuteRequestMessage &request_message);
+		void parse_submit(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response &response, const Plugin::SubmitRequestMessage &request_message);
 
-		int process_query(std::wstring cmd, client::configuration &config, const Plugin::QueryRequestMessage &message, std::string &result);
-		int process_exec(std::wstring cmd, client::configuration &config, const Plugin::ExecuteRequestMessage &message, std::string &result);
-
+		// Actual execution
+		void do_query(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::QueryResponseMessage::Response &response);
+		void do_exec(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::ExecuteResponseMessage::Response &response);
+		void do_submit(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::SubmitResponseMessage::Response &response);
 		
-	};
-
-	struct command_line_parser {
-		typedef configuration::data_type data_type;
-
-		static void add_common_options(po::options_description &desc, data_type command_data);
-		static void add_query_options(po::options_description &desc, data_type command_data);
-		static void add_submit_options(po::options_description &desc, data_type command_data);
-		static void add_exec_options(po::options_description &desc, data_type command_data);
-		static std::wstring build_help(configuration &config);
-
-		static int do_execute_command_as_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-		static int do_execute_command_as_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-		static int do_relay_submit(configuration &config, Plugin::SubmitRequestMessage &request_message, std::string &response);
-
-		static std::wstring parse_command(std::wstring command, std::wstring prefix) {
-			std::wstring cmd = command;
-			if (command.length() > prefix.length()) {
-				if (command.substr(0,prefix.length()) == prefix)
-					cmd = command.substr(prefix.length());
-				else if (command.substr(command.length()-prefix.length()) == prefix)
-					cmd = command.substr(0, command.length()-prefix.length());
-				if (cmd[0] == L'_')
-					cmd = cmd.substr(1);
-				if (cmd[cmd.length()-1] == L'_')
-					cmd = cmd.substr(0, cmd.length()-1);
-			}
-			return cmd;
-		}
-		static bool is_command(std::wstring command) {
-			return (command == _T("help")) 
-				|| (command == _T("query"))
-				|| (command == _T("exec"))
-				|| (command == _T("submit"))
-				|| (command == _T("forward"))
-				|| (command == _T(""));
-		}
-
-		static int do_query(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-		static int do_exec(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-		static int do_submit(configuration &config, const std::wstring &command, std::list<std::wstring> &arguments, std::string &result);
-
-	private:
-		static void modify_header(configuration &config, ::Plugin::Common_Header* header, nscapi::protobuf::types::destination_container &recipient);
+		void forward_query(client::configuration &config, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
+		void forward_exec(client::configuration &config, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage::Response &response);
+		void forward_submit(client::configuration &config, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response);
 	};
 }

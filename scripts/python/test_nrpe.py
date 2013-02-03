@@ -11,8 +11,6 @@ import unicodedata
 import threading
 sync = threading.RLock()
 
-core = Core.get()
-
 def isOpen(ip, port):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	try:
@@ -49,6 +47,8 @@ class NRPEServerTest(BasicTest):
 	instance = None
 	key = ''
 	reg = None
+	conf = None
+	core = None
 	_responses = {}
 	_requests = {}
 	
@@ -95,9 +95,13 @@ class NRPEServerTest(BasicTest):
 	def title(self):
 		return 'NRPE Client/Server test'
 
-	def setup(self, plugin_id, prefix):
+	def init(self, plugin_id, prefix):
 		self.key = '_%stest_command'%prefix
 		self.reg = Registry.get(plugin_id)
+		self.core = Core.get(plugin_id)
+		self.conf = Settings.get(plugin_id)
+
+	def setup(self, plugin_id, prefix):
 		self.reg.simple_function('check_py_nrpe_test_s', NRPEServerTest.simple_handler, 'TODO')
 		self.reg.function('check_py_nrpe_test', NRPEServerTest.handler, 'TODO')
 
@@ -165,7 +169,7 @@ class NRPEServerTest(BasicTest):
 		rmsg.message = msg
 		rmsg.perfdata = perf
 		self.set_request(rmsg)
-		(result_code, response) = core.query('nrpe_forward', message.SerializeToString())
+		(result_code, response) = self.core.query('nrpe_forward', message.SerializeToString())
 		response_message = plugin_pb2.QueryResponseMessage()
 		response_message.ParseFromString(response)
 		result = TestResult('Testing NRPE: %s for %s'%(alias, target))
@@ -177,9 +181,10 @@ class NRPEServerTest(BasicTest):
 				#result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%alias)
 				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%alias)
 				result.add_message(len(response_message.payload) == 1, 'Verify that we only get one payload response for %s'%alias, '%s != 1'%len(response_message.payload))
-				result.assert_equals(response_message.payload[0].result, status, 'Verify that status is sent through %s'%alias)
-				result.assert_equals(response_message.payload[0].message, msg, 'Verify that message is sent through %s'%alias)
-				#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
+				if len(response_message.payload) == 1:
+					result.assert_equals(response_message.payload[0].result, status, 'Verify that status is sent through %s'%alias)
+					result.assert_equals(response_message.payload[0].message, msg, 'Verify that message is sent through %s'%alias)
+					#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
 				self.del_response(uid)
 				found = True
 				break
@@ -197,12 +202,12 @@ class NRPEServerTest(BasicTest):
 		return result
 
 	def do_one_test(self, ssl=True, length=1024):
-		conf = Settings.get()
+		conf = self.conf
 		conf.set_int('/settings/NRPE/test_nrpe_server', 'payload length', length)
 		conf.set_bool('/settings/NRPE/test_nrpe_server', 'use ssl', ssl)
 		conf.set_bool('/settings/NRPE/test_nrpe_server', 'allow arguments', True)
 		# TODO: conf.set_string('/settings/NRPE/test_nrpe_server', 'certificate', ssl)
-		core.reload('test_nrpe_server')
+		self.core.reload('test_nrpe_server')
 
 		conf.set_string('/settings/NRPE/test_nrpe_client/targets/default', 'address', 'nrpe://127.0.0.1:35666')
 		conf.set_bool('/settings/NRPE/test_nrpe_client/targets/default', 'use ssl', not ssl)
@@ -215,7 +220,7 @@ class NRPEServerTest(BasicTest):
 		conf.set_string('/settings/NRPE/test_nrpe_client/targets/valid', 'address', 'nrpe://127.0.0.1:15666')
 		conf.set_bool('/settings/NRPE/test_nrpe_client/targets/valid', 'use ssl', ssl)
 		conf.set_int('/settings/NRPE/test_nrpe_client/targets/valid', 'payload length', length)
-		core.reload('test_nrpe_client')
+		self.core.reload('test_nrpe_client')
 		
 		result = TestResult()
 		result.add_message(isOpen('127.0.0.1', 15666), 'Checking that port is open (server is up)')
@@ -235,7 +240,7 @@ class NRPEServerTest(BasicTest):
 		return result
 		
 	def install(self, arguments):
-		conf = Settings.get()
+		conf = self.conf
 		conf.set_string('/modules', 'test_nrpe_server', 'NRPEServer')
 		conf.set_string('/modules', 'test_nrpe_client', 'NRPEClient')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
@@ -257,9 +262,6 @@ class NRPEServerTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id):
-		None
-
 	def shutdown(self):
 		None
 
@@ -270,7 +272,7 @@ setup_singleton(NRPEServerTest)
 
 all_tests = [NRPEServerTest]
 
-def __main__():
+def __main__(args):
 	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):

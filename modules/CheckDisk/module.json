@@ -1,20 +1,28 @@
 {
 	"module"		: {
 		"title"			: "Disk and file checker",
-		"description"	: "CheckDisk can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.",
+		"description"	: "CheckDisk can check various file and disk related things.",
 		"name"			: "CheckDisk",
 		"alias"			: "disk",
 		"version"		: "auto",
 		"load"			: "none"
 	},
 	"todo" : {
-		"check_filesize"	: { "legacy":true, "alias" : "CheckFileSize",
-			"desc" : "Check or directory a file and verify its size." }
+		"check_filesize" : { 
+			"legacy":true, 
+			"alias" : "CheckFileSize",
+			"desc" : "Check or directory a file and verify its size." 
+		}
 	},
 	"commands" : {
-		"check_drivesize"	: { "legacy":true, "alias" : "CheckDriveSize",
-			"desc" : "Check the size (free-space) of a drive or volume." },
-		"check_files"	: { "legacy":true, "alias" : "CheckFiles",
-			"desc" : "Check various aspects of a file and/or folder." }
+		"check_drivesize" : { 
+			"alias"	: "CheckDriveSize",
+			"desc"	: "Check the size (free-space) of a drive or volume." 
+		},
+		"check_files" : { 
+			"legacy"	:true, 
+			"alias"		: "CheckFiles",
+			"desc"		: "Check various aspects of a file and/or folder." 
+		}
 	}
 }

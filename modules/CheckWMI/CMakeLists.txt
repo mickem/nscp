@@ -4,7 +4,9 @@ SET(TARGET CheckWMI)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	
@@ -15,14 +17,15 @@ SET(SRCS
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
+IF(WIN32)
 SET(SRCS ${SRCS}
 	stdafx.h
 	"${TARGET}.h"
-	"${TARGET}.def"
 	WMIQuery.h
 
 	${NSCP_DEF_PLUGIN_HPP}
 )
+ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
 
@@ -30,6 +33,6 @@ target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	Wbemuuid.lib
-
 )
+
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

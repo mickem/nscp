@@ -22,7 +22,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		file_finder.hpp
 		filter.hpp	
 

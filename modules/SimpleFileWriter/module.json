@@ -1,0 +1,16 @@
+{
+	"module"		: {
+		"title"			: "Simple file writer module",
+		"description"	: "Write status updates to a text file (A bit like the NSCA server does)",
+		"name"			: "SimpleFileWriter",
+		"alias"			: "write/file",
+		"version"		: "auto",
+		"load"			: "load"
+	},
+
+	"settings"		: {
+		"default_alias"	: "writers/file"
+	},
+
+	"channels" : true
+}

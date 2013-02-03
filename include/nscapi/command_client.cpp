@@ -6,7 +6,7 @@ namespace nscapi {
 		void register_command_helper::add(boost::shared_ptr<command_info> d) {
 			owner->add(d);
 		}
-		void add_metadata_helper::add(std::wstring key, std::wstring value) {
+		void add_metadata_helper::add(std::string key, std::string value) {
 			owner->set(key, value);
 		}
 	}

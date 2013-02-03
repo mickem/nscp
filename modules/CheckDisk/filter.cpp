@@ -353,7 +353,7 @@ file_filter::filter_engine file_filter::factories::create_engine(file_filter::fi
 // 	return filesize_engine_interface(new size_file_engine());
 // }
 file_filter::filter_argument file_filter::factories::create_argument(std::wstring pattern, int max_depth, std::wstring syntax, std::wstring datesyntax) {
-	return filter_argument(new file_filter::file_finder_data_arguments(pattern, max_depth, file_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax, datesyntax));
+	return filter_argument(new file_filter::file_finder_data_arguments(pattern, max_depth, file_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler(GET_CORE())), syntax, datesyntax));
 }
 
 file_filter::filter_result file_filter::factories::create_result(file_filter::filter_argument arg) {

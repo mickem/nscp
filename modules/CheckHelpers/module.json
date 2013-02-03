@@ -1,0 +1,53 @@
+{
+	"module"		: {
+		"title"			: "Helper function",
+		"description"	: "Various helper function to extend other checks.",
+		"name"			: "CheckHelpers",
+		"alias"			: "helpers",
+		"version"		: "auto",
+		"load"			: "none"
+	},
+	
+	"commands" : {
+		"check_always_ok" : { 
+			"alias"		: "CheckAlwaysOK",
+			"description" : "Run another check and regardless of its return code return OK."
+		},
+		"check_always_warning" : { 
+			"alias"		: "CheckAlwaysWARNING",
+			"description" : "Run another check and regardless of its return code return WARNING."
+		},
+		"check_always_critical" : { 
+			"alias"		: "CheckAlwaysCRITICAL",
+			"description" : "Run another check and regardless of its return code return CRITICAL."
+		},
+		"check_multi" : { 
+			"alias"		: "CheckMultiple",
+			"description" : "Run more then one check and return the worst state."
+		},
+		"check_ok" : { 
+			"alias"		: "CheckOK",
+			"description" : "Just return OK (anything passed along will be used as a message)."
+		},
+		"check_warning" : { 
+			"alias"		: "CheckWARNING",
+			"description" : "Just return WARNING (anything passed along will be used as a message)."
+		},
+		"check_critical" : { 
+			"alias"		: "CheckCRITICAL",
+			"description" : "Just return CRITICAL (anything passed along will be used as a message)."
+		},
+		"check_version" : { 
+			"alias"		: "CheckVersion",
+			"description" : "Just return the NSClient++ version."
+		},
+		"check_negate" : { 
+			"alias"		: "negate",
+			"description" : "Run a check and alter the return status codes according to arguments."
+		},
+		"check_timeout" : { 
+			"alias"		: "timeout",
+			"description" : "Run a check and timeout after a given amount of time if the check has not returned."
+		}
+	}
+}

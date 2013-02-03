@@ -11,8 +11,6 @@ import unicodedata
 import threading
 sync = threading.RLock()
 
-core = Core.get()
-
 def isOpen(ip, port):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	try:
@@ -71,6 +69,8 @@ class NSCAServerTest(BasicTest):
 	instance = None
 	key = ''
 	reg = None
+	conf = None
+	core = None
 	_responses = {}
 	
 	def has_response(self, id):
@@ -121,7 +121,7 @@ class NSCAServerTest(BasicTest):
 	inbox_handler = Callable(inbox_handler)
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
-		log('Got simple message %s on %s'%(command, channel))
+		log('Got message %s on %s'%(command, channel))
 		msg = NSCAMessage(command)
 		msg.source = source
 		msg.status = status
@@ -134,6 +134,9 @@ class NSCAServerTest(BasicTest):
 	def inbox_handler_wrapped(self, channel, request):
 		message = plugin_pb2.SubmitRequestMessage()
 		message.ParseFromString(request)
+		if len(message.payload) != 1:
+			log_error("Got invalid message on channel: %s"%channel)
+			return None
 		command = message.payload[0].command
 		log('Got message %s on %s'%(command, channel))
 		
@@ -206,7 +209,7 @@ class NSCAServerTest(BasicTest):
 		payload.command = uid
 		payload.message = '%s - %s'%(uid, msg)
 		payload.source = source
-		(result_code, err) = core.submit('nsca_test_outbox', message.SerializeToString())
+		(result_code, err) = self.core.submit('nsca_test_outbox', message.SerializeToString())
 
 		result = TestResult('Testing payload submission (via API): %s'%tag)
 		result.add_message(len(err) == 0, 'Testing to send message using %s/sbp'%tag, err)
@@ -232,7 +235,7 @@ class NSCAServerTest(BasicTest):
 				'--password', 'pwd-%s'%encryption,
 				'--payload-length', '%d'%length,
 			])
-		(result_code, result_message) = core.simple_exec('any', 'nsca_submit', args)
+		(result_code, result_message) = self.core.simple_exec('any', 'nsca_submit', args)
 		result = TestResult('Testing payload submission (via command line exec): %s'%tag)
 		
 		result.add_message(result_code == 0, 'Testing to send message using %s/exec:1'%tag)
@@ -251,11 +254,11 @@ class NSCAServerTest(BasicTest):
 		return result
 
 	def test_one_crypto(self, crypto, length=512):
-		conf = Settings.get()
+		conf = self.conf
 		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '%s'%crypto)
 		conf.set_string('/settings/NSCA/test_nsca_server', 'password', 'pwd-%s'%crypto)
 		conf.set_int('/settings/NSCA/test_nsca_server', 'payload length', length)
-		core.reload('test_nsca_server')
+		self.core.reload('test_nsca_server')
 		
 		conf.set_string('/settings/NSCA/test_nsca_client/targets/default', 'address', 'nsca://127.0.0.1:35667')
 		conf.set_string('/settings/NSCA/test_nsca_client/targets/default', 'encryption', '%s'%crypto)
@@ -271,7 +274,7 @@ class NSCAServerTest(BasicTest):
 		conf.set_string('/settings/NSCA/test_nsca_client/targets/valid', 'encryption', '%s'%crypto)
 		conf.set_string('/settings/NSCA/test_nsca_client/targets/valid', 'password', 'pwd-%s'%crypto)
 		conf.set_int('/settings/NSCA/test_nsca_client/targets/valid', 'payload length', length)
-		core.reload('test_nsca_client')
+		self.core.reload('test_nsca_client')
 
 		
 		
@@ -295,7 +298,7 @@ class NSCAServerTest(BasicTest):
 		return result
 		
 	def install(self, arguments):
-		conf = Settings.get()
+		conf = self.conf
 		conf.set_string('/modules', 'test_nsca_server', 'NSCAServer')
 		conf.set_string('/modules', 'test_nsca_client', 'NSCAClient')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
@@ -317,8 +320,11 @@ class NSCAServerTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id):
-		None
+	def init(self, plugin_id, prefix):
+		self.key = '_%stest_command'%prefix
+		self.reg = Registry.get(plugin_id)
+		self.core = Core.get(plugin_id)
+		self.conf = Settings.get(plugin_id)
 
 	def shutdown(self):
 		None
@@ -331,7 +337,7 @@ setup_singleton(NSCAServerTest)
 
 all_tests = [NSCAServerTest]
 
-def __main__():
+def __main__(args):
 	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):

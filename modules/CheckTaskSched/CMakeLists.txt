@@ -18,16 +18,17 @@ SET(SRCS ${SRCS}
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
+IF(WIN32)
 SET(SRCS ${SRCS}
 	stdafx.h
 	"${TARGET}.h"
-	"${TARGET}.def"
 	TaskSched.h
 	filter.hpp	
 
 	${NSCP_DEF_PLUGIN_HPP}
 	${NSCP_FILTER_HPP}
 )
+ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
 

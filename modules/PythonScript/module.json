@@ -1,0 +1,21 @@
+{
+	"module"		: {
+		"title"			: "Python script",
+		"description"	: "Loads and processes internal Python scripts",
+		"name"			: "PythonScript",
+		"alias"			: "python",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "python"
+	},
+
+	"commands" : {
+		"fallback" : "true"
+	},
+
+	"command line exec" : "true",
+
+	"channels" : true
+}

@@ -92,12 +92,19 @@ namespace format {
 		return ret;
 	}
 
-	inline void append_list(std::wstring &lst, std::wstring &append, std::wstring sep = _T(", ")) {
+	template<class T>
+	static void append_list(T &lst, const T &append, const T sep) {
 		if (append.empty())
 			return;
 		if (!lst.empty())
 			lst += sep;
 		lst += append;
+	}
+	inline void append_list(std::wstring &lst, const std::wstring &append) {
+		append_list<std::wstring>(lst, append, _T(", "));
+	}
+	inline void append_list(std::string &lst, const std::string &append) {
+		append_list<std::string>(lst, append, ", ");
 	}
 	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
 		if (append.empty())

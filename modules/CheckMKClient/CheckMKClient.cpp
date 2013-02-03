@@ -24,14 +24,13 @@
 #include <time.h>
 #include <strEx.h>
 
-#include <protobuf/plugin.pb.h>
-
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 namespace sh = nscapi::settings_helper;
 
-const std::wstring CheckMKClient::command_prefix = _T("check_mk");
+const std::string command_prefix("check_mk");
+const std::string default_command("query");
 /**
  * Default c-tor
  * @return 
@@ -43,15 +42,6 @@ CheckMKClient::CheckMKClient() {}
  * @return 
  */
 CheckMKClient::~CheckMKClient() {}
-
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool CheckMKClient::loadModule() {
-	return false;
-}
 
 NSCAPI::nagiosReturn CheckMKClient::parse_data(lua::script_information *information, lua::lua_traits::function_type c, const check_mk::packet &packet)
 {
@@ -116,11 +106,6 @@ bool CheckMKClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 		}
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
-		register_command(command_prefix + _T("_query"), _T("Submit a query to a remote host via NSCP"));
-		register_command(command_prefix + _T("_forward"), _T("Forward query to remote NSCP host"));
-		register_command(command_prefix + _T("_submit"), _T("Submit a query to a remote host via NSCP"));
-		register_command(command_prefix + _T("_exec"), _T("Execute remote command on a remote host via NSCP"));
-		register_command(command_prefix + _T("_help"), _T("Help on using NSCP Client"));
 
 		scripts_->load_all();
 
@@ -152,7 +137,7 @@ bool CheckMKClient::add_script(std::wstring alias, std::wstring file) {
 			alias = _T("");
 		}
 
-		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
+		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, utf8::cvt<std::string>(file));
 		if (!ofile)
 			return false;
 		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->wstring() + _T(" as ") + alias + _T(")"));
@@ -202,38 +187,22 @@ bool CheckMKClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn CheckMKClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::QueryRequestMessage message;
-	message.ParseFromString(request);
-
+void CheckMKClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_query(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn CheckMKClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::ExecuteRequestMessage message;
-	message.ParseFromString(request);
-
+void CheckMKClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_exec(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn CheckMKClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-
+void CheckMKClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return client::command_line_parser::do_relay_submit(config, message, result);
+	setup(config, request_message.header());
+	commands.forward_submit(config, request_message, *response_message);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -284,6 +253,7 @@ void CheckMKClient::setup(client::configuration &config, const ::Plugin::Common_
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
+	config.default_command = default_command;
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
 		recipient = _T("default");
@@ -322,29 +292,27 @@ std::string gather_and_log_errors(std::string  &payload) {
 	}
 	return ret;
 }
-int CheckMKClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+int CheckMKClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnUNKNOWN;
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::QueryResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	instance->send(con);
-	response_message.SerializeToString(&reply);
 	return ret;
 }
 
-int CheckMKClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+int CheckMKClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD(_T("check_mk does not support submit patterns"));
-	nscapi::functions::create_simple_submit_response(_T("N/A"), _T("UNKNOWN"), NSCAPI::returnUNKNOWN, _T("SYSLOG does not support query patterns"), reply);
-	return NSCAPI::hasFailed;
+	nscapi::protobuf::functions::set_response_good(*response_message.add_payload(), "check_mk does not support query pattern");
+	return NSCAPI::isSuccess;
 }
 
-int CheckMKClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+int CheckMKClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD(_T("check_mk does not support submit patterns"));
-	nscapi::functions::create_simple_exec_response(_T("UNKNOWN"), NSCAPI::returnUNKNOWN, _T("SYSLOG does not support query patterns"), reply);
-	return NSCAPI::hasFailed;
+	nscapi::protobuf::functions::set_response_good(*response_message.add_payload(), "check_mk does not support exec pattern");
+	return NSCAPI::isSuccess;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -392,11 +360,3 @@ void CheckMKClient::send(connection_data con) {
 		NSC_LOG_ERROR_STD(_T("Error: ..."));
 	}
 }
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CheckMKClient, _T("check_mk"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
-

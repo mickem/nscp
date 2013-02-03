@@ -1,0 +1,27 @@
+{
+	"module"		: {
+		"title"			: "check_mk Client",
+		"description"	: "check_mk client can be used both from command line and from queries to check remote systes via check_mk",
+		"name"			: "CheckMKClient",
+		"alias"			: "check_mk",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "check_mk/client"
+	},
+
+	"commands" : {
+		"fallback" : "true",
+		"check_mk_query" : { 
+			"description" : "Request remote information via check_mk.",
+			"mapping"	: false
+		}
+	},
+
+	"channels" : "raw",
+
+	"command line exec" : true,
+
+	"log messages" : false
+}

@@ -331,7 +331,7 @@ class TestManager:
 	def init(self):
 		for suite in self.suites:
 			instance = suite.getInstance()
-			instance.init(self.plugin_id)
+			instance.init(self.plugin_id, self.prefix)
 			
 	def destroy(self):
 		self.suites = []

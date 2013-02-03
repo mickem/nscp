@@ -16,7 +16,8 @@ if os.name == 'nt':
 	from test_w32_system import Win32SystemTest
 	from test_w32_file import Win32FileTest
 	from test_w32_wmi import Win32WMITest
-	all_tests.extend([EventLogTest, Win32SystemTest, Win32FileTest, Win32WMITest])
+	#all_tests.extend([EventLogTest, Win32SystemTest, Win32FileTest, Win32WMITest])
+	all_tests.extend([Win32SystemTest, Win32FileTest, Win32WMITest])
 
 def __main__():
 	install_testcases(all_tests)

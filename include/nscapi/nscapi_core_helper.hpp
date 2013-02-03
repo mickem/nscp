@@ -27,6 +27,8 @@ namespace nscapi {
 	namespace core_helper {
 		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & message, std::wstring & perf);
 		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::string & result);
+		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & result);
+		NSCAPI::nagiosReturn simple_query(const std::string command, const std::vector<std::string> & argument, std::string & result);
 		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf);
 
 		NSCAPI::nagiosReturn exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result);

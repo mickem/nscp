@@ -18,94 +18,29 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
+#include <boost/shared_ptr.hpp>
 
-#include <settings/macros.h>
-#include <strEx.h>
-#include <utils.h>
-#include <checkHelpers.hpp>
+#include <protobuf/plugin.pb.h>
 
-#include "eventlog_wrapper.hpp"
-#include "eventlog_record.hpp"
-
-#include "filters.hpp"
-
-struct real_time_thread {
-	bool enabled_;
-	unsigned long long start_age_;
-	boost::shared_ptr<boost::thread> thread_;
-	HANDLE stop_event_;
-	filters::filter_config_handler filters_;
-	std::wstring logs_;
-
-	bool cache_;
-	bool debug_;
-	std::wstring filters_path_;
-
-	real_time_thread() : enabled_(false), start_age_(0), debug_(false), cache_(false) {
-		set_start_age(_T("30m"));
-	}
-
-	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query);
-	void set_enabled(bool flag) { enabled_ = flag; } 
-	void set_start_age(std::wstring age) {
-		start_age_ = strEx::stoi64_as_time(age);
-	} 
-
-	void set_language(std::string lang);
-	void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring flt) {
-		if (!flt.empty())
-			add_realtime_filter(proxy, _T("default"), flt);
-	}
-	bool has_filters() {
-		return !filters_.has_objects();
-	}
-	bool start();
-	bool stop();
-
-	void thread_proc();
-//	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
-	void process_no_events(const filters::filter_config_object &object);
-	void process_record(const filters::filter_config_object &object, const EventLogRecord &record);
-	void debug_miss(const EventLogRecord &record);
-//	void process_event(eventlog_filter::filter_engine engine, const EVENTLOGRECORD* record);
-};
-
-class CheckEventLog : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
+class real_time_thread;
+class CheckEventLog : public nscapi::impl::simple_plugin {
 private:
+	boost::shared_ptr<real_time_thread> thread_;
 	bool debug_;
 	std::wstring syntax_;
 	int buffer_length_;
 	bool lookup_names_;
-	real_time_thread thread_;
 
 public:
-	CheckEventLog();
-	virtual ~CheckEventLog();
+	CheckEventLog() {}
+	virtual ~CheckEventLog() {}
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-
-	static std::wstring getModuleName() {
-		return _T("Event log Checker.");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Check for errors and warnings in the event log.\nThis is only supported through NRPE so if you plan to use only NSClient this wont help you at all.");
-	}
-
 	void parse(std::wstring expr);
 
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn checkCache(std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
-	NSCAPI::nagiosReturn insert_eventlog(std::vector<std::wstring> arguments, std::wstring &message);
+	void check_eventlog(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn insert_eventlog(std::list<std::wstring> arguments, std::wstring &message);
 
 };

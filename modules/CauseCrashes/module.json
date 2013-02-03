@@ -1,0 +1,17 @@
+{
+	"module"		: {
+		"title"			: "Cause NSClient++ to crash",
+		"description"	: "*DO NOT USE* This module is usefull except for debugging purpouses and outright dangerous as it allows someone remotley to crash your client!",
+		"name"			: "CauseCrashes",
+		"alias"			: "crash",
+		"version"		: "auto",
+		"load"			: "none"
+	},
+	
+	"commands" : {
+		"crash_client" : { 
+			"alias"		: "CrashClient",
+			"description" : "Raise a fatal exception (zero pointer reference) and cause NSClient++ crash."
+			}
+	}
+}

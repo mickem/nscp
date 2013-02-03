@@ -40,14 +40,6 @@
 
 namespace sh = nscapi::settings_helper;
 
-FileWriter::FileWriter() {
-}
-FileWriter::~FileWriter() {
-}
-
-bool FileWriter::loadModule() {
-	return false;
-}
 struct simple_string_functor {
 	std::string value;
 	simple_string_functor(std::string value) : value(value) {}
@@ -106,7 +98,7 @@ struct payload_alias_or_command_functor {
 std::string simple_string_fun(std::string key) {
 	return key;
 }
-bool FileWriter::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool SimpleFileWriter::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	std::string primary_key;
 	std::wstring channel;
 	try {
@@ -121,7 +113,8 @@ bool FileWriter::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		settings.alias().add_key_to_settings()
 			(_T("syntax"), sh::string_key(&primary_key, "${alias-or-command} ${result} ${message}"),
-			_T("PRIMARY CACHE INDEX"), _T("Set this to the value you want to use as unique key for the cache (host, command, result,...)."))
+			_T("MESSAGE SYNTAX"), _T("The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:")
+			_T("${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number)."))
 
 			(_T("file"), sh::path_key(&filename_, "output.txt"),
 			_T("FILE TO WRITE TO"), _T("The filename to write output to."))
@@ -174,43 +167,23 @@ bool FileWriter::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	}
 	return true;
 }
-bool FileWriter::unloadModule() {
-	return true;
-}
 
-NSCAPI::nagiosReturn FileWriter::handleRAWNotification(const wchar_t* channel_w, std::string request, std::string &reply) {
-	NSCAPI::nagiosReturn ret = NSCAPI::isSuccess;
-	std::string channel = utf8::cvt<std::string>(channel_w);
-	Plugin::SubmitRequestMessage request_msg;
-	Plugin::SubmitResponseMessage response_msg;
-	request_msg.ParseFromString(request);
-	nscapi::functions::make_return_header(response_msg.mutable_header(), request_msg.header());
-	BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &payload ,request_msg.payload()) {
-		std::string key;
-		BOOST_FOREACH(index_lookup_function &f, index_lookup_) {
-			key += f(channel, request_msg.header(), payload);
-		}
-		std::string data = payload.SerializeAsString();
-		NSC_DEBUG_MSG(_T("Adding to index: ") + utf8::cvt<std::wstring>(key));
-		{
-// 			boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
-// 			if (!lock) {
-// 				nscapi::functions::append_simple_submit_response_payload(response_msg.add_payload(), payload.command(), NSCAPI::hasFailed, "Failed to get lock");
-// 				ret = NSCAPI::hasFailed;
-// 				continue;
-// 			}
-			std::ofstream out;
-			out.open(filename_.c_str(), std::ios::out|std::ios::app);
-			out << key << std::endl;
-		}
-		nscapi::functions::append_simple_submit_response_payload(response_msg.add_payload(), payload.command(), NSCAPI::isSuccess, "message has been cached");
+void SimpleFileWriter::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
+	std::string key;
+	BOOST_FOREACH(index_lookup_function &f, index_lookup_) {
+		key += f(request.command(), request_message.header(), request);
 	}
-	response_msg.SerializeToString(&reply);
-	return NSCAPI::isSuccess;
+	std::string data = request.SerializeAsString();
+	NSC_DEBUG_MSG(_T("Writing to file: ") + utf8::cvt<std::wstring>(key));
+	{
+		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
+		if (!lock) {
+			nscapi::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::hasFailed, "Failed to get lock");
+			return;
+		}
+		std::ofstream out;
+		out.open(filename_.c_str(), std::ios::out|std::ios::app);
+		out << key << std::endl;
+	}
+	nscapi::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::isSuccess, "message has been written");
 }
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(FileWriter, _T("file.write"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_IGNORE_CMD_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

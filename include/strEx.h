@@ -129,6 +129,21 @@ namespace strEx {
 				pos++;
 			return s.substr(0, pos);
 		}
+
+		template<class T>
+		inline void parse_command(const std::string &cmd_line, T &args) {
+			boost::tokenizer<boost::escaped_list_separator<char>, typename std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
+			BOOST_FOREACH(std::string s, tok)
+				args.push_back(s);
+		}
+		inline std::list<std::string> parse_command(const std::string &cmd_line) {
+			std::list<std::string> args;
+			boost::tokenizer<boost::escaped_list_separator<char>, typename std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
+			BOOST_FOREACH(std::string s, tok)
+				args.push_back(s);
+			return args;
+		}
+
 	}
 
 	inline void append_list(std::wstring &lst, const std::wstring &append, const std::wstring sep = _T(", ")) {

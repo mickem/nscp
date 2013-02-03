@@ -20,7 +20,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/nscp/packet.hpp
 		${NSCP_INCLUDEDIR}/nscp/handler.hpp
 		${NSCP_INCLUDEDIR}/nscp/client/socket.hpp

@@ -27,7 +27,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		"PDHCollector.h"
 
 		${NSCP_INCLUDEDIR}/EnumProcess.h

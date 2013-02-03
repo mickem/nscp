@@ -35,29 +35,21 @@
 
 namespace sh = nscapi::settings_helper;
 
-const std::wstring NSCAAgent::command_prefix = _T("nsca");
+const std::string command_prefix = "nsca";
+const std::string default_command("submit");
 /**
  * Default c-tor
  * @return 
  */
-NSCAAgent::NSCAAgent() {}
+NSCAClient::NSCAClient() {}
 
 /**
  * Default d-tor
  * @return 
  */
-NSCAAgent::~NSCAAgent() {}
+NSCAClient::~NSCAClient() {}
 
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool NSCAAgent::loadModule() {
-	return false;
-}
-
-bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NSCAClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 	try {
 
@@ -68,10 +60,10 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.alias().add_path_to_settings()
 			(_T("NSCA CLIENT SECTION"), _T("Section for NSCA passive check module."))
 
-			(_T("handlers"), sh::fun_values_path(boost::bind(&NSCAAgent::add_command, this, _1, _2)), 
+			(_T("handlers"), sh::fun_values_path(boost::bind(&NSCAClient::add_command, this, _1, _2)), 
 			_T("CLIENT HANDLER SECTION"), _T(""))
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&NSCAAgent::add_target, this, _1, _2)), 
+			(_T("targets"), sh::fun_values_path(boost::bind(&NSCAClient::add_target, this, _1, _2)), 
 			_T("REMOTE TARGET DEFINITIONS"), _T(""))
 			;
 
@@ -82,7 +74,7 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("channel"), sh::wstring_key(&channel_, _T("NSCA")),
 			_T("CHANNEL"), _T("The channel to listen to."))
 
-			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAAgent::set_delay, this, _1), _T("0")),
+			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAClient::set_delay, this, _1), _T("0")),
 			_T("DELAY"), _T(""), true)
 			;
 
@@ -93,12 +85,6 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
-
-		register_command(_T("nsca_query"), _T("Check remote NRPE host"));
-		register_command(_T("nsca_submit"), _T("Submit (via query) remote NRPE host"));
-		register_command(_T("nsca_forward"), _T("Forward query to remote NRPE host"));
-		register_command(_T("nsca_exec"), _T("Execute (via query) remote NRPE host"));
-		register_command(_T("nsca_help"), _T("Help on using NRPE Client"));
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
@@ -154,7 +140,7 @@ std::string get_command(std::string alias, std::string command = "") {
 // Settings helpers
 //
 
-void NSCAAgent::add_target(std::wstring key, std::wstring arg) {
+void NSCAClient::add_target(std::wstring key, std::wstring arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
@@ -164,7 +150,7 @@ void NSCAAgent::add_target(std::wstring key, std::wstring arg) {
 	}
 }
 
-void NSCAAgent::add_command(std::wstring name, std::wstring args) {
+void NSCAClient::add_command(std::wstring name, std::wstring args) {
 	try {
 		std::wstring key = commands.add_command(name, args);
 		if (!key.empty())
@@ -181,49 +167,33 @@ void NSCAAgent::add_command(std::wstring name, std::wstring args) {
  * Attempt to stop the background processing thread.
  * @return true if successfully, false if not (if not things might be bad)
  */
-bool NSCAAgent::unloadModule() {
+bool NSCAClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn NSCAAgent::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::QueryRequestMessage message;
-	message.ParseFromString(request);
-
+void NSCAClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_query(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn NSCAAgent::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::ExecuteRequestMessage message;
-	message.ParseFromString(request);
-
+bool NSCAClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_exec(cmd, config, message, result);
+	setup(config, request_message.header());
+	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn NSCAAgent::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-
+void NSCAClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return client::command_line_parser::do_relay_submit(config, message, result);
+	setup(config, request_message.header());
+	commands.forward_submit(config, request_message, *response_message);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Parser setup/Helpers
 //
 
-void NSCAAgent::add_local_options(po::options_description &desc, client::configuration::data_type data) {
+void NSCAClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
 		("encryption,e", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "encryption", _1)), 
 		"Length of payload (has to be same as on the server)")
@@ -275,11 +245,12 @@ void NSCAAgent::add_local_options(po::options_description &desc, client::configu
 		;
 }
 
-void NSCAAgent::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
+void NSCAClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
 	boost::shared_ptr<clp_handler_impl> handler(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
+	config.default_command = default_command;
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
 		recipient = _T("default");
@@ -298,7 +269,7 @@ void NSCAAgent::setup(client::configuration &config, const ::Plugin::Common_Head
 	config.handler = handler;
 }
 
-NSCAAgent::connection_data NSCAAgent::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
+NSCAClient::connection_data NSCAClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::functions::destination_container recipient, sender;
 	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	nscapi::functions::parse_destination(header, header.sender_id(), sender, true);
@@ -309,11 +280,10 @@ NSCAAgent::connection_data NSCAAgent::parse_header(const ::Plugin::Common_Header
 // Parser implementations
 //
 
-int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+int NSCAClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::QueryResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
@@ -328,16 +298,14 @@ int NSCAAgent::clp_handler_impl::query(client::configuration::data_type data, co
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
 
 	nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()), "");
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
-int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+int NSCAClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 
-	Plugin::SubmitResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
@@ -357,15 +325,13 @@ int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, c
 
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
 	nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
-int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+int NSCAClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::ExecuteResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
@@ -380,7 +346,6 @@ int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, con
 	}
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
 	nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
@@ -390,7 +355,7 @@ int NSCAAgent::clp_handler_impl::exec(client::configuration::data_type data, con
 struct client_handler : public socket_helpers::client::client_handler {
 	unsigned int encryption_;
 	std::string password_;
-	client_handler(NSCAAgent::connection_data &con) 
+	client_handler(NSCAClient::connection_data &con) 
 		: encryption_(con.get_encryption())
 		, password_(con.password)
 	{}
@@ -412,7 +377,7 @@ struct client_handler : public socket_helpers::client::client_handler {
 	}
 };
 
-boost::tuple<int,std::wstring> NSCAAgent::send(connection_data con, const std::list<nsca::packet> packets) {
+boost::tuple<int,std::wstring> NSCAClient::send(connection_data con, const std::list<nsca::packet> packets) {
 	try {
 		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
 
@@ -439,11 +404,3 @@ boost::tuple<int,std::wstring> NSCAAgent::send(connection_data con, const std::l
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NSCAAgent, _T("nsca"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
-

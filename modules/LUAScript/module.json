@@ -1,0 +1,19 @@
+{
+	"module"		: {
+		"title"			: "Lua script",
+		"description"	: "Loads and processes internal Lua scripts",
+		"name"			: "LUAScript",
+		"alias"			: "lua",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "lua"
+	},
+
+	"commands" : {
+		"fallback" : "true"
+	},
+	"command line exec" : "true",
+	"channels" : true
+}

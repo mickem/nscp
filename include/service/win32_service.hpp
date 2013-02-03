@@ -21,8 +21,10 @@
 #pragma once
 
 #include <string>
-#include <sysinfo.h>
+
 #include <boost/thread/mutex.hpp>
+
+#include <sysinfo.h>
 
 namespace service_helper_impl {
 	class service_exception {
@@ -215,7 +217,7 @@ namespace service_helper_impl {
 			nsclient::logging::logger::get_logger()->error(_T("service"), file, line, message);
 		}
 
-		boolean StartServiceCtrlDispatcher() {
+		bool StartServiceCtrlDispatcher() {
 			BOOL ret = ::StartServiceCtrlDispatcher(dispatchTable);
 			if (ret == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
 				OutputDebugString(_T("We are running in console mode, terminating..."));

@@ -18,7 +18,6 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN()
 #include <strEx.h>
 
 #include "simple_scheduler.hpp"
@@ -38,24 +37,10 @@ public:
 	}
 	virtual ~Scheduler() {}
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-
 	void add_schedule(std::wstring alias, std::wstring command);
-	//scheduler::target read_schedule(std::wstring path, std::wstring comment, scheduler::target *def = NULL);
 	void handle_schedule(schedules::schedule_object item);
 	void on_error(std::wstring error);
-
-	static std::wstring getModuleName() {
-		return _T("Scheduler");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("A scheduler which schedules checks at regular intervals");
-	}
 };

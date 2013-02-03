@@ -1,0 +1,9 @@
+{
+	"module"		: {
+		"title"			: "NSCA server",
+		"description"	: "A server that listens for incoming NSCA connection and processes incoming requests.",
+		"name"			: "NSCAServer",
+		"alias"			: "nsca",
+		"version"		: "auto"
+		}
+}

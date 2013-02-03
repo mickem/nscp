@@ -1,0 +1,27 @@
+{
+	"module"		: {
+		"title"			: "Graphite Client",
+		"description"	: "Graphite client can be used to submit graph data to a graphite graphing system",
+		"name"			: "GraphiteClient",
+		"alias"			: "graphite",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "graphite/client"
+	},
+
+	"commands" : {
+		"fallback" : "true",
+		"graphite_submit" : { 
+			"description" : "Submit data to a graphite server.",
+			"mapping"	: false
+		}
+	},
+
+	"channels" : "raw",
+
+	"command line exec" : true,
+
+	"log messages" : false
+}

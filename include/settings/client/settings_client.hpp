@@ -9,6 +9,7 @@
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <unicode_char.hpp>
 #include <strEx.h>
@@ -255,6 +256,7 @@ namespace nscapi {
 		typedef typed_key_value<std::string, typed_string_value<std::string> > string_key_type;
 		typedef typed_key_value<std::wstring, typed_path_value<std::wstring> > wpath_key_type;
 		typedef typed_key_value<std::string, typed_path_value<std::string> > path_key_type;
+		typedef typed_key_value<boost::filesystem::path, typed_path_value<boost::filesystem::path> > real_path_key_type;
 		typedef typed_key_value<unsigned int, typed_int_value<unsigned int> > uint_key_type;
 		typedef typed_key_value<int, typed_int_value<int> > int_key_type;
 		typedef typed_key_value<std::size_t, typed_int_value<std::size_t> > size_key_type;
@@ -277,6 +279,8 @@ namespace nscapi {
 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val);
 		boost::shared_ptr<path_key_type> path_key(std::string *val, std::string def);
 		boost::shared_ptr<path_key_type> path_key(std::string *val);
+		boost::shared_ptr<real_path_key_type> path_key(boost::filesystem::path *val, std::string def);
+		boost::shared_ptr<real_path_key_type> path_key(boost::filesystem::path *val);
 
 		template<class T>
 		boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > int_fun_key(boost::function<void (T)> fun, T def) {

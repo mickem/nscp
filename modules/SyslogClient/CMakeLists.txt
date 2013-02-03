@@ -4,7 +4,9 @@ SET(TARGET SyslogClient)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
@@ -19,19 +21,17 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
 
-
 add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

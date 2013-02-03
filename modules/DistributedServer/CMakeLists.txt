@@ -22,7 +22,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		${TARGET}.h
-		${TARGET}.def
 		handler_impl.hpp
 		queue_manager.hpp
 		worker_manager.hpp

@@ -251,8 +251,6 @@ function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 	core:reload('test_nrpe_client')
 
 	local result = test.TestResult:new{message="Testing timeouts ssl: "..tostring(ssl)..", server: "..tostring(server_timeout)..", client: "..tostring(client_timeout)}
-	
-	
 
 	local msg = protobuf.Plugin.QueryRequestMessage.new()
 	hdr = msg:get_header()
@@ -304,10 +302,10 @@ function TestNRPE:run()
 	result:add(self:do_one_test(true, 65536))
 	result:add(self:do_one_test(true, 1048576))
 
-	result:add(self:test_timeout(false, 30, 1, 10485760))
-	result:add(self:test_timeout(false, 1, 30, 10485760))
-	result:add(self:test_timeout(true, 30, 1, 10485760))
-	result:add(self:test_timeout(true, 1, 30, 10485760))
+	result:add(self:test_timeout(false, 30, 1, 1048576000))
+	result:add(self:test_timeout(false, 1, 30, 1048576000))
+	result:add(self:test_timeout(true, 30, 1, 1048576000))
+	result:add(self:test_timeout(true, 1, 30, 1048576000))
 	return result
 end
 

@@ -4,7 +4,9 @@ SET(TARGET CauseCrashes)
 
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
@@ -16,15 +18,12 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
 
-
 ADD_LIBRARY(${TARGET} MODULE ${SRCS})
-
 
 target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}

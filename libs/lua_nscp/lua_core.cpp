@@ -3,6 +3,7 @@
 #include <nscapi/functions.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <lua/lua_cpp.hpp>
 #include <lua/lua_core.hpp>
@@ -17,22 +18,21 @@ void lua::lua_runtime::register_subscription(const std::string &channel, const s
 	throw lua::lua_exception("The method or operation is not implemented(reg_sub).");
 }
 
-NSCAPI::nagiosReturn lua::lua_runtime::on_query(std::string command, lua::script_information *information, lua::lua_traits::function_type c, bool simple, const std::string &request, std::string &response)
+void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message)
 {
-	lua_wrapper lua(prep_function(information, c));
+	lua_wrapper lua(prep_function(information, function));
 	if (simple) {
 		int args = 2;
-		if (c.object_ref != 0)
+		if (function.object_ref != 0)
 			args = 3;
 		std::list<std::string> argslist;
-		nscapi::functions::parse_simple_query_request(argslist, request);
+		for (int i=0;i<request.arguments_size();i++)
+			argslist.push_back(request.arguments(i));
 		lua.push_string(command);
 		lua.push_array(argslist);
 		std::string msg, perf;
-		if (lua.pcall(args, LUA_MULTRET, 0) != 0) {
-			NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + utf8::cvt<std::wstring>(command) + _T(": ") + utf8::cvt<std::wstring>(lua.pop_string()));
-			return NSCAPI::returnUNKNOWN;
-		}
+		if (lua.pcall(args, LUA_MULTRET, 0) != 0)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command: " + command + ": " + lua.pop_string());
 		NSCAPI::nagiosReturn ret = NSCAPI::returnUNKNOWN;
 		int arg_count = lua.size();
 		if (arg_count > 3) {
@@ -45,38 +45,38 @@ NSCAPI::nagiosReturn lua::lua_runtime::on_query(std::string command, lua::script
 		if (arg_count > 0)
 			ret = lua.pop_code();
 		lua.gc(LUA_GCCOLLECT, 0);
-		nscapi::functions::create_simple_query_response(command, ret, msg, perf, response);
-		return ret;
+		nscapi::functions::append_simple_query_response_payload(response, command, ret, msg, perf);
 	} else {
 		int args = 2;
-		if (c.object_ref != 0)
+		if (function.object_ref != 0)
 			args = 3;
 		lua.push_string(command);
-		lua.push_raw_string(request);
-		if (lua.pcall(args, LUA_MULTRET, 0) != 0) {
-			NSC_LOG_ERROR_STD(_T("Failed to handle command: ") + utf8::cvt<std::wstring>(command) + _T(": ") + utf8::cvt<std::wstring>(lua.pop_string()));
-			return NSCAPI::returnUNKNOWN;
-		}
+		lua.push_raw_string(request_message.SerializeAsString());
+		if (lua.pcall(args, LUA_MULTRET, 0) != 0)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command: " + command + ": " + lua.pop_string());
 		int arg_count = lua.size();
-		if (arg_count > 2) {
-			NSC_LOG_ERROR_STD(_T("Invalid return: ") + utf8::cvt<std::wstring>(lua.dump_stack()));
+		if (arg_count > 2)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid return: " + lua.dump_stack());
+		if (arg_count > 1) {
+			Plugin::QueryResponseMessage local_response;
+			local_response.ParseFromString(lua.pop_string());
+			if (local_response.payload_size() != 1)
+				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + command);
+			response->CopyFrom(local_response.payload(0));
 		}
-		if (arg_count > 1)
-			response = lua.pop_string();
 		lua.gc(LUA_GCCOLLECT, 0);
 		if (arg_count > 0)
-			return lua.pop_code();
+			lua.pop_code();
 	}
-	NSC_LOG_ERROR_STD(_T("No arguments returned from script."));
-	return NSCAPI::returnUNKNOWN;
+	return nscapi::protobuf::functions::set_response_bad(*response, "No arguments returned from script.");
 }
 
-NSCAPI::nagiosReturn lua::lua_runtime::on_exec(std::string command, lua::script_information *information, lua::lua_traits::function_type function, bool simple, const std::string &request, std::string &response)
+NSCAPI::nagiosReturn lua::lua_runtime::on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response)
 {
 	throw lua::lua_exception("The method or operation is not implemented(on_exec).");
 }
 
-NSCAPI::nagiosReturn lua::lua_runtime::on_submit(std::string command, lua::script_information *information, lua::lua_traits::function_type function, bool simple, const std::string &request, std::string &response)
+NSCAPI::nagiosReturn lua::lua_runtime::on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response)
 {
 	throw lua::lua_exception("The method or operation is not implemented(on_submit).");
 }

@@ -18,13 +18,15 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN();
-NSC_WRAPPERS_CLI();
+#include <boost/optional.hpp>
 
-//#include <config.h>
 #include <strEx.h>
 #include <utils.h>
 #include <settings/client/settings_client.hpp>
+
+#include <protobuf/plugin.pb.h>
+
+#include <nscapi/nscapi_plugin_impl.hpp>
 
 //#include <checkHelpers.hpp>
 #include "WMIQuery.h"
@@ -87,36 +89,17 @@ struct target_helper {
 };
 
 
-class CheckWMI : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_command_line_exec {
+class CheckWMI : public nscapi::impl::simple_plugin {
 public:
-	CheckWMI();
-	virtual ~CheckWMI();
+	CheckWMI() {}
+	virtual ~CheckWMI() {}
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	static std::wstring getModuleName() {
-		return _T("CheckWMI");
-	}
-	static std::wstring getModuleDescription() {
-		return _T("CheckWMI can check various file and disk related things.\nThe current version has commands to check Size of hard drives and directories.");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
+	void check_wmi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_wmi_value(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
-
-	// Check commands
-	NSCAPI::nagiosReturn CheckSimpleWMI(const std::wstring &target, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn CheckSimpleWMIValue(const std::wstring &target, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-
-
 
 private:
 	target_helper targets;

@@ -30,66 +30,38 @@
 
 namespace sh = nscapi::settings_helper;
 
-bool Scheduler::loadModule() {
-	return false;
-}
-
 bool Scheduler::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	sh::settings_registry settings(get_settings_proxy());
+	settings.set_alias(alias, _T("scheduler"));
+	schedule_path = settings.alias().get_settings_path(_T("schedules"));
 
-	try {
+	settings.alias().add_path_to_settings()
+		(_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))
 
-		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(alias, _T("scheduler"));
-		schedule_path = settings.alias().get_settings_path(_T("schedules"));
+		;
 
-		settings.alias().add_path_to_settings()
-			(_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))
+	settings.alias().add_key_to_settings()
+		(_T("threads"), sh::int_fun_key<unsigned int>(boost::bind(&scheduler::simple_scheduler::set_threads, &scheduler_, _1), 5),
+		_T("THREAD COUNT"), _T("Number of threads to use."))
+		;
 
-			;
+	settings.alias().add_path_to_settings()
+		(_T("schedules"), sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)), 
+		_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))
+		;
 
-		settings.alias().add_key_to_settings()
-			(_T("threads"), sh::int_fun_key<unsigned int>(boost::bind(&scheduler::simple_scheduler::set_threads, &scheduler_, _1), 5),
-			_T("THREAD COUNT"), _T("Number of threads to use."))
-			;
+	settings.register_all();
+	settings.notify();
 
-		settings.alias().add_path_to_settings()
-			(_T("schedules"), sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)), 
-			_T("SCHEDULER SECTION"), _T("Section for the Scheduler module."))
-			;
-
-		settings.register_all();
-		settings.notify();
-
-		BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.object_list) {
-			NSC_DEBUG_MSG(_T("Adding scheduled item: ") + o.second.to_wstring());
-			scheduler_.add_task(o.second);
-		}
-
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-		return false;
+	BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.object_list) {
+		NSC_DEBUG_MSG(_T("Adding scheduled item: ") + o.second.to_wstring());
+		scheduler_.add_task(o.second);
 	}
-	try {
-		NSC_DEBUG_MSG_STD(_T("Thread count: ") + boost::lexical_cast<std::wstring>(scheduler_.get_threads()));
-		if (mode == NSCAPI::normalStart) {
-			scheduler_.set_handler(this);
-			scheduler_.start();
-		}
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Unknown Exception in module Scheduler!"));
-		return false;
+
+	NSC_DEBUG_MSG_STD(_T("Thread count: ") + boost::lexical_cast<std::wstring>(scheduler_.get_threads()));
+	if (mode == NSCAPI::normalStart) {
+		scheduler_.set_handler(this);
+		scheduler_.start();
 	}
 	return true;
 }
@@ -153,8 +125,3 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 		scheduler_.remove_task(item.id);
 	}
 }
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(Scheduler, _T("scheduler"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_IGNORE_CMD_DEF()

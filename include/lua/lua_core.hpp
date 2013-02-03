@@ -12,6 +12,8 @@ extern "C" {
 
 #include <boost/shared_ptr.hpp>
 
+#include <protobuf/plugin.pb.h>
+
 #include <NSCAPI.h>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
@@ -38,9 +40,9 @@ namespace lua {
 		virtual void register_query(const std::string &command, const std::string &description);
 		virtual void register_subscription(const std::string &channel, const std::string &description);
 
-		virtual NSCAPI::nagiosReturn on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const std::string &request, std::string &response);
-		virtual NSCAPI::nagiosReturn on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const std::string &request, std::string &response);
-		virtual NSCAPI::nagiosReturn on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const std::string &request, std::string &response);
+		virtual void on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
+		virtual NSCAPI::nagiosReturn on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+		virtual NSCAPI::nagiosReturn on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response);
 
 		virtual void load(scripts::script_information<lua_traits> *info);
 		virtual void unload(scripts::script_information<lua_traits> *info);

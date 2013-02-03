@@ -21,29 +21,13 @@
 #include <socket_helpers.hpp>
 #include <check_nt/server/protocol.hpp>
 
-NSC_WRAPPERS_MAIN()
-
 class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {
 public:
 	NSClientServer();
 	virtual ~NSClientServer();
 	// Module calls
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-	bool loadModule();
 	bool unloadModule();
-
-
-	static std::wstring getModuleName() {
-		return _T("NSClient server");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NSClient (check_nt) connection and handles them.\nAlthough NRPE is the preferred method NSClient is fully supported and can be used for simplicity or for compatibility.");
-	}
-
 
 	check_nt::packet handle(check_nt::packet packet);
 

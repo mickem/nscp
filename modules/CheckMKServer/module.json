@@ -1,0 +1,9 @@
+{
+	"module"		: {
+		"title"			: "check_mk server",
+		"description"	: "A server that listens for incoming check_mk connection and processes incoming requests.",
+		"name"			: "CheckMKServer",
+		"alias"			: "check_mk",
+		"version"		: "auto"
+	}
+}

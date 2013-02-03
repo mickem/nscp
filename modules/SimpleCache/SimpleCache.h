@@ -18,10 +18,11 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN()
-NSC_WRAPPERS_CHANNELS()
+#include <boost/thread/shared_mutex.hpp>
 
-class Cache : public nscapi::impl::simple_plugin {
+#include <protobuf/plugin.pb.h>
+
+class SimpleCache : public nscapi::impl::simple_plugin {
 public:
 	struct cache_query {
 		std::string channel;
@@ -41,28 +42,12 @@ private:
 	boost::shared_mutex cache_mutex_;
 
 public:
-	Cache();
-	virtual ~Cache();
+	SimpleCache() {}
+	virtual ~SimpleCache() {}
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
 
-	static std::wstring getModuleName() {
-		return _T("SimpleCache module");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Caches results for later checking.");
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	bool hasNotificationHandler() { return true; }
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t * command, const std::string &request, std::string &reply);
-	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &reply);
+	void handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
+	void check_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 
 };

@@ -20,51 +20,32 @@
 ***************************************************************************/
 #pragma once
 
-//#include <config.h>
-
 #include <string>
 
-//#include <NSCAPI.h>
+#include <protobuf/plugin.pb.h>
+
 #include <nscapi/plugin.hpp>
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/filesystem.hpp>
 
-NSC_WRAPPERS_MAIN()
-
-class CheckNSCP : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin, public nscapi::impl::simple_log_handler {
+class CheckNSCP : public nscapi::impl::simple_plugin {
 private:
 	boost::timed_mutex mutex_;
-	std::wstring crashFolder;
+	boost::filesystem::path crashFolder;
 	typedef std::list<std::string> error_list;
 	error_list errors_;
 	boost::posix_time::ptime start_;
 public:
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	std::wstring getConfigurationMeta();
 
 
-	static std::wstring getModuleName() {
-		return _T("Check NSCP");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Checkes the state of the agent");
-	}
+	void check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void handleLogMessage(const Plugin::LogEntry::Entry &message);
 
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	void handleMessage(int msgType, const std::string file, int line, std::string message);
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
-	std::string render(int msgType, const std::string file, int line, std::string message);
-	NSCAPI::nagiosReturn check_nscp( std::list<std::wstring> arguments, std::wstring & msg, std::wstring & perf );
-	int get_crashes(std::wstring &last_crash);
-	std::size_t get_errors(std::wstring &last_error);
+	std::size_t get_errors(std::string &last_error);
 };

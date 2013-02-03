@@ -260,6 +260,7 @@ message Registry {
 		COMMAND = 2;
 		HANDLER = 3;
 		PLUGIN = 4;
+		QUERY_ALIAS = 5;
 		ALL = 99;
 	};
 	message Query {
@@ -281,7 +282,7 @@ message Registry {
 
 message RegistryRequestMessage {
 	message Request {
-		enum ActionType { 
+		enum ActionType {
 			REGISTRATION = 1;
 			INVENTORY = 2;
 		};
@@ -312,7 +313,8 @@ message RegistryRequestMessage {
 };
 message RegistryResponseMessage {
 	message Response {
-		enum ActionType { 
+		enum ActionType {
+			STATUS_ONLY = 9;
 			INVENTORY = 2;
 		};
 		message Inventory {
@@ -325,7 +327,7 @@ message RegistryResponseMessage {
 		required Common.Status result = 2;
 		required ActionType type = 3;
 		
-		repeated Inventory inventory = 4;
+		repeated Inventory inventory = 5;
 	};
 
 	required Common.Header header = 1;

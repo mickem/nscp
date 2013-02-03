@@ -27,21 +27,15 @@
 #include <time.h>
 #include <error.hpp>
 #include <file_helpers.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <settings/client/settings_client.hpp>
-
-
-LUAScript::LUAScript() {
-}
-LUAScript::~LUAScript() {
-}
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-bool LUAScript::loadModule() {
-	return false;
-}
+
 bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
@@ -86,7 +80,7 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 			alias = _T("");
 		}
 
-		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
+		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, utf8::cvt<std::string>(file));
 		if (!ofile)
 			return false;
 		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->wstring() + _T(" as ") + alias + _T(")"));
@@ -107,98 +101,47 @@ bool LUAScript::unloadModule() {
 	return true;
 }
 
-bool LUAScript::hasCommandHandler() {
-	return true;
-}
-bool LUAScript::hasMessageHandler() {
-	return false;
-}
-
-NSCAPI::nagiosReturn LUAScript::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	std::string command = utf8::cvt<std::string>(char_command);
-	boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::query_tag, command);
+void LUAScript::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+	std::string response_buffer;
+	boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::query_tag, request.command());
 	if (!cmd) {
-		cmd = scripts_->find_command(scripts::nscp::tags::simple_query_tag, command);
-		if (!cmd) {
-			NSC_LOG_ERROR(std::wstring(_T("Failed to find command: ")) + char_command);
-			return NSCAPI::returnIgnored;
-		}
-		return lua_runtime_->on_query(command, cmd->information, cmd->function, true, request, response);
+		cmd = scripts_->find_command(scripts::nscp::tags::simple_query_tag, request.command());
+		if (!cmd)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to find command: " + request.command());
+		lua_runtime_->on_query(request.command(), cmd->information, cmd->function, true, request, response, request_message);
 	}
-	return lua_runtime_->on_query(command, cmd->information, cmd->function, false, request, response);
+	return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, false, request, response, request_message);
 }
 
+void LUAScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+	if (request.command() != "lua-execute" && request.command() != "lua-run"
+		&& request.command() != "run" && request.command() != "execute" && request.command() != "exec" && request.command() != "") {
+		return;
+	}
 
-
-NSCAPI::nagiosReturn LUAScript::execute_and_load(std::list<std::wstring> args, std::wstring &message) {
 	try {
-		po::options_description desc("Options for the following commands: (exec, execute)");
-		boost::program_options::variables_map vm;
-		std::wstring file;
+		po::options_description desc = nscapi::program_options::create_desc(request);
+		std::string file;
 		desc.add_options()
-			("help", "Display help")
-			("script", po::wvalue<std::wstring>(&file), "The script to run")
-			("file", po::wvalue<std::wstring>(&file), "The script to run")
+			("script", po::value<std::string>(&file), "The script to run")
+			("file", po::value<std::string>(&file), "The script to run")
 			;
-
-		std::vector<std::wstring> vargs(args.begin(), args.end());
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
-		po::store(parsed, vm);
-		po::notify(vm);
-
-		if (vm.count("help") > 0) {
-			std::stringstream ss;
-			ss << desc;
-			message = utf8::to_unicode(ss.str());
-			return NSCAPI::returnUNKNOWN;
-		}
+		boost::program_options::variables_map vm;
+		nscapi::program_options::unrecognized_map script_options;
+		if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response))
+			return;
 
 		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
-		if (!ofile) {
-			message = _T("Script not found: ") + file;
-			NSC_LOG_ERROR_STD(message);
-			return NSCAPI::returnUNKNOWN;
-		}
-
+		if (!ofile)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
 		scripts_->add_and_load("exec", utf8::cvt<std::string>((*ofile).string()));
-		return NSCAPI::returnOK;
 	} catch (const std::exception &e) {
-		message = _T("Failed to execute script ") + utf8::to_unicode(e.what());
-		NSC_LOG_ERROR_STD(message);
-		return NSCAPI::returnUNKNOWN;
+		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		message = _T("Failed to execute script ");
-		NSC_LOG_ERROR_STD(message);
-		return NSCAPI::returnUNKNOWN;
+		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script.");
 	}
 }
 
-NSCAPI::nagiosReturn LUAScript::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
-	if (command == _T("help")) {
-		std::list<std::wstring> args;
-		args.push_back(_T("--help"));
-		std::wstring result;
-		int ret = execute_and_load(args, result);
-		return ret;
-	} else if (command == _T("lua-execute") || command == _T("lua-run")
-		|| command == _T("run") || command == _T("execute") || command == _T("exec") || command == _T("")) {
-			return execute_and_load(arguments, result);
-	}
-	return NSCAPI::returnUNKNOWN;
-//	return scripts_.on_exec(command, request, result);
-}
-
-NSCAPI::nagiosReturn LUAScript::handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf) {
-	return NSCAPI::returnUNKNOWN;
+void LUAScript::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
 //	return scripts_.on_submission(command, request, result);
 }
-
-
-
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(LUAScript, _T("lua"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

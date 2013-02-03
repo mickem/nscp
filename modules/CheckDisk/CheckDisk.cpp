@@ -26,6 +26,10 @@
 #include <file_helpers.hpp>
 #include <checkHelpers.hpp>
 
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+
+
 #include "file_info.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
@@ -41,10 +45,10 @@
 #include <config.h>
 
 namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
 CheckDisk::CheckDisk() : show_errors_(false) {
 }
-CheckDisk::~CheckDisk() {}
 
 class volume_helper {
 	typedef HANDLE (WINAPI *typeFindFirstVolumeW)( __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
@@ -152,59 +156,81 @@ public:
 
 };
 
-NSCAPI::nagiosReturn CheckDisk::check_drivesize(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
+void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	if (arguments.empty()) {
-		msg = _T("Missing argument(s).");
-		return NSCAPI::returnCRIT;
-	}
-
+	std::wstring msg, perf;
+	std::vector<std::string> drives_string;
 	DriveContainer tmpObject;
 	bool bFilter = false;
-	bool bFilterRemote = false;
-	bool bFilterRemovable = false;
-	bool bFilterFixed = false;
-	bool bFilterCDROM = false;
-	bool bFilterNoRootDir = false;
 	bool bCheckAllDrives = false;
 	bool bCheckAllOthers = false;
 	bool bNSClient = false;
 	bool bPerfData = true;
 	std::list<DriveContainer> drives;
-	std::wstring strCheckAll;
+	std::string strCheckAll;
 	bool ignore_unreadable = false;
 	float magic = 0;
 	std::wstring matching;
+	std::vector<std::string> types;
 
-	MAP_OPTIONS_BEGIN(arguments)
-		MAP_OPTIONS_STR_AND(_T("Drive"), tmpObject.data, drives.push_back(tmpObject))
-		MAP_OPTIONS_DISK_ALL(tmpObject, _T(""), _T("Free"), _T("Used"))
-		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterFixed, _T("FIXED"))
-		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterCDROM, _T("CDROM"))
-		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemovable, _T("REMOVABLE"))
-		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterRemote, _T("REMOTE"))
-		MAP_OPTIONS_BOOL_VALUE(_T("FilterType"), bFilterNoRootDir, _T("NO_ROOT_DIR"))
-		MAP_OPTIONS_BOOL_TRUE(_T("ignore-unreadable"), ignore_unreadable)
-		MAP_OPTIONS_STR(_T("perf-unit"), tmpObject.perf_unit)
-		MAP_OPTIONS_STR(_T("matching"), matching)
-		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		//MAP_OPTIONS_BOOL_TRUE(CHECK_ALL, bCheckAll)
-		MAP_OPTIONS_STR(CHECK_ALL, strCheckAll)
-		MAP_OPTIONS_DOUBLE(_T("magic"), magic)
-		MAP_OPTIONS_BOOL_TRUE(CHECK_ALL_OTHERS, bCheckAllOthers)
-		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
-			else if (p2.first == _T("Drive")) {
-				tmpObject.data = p__.second;
-				tmpObject.alias = p2.second;
-				drives.push_back(tmpObject);
-			}
-		MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
-		MAP_OPTIONS_SECONDARY_END()
-	MAP_OPTIONS_FALLBACK_AND(tmpObject.data, drives.push_back(tmpObject))
-	MAP_OPTIONS_END()
-	bFilter = bFilterFixed || bFilterCDROM  || bFilterRemote || bFilterRemovable;
+
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("Drive", po::value<std::vector<std::string>>(&drives_string), 
+							"The drive to check.\nMultiple options can be used to check more then one drive")
+		("FilterType", po::value<std::vector<std::string>>(&types), 
+							"Which kinds of drives to check.\nThis is generally most useful with various check-all options.\n"
+							"Allowed values are: FIXED, CDROM, REMOVABLE, REMOTE, NO_ROOT_DIR"
+							)
+		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
+							"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users."
+							)
+		("matching", po::value<std::wstring>(&matching),
+							"Check drives matching a given criteria.")
+		("magic", po::value<float>(&magic),
+							"Magic number for use with scaling drive sizes.")
+		("CheckAll", po::value<std::string>(&strCheckAll)->implicit_value("drives"),
+							"Check all avalible drives.\nIf a value is given a given type (see the FilterType option) of drives are checks. Supported values are drives and volumes")
+		("CheckAllOthers", po::bool_switch(&bCheckAllOthers)->implicit_value(true),
+							"Check all drives NOT specified in the list of drives given by the Drive option."
+							)
+							
+		;
+
+	nscapi::program_options::legacy::add_nsclient(desc, bNSClient);
+	nscapi::program_options::legacy::add_ignore_perf_data(desc, bPerfData);
+	nscapi::program_options::legacy::add_disk_check(desc);
+	nscapi::program_options::legacy::add_show_all(desc);
+	nscapi::program_options::legacy::add_perf_unit(desc);
+
+	boost::program_options::variables_map vm;
+	nscapi::program_options::unrecognized_map unrecognized;
+	if (!nscapi::program_options::process_arguments_unrecognized(vm, unrecognized, desc, request, *response)) 
+		return;
+	nscapi::program_options::legacy::collect_disk_check(vm, tmpObject);
+	nscapi::program_options::legacy::collect_show_all(vm, tmpObject);
+	nscapi::program_options::legacy::collect_perf_unit(vm, tmpObject);
+	nscapi::program_options::alias_map aliases = nscapi::program_options::parse_legacy_alias(unrecognized, "Drive");
+	BOOST_FOREACH(const std::string &d, drives_string) {
+		tmpObject.data = utf8::cvt<std::wstring>(d);
+		tmpObject.alias = utf8::cvt<std::wstring>(d);
+		drives.push_back(tmpObject);
+	}
+	BOOST_FOREACH(const nscapi::program_options::alias_option &k, aliases) {
+		tmpObject.data = utf8::cvt<std::wstring>(k.value);
+		if (k.alias.empty())
+			tmpObject.alias = utf8::cvt<std::wstring>(k.value);
+		else
+			tmpObject.alias = utf8::cvt<std::wstring>(k.alias);
+		drives.push_back(tmpObject);
+	}
+
+	bool bFilterRemote = std::find(types.begin(), types.end(), "REMOTE")==types.end();
+	bool bFilterRemovable = std::find(types.begin(), types.end(), "REMOVABLE")==types.end();
+	bool bFilterFixed = std::find(types.begin(), types.end(), "FIXED")==types.end();
+	bool bFilterCDROM = std::find(types.begin(), types.end(), "CDROM")==types.end();
+	bool bFilterNoRootDir = std::find(types.begin(), types.end(), "NO_ROOT_DIR")==types.end();
+	bFilter = bFilterFixed || bFilterCDROM  || bFilterRemote || bFilterRemovable || bFilterNoRootDir;
 
 	if ((drives.size() == 0) && strCheckAll.empty())
 		bCheckAllDrives = true;
@@ -214,27 +240,25 @@ NSCAPI::nagiosReturn CheckDisk::check_drivesize(const std::wstring &target, cons
 		try {
 			regexp_filter = boost::wregex(matching);
 		} catch (const std::exception &e) {
-			NSC_LOG_ERROR_STD(_T("Failed to parse expression: ") + utf8::to_unicode(e.what()));
-			return NSCAPI::returnUNKNOWN;
+			return nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse expression: " + utf8::utf8_from_native(e.what()), *response);
 		}
 	}
 
-	if (strCheckAll == _T("volumes")) {
+	if (strCheckAll == "volumes") {
 		volume_helper helper;
 		volume_helper::map_type volume_alias;
 
 		DWORD bufSize = GetLogicalDriveStrings(0, NULL)+5;
 		TCHAR *buffer = new TCHAR[bufSize+10];
-		if (GetLogicalDriveStrings(bufSize, buffer)>0) {
+		if (GetLogicalDriveStrings(bufSize, buffer) > 0) {
 			while (buffer[0] != 0) {
 				std::wstring drv = buffer;
 				volume_alias[helper.GetVolumeNameForVolumeMountPoint(drv)] = drv;
 				buffer = &buffer[drv.size()];
 				buffer++;
 			}
-		} else {
-			NSC_LOG_ERROR_STD(_T("Failed to get buffer size: ") + error::lookup::last_error());
-		}
+		} else
+			return nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to get buffer size: " + utf8::cvt<std::string>(error::lookup::last_error()), *response);
 
 		volume_helper::map_type volumes = helper.get_volumes(volume_alias);
 		BOOST_FOREACH(volume_helper::map_type::value_type v, volumes) {
@@ -255,7 +279,10 @@ NSCAPI::nagiosReturn CheckDisk::check_drivesize(const std::wstring &target, cons
 				else
 				NSC_DEBUG_MSG_STD(_T("Ignoring drive: ") + v.second);
 		}
-	}
+	} else if (strCheckAll == "drives") {
+		bCheckAllDrives = true;
+	} else if (!strCheckAll.empty())
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "CheckAll should be drives or volumes not: " + strCheckAll, *response);
 
 	if (bCheckAllDrives) {
 		DWORD dwDrives = GetLogicalDrives();
@@ -324,8 +351,7 @@ NSCAPI::nagiosReturn CheckDisk::check_drivesize(const std::wstring &target, cons
 		UINT drvType = GetDriveType(drive.data.c_str());
 
 		if ((!bFilter)&&!((drvType == DRIVE_FIXED)||(drvType == DRIVE_NO_ROOT_DIR))) {
-			msg = _T("UNKNOWN: Drive is not a fixed drive: ") + drive.getAlias() + _T(" (it is a ") + get_filter(drvType) + _T(" drive)");
-			return NSCAPI::returnUNKNOWN;
+			return nscapi::program_options::invalid_syntax(desc, request.command(), "Drive is not fixed: " + utf8::cvt<std::string>(drive.getAlias()), *response);
 		} else if ( (bFilter)&&
 			(
 			((!bFilterFixed)&&((drvType==DRIVE_FIXED)||(drvType==DRIVE_NO_ROOT_DIR))) ||
@@ -333,20 +359,17 @@ NSCAPI::nagiosReturn CheckDisk::check_drivesize(const std::wstring &target, cons
 			((!bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
 			((!bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) 
 			)) {
-				msg = _T("UNKNOWN: Drive does not match the current filter: ") + drive.getAlias() + _T(" (add FilterType=") + get_filter(drvType) + _T(" to check this drive)");
-				return NSCAPI::returnUNKNOWN;
-			}
+				return nscapi::program_options::invalid_syntax(desc, request.command(), "Drive does not match FilterType: " + utf8::cvt<std::string>(drive.getAlias()), *response);
+		}
 
-			ULARGE_INTEGER freeBytesAvailableToCaller;
-			ULARGE_INTEGER totalNumberOfBytes;
-			ULARGE_INTEGER totalNumberOfFreeBytes;
+		ULARGE_INTEGER freeBytesAvailableToCaller;
+		ULARGE_INTEGER totalNumberOfBytes;
+		ULARGE_INTEGER totalNumberOfFreeBytes;
 		std::wstring error;
-			if (!GetDiskFreeSpaceEx(drive.data.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
-				DWORD err = GetLastError();
-				if (!ignore_unreadable || err != ERROR_ACCESS_DENIED) {
-					msg = _T("CRITICAL: Could not get free space for: ") + drive.getAlias() + _T(" ") + drive.data + _T(" reason: ") + error::lookup::last_error(err);
-				return NSCAPI::returnCRIT;
-			}
+		if (!GetDiskFreeSpaceEx(drive.data.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+			DWORD err = GetLastError();
+			if (!ignore_unreadable || err != ERROR_ACCESS_DENIED)
+				return nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to get size for: " + utf8::cvt<std::string>(drive.getAlias()) + utf8::cvt<std::string>(error::lookup::last_error(err)), *response);
 			drive.setDefault(tmpObject);
 			error = drive.getAlias() + _T(": unreadable");
 			freeBytesAvailableToCaller.QuadPart = 0;
@@ -355,11 +378,8 @@ NSCAPI::nagiosReturn CheckDisk::check_drivesize(const std::wstring &target, cons
 		}
 
 		if (bNSClient) {
-			if (!msg.empty())
-				msg += _T("&");
-			msg += strEx::itos(totalNumberOfFreeBytes.QuadPart);
-			msg += _T("&");
-			msg += strEx::itos(totalNumberOfBytes.QuadPart);
+			response->set_result(Plugin::Common_ResultCode_OK);
+			response->set_message(strEx::s::xtos(totalNumberOfFreeBytes.QuadPart) + "&" + strEx::s::xtos(totalNumberOfBytes.QuadPart));
 		} else {
 			if (error.empty()) {
 				checkHolders::PercentageValueType<checkHolders::disk_size_type, checkHolders::disk_size_type> value;
@@ -374,11 +394,14 @@ NSCAPI::nagiosReturn CheckDisk::check_drivesize(const std::wstring &target, cons
 			}
 		}
 	}
-	if (msg.empty())
-		msg = _T("OK: All drives within bounds.");
-	else if (!bNSClient)
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
-	return returnCode;
+	if (!bNSClient) {
+		nscapi::functions::parse_performance_data(response, perf);
+		if (msg.empty())
+			response->set_message("OK: All drives within bounds.");
+		else
+			response->set_message(utf8::cvt<std::string>(msg));
+		response->set_result(nscapi::functions::nagios_status_to_gpb(returnCode));
+	}
 }
 
 std::wstring CheckDisk::get_filter(unsigned int drvType) {

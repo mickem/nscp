@@ -242,7 +242,7 @@ int nscp_main(int argc, wchar_t* argv[])
 }
 
 std::list<std::wstring> NSClientT::list_commands() {
-	return commands_.list();
+	return commands_.list_all();
 }
 
 bool contains_plugin(NSClientT::plugin_alias_list_type &ret, std::wstring alias, std::wstring plugin) {
@@ -437,7 +437,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 			(_T("submit url"), sh::wstring_key(&crash_url, CRASH_SUBMIT_URL),
 			_T("SUBMISSION URL"), _T("The url to submit crash reports to"))
 
-			(_T("archive folder"), sh::wpath_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
+			(_T("archive folder"), sh::wpath_key(&crash_folder, CRASH_ARCHIVE_FOLDER_W),
 			_T("CRASH ARCHIVE LOCATION"), _T("The folder to archive crash dumps in"))
 			;
 
@@ -891,7 +891,7 @@ std::wstring NSClientT::describeCommand(std::wstring command) {
 	return commands_.describe(command).description;
 }
 std::list<std::wstring> NSClientT::getAllCommandNames() {
-	return commands_.list();
+	return commands_.list_all();
 }
 void NSClientT::registerCommand(unsigned int id, std::wstring cmd, std::wstring desc) {
 	return commands_.register_command(id, cmd, desc);
@@ -1196,7 +1196,12 @@ NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_
 	return NSCAPI::isSuccess;
 }
 NSCAPI::errorReturn NSClientT::register_routing_listener(unsigned int plugin_id, const wchar_t* channel) {
-	routers_.register_listener(plugin_id, channel);
+	try {
+		routers_.register_listener(plugin_id, channel);
+	} catch (const std::exception &e) {
+		LOG_ERROR_CORE(_T("Failed to register channel: ") + std::wstring(channel) + _T(": ") + utf8::to_unicode(e.what()) + _T("Current channels: ") + channels_.to_wstring());
+		return NSCAPI::hasFailed;
+	}
 	return NSCAPI::isSuccess;
 }
 
@@ -1604,11 +1609,22 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				for (int i=0;i<q.type_size();i++) {
 					Plugin::Registry_ItemType type = q.type(i);
 					if (type == Plugin::Registry_ItemType_QUERY || type == Plugin::Registry_ItemType_ALL) {
-						BOOST_FOREACH(const std::wstring &command, commands_.list()) {
+						BOOST_FOREACH(const std::wstring &command, commands_.list_commands()) {
 							nsclient::commands::command_info info = commands_.describe(command);
 							Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 							rpp->set_name(utf8::cvt<std::string>(command));
 							rpp->set_type(Plugin::Registry_ItemType_COMMAND);
+							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, info.plugin_id, this));
+							rpp->mutable_info()->set_title(utf8::cvt<std::string>(info.name));
+							rpp->mutable_info()->set_description(utf8::cvt<std::string>(info.description));
+						}
+					} 
+					if (type == Plugin::Registry_ItemType_QUERY_ALIAS || type == Plugin::Registry_ItemType_ALL) {
+						BOOST_FOREACH(const std::wstring &command, commands_.list_aliases()) {
+							nsclient::commands::command_info info = commands_.describe(command);
+							Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+							rpp->set_name(utf8::cvt<std::string>(command));
+							rpp->set_type(Plugin::Registry_ItemType_QUERY_ALIAS);
 							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, info.plugin_id, this));
 							rpp->mutable_info()->set_title(utf8::cvt<std::string>(info.name));
 							rpp->mutable_info()->set_description(utf8::cvt<std::string>(info.description));
@@ -1632,8 +1648,19 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				}
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 				rp->set_type(Plugin::RegistryResponseMessage_Response_ActionType_INVENTORY);
+			} else if (r.type() == Plugin::RegistryRequestMessage_Request_ActionType_REGISTRATION) {
+				const Plugin::RegistryRequestMessage::Request::Registration registration = r.registration();
+				if (registration.type() == Plugin::Registry_ItemType_QUERY) {
+					commands_.register_command(registration.plugin_id(), utf8::cvt<std::wstring>(registration.name()), utf8::cvt<std::wstring>(registration.info().description()));
+					std::string description = "Alternative name for: " + registration.name();
+					for (int i=0;i<registration.alias_size();i++) {
+						commands_.register_alias(registration.plugin_id(), utf8::cvt<std::wstring>(registration.alias(i)), utf8::cvt<std::wstring>(description));
+					}
+				} else {
+					LOG_ERROR_CORE_STD(_T("Registration query: Unsupported type"));
+				}
 			} else {
-				LOG_ERROR_CORE_STD(_T("Invalid action"));
+				LOG_ERROR_CORE_STD(_T("Registration query: Unsupported action"));
 			}
 		}
 		*response_buffer_len = response.ByteSize();

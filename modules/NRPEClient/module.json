@@ -1,0 +1,39 @@
+{
+	"module"		: {
+		"title"			: "NRPE Client",
+		"description"	: "NRPE client can be used both from command line and from queries to check remote systes via NRPE",
+		"name"			: "NRPEClient",
+		"alias"			: "nrpe",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "NRPE/client"
+	},
+
+	"commands" : {
+		"fallback" : "true",
+		"nrpe_query" : { 
+			"description" : "Request remote information via NRPE.",
+			"mapping"	: false
+		},
+		"nrpe_exec" : { 
+			"description" : "Execute remote script via NRPE. (Most likely you want nrpe_query).",
+			"mapping"	: false
+		},
+		"nrpe_submit" : { 
+			"description" : "Submit information to remote host via NRPE. (Most likely you want nrpe_query).",
+			"mapping"	: false
+		},
+		"nrpe_forward" : { 
+			"description" : "Forward the request as-is to remote host via NRPE.",
+			"mapping"	: "raw"
+		}
+	},
+
+	"channels" : "raw",
+
+	"command line exec" : true,
+
+	"log messages" : false
+}

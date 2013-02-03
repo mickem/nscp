@@ -16,7 +16,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

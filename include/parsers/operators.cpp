@@ -59,9 +59,13 @@ namespace parsers {
 
 			struct operator_and : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) && right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					left;
+					right;
 					handler->error(_T("missing impl for and binary operator"));
 					// TODO convert strings
 					return false;
@@ -69,9 +73,13 @@ namespace parsers {
 			};
 			struct operator_or : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) || right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					left;
+					right;
 					handler->error(_T("missing impl for or binary operator"));
 					// TODO convert strings
 					return false;
@@ -79,9 +87,11 @@ namespace parsers {
 			};
 			struct operator_eq : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) == right.get_int(handler);
 				}
-				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					//if (debug_enabled && debug_level > 10) {
 						std::wstring lhs = left.get_string(handler);
 						std::wstring rhs = right.get_string(handler);
@@ -92,14 +102,17 @@ namespace parsers {
 			};
 			struct operator_ne : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) != right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					return left.get_string(handler) != right.get_string(handler);
 				};
 			};
 			struct operator_gt : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					if (debug_enabled && debug_level > 10) {
 						long long lhs = left.get_int(handler);
 						long long rhs = right.get_int(handler);
@@ -108,11 +121,13 @@ namespace parsers {
 					return left.get_int(handler) > right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					return left.get_string(handler) > right.get_string(handler);
 				};
 			};
 			struct operator_lt : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					if (debug_enabled && debug_level > 10) {
 						long long lhs = left.get_int(handler);
 						long long rhs = right.get_int(handler);
@@ -121,22 +136,27 @@ namespace parsers {
 					return left.get_int(handler) < right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					return left.get_string(handler) < right.get_string(handler);
 				};
 			};
 			struct operator_le : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) <= right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					return left.get_string(handler) <= right.get_string(handler);
 				};
 			};
 			struct operator_ge : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) >= right.get_int(handler);
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					return left.get_string(handler) >= right.get_string(handler);
 				};
 			};
@@ -144,27 +164,41 @@ namespace parsers {
 
 			struct operator_bin_and : public simple_int_binary_operator_impl {
 				long long eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) & right.get_int(handler);
 				}
 				long long eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
+					handler;
+					left;
+					right;
 					return 0;
 				};
 			};
 			struct operator_bin_or : public simple_int_binary_operator_impl {
 				long long eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
 					return left.get_int(handler) | right.get_int(handler);
 				}
 				long long eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
+					handler;
+					left;
+					right;
 					return 0;
 				};
 			};
 
 			struct operator_like : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					left;
+					right;
 					handler->error(_T("Like not supported on numbers..."));
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					std::wstring s1 = left.get_string(handler);
 					std::wstring s2 = right.get_string(handler);
 					if (s1.size() == 0 && s2.size() == 0)
@@ -178,10 +212,14 @@ namespace parsers {
 			};
 			struct operator_regexp : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					left;
+					right;
 					handler->error(_T("Regular expression not supported on numbers..."));
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					std::wstring str = left.get_string(handler);
 					std::wstring regexp = right.get_string(handler);
 					if (debug_enabled)
@@ -200,10 +238,14 @@ namespace parsers {
 			};
 			struct operator_not_regexp : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					left;
+					right;
 					handler->error(_T("Regular expression not supported on numbers..."));
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					std::wstring str = left.get_string(handler);
 					std::wstring regexp = right.get_string(handler);
 					if (debug_enabled)
@@ -222,19 +264,19 @@ namespace parsers {
 			};
 			struct operator_not_like : public simple_bool_binary_operator_impl {
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					left;
+					right;
 					handler->error(_T("Not like not supported on numbers..."));
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
+					type;
 					std::wstring s1 = left.get_string(handler);
 					std::wstring s2 = right.get_string(handler);
-					bool res;
 					if (s1.size() > s2.size() && s2.size() > 0)
 						return s1.find(s2) == std::wstring::npos;
 					return s2.find(s1) == std::wstring::npos;
-					//if (res)
-					//	std::wcout << _T("Found: ") << s1 << _T(" in ") << s2 << std::endl;
-					return res;
 				};
 			};
 			struct operator_not_in : public simple_bool_binary_operator_impl {
@@ -245,6 +287,8 @@ namespace parsers {
 				operator_not_in(const expression_ast &subject) : list(subject.get_list()) {}
 
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					right;
 					long long val = left.get_int(handler);
 					BOOST_FOREACH(list_item_type itm, list) {
 						if (itm.get_int(handler) == val)
@@ -253,6 +297,8 @@ namespace parsers {
 					return true;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					right;
 					std::wstring val = left.get_string(handler);
 					BOOST_FOREACH(list_item_type itm, list) {
 						if (itm.get_string(handler) == val)
@@ -269,6 +315,8 @@ namespace parsers {
 				operator_in(const expression_ast &subject) : list(subject.get_list()) {}
 
 				bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					right;
 					long long val = left.get_int(handler);
 					BOOST_FOREACH(list_item_type itm, list) {
 						if (itm.get_int(handler) == val)
@@ -277,6 +325,8 @@ namespace parsers {
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					type;
+					right;
 					std::wstring val = left.get_string(handler);
 					BOOST_FOREACH(list_item_type itm, list) {
 						if (itm.get_string(handler) == val)
@@ -287,14 +337,19 @@ namespace parsers {
 			};
 			struct operator_false : public binary_operator_impl, unary_operator_impl, binary_function_impl {
 				expression_ast evaluate(filter_handler handler, const expression_ast &left, const expression_ast & right) const {
+					left;
+					right;
 					handler->error(_T("missing impl for FALSE"));
 					return expression_ast(int_value(FALSE));
 				}
 				expression_ast evaluate(filter_handler handler, const expression_ast &subject) const {
+					subject;
 					handler->error(_T("missing impl for FALSE"));
 					return expression_ast(int_value(FALSE));
 				}
 				expression_ast evaluate(parsers::where::value_type type, filter_handler handler, const expression_ast &subject) const {
+					type;
+					subject;
 					handler->error(_T("missing impl for FALSE"));
 					return expression_ast(int_value(FALSE));
 				}
@@ -389,7 +444,7 @@ namespace parsers {
 			};
 
 			struct operator_not : public unary_operator_impl, binary_function_impl {
-				operator_not(const expression_ast &subject) {}
+				operator_not(const expression_ast &subject) {subject;}
 				operator_not() {}
 				expression_ast evaluate(filter_handler handler, const expression_ast &subject) const {
 					return evaluate(subject.get_type(), handler, subject);
@@ -411,6 +466,7 @@ namespace parsers {
 		}
 
 		factory::bin_op_type factory::get_binary_operator(operators op, const expression_ast &left, const expression_ast &right) {
+			left;
 			// op_in, op_nin
 			if (op == op_eq)
 				return bin_op_type(new operator_impl::operator_eq());

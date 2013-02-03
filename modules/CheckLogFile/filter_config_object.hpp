@@ -124,7 +124,9 @@ namespace filters {
 			if (!filter.build_syntax(utf8::cvt<std::string>(syntax_top), utf8::cvt<std::string>(syntax_detail), error)) {
 				return false;
 			}
-			filter.build_engines(utf8::cvt<std::string>(filter_string), utf8::cvt<std::string>(filter_ok), utf8::cvt<std::string>(filter_warn), utf8::cvt<std::string>(filter_crit));
+			if (!filter.build_engines(utf8::cvt<std::string>(filter_string), utf8::cvt<std::string>(filter_ok), utf8::cvt<std::string>(filter_warn), utf8::cvt<std::string>(filter_crit), error)) {
+				return false;
+			}
 
 			if (!column_split.empty()) {
 				strEx::replace(column_split, _T("\\t"), _T("\t"));

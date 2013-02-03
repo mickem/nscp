@@ -1,0 +1,25 @@
+{
+	"module"		: {
+		"title"			: "WMI checker",
+		"description"	: "Check status via WMI",
+		"name"			: "CheckWMI",
+		"alias"			: "wmi",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "wmi"
+	},
+
+	"commands" : {
+		"check_wmi"	: {
+			"alias"	: "CheckWMI",
+			"desc"	: "Check a set of WMI values and return rows which are matching criteria."
+		},
+		"check_wmi_value"	: {
+			"alias"	: "CheckWMIValue",
+			"desc"	: "Check a single value."
+		}
+	},
+	"command line exec" : "legacy"
+}

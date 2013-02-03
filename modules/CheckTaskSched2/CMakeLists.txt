@@ -21,7 +21,6 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 SET(SRCS ${SRCS}
 	stdafx.h
 	"${TARGET}.h"
-	"${TARGET}.def"
 	TaskSched.h
 	filter.hpp	
 

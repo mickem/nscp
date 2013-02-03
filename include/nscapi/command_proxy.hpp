@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <nscapi/nscapi_core_wrapper.hpp>
 
 namespace nscapi {
@@ -14,6 +15,14 @@ namespace nscapi {
 		virtual void register_command(std::wstring command, std::wstring description) {
 			core_->registerCommand(plugin_id_, command, description);
 		}
+
+		virtual void registry_query(const std::string &request, std::string &response) {
+			if (core_->registry_query(request, response) != NSCAPI::isSuccess) {
+				throw "TODO: FIXME: DAMN!!!";
+			}
+		}
+
+		unsigned int get_plugin_id() const { return plugin_id_; }
 
 		virtual void err(const char* file, int line, std::wstring message) {
 			core_->log(NSCAPI::log_level::error, file, line, message);

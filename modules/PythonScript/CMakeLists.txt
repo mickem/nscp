@@ -4,7 +4,9 @@ SET(TARGET PythonScript)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	script_wrapper.cpp
@@ -13,13 +15,11 @@ SET(SRCS
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES} -DBOOST_PYTHON_STATIC_LIB)
 
-
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		script_wrapper.hpp
 		"${TARGET}.h"
-		"${TARGET}.def"
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -36,4 +36,5 @@ target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
 	${PYTHON_LIBRARIES}
 )
+
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

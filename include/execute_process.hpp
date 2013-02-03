@@ -21,29 +21,41 @@
 #pragma once
 
 namespace process {
-	class Exception {
-		std::wstring error_;
+
+	class process_exception : public std::exception {
+		std::string error;
 	public:
-		Exception(std::wstring error) : error_(error) {}
-		std::wstring getMessage() {
-			return error_;
-		}
+		//////////////////////////////////////////////////////////////////////////
+		/// Constructor takes an error message.
+		/// @param error the error message
+		///
+		/// @author mickem
+		process_exception(std::string error) : error(error) {}
+		~process_exception() throw() {}
+
+		//////////////////////////////////////////////////////////////////////////
+		/// Retrieve the error message from the exception.
+		/// @return the error message
+		///
+		/// @author mickem
+		const char* what() const throw() { return error.c_str(); }
+
 	};
 
 	class exec_arguments {
 	public:
-		exec_arguments(std::wstring root_path_, std::wstring command_, unsigned int timeout_)
+		exec_arguments(std::string root_path_, std::string command_, unsigned int timeout_)
 			: root_path(root_path_)
 			, command(command_)
 			, timeout(timeout_) 
 		{}
 
-		std::wstring root_path;
-		std::wstring command;
+		std::string root_path;
+		std::string command;
 		unsigned int timeout;
-		std::wstring user;
-		std::wstring domain;
-		std::wstring password;
+		std::string user;
+		std::string domain;
+		std::string password;
 	};
 }
 

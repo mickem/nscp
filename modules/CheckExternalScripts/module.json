@@ -1,0 +1,17 @@
+{
+	"module"		: {
+		"title"			: "Execute external scripts",
+		"description"	: "Execute external scripts",
+		"name"			: "CheckExternalScripts",
+		"alias"			: "ext-script",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "external scripts"
+	},
+
+	"commands" : {
+		"fallback" : "true"
+	}
+}

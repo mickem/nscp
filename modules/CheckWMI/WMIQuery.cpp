@@ -362,3 +362,30 @@ WMIQuery::result_type WMIQuery::execute(std::wstring ns, std::wstring query, std
 	}
 	return ret;
 }
+
+std::wstring ComError::getComError(std::wstring inDesc /*= _T("")*/)
+{
+	std::wstring src = _T("unknown");
+	std::wstring desc;
+	try {
+		USES_CONVERSION;
+		CComPtr<IErrorInfo> errorInfo;
+		HRESULT hr = GetErrorInfo(NULL, &errorInfo);
+		if (FAILED(hr) || hr == S_FALSE)
+			return _T("unknown error: ") + error::format::from_system(hr);
+		CComBSTR bDesc, bSource;
+		hr = errorInfo->GetSource(&bSource);
+		if (SUCCEEDED(hr))
+			src = OLE2T(bSource);
+		hr = errorInfo->GetDescription(&bDesc);
+		if (SUCCEEDED(hr))
+			desc = OLE2T(bDesc);
+		if (desc.empty() && !inDesc.empty())
+			desc = inDesc;
+		else if (desc.empty())
+			desc = _T("unknown error: ") + error::format::from_system(hr);
+		return src + _T(" - ") + desc;
+	} catch (...) {
+		return src + _T(" - ") + desc;
+	}
+}

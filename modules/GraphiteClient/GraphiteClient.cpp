@@ -29,7 +29,8 @@
 
 namespace sh = nscapi::settings_helper;
 
-const std::wstring GraphiteClient::command_prefix = _T("graphite");
+const std::string command_prefix("graphite");
+const std::string default_command("submit");
 /**
  * Default c-tor
  * @return 
@@ -41,15 +42,6 @@ GraphiteClient::GraphiteClient() {}
  * @return 
  */
 GraphiteClient::~GraphiteClient() {}
-
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool GraphiteClient::loadModule() {
-	return false;
-}
 
 bool GraphiteClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
@@ -81,15 +73,7 @@ bool GraphiteClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 		settings.notify();
 
 		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
-
-
 		get_core()->registerSubmissionListener(get_id(), channel_);
-
-		register_command(command_prefix + _T("_query"), _T("QUery remote host"));
-		register_command(command_prefix + _T("_submit"), _T("Submit to remote host"));
-		register_command(command_prefix + _T("_forward"), _T("Forward query to remote host"));
-		register_command(command_prefix + _T("_exec"), _T("Execute command on remote host"));
-		register_command(command_prefix + _T("_help"), _T("Help"));
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
@@ -158,7 +142,7 @@ void GraphiteClient::add_command(std::wstring name, std::wstring args) {
 	try {
 		std::wstring key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("NSCA relay for: ") + name);
+			register_command(key.c_str(), _T("Graphite relay for: ") + name);
 	} catch (boost::program_options::validation_error &e) {
 		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
 	} catch (...) {
@@ -175,38 +159,22 @@ bool GraphiteClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn GraphiteClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::QueryRequestMessage message;
-	message.ParseFromString(request);
-
+void GraphiteClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_query(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn GraphiteClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::ExecuteRequestMessage message;
-	message.ParseFromString(request);
-
+void GraphiteClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_exec(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn GraphiteClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-
+void GraphiteClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return client::command_line_parser::do_relay_submit(config, message, result);
+	setup(config, request_message.header());
+	commands.forward_submit(config, request_message, *response_message);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -229,9 +197,9 @@ void GraphiteClient::setup(client::configuration &config, const ::Plugin::Common
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
+	config.default_command = default_command;
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
-		NSC_LOG_ERROR(_T("Target not found (using default): ") + recipient);
 		recipient = _T("default");
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
@@ -259,20 +227,19 @@ GraphiteClient::connection_data GraphiteClient::parse_header(const ::Plugin::Com
 // Parser implementations
 //
 
-int GraphiteClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+int GraphiteClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD(_T("GRAPHITE does not support query patterns"));
-	nscapi::functions::create_simple_query_response_unknown(_T("UNKNOWN"), _T("GRAPHITE does not support query patterns"), reply);
+	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "GRAPHITE does not support query patterns");
 	return NSCAPI::hasFailed;
 }
 
-int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 	std::string path = con.path;
 
 	strEx::replace(path, "${hostname}", con.sender_hostname);
 
-	Plugin::SubmitResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<g_data> list;
@@ -309,13 +276,12 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
 	nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
-int GraphiteClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+int GraphiteClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD(_T("GRAPHITE does not support exec patterns"));
-	nscapi::functions::create_simple_exec_response_unknown("UNKNOWN", "GRAPHITE does not support exec patterns", reply);
+	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "GRAPHITE does not support query patterns");
 	return NSCAPI::hasFailed;
 }
 
@@ -365,10 +331,3 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(GraphiteClient, _T("graphite"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()

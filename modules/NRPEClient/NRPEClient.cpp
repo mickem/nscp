@@ -29,7 +29,8 @@
 
 namespace sh = nscapi::settings_helper;
 
-const std::wstring NRPEClient::command_prefix = _T("nrpe");
+const std::string command_prefix("nrpe");
+const std::string default_command("query");
 /**
  * Default c-tor
  * @return 
@@ -41,15 +42,6 @@ NRPEClient::NRPEClient() {}
  * @return 
  */
 NRPEClient::~NRPEClient() {}
-
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool NRPEClient::loadModule() {
-	return false;
-}
 
 bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
@@ -79,14 +71,7 @@ bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
-
-
 		get_core()->registerSubmissionListener(get_id(), channel_);
-		register_command(_T("nrpe_query"), _T("Check remote NRPE host"));
-		register_command(_T("nrpe_submit"), _T("Submit (via query) remote NRPE host"));
-		register_command(_T("nrpe_forward"), _T("Forward query to remote NRPE host"));
-		register_command(_T("nrpe_exec"), _T("Execute (via query) remote NRPE host"));
-		register_command(_T("nrpe_help"), _T("Help on using NRPE Client"));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -143,39 +128,30 @@ bool NRPEClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn NRPEClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::QueryRequestMessage message;
-	message.ParseFromString(request);
-
+void NRPEClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_query(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn NRPEClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::ExecuteRequestMessage message;
-	message.ParseFromString(request);
-
+void NRPEClient::nrpe_forward(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_exec(cmd, config, message, result);
+	setup(config, request.header());
+	commands.forward_query(config, request, *response);
 }
 
-NSCAPI::nagiosReturn NRPEClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-
+void NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return client::command_line_parser::do_relay_submit(config, message, result);
+	setup(config, request_message.header());
+	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
+
+void NRPEClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+	client::configuration config(command_prefix);
+	setup(config, request_message.header());
+	commands.forward_submit(config, request_message, *response_message);
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // Parser setup/Helpers
@@ -184,7 +160,7 @@ NSCAPI::nagiosReturn NRPEClient::handleRAWNotification(const wchar_t* channel, s
 void NRPEClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
  	desc.add_options()
  		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
-			"Do not initial an ssl handshake with the server, talk in plaintext.")
+		"Do not initial an ssl handshake with the server, talk in plain-text.")
 
 		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
@@ -211,10 +187,10 @@ void NRPEClient::add_local_options(po::options_description &desc, client::config
 		"Length of payload (has to be same as on the server)")
 
 		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
-			"Same as payload-lenght (used for legacy reasons)")
+		"Same as payload-length (used for legacy reasons)")
 
  		("ssl", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
-			"Initial an ssl handshake with the server.")
+		"Initial an ssl handshake with the server.")
  		;
 }
 
@@ -223,7 +199,7 @@ void NRPEClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
-	config.default_command = "query";
+	config.default_command = default_command;
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
 		recipient = _T("default");
@@ -252,11 +228,10 @@ NRPEClient::connection_data NRPEClient::parse_header(const ::Plugin::Common_Head
 // Parser implementations
 //
 
-int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::QueryResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i<request_message.payload_size();i++) {
@@ -269,16 +244,14 @@ int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, c
 		strEx::s::token rdata = strEx::s::getToken(ret.get<1>(), '|');
 		nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
 	}
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
-int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 	
-	Plugin::SubmitResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i<request_message.payload_size();++i) {
@@ -290,15 +263,13 @@ int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, 
 		boost::tuple<int,std::string> ret = instance->send(con, data);
 		nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
 	}
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
-int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::ExecuteResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i<request_message.payload_size();i++) {
@@ -309,7 +280,6 @@ int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, co
 		boost::tuple<int,std::string> ret = instance->send(con, data);
 		nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
 	}
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
@@ -356,11 +326,3 @@ boost::tuple<int,std::string> NRPEClient::send(connection_data con, const std::s
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 	}
 }
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NRPEClient, _T("nrpe"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
-

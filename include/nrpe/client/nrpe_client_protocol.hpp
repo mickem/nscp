@@ -70,14 +70,17 @@ namespace nrpe {
 			}
 
 			bool on_read(std::size_t bytes_transferred) {
+				bytes_transferred;
 				set_state(connected);
 				return true;
 			}
 			bool on_write(std::size_t bytes_transferred) {
+				bytes_transferred;
 				set_state(sent_response);
 				return true;
 			}
 			bool on_read_error(const boost::system::error_code& e) {
+				e;
 				return false;
 			}
 		};

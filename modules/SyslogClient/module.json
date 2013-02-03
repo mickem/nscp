@@ -1,0 +1,27 @@
+{
+	"module"		: {
+		"title"			: "Syslog Client",
+		"description"	: "Forward information as syslog messages to a syslog server",
+		"name"			: "SyslogClient",
+		"alias"			: "syslog",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "syslog/client"
+	},
+
+	"commands" : {
+		"fallback" : "true",
+		"syslog_submit" : { 
+			"description" : "Submit information to remote syslog server.",
+			"mapping"	: false
+		}
+	},
+
+	"channels" : "raw",
+
+	"command line exec" : true,
+
+	"log messages" : false
+}

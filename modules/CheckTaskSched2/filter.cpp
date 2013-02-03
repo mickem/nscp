@@ -217,7 +217,7 @@ tasksched_filter::filter_engine tasksched_filter::factories::create_engine(tasks
 	return filter_engine(new filter_engine_type(arg));
 }
 tasksched_filter::filter_argument tasksched_filter::factories::create_argument(std::wstring syntax, std::wstring datesyntax) {
-	return filter_argument(new tasksched_filter::filter_argument_type(tasksched_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax, datesyntax));
+	return filter_argument(new tasksched_filter::filter_argument_type(tasksched_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler(GET_CORE())), syntax, datesyntax));
 }
 
 tasksched_filter::filter_result tasksched_filter::factories::create_result(tasksched_filter::filter_argument arg) {

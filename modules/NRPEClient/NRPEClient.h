@@ -22,19 +22,15 @@
 
 #include <boost/tuple/tuple.hpp>
 
+#include <protobuf/plugin.pb.h>
+
 #include <client/command_line_parser.hpp>
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
-
 #include <socket/client.hpp>
 
 #include <nrpe/packet.hpp>
 #include <nrpe/client/nrpe_client_protocol.hpp>
-
-
-NSC_WRAPPERS_MAIN()
-NSC_WRAPPERS_CLI()
-NSC_WRAPPERS_CHANNELS()
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
@@ -44,7 +40,6 @@ private:
 
 	std::wstring channel_;
 	std::wstring target_path;
-	const static std::wstring command_prefix;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
@@ -63,25 +58,25 @@ private:
 				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
 
 				(_T("dh"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("dh"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
-				_T("DH KEY"), _T(""), true)
+				_T("DH KEY"), _T("The diffi-hellman perfect forwarded secret to use"), true)
 
 				(_T("certificate"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1)),
-				_T("SSL CERTIFICATE"), _T(""), false)
+				_T("SSL CERTIFICATE"), _T("The ssl certificate to use to encrypt the communication"), false)
 
 				(_T("certificate key"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate key"), _1)),
-				_T("SSL CERTIFICATE"), _T(""), true)
+				_T("SSL CERTIFICATE KEY"), _T("Key for the SSL certificate"), true)
 
 				(_T("certificate format"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate format"), _1), _T("PEM")),
-				_T("CERTIFICATE FORMAT"), _T(""), true)
+				_T("CERTIFICATE FORMAT"), _T("Format of SSL certifiate"), true)
 
 				(_T("ca"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ca"), _1)),
-				_T("CA"), _T(""), true)
+				_T("CA"), _T("The certificate authority to use to authenticate remote certificate"), true)
 
 				(_T("allowed ciphers"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("allowed ciphers"), _1), _T("ADH")),
-				_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+				_T("ALLOWED CIPHERS"), _T("The allowed list of ciphers, the default is insecure so a better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
 
 				(_T("verify mode"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("verify mode"), _1), _T("none")),
-				_T("VERIFY MODE"), _T(""), false)
+				_T("VERIFY MODE"), _T("What to verify default is non, to validate remote certificate use remote-peer"), false)
 
 				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
 				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
@@ -151,9 +146,9 @@ public:
 		NRPEClient *instance;
 		clp_handler_impl(NRPEClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
-		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
-		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
 		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
@@ -169,35 +164,13 @@ public:
 	NRPEClient();
 	virtual ~NRPEClient();
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	/**
-	* Return the module name.
-	* @return The module name
-	*/
-	static std::wstring getModuleName() {
-		return _T("NRPE client");
-	}
-	/**
-	* Module version
-	* @return module version
-	*/
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 4, 0 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("NRPE client\n");
-	}
-
-	bool hasCommandHandler() { return true; };
-	bool hasMessageHandler() { return true; };
-	bool hasNotificationHandler() { return true; };
-	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	void nrpe_forward(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response);
+	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
+	void commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage *response);
 
 private:
 	boost::tuple<int,std::string> send(connection_data con, std::string data);

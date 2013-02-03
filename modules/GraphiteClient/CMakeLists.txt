@@ -4,7 +4,9 @@ SET(TARGET GraphiteClient)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
@@ -19,14 +21,12 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
-
 
 add_library(${TARGET} MODULE ${SRCS})
 

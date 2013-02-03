@@ -15,7 +15,7 @@ MACRO ( SET_MULTITHREAD )
       MESSAGE ( STATUS "Setting MSVC MT switches")
       SET (
         CMAKE_CXX_FLAGS_DEBUG
-          "/D_DEBUG /MTd /Zi  /Ob0 /Od /GZ"
+          "/D_DEBUG /MTd /Zi  /Ob0 /Od /RTC1"
           CACHE STRING "MSVC MT flags " FORCE
       )
 	  SET(CMAKE_C_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})

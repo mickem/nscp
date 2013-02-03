@@ -1,6 +1,7 @@
 #pragma once
 
 #ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <Windows.h>
 #endif
 
@@ -135,8 +136,8 @@ namespace eventlog_filter {
 	struct data_arguments : public where_filter::argument_interface {
 
 		typedef where_filter::argument_interface parent_type;
-		bool bFilterAll;
-		bool bFilterIn;
+		//bool bFilterAll;
+		//bool bFilterIn;
 		bool bShowDescriptions;
 		unsigned long long now;
 		std::wstring alias;

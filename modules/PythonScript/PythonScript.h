@@ -18,17 +18,15 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN()
-NSC_WRAPPERS_CLI()
-NSC_WRAPPERS_CHANNELS()
 
 #include <config.h>
 #include <strEx.h>
 #include <utils.h>
-//#include <checkHelpers.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/python.hpp>
+
+#include <protobuf/plugin.pb.h>
 
 #include <scripts/functions.hpp>
 
@@ -40,7 +38,7 @@ struct python_script : public boost::noncopyable {
 	~python_script();
 	bool callFunction(const std::string& functionName);
 	bool callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2);
-	bool callFunction(const std::string& functionName, const std::vector<std::wstring> args);
+	bool callFunction(const std::string& functionName, const std::list<std::string> &args);
 	void _exec(const std::string &scriptfile);
 };
 
@@ -55,43 +53,21 @@ private:
 	std::wstring alias_;
 
 public:
-	PythonScript();
-	virtual ~PythonScript();
+	PythonScript() {}
+	virtual ~PythonScript() {}
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-
 	bool unloadModule();
-	bool reload(std::wstring &msg);
 	std::wstring get_alias() {
 		return alias_;
 	}
-
-	static std::wstring getModuleName() {
-		return _T("PythonScript");
-	}
-	static std::wstring getModuleDescription() {
-		return _T("PythonScript...");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	bool hasNotificationHandler();
-	bool loadScript(std::wstring alias, std::wstring script);
-	//NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
-	NSCAPI::nagiosReturn handleRAWNotification(const std::wstring &channel, std::string &request, std::string &response);
-
-	NSCAPI::nagiosReturn execute_and_load_python(std::list<std::wstring> args, std::wstring &message);
+	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
+	void handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
+	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 
 private:
-
+	bool loadScript(std::wstring alias, std::wstring script);
+	NSCAPI::nagiosReturn execute_and_load_python(std::list<std::wstring> args, std::wstring &message);
 	boost::optional<boost::filesystem::path> find_file(std::wstring file);
 
 };

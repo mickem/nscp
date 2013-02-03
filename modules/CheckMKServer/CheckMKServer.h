@@ -23,29 +23,14 @@
 #include <check_mk/server/server_protocol.hpp>
 #include "handler_impl.hpp"
 
-NSC_WRAPPERS_MAIN()
-
 class CheckMKServer : public nscapi::impl::simple_plugin {
 public:
 	CheckMKServer();
 	virtual ~CheckMKServer();
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-
-	static std::wstring getModuleName() {
-		return _T("NSCP server");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("A simple server that listens for incoming NSCP connection and handles them.");
-	}
-	
 private:
 
 	bool add_script(std::wstring alias, std::wstring file);

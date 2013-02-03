@@ -65,7 +65,8 @@ namespace script_wrapper {
 	//std::string get_alias();
 
 	std::list<std::wstring> convert(boost::python::list lst);
-	boost::python::list convert(std::list<std::wstring> lst);
+	boost::python::list convert(const std::list<std::string> &lst);
+	boost::python::list convert(const std::list<std::wstring> &lst);
 	boost::python::list convert(const std::vector<std::wstring> &lst);
 
 
@@ -117,18 +118,18 @@ namespace script_wrapper {
 		void register_function(std::string name, PyObject* callable, std::string desc);
 		void subscribe_function(std::string channel, PyObject* callable);
 		void subscribe_simple_function(std::string channel, PyObject* callable);
-		int handle_simple_query(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) const;
+		int handle_simple_query(const std::string wcmd, std::list<std::string> arguments, std::string &msg, std::string &perf) const;
 		int handle_query(const std::string wcmd, const std::string &request, std::string &response) const;
 		bool has_function(const std::string command);
 		bool has_simple(const std::string command);
 
-		int handle_simple_exec(const std::string wcmd, std::list<std::wstring> arguments, std::wstring &result) const;
+		int handle_simple_exec(const std::string cmd, std::list<std::string> arguments, std::string &result) const;
 		int handle_exec(const std::string wcmd, const std::string &request, std::string &response) const;
 		bool has_cmdline(const std::string command);
 		bool has_simple_cmdline(const std::string command);
 
 
-		int handle_simple_message(const std::string channel, const std::string wsrc, const std::string wcmd, int code, std::wstring &msg, std::wstring &perf) const;
+		int handle_simple_message(const std::string channel, const std::string wsrc, const std::string wcmd, const int code, const std::string &msg, const std::string &perf) const;
 		int handle_message(const std::string channel, const std::string &request, std::string &response) const;
 		bool has_message_handler(const std::string command);
 		bool has_simple_message_handler(const std::string command);

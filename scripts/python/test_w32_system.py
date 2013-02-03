@@ -70,35 +70,30 @@ class Win32SystemTest(BasicTest):
 		
 	def run_test_counters(self):
 		result = TestResult('Checking CheckCounter')
-		(result_code, result_message) = core.simple_exec('any', 'listpdh', ['--porcelain'])
+		(result_code, result_message) = core.simple_exec('any', 'pdh', ['--list', '--porcelain'])
 		count = 0
 		data = []
 		for m in result_message:
 			data = m.splitlines()
 			count = len(data)
 		result.add_message(count > 0, 'Managed to retrieve counters: %d'%count)
-			
+		if len(data) == 0:
+			result.add_message(False, 'Failed to find counters: %s'%result_message)
 		counters = []
 		for x in range(1,10):
-			str = random.choice(data)
-			lst = str.split(',')
-			found = True
-			if len(lst) == 4:
-				counter = '\\%s(%s)\\%s'%(lst[1], lst[2], lst[3])
-			elif len(lst) == 3:
-				counter = '\\%s\\%s'%(lst[1], lst[2])
-			else:
-				result.add_message(False, 'Invalid counter found: %s'%lst)
-				found = False
-			if found:
-				(retcode, retmessage, retperf) = core.simple_query('CheckCounter', ['ShowAll', 'MaxWarn=10', 'Counter:001=%s'%counter])
+			try:
+				str = random.choice(data)
+				(alias, counter, message) = str.split(',', 2)
+				(retcode, retmessage, retperf) = core.simple_query('CheckCounter', ['index', 'ShowAll', 'MaxWarn=10', 'Counter:001=%s'%counter])
 				result.add_message(retcode != status.UNKNOWN, 'Queried normal: %s'%counter)
 				result.add_message(len(retmessage) > 0, 'Queried normal (got message): %s'%retmessage)
 				result.add_message(len(retperf) > 0, 'Queried normal (got perf): %s'%retperf)
 				if retcode != status.UNKNOWN:
 					counters.append('Counter:%d=%s'%(x, counter))
-				
-		args = ['ShowAll', 'MaxWarn=10']
+			except Exception as e:
+				result.add_message(False, 'Invalid counter found "%s": %s'%(str, e))
+
+		args = ['index', 'ShowAll', 'MaxWarn=10']
 		args.extend(counters)
 		(retcode, retmessage, retperf) = core.simple_query('CheckCounter', args)
 		result.add_message(retcode != status.UNKNOWN, 'Queried normal list of %d counters'%len(counters))
@@ -109,7 +104,7 @@ class Win32SystemTest(BasicTest):
 		
 	def run_test(self):
 		result = TestResult('Testing W32 systems')
-		result.add(self.run_test_proc())
+		#result.add(self.run_test_proc())
 		result.add(self.run_test_counters())
 		return result
 

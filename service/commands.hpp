@@ -39,6 +39,7 @@ namespace nsclient {
 		plugin_list_type plugins_;
 		description_list_type descriptions_;
 		command_list_type commands_;
+		command_list_type aliases_;
 		boost::shared_mutex mutex_;
 
 	public:
@@ -101,6 +102,21 @@ namespace nsclient {
 			descriptions_[lc].name = cmd;
 			commands_[lc] = plugins_[plugin_id];
 		}
+		void register_alias(unsigned long plugin_id, std::wstring cmd, std::wstring desc) {
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+			if (!writeLock.owns_lock()) {
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex: ") + cmd);
+				return;
+			}
+			std::wstring lc = make_key(cmd);
+			if (!have_plugin(plugin_id))
+				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
+			descriptions_[lc].description = desc;
+			descriptions_[lc].plugin_id = plugin_id;
+			descriptions_[lc].name = cmd;
+			aliases_[lc] = plugins_[plugin_id];
+		}
+
 private:
 
 		std::string unsafe_get_all_plugin_ids() {
@@ -132,7 +148,7 @@ public:
 			return (*cit).second;
 		}
 
-		std::list<std::wstring> list() {
+		std::list<std::wstring> list_all() {
 			std::list<std::wstring> lst;
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
@@ -141,6 +157,32 @@ public:
 			}
 			BOOST_FOREACH(description_list_type::value_type cit, descriptions_) {
 				lst.push_back(cit.first);
+			}
+			return lst;
+		}
+		std::list<std::wstring> list_commands() {
+			std::list<std::wstring> lst;
+			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!readLock.owns_lock()) {
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex"));
+				return lst;
+			}
+			BOOST_FOREACH(description_list_type::value_type cit, descriptions_) {
+				if (commands_.find(cit.first) != commands_.end())
+					lst.push_back(cit.first);
+			}
+			return lst;
+		}
+		std::list<std::wstring> list_aliases() {
+			std::list<std::wstring> lst;
+			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!readLock.owns_lock()) {
+				log_error(__FILE__, __LINE__, _T("Failed to get mutex"));
+				return lst;
+			}
+			BOOST_FOREACH(description_list_type::value_type cit, descriptions_) {
+				if (aliases_.find(cit.first) != aliases_.end())
+					lst.push_back(cit.first);
 			}
 			return lst;
 		}
@@ -177,7 +219,7 @@ public:
 
 		std::wstring to_wstring() {
 			std::wstring ret = _T("commands {");
-			BOOST_FOREACH(std::wstring str, list()) {
+			BOOST_FOREACH(std::wstring str, list_all()) {
 				if (!ret.empty()) ret += _T(", ");
 				ret += str;
 			}
@@ -200,7 +242,5 @@ public:
 		inline bool have_plugin(unsigned long plugin_id) {
 			return !(plugins_.find(plugin_id) == plugins_.end());
 		}
-
-
 	};
 }

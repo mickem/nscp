@@ -78,7 +78,7 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 				std::getline(file,line, '\n');
 				if (!object.column_split.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(object.column_split));
-					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(object.filter.summary.filename, line, chunks, object.filter.summary.match_count));
+					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(object.filter.summary.filename, line, chunks, object.filter.summary.count_match));
 					boost::tuple<bool,bool> ret = object.filter.match(record);
 					if (ret.get<0>()) {
 						matched = true;

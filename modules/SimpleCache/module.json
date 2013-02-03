@@ -1,0 +1,23 @@
+{
+	"module"		: {
+		"title"			: "Simple cache module",
+		"description"	: "Stores status updates and allows for active checks to retrieve them",
+		"name"			: "SimpleCache",
+		"alias"			: "cache",
+		"version"		: "auto",
+		"load"			: "load"
+	},
+
+	"settings"		: {
+		"default_alias"	: "cache"
+	},
+
+	"commands" : {
+		"check_cache" : { 
+			"alias"		: "CheckCache",
+			"description" : "Fetch results from the cache."
+			}
+	},
+
+	"channels" : true
+}

@@ -83,102 +83,25 @@ namespace logfile_filter {
 	};
 
 
-	struct log_summary {
-		long long match_count;
-		long long ok_count;
-		long long warn_count;
-		long long crit_count;
-		std::string message;
-		std::string error;
+	struct log_summary : public modern_filter::generic_summary<log_summary> {
 		std::string filename;
-		std::set<std::wstring> metrics;
 
-		log_summary() : match_count(0), ok_count(0), warn_count(0), crit_count(0) {}
-
-		void reset() {
-			match_count = 0;
-			ok_count = 0;
-			warn_count = 0;
-			crit_count = 0;
-			message = "";
-			error = "";
-			filename = "";
-		}
-		void matched(std::string &line) {
-			error = line;
-			match_count++;
-		}
-		void matched_ok(std::string &line) {
-			error = line;
-			ok_count++;
-		}
-		void matched_warn(std::string &line) {
-			error = line;
-			warn_count++;
-		}
-		void matched_crit(std::string &line) {
-			error = line;
-			crit_count++;
-		}
-		std::string get_message() {
-			return message;
-		}
-		std::string get_error() {
-			return error;
-		}
-		std::string get_match_count() {
-			return strEx::s::xtos(match_count);
-		}
-		std::string get_ok_count() {
-			return strEx::s::xtos(ok_count);
-		}
-		std::string get_warn_count() {
-			return strEx::s::xtos(warn_count);
-		}
-		std::string get_crit_count() {
-			return strEx::s::xtos(crit_count);
-		}
 		std::string get_filename() {
 			return filename;
 		}
+
 		static boost::function<std::string(log_summary*)> get_function(std::string key) {
 			if (key == "file" || key == "filename")
 				return &log_summary::get_filename;
-			if (key == "messages" || key == "lines")
-				return &log_summary::get_message;
-			if (key == "error" || key == "last")
-				return &log_summary::get_error;
-			if (key == "count" || key == "match_count")
-				return &log_summary::get_match_count;
-			if (key == "ok_count")
-				return &log_summary::get_ok_count;
-			if (key == "warn_count" || key == "warning_count" || key == "warnings")
-				return &log_summary::get_warn_count;
-			if (key == "crit_count" || key == "critical_count" || key == "criticals")
-				return &log_summary::get_crit_count;
-			return boost::function<std::string(log_summary*)>();
+			return modern_filter::generic_summary<log_summary>::get_function(key);
 		}
-		bool add_performance_data_metric(std::wstring metric) {
-			if (metric == _T("count") || metric == _T("warn_count") || metric == _T("crit_count")) {
-				metrics.insert(metric);
+		bool add_performance_data_metric(const std::string metric) {
+			boost::function<std::string(log_summary*)> f = get_function(metric);
+			if (f) {
+				metrics[metric] = boost::bind(f,this);
 				return true;
 			}
 			return false;
-		}
-
-		void collect_metrics() {
-			BOOST_FOREACH(const std::wstring &m, metrics) {
-				if (m == _T("count")) {
-					std::wcout << _T("- count: ") << match_count << std::endl;
-				}
-			}
-		}
-		void fetch_perf() {
-			BOOST_FOREACH(const std::wstring &m, metrics) {
-				if (m == _T("count")) {
-					std::wcout << _T(" *  count = ") << match_count << std::endl;
-				}
-			}
 		}
 
 	};

@@ -1,0 +1,27 @@
+{
+	"module"		: {
+		"title"			: "NSCA Client",
+		"description"	: "NSCA client can be used both from command line and from queries to submit passive checks via NSCA",
+		"name"			: "NSCAClient",
+		"alias"			: "nsca",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "NSCA/client"
+	},
+
+	"commands" : {
+		"fallback" : "true",
+		"nsca_submit" : { 
+			"description" : "Submit information to remote host via NSCA.",
+			"mapping"	: false
+		}
+	},
+
+	"channels" : "raw",
+
+	"command line exec" : true,
+
+	"log messages" : false
+}

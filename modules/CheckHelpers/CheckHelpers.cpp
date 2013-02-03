@@ -19,314 +19,240 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include "stdafx.h"
+
+#include <boost/program_options.hpp>
+#include <boost/thread/thread.hpp>
+
 #include "CheckHelpers.h"
 #include <strEx.h>
 #include <time.h>
 #include <utils.h>
 #include <vector>
-#include <program_options_ex.hpp>
-#include <boost/program_options.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 
 #include <settings/client/settings_client.hpp>
 
-CheckHelpers::CheckHelpers() {
-}
-CheckHelpers::~CheckHelpers() {
+namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
+
+void check_simple_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	response->set_result(status);
+	if (request.arguments_size() == 0) {
+		response->set_message("No message.");
+	} else {
+		std::string msg;
+		for (int i=0;i<request.arguments_size();i++)
+			msg += request.arguments(i);
+		response->set_message(msg);
+	}
 }
 
-
-bool CheckHelpers::loadModule() {
-	return false;
+void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin::Common_ResultCode result)
+{
+	if (response->result() == result)
+		return;
+	else if (response->result() == Plugin::Common_ResultCode_OK && result != Plugin::Common_ResultCode_OK)
+		response->set_result(result);
+	else if (response->result() == Plugin::Common_ResultCode_OK)
+		return;
+	else if (response->result() == Plugin::Common_ResultCode_WARNING && result != Plugin::Common_ResultCode_WARNING)
+		response->set_result(result);
+	else if (response->result() == Plugin::Common_ResultCode_WARNING)
+		return;
+	else if (response->result() == Plugin::Common_ResultCode_CRITCAL && result != Plugin::Common_ResultCode_CRITCAL)
+		response->set_result(result);
+	else if (response->result() == Plugin::Common_ResultCode_CRITCAL)
+		return;
+	else if (response->result() == Plugin::Common_ResultCode_UNKNOWN && result != Plugin::Common_ResultCode_UNKNOWN)
+		response->set_result(result);
+	else if (response->result() == Plugin::Common_ResultCode_UNKNOWN)
+		return;
 }
 
-bool CheckHelpers::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	try {
-		register_command(_T("CheckAlwaysOK"), _T("Run another check and regardless of its return code return OK."));
-		register_command(_T("CheckAlwaysCRITICAL"), _T("Run another check and regardless of its return code return CRIT."));
-		register_command(_T("CheckAlwaysWARNING"), _T("Run another check and regardless of its return code return WARN."));
-		register_command(_T("CheckMultiple"), _T("Run more then one check and return the worst state."));
-		register_command(_T("CheckOK"), _T("Just return OK (anything passed along will be used as a message)."));
-		register_command(_T("check_ok"), _T("Just return OK (anything passed along will be used as a message)."));
-		register_command(_T("CheckWARNING"), _T("Just return WARN (anything passed along will be used as a message)."));
-		register_command(_T("CheckCRITICAL"), _T("Just return CRIT (anything passed along will be used as a message)."));
-		register_command(_T("CheckVersion"), _T("Just return the nagios version (along with OK status)."));
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+void CheckHelpers::check_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	check_simple_status(Plugin::Common_ResultCode_CRITCAL, request, response);
+}
+void CheckHelpers::check_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	check_simple_status(Plugin::Common_ResultCode_WARNING, request, response);
+}
+void CheckHelpers::check_ok(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	check_simple_status(Plugin::Common_ResultCode_OK, request, response);
+}
+void CheckHelpers::check_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	nscapi::protobuf::functions::set_response_good(*response, utf8::cvt<std::string>(get_core()->getApplicationVersionString()));
+}
+
+bool simple_query(const std::string &command, const std::vector<std::string> &arguments, Plugin::QueryResponseMessage::Response *response) {
+	std::string local_response_buffer;
+	if (nscapi::core_helper::simple_query(command, arguments, local_response_buffer) != NSCAPI::isSuccess) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
 		return false;
 	}
+	Plugin::QueryResponseMessage local_response;
+	local_response.ParseFromString(local_response_buffer);
+	if (local_response.payload_size() != 1) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
+		return false;
+	}
+	response->CopyFrom(local_response.payload(0));
 	return true;
 }
-bool CheckHelpers::unloadModule() {
-	return true;
+
+void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	if (request.arguments_size() == 0)
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+	std::string command = request.arguments(0);
+	std::vector<std::string> arguments;
+	for (int i=1;i<request.arguments_size();i++)
+		arguments.push_back(request.arguments(i));
+	Plugin::QueryResponseMessage::Response local_response;
+	if (!simple_query(command, arguments, &local_response))
+		return;
+	response->CopyFrom(local_response);
+	response->set_result(status);
+}
+void CheckHelpers::check_always_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	check_change_status(Plugin::Common_ResultCode_CRITCAL, request, response);
+}
+void CheckHelpers::check_always_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	check_change_status(Plugin::Common_ResultCode_WARNING, request, response);
+}
+void CheckHelpers::check_always_ok(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	check_change_status(Plugin::Common_ResultCode_OK, request, response);
+}
+void CheckHelpers::check_negate(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
+	std::string command;
+	std::vector<std::string> arguments;
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("ok,o",		po::value<std::string>(), "The state to return instead of OK")
+		("warning,w",	po::value<std::string>(), "The state to return instead of WARNING")
+		("critical,c",	po::value<std::string>(), "The state to return instead of CRITICAL")
+		("unknown,u",	po::value<std::string>(), "The state to return instead of UNKNOWN")
+
+		("command,q",	po::value<std::string>(&command), "Wrapped command to execute")
+		("arguments,a",	po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+		;
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	if (command.empty())
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+	Plugin::QueryResponseMessage::Response local_response;
+	if (!simple_query(command, arguments, &local_response))
+		return;
+	response->CopyFrom(local_response);
+	::Plugin::Common_ResultCode new_o =  ::Plugin::Common_ResultCode_OK;
+	::Plugin::Common_ResultCode new_w =  ::Plugin::Common_ResultCode_WARNING;
+	::Plugin::Common_ResultCode new_c =  ::Plugin::Common_ResultCode_CRITCAL;
+	::Plugin::Common_ResultCode new_u =  ::Plugin::Common_ResultCode_UNKNOWN;
+	
+	if (vm.count("ok"))
+		new_o = nscapi::protobuf::functions::parse_nagios(vm["ok"].as<std::string>());
+	if (vm.count("warning"))
+		new_w = nscapi::protobuf::functions::parse_nagios(vm["warning"].as<std::string>());
+	if (vm.count("critical"))
+		new_c = nscapi::protobuf::functions::parse_nagios(vm["critical"].as<std::string>());
+	if (vm.count("unknown"))
+		new_u = nscapi::protobuf::functions::parse_nagios(vm["unknown"].as<std::string>());
+	if (response->result() == Plugin::Common_ResultCode_OK)
+		response->set_result(new_o);
+	if (response->result() == Plugin::Common_ResultCode_WARNING)
+		response->set_result(new_w);
+	if (response->result() == Plugin::Common_ResultCode_CRITCAL)
+		response->set_result(new_c);
+	if (response->result() == Plugin::Common_ResultCode_UNKNOWN)
+		response->set_result(new_u);
 }
 
-bool CheckHelpers::hasCommandHandler() {
-	return true;
-}
-bool CheckHelpers::hasMessageHandler() {
-	return false;
-}
-NSCAPI::nagiosReturn CheckHelpers::checkSimpleStatus(NSCAPI::nagiosReturn status, const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) 
-{
-	if (arguments.empty()) {
-		message = nscapi::plugin_helper::translateReturn(status) + _T(": Lets pretend everything is going to be ok.");
-		return status;
-	}
-	std::list<std::wstring>::const_iterator cit;
-	for (cit=arguments.begin();cit!=arguments.end();++cit)
-		message += *cit;
-	return status;
-}
+void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	std::vector<std::string> arguments;
+	desc.add_options()
+		("arguments,a",	po::value<std::vector<std::string> >(&arguments), "List of commands with arguments to run")
+		;
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	if (arguments.size() == 0)
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+	std::string message;
+	Plugin::Common_ResultCode result = Plugin::Common_ResultCode_OK;
 
-NSCAPI::nagiosReturn CheckHelpers::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command == _T("checkversion")) {
-		message = GET_CORE()->getApplicationVersionString();
-		return NSCAPI::returnOK;
-	} else if (command == _T("checkalwaysok")) {
-		if (arguments.size() < 1) {
-			message = _T("ERROR: Missing arguments.");
-			return NSCAPI::returnUNKNOWN;
+	BOOST_FOREACH(std::string arg, arguments) {
+		std::list<std::string> args = strEx::s::splitEx(arg, std::string(" "));
+		if (args.empty()) {
+			return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 		}
-		std::wstring new_command = arguments.front(); arguments.pop_front();
-		nscapi::core_helper::simple_query(new_command, arguments, message, perf);
-		return NSCAPI::returnOK;
-	} else if (command == _T("checkalwayscritical")) {
-		if (arguments.size() < 1) {
-			message = _T("ERROR: Missing arguments.");
-			return NSCAPI::returnUNKNOWN;
+		std::string command = args.front(); args.pop_front();
+		Plugin::QueryResponseMessage::Response local_response;
+		if (!simple_query(command, arguments, &local_response))
+			return;
+		for (int j=0;j<local_response.perf_size();j++) {
+			response->add_perf()->CopyFrom(local_response.perf(j));
 		}
-		std::wstring new_command = arguments.front(); arguments.pop_front();
-		nscapi::core_helper::simple_query(new_command, arguments, message, perf);
-		return NSCAPI::returnCRIT;
-	} else if (command == _T("checkalwayswarning")) {
-		if (arguments.size() < 1) {
-			message = _T("ERROR: Missing arguments.");
-			return NSCAPI::returnUNKNOWN;
-		}
-		std::wstring new_command = arguments.front(); arguments.pop_front();
-		nscapi::core_helper::simple_query(new_command, arguments, message, perf);
-		return NSCAPI::returnWARN;
-	} else if (command == _T("checkok")) {
-		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
-	} else if (command == _T("check_ok")) {
-		return checkSimpleStatus(NSCAPI::returnOK, arguments, message, perf);
-	} else if (command == _T("checkwarning")) {
-		return checkSimpleStatus(NSCAPI::returnWARN, arguments, message, perf);
-	} else if (command == _T("checkcritical")) {
-		return checkSimpleStatus(NSCAPI::returnCRIT, arguments, message, perf);
-	} else if (command == _T("checkmultiple")) {
-		return checkMultiple(arguments, message, perf);
-	} else if (command == _T("Negate")) {
-		return negate(arguments, message, perf);
-	} else if (command == _T("Timeout")) {
-		return timeout(arguments, message, perf);
+		escalate_result(response, local_response.result());
+		message += local_response.message();
 	}
-	return NSCAPI::returnIgnored;
-}
-NSCAPI::nagiosReturn CheckHelpers::checkMultiple(const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf) 
-{
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	if (arguments.empty()) {
-		message = _T("Missing argument(s).");
-		return NSCAPI::returnCRIT;
-	}
-	typedef std::pair<std::wstring, std::list<std::wstring> > sub_command;
-	std::list<sub_command> commands;
-	sub_command currentCommand;
-	std::list<std::wstring>::const_iterator cit;
-	for (cit=arguments.begin();cit!=arguments.end();++cit) {
-		std::wstring arg = *cit;
-		std::pair<std::wstring,std::wstring> p = strEx::split(arg,std::wstring(_T("=")));
-		if (p.first == _T("command")) {
-			if (!currentCommand.first.empty())
-				commands.push_back(currentCommand);
-			currentCommand.first = p.second;
-			currentCommand.second.clear();
-		} else {
-			currentCommand.second.push_back(*cit);
-		}
-	}
-	if (!currentCommand.first.empty())
-		commands.push_back(currentCommand);
-	std::list<sub_command>::iterator cit2;
-	for (cit2 = commands.begin(); cit2 != commands.end(); ++cit2) {
-		std::list<std::wstring> sub_args;
-		std::wstring tMsg, tPerf;
-		NSCAPI::nagiosReturn tRet = nscapi::core_helper::simple_query((*cit2).first.c_str(), (*cit2).second, tMsg, tPerf);
-		returnCode = nscapi::plugin_helper::maxState(returnCode, tRet);
-		if (!message.empty())
-			message += _T(", ");
-		message += tMsg;
-		perf += tPerf;
-	}
-	return returnCode;
+	response->set_message(message);
 }
 
-NSCAPI::nagiosReturn CheckHelpers::negate(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) 
-{
-	if (arguments.empty()) {
-		msg = _T("Missing argument(s).");
-		return NSCAPI::returnCRIT;
+struct worker_object {
+	void proc(std::string command, std::vector<std::string> arguments) {
+		nscapi::core_helper::simple_query(command, arguments, response_buffer);
 	}
-
-	std::wstring command;
-	NSCAPI::nagiosReturn OK = NSCAPI::returnOK, WARN = NSCAPI::returnWARN, CRIT = NSCAPI::returnCRIT, UNKNOWN = NSCAPI::returnUNKNOWN;
-	std::vector<std::wstring> cmd_args;
-
-	//#define USE_BOOST
-
-	try {
-
-
-		boost::program_options::options_description desc("Allowed options");
-		desc.add_options()
-			("help,h", "Show this help message.")
-
- 			("ok,o",		boost::program_options::wvalue<std::wstring>(), "The state to return instead of OK")
- 			("warning,w",	boost::program_options::wvalue<std::wstring>(), "The state to return instead of WARNING")
- 			("critical,c",	boost::program_options::wvalue<std::wstring>(), "The state to return instead of CRITICAL")
- 			("unknown,u",	boost::program_options::wvalue<std::wstring>(), "The state to return instead of UNKNOWN")
-
-			("command,q",	boost::program_options::wvalue<std::wstring>(&command), "Wrapped command to execute")
-   			("arguments,a",	boost::program_options::wvalue<std::vector<std::wstring> >(&cmd_args), "List of arguments (for wrapped command)")
-			;
-
-		boost::program_options::positional_options_description p;
-		p.add("arguments", -1);
-
-		std::vector<std::wstring> arg_list(arguments.begin(), arguments.end());
-
-		boost::program_options::variables_map vm;
-		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(arg_list).options(desc).positional(p).run(), vm);
-		boost::program_options::notify(vm); 
-
-		if (vm.count("help")) {
-			std::stringstream ss;
-			desc.print(ss);
-			msg = strEx::string_to_wstring(ss.str());
-			return NSCAPI::returnUNKNOWN;
-		}
-
-		if (vm.count("ok"))
-			OK = nscapi::plugin_helper::translateReturn(vm["ok"].as<std::wstring>());
-		if (vm.count("warning"))
-			WARN = nscapi::plugin_helper::translateReturn(vm["warning"].as<std::wstring>());
-		if (vm.count("critical"))
-			CRIT = nscapi::plugin_helper::translateReturn(vm["critical"].as<std::wstring>());
-		if (vm.count("unknown"))
-			UNKNOWN = nscapi::plugin_helper::translateReturn(vm["unknown"].as<std::wstring>());
-
-	} catch (std::exception &e) {
-		msg = _T("Could not parse command: ") + strEx::string_to_wstring(e.what());
-		return NSCAPI::returnCRIT;
-	} catch (...) {
-		msg = _T("Could not parse command: <UNKNOWN EXCEPTION>");
-		return NSCAPI::returnCRIT;
-	}
-	std::list<std::wstring> cmd_args_l(cmd_args.begin(), cmd_args.end());
-
-	NSCAPI::nagiosReturn tRet = nscapi::core_helper::simple_query(command, cmd_args_l, msg, perf);
-	switch (tRet) {
-		case NSCAPI::returnOK:
-			return OK;
-		case NSCAPI::returnCRIT:
-			return CRIT;
-		case NSCAPI::returnWARN:
-			return WARN;
-		case NSCAPI::returnUNKNOWN:
-			return UNKNOWN;
-		default:
-			return UNKNOWN;
-	}
-}
-
-
-class worker {
-public:
-	void proc(std::wstring command, std::list<std::wstring> arguments) {
-		code = nscapi::core_helper::simple_query(command, arguments, msg, perf);
-	}
-	std::wstring msg;
-	std::wstring perf;
-	NSCAPI::nagiosReturn code;
-
+	NSCAPI::nagiosReturn ret;
+	std::string response_buffer;
 };
 
-NSCAPI::nagiosReturn CheckHelpers::timeout(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf) 
-{
-	if (arguments.empty()) {
-		msg = _T("Missing argument(s).");
-		return NSCAPI::returnCRIT;
-	}
-
-	std::wstring command;
-	NSCAPI::nagiosReturn retCode = NSCAPI::returnUNKNOWN;
-	std::vector<std::wstring> cmd_args;
+void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
+	std::string command;
+	std::vector<std::string> arguments;
 	unsigned long timeout = 30;
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("timeout,t",	po::value<unsigned long>(&timeout), "The timeout value")
+		("command,q",	po::value<std::string>(&command), "Wrapped command to execute")
+		("arguments,a",	po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+		("return,r",	po::value<std::string>(), "The return status")
+		;
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	if (command.empty())
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+	::Plugin::Common_ResultCode ret =  ::Plugin::Common_ResultCode_CRITCAL;
+	if (vm.count("return"))
+		ret = nscapi::protobuf::functions::parse_nagios(vm["return"].as<std::string>());
 
-	try {
-
-		boost::program_options::options_description desc("Allowed options");
-		desc.add_options()
-			("help,h", "Show this help message.")
-
-			("timeout,t",	boost::program_options::value<unsigned long>(&timeout), "The timeout value")
-
-			("command,q",	boost::program_options::wvalue<std::wstring>(&command), "Wrapped command to execute")
-			("arguments,a",	boost::program_options::wvalue<std::vector<std::wstring> >(&cmd_args), "List of arguments (for wrapped command)")
-			;
-
-		boost::program_options::positional_options_description p;
-		p.add("arguments", -1);
-
-		std::vector<std::wstring> arg_list(arguments.begin(), arguments.end());
-
-		boost::program_options::variables_map vm;
-		boost::program_options::store(boost::program_options::basic_command_line_parser<wchar_t>(arg_list).options(desc).positional(p).run(), vm);
-		boost::program_options::notify(vm); 
-
-		if (vm.count("help")) {
-			std::stringstream ss;
-			desc.print(ss);
-			msg = strEx::string_to_wstring(ss.str());
-			return NSCAPI::returnUNKNOWN;
-		}
-
-		if (vm.count("return"))
-			retCode = nscapi::plugin_helper::translateReturn(vm["return"].as<std::wstring>());
-
-	} catch (std::exception &e) {
-		msg = _T("Could not parse command: ") + strEx::string_to_wstring(e.what());
-		return NSCAPI::returnCRIT;
-	} catch (...) {
-		msg = _T("Could not parse command: <UNKNOWN EXCEPTION>");
-		return NSCAPI::returnCRIT;
-	}
-	std::list<std::wstring> cmd_args_l(cmd_args.begin(), cmd_args.end());
-
-	worker obj;
-	boost::shared_ptr<boost::thread> t = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker::proc, obj, command, cmd_args_l)));
+	worker_object obj;
+	boost::shared_ptr<boost::thread> t = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker_object::proc, obj, command, arguments)));
 
 	if (t->timed_join(boost::posix_time::seconds(timeout))) {
-		msg = obj.msg;
-		perf = obj.perf;
-		return obj.code;
+		if (obj.ret != NSCAPI::isSuccess) {
+			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
+		}
+		Plugin::QueryResponseMessage local_response;
+		local_response.ParseFromString(obj.response_buffer);
+		if (local_response.payload_size() != 1) {
+			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
+		}
+		response->CopyFrom(local_response.payload(0));
+	} else {
+		t->detach();
+		nscapi::protobuf::functions::set_response_bad(*response, "Thread failed to return within given timeout");
 	}
-	t->detach();
-	msg = _T("Thread failed to return within given timeout");
-	return retCode;
 }
 
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(CheckHelpers, _T("helpers"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()

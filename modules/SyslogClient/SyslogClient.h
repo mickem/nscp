@@ -22,13 +22,11 @@
 
 #include <boost/tuple/tuple.hpp>
 
+#include <protobuf/plugin.pb.h>
+
 #include <client/command_line_parser.hpp>
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
-
-NSC_WRAPPERS_MAIN()
-NSC_WRAPPERS_CLI()
-NSC_WRAPPERS_CHANNELS()
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
@@ -38,7 +36,6 @@ private:
 
 	std::wstring channel_;
 	std::wstring target_path;
-	const static std::wstring command_prefix;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
@@ -54,7 +51,6 @@ private:
 			target.set_property_string(_T("critical severity"), _T("critical"));
 			target.set_property_string(_T("unknown severity"), _T("emergency"));
 		}
-
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
@@ -138,9 +134,9 @@ private:
 		SyslogClient *instance;
 		clp_handler_impl(SyslogClient *instance) : instance(instance) {}
 
-		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply);
-		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply);
-		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply);
+		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
+		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
+		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
 		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
@@ -156,36 +152,12 @@ public:
 	SyslogClient();
 	virtual ~SyslogClient();
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	/**
-	* Return the module name.
-	* @return The module name
-	*/
-	static std::wstring getModuleName() {
-		return _T("SyslogClient");
-	}
-	/**
-	* Module version
-	* @return module version
-	*/
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 4, 0 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Passive check support via Syslog");
-	}
-
-	bool hasCommandHandler() { return true; };
-	bool hasMessageHandler() { return true; };
-	bool hasNotificationHandler() { return true; };
-	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* channel, std::string request, std::string &response);
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
-
+	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
+	void commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
 
 private:
 	boost::tuple<int,std::wstring> send(connection_data con, std::list<std::string> messages);

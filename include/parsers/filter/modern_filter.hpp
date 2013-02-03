@@ -130,32 +130,30 @@ namespace modern_filter {
 		filter_engine engine_ok;
 		Tsummary summary;
 		NSCAPI::nagiosReturn returnCode;
+		bool has_matched;
 		std::string message;
 		bool debug;
 
-		struct perf_instance_data {
-			std::wstring label;
-			std::string alias;
-			long long number_value;
-			std::string string_value;
-			parsers::where::value_type type;
-		};
 		struct perf_entry {
 			parsers::where::value_type type;
-			std::wstring label;
+			std::string label;
 			typedef boost::function<long long(Tobject*)> bound_int_type;
 			bound_int_type collect_int;
 
-			//parsers::where::filter_handler_impl<Thandler>::bound_int_type collect_int;
-			std::wstring crit_value;
-			std::wstring warn_value;
-
+			std::string crit_value;
+			std::string warn_value;
+		};
+		struct perf_instance_data {
+			perf_entry parent;
+			std::string alias;
+			long long number_value;
+			std::string string_value;
 		};
 
 		typedef std::list<perf_instance_data> performance_instance_data_type;
 		performance_instance_data_type performance_instance_data;
 
-		typedef std::map<std::wstring,perf_entry> leaf_performance_entry_type;
+		typedef std::map<std::string,perf_entry> leaf_performance_entry_type;
 		leaf_performance_entry_type leaf_performance_data;
 
 
@@ -164,21 +162,19 @@ namespace modern_filter {
 			return filter_engine(new filter_engine_type(arg));
 		}
 
-		void reset() {
-			summary.reset();
-		}
-
 		bool build_syntax(const std::string &top, const std::string &detail, std::string &error) {
 			if (!renderer_top.parse(top, error)) {
+				error = "Invalid top-syntax: " + error;
 				return false;
 			}
 			if (!renderer_detail.parse(detail, error)) {
+				error = "Invalid syntax: " + error;
 				return false;
 			}
 			return true;
 		}
-		void build_engines(const std::string &filter, const std::string &ok, const std::string &warn, const std::string &crit) {
-			error_type error(new where_filter::nsc_error_handler());
+		bool build_engines(const std::string &filter, const std::string &ok, const std::string &warn, const std::string &crit, std::string &errors) {
+			error_type error(new where_filter::collect_error_handler());
 			filter_argument_type fargs(new where_filter::argument_interface(error, _T(""), _T("")));
 
 			if (!filter.empty()) engine_filter = create_engine(fargs, filter);
@@ -194,6 +190,11 @@ namespace modern_filter {
 			if (engine_warn) engine_warn->enabled_performance_collection();
 			if (engine_crit) engine_crit->enabled_performance_collection();
 
+			if (error->has_error()) {
+				errors = utf8::cvt<std::string>(error->get_error());
+				return false;
+			}
+			return true;
 		}
 
 		bool validate(std::string &error) {
@@ -208,8 +209,8 @@ namespace modern_filter {
 			}
 			if (engine_warn) {
 				BOOST_FOREACH(const boundries_type::value_type &v, engine_warn->fetch_performance_data()) {
-					if (!summary.add_performance_data_metric(v.first)) {
-						register_leaf_performance_data(v.first, v.second, engine_warn);
+					if (!summary.add_performance_data_metric(utf8::cvt<std::string>(v.first))) {
+						register_leaf_performance_data(utf8::cvt<std::string>(v.first), utf8::cvt<std::string>(v.second), engine_warn);
 					}
 				}
 			}
@@ -219,8 +220,8 @@ namespace modern_filter {
 			}
 			if (engine_crit) {
 				BOOST_FOREACH(const boundries_type::value_type &v, engine_crit->fetch_performance_data()) {
-					if (!summary.add_performance_data_metric(v.first)) {
-						register_leaf_performance_data(v.first, v.second, engine_crit);
+					if (!summary.add_performance_data_metric(utf8::cvt<std::string>(v.first))) {
+						register_leaf_performance_data(utf8::cvt<std::string>(v.first), utf8::cvt<std::string>(v.second), engine_crit);
 					}
 				}
 			}
@@ -231,28 +232,43 @@ namespace modern_filter {
 			return true;
 		}
 
-		void register_leaf_performance_data(const std::wstring &tag, const std::wstring &value, filter_engine engine) {
-			if (engine->object_handler->has_variable(tag)) {
+		void register_leaf_performance_data(const std::string &tag, const std::string &value, filter_engine engine) {
+			std::wstring wtag = utf8::cvt<std::wstring>(tag);
+			if (engine->object_handler->has_variable(wtag)) {
 				perf_entry entry;
-				entry.type = engine->object_handler->get_type(tag);
+				entry.type = engine->object_handler->get_type(wtag);
 				if (entry.type == parsers::where::type_int) {
-					entry.label = tag;
-					entry.collect_int = engine->object_handler->bind_simple_int(tag);
+					entry.collect_int = engine->object_handler->bind_simple_int(wtag);
 					if (!entry.collect_int)
 						return;
-					entry.crit_value = value;
-					leaf_performance_data[tag] = entry;
+					leaf_performance_entry_type::iterator it = leaf_performance_data.find(tag);
+					if (it != leaf_performance_data.end()) {
+						if (engine == engine_crit)
+							it->second.crit_value = value;
+						else
+							it->second.warn_value = value;
+					} else {
+						entry.label = tag;
+						if (engine == engine_crit)
+							entry.crit_value = value;
+						else
+							entry.warn_value = value;
+						leaf_performance_data[tag] = entry;
+					}
 				}
 			}
 		}
 
-		void start_match() {
+		void reset() {
 			returnCode = NSCAPI::returnOK;
+			has_matched = false;
+			summary.reset();
 		}
 		boost::tuple<bool,bool> match(boost::shared_ptr<Tobject> record) {
 			bool matched = false;
 			bool done = false;
-			if (engine_filter && engine_filter->match(record)) {
+			if (!engine_filter || engine_filter->match(record)) {
+				has_matched = true;
 				record->matched();
 				std::string current = renderer_detail.render(record);
 				store_perf(record, current);
@@ -273,7 +289,6 @@ namespace modern_filter {
 					NSC_DEBUG_MSG_STD(_T("Crit/warn/ok did not match: ") + utf8::cvt<std::wstring>(current));
 				}
 				if (matched) {
-					summary.message += current;
 					message = renderer_top.render(summary);
 				}
 			} else if (debug) {
@@ -289,19 +304,17 @@ namespace modern_filter {
 				}
 			}
 		}
-		void append_record(const std::string &alias, const perf_entry &key, long long value) {
+		void append_record(const std::string &alias, const perf_entry &parent, long long value) {
 			perf_instance_data data;
 			data.alias = alias;
-			data.label = key.label;
-			data.type = key.type;
+			data.parent = parent;
 			data.number_value = value;
 			performance_instance_data.push_back(data);
 		}
 		void append_record(const perf_entry &key, std::wstring value) {
 			perf_instance_data data;
 			data.alias = alias;
-			data.label = key.label;
-			data.type = key.type;
+			data.parent = parent;
 			data.string_value = value;
 			performance_instance_data.push_back(data);
 		}
@@ -309,9 +322,112 @@ namespace modern_filter {
 		void fetch_perf() {
 			summary.fetch_perf();
 			BOOST_FOREACH(const performance_instance_data_type::value_type &entry, performance_instance_data) {
-				std::wcout << _T(" * ") << entry.label << _T(" = ") << entry.number_value << _T(": ") << utf8::cvt<std::wstring>(entry.alias) << std::endl;
+				std::cout << " * " << entry.parent.label << "." << entry.alias << " = " << entry.number_value << "; " << entry.parent.warn_value << ";" << entry.parent.crit_value << std::endl;
 			}
 		}
 
 	};
+
+
+	template <class Timpl>
+	struct generic_summary {
+		long long count_match;
+		long long count_ok;
+		long long count_warn;
+		long long count_crit;
+		long long count_problem;
+		std::string list_match;
+		std::string list_ok;
+		std::string list_crit;
+		std::string list_warn;
+		std::string list_problem;
+
+		typedef std::map<std::string,boost::function<std::string()> > metrics_type;
+		metrics_type metrics;
+
+		generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_problem(0) {}
+
+		void reset() {
+			count_match = count_ok = count_warn = count_crit = count_problem = 0;
+			list_match = list_ok = list_warn = list_crit = "";
+		}
+		void matched(std::string &line) {
+			format::append_list(list_match, line);
+			count_match++;
+		}
+		void matched_ok(std::string &line) {
+			format::append_list(list_ok, line);
+			count_ok++;
+		}
+		void matched_warn(std::string &line) {
+			format::append_list(list_warn, line);
+			format::append_list(list_problem, line);
+			count_warn++;
+		}
+		void matched_crit(std::string &line) {
+			format::append_list(list_crit, line);
+			format::append_list(list_problem, line);
+			count_crit++;
+		}
+		std::string get_list_match() {
+			return list_match;
+		}
+		std::string get_list_ok() {
+			return list_ok;
+		}
+		std::string get_list_warn() {
+			return list_warn;
+		}
+		std::string get_list_crit() {
+			return list_crit;
+		}
+		std::string get_list_problem() {
+			return list_problem;
+		}
+		std::string get_count_match() {
+			return strEx::s::xtos(count_match);
+		}
+		std::string get_count_ok() {
+			return strEx::s::xtos(count_ok);
+		}
+		std::string get_count_warn() {
+			return strEx::s::xtos(count_warn);
+		}
+		std::string get_count_crit() {
+			return strEx::s::xtos(count_crit);
+		}
+		std::string get_count_problem() {
+			return strEx::s::xtos(count_problem);
+		}
+		static boost::function<std::string(Timpl*)> get_function(std::string key) {
+			if (key == "count" || key == "match_count")
+				return &Timpl::get_count_match;
+			if (key == "ok_count")
+				return &Timpl::get_count_ok;
+			if (key == "warn_count" || key == "warning_count")
+				return &Timpl::get_count_warn;
+			if (key == "crit_count" || key == "critical_count")
+				return &Timpl::get_count_crit;
+			if (key == "problem_count")
+				return &Timpl::get_count_problem;
+			if (key == "list" || key == "match_list")
+				return &Timpl::get_list_match;
+			if (key == "ok_list")
+				return &Timpl::get_list_ok;
+			if (key == "warn_list" || key == "warning_list")
+				return &Timpl::get_list_warn;
+			if (key == "crit_list" || key == "critical_list")
+				return &Timpl::get_list_crit;
+			if (key == "problem_list")
+				return &Timpl::get_list_problem;
+			return boost::function<std::string(Timpl*)>();
+		}
+		void fetch_perf() {
+			BOOST_FOREACH(const metrics_type::value_type &m, metrics) {
+				std::cout << " * " << m.first << " = " << m.second() << std::endl;
+			}
+		}
+
+	};
+
 }

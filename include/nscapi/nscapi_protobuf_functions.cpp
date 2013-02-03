@@ -18,6 +18,9 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
+#include <boost/noncopyable.hpp>
+
+
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #define THROW_INVALID_SIZE(size) \
@@ -259,6 +262,17 @@ namespace nscapi {
 			payload->mutable_status()->set_status(status_to_gpb(ret));
 			message.SerializeToString(&buffer);
 		}
+		void functions::create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer) {
+			Plugin::SubmitResponseMessage message;
+			create_simple_header(message.mutable_header());
+			//message.set_channel(to_string(channel));
+
+			Plugin::SubmitResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(command);
+			payload->mutable_status()->set_message(msg);
+			payload->mutable_status()->set_status(status_to_gpb(ret));
+			message.SerializeToString(&buffer);
+		}
 		NSCAPI::errorReturn functions::parse_simple_submit_request(const std::string &request, std::wstring &source, std::wstring &command, std::wstring &msg, std::wstring &perf) {
 			Plugin::SubmitRequestMessage message;
 			message.ParseFromString(request);
@@ -328,6 +342,19 @@ namespace nscapi {
 			message.SerializeToString(&buffer);
 		}
 		void functions::create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer) {
+			Plugin::QueryRequestMessage message;
+			create_simple_header(message.mutable_header());
+
+			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
+			payload->set_command(utf8::cvt<std::string>(command));
+
+			BOOST_FOREACH(std::string s, arguments) {
+				payload->add_arguments(utf8::cvt<std::string>(s));
+			}
+
+			message.SerializeToString(&buffer);
+		}
+		void functions::create_simple_query_request(std::string command, std::vector<std::string> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
 			create_simple_header(message.mutable_header());
 

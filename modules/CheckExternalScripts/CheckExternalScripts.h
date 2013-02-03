@@ -19,7 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-NSC_WRAPPERS_MAIN()
 #include <map>
 #include <error.hpp>
 #include <execute_process.hpp>
@@ -33,7 +32,7 @@ private:
 	std::wstring commands_path;
 	std::wstring aliases_path;
 	std::wstring scriptDirectory_;
-	std::wstring root_;
+	std::string root_;
 	bool allowArgs_;
 	bool allowNasty_;
 	std::map<std::wstring,std::wstring> wrappings_;
@@ -42,40 +41,9 @@ public:
 	CheckExternalScripts();
 	virtual ~CheckExternalScripts();
 	// Module calls
-	bool loadModule();
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-
-
-	static std::wstring getModuleName() {
-		return _T("Check External Scripts");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 0, 1 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("A simple wrapper to run external scripts and batch files.");
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
-	//NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-	std::wstring getConfigurationMeta();
-
-private:
-	class NRPEException {
-		std::wstring error_;
-	public:
-		NRPEException(std::wstring s) {
-			error_ = s;
-		}
-		std::wstring getMessage() {
-			return error_;
-		}
-	};
-
+	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
 
 private:
 	void addAllScriptsFrom(std::wstring path);

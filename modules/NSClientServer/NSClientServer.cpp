@@ -41,88 +41,80 @@ NSClientServer::NSClientServer()
 NSClientServer::~NSClientServer() {
 }
 
-bool NSClientServer::loadModule() {
-	return false;
-}
-
 bool NSClientServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+	sh::settings_registry settings(get_settings_proxy());
+	settings.set_alias(_T("NSClient"), alias, _T("server"));
 
-	try {
+	settings.alias().add_path_to_settings()
+		(_T("NSCLIENT SERVER SECTION"), _T("Section for NSClient (NSClientServer.dll) (check_nt) protocol options."))
+		;
 
-		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("NSClient"), alias, _T("server"));
+	settings.alias().add_key_to_settings()
+		(_T("port"), sh::string_key(&info_.port_, "12489"),
+		_T("PORT NUMBER"), _T("Port to use for check_nt."))
 
-		settings.alias().add_path_to_settings()
-			(_T("NSCLIENT SERVER SECTION"), _T("Section for NSClient (NSClientServer.dll) (check_nt) protocol options."))
-			;
+		(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&NSClientServer::set_perf_data, this, _1), true),
+		_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
 
-		settings.alias().add_key_to_settings()
-			(_T("port"), sh::string_key(&info_.port_, "12489"),
-			_T("PORT NUMBER"), _T("Port to use for check_nt."))
-
-			(_T("performance data"), sh::bool_fun_key<bool>(boost::bind(&NSClientServer::set_perf_data, this, _1), true),
-			_T("PERFORMANCE DATA"), _T("Send performance data back to nagios (set this to 0 to remove all performance data)."))
-
-			;
+		;
 
 
-		settings.alias().add_key_to_settings()
-			(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
-			_T("THREAD POOL"), _T(""), true)
+	settings.alias().add_key_to_settings()
+		(_T("thread pool"), sh::uint_key(&info_.thread_pool_size, 10),
+		_T("THREAD POOL"), _T(""), true)
 
-			(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
-			_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
+		(_T("socket queue size"), sh::int_key(&info_.back_log, 0),
+		_T("LISTEN QUEUE"), _T("Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts."), true)
 
-			(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, false),
-			_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), true)
+		(_T("use ssl"), sh::bool_key(&info_.ssl.enabled, false),
+		_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."), true)
 
-			(_T("certificate"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
-			_T("DH KEY"), _T(""), true)
+		(_T("certificate"), sh::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+		_T("DH KEY"), _T(""), true)
 
-			(_T("certificate"), sh::path_key(&info_.ssl.certificate, "${certificate-path}/certificate.pem"),
-			_T("SSL CERTIFICATE"), _T(""), true)
+		(_T("certificate"), sh::path_key(&info_.ssl.certificate, "${certificate-path}/certificate.pem"),
+		_T("SSL CERTIFICATE"), _T(""), true)
 
-			(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key, "${certificate-path}/certificate_key.pem"),
-			_T("SSL CERTIFICATE"), _T(""), true)
+		(_T("certificate key"), sh::path_key(&info_.ssl.certificate_key, "${certificate-path}/certificate_key.pem"),
+		_T("SSL CERTIFICATE"), _T(""), true)
 
-			(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
-			_T("CERTIFICATE FORMAT"), _T(""), true)
+		(_T("certificate format"), sh::string_key(&info_.ssl.certificate_format, "PEM"),
+		_T("CERTIFICATE FORMAT"), _T(""), true)
 
-			(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
-			_T("CA"), _T(""), true)
+		(_T("ca"), sh::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
+		_T("CA"), _T(""), true)
 
-			(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
-			_T("ALLOWED CIPHERS"), _T(""), true)
+		(_T("allowed ciphers"), sh::string_key(&info_.ssl.allowed_ciphers, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
+		_T("ALLOWED CIPHERS"), _T(""), true)
 
-			(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
-			_T("VERIFY MODE"), _T(""), true)
+		(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
+		_T("VERIFY MODE"), _T(""), true)
 
-			;
+		;
 
 
 
-		settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
+	settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
 
-			(_T("bind to"), sh::string_key(&info_.address),
-			_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
+		(_T("bind to"), sh::string_key(&info_.address),
+		_T("BIND TO ADDRESS"), _T("Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses."))
 
-			(_T("allowed hosts"), sh::string_fun_key<std::wstring>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), _T("127.0.0.1")),
-			_T("ALLOWED HOSTS"), _T("A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges."))
+		(_T("allowed hosts"), sh::string_fun_key<std::wstring>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), _T("127.0.0.1")),
+		_T("ALLOWED HOSTS"), _T("A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges."))
 
-			(_T("cache allowed hosts"), sh::bool_key(&info_.allowed_hosts.cached, true),
-			_T("CACHE ALLOWED HOSTS"), _T("If hostnames should be cached, improves speed and security somewhat but wont allow you to have dynamic IPs for your nagios server."))
+		(_T("cache allowed hosts"), sh::bool_key(&info_.allowed_hosts.cached, true),
+		_T("CACHE ALLOWED HOSTS"), _T("If hostnames should be cached, improves speed and security somewhat but wont allow you to have dynamic IPs for your nagios server."))
 
-			(_T("timeout"), sh::uint_key(&info_.timeout, 30),
-			_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
+		(_T("timeout"), sh::uint_key(&info_.timeout, 30),
+		_T("TIMEOUT"), _T("Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out."))
 
-			(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&NSClientServer::set_password, this, _1), _T("")),
-			_T("PASSWORD"), _T("Password used to authenticate againast server"))
+		(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&NSClientServer::set_password, this, _1), _T("")),
+		_T("PASSWORD"), _T("Password used to authenticate againast server"))
 
-			;
+		;
 
-		settings.register_all();
-		settings.notify();
-	} catch (...) {}
+	settings.register_all();
+	settings.notify();
 
 #ifndef USE_SSL
 	if (info_.use_ssl) {
@@ -349,10 +341,3 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 
 	return check_nt::packet("FOO");
 }
-
-
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(NSClientServer, _T("check_nt"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_IGNORE_CMD_DEF()

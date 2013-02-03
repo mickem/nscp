@@ -149,7 +149,7 @@ eventlog_filter::filter_engine eventlog_filter::factories::create_engine(eventlo
 	return filter_engine(new filter_engine_type(arg));
 }
 eventlog_filter::filter_argument eventlog_filter::factories::create_argument(std::wstring syntax, std::wstring datesyntax) {
-	return filter_argument(new eventlog_filter::filter_argument_type(eventlog_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler()), syntax, datesyntax));
+	return filter_argument(new eventlog_filter::filter_argument_type(eventlog_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler(GET_CORE())), syntax, datesyntax));
 }
 
 eventlog_filter::filter_result eventlog_filter::factories::create_result(eventlog_filter::filter_argument arg) {

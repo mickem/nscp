@@ -18,41 +18,27 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-NSC_WRAPPERS_MAIN()
-//#include <config.h>
-#include <strEx.h>
+#pragma once
 
-class CheckHelpers : public nscapi::impl::simple_command_handler, public nscapi::impl::simple_plugin {
-private:
+#include <protobuf/plugin.pb.h>
 
+class CheckHelpers : public nscapi::impl::simple_plugin {
 public:
-	CheckHelpers();
-	virtual ~CheckHelpers();
-	// Module calls
-	bool loadModule();
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-
-
-	static std::wstring getModuleName() {
-		return _T("Helper function");
-	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
-		return version;
-	}
-	static std::wstring getModuleDescription() {
-		return _T("Various helper function to extend other checks.\nThis is also only supported through NRPE.");
-	}
-
-	bool hasCommandHandler();
-	bool hasMessageHandler();
-	NSCAPI::nagiosReturn handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf);
+	CheckHelpers() {}
+	virtual ~CheckHelpers() {}
 
 	// Check commands
-	NSCAPI::nagiosReturn checkMultiple(const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn checkSimpleStatus(NSCAPI::nagiosReturn status, const std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
-	NSCAPI::nagiosReturn checkSimpleStatus(NSCAPI::nagiosReturn status, const unsigned int argLen, wchar_t **char_args, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn timeout(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn negate(std::list<std::wstring> arguments, std::wstring &msg, std::wstring &perf);
+	void check_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_multi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_always_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_always_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_ok(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_always_ok(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_negate(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_timeout(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+
+	// Helpers
+	void check_change_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 };

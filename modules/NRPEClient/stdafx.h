@@ -28,9 +28,6 @@
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 
-//#define _WIN32_WINNT 0x0403
-//#include <Windows.h>
-
 #include <boost/asio.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>

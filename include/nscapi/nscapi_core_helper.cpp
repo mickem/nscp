@@ -99,6 +99,29 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::wstring comman
 	return get_core()->query(command.c_str(), request, result);
 }
 
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & arguments, std::string & result) 
+{
+	std::string request;
+	try {
+		nscapi::functions::create_simple_query_request(command, arguments, request);
+	} catch (std::exception &e) {
+		CORE_LOG_ERROR(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+		return NSCAPI::returnUNKNOWN;
+	}
+	return get_core()->query(utf8::cvt<std::wstring>(command).c_str(), request, result);
+}
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::vector<std::string> & arguments, std::string & result) 
+{
+	std::string request;
+	try {
+		nscapi::functions::create_simple_query_request(command, arguments, request);
+	} catch (std::exception &e) {
+		CORE_LOG_ERROR(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+		return NSCAPI::returnUNKNOWN;
+	}
+	return get_core()->query(utf8::cvt<std::wstring>(command).c_str(), request, result);
+}
+
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf) {
 	boost::tokenizer<boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::char_separator<wchar_t>(_T("!")));
 	std::list<std::wstring> arglist;

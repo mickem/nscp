@@ -22,6 +22,8 @@
 #include <string>
 #include <list>
 
+#include <boost/algorithm/string.hpp>
+
 #include <NSCAPI.h>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
@@ -32,16 +34,7 @@
 namespace nscapi {
 	namespace protobuf {
 
-		struct query {
-			static void set_response(Plugin::QueryResponseMessage::Response *response, ::Plugin::Common_ResultCode result, std::string message) {
-				response->set_result(result);
-				response->set_message(message);
-			}
-			static void set_response_unknown(Plugin::QueryResponseMessage::Response *response, std::string message) {
-				response->set_result(Plugin::Common_ResultCode_UNKNOWN);
-				response->set_message(message);
-			}
-		};
+
 		class functions {
 		public:
 
@@ -49,6 +42,51 @@ namespace nscapi {
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
 			typedef nscapi::protobuf::types::decoded_simple_command_data_utf8 decoded_simple_command_data_utf8;
 		public:
+			template<class T>
+			static void set_response_good(T &response, std::string message);
+			template<>
+			static void set_response_good(::Plugin::QueryResponseMessage::Response &response, std::string message) {
+				response.set_result(::Plugin::Common_ResultCode_OK);
+				response.set_message(message);
+			}
+			template<>
+			static void set_response_good(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
+				response.set_result(::Plugin::Common_ResultCode_OK);
+				response.set_message(message);
+			}
+			template<>
+			static void set_response_good(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
+				response.mutable_status()->set_status(::Plugin::Common_Status_StatusType_STATUS_OK);
+				response.mutable_status()->set_message(message);
+			}
+			template<class T>
+			static void set_response_bad(T &response, std::string message);
+			template<>
+			static void set_response_bad(::Plugin::QueryResponseMessage::Response &response, std::string message) {
+				response.set_result(Plugin::Common_ResultCode_UNKNOWN);
+				response.set_message(message);
+			}
+			template<>
+			static void set_response_bad(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
+				response.set_result(Plugin::Common_ResultCode_UNKNOWN);
+				response.set_message(message);
+			}
+			template<>
+			static void set_response_bad(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
+				response.mutable_status()->set_status(::Plugin::Common_Status_StatusType_STATUS_ERROR);
+				response.mutable_status()->set_message(message);
+			}
+
+			static Plugin::Common::ResultCode parse_nagios(const std::string &status) {
+				std::string lcstat = boost::to_lower_copy(status);
+				if (lcstat == "o" || lcstat == "ok")
+					return Plugin::Common_ResultCode_OK;
+				if (lcstat == "w" || lcstat == "warn" || lcstat == "warning")
+					return Plugin::Common_ResultCode_WARNING;
+				if (lcstat == "c" || lcstat == "crit" || lcstat == "critical")
+					return Plugin::Common_ResultCode_CRITCAL;
+				return Plugin::Common_ResultCode_UNKNOWN;
+			}
 			static Plugin::Common::ResultCode nagios_status_to_gpb(int ret) {
 				if (ret == NSCAPI::returnOK)
 					return Plugin::Common_ResultCode_OK;
@@ -130,9 +168,11 @@ namespace nscapi {
 			static void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer);
 			static void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer);
 			static void create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer);
+			static void create_simple_query_request(std::string command, std::vector<std::string> arguments, std::string &buffer);
 			static void create_simple_submit_request(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
 			static void create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
 			static void create_simple_submit_response(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer);
+			static void create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer);
 			static NSCAPI::errorReturn parse_simple_submit_request(const std::string &request, std::wstring &source, std::wstring &command, std::wstring &msg, std::wstring &perf);
 
 			static int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);

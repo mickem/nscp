@@ -20,16 +20,19 @@
 ***************************************************************************/
 
 #include "stdafx.h"
+
+#include <boost/foreach.hpp>
+#include <boost/program_options.hpp>
+
+
 #include "CheckEventLog.h"
 #include <filter_framework.hpp>
-#include <boost/foreach.hpp>
 
 #include <time.h>
 #include <utils.h>
 #include <error.hpp>
 #include <map>
 #include <vector>
-//#include <config.h>
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
@@ -40,6 +43,8 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/list_value.hpp>
@@ -48,320 +53,86 @@
 #include <parsers/where/variable.hpp>
 
 #include <simple_timer.hpp>
+
 #include <settings/client/settings_client.hpp>
+
 namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
 #include "simple_registry.hpp"
 #include "eventlog_record.hpp"
+#include "real_time_thread.hpp"
 
-CheckEventLog::CheckEventLog() {
-}
-CheckEventLog::~CheckEventLog() {
-}
 struct parse_exception {
 	parse_exception(std::wstring) {}
 };
 
 
-bool CheckEventLog::loadModule() {
-	return false;
-}
-
-
-void real_time_thread::process_no_events(const filters::filter_config_object &object) {
-	std::wstring response;
-	std::wstring command = object.alias;
-	if (!object.command.empty())
-		command = object.command;
-	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.ok_msg, object.perf_msg, response)) {
-		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
-	}
-}
-
-void real_time_thread::process_record(const filters::filter_config_object &object, const EventLogRecord &record) {
-	std::wstring response;
-	int severity = object.severity;
-	std::wstring command = object.alias;
-	if (severity == -1) {
-		NSC_LOG_ERROR(_T("Severity not defined for: ") + object.alias);
-		severity = NSCAPI::returnUNKNOWN;
-	}
-	if (!object.command.empty())
-		command = object.command;
-	std::wstring message = record.render(true, object.syntax, object.date_format, object.dwLang);
-	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.severity, message, object.perf_msg, response)) {
-		NSC_LOG_ERROR(_T("Failed to submit eventlog result ") + object.alias + _T(": ") + response);
-	}
-}
-
-void real_time_thread::debug_miss(const EventLogRecord &record) {
-	std::wstring message = record.render(true, _T("%id% %level% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
-	NSC_DEBUG_MSG_STD(_T("No filter matched: ") + message);
-}
-
-void real_time_thread::thread_proc() {
-
-	std::list<filters::filter_config_object> filters;
-	std::list<std::wstring> logs;
-	std::list<std::wstring> filter_list;
-
-	BOOST_FOREACH(std::wstring s, strEx::splitEx(logs_, _T(","))) {
-		logs.push_back(s);
-	}
-
-	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
-		eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(object.syntax, object.date_format);
-		fargs->filter = object.filter;
-		fargs->debug = object.debug;
-		fargs->alias = object.alias;
-		fargs->bShowDescriptions = true;
-		if (object.log_ != _T("any") && object.log_ != _T("all"))
-			logs.push_back(object.log_);
-		// eventlog_filter::filter_engine 
-		object.engine = eventlog_filter::factories::create_engine(fargs);
-
-		if (!object.engine) {
-			NSC_LOG_ERROR_STD(_T("Invalid filter: ") + object.filter);
-			continue;
-		}
-
-		if (!object.engine->boot()) {
-			NSC_LOG_ERROR_STD(_T("Error booting filter: ") + object.filter);
-			continue;
-		}
-
-		std::wstring message;
-		if (!object.engine->validate(message)) {
-			NSC_LOG_ERROR_STD(_T("Error validating filter: ") + message);
-			continue;
-		}
-		filters.push_back(object);
-		filter_list.push_back(object.alias);
-	}
-	logs.sort();
-	logs.unique();
-	NSC_DEBUG_MSG_STD(_T("Scanning logs: ") + strEx::joinEx(logs, _T(", ")));
-	NSC_DEBUG_MSG_STD(_T("Scanning filters: ") + strEx::joinEx(filter_list, _T(", ")));
-
-	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
-	typedef std::vector<eventlog_type> eventlog_list;
-	eventlog_list evlog_list;
-
-	BOOST_FOREACH(std::wstring l, logs) {
-		eventlog_type el = eventlog_type(new eventlog_wrapper(l));
-		if (!el->seek_end()) {
-			NSC_LOG_ERROR_STD(_T("Failed to find the end of eventlog: ") + l);
-		} else {
-			evlog_list.push_back(el);
-		}
-	}
-	
-	// TODO: add support for scanning "missed messages" at startup
-
-	HANDLE *handles = new HANDLE[1+evlog_list.size()];
-	handles[0] = stop_event_;
-	for (int i=0;i<evlog_list.size();i++) {
-		evlog_list[i]->notify(handles[i+1]);
-	}
-	__time64_t ltime;
-	_time64(&ltime);
-
-	BOOST_FOREACH(filters::filter_config_object &object, filters) {
-		object.touch(ltime);
-	}
-
-	unsigned int errors = 0;
-	while (true) {
-
-		DWORD minNext = INFINITE;
-		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
-			NSC_DEBUG_MSG_STD(_T("Getting next from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
-			if (object.next_ok_ > 0 && object.next_ok_ < minNext)
-				minNext = object.next_ok_;
-		}
-
-		_time64(&ltime);
-
-		if (ltime > minNext) {
-			NSC_LOG_ERROR(_T("Strange seems we expect to send ok now?"));
-			continue;
-		}
-		DWORD dwWaitTime = (minNext - ltime)*1000;
-		if (minNext == INFINITE || dwWaitTime < 0)
-			dwWaitTime = INFINITE;
-		NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dwWaitTime) + _T("s"));
-
-		DWORD dwWaitReason = WaitForMultipleObjects(evlog_list.size()+1, handles, FALSE, dwWaitTime);
-		if (dwWaitReason == WAIT_TIMEOUT) {
-			// we take care of this below...
-		} else if (dwWaitReason == WAIT_OBJECT_0) {
-			delete [] handles;
-			return;
-		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + evlog_list.size())) {
-
-			eventlog_type el = evlog_list[dwWaitReason-WAIT_OBJECT_0-1];
-			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
-			if (ERROR_SUCCESS != status && ERROR_HANDLE_EOF != status) {
-				delete [] handles;
-				return;
-			}
-
-			_time64(&ltime);
-
-			EVENTLOGRECORD *pevlr = el->read_record_with_buffer();
-			while (pevlr != NULL) {
-				EventLogRecord elr(el->get_name(), pevlr, ltime);
-				boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(elr));
-				bool matched = false;
-
-				BOOST_FOREACH(filters::filter_config_object &object, filters) {
-					if (object.log_ != _T("any") && object.log_ != _T("all") && object.log_ != el->get_name()) {
-						NSC_DEBUG_MSG_STD(_T("Skipping filter: ") + object.alias);
-						continue;
-					}
-					if (object.engine->match(arg)) {
-						process_record(object, elr);
-						object.touch(ltime);
-						matched = true;
-					}
-				}
-				if (debug_ && !matched)
-					debug_miss(elr);
-
-				pevlr = el->read_record_with_buffer();
-			}
-		} else {
-			NSC_LOG_ERROR(_T("Error failed to wait for eventlog message: ") + error::lookup::last_error());
-			if (errors++ > 10) {
-				NSC_LOG_ERROR(_T("To many errors giving up"));
-				delete [] handles;
-				return;
-			}
-		}
-		_time64(&ltime);
-		BOOST_FOREACH(filters::filter_config_object &object, filters) {
-			if (object.next_ok_ != 0 && object.next_ok_ <= (ltime+1)) {
-				process_no_events(object);
-				object.touch(ltime);
-			} else {
-				NSC_DEBUG_MSG_STD(_T("missing: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
-			}
-		}
-	}
-	delete [] handles;
-	return;
-}
-
-
-bool real_time_thread::start() {
-	if (!enabled_)
-		return true;
-
-	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
-
-	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
-	return true;
-}
-bool real_time_thread::stop() {
-	SetEvent(stop_event_);
-	if (thread_)
-		thread_->join();
-	return true;
-}
-
-void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query) {
-	try {
-		filters_.add(proxy, filters_path_, key, query, key == _T("default"));
-	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key + _T(", ") + utf8::to_unicode(e.what()));
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key);
-	}
-}
-
-
 bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	try {
-		register_command(_T("CheckEventLog"), _T("Check for errors in the event logger!"));
-		register_command(_T("check_eventlog"), _T("Check for errors in the event logger!"));
-
-		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(alias, _T("eventlog"));
+	sh::settings_registry settings(get_settings_proxy());
+	settings.set_alias(alias, _T("eventlog"));
 		
-		thread_.filters_path_ = settings.alias().get_settings_path(_T("real-time/filters"));
-
-
-		settings.alias().add_path_to_settings()
-			(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CheckEventLog.dll)."))
-
-			(_T("real-time"), _T("CONFIGURE REALTIME CHECKING"), _T("A set of options to configure the real time checks"))
-
-			(_T("real-time/filters"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, &thread_, get_settings_proxy(), _1, _2)),  
-			_T("REALTIME FILTERS"), _T("A set of filters to use in real-time mode"))
-			;
-
-		settings.alias().add_key_to_settings()
-			(_T("debug"), sh::bool_key(&debug_, false),
-			_T("DEBUG"), _T("Log more information when filtering (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
-
-			(_T("lookup names"), sh::bool_key(&lookup_names_, true),
-			_T("LOOKUP NAMES"), _T("Lookup the names of eventlog files"))
-
-			(_T("syntax"), sh::wstring_key(&syntax_),
-			_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
-
-			(_T("buffer size"), sh::int_key(&buffer_length_, 128*1024),
-			_T("BUFFER_SIZE"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
-
-			;
-
-		settings.alias().add_key_to_settings(_T("real-time"))
-
-			(_T("enabled"), sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, &thread_, _1), false),
-			_T("REAL TIME CHECKING"), _T("Spawns a backgrounnd thread which detects issues and reports them back instantly."))
-
-			(_T("startup age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_start_age, &thread_, _1), _T("30m")),
-			_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
-
-			(_T("log"), sh::wstring_key(&thread_.logs_ ,_T("application,system")),
-			_T("LOGS TO CHECK"), _T("Comma separated list of logs to check"))
-
-			(_T("debug"), sh::bool_key(&thread_.debug_, false),
-			_T("DEBUG"), _T("Log missed records (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
-
-			;
-
-		settings.register_all();
-		settings.notify();
-
-		if (mode == NSCAPI::normalStart) {
-			if (!thread_.start())
-				NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
-		}
-
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
+	thread_.reset(new real_time_thread());
+	if (!thread_) {
+		NSC_LOG_ERROR_STD(_T("Failed to create thread container"));
 		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
-		return false;
+	}
+	thread_->filters_path_ = settings.alias().get_settings_path(_T("real-time/filters"));
+
+
+	settings.alias().add_path_to_settings()
+		(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CheckEventLog.dll)."))
+
+		(_T("real-time"), _T("CONFIGURE REALTIME CHECKING"), _T("A set of options to configure the real time checks"))
+
+		(_T("real-time/filters"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
+		_T("REALTIME FILTERS"), _T("A set of filters to use in real-time mode"))
+		;
+
+	settings.alias().add_key_to_settings()
+		(_T("debug"), sh::bool_key(&debug_, false),
+		_T("DEBUG"), _T("Log more information when filtering (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
+
+		(_T("lookup names"), sh::bool_key(&lookup_names_, true),
+		_T("LOOKUP NAMES"), _T("Lookup the names of eventlog files"))
+
+		(_T("syntax"), sh::wstring_key(&syntax_),
+		_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
+
+		(_T("buffer size"), sh::int_key(&buffer_length_, 128*1024),
+		_T("BUFFER_SIZE"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+
+		;
+
+	settings.alias().add_key_to_settings(_T("real-time"))
+
+		(_T("enabled"), sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
+		_T("REAL TIME CHECKING"), _T("Spawns a backgrounnd thread which detects issues and reports them back instantly."))
+
+		(_T("startup age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_start_age, thread_, _1), _T("30m")),
+		_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
+
+		(_T("log"), sh::wstring_key(&thread_->logs_ ,_T("application,system")),
+		_T("LOGS TO CHECK"), _T("Comma separated list of logs to check"))
+
+		(_T("debug"), sh::bool_key(&thread_->debug_, false),
+		_T("DEBUG"), _T("Log missed records (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
+
+		;
+
+	settings.register_all();
+	settings.notify();
+
+	if (mode == NSCAPI::normalStart) {
+		if (!thread_->start())
+			NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
 	}
 	return true;
 }
 bool CheckEventLog::unloadModule() {
-	if (!thread_.stop())
+	if (!thread_->stop())
 		NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
 	return true;
-}
-
-bool CheckEventLog::hasCommandHandler() {
-	return true;
-}
-bool CheckEventLog::hasMessageHandler() {
-	return false;
 }
 
 class uniq_eventlog_record {
@@ -398,14 +169,13 @@ struct event_log_buffer {
 };
 typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> EventLogQuery1Container;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> EventLogQuery2Container;
-NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &message, std::wstring &perf) {
-	if (command != _T("checkeventlog") && command != _T("check_eventlog"))
-		return NSCAPI::returnIgnored;
+
+void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	simple_timer time;
 	
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 
-	std::list<std::wstring> files;
+	std::vector<std::wstring> files;
 	EventLogQuery1Container query1;
 	EventLogQuery2Container query2;
 
@@ -416,78 +186,72 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 	bool unique = false;
 	unsigned int truncate = 0;
 	event_log_buffer buffer(buffer_length_);
-	//bool bPush = true;
 
-	try {
-		MAP_OPTIONS_BEGIN(arguments)
-			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
-			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
-			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
-			MAP_OPTIONS_BOOL_TRUE(_T("unique"), unique)
-			MAP_OPTIONS_BOOL_TRUE(_T("descriptions"), fargs->bShowDescriptions)
-			MAP_OPTIONS_PUSH(_T("file"), files)
-			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_BOOL_EX(_T("filter"), fargs->bFilterIn, _T("in"), _T("out"))
-			MAP_OPTIONS_BOOL_EX(_T("filter"), fargs->bFilterAll, _T("all"), _T("any"))
-			MAP_OPTIONS_BOOL_EX(_T("debug"), fargs->debug, _T("true"), _T("false"))
-			MAP_OPTIONS_STR(_T("syntax"), fargs->syntax)
-			MAP_OPTIONS_STR(_T("filter"), fargs->filter)
-			MAP_OPTIONS_MISSING(message, _T("Unknown argument: "))
-			MAP_OPTIONS_END()
-	} catch (filters::parse_exception e) {
-		message = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	} catch (filters::filter_exception e) {
-		message = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-		} catch (checkHolders::parse_exception e) {
-		message = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	} catch (...) {
-		message = _T("Invalid command line!");
-		return NSCAPI::returnUNKNOWN;
-	}
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("truncate", po::value<unsigned int>(&truncate),			"Truncate the resulting message (mainly useful in older version of nsclient++)")
+		("filter", po::wvalue<std::wstring>(&fargs->filter),		"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but they are checked use this to filter out unwanted items.")
+		("file", po::wvalue<std::vector<std::wstring>>(&files),		"The name of an eventlog file the default ones are Application, Security and System. If the specified eventlog was not found due to some idiotic reason windows opens the \"application\" log instead.")
+		("syntax", po::wvalue<std::wstring>(&fargs->syntax)->default_value(syntax_), "A string to use to represent each matched eventlog entry the following keywords will be replaced with corresponding values: %source%, %generated%, %written%, %type%, %severity%, %strings%, %id% and %message% (%message% requires you to set the description flag) %count% (requires the unique flag) can be used to display a count of the records returned.")
+		("date-syntax", po::wvalue<std::wstring>(&fargs->date_syntax)->default_value(DATE_FORMAT), "Syntax of renderd dates.")
+		("debug", po::bool_switch(&fargs->debug), "Enable debug information.")
+		("descriptions", po::bool_switch(&fargs->debug), "Allow searching and scanning and rendering descriptions field (will be much slower).")
+		("unique", po::bool_switch(&unique), "Only return one of each message (based on message id and source).")
+		;
+
+	nscapi::program_options::legacy::add_numerical_all(desc);
+	nscapi::program_options::legacy::add_exact_numerical_all(desc);
+	nscapi::program_options::legacy::add_ignore_perf_data(desc, bPerfData);
+	nscapi::program_options::legacy::add_show_all(desc);
+
+	boost::program_options::variables_map vm;
+	nscapi::program_options::unrecognized_map unrecognized;
+	if (!nscapi::program_options::process_arguments_unrecognized(vm, unrecognized, desc, request, *response)) 
+		return;
+	nscapi::program_options::legacy::collect_numerical_all(vm, query1);
+	nscapi::program_options::legacy::collect_exact_numerical_all(vm, query2);
+	nscapi::program_options::legacy::collect_show_all(vm, query1);
+	nscapi::program_options::legacy::collect_show_all(vm, query2);
+	nscapi::program_options::alias_map aliases = nscapi::program_options::parse_legacy_alias(unrecognized, "alias");
 
 	unsigned long int hit_count = 0;
-	if (files.empty()) {
-		message = _T("No file specified try adding: file=Application");
-		return NSCAPI::returnUNKNOWN;
-	}
+	if (files.empty())
+		return nscapi::protobuf::functions::set_response_bad(*response, "No file specified try adding: file=Application");
+	if (!query1.hasBounds() && !query2.hasBounds())
+		return nscapi::protobuf::functions::set_response_bad(*response, "No bounds specified try adding MaxWarn=1");
+
 	bool buffer_error_reported = false;
 
 
 	eventlog_filter::filter_engine impl = eventlog_filter::factories::create_engine(fargs);
 
-	if (!impl) {
-		message = _T("Failed to initialize filter subsystem.");
-		return NSCAPI::returnUNKNOWN;
-	}
+	if (!impl)
+		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to initialize filter subsystem.");
 
 	impl->boot();
 
 	__time64_t ltime;
 	_time64(&ltime);
 
-	if (!impl->validate(message)) {
-		return NSCAPI::returnUNKNOWN;
+	std::wstring tmp;
+	if (!impl->validate(tmp)) {
+		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(tmp));
 	}
-
 
 	NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
 
-	for (std::list<std::wstring>::const_iterator cit2 = files.begin(); cit2 != files.end(); ++cit2) {
-		std::wstring name = *cit2;
+	std::wstring message, perf;
+	BOOST_FOREACH(const std::wstring &file, files) {
+		std::wstring name = file;
 		if (lookup_names_) {
-			name = eventlog_wrapper::find_eventlog_name(*cit2);
-			if ((*cit2) != name) {
+			name = eventlog_wrapper::find_eventlog_name(name);
+			if (file != name) {
 				NSC_DEBUG_MSG_STD(_T("Opening alternative log: ") + name);
 			}
 		}
 		HANDLE hLog = OpenEventLog(NULL, name.c_str());
-		if (hLog == NULL) {
-			message = _T("Could not open the '") + (*cit2) + _T("' event log: ") + error::lookup::last_error();
-			return NSCAPI::returnUNKNOWN;
-		}
+		if (hLog == NULL)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Could not open the '" + utf8::cvt<std::string>(name) + "' event log: "  + utf8::cvt<std::string>(error::lookup::last_error()));
 		uniq_eventlog_map uniq_records;
 
 		DWORD dwRead, dwNeeded;
@@ -504,15 +268,14 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 				} else if (err == ERROR_HANDLE_EOF) {
 					break;
 				} else {
-					NSC_LOG_ERROR_STD(_T("Failed to read from eventlog: ") + error::lookup::last_error(err));
-					message = _T("Failed to read from eventlog: ") + error::lookup::last_error(err);
+					std::wstring error_msg = error::lookup::last_error(err);
 					CloseEventLog(hLog);
-					return NSCAPI::returnUNKNOWN;
+					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read from event log: " + utf8::cvt<std::string>(error_msg));
 				}
 			}
 			EVENTLOGRECORD *pevlr = buffer.getBufferUnsafe(); 
 			while (dwRead > 0) { 
-				EventLogRecord record((*cit2), pevlr, ltime);
+				EventLogRecord record(file, pevlr, ltime);
 				boost::shared_ptr<eventlog_filter::filter_obj> arg = boost::shared_ptr<eventlog_filter::filter_obj>(new eventlog_filter::filter_obj(record));
 				bool match = impl->match(arg);
 				if (match&&unique) {
@@ -575,31 +338,23 @@ NSCAPI::nagiosReturn CheckEventLog::handleCommand(const std::wstring &target, co
 		query1.runCheck(hit_count, returnCode, message, perf);
 	else if (query2.hasBounds())
 		query2.runCheck(hit_count, returnCode, message, perf);
-	else {
-		message = _T("No bounds specified!");
-		return NSCAPI::returnUNKNOWN;
-	}
 	if ((truncate > 0) && (message.length() > (truncate-4)))
 		message = message.substr(0, truncate-4) + _T("...");
 	if (message.empty())
 		message = _T("Eventlog check ok");
-	return returnCode;
+	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
+	response->set_message(utf8::cvt<std::string>(message));
 }
-NSCAPI::nagiosReturn CheckEventLog::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	std::wstring command = char_command;
+
+NSCAPI::nagiosReturn CheckEventLog::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
 	if (command == _T("insert-eventlog-message") || command == _T("insert-eventlog") || command == _T("insert-message") || command == _T("insert") || command.empty()) {
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
-		std::wstring message;
-		std::vector<std::wstring> args(data.args.begin(), data.args.end());
-		bool ok = insert_eventlog(args, message);
-		nscapi::functions::create_simple_exec_response(command, ok?NSCAPI::isSuccess:NSCAPI::hasFailed, message, response);
+		//std::vector<std::wstring> args(data.args.begin(), data.args.end());
+		bool ok = insert_eventlog(arguments, result);
 		return ok?NSCAPI::isSuccess:NSCAPI::hasFailed;
 	} else if (command == _T("help")) {
-		std::vector<std::wstring> args;
+		std::list<std::wstring> args;
 		args.push_back(_T("--help"));
-		std::wstring message;
-		insert_eventlog(args, message);
-		nscapi::functions::create_simple_exec_response(command, NSCAPI::isSuccess, message, response);
+		insert_eventlog(args, result);
 		return NSCAPI::isSuccess;
 	}
 	return NSCAPI::returnIgnored;
@@ -607,7 +362,7 @@ NSCAPI::nagiosReturn CheckEventLog::commandRAWLineExec(const wchar_t* char_comma
 
 
 
-NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> arguments, std::wstring &message) {
+NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::list<std::wstring> arguments, std::wstring &message) {
 	try {
 		namespace po = boost::program_options;
 
@@ -635,7 +390,8 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 
 		boost::program_options::variables_map vm;
 
-		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(arguments).options(desc).run();
+		std::vector<std::wstring> vargs(arguments.begin(), arguments.end());
+		po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(vargs).options(desc).run();
 		po::store(parsed, vm);
 		po::notify(vm);
 
@@ -674,9 +430,3 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::vector<std::wstring> ar
 	}
 	return NSCAPI::returnIgnored;
 }
-
-NSC_WRAP_DLL();
-NSC_WRAPPERS_MAIN_DEF(CheckEventLog, _T("eventlog"));
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();

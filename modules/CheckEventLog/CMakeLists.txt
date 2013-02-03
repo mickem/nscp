@@ -4,10 +4,14 @@ SET(TARGET CheckEventLog)
 	
 PROJECT(${TARGET})
 
-SET(SRCS
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	filter.cpp
+	real_time_thread.cpp
+
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}
 	eventlog_wrapper.cpp
@@ -19,13 +23,13 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 
 		eventlog_filter.hpp
 		eventlog_record.hpp
 		eventlog_wrapper.hpp
 		simple_registry.hpp
 		filter.hpp
+		real_time_thread.hpp
 
 		filters.hpp
 
@@ -45,4 +49,5 @@ target_link_libraries(${TARGET}
 	${NSCP_FILTER_LIB}
 	version.lib
 )
+
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

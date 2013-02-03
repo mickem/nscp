@@ -155,12 +155,13 @@ public:
 			return _T("error");
 		return strEx::itos(dwType);
 	}
-	std::wstring get_dll() const {
+	bool get_dll(std::wstring &file_or_error) const {
 		try {
-			return simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
+			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
+			return true;
 		} catch (simple_registry::registry_exception &e) {
-			NSC_LOG_ERROR_STD(_T("Could not extract DLL for eventsource: ") + get_source() + _T(": ") + e.what());
-			return _T("");
+			file_or_error = _T("Could not extract DLL for eventsource: ") + get_source() + _T(": ") + e.what();
+			return false;
 		}
 	}
 
@@ -207,7 +208,11 @@ public:
 	std::wstring render_message(DWORD dwLang = 0) const {
 		std::vector<std::wstring> args;
 		std::wstring ret;
-		strEx::splitList dlls = strEx::splitEx(get_dll(), _T(";"));
+		std::wstring file;
+		if (!get_dll(file)) {
+			return file;
+		}
+		strEx::splitList dlls = strEx::splitEx(file, _T(";"));
 		for (strEx::splitList::const_iterator cit = dlls.begin(); cit != dlls.end(); ++cit) {
 			//std::wstring msg = error::format::message::from_module((*cit), eventID(), _sz);
 			std::wstring msg;

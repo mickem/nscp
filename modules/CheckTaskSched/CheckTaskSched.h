@@ -19,6 +19,9 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
+#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_plugin_impl.hpp>
+
 class CheckTaskSched : public nscapi::impl::simple_plugin {
 private:
 	std::wstring syntax;
@@ -28,6 +31,6 @@ public:
 	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	NSCAPI::nagiosReturn check_taskshced(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	void check_tasksched(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 };

@@ -98,7 +98,11 @@ namespace nscapi {
 		namespace sh = nscapi::settings_helper;
 		struct dummy_custom_reader {
 			typedef target_object object_type;
-			static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {}
+			static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+				settings; 
+				proxy; 
+				object;
+			}
 		};
 
 		template<class custom_reader>

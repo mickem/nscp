@@ -20,7 +20,7 @@ namespace sh = nscapi::settings_helper;
 namespace filters {
 
 
-	WORD get_language(std::string lang) {
+	static WORD get_language(std::string lang) {
 		if (lang == "neutral") return LANG_NEUTRAL;
 		if (lang == "arabic") return LANG_ARABIC;
 		if (lang == "bulgarian") return LANG_BULGARIAN;

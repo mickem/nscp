@@ -21,7 +21,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"${TARGET}.def"
 		real_time_thread.hpp
 
 		filter.hpp

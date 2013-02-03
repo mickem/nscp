@@ -35,7 +35,8 @@
 namespace sh = nscapi::settings_helper;
 namespace ip = boost::asio::ip;
 
-const std::wstring SyslogClient::command_prefix = _T("syslog");
+const std::string command_prefix("syslog");
+const std::string default_command("submit");
 /**
  * Default c-tor
  * @return 
@@ -48,14 +49,6 @@ SyslogClient::SyslogClient() {}
  */
 SyslogClient::~SyslogClient() {}
 
-/**
- * Load (initiate) module.
- * Start the background collector thread and let it run until unloadModule() is called.
- * @return true
- */
-bool SyslogClient::loadModule() {
-	return false;
-}
 bool SyslogClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 	facilities["kernel"] = 0;
@@ -120,11 +113,6 @@ bool SyslogClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 
 
 		get_core()->registerSubmissionListener(get_id(), channel_);
-		register_command(_T("syslog_query"), _T("Check remote NRPE host"));
-		register_command(_T("syslog_submit"), _T("Submit (via query) remote NRPE host"));
-		register_command(_T("syslog_forward"), _T("Forward query to remote NRPE host"));
-		register_command(_T("syslog_exec"), _T("Execute (via query) remote NRPE host"));
-		register_command(_T("syslog_help"), _T("Help on using NRPE Client"));
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
 		return false;
@@ -174,38 +162,22 @@ bool SyslogClient::unloadModule() {
 	return true;
 }
 
-NSCAPI::nagiosReturn SyslogClient::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::QueryRequestMessage message;
-	message.ParseFromString(request);
-
+void SyslogClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_query(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn SyslogClient::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &result) {
-	std::wstring cmd = client::command_line_parser::parse_command(char_command, command_prefix);
-
-	Plugin::ExecuteRequestMessage message;
-	message.ParseFromString(request);
-
+void SyslogClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return commands.process_exec(cmd, config, message, result);
+	setup(config, request_message.header());
+	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-NSCAPI::nagiosReturn SyslogClient::handleRAWNotification(const wchar_t* channel, std::string request, std::string &result) {
-	Plugin::SubmitRequestMessage message;
-	message.ParseFromString(request);
-
+void SyslogClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix);
-	setup(config, message.header());
-
-	return client::command_line_parser::do_relay_submit(config, message, result);
+	setup(config, request_message.header());
+	commands.forward_submit(config, request_message, *response_message);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -245,6 +217,7 @@ void SyslogClient::setup(client::configuration &config, const ::Plugin::Common_H
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
+	config.default_command = default_command;
 	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
 	if (!targets.has_object(recipient)) {
 		recipient = _T("default");
@@ -273,17 +246,16 @@ SyslogClient::connection_data SyslogClient::parse_header(const ::Plugin::Common_
 // Parser implementations
 //
 
-int SyslogClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, std::string &reply) {
+int SyslogClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD(_T("SYSLOG does not support query patterns"));
-	nscapi::functions::create_simple_query_response_unknown(_T("UNKNOWN"), _T("SYSLOG does not support query patterns"), reply);
-	return NSCAPI::hasFailed;
+	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "SYSLOG does not support query patterns");
+	return NSCAPI::isSuccess;
 }
 
-int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, std::string &reply) {
+int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	Plugin::SubmitResponseMessage response_message;
 	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	//TODO: Map seveity!
@@ -311,14 +283,13 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 	}
 	boost::tuple<int,std::wstring> ret = instance->send(con, messages);
 	nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
-	response_message.SerializeToString(&reply);
 	return NSCAPI::isSuccess;
 }
 
-int SyslogClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, std::string &reply) {
+int SyslogClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD(_T("SYSLOG does not support exec patterns"));
-	nscapi::functions::create_simple_exec_response_unknown("UNKNOWN", "SYSLOG does not support exec patterns", reply);
-	return NSCAPI::hasFailed;
+	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "SYSLOG does not support exec patterns");
+	return NSCAPI::isSuccess;
 }
 std::string	SyslogClient::parse_priority(std::string severity, std::string facility) {
 	syslog_map::const_iterator cit1 = facilities.find(facility);
@@ -367,12 +338,3 @@ boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }
-
-
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(SyslogClient, _T("syslog"))
-NSC_WRAPPERS_IGNORE_MSG_DEF()
-NSC_WRAPPERS_HANDLE_CMD_DEF()
-NSC_WRAPPERS_CLI_DEF()
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
-

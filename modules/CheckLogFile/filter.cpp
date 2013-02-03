@@ -84,7 +84,7 @@ logfile_filter::filter_obj_handler::base_handler::bound_string_type logfile_filt
 	if (key.length() > 6 && key.substr(0,6) == _T("column")) {
 		std::wstring index = key.substr(6);
 		if (index.find_first_not_of(_T("0123456789")) == std::wstring::npos) {
-			ret = BOOST_BIND(&filter_obj::get_column, _1, strEx::stoi(index));
+			ret = boost::bind(&filter_obj::get_column, _1, strEx::stoi(index));
 		}
 	}
 	if (key == _T("line"))

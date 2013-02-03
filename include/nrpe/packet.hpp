@@ -46,7 +46,7 @@ namespace nrpe {
 			int16_t   packet_type;
 			u_int32_t crc32_value;
 			int16_t   result_code;
-			char      buffer[];
+			char      *buffer;
 		} packet;
 
 	};
