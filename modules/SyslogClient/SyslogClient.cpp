@@ -168,10 +168,10 @@ void SyslogClient::query_fallback(const Plugin::QueryRequestMessage::Request &re
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void SyslogClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool SyslogClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
 	setup(config, request_message.header());
-	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
+	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void SyslogClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
@@ -186,28 +186,28 @@ void SyslogClient::handleNotification(const std::string &channel, const Plugin::
 
 void SyslogClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
-		("severity,s", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "severity", _1)), 
+		("severity,s", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "severity", _1)), 
 		"Severity of error message")
 
-		("unknown-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "unknown_severity", _1)), 
+		("unknown-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "unknown_severity", _1)), 
 		"Severity of error message")
 
-		("ok-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ok_severity", _1)), 
+		("ok-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ok_severity", _1)), 
 		"Severity of error message")
 
-		("warning-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "warning_severity", _1)), 
+		("warning-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "warning_severity", _1)), 
 		"Severity of error message")
 
-		("critical-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "critical_severity", _1)), 
+		("critical-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "critical_severity", _1)), 
 		"Severity of error message")
 
-		("facility,f", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "facility", _1)), 
+		("facility,f", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "facility", _1)), 
 		"Facility of error message")
 
-		("tag template", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "tag template", _1)), 
+		("tag template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "tag template", _1)), 
 		"Tag template (TODO)")
 
-		("message template", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "message template", _1)), 
+		("message template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "message template", _1)), 
 		"Message template (TODO)")
 		;
 }
@@ -226,7 +226,7 @@ void SyslogClient::setup(client::configuration &config, const ::Plugin::Common_H
 
 	if (opt) {
 		nscapi::targets::target_object t = *opt;
-		nscapi::functions::destination_container def = t.to_destination_container();
+		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
 		config.data->recipient.apply(def);
 	}
 	config.data->host_self.id = "self";
@@ -237,8 +237,8 @@ void SyslogClient::setup(client::configuration &config, const ::Plugin::Common_H
 }
 
 SyslogClient::connection_data SyslogClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::functions::destination_container recipient;
-	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
+	nscapi::protobuf::functions::destination_container recipient;
+	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	return connection_data(recipient, data->recipient);
 }
 
@@ -256,7 +256,7 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	//TODO: Map seveity!
 
@@ -282,7 +282,7 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 		messages.push_back(instance->parse_priority(severity, con.facility) + date + " " + tag + " " + message);
 	}
 	boost::tuple<int,std::wstring> ret = instance->send(con, messages);
-	nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
 	return NSCAPI::isSuccess;
 }
 

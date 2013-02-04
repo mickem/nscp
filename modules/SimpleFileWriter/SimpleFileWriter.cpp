@@ -84,7 +84,7 @@ struct payload_message_functor {
 };
 struct payload_result_functor {
 	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
-		return utf8::cvt<std::string>(nscapi::plugin_helper::translateReturn(nscapi::functions::gbp_to_nagios_status(payload.result())));
+		return utf8::cvt<std::string>(nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result())));
 	}
 };
 struct payload_alias_or_command_functor {
@@ -178,12 +178,12 @@ void SimpleFileWriter::handleNotification(const std::string &channel, const Plug
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
-			nscapi::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::hasFailed, "Failed to get lock");
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::hasFailed, "Failed to get lock");
 			return;
 		}
 		std::ofstream out;
 		out.open(filename_.c_str(), std::ios::out|std::ios::app);
 		out << key << std::endl;
 	}
-	nscapi::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::isSuccess, "message has been written");
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::isSuccess, "message has been written");
 }

@@ -97,7 +97,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 				return;
 			}
 			//make_submit_from_query(response, item.channel, item.alias);
-			nscapi::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::returnUNKNOWN, _T("Command was not found: ") + item.command, _T(""), response);
+			nscapi::protobuf::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::returnUNKNOWN, _T("Command was not found: ") + item.command, _T(""), response);
 			std::string result;
 			get_core()->submit_message(item.channel, response, result);
 		} else if (nscapi::report::matches(item.report, code)) {
@@ -108,7 +108,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			// @todo: allow renaming of commands here item.alias, 
 			// @todo this is broken, fix this (uses the wrong message)
 			std::wstring alias = item.alias;
-			nscapi::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id);
+			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id);
 			std::string result;
 			get_core()->submit_message(item.channel, response, result);
 		} else {

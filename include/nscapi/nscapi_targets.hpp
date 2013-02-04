@@ -13,6 +13,8 @@
 #include <nscapi/nscapi_protobuf_types.hpp>
 
 #include <net/net.hpp>
+#include <unicode_char.hpp>
+#include <utf8.hpp>
 
 namespace nscapi {
 	namespace targets {

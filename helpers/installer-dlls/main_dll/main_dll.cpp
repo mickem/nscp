@@ -38,6 +38,11 @@ std::string nsclient::logging::logger_helper::create(const std::wstring &module,
 		return "E" + utf8::cvt<std::string>(message);
 	return "I" + utf8::cvt<std::string>(message);
 }
+std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
+	if (level < NSCAPI::log_level::info)
+		return "E" + message;
+	return "I" + message;
+}
 
 
 class msi_logger : public nsclient::logging::logging_interface_impl {

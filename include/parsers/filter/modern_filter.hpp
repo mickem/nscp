@@ -241,7 +241,7 @@ namespace modern_filter {
 					entry.collect_int = engine->object_handler->bind_simple_int(wtag);
 					if (!entry.collect_int)
 						return;
-					leaf_performance_entry_type::iterator it = leaf_performance_data.find(tag);
+					typename leaf_performance_entry_type::iterator it = leaf_performance_data.find(tag);
 					if (it != leaf_performance_data.end()) {
 						if (engine == engine_crit)
 							it->second.crit_value = value;
@@ -297,7 +297,7 @@ namespace modern_filter {
 			return boost::make_tuple(matched, done);
 		}
 		void store_perf(boost::shared_ptr<Tobject> record, const std::string &alias) {
-			BOOST_FOREACH(const leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
+			BOOST_FOREACH(const typename leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
 				if (entry.second.type == parsers::where::type_int) {
 					long long value = entry.second.collect_int(record.get());
 					append_record(alias, entry.second, value);
@@ -311,7 +311,7 @@ namespace modern_filter {
 			data.number_value = value;
 			performance_instance_data.push_back(data);
 		}
-		void append_record(const perf_entry &key, std::wstring value) {
+		void append_record(const std::string &alias, const perf_entry &parent, std::wstring value) {
 			perf_instance_data data;
 			data.alias = alias;
 			data.parent = parent;
@@ -321,7 +321,7 @@ namespace modern_filter {
 
 		void fetch_perf() {
 			summary.fetch_perf();
-			BOOST_FOREACH(const performance_instance_data_type::value_type &entry, performance_instance_data) {
+			BOOST_FOREACH(const typename performance_instance_data_type::value_type &entry, performance_instance_data) {
 				std::cout << " * " << entry.parent.label << "." << entry.alias << " = " << entry.number_value << "; " << entry.parent.warn_value << ";" << entry.parent.crit_value << std::endl;
 			}
 		}

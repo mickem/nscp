@@ -157,9 +157,9 @@ namespace settings_manager {
 		if (!key.empty()) {
 			order.push_back(key);
 		} 
-		boot_ = provider_->expand_path(BOOT_CONF_LOCATION);
+		boot_ = utf8::cvt<std::string>(provider_->expand_path(BOOT_CONF_LOCATION));
 		if (boost::filesystem::is_regular_file(boot_)) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Boot.ini found in: ") + boot_.wstring());
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Boot.ini found in: ") + utf8::cvt<std::wstring>(boot_.string()));
 			for (int i=0;i<20;i++) {
 				std::wstring v = get_boot_string(_T("settings"), strEx::itos(i), _T(""));
 				if (!v.empty()) 
@@ -167,7 +167,7 @@ namespace settings_manager {
 			}
 		}
 		if (order.size() == 0) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("No entries found looking in (adding default): ") + boot_.wstring());
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("No entries found looking in (adding default): ") + utf8::cvt<std::wstring>(boot_.string()));
 			order.push_back(DEFAULT_CONF_OLD_LOCATION);
 			order.push_back(DEFAULT_CONF_INI_LOCATION);
 		}
@@ -249,7 +249,7 @@ namespace settings_manager {
 	bool init_settings(provider_interface *provider, std::wstring context) {
 		try {
 			settings_impl = new NSCSettingsImpl(provider);
-			get_core()->set_base(provider->expand_path(_T("${base-path}")));
+			get_core()->set_base(utf8::cvt<std::string>(provider->expand_path(_T("${base-path}"))));
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
 			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Failed to initialize settings: ") + e.getError());

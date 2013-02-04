@@ -39,7 +39,7 @@ using namespace nscp::helpers;
 
 NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned int bufLen) {
 	try {
-		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.expand_path(key), NSCAPI::isSuccess);
+		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(mainClient.expand_path(utf8::cvt<std::string>(key))), NSCAPI::isSuccess);
 	} catch (...) {
 		LOG_ERROR_STD(_T("Failed to getString: ") + key);
 		return NSCAPI::hasFailed;
@@ -89,7 +89,7 @@ int NSAPIGetSettingsBool(const wchar_t* section, const wchar_t* key, int default
 	}
 }
 NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.getBasePath().wstring(), NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(mainClient.getBasePath().string()), NSCAPI::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(APPLICATION_NAME), NSCAPI::isSuccess);

@@ -39,7 +39,7 @@ namespace nscapi {
 			return r;
 		}
 		boost::shared_ptr<real_path_key_type> path_key(boost::filesystem::path *val) {
-			boost::shared_ptr<real_path_key_type> r(new real_path_key_type(val, "", false));
+			boost::shared_ptr<real_path_key_type> r(new real_path_key_type(val, std::string(""), false));
 			return r;
 		}
 		boost::shared_ptr<string_key_type> string_key(std::string *val, std::string def) {

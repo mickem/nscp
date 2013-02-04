@@ -39,7 +39,7 @@ namespace po = boost::program_options;
 bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
-		root_ = get_core()->getBasePath();
+		root_ = utf8::cvt<std::string>(get_core()->getBasePath());
 		nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
 		lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
 		scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
@@ -83,7 +83,7 @@ bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
 		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, utf8::cvt<std::string>(file));
 		if (!ofile)
 			return false;
-		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->wstring() + _T(" as ") + alias + _T(")"));
+		NSC_DEBUG_MSG_STD(_T("Adding script: ") + utf8::cvt<std::wstring>(ofile->string()) + _T(" as ") + alias + _T(")"));
 		scripts_->add(utf8::cvt<std::string>(alias), ofile->string());
 		return true;
 	} catch (...) {
@@ -113,10 +113,10 @@ void LUAScript::query_fallback(const Plugin::QueryRequestMessage::Request &reque
 	return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, false, request, response, request_message);
 }
 
-void LUAScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool LUAScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	if (request.command() != "lua-execute" && request.command() != "lua-run"
 		&& request.command() != "run" && request.command() != "execute" && request.command() != "exec" && request.command() != "") {
-		return;
+		return false;
 	}
 
 	try {
@@ -129,16 +129,21 @@ void LUAScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &re
 		boost::program_options::variables_map vm;
 		nscapi::program_options::unrecognized_map script_options;
 		if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response))
-			return;
+			return true;
 
 		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
-		if (!ofile)
-			return nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
+		if (!ofile) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
+			return true;
+		}
 		scripts_->add_and_load("exec", utf8::cvt<std::string>((*ofile).string()));
+		return true;
 	} catch (const std::exception &e) {
-		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));
+		return true;
 	} catch (...) {
-		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script.");
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script.");
+		return true;
 	}
 }
 

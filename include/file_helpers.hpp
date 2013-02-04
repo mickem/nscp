@@ -2,6 +2,7 @@
 
 #include <boost/filesystem.hpp>
 #include <unicode_char.hpp>
+#include <utf8.hpp>
 
 namespace file_helpers {
 	class checks {
@@ -35,19 +36,20 @@ namespace file_helpers {
 
 	class meta {
 	public:
-		static boost::filesystem::path get_path(boost::filesystem::path path) {
-			return path.parent_path();
-		}
 		static std::wstring get_filename(boost::filesystem::path path) {
-			return path.filename().wstring();
+	// TOD: IMPORTATN!! Fix this!!!
+#ifdef WIN32
+			return utf8::cvt<std::wstring>(path.leaf().string());
+#else
+			return utf8::cvt<std::wstring>(path.leaf());
+#endif
 		}
 		static std::wstring get_path(std::wstring file) {
-			boost::filesystem::path path(file);
-			return path.parent_path().wstring();
+			boost::filesystem::path path(utf8::cvt<std::string>(file));
+			return utf8::cvt<std::wstring>(path.parent_path().string());
 		}
 		static std::wstring get_filename(std::wstring file) {
-			boost::filesystem::path path = file;
-			return path.filename().wstring();
+			return get_filename(boost::filesystem::path(utf8::cvt<std::string>(file)));
 		}
 	};
 

@@ -58,7 +58,7 @@ public:
 	 * @param file DLL filename (for which the exception is thrown)
 	 * @param error An error message (human readable format)
 	 */
-	NSPluginException(const std::wstring &module, const std::wstring &error) : error_(error), file_(module) {
+	NSPluginException(const std::wstring &module, const std::wstring &error) : file_(module), error_(error) {
 		msg_ = utf8::cvt<std::string>(error_ + _T(" in file: ") + file_);
 	}
 	NSPluginException(const std::wstring &module, const std::string &error) : file_(module) {
@@ -181,10 +181,10 @@ public:
 	}
 	std::wstring getModule() {
 #ifndef WIN32
-		std::wstring file = module_.get_module_name();
-		if (file.substr(0,3) == _T("lib"))
+		std::string file = module_.get_module_name();
+		if (file.substr(0,3) == "lib")
 			file = file.substr(3);
-		return file;
+		return utf8::cvt<std::wstring>(file);
 #else
 		return utf8::cvt<std::wstring>(module_.get_module_name());
 #endif

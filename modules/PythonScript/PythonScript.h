@@ -68,6 +68,6 @@ public:
 private:
 	bool loadScript(std::wstring alias, std::wstring script);
 	NSCAPI::nagiosReturn execute_and_load_python(std::list<std::wstring> args, std::wstring &message);
-	boost::optional<boost::filesystem::path> find_file(std::wstring file);
+	boost::optional<boost::filesystem::path> find_file(std::string file);
 
 };

@@ -204,10 +204,10 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 
 	if (!filter.has_matched) {
 		response->set_message(empty_detail);
-		response->set_result(nscapi::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(empty_state)));
+		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(empty_state)));
 		return;
 	}
 	filter.fetch_perf();
-	response->set_result(nscapi::functions::nagios_status_to_gpb(filter.returnCode));
+	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.returnCode));
 	response->set_message(filter.message);
 }

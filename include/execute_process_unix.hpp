@@ -21,7 +21,7 @@
 #pragma once
 
 namespace process {
-	int executeProcess(process::exec_arguments arguments, std::wstring &msg, std::wstring &perf) {
+	inline int executeProcess(process::exec_arguments arguments, std::string &msg, std::string &perf) {
 		NSCAPI::nagiosReturn result = NSCAPI::returnUNKNOWN;
 		return result;
 	}

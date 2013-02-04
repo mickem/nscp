@@ -395,12 +395,12 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 		}
 	}
 	if (!bNSClient) {
-		nscapi::functions::parse_performance_data(response, perf);
+		nscapi::protobuf::functions::parse_performance_data(response, perf);
 		if (msg.empty())
 			response->set_message("OK: All drives within bounds.");
 		else
 			response->set_message(utf8::cvt<std::string>(msg));
-		response->set_result(nscapi::functions::nagios_status_to_gpb(returnCode));
+		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
 	}
 }
 

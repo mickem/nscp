@@ -195,7 +195,7 @@ namespace settings {
 		/// @author mickem
 		virtual void save() {
 			SettingsInterfaceImpl::save();
-			SI_Error rc = ini.SaveFile(get_file_name().c_str());
+			SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to save file"));
 		}
@@ -237,14 +237,14 @@ namespace settings {
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
 				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-					add_child(_T("ini:///") + p.wstring());
+					add_child(_T("ini:///") + utf8::cvt<std::wstring>(p.string()));
 				}
 			}
 			if (!file_exists()) {
 				is_loaded_ = true;
 				return;
 			}
-			std::wstring f = get_file_name();
+			std::wstring f = utf8::cvt<std::wstring>(get_file_name().string());
 			ini.SetUnicode();
 			nsclient::logging::logger::get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
 			SI_Error rc = ini.LoadFile(f.c_str());
@@ -268,7 +268,7 @@ namespace settings {
 				error_str = _T("I/O error: ") + error::lookup::last_error();
 			throw settings_exception(msg + _T(" '") + get_context() + _T("': ") + error_str);
 		}
-		std::wstring get_file_name() {
+		boost::filesystem::path get_file_name() {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				if (filename_.size() > 0) {
@@ -282,13 +282,13 @@ namespace settings {
 				}
 				nsclient::logging::logger::get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Reading INI settings from: ") + filename_);
 			}
-			return filename_;
+			return utf8::cvt<std::string>(filename_);
 		}
 		bool file_exists() {
 			return boost::filesystem::is_regular(get_file_name());
 		}
 		virtual std::wstring get_info() {
-			return _T("INI settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
+			return _T("INI settings: (") + context_ + _T(", ") + utf8::cvt<std::wstring>(get_file_name().string()) + _T(")");
 		}
 		public:
 		static bool context_exists(settings::settings_core *core, std::wstring key) {

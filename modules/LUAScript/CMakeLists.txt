@@ -34,6 +34,7 @@ ENDIF()
 
 target_link_libraries(${TARGET}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${Boost_THREAD_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${LUA_LIB}
 	lua_nscp

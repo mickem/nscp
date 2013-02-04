@@ -26,27 +26,26 @@ namespace settings {
 	public:
 		settings_http(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
 			net::url url = net::parse(utf8::cvt<std::string>(context), 80);
-			std::wstring path = core->expand_path(DEFAULT_CACHE_PATH);
-			if (!file_helpers::checks::is_directory(path)) {
-				if (file_helpers::checks::exists(path)) 
-					throw new settings_exception(_T("Cache path not found: ") + path);
+			boost::filesystem::path path = utf8::cvt<std::string>(core->expand_path(DEFAULT_CACHE_PATH));
+			if (!boost::filesystem::is_directory(path)) {
+				if (boost::filesystem::is_regular_file(path)) 
+					throw new settings_exception(_T("Cache path not found: ") + utf8::cvt<std::wstring>(path.string()));
 				boost::filesystem::create_directories(path);
-				if (!file_helpers::checks::is_directory(path))
-					throw new settings_exception(_T("Cache path not found: ") + path);
+				if (!boost::filesystem::is_directory(path))
+					throw new settings_exception(_T("Cache path not found: ") + utf8::cvt<std::wstring>(path.string()));
 			}
-			boost::filesystem::path wp(path);
-			wp /= _T("cached.ini");
-			std::ofstream os(utf8::cvt<std::string>(wp.string()).c_str());
+			path /= "cached.ini";
+			std::ofstream os(path.string().c_str());
 			std::string error;
 			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
 				os.close();
 				get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
 			}
 			os.close();
-			if (!boost::filesystem::is_regular_file(wp)) {
-				throw new settings_exception(_T("Failed to find cached settings: ") + wp.wstring());
+			if (!boost::filesystem::is_regular_file(path)) {
+				throw new settings_exception(_T("Failed to find cached settings: ") + utf8::cvt<std::wstring>(path.string()));
 			}
-			add_child(_T("ini://") + wp.wstring());
+			add_child(_T("ini://") + utf8::cvt<std::wstring>(path.string()));
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"

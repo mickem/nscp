@@ -7,6 +7,8 @@
 #include <boost/function/function1.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#include <checkHelpers.hpp>
+
 namespace nscapi {
 	namespace program_options {
 

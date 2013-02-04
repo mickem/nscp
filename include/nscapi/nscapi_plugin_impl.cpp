@@ -51,44 +51,44 @@ void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
 }
 
 NSCAPI::nagiosReturn nscapi::impl::simple_command_handler::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
+	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_query_request(char_command, request);
 	std::wstring msg, perf;
 
 	NSCAPI::nagiosReturn ret = handleCommand(data.target, boost::algorithm::to_lower_copy(data.command), data.args, msg, perf);
-	nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
+	nscapi::protobuf::functions::create_simple_query_response(data.command, ret, msg, perf, response);
 	return ret;
 }
 
 
 NSCAPI::nagiosReturn nscapi::impl::utf8_command_handler::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data_utf8 data = nscapi::functions::parse_simple_query_request_utf8(char_command, request);
+	nscapi::protobuf::types::decoded_simple_command_data_utf8 data = nscapi::protobuf::functions::parse_simple_query_request_utf8(char_command, request);
 	std::string msg, perf;
 
 	NSCAPI::nagiosReturn ret = handleCommand(data.target, boost::algorithm::to_lower_copy(data.command), data.args, msg, perf);
-	nscapi::functions::create_simple_query_response(data.command, ret, msg, perf, response);
+	nscapi::protobuf::functions::create_simple_query_response(data.command, ret, msg, perf, response);
 	return ret;
 }
 
 
 
 NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request(char_command, request);
 	std::wstring result;
 	NSCAPI::nagiosReturn ret = commandLineExec(data.command, data.args, result);
 	if (ret == NSCAPI::returnIgnored)
 		return NSCAPI::returnIgnored;
-	nscapi::functions::create_simple_exec_response(data.command, ret, result, response);
+	nscapi::protobuf::functions::create_simple_exec_response(data.command, ret, result, response);
 	return ret;
 }
 
 NSCAPI::nagiosReturn nscapi::impl::simple_submission_handler::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
 	try {
 		std::wstring source, command, msg, perf;
-		int code = nscapi::functions::parse_simple_submit_request(request, source, command, msg, perf);
+		int code = nscapi::protobuf::functions::parse_simple_submit_request(request, source, command, msg, perf);
 		NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, source, command, code, msg, perf);
 		if (ret == NSCAPI::returnIgnored)
 			return NSCAPI::returnIgnored;
-		nscapi::functions::create_simple_submit_response(channel, command, ret, _T(""), response);
+		nscapi::protobuf::functions::create_simple_submit_response(channel, command, ret, _T(""), response);
 	} catch (std::exception &e) {
 		nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + format::strip_ctrl_chars(request) + ": " + e.what()));
 	} catch (...) {

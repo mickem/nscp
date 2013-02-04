@@ -6,8 +6,8 @@
 
 std::string do_parse(std::string str) {
 	Plugin::QueryResponseMessage::Response r;
-	nscapi::functions::parse_performance_data(&r, str);
-	return nscapi::functions::build_performance_data(r);
+	nscapi::protobuf::functions::parse_performance_data(&r, str);
+	return nscapi::protobuf::functions::build_performance_data(r);
 }
 
 TEST(PerfDataTest, empty_string) {

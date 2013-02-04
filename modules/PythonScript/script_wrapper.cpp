@@ -150,7 +150,6 @@ void script_wrapper::sleep(unsigned int ms) {
 		thread_unlocker unlocker;
 		{
 			boost::this_thread::sleep(boost::posix_time::milliseconds(ms));
-
 		}
 	}
 }
@@ -531,7 +530,7 @@ tuple script_wrapper::command_wrapper::submit(std::string channel, std::string r
 		return boost::python::make_tuple(false,std::string("Failed to submit message"));
 	}
 	std::wstring err;
-	nscapi::functions::parse_simple_submit_response(response, err);
+	nscapi::protobuf::functions::parse_simple_submit_response(response, err);
 	return boost::python::make_tuple(ret==NSCAPI::isSuccess,err);
 }
 

@@ -466,7 +466,7 @@ int NSCPlugin::commandLineExec(const wchar_t* command, const char* request, cons
 
 }
 boost::filesystem::path NSCPlugin::get_filename(boost::filesystem::path folder, std::wstring module) {
-	return dll::dll_impl::fix_module_name(folder / module);
+	return dll::dll_impl::fix_module_name(folder / utf8::cvt<std::string>(module));
 }
 bool NSCPlugin::is_duplicate(boost::filesystem::path file, std::wstring alias) {
 	if (alias.empty() && alias_.empty())

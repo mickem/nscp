@@ -180,12 +180,12 @@ void SimpleCache::handleNotification(const std::string &channel, const Plugin::Q
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
-			nscapi::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::hasFailed, "Failed to get lock");
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::hasFailed, "Failed to get lock");
 			return;
 		}
 		cache_[key] = data;
 	}
-	nscapi::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::isSuccess, "message has been cached");
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::isSuccess, "message has been cached");
 }
 
 void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -220,7 +220,7 @@ void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &reques
 
 		boost::shared_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
-			return nscapi::functions::set_response_bad(*response, std::string("Failed to get lock"));
+			return nscapi::protobuf::functions::set_response_bad(*response, std::string("Failed to get lock"));
 		}
 		std::map<std::string,std::string>::const_iterator cit = cache_.find(key);
 		if (cit != cache_.end())
@@ -230,6 +230,6 @@ void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &reques
 		response->ParseFromString(*data);
 	} else {
 		response->set_message(not_found_msg);
-		response->set_result(nscapi::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(not_found_msg_code)));
+		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(not_found_msg_code)));
 	}
 }

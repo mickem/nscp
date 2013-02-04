@@ -28,6 +28,10 @@
 
 #include <boost/lexical_cast.hpp>
 
+#ifndef WIN32
+#include <stdio.h>
+#include <string.h>
+#endif
 #ifdef __GNUC__
 #include <iconv.h>
 #include <errno.h>

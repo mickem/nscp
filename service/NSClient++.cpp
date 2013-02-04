@@ -312,13 +312,13 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
 	}
 	if (!active) {
-		boost::filesystem::path pluginPath = expand_path(_T("${module-path}"));
+		boost::filesystem::path pluginPath = expand_path("${module-path}");
 		boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
 		for ( boost::filesystem::directory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
 			if ( !is_directory(itr->status()) ) {
 				boost::filesystem::path file= itr->path().filename();
-				if (is_module(pluginPath  / file) && !contains_plugin(ret, _T(""), file.wstring()))
-					ret.insert(plugin_alias_list_type::value_type(_T(""), file.wstring()));
+				if (is_module(pluginPath  / file) && !contains_plugin(ret, _T(""), utf8::cvt<std::wstring>(file.string())))
+					ret.insert(plugin_alias_list_type::value_type(_T(""), utf8::cvt<std::wstring>(file.string())));
 			}
 		}
 	} 
@@ -329,9 +329,9 @@ void NSClientT::preboot_load_all_plugin_files() {
 	boost::filesystem::path pluginPath;
 	{
 		try {
-			pluginPath = expand_path(_T("${module-path}"));
+			pluginPath = expand_path("${module-path}");
 		} catch (std::exception &e) {
-			LOG_CRITICAL_CORE_STD(_T("Failed to load plugins: ") + to_wstring(e.what()) + _T(" for ") + expand_path(_T("${module-path}")));
+			LOG_CRITICAL_CORE(std::string("Failed to load plugins: ") + e.what() + " for " + expand_path("${module-path}"));
 			return;
 		}
 		plugin_alias_list_type plugins = find_all_plugins(false);
@@ -339,7 +339,7 @@ void NSClientT::preboot_load_all_plugin_files() {
 
 		BOOST_FOREACH(v, plugins) {
 			try {
-				addPlugin(pluginPath / v.second, v.first);
+				addPlugin(pluginPath / utf8::cvt<std::string>(v.second), v.first);
 			} catch (const NSPluginException &e) {
 				if (e.file_.find(_T("FileLogger")) != std::wstring::npos) {
 					LOG_DEBUG_CORE_STD(_T("Failed to register plugin: ") + e.wwhat());
@@ -358,7 +358,7 @@ void NSClientT::preboot_load_all_plugin_files() {
 
 struct nscp_settings_provider : public settings_manager::provider_interface {
 	virtual std::wstring expand_path(std::wstring file) {
-		return mainClient.expand_path(file);
+		return utf8::cvt<std::wstring>(mainClient.expand_path(utf8::cvt<std::string>(file)));
 	}
 	std::wstring get_data(std::wstring key) {
 		// TODO
@@ -539,15 +539,15 @@ bool NSClientT::boot_init(std::wstring log_level) {
 bool NSClientT::boot_load_all_plugins() {
 	LOG_DEBUG_CORE(_T("booting::loading plugins"));
 	try {
-		boost::filesystem::path pluginPath = expand_path(_T("${module-path}"));
+		boost::filesystem::path pluginPath = expand_path("${module-path}");
 		if (!boost::filesystem::is_directory(pluginPath)) {
-			LOG_ERROR_CORE_STD(_T("Failed to find modules folder: ") + pluginPath.native());
+			LOG_ERROR_CORE("Failed to find modules folder: " + pluginPath.string());
 			return false;
 		}
 		plugin_alias_list_type plugins = find_all_plugins(true);
 		std::pair<std::wstring,std::wstring> v;
 		BOOST_FOREACH(v, plugins) {
-			std::wstring file = NSCPlugin::get_plugin_file(v.second);
+			std::string file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(v.second));
 			std::wstring alias = v.first;
 // 			if (!alias.empty()) {
 // 				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file + _T(" as ") + alias);
@@ -562,11 +562,11 @@ bool NSClientT::boot_load_all_plugins() {
 				} else {
 					LOG_ERROR_CORE_STD(_T("Exception raised: '") + e.error_ + _T("' in module: ") + e.file_);
 				}
-			} catch (std::exception e) {
-				LOG_ERROR_CORE_STD(_T("exception loading plugin: ") + file + strEx::string_to_wstring(e.what()));
+			} catch (const std::exception &e) {
+				LOG_ERROR_CORE(std::string("exception loading plugin: ") + file + utf8::utf8_from_native(e.what()));
 				return false;
 			} catch (...) {
-				LOG_ERROR_CORE_STD(_T("Unknown exception loading plugin: ") + file);
+				LOG_ERROR_CORE(std::string("Unknown exception loading plugin: ") + file);
 				return false;
 			}
 		}
@@ -585,8 +585,8 @@ bool NSClientT::boot_load_plugin(std::wstring plugin) {
 		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == _T(".dll"))
 			plugin = plugin.substr(0, plugin.length()-4);
 
-		std::wstring plugin_file = NSCPlugin::get_plugin_file(plugin);
-		boost::filesystem::path pluginPath = expand_path(_T("${module-path}"));
+		std::string plugin_file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(plugin));
+		boost::filesystem::path pluginPath = expand_path("${module-path}");
 		boost::filesystem::path file = pluginPath / plugin_file;
 		if (boost::filesystem::is_regular(file)) {
 			plugin_type plugin = addPlugin(file, _T(""));
@@ -842,9 +842,9 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::wstring alias) {
 	{
 		if (alias.empty()) {
-			LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.wstring() + _T(" without alias)"));
+			LOG_DEBUG_CORE_STD(_T("addPlugin(") + utf8::cvt<std::wstring>(file.string()) + _T(" without alias)"));
 		} else {
-			LOG_DEBUG_CORE_STD(_T("addPlugin(") + file.wstring() + _T(" as ") + alias + _T(")"));
+			LOG_DEBUG_CORE_STD(_T("addPlugin(") + utf8::cvt<std::wstring>(file.string()) + _T(" as ") + alias + _T(")"));
 		}
 		// Check if this is a duplicate plugin (if so return that instance)
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
@@ -913,13 +913,13 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 		std::list<std::wstring> args;
 		strEx::parse_command(arguments, args);
 		std::string request, response;
-		nscapi::functions::create_simple_query_request(command, args, request);
+		nscapi::protobuf::functions::create_simple_query_request(command, args, request);
 		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), request, response);
 		if (response.empty()) {
 			LOG_ERROR_CORE(_T("No data retutned from command"));
 			return NSCAPI::returnUNKNOWN;
 		}
-		nscapi::functions::parse_simple_query_response(response, msg, perf);
+		nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 		return ret;
 	}
 }
@@ -959,7 +959,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 			nsclient::commands::plugin_type plugin = commands_.get(cmd);
 			if (!plugin) {
 				LOG_ERROR_CORE(_T("No handler for command: ") + cmd + _T(" avalible commands: ") + commands_.to_wstring());
-				nscapi::functions::create_simple_query_response_unknown(cmd, _T("No handler for command: ") + cmd, response);
+				nscapi::protobuf::functions::create_simple_query_response_unknown(cmd, _T("No handler for command: ") + cmd, response);
 				return NSCAPI::returnIgnored;
 			}
 			NSCAPI::nagiosReturn c = plugin->handleCommand(cmd.c_str(), request, response);
@@ -1003,7 +1003,7 @@ int NSClientT::load_and_run(std::wstring module, run_function fun, std::list<std
 	}
 	if (!found && !module.empty()) {
 		try {
-			boost::filesystem::path file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::path(_T("modules")), module);
+			boost::filesystem::path file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::path("modules"), module);
 			if (boost::filesystem::is_regular(file)) {
 				plugin_type plugin = addPlugin(file, _T(""));
 				if (plugin) {
@@ -1045,7 +1045,7 @@ int NSClientT::simple_exec(std::wstring command, std::vector<std::wstring> argum
 	std::string request;
 	std::list<std::string> responses;
 	std::list<std::wstring> errors;
-	nscapi::functions::create_simple_exec_request(command, arguments, request);
+	nscapi::protobuf::functions::create_simple_exec_request(command, arguments, request);
 	std::wstring module;
 	std::wstring::size_type pos = command.find(L'.');
 	if (pos != std::wstring::npos) {
@@ -1056,7 +1056,7 @@ int NSClientT::simple_exec(std::wstring command, std::vector<std::wstring> argum
 
 	BOOST_FOREACH(std::string &r, responses) {
 		try {
-			ret = nscapi::functions::parse_simple_exec_result(r, resp);
+			ret = nscapi::protobuf::functions::parse_simple_exec_result(r, resp);
 		} catch (std::exception &e) {
 			resp.push_back(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
 			LOG_ERROR_CORE_STD(resp.back());
@@ -1084,7 +1084,7 @@ int NSClientT::simple_query(std::wstring module, std::wstring command, std::vect
 	std::string request;
 	std::list<std::string> responses;
 	std::list<std::wstring> errors;
-	nscapi::functions::create_simple_query_request(command, arguments, request);
+	nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
 	int ret = load_and_run(module, boost::bind(&query_helper, _1, command, arguments, request, &responses), errors);
 
 	nsclient::commands::plugin_type plugin = commands_.get(command);
@@ -1097,7 +1097,7 @@ int NSClientT::simple_query(std::wstring module, std::wstring command, std::vect
 	ret = plugin->handleCommand(command.c_str(), request, response);
 	try {
 		std::wstring msg, perf;
-		nscapi::functions::parse_simple_query_response(response, msg, perf);
+		nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 		resp.push_back(msg + _T("|") + perf);
 	} catch (std::exception &e) {
 		resp.push_back(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
@@ -1151,7 +1151,7 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_target, const wc
 	}
 
 	Plugin::ExecuteResponseMessage response_message;
-	nscapi::functions::create_simple_header(response_message.mutable_header());
+	nscapi::protobuf::functions::create_simple_header(response_message.mutable_header());
 
 	BOOST_FOREACH(std::string r, responses) {
 		Plugin::ExecuteResponseMessage tmp;
@@ -1288,7 +1288,7 @@ boost::filesystem::path NSClientT::getBasePath(void) {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
-		return _T("FATAL ERROR");
+		return "";
 	}
 	if (!basePath.empty())
 		return basePath;
@@ -1301,7 +1301,7 @@ boost::filesystem::path NSClientT::getBasePath(void) {
 	basePath = path.substr(0, pos) + _T("\\");
 	delete [] buffer;
 #else 
-	basePath = to_wstring(boost::filesystem::initial_path().string());
+	basePath = boost::filesystem::initial_path();
 #endif
 	try {
 		settings_manager::get_core()->set_base(basePath);
@@ -1320,7 +1320,7 @@ boost::filesystem::path NSClientT::getTempPath() {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
-		return _T("FATAL ERROR");
+		return "";
 	}
 	if (!tempPath.empty())
 		return tempPath;
@@ -1340,7 +1340,7 @@ boost::filesystem::path NSClientT::getTempPath() {
 		}
 	}
 #else
-	tempPath = _T("/tmp");
+	tempPath = "/tmp";
 #endif
 	return tempPath;
 }
@@ -1417,45 +1417,44 @@ __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, in
 }
 #endif
 
-std::wstring NSClientT::getFolder(std::wstring key) {
-	if (key == _T("certificate-path")) {
-		return _T("${shared-path}/security");
+std::string NSClientT::getFolder(std::string key) {
+	if (key == "certificate-path") {
+		return "${shared-path}/security";
 	}
-	if (key == _T("module-path")) {
-		return _T("${shared-path}/modules");
+	if (key == "module-path") {
+		return "${shared-path}/modules";
 	}
-	if (key == _T("temp")) {
-		return getTempPath().wstring();
+	if (key == "temp") {
+		return getTempPath().string();
 	}
-	if (key == _T("shared-path") || key == _T("base-path") || key == _T("exe-path")) {
-		return getBasePath().wstring();
+	if (key == "shared-path" || key == "base-path" || key == "exe-path") {
+		return getBasePath().string();
 	}
 #ifdef WIN32
-	if (key == _T("common-appdata")) {
+	if (key == "common-appdata") {
 		wchar_t buf[MAX_PATH+1];
 		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE)) {
-			return std::wstring(buf);
+			return utf8::cvt<std::string>(buf);
 		}
-		return _T("");
+		return getBasePath().string();
 	}
 #else
-	if (key == _T("etc")) {
-		return _T("/etc");
+	if (key == "etc") {
+		return "/etc";
 	}
 #endif
-	return getBasePath().wstring();
+	return getBasePath().string();
 }
 
-std::wstring NSClientT::expand_path(std::wstring file) {
-	std::wstring::size_type pos = file.find('$');
-	while (pos != std::wstring::npos) {
-		std::wstring::size_type pstart = file.find('{', pos);
-		std::wstring::size_type pend = file.find('}', pstart);
-		std::wstring key = file.substr(pstart+1, pend-2);
-		//LOG_DEBUG_CORE(_T("Found key: ") + key);
+std::string NSClientT::expand_path(std::string file) {
+	std::string::size_type pos = file.find('$');
+	while (pos != std::string::npos) {
+		std::string::size_type pstart = file.find('{', pos);
+		std::string::size_type pend = file.find('}', pstart);
+		std::string key = file.substr(pstart+1, pend-2);
 
-		std::wstring tmp = file;
-		strEx::replace(file, _T("${") + key + _T("}"), getFolder(key));
+		std::string tmp = file;
+		strEx::replace(file, "${" + key + "}", getFolder(key));
 		if (file == tmp)
 			pos = file.find_first_of('$', pos);
 		else
@@ -1489,7 +1488,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 		std::string response_string;
 		Plugin::SettingsRequestMessage request;
 		Plugin::SettingsResponseMessage response;
-		nscapi::functions::create_simple_header(response.mutable_header());
+		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
 		modules_type module_cache;
 		request.ParseFromArray(request_buffer, request_buffer_len);
 		for (int i=0;i<request.payload_size();i++) {
@@ -1598,7 +1597,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 		std::string response_string;
 		Plugin::RegistryRequestMessage request;
 		Plugin::RegistryResponseMessage response;
-		nscapi::functions::create_simple_header(response.mutable_header());
+		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
 		modules_type module_cache;
 		request.ParseFromArray(request_buffer, request_buffer_len);
 		for (int i=0;i<request.payload_size();i++) {

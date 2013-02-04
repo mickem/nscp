@@ -34,7 +34,7 @@ CheckMKServer::CheckMKServer() {
 CheckMKServer::~CheckMKServer() {}
 
 bool CheckMKServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
-	root_ = get_core()->getBasePath();
+	root_ = utf8::cvt<std::string>(get_core()->getBasePath());
 	nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
 	lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
 	lua_runtime_->register_plugin(boost::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
@@ -166,7 +166,7 @@ bool CheckMKServer::add_script(std::wstring alias, std::wstring file) {
 		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, utf8::cvt<std::string>(file));
 		if (!ofile)
 			return false;
-		NSC_DEBUG_MSG_STD(_T("Adding script: ") + ofile->wstring() + _T(" as ") + alias + _T(")"));
+		NSC_DEBUG_MSG_STD(_T("Adding script: ") + utf8::cvt<std::wstring>(ofile->string()) + _T(" as ") + alias + _T(")"));
 		scripts_->add(utf8::cvt<std::string>(alias), ofile->string());
 		return true;
 	} catch (...) {

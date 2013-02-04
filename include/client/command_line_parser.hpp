@@ -65,8 +65,8 @@ namespace client {
 
 		std::string title;
 		std::string default_command;
-		boost::program_options::options_description local;
 		data_type data;
+		boost::program_options::options_description local;
 		handler_type handler;
 		target_lookup_type target_lookup;
 

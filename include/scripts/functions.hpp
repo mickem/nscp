@@ -5,6 +5,7 @@
 
 #include <NSCAPI.h>
 #include <unicode_char.hpp>
+#include <utf8.hpp>
 
 
 struct script_container {
@@ -30,11 +31,11 @@ struct script_container {
 			return false;
 		}
 		if (!boost::filesystem::exists(script)) {
-			error = _T("Script not found: ") + script.wstring();
+			error = _T("Script not found: ") + utf8::cvt<std::wstring>(script.string());
 			return false;
 		}
 		if (!boost::filesystem::is_regular(script)) {
-			error = _T("Script is not a file: ") + script.wstring();
+			error = _T("Script is not a file: ") + utf8::cvt<std::wstring>(script.string());
 			return false;
 		}
 		return true;
@@ -47,6 +48,6 @@ struct script_container {
 		list.push_back(script_container(script));
 	}
 	std::wstring to_wstring() {
-		return script.wstring() + _T(" as ") + alias;
+		return utf8::cvt<std::wstring>(script.string()) + _T(" as ") + alias;
 	}
 };

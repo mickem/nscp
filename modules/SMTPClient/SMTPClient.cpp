@@ -138,10 +138,10 @@ void SMTPClient::query_fallback(const Plugin::QueryRequestMessage::Request &requ
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void SMTPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool SMTPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
 	setup(config, request_message.header());
-	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
+	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void SMTPClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
@@ -158,13 +158,13 @@ void SMTPClient::handleNotification(const std::string &channel, const Plugin::Su
 void SMTPClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 
  	desc.add_options()
-		("sender", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "sender", _1)), 
+		("sender", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "sender", _1)), 
 			"Length of payload (has to be same as on the server)")
 
-		("recipient", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "recipient", _1)), 
+		("recipient", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "recipient", _1)), 
 			"Length of payload (has to be same as on the server)")
 
-		("template", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "template", _1)), 
+		("template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "template", _1)), 
 		"Do not initial an ssl handshake with the server, talk in plaintext.")
  		;
 }
@@ -183,7 +183,7 @@ void SMTPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	if (opt) {
 		nscapi::targets::target_object t = *opt;
-		nscapi::functions::destination_container def = t.to_destination_container();
+		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
 		config.data->recipient.apply(def);
 	}
 	config.data->host_self.id = "self";
@@ -194,8 +194,8 @@ void SMTPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 }
 
 SMTPClient::connection_data SMTPClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::functions::destination_container recipient;
-	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
+	nscapi::protobuf::functions::destination_container recipient;
+	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	return connection_data(recipient, data->recipient);
 }
 
@@ -211,7 +211,7 @@ int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 	connection_data con = parse_header(request_header, data);
 	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		const ::Plugin::QueryResponseMessage::Response& payload = request_message.payload(i);
@@ -223,7 +223,7 @@ int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 		recipients.push_back(con.recipient_str);
 		client->send_mail(con.sender, recipients, "Hello world\n");
 		io_service.run();
-		nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", NSCAPI::returnOK, "Message send successfully");
+		nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", NSCAPI::returnOK, "Message send successfully");
 	}
 	return NSCAPI::isSuccess;
 

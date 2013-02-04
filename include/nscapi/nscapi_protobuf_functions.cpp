@@ -841,5 +841,54 @@ namespace nscapi {
 			}
 			return ss.str();
 		}
+
+		Plugin::Common::ResultCode functions::nagios_status_to_gpb(int ret)
+		{
+			if (ret == NSCAPI::returnOK)
+				return Plugin::Common_ResultCode_OK;
+			if (ret == NSCAPI::returnWARN)
+				return Plugin::Common_ResultCode_WARNING;
+			if (ret == NSCAPI::returnCRIT)
+				return Plugin::Common_ResultCode_CRITCAL;
+			return Plugin::Common_ResultCode_UNKNOWN;
+		}
+
+		int functions::gbp_to_nagios_status(Plugin::Common::ResultCode ret)
+		{
+			if (ret == Plugin::Common_ResultCode_OK)
+				return NSCAPI::returnOK;
+			if (ret == Plugin::Common_ResultCode_WARNING)
+				return NSCAPI::returnWARN;
+			if (ret == Plugin::Common_ResultCode_CRITCAL)
+				return NSCAPI::returnCRIT;
+			return NSCAPI::returnUNKNOWN;
+		}
+
+		Plugin::Common::ResultCode functions::parse_nagios(const std::string &status)
+		{
+			std::string lcstat = boost::to_lower_copy(status);
+			if (lcstat == "o" || lcstat == "ok")
+				return Plugin::Common_ResultCode_OK;
+			if (lcstat == "w" || lcstat == "warn" || lcstat == "warning")
+				return Plugin::Common_ResultCode_WARNING;
+			if (lcstat == "c" || lcstat == "crit" || lcstat == "critical")
+				return Plugin::Common_ResultCode_CRITCAL;
+			return Plugin::Common_ResultCode_UNKNOWN;
+		}
+
+		NSCAPI::messageTypes functions::gpb_to_log(Plugin::LogEntry::Entry::Level ret)
+		{
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_CRITICAL)
+				return NSCAPI::log_level::critical;
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_DEBUG)
+				return NSCAPI::log_level::debug;
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_ERROR)
+				return NSCAPI::log_level::error;
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_INFO)
+				return NSCAPI::log_level::info;
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_WARNING)
+				return NSCAPI::log_level::warning;
+			return NSCAPI::log_level::error;
+		}
 	}
 }

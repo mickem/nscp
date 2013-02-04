@@ -10,12 +10,27 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <unicode_char.hpp>
 #include <strEx.h>
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <settings/client/settings_client_interface.hpp>
+
+
+namespace boost
+{
+	template<>
+	inline std::wstring lexical_cast<std::wstring, boost::filesystem::path>(const boost::filesystem::path& arg) {
+		return utf8::cvt<std::wstring>(arg.string());
+	}
+
+	template<>
+	inline std::string lexical_cast<std::string, boost::filesystem::path>(const boost::filesystem::path& arg) {
+		return utf8::cvt<std::string>(arg.string());
+	}
+}
 
 namespace nscapi {
 	namespace settings_helper {
@@ -91,21 +106,21 @@ namespace nscapi {
 				}
 			}
 		};
-		template<class T>
-		class typed_path_value : public typed_key<T> {
+		template<class T, class TString>
+		class typed_xpath_value : public typed_key<T> {
 		public:
-			typed_path_value(const T& v, bool has_default) : typed_key<T>(v, has_default) {}
+			typed_xpath_value(const T& v, bool has_default) : typed_key<T>(v, has_default) {}
 			virtual NSCAPI::settings_type get_type() const {
 				return NSCAPI::key_string;
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const {
-				std::wstring dummy(_T("$$DUMMY_VALUE_DO_NOT_USE$$"));
+				TString dummy(utf8::cvt<TString>("$$DUMMY_VALUE_DO_NOT_USE$$"));
 				if (typed_key<T>::has_default_)
-					dummy = typed_key<T>::default_value_as_text_;
-				std::wstring data = core_->get_string(path, key, dummy);
+					dummy = utf8::cvt<TString>(typed_key<T>::default_value_as_text_);
+				TString data = utf8::cvt<TString>(core_->get_string(path, key, utf8::cvt<std::wstring>(dummy)));
 				if (typed_key<T>::has_default_ || data != dummy) {
 					try {
-						T value = boost::lexical_cast<T>(core_->expand_path(data));
+						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::wstring>(data)));
 						update_target(&value);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
@@ -113,16 +128,17 @@ namespace nscapi {
 				}
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
-				std::wstring dummy(_T("$$DUMMY_VALUE_DO_NOT_USE$$"));
+				TString tag(utf8::cvt<TString>("$$DUMMY_VALUE_DO_NOT_USE$$"));
+				TString dummy = tag;
 				if (typed_key<T>::has_default_)
-					dummy = typed_key<T>::default_value_as_text_;
-				std::wstring data = core_->get_string(parent, key, dummy);
+					dummy = utf8::cvt<TString>(typed_key<T>::default_value_as_text_);
+				TString data = utf8::cvt<TString>(core_->get_string(parent, key, utf8::cvt<std::wstring>(dummy)));
 				if (typed_key<T>::has_default_ || data != dummy) 
 					dummy = data;
-				data = core_->get_string(path, key, dummy);
-				if (typed_key<T>::has_default_ || data != _T("$$DUMMY_VALUE_DO_NOT_USE$$")) {
+				data = utf8::cvt<TString>(core_->get_string(path, key, utf8::cvt<std::wstring>(dummy)));
+				if (typed_key<T>::has_default_ || data != tag) {
 					try {
-						T value = boost::lexical_cast<T>(core_->expand_path(data));
+						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::wstring>(data)));
 						update_target(&value);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
@@ -130,7 +146,7 @@ namespace nscapi {
 				}
 			}
 		};
-		
+
 		template<class T>
 		class typed_int_value : public typed_key<T> {
 		public:
@@ -207,10 +223,10 @@ namespace nscapi {
 			}
 		};
 
-		template<class T, class TBase>
+		template<class T, class TBase, class TDefaultT=T>
 		class typed_key_value : public TBase {
 		public:
-			typed_key_value(T* store_to, const T& v, bool has_default) : TBase(v, has_default), store_to_(store_to) {}
+			typed_key_value(T* store_to, const TDefaultT& v, bool has_default) : TBase(v, has_default), store_to_(store_to) {}
 
 			virtual void update_target(T *value) const {
 				if (store_to_)
@@ -254,9 +270,9 @@ namespace nscapi {
 
 		typedef typed_key_value<std::wstring, typed_string_value<std::wstring> > wstring_key_type;
 		typedef typed_key_value<std::string, typed_string_value<std::string> > string_key_type;
-		typedef typed_key_value<std::wstring, typed_path_value<std::wstring> > wpath_key_type;
-		typedef typed_key_value<std::string, typed_path_value<std::string> > path_key_type;
-		typedef typed_key_value<boost::filesystem::path, typed_path_value<boost::filesystem::path> > real_path_key_type;
+		typedef typed_key_value<std::wstring, typed_xpath_value<std::wstring, std::wstring> > wpath_key_type;
+		typedef typed_key_value<std::string, typed_xpath_value<std::string, std::string> > path_key_type;
+		typedef typed_key_value<boost::filesystem::path, typed_xpath_value<boost::filesystem::path, std::string> > real_path_key_type;
 		typedef typed_key_value<unsigned int, typed_int_value<unsigned int> > uint_key_type;
 		typedef typed_key_value<int, typed_int_value<int> > int_key_type;
 		typedef typed_key_value<std::size_t, typed_int_value<std::size_t> > size_key_type;
@@ -308,13 +324,13 @@ namespace nscapi {
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > path_fun_key(boost::function<void (T)> fun, T def) {
-			boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > r(new typed_key_fun<T, typed_path_value<T> >(fun, def, true));
+		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > path_fun_key(boost::function<void (T)> fun, T def) {
+			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > r(new typed_key_fun<T, typed_xpath_value<T, std::wstring> >(fun, def, true));
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > path_fun_key(boost::function<void (T)> fun) {
-			boost::shared_ptr<typed_key_fun<T, typed_path_value<T> > > r(new typed_key_fun<T, typed_path_value<T> >(fun, T(), false));
+		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > path_fun_key(boost::function<void (T)> fun) {
+			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > r(new typed_key_fun<T, typed_xpath_value<T, std::wstring> >(fun, T(), false));
 			return r;
 		}
 

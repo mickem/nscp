@@ -18,11 +18,11 @@ nscp::packet handler_impl::process(const nscp::packet &packet) {
 		try {
 			NSCAPI::nagiosReturn returncode = handle_query_request(packet.payload, msg, reply);
 			if (returncode == NSCAPI::returnIgnored)
-				nscapi::functions::create_simple_query_response_unknown(command, _T("Command was not found: ") + command, _T(""), reply);
+				nscapi::protobuf::functions::create_simple_query_response_unknown(command, _T("Command was not found: ") + command, _T(""), reply);
 		} catch (const nscp::nscp_exception &e) {
-			nscapi::functions::create_simple_query_response_unknown(command, _T("Processing error: ") + command + _T(": ") + utf8::cvt<std::wstring>(e.what()), _T(""), reply);
+			nscapi::protobuf::functions::create_simple_query_response_unknown(command, _T("Processing error: ") + command + _T(": ") + utf8::cvt<std::wstring>(e.what()), _T(""), reply);
 		} catch (const std::exception &e) {
-			nscapi::functions::create_simple_query_response_unknown(command, _T("Unknown error processing: ") + command + _T(": ") + utf8::cvt<std::wstring>(e.what()), _T(""), reply);
+			nscapi::protobuf::functions::create_simple_query_response_unknown(command, _T("Unknown error processing: ") + command + _T(": ") + utf8::cvt<std::wstring>(e.what()), _T(""), reply);
 		}
 		return nscp::factory::create_query_response(reply);
 	} else if (nscp::checks::is_submit_request(packet)) {
@@ -70,9 +70,9 @@ NSCAPI::nagiosReturn handler_impl::handle_query_request(const std::string &reque
 		std::wstring command = utf8::cvt<std::wstring>(payload.command());
 
 		if (command.empty() || command == _T("_NSCP_CHECK")) {
-			nscapi::functions::create_simple_query_response(_T("_NSCP_CHECK"), NSCAPI::returnOK, _T("I (") + nscapi::plugin_singleton->get_core()->getApplicationVersionString() + _T(") seem to be doing fine..."), _T(""), outBuffer);
+			nscapi::protobuf::functions::create_simple_query_response(_T("_NSCP_CHECK"), NSCAPI::returnOK, _T("I (") + nscapi::plugin_singleton->get_core()->getApplicationVersionString() + _T(") seem to be doing fine..."), _T(""), outBuffer);
 		} else if (!allowArgs_ && payload.arguments_size() > 0) {
-			nscapi::functions::create_simple_query_response_unknown(command, _T("Arguments not allowed for command: ") + command, _T(""), outBuffer);
+			nscapi::protobuf::functions::create_simple_query_response_unknown(command, _T("Arguments not allowed for command: ") + command, _T(""), outBuffer);
 		} else {
 			std::string tmpBuffer;
 			Plugin::QueryRequestMessage tmp;
@@ -81,7 +81,7 @@ NSCAPI::nagiosReturn handler_impl::handle_query_request(const std::string &reque
 			tmp.SerializeToString(&tmpBuffer);
 			NSCAPI::nagiosReturn returncode = nscapi::plugin_singleton->get_core()->query(command, tmpBuffer, outBuffer);
 			if (returncode == NSCAPI::returnIgnored) {
-				nscapi::functions::create_simple_query_response_unknown(command, _T("Command was not found: ") + command, _T(""), outBuffer);
+				nscapi::protobuf::functions::create_simple_query_response_unknown(command, _T("Command was not found: ") + command, _T(""), outBuffer);
 			}
 			Plugin::QueryResponseMessage tmpResponse;
 			tmpResponse.ParseFromString(outBuffer);

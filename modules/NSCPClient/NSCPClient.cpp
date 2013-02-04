@@ -137,10 +137,10 @@ void NSCPClient::query_fallback(const Plugin::QueryRequestMessage::Request &requ
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void NSCPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool NSCPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
 	setup(config, request_message.header());
-	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
+	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void NSCPClient::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
@@ -155,34 +155,34 @@ void NSCPClient::handleNotification(const std::string &channel, const Plugin::Qu
 
 void NSCPClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
- 		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
+ 		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
 			"Do not initial an ssl handshake with the server, talk in plaintext.")
 
-		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
+		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
 		"Client certificate to use")
 
-		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
 		"Client certificate format")
 
-		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
+		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
 		"Certificate authority")
 
-		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
+		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
 		"Client certificate format")
 
-		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
 		"Client certificate format")
 
- 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+ 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
 			"Initial an ssl handshake with the server.")
 
-		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
 		"")
 
 
@@ -203,7 +203,7 @@ void NSCPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	if (opt) {
 		nscapi::targets::target_object t = *opt;
-		nscapi::functions::destination_container def = t.to_destination_container();
+		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
 		config.data->recipient.apply(def);
 	}
 	config.data->host_self.id = "self";
@@ -214,8 +214,8 @@ void NSCPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 }
 
 NSCPClient::connection_data NSCPClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::functions::destination_container recipient;
-	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
+	nscapi::protobuf::functions::destination_container recipient;
+	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	return connection_data(recipient, data->recipient);
 }
 
@@ -239,21 +239,21 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, c
 	int ret = NSCAPI::returnUNKNOWN;
 	connection_data con = parse_header(request_header, data);
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
 	chunks.push_back(nscp::factory::create_payload(nscp::data::command_request, request_message.SerializeAsString()));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_query_response(chunk)) {
-			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+			nscapi::protobuf::functions::append_response_payloads(response_message, chunk.payload);
 		} else if (nscp::checks::is_error(chunk)) {
 			std::string error = gather_and_log_errors(chunk.payload);
-			nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
 			ret = NSCAPI::returnUNKNOWN;
 		} else {
 			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-			nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}
@@ -265,21 +265,21 @@ int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 	int ret = NSCAPI::returnUNKNOWN;
 	connection_data con = parse_header(request_header, data);
 	
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
 	chunks.push_back(nscp::factory::create_payload(nscp::data::command_response, request_message.SerializeAsString()));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_submit_response(chunk)) {
-			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+			nscapi::protobuf::functions::append_response_payloads(response_message, chunk.payload);
 		} else if (nscp::checks::is_error(chunk)) {
 			std::string error = gather_and_log_errors(chunk.payload);
-			nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
 			ret = NSCAPI::returnUNKNOWN;
 		} else {
 			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-			nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}
@@ -291,21 +291,21 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 	int ret = NSCAPI::returnOK;
 	connection_data con = parse_header(request_header, data);
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nscp::packet> chunks;
 	chunks.push_back(nscp::factory::create_payload(nscp::data::exec_request, request_message.SerializeAsString()));
 	chunks = instance->send(con, chunks);
 	BOOST_FOREACH(nscp::packet &chunk, chunks) {
 		if (nscp::checks::is_exec_response(chunk)) {
-			nscapi::functions::append_response_payloads(response_message, chunk.payload);
+			nscapi::protobuf::functions::append_response_payloads(response_message, chunk.payload);
 		} else if (nscp::checks::is_error(chunk)) {
 			std::string error = gather_and_log_errors(chunk.payload);
-			nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
+			nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
 			ret = NSCAPI::returnUNKNOWN;
 		} else {
 			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
-			nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
+			nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
 			ret = NSCAPI::returnUNKNOWN;
 		}
 	}

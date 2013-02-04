@@ -271,6 +271,7 @@ SET(NSCP_DEF_PLUGIN_HPP
 
 SET(NSCP_FILTER_CPP)
 SET(NSCP_FILTER_HPP
+	${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.hpp
 	${NSCP_INCLUDEDIR}/parsers/where.hpp
 	${NSCP_INCLUDEDIR}/parsers/filter/where_filter.hpp
 	${NSCP_INCLUDEDIR}/parsers/filter/where_filter_impl.hpp

@@ -54,7 +54,7 @@ bool CheckNSCP::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 	settings.register_all();
 	settings.notify();
-	NSC_DEBUG_MSG(_T("Crash folder is: ") + crashFolder.wstring());
+	NSC_DEBUG_MSG(_T("Crash folder is: ") + utf8::cvt<std::wstring>(crashFolder.string()));
 	return true;
 }
 
@@ -85,12 +85,23 @@ int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 	time_t last_write;
 	boost::filesystem::directory_iterator begin(root), end;
 	BOOST_FOREACH(const boost::filesystem::path& p, std::make_pair(begin, end)) {
+#ifdef WIN32
+		// TODO: FIXME: This needs to be fixed somehow...
 		if(boost::filesystem::is_regular_file(p) && p.has_extension() && p.extension().string() == "txt")
 			count++;
+#else
+		if(boost::filesystem::is_regular_file(p) && p.extension() == "txt")
+			count++;
+#endif
 		time_t lw = boost::filesystem::last_write_time(p);
 		if (lw > last_write) {
 			last_write = lw;
+#ifdef WIN32
+			// TODO: FIXME: This needs to be fixed somehow...
 			last_crash = p.filename().string();
+#else
+			last_crash = p.filename();
+#endif
 		}
 	}
 	return count;

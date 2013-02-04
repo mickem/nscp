@@ -45,7 +45,7 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 		if (arg_count > 0)
 			ret = lua.pop_code();
 		lua.gc(LUA_GCCOLLECT, 0);
-		nscapi::functions::append_simple_query_response_payload(response, command, ret, msg, perf);
+		nscapi::protobuf::functions::append_simple_query_response_payload(response, command, ret, msg, perf);
 	} else {
 		int args = 2;
 		if (function.object_ref != 0)

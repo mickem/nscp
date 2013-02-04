@@ -195,52 +195,52 @@ void NSCAClient::handleNotification(const std::string &channel, const Plugin::Su
 
 void NSCAClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
-		("encryption,e", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "encryption", _1)), 
+		("encryption,e", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "encryption", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
+		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("certificate-key", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		("certificate-key", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
 		"Client certificate to use")
 
-		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
 		"Client certificate format")
 
-		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
+		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
 		"Certificate authority")
 
-		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
+		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
 		"Client certificate format")
 
-		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
 		"Client certificate format")
 
-		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
 			"Length of payload (has to be same as on the server)")
 
- 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+ 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
 			"Initial an ssl handshake with the server.")
 
-		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
 		"")
 
-		("password", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "password", _1)), 
+		("password", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "password", _1)), 
 		"Password")
 
-		("source-host", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
+		("source-host", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
 		"Source/sender host name (default is auto which means use the name of the actual host)")
 
-		("sender-host", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
+		("sender-host", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
 		"Source/sender host name (default is auto which means use the name of the actual host)")
 
-		("time-offset", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "time offset", _1)), 
+		("time-offset", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "time offset", _1)), 
 		"")
 		;
 }
@@ -259,7 +259,7 @@ void NSCAClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	if (opt) {
 		nscapi::targets::target_object t = *opt;
-		nscapi::functions::destination_container def = t.to_destination_container();
+		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
 		config.data->recipient.apply(def);
 	}
 	config.data->host_self.id = "self";
@@ -270,9 +270,9 @@ void NSCAClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 }
 
 NSCAClient::connection_data NSCAClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::functions::destination_container recipient, sender;
-	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	nscapi::functions::parse_destination(header, header.sender_id(), sender, true);
+	nscapi::protobuf::functions::destination_container recipient, sender;
+	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
+	nscapi::protobuf::functions::parse_destination(header, header.sender_id(), sender, true);
 	return connection_data(recipient, data->recipient, sender);
 }
 
@@ -284,12 +284,12 @@ int NSCAClient::clp_handler_impl::query(client::configuration::data_type data, c
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		nsca::packet packet(con.sender_hostname, con.buffer_length, con.time_delta);
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(request_message.payload(i));
+		nscapi::protobuf::functions::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_query_request(request_message.payload(i));
 		packet.code = 0;
 		packet.result = utf8::cvt<std::string>(data.command);
 		list.push_back(packet);
@@ -297,7 +297,7 @@ int NSCAClient::clp_handler_impl::query(client::configuration::data_type data, c
 
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
 
-	nscapi::functions::append_simple_query_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()), "");
+	nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()), "");
 	return NSCAPI::isSuccess;
 }
 
@@ -306,14 +306,14 @@ int NSCAClient::clp_handler_impl::submit(client::configuration::data_type data, 
 	connection_data con = parse_header(request_header, data);
 	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
 
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		nsca::packet packet(con.sender_hostname, con.buffer_length, con.time_delta);
 		std::wstring alias, msg, perf;
-		packet.code = nscapi::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
+		packet.code = nscapi::protobuf::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
 		if (alias != _T("host_check"))
 			packet.service = utf8::cvt<std::string>(alias);
 		if (perf.empty())
@@ -324,7 +324,7 @@ int NSCAClient::clp_handler_impl::submit(client::configuration::data_type data, 
 	}
 
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
-	nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
 	return NSCAPI::isSuccess;
 }
 
@@ -332,12 +332,12 @@ int NSCAClient::clp_handler_impl::exec(client::configuration::data_type data, co
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<nsca::packet> list;
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		nsca::packet packet(con.sender_hostname, con.buffer_length, con.time_delta);
-		nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request_payload(request_message.payload(i));
+		nscapi::protobuf::functions::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request_payload(request_message.payload(i));
 		packet.code = 0;
 		if (data.command != _T("host_check"))
 			packet.service = utf8::cvt<std::string>(data.command);
@@ -345,7 +345,7 @@ int NSCAClient::clp_handler_impl::exec(client::configuration::data_type data, co
 		list.push_back(packet);
 	}
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
-	nscapi::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
 	return NSCAPI::isSuccess;
 }
 

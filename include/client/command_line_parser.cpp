@@ -8,11 +8,11 @@ namespace po = boost::program_options;
 po::options_description add_common_options(client::configuration::data_type command_data) {
 	po::options_description desc("Common options");
 	desc.add_options()
-		("host,H", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_host, &command_data->recipient, _1)), 
+		("host,H", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_host, &command_data->recipient, _1)), 
 		"The host of the host running the server")
-		("port,P", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_port, &command_data->recipient, _1)), 
+		("port,P", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_port, &command_data->recipient, _1)), 
 		"The port of the host running the server")
-		("address", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_address, &command_data->recipient, _1)), 
+		("address", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_address, &command_data->recipient, _1)), 
 		"The address (host:port) of the host running the server")
 		("timeout,T", po::value<int>(&command_data->timeout), "Number of seconds before connection times out (default=10)")
 		("target,t", po::wvalue<std::wstring>(&command_data->target_id), "Target to use (lookup connection info from config)")
@@ -77,15 +77,15 @@ int parse_result(std::wstring key) {
 	}
 }
 
-void modify_header(client::configuration &config, ::Plugin::Common_Header* header, nscapi::functions::destination_container &recipient) {
-	nscapi::functions::destination_container myself = config.data->host_self;
+void modify_header(client::configuration &config, ::Plugin::Common_Header* header, nscapi::protobuf::functions::destination_container &recipient) {
+	nscapi::protobuf::functions::destination_container myself = config.data->host_self;
 	if (!header->has_recipient_id()) {
 		if (recipient.id.empty())
 			recipient.id = "TODO missing id";
-		nscapi::functions::add_host(header, recipient);
+		nscapi::protobuf::functions::add_host(header, recipient);
 		header->set_recipient_id(recipient.id);
 	}
-	nscapi::functions::add_host(header, myself);
+	nscapi::protobuf::functions::add_host(header, myself);
 	if (!header->has_source_id())
 		header->set_source_id(myself.id);
 	header->set_sender_id(myself.id);
@@ -176,7 +176,7 @@ void client::command_manager::do_query(client::configuration &config, const ::Pl
 	local_request.mutable_header()->CopyFrom(header);
 	modify_header(config, local_request.mutable_header(), config.data->recipient);
 	// TODO: Copy data from real request here?
-	nscapi::functions::append_simple_query_request_payload(local_request.add_payload(), config.data->command, config.data->arguments);
+	nscapi::protobuf::functions::append_simple_query_request_payload(local_request.add_payload(), config.data->command, config.data->arguments);
 	int ret = config.handler->query(config.data, local_request, local_response);
 	if (ret == NSCAPI::hasFailed) {
 		nscapi::protobuf::functions::set_response_bad(response, "Failed to process request");
@@ -267,7 +267,7 @@ void client::command_manager::do_exec(client::configuration &config, const ::Plu
 	local_request.mutable_header()->CopyFrom(header);
 	modify_header(config, local_request.mutable_header(), config.data->recipient);
 	// TODO: Copy data from real request here?
-	nscapi::functions::append_simple_exec_request_payload(local_request.add_payload(), config.data->command, config.data->arguments);
+	nscapi::protobuf::functions::append_simple_exec_request_payload(local_request.add_payload(), config.data->command, config.data->arguments);
 	int ret = config.handler->exec(config.data, local_request, local_response);
 	if (ret == NSCAPI::hasFailed) {
 		nscapi::protobuf::functions::set_response_bad(response, "Failed to process request");
@@ -349,7 +349,7 @@ void client::command_manager::do_submit(client::configuration &config, const ::P
 	local_request.mutable_header()->CopyFrom(header);
 	modify_header(config, local_request.mutable_header(), config.data->recipient);
 	// TODO: Copy data from real request here?
-	nscapi::functions::append_simple_submit_request_payload(local_request.add_payload(), config.data->command, parse_result(config.data->result), config.data->message);
+	nscapi::protobuf::functions::append_simple_submit_request_payload(local_request.add_payload(), config.data->command, parse_result(config.data->result), config.data->message);
 	int ret = config.handler->submit(config.data, local_request, local_response);
 	if (ret == NSCAPI::hasFailed) {
 		nscapi::protobuf::functions::set_response_bad(response, "Failed to process request");

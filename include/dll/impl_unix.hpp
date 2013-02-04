@@ -1,6 +1,5 @@
 #pragma once
 
-#include <unicode_char.hpp>
 #include <boost/noncopyable.hpp>
 #include <error.hpp>
 
@@ -22,42 +21,42 @@ namespace dll {
 	namespace iunix {
 		class impl : public boost::noncopyable {
 		private:
-			boost::filesystem::wpath module_;
+			boost::filesystem::path module_;
 			void* handle_;
 
 		public:
-			impl(boost::filesystem::wpath module) : module_(module), handle_(NULL) {
+			impl(boost::filesystem::path module) : module_(module), handle_(NULL) {
 				if (!boost::filesystem::is_regular(module)) {
 					module_ = fix_module_name(module_);
 				}
 			}
-			static boost::filesystem::wpath fix_module_name( boost::filesystem::wpath module ) {
+			static boost::filesystem::path fix_module_name( boost::filesystem::path module ) {
 
 				if (boost::filesystem::is_regular(module))
 					return module;
 				/* this one (below) is wrong I think */
-				boost::filesystem::wpath mod = module / get_extension();
+				boost::filesystem::path mod = module / get_extension();
 				if (boost::filesystem::is_regular(mod))
 					return mod;
-				mod = boost::filesystem::wpath(module.string() + get_extension());
+				mod = boost::filesystem::path(module.string() + get_extension());
 				if (boost::filesystem::is_regular(mod))
 					return mod;
-				mod = mod.branch_path() / boost::filesystem::wpath(std::wstring(_T("lib") + mod.leaf()));
+				mod = mod.branch_path() / boost::filesystem::path(std::string("lib") + mod.leaf());
 				if (boost::filesystem::is_regular(mod))
 					return mod;
 				return module;
 			}
-			static std::wstring get_extension() {
+			static std::string get_extension() {
 #if defined(CYGWIN)
-				return _T(".so");
+				return ".so";
 #elif defined(HP)
-				return _T(".so");
+				return ".so";
 #else
-				return _T(".so");
+				return ".so";
 #endif
 			}
 
-			static bool is_module(std::wstring file) {
+			static bool is_module(std::string file) {
 				return boost::ends_with(file, get_extension());
 			}
 
@@ -66,19 +65,19 @@ namespace dll {
 #if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
 				handle_ = dlopen(dllname.c_str(), RTLD_NOW);
 				if (handle_ == NULL)
-					throw dll_exception(_T("Could not load library: ") + to_wstring(dlerror()) + _T(": ") + module_.string());
+					throw dll_exception(std::string("Could not load library: ") + dlerror() + ": " + module_.string());
 #elif defined(HP)
 				handle_ = shl_load(dllname.c_str(), BIND_DEFERRED|DYNAMIC_PATH, 0L);
 				if (handle_ == NULL)
-					throw dll_exception(_T("Could not load library: ") + error::lookup::last_error() + _T(": ") + module_.string());
+					throw dll_exception("Could not load library: " + module_.string());
 #else
 				/* This type of UNIX has no DLL support yet */
-				throw dll_exception(_T("Unsupported Unix flavour (please report this): ") + module_.string());
+				throw dll_exception("Unsupported Unix flavour (please report this): " + module_.string());
 #endif
 			}
 			void* load_proc(std::string name) {
 				if (handle_ == NULL)
-					throw dll_exception(_T("Failed to load process from module: ") + module_.string());
+					throw dll_exception("Failed to load process from module: " + module_.string());
 				void *ep = NULL;
 #if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
 				ep = (void*) dlsym(handle_, name.c_str());
@@ -91,7 +90,7 @@ namespace dll {
 				return ep;
 #else
 				/* This type of UNIX has no DLL support yet */
-				throw dll_exception(_T("Unsupported Unix flavour (please report this): ") + module_.string());
+				throw dll_exception("Unsupported Unix flavour (please report this): " + module_.string());
 #endif
 			}
 
@@ -102,18 +101,18 @@ namespace dll {
 				shl_unload(handle_);
 #else
 				/* This type of UNIX has no DLL support yet */
-				throw dll_exception(_T("Unsupported Unix flavour (please report this): ") + module_.string());
+				throw dll_exception("Unsupported Unix flavour (please report this): " + module_.string());
 #endif
 
 			}
 
 			bool is_loaded() const { return handle_!=NULL; }
-			boost::filesystem::wpath get_file() const { return module_; }
-			std::wstring get_filename() const { return module_.leaf(); }
-			std::wstring get_module_name() {
-				std::wstring ext = get_extension();
+			boost::filesystem::path get_file() const { return module_; }
+			std::string get_filename() const { return module_.leaf(); }
+			std::string get_module_name() {
+				std::string ext = get_extension();
 				std::size_t l = ext.length();
-				std::wstring fn = get_filename();
+				std::string fn = get_filename();
 				if ((fn.length() > l) && (fn.substr(fn.size()-l) == ext))
 					return fn.substr(0, fn.size()-l);
 				return fn;

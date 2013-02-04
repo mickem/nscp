@@ -41,20 +41,24 @@ CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
 void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
-	boost::filesystem::path path = str_path;
+	boost::filesystem::path path = utf8::cvt<std::string>(str_path);
 	if (path.has_relative_path())
-		path = get_core()->getBasePath() / path;
+		path = utf8::cvt<std::string>(get_core()->getBasePath()) / path;
 	file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
 	if (!boost::filesystem::is_directory(split_path.first))
-		NSC_LOG_ERROR_STD(_T("Path was not found: ") + split_path.first.wstring());
+		NSC_LOG_ERROR_STD(_T("Path was not found: ") + utf8::cvt<std::wstring>(split_path.first.string()));
 
-	boost::wregex pattern(split_path.second.wstring());
+	boost::regex pattern(split_path.second.string());
 	boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
 	for ( boost::filesystem::directory_iterator itr( split_path.first ); itr != end_itr; ++itr ) {
 		if ( !is_directory(itr->status()) ) {
-			std::wstring name = itr->path().leaf().wstring();
+#ifdef WIN32
+			std::string name = itr->path().leaf().string();
+#else
+			std::string name = itr->path().leaf();
+#endif
 			if (regex_match(name, pattern))
-				add_command(name.c_str(), (split_path.first / name).wstring());
+				add_command(utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>((split_path.first / name).string()));
 		}
 	}
 }

@@ -3,6 +3,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/optional.hpp>
+#include <boost/thread.hpp>
 
 //#include <nscapi/functions.hpp>
 #include <nscapi/macros.hpp>
@@ -491,7 +492,7 @@ static int error (lua_State *L) {
 static int lua_sleep (lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	int time = lua_instance.pop_int();
-	Sleep(time);
+	boost::this_thread::sleep(boost::posix_time::milliseconds(time));
 	return 0;
 }
 

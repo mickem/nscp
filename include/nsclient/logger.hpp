@@ -18,6 +18,12 @@ namespace nsclient {
 			virtual void fatal(const std::wstring &module, const char* file, const int line, const std::wstring &message) = 0;
 			virtual void raw(const std::string &message) = 0;
 
+			virtual void debug(const std::wstring &module, const char* file, const int line, const std::string &message) = 0;
+			virtual void info(const std::wstring &module, const char* file, const int line, const std::string &message) = 0;
+			virtual void warning(const std::wstring &module, const char* file, const int line, const std::string &message) = 0;
+			virtual void error(const std::wstring &module, const char* file, const int line, const std::string &message) = 0;
+			virtual void fatal(const std::wstring &module, const char* file, const int line, const std::string &message) = 0;
+
 			virtual void log(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) = 0;
 
 			virtual bool should_log(NSCAPI::log_level::level level) const = 0;

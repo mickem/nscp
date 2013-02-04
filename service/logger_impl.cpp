@@ -39,16 +39,37 @@ std::string create_message(const std::wstring &module, Plugin::LogEntry::Entry::
 	}
 	return str;
 }
+std::string create_message(const std::wstring &module, Plugin::LogEntry::Entry::Level level, const char* file, const int line, const std::string &logMessage) {
+	std::string str;
+	try {
+		Plugin::LogEntry message;
+		Plugin::LogEntry::Entry *msg = message.add_entry();
+		msg->set_sender(utf8::cvt<std::string>(module));
+		msg->set_level(level);
+		msg->set_file(file);
+		msg->set_line(line);
+		msg->set_message(logMessage);
+		return message.SerializeAsString();
+	} catch (std::exception &e) {
+		log_fatal(std::string("Failed to generate message: ") + e.what());
+	} catch (...) {
+		log_fatal("Failed to generate message: <UNKNOWN>");
+	}
+	return str;
+}
 std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
-	return create_message(module, nscapi::functions::log_to_gpb(level), file, line, message);
+	return create_message(module, nscapi::protobuf::functions::log_to_gpb(level), file, line, message);
+}
+std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
+	return create_message(module, nscapi::protobuf::functions::log_to_gpb(level), file, line, message);
 }
 
 std::wstring render_log_level_short(Plugin::LogEntry::Entry::Level l) {
-	return nsclient::logging::logger_helper::render_log_level_short(nscapi::functions::gpb_to_log(l));
+	return nsclient::logging::logger_helper::render_log_level_short(nscapi::protobuf::functions::gpb_to_log(l));
 }
 
 std::wstring render_log_level_long(Plugin::LogEntry::Entry::Level l) {
-	return nsclient::logging::logger_helper::render_log_level_long(nscapi::functions::gpb_to_log(l));
+	return nsclient::logging::logger_helper::render_log_level_long(nscapi::protobuf::functions::gpb_to_log(l));
 }
 std::wstring rpad(std::wstring str, std::size_t len) {
 	if (str.length() > len)

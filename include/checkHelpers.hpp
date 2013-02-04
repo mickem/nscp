@@ -25,6 +25,8 @@
 #include <format.hpp>
 #include <math.h>
 
+#include <nscapi/nscapi_helper.hpp>
+
 #define MAKE_PERFDATA_SIMPLE(alias, value, unit) _T("'") + alias + _T("'=") + value + unit
 #define MAKE_PERFDATA(alias, value, unit, warn, crit) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit 
 #define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) _T("'") + alias + _T("'=") + value + unit + _T(";") + warn + _T(";") + crit + _T(";") + xmin + _T(";") + xmax
@@ -386,8 +388,8 @@ namespace checkHolders {
 		}
 		static TType parse(std::wstring s) {
 			TType val = format::decode_byte_units(s);
-			if (val == 0 && s.length() > 1 && s[0] != L'0')
-				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = ") + strEx::itos(val));
+			//if (val == 0 && s.length() > 1 && s[0] != L'0')
+			//	NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = ") + strEx::itos(val));
 			return val;
 		}
 		static TType parse_percent(std::wstring s) {
@@ -424,8 +426,8 @@ namespace checkHolders {
 	public:
 		static TType parse(std::wstring s) {
 			TType val = strEx::stoi64_as_time(s);
-			if (val == 0 && s.length() > 1 && s[0] != L'0')
-				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			//if (val == 0 && s.length() > 1 && s[0] != L'0')
+			//	NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
 			return val;
 		}
 		static TType parse_percent(std::wstring s) {
@@ -460,8 +462,8 @@ namespace checkHolders {
 	public:
 		static int parse(std::wstring s) {
 			int val = strEx::stoi(s);
-			if (val == 0 && s.length() > 1 && s[0] != L'0')
-				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			//if (val == 0 && s.length() > 1 && s[0] != L'0')
+			//	NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
 			return val;
 		}
 		static int parse_percent(std::wstring s) {
@@ -493,8 +495,8 @@ namespace checkHolders {
 	public:
 		static long long parse(std::wstring s) {
 			long long val = strEx::stoi64(s);
-			if (val == 0 && s.length() > 1 && s[0] != L'0')
-				NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
+			//if (val == 0 && s.length() > 1 && s[0] != L'0')
+			//	NSC_LOG_MESSAGE_STD(_T("Maybe this is not what you want: ") + s + _T(" = 0"));
 			return val;
 		}
 		static long long parse_percent(std::wstring s) {
@@ -1038,7 +1040,7 @@ namespace checkHolders {
 				message = lable + _T(": ") + formatBelow(TNumericHolder::toStringShort(value.count), type);
 				return true;
 			} else {
-				NSC_LOG_MESSAGE_STD(_T("Missing bounds for check: ") + lable);
+				//NSC_LOG_MESSAGE_STD(_T("Missing bounds for check: ") + lable);
 				//std::cout << "No bounds specified..." << std::endl;
 			}
 			return false;
@@ -1126,7 +1128,7 @@ namespace checkHolders {
 			} else if (min_.hasBounds()) {
 				return min_.gatherPerfData(alias, unit, value, warn.min_.getPerfBound(value), crit.min_.getPerfBound(value));
 			} else {
-				NSC_LOG_MESSAGE_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
+				//NSC_LOG_MESSAGE_STD(_T("Missing bounds for maxmin-bounds check: ") + alias);
 				return min_.gatherPerfData(alias, unit, value, 0, 0);
 			}
 		}
@@ -1233,7 +1235,7 @@ namespace checkHolders {
 			} else if (eq.hasBounds()) {
 				return eq.gatherPerfData(alias, unit, value, warn.eq.getPerfBound(value), crit.eq.getPerfBound(value));
 			} else {
-				NSC_LOG_MESSAGE_STD(_T("Missing bounds for: ") + alias);
+				//NSC_LOG_MESSAGE_STD(_T("Missing bounds for: ") + alias);
 				return _T("");
 			}
 		}

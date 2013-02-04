@@ -330,7 +330,7 @@ void nscapi::core_wrapper::settings_register_path(unsigned int plugin_id, std::w
 NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
 	if (!fNSAPISettingsQuery)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	fNSAPISettingsQuery(request, request_len, response, response_len);
+	return fNSAPISettingsQuery(request, request_len, response, response_len);
 }
 NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const std::string request, std::string &response) {
 	char *buffer = NULL;
@@ -353,7 +353,7 @@ void nscapi::core_wrapper::settings_save() {
 NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
 	if (!fNSAPIRegistryQuery)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	fNSAPIRegistryQuery(request, request_len, response, response_len);
+	return fNSAPIRegistryQuery(request, request_len, response, response_len);
 }
 NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string request, std::string &response) {
 	char *buffer = NULL;

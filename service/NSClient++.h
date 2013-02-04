@@ -177,8 +177,8 @@ public:
 	plugin_alias_list_type find_all_plugins(bool active);
 	std::list<std::wstring> list_commands();
 
-	std::wstring getFolder(std::wstring key);
-	std::wstring expand_path(std::wstring file);
+	std::string getFolder(std::string key);
+	std::string expand_path(std::string file);
 
 	typedef boost::function<int(plugin_type)> run_function;
 	int load_and_run(std::wstring module, run_function fun, std::list<std::wstring> &errors);

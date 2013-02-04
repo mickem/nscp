@@ -53,8 +53,8 @@ class Module:
 		command_hpp = ''
 		command_registrations_cpp = ''
 		raw_command_cpp = ''
+		command_instances_hpp = ''
 		if commands or command_fallback:
-			command_instances_hpp = ''
 			command_instances_cpp = ''
 			raw_command_instances_cpp = ''
 			for c in commands:
@@ -166,7 +166,6 @@ class Module:
 		extra_keys = {
 			'COMMAND_DELEGATOR_HPP': commands_hpp,
 			'COMMAND_DELEGATOR_CPP': commands_cpp,
-			'RAW_COMMAND_DELEGATOR_CPP_DEF': raw_command_instances_cpp,
 			'COMMAND_DELEGATOR_HPP_DEF': commands_hpp_def,
 			'COMMAND_DELEGATOR_CPP_DEF': commands_cpp_def,
 			'COMMAND_INSTANCES_HPP': command_instances_hpp,
@@ -451,12 +450,12 @@ LOG_DELEGATOR_DEF_CPP_FALSE = "NSC_WRAPPERS_IGNORE_MSG_DEF()"
 
 CLI_DELEGATOR_CPP_LEGACY = """
 NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::functions::parse_simple_exec_request(char_command, request);
+	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request(char_command, request);
 	std::wstring result;
 	NSCAPI::nagiosReturn ret = impl_->commandLineExec(data.command, data.args, result);
 	if (ret == NSCAPI::returnIgnored)
 		return NSCAPI::returnIgnored;
-	nscapi::functions::create_simple_exec_response(data.command, ret, result, response);
+	nscapi::protobuf::functions::create_simple_exec_response(data.command, ret, result, response);
 	return ret;
 }
 """
@@ -495,10 +494,10 @@ NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_comm
 		}
 		return NSCAPI::returnIgnored;
 	} catch (const std::exception &e) {
-		nscapi::functions::create_simple_exec_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
+		nscapi::protobuf::functions::create_simple_exec_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
 		return NSCAPI::isSuccess;
 	} catch (...) {
-		nscapi::functions::create_simple_exec_response_unknown(command, "Failed to process command: " + command, response);
+		nscapi::protobuf::functions::create_simple_exec_response_unknown(command, "Failed to process command: " + command, response);
 		return NSCAPI::isSuccess;
 	}
 }
@@ -521,10 +520,10 @@ NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const wchar_t* char_c
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
-		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
+		nscapi::protobuf::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
 		return NSCAPI::isSuccess;
 	} catch (...) {
-		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, "Failed to process submission on: " + channel, response);
+		nscapi::protobuf::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, "Failed to process submission on: " + channel, response);
 		return NSCAPI::isSuccess;
 	}
 }
@@ -551,10 +550,10 @@ NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const wchar_t* char_c
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
-		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
+		nscapi::protobuf::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
 		return NSCAPI::isSuccess;
 	} catch (...) {
-		nscapi::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, "Failed to process submission on: " + channel, response);
+		nscapi::protobuf::functions::create_simple_submit_response(channel, "", NSCAPI::returnUNKNOWN, "Failed to process submission on: " + channel, response);
 		return NSCAPI::isSuccess;
 	}
 }
@@ -610,7 +609,7 @@ COMMAND_INSTANCE_CPP_LEGACY = """			} else if (command == "${COMMAND_NAME}") {
 				response_payload->set_message(utf8::cvt<std::string>(msg));
 				response_payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
 				if (!perf.empty())
-					nscapi::functions::parse_performance_data(response_payload, perf);
+					nscapi::protobuf::functions::parse_performance_data(response_payload, perf);
 """
 COMMAND_REGISTRATION_ALIAS_CPP = """		("${COMMAND_NAME}", "${ALIAS}",
 		"${COMMAND_DESCRIPTION}")
@@ -659,9 +658,9 @@ ${COMMAND_INSTANCES_CPP}
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
-		return nscapi::functions::create_simple_query_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
+		return nscapi::protobuf::functions::create_simple_query_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
 	} catch (...) {
-		return nscapi::functions::create_simple_query_response_unknown(command, "Failed to process command: " + command, response);
+		return nscapi::protobuf::functions::create_simple_query_response_unknown(command, "Failed to process command: " + command, response);
 	}
 }
 

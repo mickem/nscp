@@ -165,10 +165,10 @@ void GraphiteClient::query_fallback(const Plugin::QueryRequestMessage::Request &
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void GraphiteClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool GraphiteClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	client::configuration config(command_prefix);
 	setup(config, request_message.header());
-	commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
+	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void GraphiteClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
@@ -183,10 +183,10 @@ void GraphiteClient::handleNotification(const std::string &channel, const Plugin
 
 void GraphiteClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
-		("path", po::value<std::string>()->notifier(boost::bind(&nscapi::functions::destination_container::set_string_data, &data->recipient, "path", _1)), 
+		("path", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "path", _1)), 
 		"")
 
-		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
 		"")
 
 		;
@@ -206,7 +206,7 @@ void GraphiteClient::setup(client::configuration &config, const ::Plugin::Common
 
 	if (opt) {
 		nscapi::targets::target_object t = *opt;
-		nscapi::functions::destination_container def = t.to_destination_container();
+		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
 		config.data->recipient.apply(def);
 		}
 	config.data->host_self.id = "self";
@@ -217,9 +217,9 @@ void GraphiteClient::setup(client::configuration &config, const ::Plugin::Common
 }
 
 GraphiteClient::connection_data GraphiteClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::functions::destination_container recipient, sender;
-	nscapi::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	nscapi::functions::parse_destination(header, header.sender_id(), sender, true);
+	nscapi::protobuf::functions::destination_container recipient, sender;
+	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
+	nscapi::protobuf::functions::parse_destination(header, header.sender_id(), sender, true);
 	return connection_data(recipient, data->recipient, sender);
 }
 
@@ -240,7 +240,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 
 	strEx::replace(path, "${hostname}", con.sender_hostname);
 
-	nscapi::functions::make_return_header(response_message.mutable_header(), request_header);
+	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	std::list<g_data> list;
 	for (int i=0;i < request_message.payload_size(); ++i) {
@@ -275,7 +275,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 	}
 
 	boost::tuple<int,std::wstring> ret = instance->send(con, list);
-	nscapi::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
 	return NSCAPI::isSuccess;
 }
 

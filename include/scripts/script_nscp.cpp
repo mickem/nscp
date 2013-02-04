@@ -72,27 +72,27 @@ void scripts::nscp::nscp_runtime_impl::register_command(const std::string type, 
 bool scripts::nscp::core_provider_impl::submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & result)
 {
 	std::string request, response;
-	nscapi::functions::create_simple_submit_request(channel, command, code, message, perf, request);
+	nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
 	bool ret = core_->submit_message(utf8::cvt<std::wstring>(channel), request, response) == NSCAPI::isSuccess;
-	nscapi::functions::parse_simple_submit_response(response, result);
+	nscapi::protobuf::functions::parse_simple_submit_response(response, result);
 	return ret;
 }
 
 NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf)
 {
 	std::string request, response;
-	nscapi::functions::create_simple_query_request(command, argument, request);
+	nscapi::protobuf::functions::create_simple_query_request(command, argument, request);
 	bool ret = core_->query(utf8::cvt<std::wstring>(command), request, response) == NSCAPI::isSuccess;
-	nscapi::functions::parse_simple_query_response(response, msg, perf);
+	nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 	return ret;
 }
 
 NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result)
 {
 	std::string request, response;
-	nscapi::functions::create_simple_exec_request(command, argument, request);
+	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
 	bool ret = core_->exec_command(utf8::cvt<std::wstring>(target), utf8::cvt<std::wstring>(command), request, response) == NSCAPI::isSuccess;
-	nscapi::functions::parse_simple_exec_response(response, result);
+	nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 	return ret;
 }
 
