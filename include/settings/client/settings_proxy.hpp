@@ -70,7 +70,7 @@ namespace settings_client {
 		virtual void info(const char* file, int line, std::wstring message)  {
 			nsclient::logging::logger::get_logger()->info(_T("settings"),file, line, message);
 		}
-		virtual void debug(const char* file, int line, std::wstring message)  {
+		virtual void debug(const char* file, int line, std::string message)  {
 			nsclient::logging::logger::get_logger()->debug(_T("settings"),file, line, message);
 		}
 	};

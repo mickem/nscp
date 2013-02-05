@@ -27,10 +27,10 @@
 
 using namespace nscp::helpers;
 
-#define LOG_ERROR_STD(msg) LOG_ERROR(((std::wstring)msg).c_str())
-#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::wstring)msg).c_str())
-#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::wstring)msg).c_str())
-#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::wstring)msg).c_str())
+#define LOG_ERROR_STD(msg) LOG_ERROR(((std::string)msg).c_str())
+#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::string)msg).c_str())
+#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::string)msg).c_str())
+#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::string)msg).c_str())
 
 #define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
 #define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
@@ -41,7 +41,7 @@ NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned
 	try {
 		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(mainClient.expand_path(utf8::cvt<std::string>(key))), NSCAPI::isSuccess);
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to getString: ") + key);
+		LOG_ERROR_STD("Failed to getString: " + utf8::cvt<std::string>(key));
 		return NSCAPI::hasFailed;
 	}
 }
@@ -50,13 +50,13 @@ NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t
 	try {
 		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to get string: ") + e.getMessage());
+		LOG_ERROR_STD("Failed to get string: " + e.reason());
 		return NSCAPI::hasFailed;
 	} catch (const std::exception &e) {
-		LOG_ERROR_STD(_T("Failed to get string: ") + utf8::cvt<std::wstring>(e.what()));
+		LOG_ERROR_STD("Failed to get string: " + utf8::utf8_from_native(e.what()));
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to get string: <UNKNOWN EXCEPTION>"));
+		LOG_ERROR_STD("Failed to get string: <UNKNOWN EXCEPTION>");
 		return NSCAPI::hasFailed;
 	}
 }
@@ -64,13 +64,13 @@ int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultV
 	try {
 		return settings_manager::get_settings()->get_int(section, key, defaultValue);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to set settings file") + e.getMessage());
+		LOG_ERROR_STD("Failed to set settings file" + e.reason());
 		return defaultValue;
 	} catch (const std::exception &e) {
-		LOG_ERROR_STD(_T("Failed to get key: ") + utf8::cvt<std::wstring>(e.what()));
+		LOG_ERROR_STD("Failed to get key: " + utf8::utf8_from_native(e.what()));
 		return defaultValue;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to get key: <UNKNOWN EXCEPTION>"));
+		LOG_ERROR_STD("Failed to get key: <UNKNOWN EXCEPTION>");
 		return defaultValue;
 	}
 }
@@ -78,13 +78,13 @@ int NSAPIGetSettingsBool(const wchar_t* section, const wchar_t* key, int default
 	try {
 		return settings_manager::get_settings()->get_bool(section, key, defaultValue==1);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to get key: ") + e.getMessage());
+		LOG_ERROR_STD("Failed to get key: " + e.reason());
 		return defaultValue;
 	} catch (const std::exception &e) {
-		LOG_ERROR_STD(_T("Failed to get key: ") + utf8::cvt<std::wstring>(e.what()));
+		LOG_ERROR_STD("Failed to get key: " + utf8::utf8_from_native(e.what()));
 		return defaultValue;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to get key: <UNKNOWN EXCEPTION>"));
+		LOG_ERROR_STD("Failed to get key: <UNKNOWN EXCEPTION>");
 		return defaultValue;
 	}
 }
@@ -142,9 +142,9 @@ NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** a
 		*bufLen = len;
 		return NSCAPI::isSuccess;
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to get section: ") + e.getMessage());
+		LOG_ERROR_STD("Failed to get section: " + e.reason());
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to getSection: ") + section);
+		LOG_ERROR_STD("Failed to getSection: " + utf8::cvt<std::string>(section));
 	}
 	return NSCAPI::hasFailed;
 }
@@ -155,9 +155,9 @@ NSCAPI::errorReturn NSAPIGetSettingsSections(const wchar_t* section, wchar_t*** 
 		*bufLen = len;
 		return NSCAPI::isSuccess;
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to get section: ") + e.getMessage());
+		LOG_ERROR_STD("Failed to get section: " + e.reason());
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to getSection: ") + section);
+		LOG_ERROR_STD("Failed to getSection: " + utf8::cvt<std::string>(section));
 	}
 	return NSCAPI::hasFailed;
 }
@@ -262,10 +262,10 @@ NSCAPI::errorReturn NSAPISetSettingsString(const wchar_t* section, const wchar_t
 	try {
 		settings_manager::get_settings()->set_string(section, key, value);
 	} catch (const std::exception &e) {
-		LOG_ERROR_STD(_T("Failed to setString: ") + key + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+		LOG_ERROR_STD("Failed to setString: " + utf8::cvt<std::string>(key) + ": " + utf8::utf8_from_native(e.what()));
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to setString: ") + key);
+		LOG_ERROR_STD("Failed to setString: " + utf8::cvt<std::string>(key));
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
@@ -274,7 +274,7 @@ NSCAPI::errorReturn NSAPISetSettingsInt(const wchar_t* section, const wchar_t* k
 	try {
 		settings_manager::get_settings()->set_int(section, key, value);
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to setInt: ") + key);
+		LOG_ERROR_STD("Failed to setInt: " + utf8::cvt<std::string>(key));
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
@@ -283,15 +283,15 @@ NSCAPI::errorReturn NSAPIWriteSettings(const wchar_t* key) {
 	try {
 		settings::instance_ptr inst = settings_manager::get_core()->create_instance(key);
 		if (!inst) {
-			LOG_ERROR_STD(_T("Failed to create settings: ") + key);
+			LOG_ERROR_STD("Failed to create settings: " + utf8::cvt<std::string>(key));
 			return NSCAPI::hasFailed;
 		}
 		settings_manager::get_core()->migrate_to(inst);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to write settings: ") + e.getMessage());
+		LOG_ERROR_STD("Failed to write settings: " + e.reason());
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to write settings"));
+		LOG_ERROR_STD("Failed to write settings");
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
@@ -300,16 +300,16 @@ NSCAPI::errorReturn NSAPIReadSettings(const wchar_t* key) {
 	try {
 		settings::instance_ptr inst = settings_manager::get_core()->create_instance(key);
 		if (!inst) {
-			LOG_ERROR_STD(_T("Failed to create settings: ") + key);
+			LOG_ERROR_STD("Failed to create settings: " + utf8::cvt<std::string>(key));
 			return NSCAPI::hasFailed;
 		}
 		settings_manager::get_core()->migrate_from(inst);
 		settings_manager::get_settings()->reload();
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to read settings: ") + e.getMessage());
+		LOG_ERROR_STD("Failed to read settings: " + e.reason());
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to read settings"));
+		LOG_ERROR_STD("Failed to read settings");
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
@@ -336,10 +336,10 @@ NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,con
 	try {
 		mainClient.registerCommand(id, cmd, desc);
 	} catch (nsclient::commands::command_exception &e) {
-		LOG_ERROR_STD(_T("Exception registrying command '") + cmd + _T("': ") + ::to_wstring(e.what()) + _T(", from: ") + to_wstring(id));
+		LOG_ERROR_STD("Exception registrying command '" + utf8::cvt<std::string>(cmd) + "': " + utf8::utf8_from_native(e.what()) + ", from: " + strEx::s::xtos(id));
 		return NSCAPI::isfalse;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Unknown exception registrying command: ") + std::wstring(cmd) + _T(", from: ") + to_wstring(id));
+		LOG_ERROR_STD("Exception registrying command '" + utf8::cvt<std::string>(cmd) + ", from: " + strEx::s::xtos(id));
 		return NSCAPI::isfalse;
 	}
 	return NSCAPI::isSuccess;
@@ -354,10 +354,10 @@ NSCAPI::errorReturn NSAPISettingsRegKey(unsigned int plugin_id, const wchar_t* p
 			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_integer, title, description, defVal, advanced==1);
 		return NSCAPI::hasFailed;
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed register key: ") + e.getMessage());
+		LOG_ERROR_STD("Failed register key: " + e.reason());
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed register key"));
+		LOG_ERROR_STD("Failed register key");
 		return NSCAPI::hasFailed;
 	}
 }
@@ -374,10 +374,10 @@ NSCAPI::errorReturn NSAPISettingsRegPath(unsigned int plugin_id, const wchar_t* 
 	try {
 		settings_manager::get_core()->register_path(plugin_id, path, title, description, advanced);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed register path: ") + e.getMessage());
+		LOG_ERROR_STD("Failed register path: " + e.reason());
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed register path"));
+		LOG_ERROR_STD("Failed register path");
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
@@ -422,7 +422,7 @@ NSCAPI::errorReturn NSAPIReload(const wchar_t *module) {
 	try {
 		return mainClient.reload(module);
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to reload: ") + module);
+		LOG_ERROR_STD("Reload failed");
 		return NSCAPI::hasFailed;
 	}
 }
@@ -431,10 +431,10 @@ NSCAPI::errorReturn NSAPISettingsSave(void) {
 	try {
 		settings_manager::get_settings()->save();
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD(_T("Failed to save: ") + e.getMessage());
+		LOG_ERROR_STD("Failed to save: " + e.reason());
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_STD(_T("Failed to save"));
+		LOG_ERROR_STD("Failed to save");
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
@@ -523,7 +523,7 @@ LPVOID NSAPILoader(const wchar_t*buffer) {
 	if (wcscasecmp(buffer, _T("NSAPIRegistryQuery")) == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIRegistryQuery);
 
-	LOG_ERROR_STD(_T("Function not found: ") + buffer);
+	LOG_ERROR_STD("Function not found: " + utf8::cvt<std::string>(buffer));
 	return NULL;
 }
 

@@ -11,7 +11,7 @@ namespace nsclient {
 		};
 		class logger_interface {
 		public:
-			virtual void debug(const std::wstring &module, const char* file, const int line, const std::wstring &message) = 0;
+			//virtual void debug(const std::wstring &module, const char* file, const int line, const std::wstring &message) = 0;
 			virtual void info(const std::wstring &module, const char* file, const int line, const std::wstring &message) = 0;
 			virtual void warning(const std::wstring &module, const char* file, const int line, const std::wstring &message) = 0;
 			virtual void error(const std::wstring &module, const char* file, const int line, const std::wstring &message) = 0;

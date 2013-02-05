@@ -105,7 +105,7 @@ namespace settings {
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), _T("; Undocumented key"));
 			} catch (settings_exception e) {
-				nsclient::logging::logger::get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Failed to write key: ") + e.getError()));
+				nsclient::logging::logger::get_logger()->error(_T("settings"),__FILE__, __LINE__, std::string("Failed to write key: " + e.reason()));
 			} catch (...) {
 				nsclient::logging::logger::get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
 			}
@@ -121,7 +121,7 @@ namespace settings {
 			} catch (KeyNotFoundException e) {
 				ini.SetValue(path.c_str(), NULL, NULL, _T("; Undocumented section"));
 			} catch (settings_exception e) {
-				nsclient::logging::logger::get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Failed to write section: ") + e.getError()));
+				nsclient::logging::logger::get_logger()->error(_T("settings"),__FILE__, __LINE__, std::string("Failed to write section: " + e.reason()));
 			} catch (...) {
 				nsclient::logging::logger::get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing section: ") + path));
 			}
@@ -250,7 +250,7 @@ namespace settings {
 			}
 			std::wstring f = utf8::cvt<std::wstring>(get_file_name().string());
 			ini.SetUnicode();
-			nsclient::logging::logger::get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Loading: ") + f + _T(" from ") + get_context());
+			nsclient::logging::logger::get_logger()->debug(_T("settings"),__FILE__, __LINE__, "Loading: " + get_file_name().string());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));
@@ -284,7 +284,6 @@ namespace settings {
 						filename_ = filename_.substr(1);
 					}
 				}
-				nsclient::logging::logger::get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Reading INI settings from: ") + filename_);
 			}
 			return utf8::cvt<std::string>(filename_);
 		}

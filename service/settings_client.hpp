@@ -67,11 +67,11 @@ namespace nsclient {
 
 		int migrate_from(std::wstring src) {
 			try {
-				debug_msg(_T("Migrating from: ") + src);
+				debug_msg("Migrating from: " + utf8::cvt<std::string>(src));
 				settings_manager::get_core()->migrate_from(src);
 				return 1;
 			} catch (settings::settings_exception e) {
-				error_msg(_T("Failed to initialize settings: ") + e.getError());
+				error_msg("Failed to initialize settings: " + e.reason());
 			} catch (...) {
 				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			}
@@ -79,11 +79,11 @@ namespace nsclient {
 		}
 		int migrate_to(std::wstring target) {
 			try {
-				debug_msg(_T("Migrating to: ") + target);
+				debug_msg("Migrating to: " + utf8::cvt<std::string>(target));
 				settings_manager::get_core()->migrate_to(target);
 				return 1;
 			} catch (settings::settings_exception e) {
-				error_msg(_T("Failed to initialize settings: ") + e.getError());
+				error_msg("Failed to initialize settings: " + e.reason());
 			} catch (...) {
 				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 			}
@@ -261,7 +261,7 @@ namespace nsclient {
 				}
 				return 0;
 			} catch (settings::settings_exception e) {
-				error_msg(_T("Failed to initialize settings: ") + e.getError());
+				error_msg("Failed to initialize settings: " + e.reason());
 				return 1;
 			} catch (NSPluginException &e) {
 				error_msg(_T("Failed to load plugins: ") + to_wstring(e.what()));
@@ -304,9 +304,9 @@ namespace nsclient {
 			try {
 				dump_path(path);
 			} catch (settings::settings_exception e) {
-				error_msg(_T("Settings error: ") + e.getError());
+				error_msg("Settings error: " + e.reason());
 			} catch (...) {
-				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+				error_msg("FATAL ERROR IN SETTINGS SUBSYTEM");
 			}
 
 			return 0;
@@ -322,7 +322,10 @@ namespace nsclient {
 		void error_msg(std::wstring msg) {
 			nsclient::logging::logger::get_logger()->error(_T("client"), __FILE__, __LINE__, msg.c_str());
 		}
-		void debug_msg(std::wstring msg) {
+		void error_msg(std::string msg) {
+			nsclient::logging::logger::get_logger()->error(_T("client"), __FILE__, __LINE__, msg.c_str());
+		}
+		void debug_msg(std::string msg) {
 			nsclient::logging::logger::get_logger()->debug(_T("client"), __FILE__, __LINE__, msg.c_str());
 		}
 

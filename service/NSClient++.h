@@ -182,7 +182,7 @@ public:
 	std::string expand_path(std::string file);
 
 	typedef boost::function<int(plugin_type)> run_function;
-	int load_and_run(std::wstring module, run_function fun, std::list<std::wstring> &errors);
+	int load_and_run(std::wstring module, run_function fun, std::list<std::string> &errors);
 
 	public:
 		void preboot_load_all_plugin_files();

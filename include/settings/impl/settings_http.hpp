@@ -173,7 +173,6 @@ namespace settings {
 		std::wstring get_file_name() {
 			if (url_.empty()) {
 				url_ = get_file_from_context();
-				get_logger()->debug(_T("settings"),__FILE__, __LINE__, _T("Reading INI settings from: ") + url_);
 			}
 			return url_;
 		}

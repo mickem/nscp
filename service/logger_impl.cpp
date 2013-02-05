@@ -400,7 +400,7 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 			tmp->startup();
 	}
 	logger_impl_ = tmp;
-	logger_impl_->debug(_T("log"), __FILE__, __LINE__, _T("Creating logger: ") + utf8::to_unicode(backend));
+	logger_impl_->debug(_T("log"), __FILE__, __LINE__, "Creating logger: " + backend);
 	delete old;
 	old = NULL;
 }

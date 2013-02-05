@@ -53,14 +53,10 @@ namespace settings {
 		/// @return the error message
 		///
 		/// @author mickem
-		std::wstring getError() const { return wwhat(); }
-		std::wstring getMessage() const { return wwhat(); }
 		const char* what() const throw() {
 			return error_.c_str();
 		}
-		const std::wstring wwhat() const throw() {
-			return utf8::to_unicode(error_);
-		}
+		std::string reason() const throw() { return utf8::utf8_from_native(what()); }
 	};
 	class KeyNotFoundException : public settings_exception {
 	public:

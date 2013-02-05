@@ -62,7 +62,7 @@ namespace nscapi {
 		virtual void info(const char* file, int line, std::wstring message)  {
 			core_->log(NSCAPI::log_level::info, file, line, message);
 		}
-		virtual void debug(const char* file, int line, std::wstring message)  {
+		virtual void debug(const char* file, int line, std::string message)  {
 			core_->log(NSCAPI::log_level::debug, file, line, message);
 		}
 	};

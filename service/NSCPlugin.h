@@ -50,29 +50,27 @@
  *
  */
 class NSPluginException : public std::exception {
+	std::string file_;	// DLL filename (for which the exception was thrown)
+	std::string error;
 public:
-	std::wstring file_;	// DLL filename (for which the exception was thrown)
-	std::wstring error_;	// An error message (human readable format)
-	std::string msg_;
-	/**
-	 * @param file DLL filename (for which the exception is thrown)
-	 * @param error An error message (human readable format)
-	 */
-	NSPluginException(const std::wstring &module, const std::wstring &error) : file_(module), error_(error) {
-		msg_ = utf8::cvt<std::string>(error_ + _T(" in file: ") + file_);
-	}
-	NSPluginException(const std::wstring &module, const std::string &error) : file_(module) {
-		error_ = utf8::cvt<std::wstring>(error);
-		msg_ = utf8::cvt<std::string>(error_ + _T(" in file: ") + file_);
-	}
-
+	//////////////////////////////////////////////////////////////////////////
+	/// Constructor takes an error message.
+	/// @param error the error message
+	///
+	/// @author mickem
+	NSPluginException(const std::wstring &module, const std::string &error) : file_(utf8::cvt<std::string>(module)), error(error) {}
+	NSPluginException(const std::wstring &module, const std::wstring &error) : file_(utf8::cvt<std::string>(module)), error(utf8::cvt<std::string>(error)) {}
 	~NSPluginException() throw() {}
-	const char* what() const throw() {
-		return msg_.c_str();
-	}
-	const std::wstring wwhat() const throw() {
-		return utf8::cvt<std::wstring>(msg_);
-	}
+
+	//////////////////////////////////////////////////////////////////////////
+	/// Retrieve the error message from the exception.
+	/// @return the error message
+	///
+	/// @author mickem
+	const char* what() const throw() { return error.c_str(); }
+	const std::string file() const throw() { return file_; }
+	std::string reason() const throw() { return utf8::utf8_from_native(what()); }
+
 };
 
 /**
@@ -133,6 +131,10 @@ public:
 	NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::wstring alias);
 	virtual ~NSCPlugin(void);
 
+	std::string getSName() {
+		return utf8::cvt<std::string>(getName());
+	}
+
 	std::wstring getName(void);
 	std::wstring getDescription();
 	void load_dll();
@@ -163,10 +165,10 @@ public:
 	
 	bool route_message(const wchar_t *channel, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
-	std::wstring get_description() {
+	std::string get_description() {
 		if (alias_.empty())
-			return getName();
-		return getName() + _T(" (") + alias_ + _T(")");
+			return getSName();
+		return getSName() + " (" + utf8::cvt<std::string>(alias_) + ")";
 	}
 	std::wstring get_alias() {
 		return alias_;

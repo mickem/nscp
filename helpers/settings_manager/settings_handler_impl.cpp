@@ -2,6 +2,9 @@
 
 #include "settings_handler_impl.hpp"
 
+std::string make_key(std::wstring path, std::wstring key) {
+	return utf8::cvt<std::string>(path) + "." + utf8::cvt<std::string>(key);
+}
 
 settings::instance_ptr settings::settings_handler_impl::get() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -28,7 +31,7 @@ void settings::settings_handler_impl::update_defaults() {
 			settings_core::key_description desc = get_registred_key(path, key);
 			if (!desc.advanced) {
 				if (!get()->has_key(path, key)) {
-					get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Adding: ") + path + _T(".") + key);
+					get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Adding: " + make_key(path, key));
 					if (desc.type == key_string)
 						get()->set_string(path, key, desc.defValue);
 					else if (desc.type == key_bool)
@@ -37,13 +40,13 @@ void settings::settings_handler_impl::update_defaults() {
 						try {
 							get()->set_int(path, key, strEx::stoi(desc.defValue));
 						} catch (const std::exception &e) {
-							get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
+							get_logger()->error(_T("settings"), __FILE__, __LINE__, "invalid default value for: " + make_key(path, key));
 						}
 					} else
-						get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+						get_logger()->error(_T("settings"), __FILE__, __LINE__, "Unknown keytype for: " + make_key(path, key));
 				} else {
 					std::wstring val = get()->get_string(path, key);
-					get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Setting old (already exists): ") + path + _T(".") + key + _T(" = ") + val);
+					get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Setting old (already exists): " + make_key(path, key));
 					if (desc.type == key_string)
 						get()->set_string(path, key, val);
 					else if (desc.type == key_bool)
@@ -51,10 +54,10 @@ void settings::settings_handler_impl::update_defaults() {
 					else if (desc.type == key_integer)
 						get()->set_int(path, key, strEx::stoi(val));
 					else
-						get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+						get_logger()->error(_T("settings"), __FILE__, __LINE__, "Unknown keytype for: " + make_key(path, key));
 				}
 			} else {
-				get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Skipping (advanced): ") + path + _T(".") + key);
+				get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Skipping (advanced): " + make_key(path, key));
 			}
 		}
 	}
@@ -82,9 +85,9 @@ void settings::settings_handler_impl::remove_defaults() {
 							get()->remove_key(path, key);
 						}
 					} else
-						get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Unknown keytype for: ") + path + _T(".") + key);
+						get_logger()->error(_T("settings"),__FILE__, __LINE__, "Unknown keytype for: " + make_key(path, key));
 				} catch (const std::exception &e) {
-					get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("invalid default value for: ") + path + _T(".") + key);
+					get_logger()->error(_T("settings"),__FILE__, __LINE__, "invalid default value for: " + make_key(path, key));
 				}
 			}
 		}

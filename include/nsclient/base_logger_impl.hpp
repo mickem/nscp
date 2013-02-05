@@ -40,10 +40,12 @@ namespace nsclient {
 			bool get_console_log() const {
 				return console_log_;
 			}
+			/*
 			void debug(const std::wstring &module, const char* file, const int line, const std::wstring &message) {
 				if (should_log(NSCAPI::log_level::debug))
 					do_log(logger_helper::create(module, NSCAPI::log_level::debug, file, line, message));
 			}
+			*/
 			void info(const std::wstring &module, const char* file, const int line, const std::wstring &message) {
 				if (should_log(NSCAPI::log_level::info))
 					do_log(logger_helper::create(module, NSCAPI::log_level::info, file, line, message));

@@ -68,9 +68,9 @@ namespace settings_manager {
 		net::wurl url = net::parse(key);
 		if (url.protocol.empty()) {
 			url = net::parse(key + _T("://"));
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("No driver specified attemtping to fake one: ") + url.to_string());
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "No driver specified attempting to fake one: " + utf8::cvt<std::string>(url.to_string()));
 		}
-		get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Creating instance for: ") + url.to_string());
+		get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Creating instance for: " + utf8::cvt<std::string>(url.to_string()));
 		if (url.host.empty() && url.path.empty()) 
 			key = _T("");
 #ifdef WIN32
@@ -159,7 +159,7 @@ namespace settings_manager {
 		} 
 		boot_ = utf8::cvt<std::string>(provider_->expand_path(BOOT_CONF_LOCATION));
 		if (boost::filesystem::is_regular_file(boot_)) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Boot.ini found in: ") + utf8::cvt<std::wstring>(boot_.string()));
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Boot.ini found in: " + boot_.string());
 			for (int i=0;i<20;i++) {
 				std::wstring v = get_boot_string(_T("settings"), strEx::itos(i), _T(""));
 				if (!v.empty()) 
@@ -167,7 +167,7 @@ namespace settings_manager {
 			}
 		}
 		if (order.size() == 0) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("No entries found looking in (adding default): ") + utf8::cvt<std::wstring>(boot_.string()));
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());
 			order.push_back(DEFAULT_CONF_OLD_LOCATION);
 			order.push_back(DEFAULT_CONF_INI_LOCATION);
 		}
@@ -175,10 +175,9 @@ namespace settings_manager {
 		BOOST_FOREACH(std::wstring k, order) {
 			strEx::append_list(boot_order, k, _T(", "));
 		}
-		get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Boot order: ") + boot_order);
 		BOOST_FOREACH(std::wstring k, order) {
 			if (context_exists(k)) {
-				get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Activating: ") + k);
+				get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Activating: " + utf8::cvt<std::string>(k));
 				set_instance(k);
 				return;
 			}
@@ -189,11 +188,11 @@ namespace settings_manager {
 			return;
 		}
 
-		get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("No valid settings found (tried): ") + boot_order);
+		get_logger()->debug(_T("settings"), __FILE__, __LINE__, "No valid settings found (tried): " + utf8::cvt<std::string>(boot_order));
 
 		std::wstring tgt = get_boot_string(_T("main"), _T("write"), _T(""));
 		if (!tgt.empty()) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, _T("Creating new settings file: ") + tgt);
+			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Creating new settings file: " + utf8::cvt<std::string>(tgt));
 			set_instance(tgt);
 			return;
 		}
@@ -225,7 +224,7 @@ namespace settings_manager {
 		try {
 			change_context(key);
 		} catch (settings::settings_exception e) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Failed to initialize settings: ") + e.getError());
+			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 			return false;
 		} catch (...) {
 			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
@@ -240,7 +239,7 @@ namespace settings_manager {
 			set_primary(context);
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Failed to initialize settings: ") + e.getError());
+			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 		} catch (...) {
 			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
 		}
@@ -252,7 +251,7 @@ namespace settings_manager {
 			get_core()->set_base(utf8::cvt<std::string>(provider->expand_path(_T("${base-path}"))));
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Failed to initialize settings: ") + e.getError());
+			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 			return false;
 		} catch (...) {
 			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));

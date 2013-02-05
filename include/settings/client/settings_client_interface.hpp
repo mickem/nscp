@@ -154,7 +154,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void debug(const char* file, int line, std::wstring message) = 0;
+			virtual void debug(const char* file, int line, std::string message) = 0;
 		};
 	}
 }
