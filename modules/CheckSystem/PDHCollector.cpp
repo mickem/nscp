@@ -175,13 +175,20 @@ double PDHCollector::get_avg_value(std::wstring counter, unsigned int delta) {
 	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!readLock.owns_lock()) {
 		NSC_LOG_ERROR(_T("Failed to get Mutex for: ") + counter);
-		return 0;
+		return -1;
 	}
 
 	counter_map::iterator it = counters_.find(counter);
-	if (it == counters_.end())
-		return 0;
+	if (it == counters_.end()) {
+		NSC_LOG_ERROR(_T("Counter not found: ") + counter);
+		return -1;
+	}
 	collector_ptr ptr = (*it).second;
+	if (!ptr) {
+		NSC_LOG_ERROR(_T("Invalid counter: ") + counter);
+		return -1;
+	}
+
 	return ptr->get_average(delta);
 }
 
@@ -202,9 +209,14 @@ int PDHCollector::getCPUAvrage(std::wstring time) {
 		frequency = check_intervall_*100;
 
 	}
+	if (frequency == 0) {
+		NSC_LOG_ERROR(_T("Invalid frequency: ") + strEx::itos(frequency));
+		return -1;
+	}
 	try {
 		unsigned int mseconds = strEx::stoui_as_time(time);
 		return static_cast<int>(get_avg_value(PDH_SYSTEM_KEY_CPU, mseconds/frequency));
+
 	} catch (PDHCollectors::PDHException &e) {
 		NSC_LOG_ERROR(_T("Failed to get CPU value: ") + e.getError());
 		return -1;

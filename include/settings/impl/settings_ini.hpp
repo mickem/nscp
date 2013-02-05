@@ -228,6 +228,10 @@ namespace settings {
 
 			return ret;
 		}
+		virtual void real_clear_cache() {
+			is_loaded_ = false;
+			load_data();
+		}
 	private:
 		void load_data() {
 			if (is_loaded_)

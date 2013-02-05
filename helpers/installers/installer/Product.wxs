@@ -49,7 +49,11 @@
 						<ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
 						<RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
 					</Component>
-					<Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
+          <Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
+            <File Id="SampleConfigFull" Name="nsclient-full.ini" DiskId="1" KeyPath="yes"
+								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
+          </Component>
+          <Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
 						<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="$(var.App.Title) ($(var.arch), test)" 
                       Target="[INSTALLLOCATION]nscp.exe"
                         WorkingDirectory="INSTALLDIR" Icon="nscp.exe" IconIndex="0" 
@@ -71,14 +75,14 @@
 					<Component Id="Helpers" Guid="AEBD660B-C62A-4af6-9A61-693D319BC224" Win64="$(var.Win64)">
 						<File Id="ErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
 					</Component>
-					<Component Id="SampleConfigUser" Guid="BF040814-8FAB-47b9-B700-1E1F0BF420FC" Win64="$(var.Win64)">
+					<Component Id="GeneratedConfigUser" Guid="BF040814-8FAB-47b9-B700-1E1F0BF420FC" Win64="$(var.Win64)">
 						<File Id="NSClientINIUser" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes">
 							<Permission User="[USERGROUP_USERS]" GenericRead="yes" Read="yes" GenericWrite="yes" Write="yes"/>
 						</File>
 						<RemoveFile Id="PurgeConfigFilesUser" Name="*.ini" On="uninstall" />
 						<Condition>INSTALL_SAMPLE_CONFIG AND USER_WRITABLE_CONFIG</Condition>
 					</Component>
-					<Component Id="SampleConfig" Guid="73B35DA2-C6D5-45d4-940F-E7D3CACB2ACF" Win64="$(var.Win64)">
+					<Component Id="GeneratedConfig" Guid="73B35DA2-C6D5-45d4-940F-E7D3CACB2ACF" Win64="$(var.Win64)">
 						<File Id="NSClientINI" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes" />
 						<RemoveFile Id="PurgeConfigFiles" Name="*.ini" On="uninstall" />
 						<Condition>INSTALL_SAMPLE_CONFIG AND NOT USER_WRITABLE_CONFIG</Condition>
@@ -241,12 +245,15 @@
 				<ComponentRef Id="MainClient" />
 				<ComponentRef Id="Helpers" />
 				<ComponentRef Id="RandomFiles" />
-				<ComponentRef Id="SampleConfigUser" />
-				<ComponentRef Id="SampleConfig" />
-				<Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="disallow">
-					<ComponentRef Id="Shortcuts" />
-				</Feature>
-			</Feature>
+				<ComponentRef Id="GeneratedConfigUser" />
+				<ComponentRef Id="GeneratedConfig" />
+        <Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="disallow">
+          <ComponentRef Id="Shortcuts" />
+        </Feature>
+        <Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="disallow">
+          <ComponentRef Id="SampleConfig" />
+        </Feature>
+      </Feature>
 			<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1">
 				<ComponentRef Id="NagiosDocumentation" />
 				<ComponentRef Id="ReferenceDocumentation" />

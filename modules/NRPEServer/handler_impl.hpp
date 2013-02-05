@@ -10,6 +10,7 @@ class handler_impl : public nrpe::server::handler {
 	bool allowNasty_;
 	bool allowArgs_;
 public:
+	std::string encoding_;
 	handler_impl(unsigned int payload_length) 
 		: payload_length_(payload_length)
 		, noPerfData_(false)

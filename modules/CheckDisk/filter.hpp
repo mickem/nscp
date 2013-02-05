@@ -192,7 +192,7 @@ namespace file_filter {
 
 	struct factories {
 		static filter_engine create_engine(filter_argument arg);
-// 		static filesize_engine_interface create_size_engine();
+ 		static filesize_engine_interface create_size_engine();
 		static filter_result create_result(filter_argument arg);
 		static filter_argument create_argument(std::wstring pattern, int max_depth, std::wstring syntax, std::wstring datesyntax);
 	};

@@ -321,15 +321,20 @@ file_filter::file_finder_data_arguments::file_finder_data_arguments(std::wstring
 }
 
 struct size_file_engine : public file_filter::filesize_engine_interface_type {
+	typedef file_filter::filter_obj_handler handler_type;
+	typedef file_filter::filter_obj object_type;
+
+	typedef boost::shared_ptr<handler_type> handler_instance_type;
+
 	size_file_engine() : size(0) {}
 
 	bool boot() { return true; }
 	bool validate(std::wstring &message) {
 		return true;
 	}
-	bool match(file_filter::filter_obj &record) {
-		if (!file_helpers::checks::is_directory(record.attributes)) {
-			size += record.get_size();
+	bool match(boost::shared_ptr<object_type> record) {
+		if (!file_helpers::checks::is_directory(record->attributes)) {
+			size += record->get_size();
 		}
 		return true;
 	}
@@ -349,9 +354,9 @@ private:
 file_filter::filter_engine file_filter::factories::create_engine(file_filter::filter_argument arg) {
 	return filter_engine(new where_mode_filter(arg));
 }
-// file_filter::filesize_engine_interface file_filter::factories::create_size_engine() {
-// 	return filesize_engine_interface(new size_file_engine());
-// }
+file_filter::filesize_engine_interface file_filter::factories::create_size_engine() {
+	return filesize_engine_interface(new size_file_engine());
+}
 file_filter::filter_argument file_filter::factories::create_argument(std::wstring pattern, int max_depth, std::wstring syntax, std::wstring datesyntax) {
 	return filter_argument(new file_filter::file_finder_data_arguments(pattern, max_depth, file_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler(GET_CORE())), syntax, datesyntax));
 }

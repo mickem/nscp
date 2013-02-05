@@ -419,8 +419,10 @@ std::wstring CheckDisk::get_filter(unsigned int drvType) {
 }
 
 
+typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
 
 /*
+TODO readd this
 NSCAPI::nagiosReturn CheckDisk::CheckFileSize(std::list<std::wstring> args, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bPerfData = true;
@@ -429,8 +431,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(std::list<std::wstring> args, std:
 		message = _T("Missing argument(s).");
 		return NSCAPI::returnUNKNOWN;
 	}
-	file_finder::PathContainer tmpObject;
-	std::list<file_finder::PathContainer> paths;
+	PathContainer tmpObject;
+	std::list<PathContainer> paths;
 
 	MAP_OPTIONS_BEGIN(args)
 		MAP_OPTIONS_STR_AND(_T("File"), tmpObject.data, paths.push_back(tmpObject))
@@ -454,8 +456,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(std::list<std::wstring> args, std:
 
 	file_filter::filesize_engine_interface impl = file_filter::factories::create_size_engine();
 
-	for (std::list<file_finder::PathContainer>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-		file_finder::PathContainer path = (*pit);
+	BOOST_FOREACH(PathContainer &path, paths) {
+		
 		std::wstring tstr;
 		std::wstring sName = path.getAlias();
 		//file_finder::get_size sizeFinder;
@@ -477,8 +479,8 @@ NSCAPI::nagiosReturn CheckDisk::CheckFileSize(std::list<std::wstring> args, std:
 		message = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + message;
 	return returnCode;
 }
-
-
+*/
+/*
 
 NSCAPI::nagiosReturn CheckDisk::getFileAge(std::list<std::wstring> args, std::wstring &message, std::wstring &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;

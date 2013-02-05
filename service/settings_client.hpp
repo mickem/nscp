@@ -259,17 +259,21 @@ namespace nsclient {
 				} else {
 					settings_manager::get_core()->get()->save_to(target);
 				}
-				return 1;
+				return 0;
 			} catch (settings::settings_exception e) {
 				error_msg(_T("Failed to initialize settings: ") + e.getError());
+				return 1;
 			} catch (NSPluginException &e) {
 				error_msg(_T("Failed to load plugins: ") + to_wstring(e.what()));
+				return 1;
 			} catch (std::exception &e) {
 				error_msg(_T("Failed to initialize settings: ") + to_wstring(e.what()));
+				return 1;
 			} catch (...) {
 				error_msg(_T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+				return 1;
 			}
-			return -1;
+			return 0;
 		}
 
 

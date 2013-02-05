@@ -31,6 +31,12 @@ TEST(PerfDataTest, mltiple_strings) {
 TEST(PerfDataTest, only_value) {
 	EXPECT_EQ("'aaa'=1g", do_parse("aaa=1g"));
 }
+TEST(PerfDataTest, multiple_only_values) {
+	EXPECT_EQ("'aaa'=1g 'bbb'=2g 'ccc'=3g", do_parse("aaa=1g bbb=2g 'ccc'=3g"));
+}
+TEST(PerfDataTest, multiple_only_values_no_units) {
+	EXPECT_EQ("'aaa'=1 'bbb'=2 'ccc'=3", do_parse("aaa=1 'bbb'=2 ccc=3"));
+}
 TEST(PerfDataTest, value_with_warncrit) {
 	EXPECT_EQ("'aaa'=1g;0;5", do_parse("aaa=1g;0;5"));
 }

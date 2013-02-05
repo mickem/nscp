@@ -102,10 +102,13 @@ bool NRPEServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		(_T("verify mode"), sh::string_key(&info_.ssl.verify_mode, "none"),
 		_T("VERIFY MODE"), _T("Which verification mode to use for remote certificates (none, peer, peer-cert, etc)"), false)
+	
+		(_T("encoding"), sh::string_key(&handler_->encoding_, ""),
+		_T("NRPE PAYLOAD ENCODING"), _T(""), true)
 		;
 
-	settings.register_all();
-	settings.notify();
+		settings.register_all();
+		settings.notify();
 
 
 #ifndef USE_SSL

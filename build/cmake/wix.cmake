@@ -24,6 +24,8 @@ if (WIN32)
         "${WIX_ROOT_DIR}"
         "$ENV{WIX}"
         "$ENV{WIX_ROOT_DIR}"
+        "$ENV{ProgramFiles}/WiX Toolset v3.7"
+        "$ENV{ProgramFiles}/Windows Installer XML v3.7"
         "$ENV{ProgramFiles}/Windows Installer XML v3.5"
         "$ENV{ProgramFiles}/Windows Installer XML v3"
         "$ENV{ProgramFiles}/Windows Installer XML"

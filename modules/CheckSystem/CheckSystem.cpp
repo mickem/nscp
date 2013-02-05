@@ -629,7 +629,7 @@ NSCAPI::nagiosReturn CheckSystem::check_cpu(const std::wstring &target, const st
 		CPULoadContainer load = (*it);
 		int value = pdh_collector.getCPUAvrage(load.data + _T("m"));
 		if (value == -1) {
-			msg = _T("ERROR: Could not get data for ") + load.getAlias() + _T(" perhaps we don't collect data this far back?");
+			msg = _T("ERROR: Could not get data for ") + load.getAlias() + _T(" please check log for details");
 			return NSCAPI::returnUNKNOWN;
 		}
 		if (bNSClient) {
@@ -892,6 +892,7 @@ NSCAPI::nagiosReturn CheckSystem::check_memory(const std::wstring &target, const
 		msg = _T("ERROR: Missing argument exception.");
 		return NSCAPI::returnUNKNOWN;
 	}
+
 	std::list<MemoryContainer> list;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bShowAll = false;

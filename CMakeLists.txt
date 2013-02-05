@@ -12,13 +12,17 @@ ENDIF(COMMAND CMAKE_POLICY)
 # Setup cmake enviornment and include custom config overrides
 #
 #############################################################################
-IF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
-	MESSAGE(STATUS "Reading custom variables from: ${CMAKE_SOURCE_DIR}/build.cmake")
-	INCLUDE(${CMAKE_SOURCE_DIR}/build.cmake)
-ELSEIF(EXISTS ${PROJECT_BINARY_DIR}/build.cmake)
-	MESSAGE(STATUS "Reading custom variables from: ${PROJECT_BINARY_DIR}/build.cmake")
-	INCLUDE(${PROJECT_BINARY_DIR}/build.cmake)
-ENDIF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
+IF(NSCP_CMAKE_CONFIG)
+	INCLUDE(${NSCP_CMAKE_CONFIG})
+ELSE(NSCP_CMAKE_CONFIG)
+	IF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
+		MESSAGE(STATUS "Reading custom variables from: ${CMAKE_SOURCE_DIR}/build.cmake")
+		INCLUDE(${CMAKE_SOURCE_DIR}/build.cmake)
+	ELSEIF(EXISTS ${PROJECT_BINARY_DIR}/build.cmake)
+		MESSAGE(STATUS "Reading custom variables from: ${PROJECT_BINARY_DIR}/build.cmake")
+		INCLUDE(${PROJECT_BINARY_DIR}/build.cmake)
+	ENDIF(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
+ENDIF(NSCP_CMAKE_CONFIG)
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/cmake;${CMAKE_MODULE_PATH}")
 SET(MODULE_SUBFOLDER "modules")
@@ -30,9 +34,6 @@ SET(BUILD_TARGET_LIB_PATH "${BUILD_TARGET_EXE_PATH}/${MODULE_SUBFOLDER}")
 SET(BUILD_TARGET_INSTLIB_PATH "${BUILD_TARGET_EXE_PATH}/installer-dlls")
 SET(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
 
-IF(WIN32)
-    INCLUDE(${BUILD_CMAKE_FOLDER}/wix.cmake)
-ENDIF(WIN32)
 INCLUDE(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
 INCLUDE(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 INCLUDE(${BUILD_CMAKE_FOLDER}/functions.cmake)
@@ -297,10 +298,11 @@ SET(NSCP_DEF_PLUGIN_LIB
 #
 #############################################################################
 
-SET(MAIN_NSCP_TARGET "nscp")
+SET(MAIN_NSCP_TARGET "nscp" "nscp_full_config")
 IF(BREAKPAD_FOUND)
 	SET(MAIN_NSCP_TARGET ${MAIN_NSCP_TARGET} "nscpnobp")
 ENDIF(BREAKPAD_FOUND)
+
 
 
 ADD_SUBDIRECTORY("service")
@@ -338,11 +340,21 @@ ENDIF(MSVC_IDE)
 # CTest setup and add testcases
 #
 #############################################################################
-add_nscp_py_test(nsca test_nsca)
-add_nscp_py_test(nrpe test_nrpe)
+if(WIN32)
+	IF(CMAKE_CL_64)
+		# Disabled for w32 due to linkage error with openssl from both python and nscp on x64 machines running w32
+		add_nscp_py_test(nsca test_nsca)
+		add_nscp_py_test(nrpe test_nrpe)
+	ENDIF(CMAKE_CL_64)
+ELSE(WIN32)
+	add_nscp_py_test(nsca test_nsca)
+	add_nscp_py_test(nrpe test_nrpe)
+ENDIF(WIN32)
+add_nscp_lua_test(lua_nrpe test_nrpe)
 add_nscp_py_test(python test_python)
 IF(WIN32)
-	add_nscp_py_test(eventlog test_eventlog)
+# Disabled as is is not a unit test per see, since it requires extenal non mocked stimula
+#	add_nscp_py_test(eventlog test_eventlog)
 	add_nscp_py_test(w32_system test_w32_system)
 ENDIF(WIN32)
 

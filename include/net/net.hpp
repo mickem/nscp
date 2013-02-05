@@ -138,7 +138,11 @@ namespace net {
 		if ((path_i != url_s.end()) && (*path_i == L':')) {
 			std::wstring::const_iterator port_b = path_i; ++port_b;
 			path_i = std::find(path_i, url_s.end(), L'/');
-			ret.port = boost::lexical_cast<unsigned int>(std::wstring(port_b, path_i));
+			try {
+				ret.port = boost::lexical_cast<unsigned int>(std::wstring(port_b, path_i));
+			} catch (const std::exception &e) {
+				ret.port = default_port;
+			}
 		} else {
 			ret.port = default_port;
 		}

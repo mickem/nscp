@@ -18,6 +18,8 @@ namespace settings {
 	class settings_http : public settings::SettingsInterfaceImpl {
 	private:
 		std::wstring url_;
+		boost::filesystem::path local_file;
+		net::url remote_url;
 
 		inline nsclient::logging::logger_interface* get_logger() const {
 			return nsclient::logging::logger::get_logger();
@@ -25,7 +27,7 @@ namespace settings {
 
 	public:
 		settings_http(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			net::url url = net::parse(utf8::cvt<std::string>(context), 80);
+			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
 			boost::filesystem::path path = utf8::cvt<std::string>(core->expand_path(DEFAULT_CACHE_PATH));
 			if (!boost::filesystem::is_directory(path)) {
 				if (boost::filesystem::is_regular_file(path)) 
@@ -34,18 +36,28 @@ namespace settings {
 				if (!boost::filesystem::is_directory(path))
 					throw new settings_exception(_T("Cache path not found: ") + utf8::cvt<std::wstring>(path.string()));
 			}
-			path /= "cached.ini";
-			std::ofstream os(path.string().c_str());
+			local_file = boost::filesystem::path(path) / "cached.ini";
+
+			reload_data();
+			add_child(_T("ini:///") + utf8::cvt<std::wstring>(local_file.string()));
+		}
+
+		virtual void real_clear_cache() {
+			reload_data();
+		}
+
+		void reload_data() {
+			std::ofstream os(utf8::cvt<std::string>(local_file.string()).c_str());
 			std::string error;
-			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
+			if (!http::client::download(remote_url.protocol, remote_url.host, remote_url.path, os, error)) {
 				os.close();
 				get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
 			}
 			os.close();
-			if (!boost::filesystem::is_regular_file(path)) {
-				throw new settings_exception(_T("Failed to find cached settings: ") + utf8::cvt<std::wstring>(path.string()));
+			if (!boost::filesystem::is_regular_file(local_file)) {
+				throw new settings_exception(_T("Failed to find cached settings: ") + utf8::cvt<std::wstring>(local_file.string()));
 			}
-			add_child(_T("ini://") + utf8::cvt<std::wstring>(path.string()));
+			add_child(_T("ini://") + utf8::cvt<std::wstring>(local_file.string()));
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"

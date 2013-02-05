@@ -45,14 +45,24 @@ ENDMACRO(copy_single_file)
 MACRO(add_nscp_py_test name script)
 	ADD_TEST("${name}"
 		nscp 
-			py 
-			--settings dummy 
-			--exec run 
+			unit
+			--language python
 			--script ${script}
-			--query py_unittest
 		)
 ENDMACRO(add_nscp_py_test)
 
+MACRO(add_nscp_lua_test name script)
+IF (LUA_FOUND)
+	ADD_TEST("${name}"
+		nscp 
+			unit
+			--language lua
+			--script ${script}.lua
+		)
+ELSE (LUA_FOUND)
+	MESSAGE(STATUS "Skipping test ${name} since lua is not avalible")
+ENDIF (LUA_FOUND)
+ENDMACRO(add_nscp_lua_test)
 
 MACRO(CREATE_MODULE _SRCS _SOURCE _TARGET)
 INCLUDE_DIRECTORIES(${_TARGET})

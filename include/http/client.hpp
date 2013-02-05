@@ -161,15 +161,14 @@ namespace http {
 			request.build_request(request.verb, server, path, request_stream);
 			boost::asio::write(socket, requestbuf);
 		}
-		boost::tuple<std::string,unsigned int,std::string> read_result() {
+		boost::tuple<std::string,unsigned int,std::string> read_result(boost::asio::streambuf &response) {
 			const char* crlf = "\r\n";
-			boost::asio::streambuf response;
 			std::string http_version, status_message;
 			unsigned int status_code;
-			boost::asio::read_until(socket, response, crlf);
+			boost::asio::read_until(socket, response, "\r\n");
 
 			std::istream response_stream(&response);
-			if (response_stream)
+			if (!response_stream)
 				throw socket_helpers::socket_exception("Invalid response");
 			response_stream >> http_version;
 			response_stream >> status_code;
@@ -183,28 +182,33 @@ namespace http {
 			connect(server, port);
 			send_request(server, path, request);
 
-			boost::tie(response.version, response.code, response.message) = read_result();
+			boost::asio::streambuf response_buffer;
+			boost::tie(response.version, response.code, response.message) = read_result(response_buffer);
 
 			if (response.version.substr(0, 5) != "HTTP/")
 				throw socket_helpers::socket_exception("Invalid response: " + response.version);
 			if (response.code != 200)
 				throw socket_helpers::socket_exception("Response returned with status code " + strEx::s::xtos(response.code));
 
-			boost::asio::streambuf responsebuffer;
-			std::istream response_stream(&responsebuffer);
-			boost::asio::read_until(socket, responsebuffer, "\r\n\r\n");
+			try {
+				boost::asio::read_until(socket, response_buffer, "\r\n\r\n");
+			} catch (const std::exception &e) {
+				throw socket_helpers::socket_exception(std::string("Failed to read header: ") + e.what());
 
+			}
+
+			std::istream response_stream(&response_buffer);
 			std::string header;
 			while (std::getline(response_stream, header) && header != "\r")
 				response.add_header(header);
 
 			std::ostringstream os;
-			if (responsebuffer.size() > 0)
-				os << &responsebuffer;
+			if (response_buffer.size() > 0)
+				os << &response_buffer;
 
 			boost::system::error_code error;
-			while (boost::asio::read(socket, responsebuffer, boost::asio::transfer_at_least(1), error))
-				os << &responsebuffer;
+			while (boost::asio::read(socket, response_buffer, boost::asio::transfer_at_least(1), error))
+				os << &response_buffer;
 			if (error != boost::asio::error::eof)
 				throw boost::system::system_error(error);
 			response.payload = os.str();

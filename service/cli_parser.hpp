@@ -128,7 +128,7 @@ public:
 			return true;
 		}
 		if (version) {
-			std::cout << APPLICATION_NAME << ", Version: " << CURRENT_SERVICE_VERSION << ", Platform: " << SZARCH << std::endl;
+			std::wcout << APPLICATION_NAME << _T(", Version: ") << CURRENT_SERVICE_VERSION << _T(", Platform: ") << SZARCH << std::endl;
 			return true;
 		}
 		return false;
@@ -315,7 +315,8 @@ public:
 			int ret = -1;
 
 			if (vm.count("generate")) {
-				ret = client.generate(vm["generate"].as<std::wstring>());
+				std::wstring option = vm["generate"].as<std::wstring>();
+				ret = client.generate(option);
 			} else if (vm.count("migrate-to")) {
 				ret = client.migrate_to(vm["migrate-to"].as<std::wstring>());
 			} else if (vm.count("migrate-from")) {
